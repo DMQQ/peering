@@ -4,10 +4,7 @@ import WidgetKit
 
 /// A Peering SSH session on the Lock Screen and in the Dynamic Island.
 ///
-/// Same card as the Mac session's, one symbol apart. See ``ActivityCard`` for why the two are one
-/// shape; what differs here is what it says. A shell has no transport to name and no dropped state
-/// to come back from, and it can have several of itself open at once, which is the reading that
-/// earns the second half of the status line.
+/// Same card as the Mac session's; see ``ActivityCard``.
 struct TerminalLiveActivity: Widget {
     static let endURL = URL(string: "peering://end-shells")!
 
@@ -74,17 +71,13 @@ private func terminalElapsed(_ context: ActivityViewContext<TerminalActivityAttr
         Text(started, style: .timer)
             .font(.title3.monospacedDigit())
             .foregroundStyle(.white.opacity(0.75))
-            // A `.timer` draws its reading at the leading edge of whatever width it is offered,
-            // whatever frame it is put in — see ``ActivityCard``.
+            // A `.timer` draws at the leading edge whatever its frame, see ``ActivityCard``.
             .multilineTextAlignment(.trailing)
     }
 }
 
 /// The state, with the shell count folded in when there is more than one.
-///
-/// One shell is the ordinary case and says nothing; three is the fact worth the room, and it is
-/// also what the action beside it ends. Last in the sentence for the reason ``ActivityCard`` gives:
-/// the state is what must survive a narrow card, and this is what may not.
+/// One shell says nothing; the count goes last so the state survives a narrow card.
 private func statusText(for state: TerminalActivityAttributes.ContentState) -> String {
     let phase = state.phase == .live ? String(localized: "Connected") : String(localized: "Connecting…")
     return state.shellCount > 1 ? String(localized: "\(phase) · \(state.shellCount) shells") : phase

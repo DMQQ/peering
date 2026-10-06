@@ -4,10 +4,8 @@ import RemoteCore
 
 private let relayLog = Logger(subsystem: "pl.dmq.peering.host", category: "relay")
 
-/// Keeps this Mac present at the public relay and accepts session allocations pushed by it.
 final class RelayHostRegistration: @unchecked Sendable {
     private let device: DeviceIdentity
-    /// The key this Mac signs its registration with. See ``RelayDeviceProof``.
     private let identity: SelfSignedIdentity
     private let onSession: @Sendable (RelaySession) -> Void
     private let onStatus: @Sendable (String) -> Void
@@ -15,7 +13,6 @@ final class RelayHostRegistration: @unchecked Sendable {
     private var task: Task<Void, Never>?
     private var connection: RelaySignallingConnection?
 
-    /// A push this Mac wanted to send while there was no relay to send it through.
     private struct PendingNotification: Sendable {
         let token: String
         let title: String
@@ -24,10 +21,6 @@ final class RelayHostRegistration: @unchecked Sendable {
     }
 
     /// How many notifications may wait for the relay.
-    ///
-    /// The reconnect ladder starts at a second and reaches thirty, so the ordinary case spends
-    /// almost none of it here. The ceiling is for a Mac whose relay has been unreachable for hours,
-    /// and past it the oldest go: a notification about a terminal is worth less the later it lands.
     private static let maximumPending = 16
 
     private var pending: [PendingNotification] = []
@@ -57,11 +50,6 @@ final class RelayHostRegistration: @unchecked Sendable {
         lock.unlock()
     }
 
-    /// Asks the relay to push an APNs notification to the given device token.
-    ///
-    /// Queued rather than dropped when the signalling socket is down: a Mac between registration
-    /// attempts is usually a Mac whose phone is not connected either, so a push dropped here is one
-    /// nobody could have been told about another way.
     func notifyDevice(token: String, title: String, body: String, source: String? = nil) {
         var overflowed = 0
         var heldForRelay = false
@@ -115,7 +103,6 @@ final class RelayHostRegistration: @unchecked Sendable {
         }
     }
 
-    /// Sends what was queued while there was no relay. Called when a registration is answered.
     private func flush(over connection: RelaySignallingConnection) {
         let items = lock.withLock { () -> [PendingNotification] in
             let items = pending
@@ -158,9 +145,6 @@ final class RelayHostRegistration: @unchecked Sendable {
                 // accepts for a few minutes either side of its own clock, and this loop retries
                 // for as long as the Mac runs, so a single proof would be stale by the second
                 // attempt and the Mac would never register again after a network blip.
-                //
-                // A signature that fails is not fatal: the registration goes out without a proof,
-                // which the relay still accepts for an id nobody has claimed.
                 let proof = try? RelayDeviceProof.make(deviceID: device.id, identity: identity)
                 if proof == nil {
                     onStatus("This Mac could not sign its registration; the relay may refuse it.")

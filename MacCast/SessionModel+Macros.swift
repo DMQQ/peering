@@ -2,10 +2,6 @@ import MacCastKit
 import RemoteCore
 import SwiftUI
 
-/// Saved macros, kept in the defaults.
-///
-/// An extension on the model rather than a type of its own: this state is the
-/// model's, and splitting the *type* would mean either exposing it or copying it.
 extension SessionModel {
     func addCustomMacro(_ macro: Macro) {
         customMacros.append(macro)
@@ -28,17 +24,10 @@ extension SessionModel {
         }
     }
 
-    /// Return, and the typed preview goes with it.
-    ///
-    /// The preview is the line the Mac has been sent since it was last emptied, and a Return is
-    /// the point at which that stops describing anything: the line is committed, the field it went
-    /// into has moved on, and a bar still showing the old text claims the Mac is holding something
-    /// it has already taken.
+    /// The preview stops describing anything at Return: a bar still showing the old text claims the Mac holds what it already took.
     func run(_ macro: Macro) {
-        // Down then up, in that order, and never coalesced: a macro whose release was dropped
-        // would leave the Mac holding a modifier with no way to clear it from here.
-        //
-        // Latched modifiers ride along, so ⌃ held on the ⇧⌃⌥⌘ row turns the ⌘C chip into ⌃⌘C.
+        // Down then up, never coalesced: a dropped release leaves the Mac holding a modifier.
+        // Latched modifiers ride along: ⌃ held turns the ⌘C chip into ⌃⌘C.
         let modifiers = macro.modifiers.union(latchedModifiers)
         send(.keyDown(keyCode: macro.keyCode, modifiers: modifiers))
         send(.keyUp(keyCode: macro.keyCode, modifiers: modifiers))

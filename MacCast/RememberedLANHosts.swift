@@ -2,11 +2,6 @@ import Foundation
 import Network
 import RemoteCore
 
-/// The LAN addresses Macs were last reached at, kept across launches so a relaunch can dial the Mac
-/// at once instead of waiting for Bonjour to find it again.
-///
-/// Only the two endpoint shapes Bonjour hands out are kept: a service name, which is resolved again
-/// when dialled, and an address and port.
 enum RememberedLANHosts {
     private static let key = "Peering.rememberedLANHosts"
 

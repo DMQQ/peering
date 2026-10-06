@@ -4,14 +4,8 @@ import os
 
 private let pinLog = Logger(subsystem: "pl.dmq.peering", category: "pins")
 
-/// Helpers for pinning a peer by its public key.
-///
-/// Pinning targets the `SubjectPublicKeyInfo` rather than certificate bytes: for our P-256 keys
-/// that is the 65-byte uncompressed point `0x04 ‖ X ‖ Y`. Either side can re-mint its certificate
-/// without invalidating a stored pin, and both sides obtain the same bytes through
-/// `SecKeyCopyExternalRepresentation`, so the check needs no ASN.1 parsing.
+/// Pins the `SubjectPublicKeyInfo` rather than certificate bytes, so either side can re-mint its certificate without invalidating a pin, with no ASN.1 parsing (for P-256, the 65-byte point `0x04 ‖ X ‖ Y`).
 public enum SPKI {
-    /// Canonical public-key bytes of a certificate, or `nil` if the key is not extractable.
     public static func bytes(of certificate: SecCertificate) -> Data? {
         guard let key = SecCertificateCopyKey(certificate) else { return nil }
         var error: Unmanaged<CFError>?
@@ -19,22 +13,14 @@ public enum SPKI {
         return raw as Data
     }
 
-    /// Constant-time comparison. Pins are fixed-size public values, but an attacker
-    /// controls the presented key, so the comparison must not leak how far it matched.
+    /// Constant-time: the attacker controls the presented key.
     public static func matches(_ lhs: Data, _ rhs: Data) -> Bool {
         ConstantTime.equals(lhs, rhs)
     }
 }
 
-/// The peers a user has explicitly approved, keyed by their device ID.
-///
-/// Stored in the Keychain even though the values are public keys: integrity is the point, not
-/// secrecy. These bytes decide who is allowed to drive this Mac, and the Keychain is the only
-/// storage macOS actually protects against tampering. A plist in the user's home directory would be
-/// writable by anything running as that user, which could add a client of its choosing and then
-/// connect from the network.
-///
-/// Pass a distinct `service` so a machine acting as both host and client keeps two trust stores.
+/// Stored in the Keychain though the values are public: integrity is the point. These bytes decide who may drive this Mac, and a plist in the home directory is writable by anything running as the user.
+/// Pass a distinct `service` so a host-and-client machine keeps two trust stores.
 public final class PinStore: @unchecked Sendable {
     private let lock = NSLock()
     private let storage: any PinStorage
@@ -45,8 +31,7 @@ public final class PinStore: @unchecked Sendable {
         pins = Self.read(storage)
     }
 
-    /// The same store over something other than the Keychain, for tests. Internal rather than
-    /// public: nothing that ships should be able to point a trust store at a file.
+    /// For tests; internal so nothing that ships can point a trust store at a file.
     init(storage: any PinStorage) {
         self.storage = storage
         pins = Self.read(storage)
@@ -64,8 +49,7 @@ public final class PinStore: @unchecked Sendable {
         lock.withLock { pins[peerID] }
     }
 
-    /// Whether any pinned peer matches this public key. Used by a TLS verify block, which
-    /// knows the presented key but not yet the peer's claimed ID.
+    /// For a TLS verify block, which knows the presented key but not the claimed ID.
     public func contains(publicKey: Data) -> Bool {
         lock.withLock { pins.values.contains { SPKI.matches($0, publicKey) } }
     }
@@ -105,11 +89,7 @@ public final class PinStore: @unchecked Sendable {
         }
     }
 
-    /// The pins as stored, or an empty store.
-    ///
-    /// Empty is the answer to every failure here: the caller cannot act on the difference between
-    /// "nothing stored" and "could not read", and refusing instead would leave a user unable to
-    /// connect to a Mac they are paired with. What it costs is a re-pairing.
+    /// Empty is the answer to every failure: refusing would leave a user unable to connect to a paired Mac, and the cost is a re-pairing.
     private static func read(_ storage: any PinStorage) -> [String: Data] {
         guard let data = storage.read() else { return [:] }
         guard let decoded = try? JSONDecoder().decode([String: Data].self, from: data) else {
@@ -128,20 +108,13 @@ public final class PinStore: @unchecked Sendable {
     }
 }
 
-/// Where a pin store keeps its bytes.
-///
-/// One implementation ships and it is the Keychain. The seam exists for the store's rules about
-/// storage failing: a write that does not land must not leave the in-memory copy claiming a pairing
-/// the next launch will not find, and a read that cannot be decoded is an empty store.
+/// The seam exists for the store's failure rules: a write that does not land must not leave the in-memory copy claiming a pairing, and an undecodable read is an empty store.
 public protocol PinStorage: Sendable {
-    /// The stored bytes, or `nil` when there is nothing to read or nothing readable. A failure and
-    /// an empty store are deliberately the same answer; see the note in ``PinStore/read(_:)``.
     func read() -> Data?
     /// Whether the bytes are now stored. `false` is a failure the caller must not ignore.
     func write(_ data: Data) -> Bool
 }
 
-/// The Keychain, which is what ships. See ``PinStore`` for why the store is here.
 struct KeychainPinStorage: PinStorage {
     let service: String
     let account: String

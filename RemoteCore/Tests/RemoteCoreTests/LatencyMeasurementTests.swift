@@ -3,19 +3,8 @@ import Testing
 
 @testable import RemoteCore
 
-/// Which ping a pong answers.
-///
-/// Everything here is about *timing*, and a test cannot wait for timing. So the clock is a number
-/// the test supplies, and each case is a shape the network produces in practice: a reply that
-/// crossed the next ping, a reply to a question that was given up on, a Mac that echoes nothing.
 @Suite("The pings in flight")
 struct PingLedgerTests {
-    /// The bug, stated as the bad reading it produced.
-    ///
-    /// Ping one goes out, ping two follows a second later, and the reply to ping one arrives after
-    /// it. The old code had one timestamp, already overwritten by ping two, so it measured this
-    /// reply against a ping sent a moment ago: 500 ms where the truth is 1500. Wrong in the
-    /// reassuring direction, at exactly the moment the number was worth reading.
     @Test func aLatePongIsMeasuredAgainstThePingItAnswers() {
         var ledger = PingLedger()
         let first = ledger.record(now: 0)
@@ -27,8 +16,6 @@ struct PingLedgerTests {
         #expect(answered?.sentAtNanoseconds == 0)
     }
 
-    /// A reply that answers nothing cannot be timed, and guessing at it is how the number started
-    /// lying. It is dropped.
     @Test func aPongForAPingThatIsNoLongerInFlightAnswersNothing() {
         var ledger = PingLedger()
         let first = ledger.record(now: 0)
@@ -37,11 +24,6 @@ struct PingLedgerTests {
         #expect(ledger.answered(sequence: first.sequence) == nil)
     }
 
-    /// The other half of the same bug: a lost ping must never become a very fast one.
-    ///
-    /// Three went out, the third came back, and the first two were never answered. If they stayed
-    /// in the list they would be handed to some later reply and reported as round trips of several
-    /// seconds, or worse, credited to a reply that had already been counted.
     @Test func pingsOlderThanTheOneAnsweredAreDiscarded() {
         var ledger = PingLedger()
         let first = ledger.record(now: 0)
@@ -54,10 +36,6 @@ struct PingLedgerTests {
         #expect(ledger.answered(sequence: second.sequence) == nil)
     }
 
-    /// A Mac that predates the number echoes nothing, and it still answered *something*.
-    ///
-    /// The oldest question open is the only reading that cannot be wrong in the reassuring
-    /// direction, which is the direction a single timestamp was wrong in.
     @Test func anEmptyPongAnswersTheOldestQuestionStillOpen() {
         var ledger = PingLedger()
         let first = ledger.record(now: 0)
@@ -73,7 +51,6 @@ struct PingLedgerTests {
         #expect(ledger.answered(sequence: 1) == nil)
     }
 
-    /// A link that has stopped answering must not grow the list for the rest of the session.
     @Test func theListOfPingsInFlightIsBounded() {
         var ledger = PingLedger()
         for tick in 0..<20 {
@@ -83,8 +60,6 @@ struct PingLedgerTests {
         #expect(ledger.inFlight.count == PingLedger.inFlightLimit)
     }
 
-    /// Numbers keep going up across the whole session, so a reply to a ping from before the list
-    /// was trimmed cannot be mistaken for a reply to a later one.
     @Test func everyPingGetsItsOwnNumber() {
         var ledger = PingLedger()
         let numbers = (0..<6).map { ledger.record(now: UInt64($0)).sequence }
@@ -94,7 +69,6 @@ struct PingLedgerTests {
     }
 }
 
-/// The window the reported figure is drawn from.
 @Suite("The latency window")
 struct LatencyWindowTests {
     @Test func theFigureIsTheMiddleOfWhatIsInTheWindow() {
@@ -106,8 +80,6 @@ struct LatencyWindowTests {
         #expect(window.reported == 44)
     }
 
-    /// The window is a duration, so a sample leaves it because of when it arrived rather than
-    /// because enough other samples arrived after it.
     @Test func aSampleLeavesTheWindowOnceItIsOldEnough() {
         var window = LatencyWindow(length: 10)
         window.add(30, at: 0)
@@ -123,7 +95,6 @@ struct LatencyWindowTests {
         #expect(window.reported == nil)
     }
 
-    /// A median rather than a mean, which is the whole reason one stall does not move the figure.
     @Test func oneStallDoesNotOwnTheFigure() {
         var window = LatencyWindow(length: 10)
         for (tick, milliseconds) in [40.0, 41, 900, 42, 43].enumerated() {
@@ -133,8 +104,6 @@ struct LatencyWindowTests {
         #expect(window.reported == 42)
     }
 
-    /// The figure does not move until the samples under it do, which is what stops it re-centring
-    /// on every single reading.
     @Test func oneNewSampleDoesNotReCentreTheFigure() {
         var window = LatencyWindow(length: 10)
         for (tick, milliseconds) in [40.0, 41, 42, 43, 44].enumerated() {
@@ -145,16 +114,10 @@ struct LatencyWindowTests {
         window.add(400, at: 5)
 
         #expect(before == 42)
-        // Six samples now, so the figure is the mean of the two middle ones. A tenth of a
-        // millisecond of movement for a round trip ten times the others, which is the point.
         #expect(window.reported == 42.5)
     }
 }
 
-/// A lane ping as it actually travels: sealed by one end, opened by the other.
-///
-/// The number is the whole point of the change, so it is worth checking that it survives the
-/// sealing rather than only that the ledger can match one it was handed directly.
 @Suite("A ping on the datagram lane")
 struct LanePingWireTests {
     private let token = Data((0..<16).map { UInt8(truncatingIfNeeded: $0 &* 7 &+ 1) })
@@ -163,8 +126,7 @@ struct LanePingWireTests {
         VideoKeySchedule(secret: Data(repeating: 9, count: VideoKeySchedule.secretSize))
     }
 
-    /// What the relay does between the two ends, which is the one part of the contract written in
-    /// another repository.
+    /// The relay's behaviour, the one contract written in another repository.
     private func forwarded(_ datagrams: [Data]) -> [Data] {
         datagrams.map { Data($0.dropFirst(VideoDatagram.tokenSize)) }
     }
@@ -187,8 +149,6 @@ struct LanePingWireTests {
         #expect(decoded.sequence == 42)
     }
 
-    /// The Mac's half of it: the payload it does not read is the payload it hands back, and the
-    /// number has to come out the other end unchanged for the client to be able to time anything.
     @Test func theEchoedPongCarriesTheSameNumberBack() throws {
         let schedule = schedule()
         var toHost = try schedule.sealer(token: token, direction: .clientToHost)
@@ -215,9 +175,7 @@ struct LanePingWireTests {
         #expect(decoded.sequence == 7)
     }
 
-    /// A ping and a pong share the lane with the picture, and the opener that puts pictures back
-    /// together must not read either as one. This is the assertion behind the guard in
-    /// `handleDatagram`: a pong that reached the renderer would be a frame with no video in it.
+    /// Pings and pongs share the lane with the picture and must not be read as pieces of one: a pong reaching the renderer would be a frame with no video.
     @Test func aPongIsNotAPieceOfAPicture() throws {
         var sealer = try schedule().sealer(token: token, direction: .hostToClient)
         var opener = schedule().opener(direction: .hostToClient)
@@ -233,11 +191,7 @@ struct LanePingWireTests {
     }
 }
 
-/// When silence on the control channel becomes a failure.
-///
-/// The case this exists for is a phone that changes network: the path under the control connection
-/// goes away and nothing reports it, so the session sat frozen on its last frame with nothing said.
-/// Every case here is about elapsed time, which is why the rule is a value and not a timer.
+/// Phone changes network: the path under the control connection goes away and nothing reports it.
 @Suite("Control-channel silence")
 struct ControlSilenceTests {
     private let silence = ControlSilence(limit: 10)
@@ -246,38 +200,29 @@ struct ControlSilenceTests {
         #expect(!silence.hasExpired(isReady: true, readyAt: 0, lastReplyAt: 97, now: 100))
     }
 
-    /// Ten unanswered pings, which is what the limit means.
     @Test func aChannelSilentPastTheLimitHasExpired() {
         #expect(silence.hasExpired(isReady: true, readyAt: 0, lastReplyAt: 89, now: 100))
     }
 
-    /// A session whose first pong has not arrived yet is judged against when it became ready.
-    /// Without that it would have no baseline at all and could never expire.
+    /// Without a baseline from the ready moment it could never expire.
     @Test func beforeTheFirstReplyTheClockRunsFromWhenTheSessionBecameReady() {
         #expect(!silence.hasExpired(isReady: true, readyAt: 95, lastReplyAt: nil, now: 100))
         #expect(silence.hasExpired(isReady: true, readyAt: 80, lastReplyAt: nil, now: 100))
     }
 
-    /// A session that has already ended must not be judged again, or one moment becomes two
-    /// failures.
     @Test func aSessionThatIsNotReadyNeverExpires() {
         #expect(!silence.hasExpired(isReady: false, readyAt: 0, lastReplyAt: 0, now: 100))
     }
 
-    /// Nothing to judge: no reply and no ready moment means this rule has no opinion, which is
-    /// the state before a session has ever come up.
     @Test func withNoBaselineThereIsNoOpinion() {
         #expect(!silence.hasExpired(isReady: true, readyAt: nil, lastReplyAt: nil, now: 100))
     }
 
-    /// Exactly on the limit is not yet over, so the boundary is the limit rather than a moment
-    /// before it.
     @Test func theLimitItselfIsNotYetExpired() {
         #expect(!silence.hasExpired(isReady: true, readyAt: 0, lastReplyAt: 90, now: 100))
     }
 }
 
-/// How long a session is given to answer after the network changes or the app comes back.
 @Suite("Waiting for an answer")
 struct AnswerGraceTests {
     @Test func aMacOnTheSameWiFiGetsTheFloor() {

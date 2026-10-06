@@ -5,11 +5,7 @@ import os
 
 private let activityLog = Logger(subsystem: "pl.dmq.peering", category: "terminal-activity")
 
-/// Starts, updates and ends the Live Activity that mirrors open SSH shells.
-///
-/// A singleton for the same reason ``SessionActivity`` is one: a Live Activity belongs to the
-/// app rather than to an object. A second instance would hold a second handle to the same
-/// activity and the two would take turns overwriting each other.
+/// A singleton: a second instance would hold a second handle to the same activity.
 @MainActor
 final class TerminalActivity {
     static let shared = TerminalActivity()
@@ -22,10 +18,6 @@ final class TerminalActivity {
 
     private init() {}
 
-    /// Reflects the current set of open shells onto the card.
-    ///
-    /// The representative server name and shell count come from the caller, which has the full
-    /// picture; this method only decides whether to start, update or end.
     func update(serverName: String, startedAt: Date?, shellCount: Int) {
         guard isEnabled else {
             end()
@@ -45,10 +37,7 @@ final class TerminalActivity {
         apply(state)
     }
 
-    /// Takes down an activity left behind by a previous run of the app.
-    ///
-    /// Without this, an activity started before the process was killed keeps a running clock on
-    /// the Lock Screen for shells that ended hours ago.
+    /// Without this, an activity from a killed process keeps a running clock on the Lock Screen.
     func adoptOrphan() {
         guard activity == nil else { return }
         let orphans = Activity<TerminalActivityAttributes>.activities

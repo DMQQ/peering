@@ -3,26 +3,13 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-/// Everything a key needs a screen for, gathered in one file.
-///
-/// Three sheets and one card, because adding a key is three different arrivals — pasted, imported,
-/// generated — and only the field labels differ between them. The part that does *not* differ, and
-/// the reason these share a file, is what happens afterwards: whichever way the key arrived, the
-/// user has to be able to read its public half and copy it, and that screen is the same one.
+/// Three sheets and one card: adding a key is three arrivals that differ only in field labels. They share a file for what comes after: the user must be able to read the public half and copy it.
 
 // MARK: - The key itself
 
-/// What a saved key looks like in the editor: its type, its name, and the way to get it onto the
-/// server.
-///
-/// The public half is shown *here*, inline, rather than behind a "Show public key" button, and that
-/// is the single most important choice in the feature. A user who has just saved a key has one
-/// thing left to do with it, and a screen that makes them find a second screen to do it is a screen
-/// where the key quietly does not get installed and the next connection fails for a reason nothing
-/// on the phone explains.
+/// The public half is shown inline, not behind a "Show public key" button: a key that is not installed because finding the second screen was a chore fails the next connection for a reason nothing on the phone explains.
 struct SSHKeyCard: View {
     let key: SSHKeyPair
-    /// Whether a copy has just been made, so the button can say so.
     @Binding var hasCopied: Bool
 
     var body: some View {
@@ -59,9 +46,7 @@ struct SSHKeyCard: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                // Selectable as well as copyable. Copying is the one-tap path, but a user pasting
-                // into a terminal over this same connection has no clipboard to paste from, and a
-                // line that can only be copied is a line they cannot read out.
+                // Selectable as well as copyable: a user pasting into a terminal over this same connection has no clipboard to paste from.
                 Text(key.publicKey)
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(ColorPalette.ink)
@@ -88,7 +73,6 @@ struct SSHKeyCard: View {
         }
     }
 
-    /// The algorithm in the words a screen uses, rather than the protocol's.
     static func describe(_ algorithm: String) -> String {
         switch algorithm {
         case "ssh-ed25519": return "Ed25519"
@@ -100,12 +84,7 @@ struct SSHKeyCard: View {
 
 // MARK: - Getting the public half out
 
-/// The public half of a saved key, on its own, from the list.
-///
-/// Reached from the row's menu as well as from the editor, because the two are different errands.
-/// The editor is where a key is set up; this is where a user comes back months later, at a server,
-/// with something not working, to read the line out. It carries no private material and nothing
-/// on it changes anything, which is why it is a screen rather than a sheet full of controls.
+/// Reached from the row's menu as well as the editor: this is where a user comes back months later, at a server, to read the line out. It carries no private material.
 struct SSHPublicKeySheet: View {
     let host: SSHHost
     let key: SSHKeyPair
@@ -113,12 +92,7 @@ struct SSHPublicKeySheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var hasCopied = false
 
-    /// The label to install the key under.
-    ///
-    /// `ssh-keygen`'s own convention when the key arrived without one, which is the case for every
-    /// key that came in encrypted: the comment sits behind the encryption and reading it would mean
-    /// reimplementing aes-ctr here. A line with a `user@host` label is one the user can find again
-    /// in `authorized_keys`; a line with nothing is one they have to guess at.
+    /// `ssh-keygen`'s own convention when the key arrived without a label, which is every encrypted key: the comment sits behind the encryption and reading it would mean reimplementing aes-ctr here.
     private var label: String {
         key.comment.isEmpty ? "\(host.username)@\(host.hostname)" : key.comment
     }
@@ -185,22 +159,14 @@ struct SSHPublicKeySheet: View {
 
 // MARK: - Where a key comes from
 
-/// The three ways in, as one screen.
-///
-/// A segmented control rather than three separate buttons that each open a different sheet, because
-/// the three answers produce the same thing and the user is choosing a *source*, not an action.
-/// Having them side by side also makes the third one visible: a user who assumed they had to
-/// already own a key finds out here that the app will make one.
+/// A segmented control rather than three buttons: the user is choosing a source, not an action, and side by side the third (generate) is visible.
 struct SSHKeyImportSheet: View {
     let existing: SSHKeyPair?
     /// Handed the finished key. The caller stores it; this screen never touches the keychain.
     let onSave: (SSHKeyPair) -> Void
 
-    /// Which of the three ways in is being used. Named rather than numbered, because "the second
-    /// segment" is a sentence that stops being true the moment one is added.
-    ///
-    /// `.off` rather than `.none` for the third case's absence, which is the rule this app already
-    /// follows: `Optional`'s `.none` is what `aSource == .none` would otherwise resolve to.
+    /// Named rather than numbered: "the second segment" stops being true once one is added.
+    /// `.off` rather than `.none`, since `aSource == .none` would resolve to `Optional`'s `.none`.
     private enum Source: Hashable { case paste, file, generate }
 
     @Environment(\.dismiss) private var dismiss
@@ -212,7 +178,6 @@ struct SSHKeyImportSheet: View {
     @State private var label = ""
     @State private var isChoosingFile = false
     @State private var failure: String?
-    /// The key that has been read but not yet saved, held so the label can be changed before it is.
     @State private var pending: SSHKeyPair?
 
     init(existing: SSHKeyPair?, defaultLabel: String, onSave: @escaping (SSHKeyPair) -> Void) {
@@ -328,9 +293,7 @@ struct SSHKeyImportSheet: View {
         }
         .preferredColorScheme(.dark)
         .onChange(of: label) { _, new in
-            // Live, so the line the user is about to copy is the line they will see. Relabelling
-            // after the fact would leave the screen showing one line and the clipboard holding
-            // another, which is the sort of difference nobody notices until a server rejects a key.
+            // Live, so the line the user is about to copy is the line they see: relabelling afterwards would leave the screen and the clipboard disagreeing until a server rejects the key.
             guard let key = pending else { return }
             pending = key.labelled(new)
         }
@@ -370,11 +333,7 @@ struct SSHKeyImportSheet: View {
         }
     }
 
-    /// Reads whatever the chosen source offers, and either shows the parsed key or says why not.
-    ///
-    /// One method for all three sources, because the failure path is the part worth having once:
-    /// every message a user sees when a key does not work comes from ``SSHKeyError``, and a second
-    /// place that produced its own wording would be a second place to keep in step with the parser.
+    /// One method for all three sources so every failure message comes from ``SSHKeyError``, one place to keep in step with the parser.
     private func read() {
         let phrase = usesPassphrase ? passphrase : nil
         do {
@@ -400,8 +359,7 @@ struct SSHKeyImportSheet: View {
     private func readFile(_ result: Result<[URL], any Error>) {
         do {
             guard let url = try result.get().first else { return }
-            // A file picked outside the app's container is not readable without this, and the
-            // failure without it is a permission error that says nothing about the file.
+            // A file picked outside the app's container is not readable without this, and the failure is a permission error that says nothing about the file.
             let isScoped = url.startAccessingSecurityScopedResource()
             defer { if isScoped { url.stopAccessingSecurityScopedResource() } }
 

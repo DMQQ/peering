@@ -1,9 +1,6 @@
 import SwiftUI
 
-/// Filters the settings screens by what their sections are called and hold.
-///
-/// By section rather than by row: each card keeps its title and footer, so a match still says where
-/// in the app the setting lives.
+/// By section rather than by row: each card keeps its title and footer, so a match still says where the setting lives.
 enum SettingsSearch {
     enum Section: CaseIterable {
         case device, controls, quality, remoteAccess, security, pip, widget, liveActivity

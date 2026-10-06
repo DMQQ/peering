@@ -5,7 +5,6 @@ import Testing
 
 @Suite("Walking a folder to send")
 struct FolderWalkTests {
-    /// A tree of its own per test, so nothing here can touch a real folder.
     private func scratch() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("peering-walk-\(UUID().uuidString)")
@@ -24,9 +23,7 @@ struct FolderWalkTests {
 
     @Test("a folder comes before the things inside it")
     func folderPrecedesItsContents() throws {
-        // **The property the transfer's order depends on.** The entries are sent one at a time and
-        // a file cannot be written into a folder that does not exist, so a walk that listed
-        // `photos/a.jpg` before `photos` would fail on the first file of every folder.
+        // Entries are sent one at a time and a file cannot be written into a missing folder, so a folder must be listed before what it holds.
         let root = try scratch()
         try file("photos/one.jpg", in: root)
         try file("photos/two.jpg", in: root)
@@ -46,15 +43,12 @@ struct FolderWalkTests {
 
         let paths = try FolderWalk.entries(of: root, at: "/dest").map(\.path)
 
-        // In order, each one before the thing it holds.
         #expect(paths == ["/dest/a", "/dest/a/b", "/dest/a/b/c", "/dest/a/b/c/deep.txt"])
     }
 
     @Test("two walks of one folder produce the same list")
     func theOrderIsStable() throws {
-        // The filesystem's own order is not sorted and differs between a folder that has just been
-        // written and one that has been sitting there. A failure the user reports has to be one
-        // somebody else can reproduce.
+        // The filesystem's order is not stable, so sort: failures must be reproducible.
         let root = try scratch()
         for name in ["zebra", "apple", "mango", "banana"] {
             try file(name, in: root)
@@ -69,9 +63,7 @@ struct FolderWalkTests {
 
     @Test("a link is listed and skipped rather than followed")
     func linksAreSkipped() throws {
-        // Following one would read a file the user did not pick, and copying the link itself needs
-        // a protocol this does not have. It is an entry with an outcome rather than an omission,
-        // because a folder that arrives short and says so is one the user can trust.
+        // A symlink is an entry with an outcome rather than an omission: following it reads a file the user did not pick, and a short folder should say so.
         let root = try scratch()
         try file("real/data.txt", in: root)
         try FileManager.default.createSymbolicLink(
@@ -134,8 +126,7 @@ struct FolderUploadTests {
 
     @Test("the count is the files, not the folders")
     func foldersAreNotCounted() {
-        // The user picked a folder of three files. "Sent 3 of 3" is the sentence that answers what
-        // they asked; "Sent 4 of 5" because the protocol needed two folders made first is not.
+        // "Sent 3 of 3" for three picked files, not "Sent 4 of 5" counting the folders made for the protocol.
         var upload = FolderUpload(root: "/dest", listingFolder: "/parent", entries: [
             entry("photos", isFolder: true, outcome: .done),
             entry("a.txt", outcome: .done),
@@ -151,9 +142,7 @@ struct FolderUploadTests {
 
     @Test("a folder that could not be made is not the user's problem to read")
     func folderFailuresAreNotReported() {
-        // A folder is the shape the files need, not something the user chose to send. Whether it
-        // was made or was already there is not a fact about the transfer. A folder that genuinely
-        // could not be made is still visible: every file inside it fails and is named.
+        // A folder is the shape the files need, not a chosen item, so made-or-existing is not reported; one that cannot be made still fails every file inside, named.
         var upload = FolderUpload(root: "/dest", listingFolder: "/parent", entries: [
             entry("photos", isFolder: true, outcome: .failed("Something with that name is already there.")),
             entry("a.txt", outcome: .done),
@@ -177,8 +166,7 @@ struct FolderUploadTests {
         upload.next = 5
         upload.isRunning = false
 
-        // Named, because "3 skipped" sends the user hunting through a folder of three hundred for
-        // which three. Capped, because the line has one row.
+        // Named so the user need not hunt for which three; capped because the line has one row.
         #expect(upload.line() == "Sent 1 of 5. Could not send b.txt, c.txt, d.txt and 1 more.")
         #expect(upload.sent == 1)
     }

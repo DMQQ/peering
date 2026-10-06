@@ -5,7 +5,6 @@ import Testing
 
 @Suite("Replacing a file in one move")
 struct FileReplacementTests {
-    /// A folder of its own per test, so nothing here can touch a real file.
     private func scratch() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("peering-replacement-\(UUID().uuidString)")
@@ -19,15 +18,8 @@ struct FileReplacementTests {
 
     @Test("the replacement waits beside the file it will become")
     func stagingIsBesideTheDestination() throws {
-        // **The property that makes the move atomic.** A scratch file in a temporary directory is
-        // on another volume on any Mac with a separate /tmp, and a rename across volumes is a
-        // copy, which is neither one step nor atomic. The test is on the directory rather than on
-        // the whole path because the name carries a tag that is meant to vary.
-        //
-        // Compared as strings rather than as URLs. `URL`'s `==` is not a comparison of two paths:
-        // a URL that has been through `resolvingSymlinksInPath` compares unequal to one that names
-        // the same directory and was built by `appendingPathComponent`, which is a trap rather than
-        // a fact about this code.
+        // Compare directories: a scratch file in a temp dir can be on another volume, where rename is a copy.
+        // Compared as strings: `URL ==` differs between resolvingSymlinksInPath and appendingPathComponent forms.
         let root = try scratch()
         let destination = root.appendingPathComponent("script.sh")
 
@@ -52,9 +44,7 @@ struct FileReplacementTests {
 
     @Test("a replacement for a link is staged beside the file the link names")
     func stagingFollowsSymlinks() throws {
-        // The destination is resolved before the scratch file is named, because the move has to be
-        // onto the same volume as the *real* file: a link pointing at another volume would stage
-        // the replacement here and move it there, and that move is a copy.
+        // Resolved first so the move is onto the same volume as the real file.
         let root = try scratch()
         let realDirectory = root.appendingPathComponent("real")
         let linkDirectory = root.appendingPathComponent("linked")
@@ -64,11 +54,7 @@ struct FileReplacementTests {
         let destination = linkDirectory.appendingPathComponent("script.sh")
         let staging = FileReplacement.stagingURL(for: destination, tag: "abc")
 
-        // Resolved on both sides, and that is not slack in the assertion. `resolvingSymlinksInPath`
-        // leaves the leaf alone when the leaf does not exist, so a destination that is not there
-        // yet keeps the path the client sent and the kernel resolves the directory when the file is
-        // created. The claim worth holding is the physical one: the scratch file is in the
-        // directory the link names, which is where the move has to happen.
+        // Resolved on both sides: `resolvingSymlinksInPath` leaves a nonexistent leaf alone.
         #expect(staging.deletingLastPathComponent().resolvingSymlinksInPath().path
             == realDirectory.resolvingSymlinksInPath().path)
         #expect(staging.lastPathComponent.hasPrefix("."))
@@ -83,7 +69,6 @@ struct FileReplacementTests {
 
         #expect(FileReplacement.commit(staging: staging, to: destination) == .written(11))
         #expect(try String(contentsOf: destination, encoding: .utf8) == "echo hello\n")
-        // And the scratch file is gone, on the success path as well as the failures.
         #expect(FileManager.default.fileExists(atPath: staging.path) == false)
     }
 
@@ -97,15 +82,11 @@ struct FileReplacementTests {
 
         _ = FileReplacement.commit(staging: staging, to: destination)
 
-        // The failure this rules out is the whole reason the scratch file exists: half the old
-        // contents and half the new.
         #expect(try String(contentsOf: destination, encoding: .utf8) == "new\n")
     }
 
     @Test("an executable stays executable")
     func commitKeepsPermissions() throws {
-        // An upload that quietly dropped the mode would leave a script that no longer runs, and
-        // nothing would say why.
         let root = try scratch()
         let destination = root.appendingPathComponent("script.sh")
         try write("#!/bin/sh\n", to: destination)
@@ -138,8 +119,6 @@ struct FileReplacementTests {
 
     @Test("a scratch file the filesystem refuses yields a sentence rather than a crash")
     func permissionFailuresAreNamed() {
-        // The mapping, not the filesystem: what the user is told when a write is refused is the
-        // only thing about the failure they ever see.
         let denied = NSError(domain: NSPOSIXErrorDomain, code: Int(EACCES))
         #expect(FileReplacement.message(for: denied).contains("not allowed"))
 

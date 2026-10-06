@@ -17,13 +17,9 @@ struct LatencyQualityTests {
 
     @Test("a connection that is behaving says nothing at all")
     func goodIsSilent() {
-        // **The emptiness is the feature.** The pill is the one line in the app a user reads
-        // without asking, so a session that is fine has nothing to report: a line that always
-        // carries something is a line nobody can tell apart from a warning.
+        // The emptiness is the feature: a session that is fine has nothing to report, so the pill stays distinguishable from a warning.
         #expect(LatencyQuality.good.pillLabel == nil)
 
-        // And when there is something wrong, it is a word a person can act on rather than a
-        // figure they have to interpret.
         #expect(LatencyQuality.fair.pillLabel == "Slow")
         #expect(LatencyQuality.poor.pillLabel == "Very slow")
     }

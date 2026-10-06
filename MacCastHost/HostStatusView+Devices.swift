@@ -2,21 +2,10 @@ import AppKit
 import RemoteCore
 import SwiftUI
 
-/// Who is trusted, who is here, and what has happened.
 extension HostStatusView {
-    /// Who is trusted, and which of them is here.
-    ///
-    /// The absent rows matter as much as the present ones. "Is that phone still allowed in" is
-    /// a question asked when the phone is *not* on the desk, and a pin — which is all the host
-    /// stores for a trusted device — carries no name, so an unattached device is named from the
-    /// last time it connected.
+    /// A pin carries no name, so an unattached device is named from the last time it connected.
     var devicesSection: some View {
-        // One card, not two. This used to be two separately shadowed, separately outlined
-        // panels stacked with a gap between them — which reads as two unrelated pieces of the
-        // window rather than as "who can reach this Mac", the one question both halves answer.
-        // A single hairline down the middle says the same "these are different lists" the two
-        // card edges used to, at a fraction of the visual weight: one shadow and one border for
-        // the whole card, not one of each per half.
+        // One card with a hairline between the lists: one shadow and border for the whole.
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline) {
@@ -74,35 +63,15 @@ extension HostStatusView {
         .hostPanel()
     }
 
-    /// This Mac's ID, and the code that carries it to an iPhone that cannot see this network.
-    ///
-    /// The ID is the only thing about this Mac that travels by a route other than the network,
-    /// and until now it was reachable only as a tooltip and in the About pane — which is the
-    /// wrong place for the one value a person has to read off this screen and type into
-    /// another device. So it is shown where the pairing story is told, in the form that cannot
-    /// be mistyped, and it stays there whether or not anything is paired: a Mac with one phone
-    /// on it is exactly the Mac whose owner is about to pair a second.
-    ///
-    /// **The ID is not a secret, and this panel does not treat it as one.** It is an address,
-    /// like a hostname: whoever holds it can ask the relay to reach this Mac, and what happens
-    /// then is what happens across a desk — this window shows six digits, somebody here reads
-    /// them out, and the phone is trusted only if the two agree. A screenshot of this panel is
-    /// therefore not a way into the Mac, which is why there is no warning label on it.
+    /// The ID is not a secret: it is an address, and pairing still needs the six digits read out and compared, so a screenshot is no way in.
     var remotePairingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // `sectionHeading`, not a bare `Text` — this card sits right beside the Devices one
-            // and used to be the one heading in the deck set in the system face instead of the
-            // display one, which read as an afterthought bolted onto the panel rather than as a
-            // section with the same standing as the list above it.
             sectionHeading(
                 String(localized: "Pair from another network"),
                 detail: String(localized: "An iPhone that is not on this network reaches this Mac by its ID. Type or scan it there, then read out the six digits when this window shows them.")
             )
 
-            // The ID is also the Mac's registration name at the relay, and it stops being one
-            // the moment hosting stops. Said here rather than left to be discovered, because
-            // the panel above it would otherwise show a perfectly good ID for a Mac that
-            // nothing can reach.
+            // The ID is the relay registration name and stops working when hosting stops.
             if !model.status.isListening {
                 Text("Press Start first. A Mac that is not hosting is not registered with the relay, so no device can reach it by this ID.")
                     .font(.caption)
@@ -111,9 +80,7 @@ extension HostStatusView {
             }
 
             HStack(alignment: .top, spacing: 12) {
-                // Drawn only for an ID that could be dialled. Before the host has started
-                // there is nothing here, and a code that scanned to an empty ID would send
-                // someone to the relay with a value no Mac has ever registered.
+                // Only for an ID that could be dialled: a code for an unregistered ID would send someone to the relay with a value no Mac has.
                 if PairingPayload.canonicalIdentifier(model.deviceID) != nil,
                    let image = qrCode(encoding: PairingPayload.encode(hostID: model.deviceID)) {
                     Image(nsImage: image)
@@ -175,9 +142,7 @@ extension HostStatusView {
                     .tracking(0.7)
                     .foregroundStyle(HostPalette.success)
 
-                // Ends the session and keeps the trust. It is the smaller of the two hammers
-                // and the one that is wanted almost every time — the other costs a pairing code
-                // and a walk to the Mac.
+                // Ends the session and keeps the trust, the smaller of the two actions.
                 Button {
                     model.disconnect(clientID: id)
                 } label: {
@@ -211,20 +176,10 @@ extension HostStatusView {
         .onHover { hovering in
             withAnimation(HostMotion.hover) { hoveredDeviceID = hovering ? id : nil }
         }
-        // The ID is what a pairing question turns on, so it stays reachable — as a tooltip
-        // rather than as the thing printed on the row, where it was never what anyone
-        // recognised.
         .help(String(localized: "Device ID \(id)"))
     }
 
-    /// A tail of what the host has done.
-    ///
-    /// Full width and below rather than a column of its own. These are sentences, and a narrow
-    /// column wrapped every one of them into three lines to say what fitted on one.
-    ///
-    /// `Copy all` rather than leaving it to selection: the lines are separate text blocks, so
-    /// dragging across them gets one line at a time — which is no way to hand anyone a run of
-    /// events. The selection stays enabled for the single line someone wants to quote.
+    /// Copy all, because the lines are separate text blocks and selection drags one line at a time.
     var activitySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
@@ -258,12 +213,7 @@ extension HostStatusView {
                 .padding(16)
                 .hostPanel()
             } else {
-                // No inner scroll view, and no height cap. This used to be boxed to 320 points
-                // because it shared the pane with the device list beside it — now that Activity
-                // is a pane of its own, that cap left most of a tall window as bare stage under
-                // a small card. The pane's own `ScrollView` (see `HostStatusView.body`) is the
-                // one that scrolls; a `LazyVStack` does not need to be that scroll view's direct
-                // child to render lazily, only to be inside one.
+                // No inner scroll view or height cap: the pane's own ScrollView scrolls and LazyVStack stays lazy inside it.
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(model.log.enumerated()), id: \.element.id) { index, entry in
                         activityRow(entry)
@@ -305,14 +255,7 @@ extension HostStatusView {
         .background(entry.level == .failure ? HostPalette.danger.opacity(0.055) : .clear)
     }
 
-    /// Three tones and no more: routine, worth noticing, did not work.
-    ///
-    /// The rest of the window keeps to brightness, but a failure is the one thing here a reader
-    /// has to find by skimming, and losing it in grey is how a log stops being read at all.
-    /// Three tones and no more: routine, worth noticing, did not work.
-    ///
-    /// The rest of the window keeps to brightness, but a failure is the one thing here a reader
-    /// has to find by skimming, and losing it in grey is how a log stops being read at all.
+    /// Three tones: routine, worth noticing, did not work. A failure must be findable by skimming.
     func colour(for level: HostLogEntry.Level) -> Color {
         switch level {
         case .info: return HostPalette.faint
@@ -323,14 +266,6 @@ extension HostStatusView {
 
     // MARK: - Sessions
 
-    /// What has already happened, and what it cost.
-    ///
-    /// The live figures vanish the moment the phone disconnects — which is precisely when
-    /// someone wants to look at them — so each finished session is written down as it ends.
-    /// What has already happened, and what it cost.
-    ///
-    /// The live figures vanish the moment the phone disconnects — which is precisely when
-    /// someone wants to look at them — so each finished session is written down as it ends.
     var sessionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeading(String(localized: "Sessions"), detail: String(localized: "Finished connections, newest first."))
@@ -427,9 +362,4 @@ extension HostStatusView {
 
     // MARK: - Privacy
 
-    /// What pairing actually grants, said plainly.
-    ///
-    /// Worth the space: "trusted device" is a phrase that sounds broader than it is, and the
-    /// honest answer — it can see the screen you chose and send input — is both narrower and
-    /// easier to reason about than a phrase like "full access".
 }

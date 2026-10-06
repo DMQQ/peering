@@ -5,33 +5,14 @@ import RemoteCore
 
 // MARK: - Virtual display management (phone-requested)
 
-/// Every virtual display this host makes, over
-/// ``RemoteCommand/addVirtualDisplay(name:width:height:startLandscape:)``,
-/// ``RemoteCommand/removeVirtualDisplay(displayID:)`` and
-/// ``RemoteCommand/renameVirtualDisplay(displayID:name:)``, gated on the phone side by
-/// `PlanCapability.virtualDisplays`.
-///
-/// **One store, because a phone asking is the only way one exists.** There used to be a second for a
-/// display the Mac's own Settings switch made, free on every plan; it is gone. These are
-/// session-scoped, the same way a mosaic arrangement is: gone the moment the client that asked for
-/// them does, and gone when the host stops.
+/// Session-scoped: these go when the client that asked goes, and when the host stops.
 extension HostModel {
-    /// The portrait pixel size a requested width or height is clamped into, on each side
-    /// independently. A guard against a client offering something absurd, not a promise about
-    /// what shapes this feature is meant for — ``VirtualDisplay`` itself floors at 2.
+    /// Clamp for each side. Guards against absurd requests; VirtualDisplay itself floors at 2.
     static let minimumVirtualDisplaySide = 200
     static let maximumVirtualDisplaySide = 3000
     static let maximumVirtualDisplayNameLength = 80
 
-    /// Makes another virtual display at the phone's request.
-    ///
-    /// `name` empty asks this Mac to pick one, which every request from today's UI does — see
-    /// `SourcesPanel`'s "Add a display" row. `width`/`height` are clamped independently into
-    /// ``virtualDisplaySizeRange`` rather than refused outright: a client offering an unreasonable
-    /// size gets the nearest reasonable one instead of nothing. Failures are recorded rather than
-    /// reported back over the control channel: there is no request/reply shape for a
-    /// `RemoteCommand`, and the activity log plus the catalogue not growing is what tells the phone
-    /// the request did not land.
+    /// Failures are logged, not reported back: a RemoteCommand has no reply shape.
     func addVirtualDisplay(name: String, width: Int, height: Int, startLandscape: Bool) {
         guard !isMakingVirtualDisplay, !isTearingDownVirtualDisplays else { return }
         discardDepartedManagedVirtualDisplays()
@@ -103,7 +84,6 @@ extension HostModel {
         }
     }
 
-    /// Gives a display this phone made a new name.
     func renameVirtualDisplay(displayID: CGDirectDisplayID, name: String) {
         let cleaned = String(
             name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -117,8 +97,7 @@ extension HostModel {
         coordinator?.refreshCatalog()
     }
 
-    /// Takes a phone-managed display away by ID. If it is the live capture, the stream is first
-    /// moved to another active display so removing a monitor cannot strand the client on black.
+    /// If this is the live capture, the stream moves to another display first so removal cannot strand the client on black.
     @discardableResult
     func removeVirtualDisplay(displayID: CGDirectDisplayID) async -> Bool {
         guard !isMakingVirtualDisplay,
@@ -180,8 +159,6 @@ extension HostModel {
         }
     }
 
-    /// Takes every phone-managed display away, called alongside ``removeVirtualDisplay()`` from
-    /// this host's two teardown sites: ``prepareForTermination()`` and ``stop()``.
     func removeAllManagedVirtualDisplays() {
         guard !managedVirtualDisplays.isEmpty else { return }
         managedVirtualDisplays = managedVirtualDisplays.filter { display in
@@ -193,9 +170,7 @@ extension HostModel {
         }
     }
 
-    /// Clears wrappers retained after a timed-out removal once WindowServer has finished the
-    /// asynchronous departure. Called before enforcing the add limit, so a display that is already
-    /// gone cannot consume a slot forever.
+    /// Clears wrappers kept after a timed-out removal, before the add limit is enforced so a gone display cannot hold a slot.
     func discardDepartedManagedVirtualDisplays() {
         let active = Set(VirtualDisplay.activeDisplayIDs())
         managedVirtualDisplays.removeAll { display in

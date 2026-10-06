@@ -17,11 +17,7 @@ public enum RelayTunnelError: LocalizedError, Sendable, Equatable {
 }
 
 /// TCP parameters for every socket on the relay path, with Nagle disabled.
-///
-/// `NWParameters.tcp` cannot express `noDelay`, and Nagle holds a partial segment until the previous
-/// one is acknowledged: on a path whose RTT is tens of milliseconds, each buffered write of the
-/// 60 Hz command stream waits out a round trip before the next cursor position leaves. Every socket
-/// below goes through here rather than reaching for `.tcp`.
+/// `NWParameters.tcp` cannot express `noDelay`, and Nagle delays each buffered write of the 60 Hz command stream by a round trip. Every relay socket goes through here.
 private let videoTunnelLog = Logger(subsystem: "pl.dmq.peering", category: "relay-tunnel")
 
 private func relayTCPParameters() -> NWParameters {
@@ -30,10 +26,7 @@ private func relayTCPParameters() -> NWParameters {
     return NWParameters(tls: nil, tcp: tcp)
 }
 
-/// Presents a loopback TCP endpoint backed by a routed socket to `peeringd`.
-///
-/// The proxy writes the relay's 16-byte routing token first, then copies the opaque TLS bytes, so
-/// the TLS transport above it still owns the handshake end to end and knows nothing of rendezvous.
+/// Writes the relay's 16-byte routing token first, then copies opaque TLS bytes, so TLS still owns the handshake end to end.
 public final class RelayControlProxy: @unchecked Sendable {
     private let queue = DispatchQueue(label: "pl.dmq.peering.relay.client-tunnel")
     private let session: RelaySession
@@ -161,9 +154,6 @@ private final class OneShotContinuation<Value: Sendable>: @unchecked Sendable {
     }
 }
 
-/// Backpressured, bidirectional byte copying. All state lives on `queue`.
-///
-/// Internal rather than private so a test can drive it over loopback.
 final class RelayByteSplice: @unchecked Sendable {
     private let local: NWConnection
     private let relay: NWConnection
@@ -175,7 +165,6 @@ final class RelayByteSplice: @unchecked Sendable {
     private var tokenSent = false
     private var pumping = false
     private var stopped = false
-    /// The two directions, once both sockets are ready. Empty until then.
     private var legs: [Leg] = []
 
     init(
@@ -218,31 +207,21 @@ final class RelayByteSplice: @unchecked Sendable {
         case .failed, .cancelled:
             stop()
         case .waiting(let error):
-            // Not treated as a failure, deliberately: a relay leg with nowhere to go is what a phone
-            // mid-handover looks like, and iOS often brings the path back on its own within a few
-            // seconds. The session's silence watchdog is what ends one that does not recover.
-            //
-            // Logged rather than swallowed, because a connection that is waiting and a connection
-            // that is fine look identical from every layer above this one.
+            // Not a failure: a relay leg with nowhere to go is a phone mid-handover, and the session's silence watchdog ends one that does not recover. Logged because waiting and fine look identical above this layer.
             videoTunnelLog.notice("the relay leg is waiting: \(String(describing: error), privacy: .public)")
         default:
             break
         }
     }
 
-    /// One direction of the splice: where it reads, where it writes, and what is in flight.
     private struct Leg {
         let source: NWConnection
         let destination: NWConnection
-        /// Bytes handed to the destination and not yet reported as sent.
         var inFlightBytes = 0
-        /// Whether a read is already outstanding. Only one may be.
         var reading = false
     }
 
-    /// How much one direction may have in flight before it stops reading. Two of the largest
-    /// buffers this reads at a time: a splice that reads as fast as it can turns a slow receiver
-    /// into an out-of-memory sender.
+    /// Two of the largest read buffers: a splice reading as fast as it can turns a slow receiver into an out-of-memory sender.
     private static let maxInFlightBytes = 512 * 1024
     private static let readSize = 256 * 1024
 
@@ -265,11 +244,7 @@ final class RelayByteSplice: @unchecked Sendable {
         })
     }
 
-    /// Keeps one direction reading and writing at the same time.
-    ///
-    /// The read is re-armed here rather than inside the send's completion, so a direction does not
-    /// carry one buffer at a time. Reading stops when the window is full, and a send completion
-    /// starts it again, which is the only thing that would otherwise leave a direction stalled.
+    /// The read is re-armed here, not in the send's completion, so a direction does not carry one buffer at a time. A send completion restarts a read stopped by a full window.
     private func pump(_ index: Int) {
         guard !stopped, legs.indices.contains(index) else { return }
         legs[index].reading = true
@@ -285,9 +260,7 @@ final class RelayByteSplice: @unchecked Sendable {
                     guard let self else { return }
                     self.legs[index].inFlightBytes -= data.count
                     if sendError != nil { self.stop(); return }
-                    // Only a direction that stopped reading because the window was full reaches
-                    // here: one that is still reading has a read outstanding and must not be given
-                    // a second one.
+                    // Only a direction stopped by a full window reaches here: one still reading has a read outstanding and must not get a second.
                     if !self.legs[index].reading { self.pump(index) }
                 })
                 if self.legs[index].inFlightBytes < Self.maxInFlightBytes {

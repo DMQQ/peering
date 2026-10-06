@@ -2,24 +2,17 @@ import Foundation
 import RemoteCore
 import ScreenCaptureKit
 
-/// Everything the capture path can fail with, phrased for the status window.
 ///
 /// `-3821` and `-3801` are states the host recovers from rather than fatal errors: the first
 /// means the display configuration changed or the Mac woke from sleep, so the stream is rebuilt
 /// and the client re-keyed; the second means Screen Recording was never granted, or was revoked
 /// between launches. Every other code keeps its own wording, so it stays searchable.
 enum CaptureError: LocalizedError, Equatable {
-    /// The TCC grant this app needs before a single frame can exist.
     case screenRecordingDenied
-    /// The chosen display, application, or window is no longer there.
     case sourceUnavailable(String)
-    /// A filter was asked for before the catalogue had been read.
     case catalogUnavailable
-    /// The stream stopped on its own; `code` is the raw `SCStreamError` code.
     case streamStopped(code: Int, description: String)
-    /// The stream could not be created or started.
     case streamFailed(String)
-    /// VideoToolbox refused a frame, or the session could not be created.
     case encodingFailed(String)
 
     var errorDescription: String? {
@@ -65,7 +58,6 @@ enum CaptureError: LocalizedError, Equatable {
         }
     }
 
-    /// Translates a thrown `SCStreamError` into the state it implies.
     static func from(_ error: Error) -> CaptureError {
         let nsError = error as NSError
         guard nsError.domain == SCStreamError.errorDomain,

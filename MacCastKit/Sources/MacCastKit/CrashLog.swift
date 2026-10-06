@@ -6,31 +6,11 @@ import MetricKit
 #endif
 
 /// Where a crash is written down, by the two things that can write one.
-///
-/// **The reason this exists at all: a crash that happens on launch is invisible.** Both ends of this
-/// app have been debugged from `.ips` files that had to be synced to a Mac by hand and read with a
-/// script. That only works when somebody thinks to go looking, and it says nothing at all about
-/// anybody else's device.
-///
-/// There are two halves, and neither covers the other:
-///
-/// - **The handlers below** catch a signal or an uncaught exception *as it happens*, on this
-///   launch, and write it where the next launch will find it. This is the half that catches a crash
-///   on launch, because the attempt that fails is the attempt that writes.
-/// - **MetricKit** reports what a signal handler cannot see at all: watchdog kills, hangs, CPU and
-///   disk exceptions. Its payloads arrive about a day later and only if the app runs again, so it
-///   is the taxonomy and not the alarm.
-///
-/// **Everything stays on the device.** MetricKit is a system framework: no account, no service, no
-/// third-party SDK, and it makes no network calls of its own. Nothing here is uploaded anywhere, and
-/// this type has no way to upload it.
 public enum CrashLog {
     /// One thing that went wrong, and when.
     public struct Entry: Sendable, Identifiable {
         public enum Kind: String, Sendable {
-            /// Written by the signal or exception handler as it happened.
             case crash
-            /// A diagnostic Apple collected and handed over, about a day afterwards.
             case diagnostic
         }
 
@@ -45,10 +25,6 @@ public enum CrashLog {
     // MARK: - Where it goes
 
     /// The directory every file here lives in, created on demand.
-    ///
-    /// `Application Support` rather than `Caches`, which the system may delete at any moment, and
-    /// rather than `Documents`, which on the phone is the user's own space and would put a crash
-    /// report in Files.app.
     private static func directory(subject: String) -> URL? {
         guard let base = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
@@ -62,12 +38,7 @@ public enum CrashLog {
 
     /// What ``install(subject:version:)`` was told, for the MetricKit callback to file under. It
     /// arrives on MetricKit's own queue with nothing to say which app it is running in.
-    ///
-    /// `nonisolated(unsafe)` rather than actor-isolated, and the lock below is what actually makes
-    /// it safe: this is read from a MetricKit queue and written once at launch, and neither of them
-    /// is the main actor.
     nonisolated(unsafe) private static var storedSubject: String?
-    /// Present while the app is on screen. See ``setForeground(_:)``.
     nonisolated(unsafe) private static var runningFile: URL?
     private static let lock = NSLock()
 
@@ -78,13 +49,6 @@ public enum CrashLog {
     // MARK: - Installing
 
     /// Puts the handlers in and subscribes to MetricKit. Called once, as early as the app can.
-    ///
-    /// - Parameters:
-    ///   - subject: what to file it under. Short and filesystem-safe, so the phone and the Mac do
-    ///     not write over each other when they share a machine.
-    ///   - version: the build, so a report says which one it was. Read from the bundle when it is
-    ///     not given, which is every real caller: a crash report whose version is wrong is worse
-    ///     than one that omits it.
     public static func install(subject: String, version: String? = nil) {
         let version = version ?? bundleVersion
         guard let directory = directory(subject: subject) else { return }
@@ -94,7 +58,6 @@ public enum CrashLog {
         // it.** This is the whole of how a launch crash survives: the run that died wrote it and
         // could not do anything else, and the run that has just started is the one that can file
         // it. Its modification date is when the crash happened, which is why no clock is read in
-        // the handler — formatting a time there is not a safe thing to do.
         let caught = archive(pending, into: directory)
         let running = directory.appendingPathComponent("running.txt")
         fileUnexpectedExit(running, caughtCrash: caught, into: directory)
@@ -112,7 +75,6 @@ public enum CrashLog {
         for signalNumber in handledSignals {
             var action = sigaction()
             action.__sigaction_u = __sigaction_u(__sa_handler: handleSignal)
-            // On the spare stack, so a stack overflow can still be written down.
             action.sa_flags = SA_ONSTACK
             sigemptyset(&action.sa_mask)
             sigaction(signalNumber, &action, nil)
@@ -179,7 +141,6 @@ public enum CrashLog {
 
     // MARK: - Reading
 
-    /// Everything that has been filed, newest first.
     public static func entries(subject: String) -> [Entry] {
         guard let directory = directory(subject: subject) else { return [] }
         let files = (try? FileManager.default.contentsOfDirectory(
@@ -205,7 +166,6 @@ public enum CrashLog {
         .sorted { $0.date > $1.date }
     }
 
-    /// Throws away everything filed so far, for the button beside the list.
     public static func clear(subject: String) {
         guard let directory = directory(subject: subject) else { return }
         let files = (try? FileManager.default.contentsOfDirectory(
@@ -231,30 +191,16 @@ public enum CrashLog {
 private let handledSignals: [Int32] = [SIGABRT, SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGTRAP]
 
 /// A C string per handled signal, so the handler has something to write without formatting it.
-///
-/// Indexed by signal number. Built at install time because building a string inside a signal
-/// handler means allocating, and only a fixed set of calls are safe there.
 nonisolated(unsafe) private var signalHeaders: [UnsafeMutablePointer<CChar>?] =
     Array(repeating: nil, count: Int(NSIG))
 
-/// The header every report starts with, and where it goes, both as C strings for the same reason.
 nonisolated(unsafe) private var commonHeader: UnsafeMutablePointer<CChar>?
 nonisolated(unsafe) private var pendingPath: UnsafeMutablePointer<CChar>?
 
 /// The same file as ``pendingPath``, as something Swift can open.
-///
-/// A file-scope global rather than a member of ``CrashLog``, and that is not tidiness:
-/// `NSSetUncaughtExceptionHandler` takes a C function pointer, a closure cannot be one if it
-/// captures anything, and a reference to a type's own static member counts as a capture. A global
-/// does not.
 nonisolated(unsafe) private var exceptionLogURL: URL?
 
 /// Writes an uncaught exception where the next launch will file it.
-///
-/// **Not a signal context**, so ordinary Swift is allowed: a string, a `FileHandle`, a dictionary of
-/// symbols. Appended rather than written, because an uncaught exception goes on to raise `SIGABRT`
-/// and the signal handler then adds its own backtrace to the same file. Losing the reason to keep
-/// the frames would be the wrong way round.
 private func installExceptionHandler() {
     NSSetUncaughtExceptionHandler { exception in
         let text = """
@@ -302,15 +248,6 @@ private func name(of signalNumber: Int32) -> String {
 }
 
 /// Writes what happened and lets the process die.
-///
-/// **Only async-signal-safe calls belong in here.** `open`, `write`, `close`, `backtrace` and
-/// `backtrace_symbols_fd` are the whole of the list used; a Swift string, a dictionary, a lock or
-/// anything that allocates could deadlock or corrupt the heap, and the process is dying anyway, so
-/// the report matters more than anything else that might run.
-///
-/// `backtrace_symbols_fd` writes the frames as addresses and symbols without allocating, which is
-/// why it is used instead of `backtrace_symbols`. They are not symbolicated the way a `.ips` is;
-/// they are enough to tell whether two crashes are the same one.
 private func handleSignal(_ signalNumber: Int32) {
     let header = signalNumber < Int32(NSIG) ? signalHeaders[Int(signalNumber)] : nil
     // `_exit` rather than `exit`: the latter runs atexit handlers and flushes streams, none of
@@ -356,10 +293,6 @@ private func append(_ text: String, to url: URL) {
 #if canImport(MetricKit)
 /// Apple's own diagnostics, which arrive about a day after the fact and cover what a signal handler
 /// cannot: watchdog kills, hangs, and CPU and disk exceptions.
-///
-/// **Diagnostics only.** The other payload MetricKit offers is performance, launch time, memory,
-/// hangs by rate, and none of that is an error to be logged; keeping it would trade a small folder
-/// of readable reports for a large one nobody opens.
 private let metricCollector = MetricKitCollector()
 
 /// `@unchecked Sendable` because it has no state to race on: it is a name for the two callbacks and
@@ -399,9 +332,6 @@ private final class MetricKitCollector: NSObject, MXMetricManagerSubscriber, @un
 
 extension CrashLog {
     /// Files one diagnostic, under the day it describes rather than the moment it arrived.
-    ///
-    /// The payload carries its own time range; the file is named from the moment it lands, which is
-    /// the only clock this side has. Its modification date is what the list sorts on.
     static func store(diagnosticPayload data: Data) {
         guard let directory = directory(subject: subjectForStorage) else { return }
         let stamp = ISO8601DateFormatter().string(from: Date())
@@ -424,7 +354,6 @@ extension CrashLog {
 /// memory or for a blocked main thread (`SIGKILL`, which no code survives), and a stack overflow,
 /// which used to leave the handler no stack to run on.
 extension CrashLog {
-    /// The last few things this run did, written to ``runningFile`` while the app is on screen.
     nonisolated(unsafe) private static var trail: [String] = []
     nonisolated(unsafe) private static var isForeground = false
     nonisolated(unsafe) private static var sampler: DispatchSourceTimer?
@@ -432,10 +361,6 @@ extension CrashLog {
     private static let trailLength = 30
 
     /// Tells the log whether the app is on screen.
-    ///
-    /// The marker file exists exactly while it is. An app iOS ends in the background was suspended
-    /// and is not news; one found still marked at the next launch, with no crash filed, died on
-    /// screen without a word, and that is filed with the trail it left.
     public static func setForeground(_ foreground: Bool) {
         trailQueue.async {
             isForeground = foreground
@@ -502,7 +427,6 @@ extension CrashLog {
         #endif
     }
 
-    /// Files the last run as an unexplained exit when it died on screen and nothing caught it.
     fileprivate static func fileUnexpectedExit(_ running: URL, caughtCrash: Bool, into directory: URL) {
         defer { try? FileManager.default.removeItem(at: running) }
         guard !caughtCrash, let trail = try? String(contentsOf: running, encoding: .utf8) else { return }

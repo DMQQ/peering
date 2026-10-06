@@ -13,22 +13,15 @@ struct HomeTab: View {
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @State var showsManualConnection = false
     @State var showsRemotePairing = false
-    /// The header's arrival, in four numbers: how far the mark has appeared, how far the name has
-    /// followed it, and how far the pair has travelled left and up. Two of them are separate
-    /// because they are separate curves — see ``Motion/travel``.
     @State var markZoom: CGFloat = 0
     @State var titleReveal: CGFloat = 0
     @State var heroTravel: CGFloat = 0
     @State var heroRise: CGFloat = 0
-    /// The name's and the tagline's widths, measured once while the hero is standing still in the
-    /// middle of the screen — the only moment either is the width the centring wants. See
-    /// ``header(viewport:)``.
     @State var nameWidth: CGFloat = 0
     @State var taglineWidth: CGFloat = 0
     @State var sectionsVisible = false
     @State var entranceStarted = false
-    /// Whether the entrance has played in this launch. The tab is rebuilt on the way back from a
-    /// session, and the animation is for opening the app, not for every return to it.
+    /// Whether the entrance has played this launch: the tab is rebuilt on return from a session, and the animation is for opening the app.
     static var entranceHasPlayed = false
     @State var forgetTarget: String?
     @State var renameTarget: String?
@@ -38,22 +31,13 @@ struct HomeTab: View {
 
     @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = true
     @AppStorage(PreferenceKeys.requireBiometricUnlock) var requiresBiometricUnlock = false
-    /// Whether this screen's first-run tips have been seen. See ``Tour``.
     @AppStorage(PreferenceKeys.hasSeenTourConnect) var hasSeenTourConnect = false
 
-    /// The column the header actually renders in, whatever ``adaptiveContentColumn()`` below caps
-    /// it to for this width class. Read here rather than restated, so the two cannot drift apart
-    /// — see ``body``.
     private var contentMaxWidth: CGFloat {
         horizontalSizeClass == .regular ? AdaptiveLayout.wideContentMaxWidth : AdaptiveLayout.contentMaxWidth
     }
 
-    /// How often the Connect tab asks the relay which paired Macs are up.
-    ///
-    /// Twenty seconds, which is a compromise the screen does not have to make but the relay does:
-    /// the answer only changes when a Mac starts or stops, which is a user-scale event, and a
-    /// phone that asked every second would be a phone telling the relay where its owner is at a
-    /// constant rate for a fact that has not changed.
+    /// Twenty seconds: the answer only changes when a Mac starts or stops.
     private static let presenceInterval: Duration = .seconds(20)
 
     var body: some View {
@@ -65,14 +49,7 @@ struct HomeTab: View {
                 GeometryReader { geometry in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
-                            // Capped the same way `.adaptiveContentColumn()` below caps the
-                            // column the header actually renders in. `geometry` is this
-                            // `GeometryReader`'s own size, which on an iPad's regular-width
-                            // layout is the full detail pane — wider than the capped, centred
-                            // column the mark and name are laid out in. Centring the header's
-                            // opening position against the wider, uncapped number pushed it off
-                            // to one side instead of the middle of the column it actually opens
-                            // in.
+                            // Capped as `.adaptiveContentColumn()` caps the column: on an iPad `geometry` is the full detail pane, and centring against that pushed the header's opening position off to one side.
                             header(viewport: CGSize(
                                 width: min(geometry.size.width, contentMaxWidth),
                                 height: geometry.size.height
@@ -127,17 +104,11 @@ struct HomeTab: View {
                 }
                 .onAppear(perform: runEntrance)
             }
-            // On the stack rather than in it, so the tips cover the screen including the backdrop,
-            // and inside the `NavigationStack` rather than outside it: the frames the steps are
-            // drawn around are read from the cards in this stack, and a preference does not travel
-            // out through a navigation container.
+            // On the stack but inside the NavigationStack: the steps' frames are read from cards in this stack, and a preference does not travel out through a navigation container.
             .firstRunTours(dueConnectTours) { $0.markSeen() }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
-            // **Polled from the tab, not from the model**, so the asking stops the moment this
-            // screen is not the one being looked at. `.task` is cancelled when the view goes away,
-            // which is the whole of the lifetime rule: the relay is asked which Macs this phone
-            // cares about only while the answer is on screen.
+            // Polled from the tab, not the model: `.task` is cancelled when the view goes away, so the relay is asked only while the answer is on screen.
             .task {
                 while !Task.isCancelled {
                     await model.refreshRelayPresence()

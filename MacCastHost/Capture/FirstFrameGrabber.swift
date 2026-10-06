@@ -4,9 +4,6 @@ import Foundation
 import ScreenCaptureKit
 
 /// One frame from a short-lived stream, for a window `SCScreenshotManager` will not photograph.
-///
-/// Measured on 27 September 2026: a screenshot of a window on a desktop that is not showing fails,
-/// and a stream of the same window delivers its real contents within a frame or two.
 final class FirstFrameGrabber: NSObject, SCStreamOutput, @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<CGImage?, Never>?

@@ -1,31 +1,16 @@
 import Foundation
 
-/// The video payloads, carried on the dedicated video connection.
-///
-/// The two messages have opposite shapes, so they are handled differently:
-///
-/// - ``VideoStreamConfig`` goes out once per stream and per source change (parameter sets are
-///   out-of-band in H.264, so they are not repeated on every keyframe). Small and rare, so JSON.
-/// - ``EncodedVideoFrame`` goes out up to 60 times a second. JSON would base64 the bytes and
-///   inflate them by a third, so it gets a fixed binary header.
 public enum VideoCodec: String, Codable, Sendable, Equatable, CaseIterable {
     case h264
     case hevc
 }
 
-/// Everything a decoder needs to make sense of the frames that follow: which codec, what
-/// size, and the parameter sets.
-///
 /// The parameter sets are not in the frame data: VideoToolbox emits them in the format description
 /// attached to the sample buffer, and in AVCC they stay out of band, which is where
 /// `CMVideoFormatDescriptionCreateFromH264ParameterSets` wants them on the client.
 public struct VideoStreamConfig: Codable, Sendable, Equatable {
-    /// The capture source whose frames follow this description.
-    ///
-    /// A source change is not implied by the encoded format: two windows, or a window and a
-    /// mosaic, can have byte-identical parameter sets and dimensions. Carrying the identity here
-    /// makes the config the authoritative boundary between those streams instead of asking the
-    /// receiver to guess from its most recent request.
+    /// Not implied by the encoded format: two windows, or a window and a
+    /// mosaic, can have byte-identical parameter sets and dimensions.
     public let sourceID: String
     public let codec: VideoCodec
     /// Encoded dimensions in pixels, not points: a 1512×982pt Retina display is 3024×1964 pixels,
@@ -49,13 +34,10 @@ public struct VideoStreamConfig: Codable, Sendable, Equatable {
         self.parameterSets = parameterSets
     }
 
-    /// The description an encoded frame implies, or `nil` when that frame does not change it.
-    ///
     /// A frame with no parameter sets carries no description: they are out-of-band in H.264,
     /// attached to the first frame of a session and nowhere else, and treating a delta frame's
     /// empty list as a description would erase the parameter sets a client joining mid-stream
     /// depends on.
-    ///
     /// A description that has not changed is not re-sent: receiving one tells a client to rebuild
     /// its decoder, which at frame rate would leave it permanently re-initialising.
     public static func updated(
@@ -78,8 +60,6 @@ public struct VideoStreamConfig: Codable, Sendable, Equatable {
     }
 }
 
-/// A presentation timestamp, in the shape `CMTime` uses.
-///
 /// Not `CMTime`, which would pull CoreMedia into a module the iOS and macOS targets share; converting
 /// at the boundary costs one line on each side.
 public struct VideoTimestamp: Codable, Sendable, Equatable {
@@ -98,9 +78,6 @@ public struct VideoTimestamp: Codable, Sendable, Equatable {
     }
 }
 
-/// One compressed picture, in AVCC form: a sequence of 4-byte big-endian length-prefixed
-/// NALUs with no start codes.
-///
 /// AVCC rather than Annex-B because that is what VideoToolbox emits and what
 /// `CMVideoFormatDescriptionCreateFromH264ParameterSets` and `CMSampleBufferCreateReady` expect on
 /// the client.
@@ -109,7 +86,6 @@ public struct EncodedVideoFrame: Sendable, Equatable {
     public let pixelWidth: Int
     public let pixelHeight: Int
     public let presentationTime: VideoTimestamp
-    /// AVCC NALUs, length-prefixed.
     public let data: Data
 
     public init(
@@ -128,10 +104,7 @@ public struct EncodedVideoFrame: Sendable, Equatable {
 }
 
 public enum VideoWireError: Error, Equatable, Sendable {
-    /// The payload ended before the fixed header did.
     case truncatedHeader(have: Int, need: Int)
-    /// The header declared a payload size that does not match what actually arrived.
-    ///
     /// Worth failing on rather than trusting the outer frame length: a short read here hands a
     /// truncated picture to the decoder, which fails much later and less clearly.
     case lengthMismatch(declared: Int, actual: Int)
@@ -145,7 +118,6 @@ extension EncodedVideoFrame {
         static let keyframe: UInt8 = 1 << 0
     }
 
-    /// Big-endian throughout, matching the framing layer's length prefix.
     public func encoded() -> Data {
         var out = Data(capacity: Self.headerSize + data.count)
         out.append(isKeyframe ? Flag.keyframe : 0)
@@ -224,15 +196,12 @@ extension Data {
 
 // MARK: - Audio wire types
 
-/// Audio codec negotiated at stream start. Sent in ``AudioStreamConfig``.
 public enum AudioCodec: String, Codable, Sendable, Equatable {
     /// Raw 32-bit float PCM, interleaved channels. No compression: the payload is tiny at
     /// audio-typical frame sizes and it avoids a codec negotiation failure.
     case pcmFloat32
 }
 
-/// Everything a renderer needs to make sense of the audio frames that follow.
-/// JSON-encoded, sent once at stream start as ``MessageKind/audioConfig``.
 public struct AudioStreamConfig: Codable, Sendable, Equatable {
     public let codec: AudioCodec
     public let sampleRate: Double
@@ -252,9 +221,6 @@ public enum AudioWireError: Error, Equatable, Sendable {
     case lengthMismatch(declared: Int, actual: Int)
 }
 
-/// One chunk of PCM audio: a fixed header carrying its shape and presentation timestamp, followed by
-/// interleaved IEEE 754 Float32 samples, little-endian. Binary because audio arrives at ~100
-/// frames/second on a 20ms chunk budget.
 public struct EncodedAudioFrame: Sendable, Equatable {
     public let sampleCount: Int
     public let channelCount: Int
@@ -327,13 +293,10 @@ public struct EncodedAudioFrame: Sendable, Equatable {
     }
 }
 
-/// Which frame to keep when only one can be buffered for a channel that has fallen behind.
-///
 /// Video frames are droppable where commands are not: the client cannot use a stale picture, so
 /// sending it late is worse than not sending it at all. The rules live here rather than in the host
 /// because they are pure logic over values, so they can be tested directly.
 public enum VideoDropPolicy {
-    /// - Returns: the frame to hold for sending next.
     public static func superseded(
         _ waiting: EncodedVideoFrame,
         by arriving: EncodedVideoFrame
@@ -346,7 +309,6 @@ public enum VideoDropPolicy {
         // which is worthless without it.
         if waiting.isKeyframe { return waiting }
 
-        // Otherwise the newest picture is the most useful one.
         return arriving
     }
 }

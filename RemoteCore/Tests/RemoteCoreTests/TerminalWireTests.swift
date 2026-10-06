@@ -16,8 +16,6 @@ struct TerminalWireTests {
             .list,
             .agents,
             .create,
-            // The scope the hub's own file browser hangs on: no shell behind it, and the same
-            // browsing requests carry its id from here on.
             .startBrowser(id: id),
             .input(sessionID: id, data: Data([0x1B, 0x5B, 0x41, 0x00])),
             .resize(sessionID: id, columns: 120, rows: 36),
@@ -25,18 +23,14 @@ struct TerminalWireTests {
             .retitle(sessionID: id, command: "npm run build"),
             .close(sessionID: id),
             .listDirectory(sessionID: id, path: "/Users/someone/Desktop"),
-            // The one request that names no path, which the host answers with its home folder.
             .listDirectory(sessionID: id, path: nil),
             .readFile(sessionID: id, path: "/Users/someone/Desktop/notes.txt"),
             .beginWrite(sessionID: id, path: "/Users/someone/Desktop/notes.txt", totalBytes: 4_096),
-            // An empty file, which is the one transfer that is a request and a last piece with
-            // nothing between them.
             .beginWrite(sessionID: id, path: "/Users/someone/Desktop/empty.txt", totalBytes: 0),
             .writeChunk(
                 sessionID: id,
                 path: "/Users/someone/Desktop/notes.txt",
-                // Bytes that are not text, because a chunk boundary may fall inside a character and
-                // the pieces are joined before they are decoded, so nothing here may assume UTF-8.
+                // Not text: a chunk boundary may fall inside a character, so nothing may assume UTF-8.
                 data: Data([0x00, 0x1B, 0xFF, 0x0A]),
                 isLast: false
             ),
@@ -46,9 +40,6 @@ struct TerminalWireTests {
                 data: Data(),
                 isLast: true
             ),
-            // The three changes a browser can make, which share one request case. A folder and a
-            // file are both here because they are the same operation with a different answer to
-            // "what should be at the end of it", and the kind is what carries that.
             .changeFile(
                 sessionID: id,
                 operation: .create(path: "/Users/someone/Desktop/New Folder", kind: .folder)
@@ -68,9 +59,6 @@ struct TerminalWireTests {
                 sessionID: id,
                 operation: .delete(path: "/Users/someone/Desktop/New Folder")
             ),
-            // The one request that is not about a terminal at all, and the one that is sent
-            // without being asked for: every session that becomes ready offers its token. Bytes
-            // that are not text, because that is what a device token is.
             .registerPushToken(Data([0x9B, 0x00, 0xFF, 0x7A])),
         ]
 
@@ -82,8 +70,6 @@ struct TerminalWireTests {
     @Test("host events round-trip with reconnectable snapshot and attention")
     func eventsRoundTrip() throws {
         let id = UUID(uuidString: "8B88D893-55BD-4F68-AF3F-E81D885A50A7")!
-        // With the shape, because that is what a client lays a replayed history out on. The two
-        // fields are optional so that either end can be older, and this is what says they travel.
         let info = TerminalSessionInfo(id: id, name: "Deploy", isRunning: true, columns: 102, rows: 66)
         let events: [TerminalEvent] = [
             .snapshot([info]),
@@ -108,8 +94,6 @@ struct TerminalWireTests {
                         permissions: "-rw-r--r--",
                         modified: Date(timeIntervalSince1970: 1_760_000_000)
                     ),
-                    // A link that points at a folder is both, which is the case the two flags
-                    // together exist for.
                     RemoteDirectoryEntry(
                         name: "shortcut",
                         isDirectory: true,
@@ -130,8 +114,7 @@ struct TerminalWireTests {
                 data: Data("first line\n".utf8),
                 isLast: false
             ),
-            // A picture in the same envelope, carrying bytes that deliberately are not text: the
-            // whole reason the kind travels is that this payload must never be decoded as a string.
+            // Bytes that are not text: this payload must never be decoded as a string.
             .fileContents(
                 sessionID: id,
                 path: "/Users/someone/Desktop/photo.png",
@@ -147,18 +130,12 @@ struct TerminalWireTests {
                 message: "Peering is not allowed to read this."
             ),
             .wroteFile(sessionID: id, path: "/Users/someone/Desktop/notes.txt", totalBytes: 4_096),
-            // A write that did not land, which is deliberately a different event from the read
-            // failure above: one clears the panel and the other leaves the editor open on the text
-            // the user still has.
+            // Deliberately distinct from the read failure: one clears the panel, the other leaves the editor open on the user's text.
             .writeFailure(
                 sessionID: id,
                 path: "/Users/someone/Desktop/notes.txt",
                 message: "That file is too large to send to this Mac."
             ),
-            // The answers to the three changes in the request array above. The note is prose the
-            // host composed — it is the side that counted what a recursive delete removed — and
-            // the path is the one the client sent rather than the one that ended up on disk,
-            // because that is the row the client is still holding.
             .fileOperationDone(
                 sessionID: id,
                 path: "/Users/someone/Desktop/New Folder",
@@ -169,9 +146,7 @@ struct TerminalWireTests {
                 path: "/Users/someone/Desktop/notes.txt",
                 note: "renamed notes.txt to meeting notes.txt"
             ),
-            // The one that matters most to get right: a change that did not happen is its own
-            // event, because a folder that would not be read and a folder that would not be
-            // changed leave the panel in two different states.
+            // A change that did not happen is its own event: a folder not read and a folder not changed leave the panel in different states.
             .fileOperationFailure(
                 sessionID: id,
                 path: "/Users/someone/Desktop/New Folder",

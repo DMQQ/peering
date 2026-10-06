@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Second onboarding step, shown once both permissions are granted: the switches for reaching
-/// this Mac while it is closed or unattended. Skippable, since every one of them defaults off.
 struct AwaySwitchesOnboardingView: View {
     let onContinue: () -> Void
 

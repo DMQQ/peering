@@ -4,14 +4,9 @@ import RemoteCore
 import Security
 
 /// One framed connection to a peer.
-///
-/// Owns the receive loop and the ``FrameDecoder``. TCP delivers an arbitrary byte window, so
-/// frames arrive split, fused or several at a time; everything above deals in whole ``Frame``
-/// values and never sees a partial read.
 final class PeerConnection: @unchecked Sendable {
     let connection: NWConnection
 
-    /// Delivered on the connection's queue. Set these before calling ``start()``.
     var onFrame: (@Sendable (Frame) -> Void)?
     var onClose: (@Sendable (Error?) -> Void)?
 
@@ -50,7 +45,6 @@ final class PeerConnection: @unchecked Sendable {
         connection.send(content: data, completion: .contentProcessed { _ in })
     }
 
-    /// Sends and reports acceptance, for the video path where dropping beats queueing.
     func send(_ data: Data, completion: @escaping @Sendable (Error?) -> Void) {
         connection.send(content: data, completion: .contentProcessed(completion))
     }
@@ -113,10 +107,6 @@ final class PeerConnection: @unchecked Sendable {
         onClose?(error)
     }
 
-    /// The peer's leaf-certificate public key, or `nil` before the handshake completes.
-    ///
-    /// This is the value the host pins. It comes from the TLS layer rather than the handshake
-    /// messages on purpose: a peer that could claim a public key would make pinning meaningless.
     var peerPublicKey: Data? {
         guard let metadata = connection.metadata(definition: NWProtocolTLS.definition)
                 as? NWProtocolTLS.Metadata
@@ -148,9 +138,6 @@ final class PeerConnection: @unchecked Sendable {
 }
 
 /// Accumulates certificates from `sec_protocol_metadata_access_peer_certificate_chain`.
-///
-/// That API hands each certificate to a block which may be `@Sendable`, so a plain captured
-/// `var` is not safe to write from it; the lock keeps this honest however the SDK imports it.
 private final class CertificateCollector: @unchecked Sendable {
     private let lock = NSLock()
     private var certificates: [SecCertificate] = []
@@ -159,7 +146,6 @@ private final class CertificateCollector: @unchecked Sendable {
         lock.withLock { certificates.append(certificate) }
     }
 
-    /// The leaf is delivered first.
     var leaf: SecCertificate? {
         lock.withLock { certificates.first }
     }

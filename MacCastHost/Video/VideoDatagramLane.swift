@@ -6,36 +6,17 @@ private let videoLog = Logger(subsystem: "pl.dmq.peering.host", category: "video
 
 /// The relay's datagram path, as the video pipeline sees it: a socket to send on, and the sealing
 /// that makes what goes out unreadable to the relay in the middle.
-///
-/// Its own type so that ``VideoStreamer`` can treat it as a destination without knowing anything
-/// about sockets, counters or ciphertext: the streamer decides which lane a frame goes on, and
-/// everything about how it goes on that lane lives here.
-///
-/// The relay allocates the address and the token; the secret is this Mac's, generated when the
-/// client asked for the lane and sent to it inside the control channel's TLS session. The relay
-/// forwards the datagrams and cannot read one of them.
 final class VideoDatagramLane: @unchecked Sendable {
     private let lock = NSLock()
     private let socket: VideoDatagramSocket
     private var sealer: VideoDatagramSealer
 
 /// Opens what the client seals, which in this direction means one thing: a probe.
-///
-/// A probe has to be proved rather than merely received: the address a datagram arrives from is
-/// not evidence of who sent it, and the only thing that is, is opening it with the session key.
     private var probeOpener: VideoDatagramOpener
 
-/// Where the client is, once something has arrived from it directly. `nil` until then.
-///
-/// Held here as well as in the socket so the log line that says the path opened can name the
-/// address once rather than on every probe.
     private var directPeer: (host: String, port: UInt16)?
 
 /// What the attempt has come to, so that it can be said once per change rather than per probe.
-///
-/// The client's own type rather than a second enum spelled the same way: it is one feature with
-/// two ends, so the two logs can be read against each other without a translation. The words are
-/// this end's own; see ``sentence(for:)``.
     private var probeStatus: ClientSession.DirectPath = .notTried
 
     var isDirectOpen: Bool {
@@ -46,23 +27,15 @@ final class VideoDatagramLane: @unchecked Sendable {
     }
 
 /// The last discovery that threw, kept so that one is said once rather than on every re-ask.
-///
-/// Its own state because it is its own fault: "the relay has not said where the client is" is an
-/// answer about the client, and this is the relay not answering at all.
     private var discoveryFailure: String?
 
-    /// The relay's allocation, kept so the probing task can name the session it is asking about.
     private let relay: RelaySession
 
-    /// The task that asks where the client is and then keeps knocking.
     private var probeTask: Task<Void, Never>?
     /// Once the lane has failed or been cancelled, no later race may install a fresh probe task.
     private var stopped = false
 
 /// How many probe attempts go by between two asks at the relay for the client's address.
-///
-/// Twelve, which is one re-ask per three seconds while the probing is quick and one per minute
-/// once it has slowed, because the attempt counter is what both cadences are counted in.
     private static let rediscoverEvery = 12
 
 /// - Throws: when the relay's allocation cannot be used: a token that is not the size the wire
@@ -81,8 +54,6 @@ final class VideoDatagramLane: @unchecked Sendable {
         probeOpener = schedule.opener(direction: .clientToHost)
     }
 
-/// Opens the socket and binds, so the relay knows where this Mac's datagrams come from before the
-/// first of them is sent. See ``VideoDatagramSocket/start()``.
     func start() {
         socket.onFailure = { [weak self] error in
             videoLog.error("the video datagram socket failed: \(error.localizedDescription, privacy: .public)")
@@ -96,17 +67,6 @@ final class VideoDatagramLane: @unchecked Sendable {
     }
 
 /// Asks the relay where the client is, and then keeps knocking on its door.
-///
-/// The Mac has to knock as well as the phone. A NAT that maps a port is not a NAT that admits
-/// traffic: the common kinds admit a packet from a given address only once the machine behind them
-/// has sent to that address, so a session where only one end probes opens on the permissive NATs
-/// and fails silently on the rest. Both ends knock within the same moment, and neither tells the
-/// other it is doing it: each discovers the other's address from the relay and sends.
-///
-/// What it comes to is said here too, in the client's own five outcomes. A firewall, a NAT and a
-/// relay that will not answer are all facts this end can see and the phone cannot, and when a
-/// session will not open at all it is the phone's log that cannot be read. ``note(_:)`` says each
-/// of them once.
     private func beginDirectPath() {
         let task = Task { [weak self] in
             guard let self else { return }
@@ -114,10 +74,6 @@ final class VideoDatagramLane: @unchecked Sendable {
 
 // Quick while there is any prospect of it working, then slow for the rest of the session: the
 // fast phase is what opens the path, and the slow one recovers a mapping that expired.
-//
-// The asking is inside the loop rather than before it. The relay only knows where the client is
-// once the client has sent it a datagram, so "the peer has not been heard from" is the ordinary
-// first answer rather than a verdict, and a guard outside the loop took it as one permanently.
             var attempt = 0
             while !Task.isCancelled {
                 if attempt % Self.rediscoverEvery == 0 {
@@ -168,11 +124,6 @@ final class VideoDatagramLane: @unchecked Sendable {
     }
 
 /// Whether this outcome is news, recording it if it is.
-///
-/// The loop above asks every three seconds and then every minute for the whole session, so a state
-/// announced on every pass is a state nobody reading the log can tell from a repeat. A path that
-/// is open is not closed by a later look-up: a re-ask returns a candidate address, and a candidate
-/// is not a statement about the path already carrying the picture.
     private func record(_ outcome: ClientSession.DirectPath) -> Bool {
         lock.withLock {
             if case .open = probeStatus, case .probing = outcome { return false }
@@ -183,9 +134,6 @@ final class VideoDatagramLane: @unchecked Sendable {
     }
 
 /// Records what the attempt has come to, and says it when that is news.
-///
-/// The outcomes are the client's own type, so a session that never punched and a session that
-/// punched and then lost it are the same story told from both ends.
     @discardableResult
     private func note(_ outcome: ClientSession.DirectPath) -> Bool {
         guard record(outcome) else { return false }
@@ -194,10 +142,6 @@ final class VideoDatagramLane: @unchecked Sendable {
     }
 
 /// The outcome in this end's words.
-///
-/// The cases are shared with the client so that the two ends agree about what happened; the
-/// sentences cannot be, because the client's summary says "this phone" and "the Mac", which is
-/// backwards in a Mac's log.
     private static func sentence(for outcome: ClientSession.DirectPath) -> String {
         switch outcome {
         case .notTried: return "Not tried"
@@ -208,15 +152,11 @@ final class VideoDatagramLane: @unchecked Sendable {
         }
     }
 
-    /// Forgets the last discovery failure, so that the next one is said afresh.
     private func clearDiscoveryFailure() {
         lock.withLock { discoveryFailure = nil }
     }
 
 /// Says a discovery that threw, once rather than on every re-ask.
-///
-/// Kept apart from the outcomes above because it is a different fault with a different fix: the
-/// relay not being reachable at all, rather than the relay having nothing yet to say.
     private func noteDiscoveryFailure(_ error: Error) {
         let line = error.localizedDescription
         let changed = lock.withLock { () -> Bool in
@@ -230,14 +170,6 @@ final class VideoDatagramLane: @unchecked Sendable {
 
 /// Takes a datagram that arrived straight from the client, and sends the picture back the same way
 /// from then on.
-///
-/// The open is the whole of the trust. Anyone who can write a source address into a packet can
-/// make a datagram arrive looking like the client's, and the address it claims is about to become
-/// where the video is sent, so the claim is checked by opening it with the key only the two ends
-/// hold. A forgery fails to open and changes nothing.
-///
-/// Nothing is negotiated and nothing is acknowledged: the client learns it worked by the picture
-/// starting to arrive directly.
     private func accept(_ datagram: Data, from source: VideoDatagramSocket.Source) {
         let frame = lock.withLock { () -> Frame? in
 // Mutated in place rather than through a copy: the replay window is the state, and a probe
@@ -264,8 +196,6 @@ final class VideoDatagramLane: @unchecked Sendable {
 
         guard case .peer(let host, let port) = source else { return }
 
-// Every probe, not just the first: a NAT mapping that moves mid-session is the ordinary case this
-// whole design is built around, and the address that just worked is the address to use.
         let moved = lock.withLock { () -> Bool in
             let changed = directPeer?.host != host || directPeer?.port != port
             directPeer = (host, port)
@@ -276,9 +206,6 @@ final class VideoDatagramLane: @unchecked Sendable {
         do {
             try socket.setDirectPeer(host: host, port: port)
             videoLog.notice("the client is reachable directly at \(host, privacy: .public):\(port, privacy: .public)")
-// Recorded and not said: the line above is this stage's sentence, and it names the address the
-// probe actually arrived from rather than the one the relay remembered. This stops the next re-ask
-// from announcing `probing` over a path that is already carrying the picture.
             _ = record(.open(peer: "\(host):\(port)"))
         } catch {
             videoLog.error("the client's direct address could not be used: \(error.localizedDescription, privacy: .public)")
@@ -303,16 +230,10 @@ final class VideoDatagramLane: @unchecked Sendable {
 
     var sentDatagrams: Int { socket.sentDatagrams }
 
-/// The datagrams one payload becomes, sealed and ready to send.
-///
-/// Called with the streamer's lock held, which is what keeps the chunk numbering of one frame from
-/// being handed to another.
     func seal(kind: MessageKind, payload: Data) -> [Data] {
         lock.withLock { sealer.seal(kind: kind, payload: payload) }
     }
 
-    /// Sends a group of datagrams and reports when the last one is away. The completion is the
-    /// streamer's flow control, exactly as it is for a write to a connection.
     func send(_ datagrams: [Data], completion: @escaping @Sendable (Error?) -> Void) {
         socket.send(datagrams, completion: completion)
     }

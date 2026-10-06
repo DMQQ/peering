@@ -1,24 +1,7 @@
 import SwiftUI
 
-/// Short answers to the questions people need before trusting a remote-desktop app.
-///
-/// **Every answer is behind a tap**, and that is a change worth explaining rather than a taste.
-/// The list used to be open, which meant the first thing a reader met was a screen of prose with
-/// no shape to it: thirty answers run together is a page nobody finishes, and the one question
-/// somebody actually had was somewhere in the middle of it. Closed, the same list is an index:
-/// every question is visible at once and the reader picks the one they came for. Nothing is
-/// hidden by this; the questions *are* the content until one of them is asked.
-///
-/// **What is written here is checked against the app rather than against the plan for it.** A FAQ
-/// is the one screen where a claim and a feature are compared directly, and a promise kept here
-/// about a control that does not exist is worse than the feature being missing, because the reader
-/// spends their time looking for a button. So "Known gaps" is a section rather than an omission,
-/// and it is written to be read by somebody deciding whether to pay.
+/// Every answer is behind a tap so the list reads as an index. Answers are checked against the app, not the plan: a promise about a control that does not exist is worse than a missing feature, hence the Known gaps section.
 struct FAQView: View {
-    /// The questions that are open, by their text.
-    ///
-    /// More than one at a time, deliberately: this is a reference page, and somebody comparing
-    /// two answers should not have to hold the first one in their head while they open the second.
     @State private var opened: Set<String> = []
 
     var body: some View {
@@ -59,11 +42,6 @@ struct FAQView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// One question, and its answer when it is open.
-    ///
-    /// The chevron turns rather than being swapped for another glyph, because a rotation is the
-    /// same mark in two positions and reads as one control changing; two different symbols read as
-    /// two controls, one of which appeared where the other was.
     private func row(_ item: QA, isLast: Bool) -> some View {
         let isOpen = opened.contains(item.id)
 
@@ -88,9 +66,7 @@ struct FAQView: View {
                         .rotationEffect(.degrees(isOpen ? 90 : 0))
                 }
                 .padding(.vertical, 11)
-                // The whole row is the target, not the two words in it. A question wraps on a
-                // narrow phone, and a tap on the second line of one has to do what a tap on the
-                // first line does.
+                // The whole row is the target: a question wraps on a narrow phone.
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)

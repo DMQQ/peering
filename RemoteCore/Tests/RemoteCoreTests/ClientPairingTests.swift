@@ -6,7 +6,6 @@ import Testing
 
 @testable import RemoteCore
 
-/// A flag two threads can share, for telling a callback apart from a race.
 private final class LockedFlag: @unchecked Sendable {
     private let lock = NSLock()
     private var flag = false
@@ -15,24 +14,12 @@ private final class LockedFlag: @unchecked Sendable {
     func set() { lock.withLock { flag = true } }
 }
 
-/// A test that could not be set up at all, as opposed to one whose subject behaved wrongly.
-///
-/// Thrown from the helpers below rather than recorded as an expectation, because a test that could
-/// not open a listener has nothing to say about the client, and the assertions that follow would be
-/// assertions about a session that never ran.
 struct TestSetupError: Error, CustomStringConvertible {
     let description: String
     init(_ description: String) { self.description = description }
 }
 
-/// Whether this machine can hold a keychain key at all, which every test here needs and a CI
-/// runner may not have.
-///
-/// Asked by trying rather than by inspecting: there is no API that answers "is there a usable
-/// Keychain here", and the probe is the same call the tests themselves make, so a machine that
-/// fails it is a machine where all of them would fail for a reason that has nothing to do with the
-/// pin. The probe's key carries a tag of its own and is destroyed immediately, so the check neither
-/// reads nor mints the identity the app runs on.
+/// The probe key carries its own tag and is destroyed at once, so it neither reads nor mints the app identity.
 let keychainIsUsable: Bool = {
     let tag = Data("pl.dmq.maccast.tests.keychain-probe.\(UUID().uuidString)".utf8)
     defer { try? SelfSignedIdentity.destroy(role: .client, keyTag: tag) }
@@ -44,8 +31,6 @@ let keychainIsUsable: Bool = {
     return identity != nil
 }()
 
-/// Runs `body` with an identity of its own, under a tag nothing else uses, and destroys it after.
-///
 /// **The tag is the whole point.** `loadOrCreate` defaults to a fixed tag belonging to the real
 /// app, so a test that let it default would load the developer's own key and the teardown here
 /// would then delete it. A fresh tag per identity keeps the two apart in both directions, which is
@@ -61,7 +46,6 @@ func withIdentity<T>(
     return try await body(identity)
 }
 
-/// Both ends of a test's handshake: this device, and the Mac it is deciding about.
 func withTestEnds<T>(
     _ body: (_ client: SelfSignedIdentity, _ mac: SelfSignedIdentity) async throws -> T
 ) async throws -> T {
@@ -72,13 +56,7 @@ func withTestEnds<T>(
     }
 }
 
-/// A pin store of this test's own.
-///
-/// The store the app uses is the Keychain and `ClientPinStore` has no injectable backing, so a test
-/// that wants to decide what is pinned has to take one of its own. The account is fresh per test so
-/// that two tests running at once cannot see each other's pins, and teardown deletes the item
-/// rather than leaving behind the empty one `removeAll()` writes: a test run should not add to the
-/// machine's Keychain, not even something with nothing in it.
+/// Fresh account per test so parallel tests cannot see each other's pins; teardown deletes the item rather than leaving the empty one `removeAll()` writes.
 struct TestPins {
     let store: ClientPinStore
     private let service = "pl.dmq.maccast.tests.clientpins"
@@ -100,12 +78,6 @@ struct TestPins {
     }
 }
 
-/// Everything the session emitted, so a test can wait for the event it is about rather than sleep
-/// for long enough and hope.
-///
-/// Polled rather than signalled, and that is deliberate: the session reports from whichever queue
-/// the network handed it, and what a test can honestly assert is that an event arrives, not that it
-/// arrives before the next line runs.
 final class SessionLog: @unchecked Sendable {
     private let lock = NSLock()
     private var events: [ClientSession.Event] = []
@@ -124,10 +96,6 @@ final class SessionLog: @unchecked Sendable {
         }
     }
 
-    /// The sentence the session failed with, or `nil` while it has not failed.
-    ///
-    /// The last one rather than the first: a session that fails twice says the same thing twice,
-    /// and reading the newest is what a caller that just waited for a failure wants.
     var failure: String? {
         for phase in phases.reversed() {
             if case .failed(let message) = phase { return message }
@@ -137,7 +105,6 @@ final class SessionLog: @unchecked Sendable {
 
     var isReady: Bool { phases.contains(.ready) }
 
-    /// The six digits the session is asking the user to compare, or `nil` while it is not asking.
     var confirmingCode: String? {
         for phase in phases.reversed() {
             if case .confirming(let code) = phase { return code }
@@ -145,7 +112,6 @@ final class SessionLog: @unchecked Sendable {
         return nil
     }
 
-    /// Polls until the condition holds, or until the deadline passes, and says which.
     func wait(within seconds: TimeInterval = 10, until condition: (SessionLog) -> Bool) async -> Bool {
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
@@ -156,13 +122,6 @@ final class SessionLog: @unchecked Sendable {
     }
 }
 
-/// A Mac on loopback, scripted rather than running.
-///
-/// The decision under test is a decision about *which Mac answered*, so there is no way to make it
-/// without a Mac to answer with: a stub below this level would replace the certificate and the
-/// hello, and those are the evidence the decision is made from. So what this is instead is the
-/// smallest Mac the client will talk to: a TLS listener with a key of its own, and the frames
-/// `HostSession` answers with, in the order that file sends them.
 final class ScriptedMac: @unchecked Sendable {
     private let listener: NWListener
     private let queue = DispatchQueue(label: "test.scripted-mac")
@@ -213,12 +172,8 @@ final class ScriptedMac: @unchecked Sendable {
 
     func stop() { listener.cancel() }
 
-    /// The next connection the client opens, started and ready to carry bytes.
-    ///
     /// A session that reaches ready opens a second socket for video, so this takes them in the
     /// order they arrive and the callers that only care about the control channel take the first.
-    /// Bounded like the reads below: a client that never connects has to fail the test with a
-    /// sentence rather than hang it.
     func nextConnection(within seconds: TimeInterval = 10) async -> MacLink? {
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
@@ -238,11 +193,6 @@ final class ScriptedMac: @unchecked Sendable {
     }
 }
 
-/// One accepted connection, read as frames.
-///
-/// Frames are collected into a queue and polled rather than handed back through a continuation.
-/// A scripted Mac reads two or three frames in its whole life, and polling cannot lose one to a
-/// race between the connection's queue and the test's.
 final class MacLink: @unchecked Sendable {
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "test.scripted-mac.link")
@@ -270,8 +220,6 @@ final class MacLink: @unchecked Sendable {
         receive()
     }
 
-    /// Waits until the connection can carry bytes, or until it has ended.
-    ///
     /// The same wait `RelayByteSpliceTests` makes, for the same reason: a `send` on a connection
     /// that is still setting up is accepted and then dropped, which here would be a scripted Mac
     /// that answered nothing and a test that failed for a reason it could not name.
@@ -318,14 +266,11 @@ final class MacLink: @unchecked Sendable {
         send(Frame(kind: kind, payload: payload))
     }
 
-    /// Hangs up from this end, the way a Mac that restarted or changed network would.
-    ///
     /// **The difference from `ClientSession.disconnect()` is the whole reason this exists.** The
     /// client's own teardown closes its sockets as *cancelled*, and a cancelled socket must not be
     /// dialled again; a socket this end closed arrives as a transport failure, which is what the
     /// video reconnect is armed by. A test that could only close sockets from the client's side
     /// could not tell those two apart.
-    ///
     /// The reason is written before the cancel, because `end` keeps the first one and the
     /// cancellation path names itself as the client's doing.
     func hangUp() {
@@ -333,7 +278,6 @@ final class MacLink: @unchecked Sendable {
         connection.cancel()
     }
 
-    /// The host's hello, which is the frame the pin decision turns on.
     func sendHello(serverID: String, alreadyPaired: Bool) {
         send(.serverHello, ServerHello(
             serverID: serverID,
@@ -345,11 +289,6 @@ final class MacLink: @unchecked Sendable {
 
     // MARK: - Receiving
 
-    /// The next frame the client sent, or `nil` if none arrives before the deadline.
-    ///
-    /// Bounded on purpose, like the reads in the relay splice tests: a frame that never arrives has
-    /// to come back as nothing rather than as a test that hangs, or the assertion that fails says
-    /// only that something did not happen.
     func next(within seconds: TimeInterval = 10) async -> Frame? {
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
@@ -360,18 +299,11 @@ final class MacLink: @unchecked Sendable {
         return dequeue()
     }
 
-    /// The next frame, with its kind checked.
-    ///
     /// Checked rather than skipped: what a handshake *is* is the order of these frames, and a
     /// helper that discarded anything unexpected would pass against a client that sent them in the
     /// wrong order. It throws rather than recording, so a test stops at the first frame that was
-    /// not what the protocol says instead of piling further assertions onto a stream that has
-    /// already gone wrong.
     func expect(_ kind: MessageKind, within seconds: TimeInterval = 10) async throws -> Frame {
         guard let frame = await next(within: seconds) else {
-            // What the link did is part of the sentence: a connection that ended during the TLS
-            // handshake and one the test read too slowly look identical from an assertion that
-            // only knows no frame arrived.
             let why = lock.withLock { failureReason } ?? "the connection is still open"
             throw TestSetupError("the client sent nothing where \(kind) was expected (\(why))")
         }
@@ -398,9 +330,6 @@ final class MacLink: @unchecked Sendable {
         do {
             while let frame = try decoder.next() { arrived.append(frame) }
         } catch {
-            // The client wrote bytes this end cannot frame, which is a fault in the test's own
-            // script rather than a network condition. Ending the link makes the next read return
-            // nothing instead of waiting on a decoder that can never advance again.
             ended = true
         }
     }
@@ -414,10 +343,6 @@ final class MacLink: @unchecked Sendable {
     private func hasEnded() -> Bool { lock.withLock { ended } }
 }
 
-/// The opening every connection makes, and the Mac's answer to it.
-///
-/// Returns the client's hello, which is where the ID the pin is keyed by is claimed, so a test can
-/// check that the client is asking about the Mac it thinks it is.
 @discardableResult
 func greet(_ link: MacLink, serverID: String, alreadyPaired: Bool) async throws -> ClientHello {
     let role = try await link.expect(.connectionRole)
@@ -432,21 +357,15 @@ func greet(_ link: MacLink, serverID: String, alreadyPaired: Bool) async throws 
     return hello
 }
 
-/// The sentence the session's own phase holds, or `nil` while it has not failed.
-///
 /// **Both surfaces, not just the event.** A failure during connect reaches the session twice: once
 /// from the catch around the connect call, and once from the connection's own close. The first of
 /// those to arrive is emitted as an event and the second overwrites `phase` in silence, so which
 /// one a reader sees depends on which arrived first. A test that read only the events would be
-/// reading the winner of a race, and the shipped bug lived exactly in that gap: the old connect
-/// path replaced the transport's sentence with an identity one, and whether anybody saw it came
-/// down to the order two fault reporters got there in.
 func failurePhase(_ session: ClientSession) -> String? {
     if case .failed(let message) = session.phase { return message }
     return nil
 }
 
-/// The endpoint for a port on this machine, which is the only host these tests dial.
 private func loopback(_ port: UInt16) throws -> NWEndpoint {
     guard let port = NWEndpoint.Port(rawValue: port) else {
         throw TestSetupError("\(port) is not a usable TCP port")
@@ -454,12 +373,6 @@ private func loopback(_ port: UInt16) throws -> NWEndpoint {
     return .hostPort(host: "127.0.0.1", port: port)
 }
 
-/// A loopback port with nothing listening on it.
-///
-/// Taken by a listener and then given back rather than guessed at: a port that happened to be free
-/// on the machine this was written on proves nothing about the machine running it, and a test that
-/// fails because something else took 9999 is a test nobody trusts.
-///
 /// The pause after the cancel is not tidiness. `cancel()` closes the listening socket on the
 /// listener's own queue, and a dial that beats it reaches a socket still in the backlog that
 /// nothing will ever accept, which is a connection that hangs rather than one that is refused.
@@ -492,11 +405,6 @@ private func unusedLoopbackPort() async throws -> UInt16 {
     return port
 }
 
-/// The sentences a failure that came from the network can produce.
-///
-/// Built from `NetworkFailureText` rather than written out, because the assertion it serves is that
-/// the message came from that table: a test that listed the words itself would keep passing after
-/// the table changed, which is the wrong thing for a test about the table's reach to do.
 let transportSentences: Set<String> = [
     NetworkFailureText.describe(POSIXErrorCode.ECONNREFUSED),
     NetworkFailureText.describe(POSIXErrorCode.ECONNRESET),
@@ -506,38 +414,12 @@ let transportSentences: Set<String> = [
     NetworkFailureText.describe(POSIXErrorCode.EHOSTDOWN),
     NetworkFailureText.describe(POSIXErrorCode.EPIPE),
     NetworkFailureText.describe(POSIXErrorCode.ENETDOWN),
-    // The transport's own sentences, for the failures that are not a POSIX code at all: the
-    // connect deadline, which carries the timeout that was asked for, and anything from TLS that
-    // this build cannot name. The 5 is the timeout the test above dials with.
     ClientConnection.Failure.timedOut(5).errorDescription ?? "",
     ClientConnection.Failure.hostClosed.errorDescription ?? "",
     "The connection to the Mac failed.",
 ]
 
-/// Whether the client accepts the Mac it is talking to.
-///
-/// **What this covers, and what nothing did.** `ClientSession` decides whether the Mac that
-/// answered is the one this device paired with, and that decision is the pin: the phone stores the
-/// Mac's public key when it pairs, and refuses a connection that presents another one. Nothing
-/// tested the decision, and a shipped bug came out of that gap. The connect path announced an
-/// identity change for *any* failure to a paired Mac, so a Mac that was merely asleep produced
-/// "its key does not match the key this iPhone pinned for it", with the advice to forget the Mac
-/// and pair again. The wording was covered by `NetworkFailureTextTests`; whether the session ever
-/// reached for that wording was not.
-///
-/// What these tests drive is a real `ClientSession` against a scripted Mac over loopback, so the
-/// key it decides about arrives in a TLS certificate rather than as a fixture handed to it.
-///
-/// Serialized because each one mints two P-256 keys in the Keychain, and the Keychain does not mint
-/// several at once reliably: running three of these in parallel failed about one test in three with
-/// `errSecItemNotFound` out of `SecKeyCreateRandomKey`, on a machine where the app itself has never
-/// had trouble creating the one key it needs. Sequential runs do not, which is worth the two seconds.
-/// **The whole of what a client does against a Mac that answers it.** Every test in this file mints
-/// a TLS identity of its own in the Keychain, and `.serialized` on this suite is what keeps that on
-/// one thread: two suites minting keys at the same time make `SecKeyCreateRandomKey` fail with
-/// `errSecItemNotFound` often enough to be a test run out of every two, which reads as the client
-/// failing when nothing is wrong with it. The trait applies to everything nested below, which is why
-/// the video socket's own tests are nested rather than written beside this suite.
+/// Serialized: two suites minting keys at once make `SecKeyCreateRandomKey` fail with `errSecItemNotFound`. The trait covers nested suites, which is why the video socket tests are nested.
 @Suite("The client against a scripted Mac", .serialized, .timeLimit(.minutes(1)), .enabled(if: keychainIsUsable))
 struct ClientPairingTests {
     /// Ending an attempt is the terminal event for that attempt. The transport's cancellation
@@ -581,17 +463,11 @@ struct ClientPairingTests {
     }
 
     /// **The regression, and the most valuable assertion in this file.** A Mac that is not there
-    /// must not be reported as a Mac whose identity changed.
-    ///
-    /// The Mac is dialled through a target that carries a pin, which is what a paired Mac is. That
+    /// must not be reported as a Mac whose identity changed. Dialled with a pin in force, as a paired Mac is: the old path keyed the identity failure on `pinned != nil`.
     /// matters: the old connect path asked whether a pin was *in force* (`pinned != nil`), decided
     /// on that basis that the Mac's identity was the problem, and told the user to break a working
     /// pairing over a sleeping Mac. A test that dialled an address would have had no pin in force
     /// and would have passed against the bug.
-    ///
-    /// What comes back now is the transport's own sentence, and that is what is asserted: not
-    /// merely that the identity sentence is absent, but that the message is one the network table
-    /// produces.
     @Test func aMacThatIsNotThereIsNotAnIdentityFailure() async throws {
         let pins = TestPins()
         defer { pins.destroy() }
@@ -622,9 +498,6 @@ struct ClientPairingTests {
 
             await session.connect(to: .discovered(host), timeout: 5)
 
-            // There is nothing to wait for. A connect that fails does so before it returns, and
-            // the session fails and reports the sentence in the same call, which is the contract
-            // its own documentation states.
             let emitted = try #require(log.failure, "the session never failed")
             let reported = try #require(failurePhase(session), "the session's phase is not a failure")
 
@@ -647,20 +520,14 @@ struct ClientPairingTests {
                 )
             }
 
-            // And the two agree. They are the same failure reported from two places, so a user who
-            // reads the notification and a user who reads the screen must not be told different
-            // things about the same second.
             #expect(emitted == reported)
 
-            // And the pin is exactly as it was. A failed attempt must not disturb the store, or the
-            // next connection would be judged against something nobody approved.
             #expect(pins.store.pin(for: hostID) == pinnedKey)
         }
     }
 
     /// **The decision itself, in the direction that refuses.** A Mac whose certificate key is not
     /// the pinned one is a pin mismatch, in the words that carry the way out.
-    ///
     /// Dialled by address, deliberately. An address says nothing about which Mac is at it, so the
     /// client brings no pin *to the TLS handshake* and the comparison is left where it is being
     /// tested, in `handleServerHello`. A Bonjour target pins inside the verify block, where a
@@ -672,8 +539,6 @@ struct ClientPairingTests {
 
         try await withTestEnds { client, macIdentity in
             let hostID = "paired-mac"
-            // The key this device pinned, which is not the one the Mac is about to present. A key
-            // of the right shape, so the comparison fails for the only reason it can: the bytes.
             let pinnedKey = Data([0x04] + [UInt8](repeating: 0x11, count: 64))
             #expect(pins.store.record(hostID: hostID, publicKey: pinnedKey), "the pin could not be stored")
 
@@ -700,37 +565,23 @@ struct ClientPairingTests {
 
             let message = try #require(log.failure)
             #expect(message == ClientSession.Failure.pinMismatch(hostID: hostID).errorDescription)
-            // Held as well as said. A refusal that reached the event stream and left `phase`
-            // saying something else would put two different sentences in front of the user.
             #expect(failurePhase(session) == message)
             #expect(message.contains("not the Mac you paired with"))
             #expect(message.contains("pinned"))
             #expect(message.contains("pair again"))
 
-            // The pin that was compared is still the one on file, and it is the one this test
-            // wrote: a refusal must not quietly rewrite the store to whatever it just met.
             #expect(pins.store.pin(for: hostID) == pinnedKey)
 
-            // And the key it compared against is the one from the certificate. Without this the
-            // test could pass against a session that compared the wrong two values, or that failed
-            // for a reason of its own on the way to the pin.
             #expect(session.serverKey == macIdentity.publicKeyBytes)
         }
     }
 
-    /// The same decision in the direction that lets a Mac through.
-    ///
-    /// Asserted by the note the session emits when a pin is accepted, which is the only thing that
-    /// separates "the check ran and passed" from "the check never ran". The failure case above
-    /// covers the other outcome, and a session that skipped the check entirely would look like
-    /// this one from the outside.
     @Test func aMacWhoseKeyMatchesThePinIsLetThrough() async throws {
         let pins = TestPins()
         defer { pins.destroy() }
 
         try await withTestEnds { client, macIdentity in
             let hostID = "paired-mac"
-            // Pinned to the Mac's real key, which is the state a completed pairing leaves behind.
             #expect(
                 pins.store.record(hostID: hostID, publicKey: macIdentity.publicKeyBytes),
                 "the pin could not be stored"
@@ -761,28 +612,12 @@ struct ClientPairingTests {
                 "the pin was accepted without the check being reported: \(log.notes)"
             )
 
-            // The key the client read out of this Mac's certificate is the same value this test
-            // pinned, which is what the pin's whole meaning rests on: the bytes stored at pairing
-            // time and the bytes a later connection presents have to be the same kind of thing.
             #expect(session.serverKey == macIdentity.publicKeyBytes)
             #expect(pins.store.pin(for: hostID) == macIdentity.publicKeyBytes)
         }
     }
 
-    /// **Where the pin comes from.** A Mac this device has never met is paired with, and what the
-    /// session writes to the store afterwards is the key that Mac presented in its certificate.
-    ///
-    /// This is the assertion the two tests above cannot make on their own: they start from a pin
-    /// the test wrote, so they prove the check reads the store, and this one proves what the store
-    /// is filled with. Between them the decision is covered from both ends of its life, and the
-    /// value in the middle is the Mac's real key rather than a fixture.
-    ///
-    /// It also covers the half of the handshake that has nothing to do with the pin and everything
-    /// to do with what the pin is for: the six digits both screens show. They are derived from a
-    /// transcript of everything the two ends exchanged, and if the two built it differently the
-    /// digits would differ, the user would say so, and a working Mac would look like an impostor.
-    /// The scripted Mac computes them the way `HostSession` does, so a change to one side's
-    /// transcript that the other did not make fails here.
+    /// A first pairing stores the key the Mac presented in its certificate, and both ends derive the same six digits from the transcript.
     @Test func aFirstPairingPinsTheKeyTheMacPresented() async throws {
         let pins = TestPins()
         defer { pins.destroy() }
@@ -811,8 +646,7 @@ struct ClientPairingTests {
             #expect(hello.wantsPairing, "a device with nothing pinned for this Mac should be asking to pair")
             #expect(pins.store.pin(for: hostID) == nil)
 
-            // The Mac's half of the commitment exchange, in `HostSession`'s order: its commitment
-            // goes out before the client's is read, and its reveal only after that arrives. Sent
+            // The Mac's commitment goes out before the client's is read and its reveal only after:
             // before rather than after, because a commitment made after seeing the other side's
             // contribution is not a commitment at all.
             let ephemeral = P256.KeyAgreement.PrivateKey()
@@ -855,9 +689,6 @@ struct ClientPairingTests {
                 nonce: nonce
             ))
 
-            // The user's half: two screens showing six digits. The two ends have to have built the
-            // same transcript out of the same exchange, and this is where that stops being an
-            // assumption about the code and becomes something a person would have noticed.
             let asked = await log.wait { $0.confirmingCode != nil }
             #expect(asked, "the client never reached the comparison the user makes")
             #expect(
@@ -872,9 +703,6 @@ struct ClientPairingTests {
             let paired = await log.wait { $0.isReady }
             #expect(paired, "the Mac accepted the pairing and the session did not finish")
 
-            // **What the pin store holds afterwards, which is the thing every later connection is
-            // judged against.** Not a key the test handed over: the one this Mac presented in the
-            // certificate the client received, read out of it by the client itself.
             #expect(
                 pins.store.pin(for: hostID) == macIdentity.publicKeyBytes,
                 "the key written at pairing time is not the key the Mac presented"
@@ -883,25 +711,14 @@ struct ClientPairingTests {
         }
     }
 
-    /// The video socket's own life, which shares this file because the scripted Mac does.
-    ///
     /// **What it covers is the half of a session that can go without the session going with it.** On
     /// a direct connection the picture travels a socket of its own, and for a long time nothing
     /// re-dialled it: `openVideoIfNeeded()` had one caller, `becomeReady()`, which runs once, so the
     /// first drop was also the last frame. The control channel stayed healthy throughout, which is
     /// what made the failure read as "paused" rather than as "disconnected", and left the phone
     /// showing a frozen picture it could still tap on.
-    ///
-    /// The scripted Mac here is the real thing in the one respect that matters: it is a Mac that
-    /// hung up, not a client that decided to stop dialling. See the enclosing suite for why these
-    /// are nested rather than written beside it.
     @Suite("Reconnecting the video socket")
     struct VideoReconnect {
-        /// A paired session that is being sent a picture, with the scripted Mac behind it.
-        ///
-        /// Everything is torn down on the way out, pin store included, so a test here is the few lines
-        /// that are about the rule and nothing else. What is handed over is the Mac (to close a socket
-        /// or take the next one), the session (to send commands), its log, and the video link itself.
         private func withLiveVideo(
             _ body: (ScriptedMac, ClientSession, SessionLog, MacLink) async throws -> Void
         ) async throws {
@@ -935,8 +752,6 @@ struct ClientPairingTests {
                 let ready = await log.wait { $0.isReady }
                 #expect(ready, "the session did not get past the pin check")
 
-                // The second connection is the video one, and the client is the end that opens it:
-                // a video socket is authorized by the control session that reached ready above.
                 let video = try #require(
                     await mac.nextConnection(),
                     "the session became ready and never opened a video connection"
@@ -950,10 +765,6 @@ struct ClientPairingTests {
 
         @Test func aDroppedVideoSocketIsDialledAgain() async throws {
             try await withLiveVideo { mac, _, log, video in
-                // The Mac hangs up mid-session, which is what a rebuilt host, a restarted capture
-                // pipeline or a network that moved under the socket all look like from here. Nothing
-                // about the control channel changes, and that is the point: this is the picture going
-                // away on a session that is otherwise fine.
                 video.hangUp()
 
                 let replacement = try #require(
@@ -966,8 +777,6 @@ struct ClientPairingTests {
                     "the client dialled again and asked for the wrong connection role"
                 )
 
-                // And the client's own account of it agrees: the channel opened a second time rather
-                // than the session being told the picture had ended for good.
                 let reopened = await log.wait {
                     $0.notes.filter { $0.hasPrefix("Video channel open") }.count == 2
                 }
@@ -979,9 +788,6 @@ struct ClientPairingTests {
         /// Mac capture, so a client that has asked for no picture and then loses its socket must not
         /// dial another one: the Mac would start capturing again for a phone that told it to stop,
         /// which is the whole of what the pause is for.
-        ///
-        /// The window is two seconds and the first two rungs are half a second and one, so a leak would
-        /// have dialled twice inside it.
         @Test func aPausedSessionDoesNotDialForAPictureItRefused() async throws {
             try await withLiveVideo { mac, session, _, video in
                 session.send(.setVideoEnabled(false))
@@ -995,15 +801,10 @@ struct ClientPairingTests {
             }
         }
 
-        /// And the other half, which is what stops a pause being a one way door: the resume has to open
-        /// a socket, because the command itself travels on the control channel and the Mac has no video
-        /// connection left to resume on.
         @Test func askingForThePictureAgainOpensASocket() async throws {
             try await withLiveVideo { mac, session, _, video in
                 session.send(.setVideoEnabled(false))
                 video.hangUp()
-                // Waited out first, so that what follows is evidence about the resume rather than
-                // about a ladder that was still running.
                 #expect(await mac.nextConnection(within: 2) == nil)
 
                 session.send(.setVideoEnabled(true))

@@ -21,7 +21,6 @@ struct SettingsTab: View {
     @AppStorage(PreferenceKeys.streamQuality) private var streamQuality: SessionModel.StreamQuality = .auto
     @State private var deviceNameDraft = ""
     @State private var query = ""
-    /// Whether the copy has just happened, so the row can say so and then stop saying so.
     @State private var copiedDiagnostics = false
     @State private var showingMailComposer = false
     @FocusState private var deviceNameFocused: Bool
@@ -70,8 +69,7 @@ struct SettingsTab: View {
                     deviceNameDraft = model.device.name
                 }
             }
-            // The permission can have been changed in iOS Settings since this screen was last
-            // looked at, and the row below reports on it rather than offering a switch of its own.
+            // The permission can change in iOS Settings, so the row reports it rather than offering a switch.
             .task { await model.refreshNotificationAuthorization() }
             .onChange(of: deviceNameFocused) { _, focused in
                 if !focused { commitDeviceName() }
@@ -113,12 +111,7 @@ struct SettingsTab: View {
 
             Controls.divider
 
-            // The two answers are kept to two words each, and that is a layout constraint rather
-            // than a copy decision. A menu picker prints its value on the trailing edge of the row
-            // and wraps rather than truncating, so "Fit whole screen" took two lines and pushed
-            // the row's own chevron out to the side of them — in a column where every other row is
-            // one line. The row's label carries the subject ("Picture"); the answers only have to
-            // carry the difference between them.
+            // Answers are two words each, a layout constraint: a menu picker wraps rather than truncating, and "Fit whole screen" took two lines and pushed the chevron aside.
             Controls.picker(
                 String(localized: "Picture"),
                 systemImage: "arrow.up.left.and.arrow.down.right",
@@ -157,26 +150,8 @@ struct SettingsTab: View {
         }
     }
 
-    /// The bitrate preset, as the one setting the next session starts from.
-    ///
-    /// It is here because it could not be found anywhere else. The control has existed for a
-    /// while, but only inside a running session — the gear panel and the speed chip on the remote
-    /// screen — and this tab is unreachable while one is running, so the two never meet and the
-    /// setting read as one that did not exist.
-    ///
-    /// Which is also why this row writes a preference and tells nobody. Every other quality
-    /// control in the app sends a figure to the Mac over a live connection; here there is no
-    /// connection to send it over by construction. ``SessionModel`` reads this back when a
-    /// session arrives and hands it over then.
-    ///
-    /// A `Menu` rather than ``Controls/picker(_:systemImage:selection:options:)``, which is what
-    /// the rest of this card uses. Two reasons, and the first is the one recorded on the
-    /// "Picture" row above: a menu picker prints the selected option on the trailing edge and
-    /// wraps rather than truncating it, and the options here carry their bitrate — "Auto,
-    /// follows the network" is not a value that fits on the end of a row. The second is that the
-    /// options are worth reading in full, and a `Menu` separates the two jobs: the row shows the
-    /// short name, the popup shows ``StreamQuality/menuTitle`` with its figure. It is the same
-    /// arrangement, and the same words, as the speed chip on the remote screen.
+    /// Here because the control otherwise exists only inside a running session, which this tab cannot be open during. It writes a preference and tells nobody: there is no connection to send it over, and ``SessionModel`` reads it back when a session arrives.
+    /// A `Menu` rather than ``Controls/picker(_:systemImage:selection:options:)``: a picker prints the option on the trailing edge and wraps, and these options carry their bitrate. The row shows the short name and the popup ``StreamQuality/menuTitle``, as the speed chip does.
     private var qualitySection: some View {
         Controls.card(String(localized: "Stream quality"),
             footer: String(localized: "The level a session starts at. Changing it during a session changes this too, so the next one starts where you left off.")
@@ -228,15 +203,7 @@ struct SettingsTab: View {
                 ))
             }
 
-            // The subscription had no door until now — the paywall could only be reached by the
-            // relay refusing a connection for quota, which means the only people who could buy it
-            // were the ones who had already been turned away. This is the door for everybody else,
-            // and it sits under Remote access because the relay is what it buys.
-            //
-            // Hidden only once the plan is unlimited, which is the point at which there is nothing
-            // left to sell. It used to hide for anybody who had bought anything, which was the same
-            // thing when there was one paid tier; now it would take the ladder away from the
-            // subscriber on the metered one, who has the most reason to climb it.
+            // The subscription's door for everybody else: the paywall was otherwise reachable only by the relay refusing for quota. Hidden only once the plan is unlimited, not for anyone who has bought something, so a metered subscriber can still climb the ladder.
             if !model.storeManager.relayPlan.isUnlimited {
                 Controls.divider
                 Button { model.paywallReason = .upgrade } label: {
@@ -274,13 +241,7 @@ struct SettingsTab: View {
         }
     }
 
-    /// The floating window, in the Settings tab.
-    ///
-    /// One switch, and the same plan behind it. On a plan that does not include it, the switch is
-    /// still the switch, dimmed and inert, with the plan's name on its top-trailing corner rather
-    /// than beside it: an overlay costs the row no width, and a badge that takes width is a badge
-    /// that moves every other control in the row when the plan changes. The footer carries the
-    /// sentence about which plan adds it.
+    /// On a plan without it the switch is dimmed and inert with the plan's name overlaid at the corner: an overlay costs no width, so the row does not move when the plan changes.
     private var pipSection: some View {
         Controls.card(
             String(localized: "Picture in Picture"),
@@ -321,7 +282,6 @@ struct SettingsTab: View {
 
             Controls.divider
 
-            // Lock Screen widget preview
             VStack(alignment: .leading, spacing: 10) {
                 Text("Lock Screen preview")
                     .font(.caption.weight(.semibold))
@@ -333,17 +293,7 @@ struct SettingsTab: View {
         }
     }
 
-    /// Being told that a terminal is waiting, in the Settings tab.
-    ///
-    /// **The one gated row in this file that is not a control.** There is nothing here to switch:
-    /// the banner is raised because a shell stopped, and the only thing the user decides is the
-    /// permission iOS asked for the first time they reached for a Mac. So the row is drawn as
-    /// itself, says what a plan without it would be missing, and on that plan the tap opens the
-    /// paywall through ``PlanLocked``, which is the whole of what this screen can honestly offer.
-    ///
-    /// **The state it prints is the system permission, not a preference of ours.** A row that
-    /// said "On" beside a permission the user refused would be the app claiming something it
-    /// cannot do, and the place to change it is iOS Settings, which the footer names.
+    /// Not a control: there is nothing to switch, the banner is raised because a shell stopped. The state printed is the system permission, not our preference; a row saying On beside a refused permission would claim something the app cannot do. On a plan without it the tap opens the paywall through ``PlanLocked``.
     private var notificationsSection: some View {
         let included = model.storeManager.access.includes(.terminalAlerts)
 
@@ -363,12 +313,7 @@ struct SettingsTab: View {
 
             Controls.divider
 
-            // **The other half of the same question, and the half this device answers.** A Mac
-            // reaches this phone with no session up through a push to a token iOS gives it, so a
-            // phone that never got one is unreachable however well everything else is configured —
-            // and from the Mac's end that absence is indistinguishable from a send that failed. A
-            // reason is shown when there is one, because it is the only place any part of this
-            // failure is ever visible.
+            // The device's half of the same question: a Mac reaches this phone with no session through a push to a token iOS gives it, and a missing token looks from the Mac like a failed send. A reason is shown when there is one, as the only place this failure is visible.
             Controls.row(String(localized: "This phone can be reached"), systemImage: "antenna.radiowaves.left.and.right") {
                 Text(model.pushRegistration ?? "No")
                     .font(.subheadline)
@@ -390,27 +335,9 @@ struct SettingsTab: View {
         }
     }
 
-    /// What this device *is*, rather than the one thing that could be done to it.
-    ///
-    /// This card used to end in a reset button, and it is gone on purpose rather than by accident:
-    /// the relay counts free minutes against the client ID, so minting a fresh identity handed
-    /// whoever found the button a fresh free allowance. Do not put it back. What is left is the
-    /// half that was always worth reading — which ID the Macs know this phone by, where the key
-    /// lives, and how many Macs have paired with it.
+    /// The reset button is gone on purpose: the relay counts free minutes against the client ID, so a fresh identity handed out a fresh free allowance. Do not put it back.
 #if DEBUG
-    /// A developer's way to see the app on a plan they have not bought.
-    ///
-    /// **Behind `#if DEBUG` and second from the bottom**, which are two rules doing the same job:
-    /// it is not something a user should find by scrolling, and it is not in any build one ever
-    /// receives. `Tools/install-iphone.sh` builds Debug, so this is on a phone installed from this
-    /// repository and never in an App Store build.
-    ///
-    /// **It changes the app and not the wire.** Every gate, padlock and plan card reads
-    /// ``StoreManager/access``, which is what this overrides; what a session *states* to the relay
-    /// is ``StoreManager/relayPlan``, read from the real entitlement either way. So the gated
-    /// surfaces can be looked at on any plan, and a session is still metered as whatever the
-    /// account actually pays for — which is the half of this that would otherwise be a way to
-    /// spend relay allowance, and is not the half being tested.
+    /// Behind `#if DEBUG`: not in any build a user receives (`Tools/install-iphone.sh` builds Debug). It changes the app and not the wire: gates read ``StoreManager/access``, which this overrides, while a session still states ``StoreManager/relayPlan`` from the real entitlement, so it cannot be used to spend relay allowance.
     private var developerSection: some View {
         Controls.card(
             String(localized: "Developer"),
@@ -484,10 +411,7 @@ struct SettingsTab: View {
 
     private var moreSection: some View {
         Controls.card(String(localized: "More")) {
-            // First, because it is the only row in this card that is about something other than
-            // the app you are holding, and the one a second Mac needs: the Mac app is a download
-            // rather than an App Store install, so somebody setting up another machine has to come
-            // back here for it.
+            // First: the Mac app is a download, so someone setting up another machine has to come back here for it.
             Link(destination: PeeringSite.download) {
                 Controls.row(String(localized: "Peering for Mac"), systemImage: "arrow.down.circle") {
                     Image(systemName: "arrow.up.right")
@@ -515,13 +439,7 @@ struct SettingsTab: View {
 
             Controls.divider
 
-            // **All five, and no way to pick one.** A tip is skipped for one of two reasons: the
-            // person has read what it says, or they were in the middle of something and wanted it
-            // gone. Nothing on this screen can tell those apart, and the second is the one that
-            // comes back here looking for what it dismissed. So the row puts every tour back and
-            // the screens that owe one show it the next time they are reached — which is also why
-            // this row has no list of the five under it: a list would be a decision to make about
-            // which tip was skipped, and the person who skipped it does not remember.
+            // All five tours reset, with no way to pick: a skipped tip may have been read or dismissed mid-task, and the person who skipped it does not remember which.
             Button {
                 Tour.resetAll()
             } label: {
@@ -536,16 +454,7 @@ struct SettingsTab: View {
 
             Controls.divider
 
-            // The only way anyone can tell us something is wrong.
-            //
-            // There is no analytics and no crash reporting in this app — that is a promise on the
-            // privacy page, not an oversight — so a report and an App Store review are the whole
-            // of the feedback. The diagnostics that used to need a separate copy and paste now
-            // ride along as an attachment, but still inside a draft the user reads and can strip
-            // before they hit Send: an app that says "nothing is sent to us" has to mean that even
-            // when it is doing the attaching itself. `mailto:` cannot carry an attachment at all,
-            // so this opens Apple's own compose sheet rather than the user's preferred mail app;
-            // a device with no Mail account configured falls back to the plain link, unattached.
+            // There is no analytics or crash reporting, so a report and an App Store review are the whole of the feedback. Diagnostics ride along as an attachment inside a draft the user can read and strip. `mailto:` cannot carry an attachment, so this opens Apple's compose sheet; with no Mail account it falls back to the plain link, unattached.
             Button {
                 if MFMailComposeViewController.canSendMail() {
                     showingMailComposer = true
@@ -575,9 +484,6 @@ struct SettingsTab: View {
 
             Controls.divider
 
-            // The row above attaches this same text to a report automatically; this one is for
-            // everywhere else a report can land — a support chat, a forum post, a reply that is
-            // not an email at all.
             Button {
                 UIPasteboard.general.string = Diagnostics.text(model: model)
                 copiedDiagnostics = true
@@ -601,16 +507,7 @@ struct SettingsTab: View {
         }
     }
 
-    /// The two documents that have to be reachable from inside the app.
-    ///
-    /// **A card of its own at the very bottom, and that is the whole of where it goes.** The card
-    /// above is about this app and this Mac: the download, the introduction, the way to tell us
-    /// something is wrong. An agreement is not that, and nobody setting up a second machine is
-    /// looking for it, so it sits below everything a person came here to do and above nothing.
-    ///
-    /// Both open in the browser rather than in a web view. A page drawn inside the app would be a
-    /// second copy of a document that has to say the same thing as the one the App Store listing
-    /// points at, and two copies of a privacy policy is one copy too many.
+    /// A card of its own at the bottom. Both open in the browser, not a web view: a page inside the app would be a second copy of a document that must match the App Store listing's.
     private var legalSection: some View {
         Controls.card(String(localized: "Legal")) {
             externalLink(String(localized: "Privacy policy"), systemImage: "hand.raised", to: PeeringSite.privacy)
@@ -621,12 +518,6 @@ struct SettingsTab: View {
         }
     }
 
-    /// One row that leaves the app.
-    ///
-    /// The trailing arrow is the same one the download row above uses, and it is doing the same
-    /// job: this is the glyph that says a tap goes somewhere else rather than opening a screen
-    /// inside the app, which for a legal page is the difference between reading it and wondering
-    /// where the back button went.
     private func externalLink(_ title: String, systemImage: String, to url: URL) -> some View {
         Link(destination: url) {
             Controls.row(title, systemImage: systemImage) {
@@ -640,15 +531,7 @@ struct SettingsTab: View {
         .foregroundStyle(ColorPalette.ink)
     }
 
-    /// What the sender writes into, with the two facts that make a report actionable already
-    /// written in for them.
-    ///
-    /// The app version and the iOS release are the first things anyone has to ask for, and asking
-    /// costs a round trip with somebody who is already annoyed enough to be writing in. The blank
-    /// headings are the report's shape, offered rather than imposed: a one-line "it doesn't work"
-    /// under a subject of the same is what arrives otherwise, and neither end of that exchange
-    /// enjoys it. The device ID, the plan, the connection path and the rest live in the attachment
-    /// ``Diagnostics`` builds, not here — this is the part the sender is actually writing.
+    /// The app version and iOS release are the first things anyone has to ask for. The device ID, plan and path live in the ``Diagnostics`` attachment, not here.
     private static var reportBody: String {
         let info = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "unknown"
@@ -666,9 +549,7 @@ struct SettingsTab: View {
             """
     }
 
-    /// The fallback for a device with no Mail account configured, where ``MailComposer`` cannot
-    /// open at all. `mailto:` has no attachment of its own, so this version goes out without the
-    /// diagnostics file — the "Copy diagnostics" row below is how that gap gets filled by hand.
+    /// The fallback when no Mail account is configured: `mailto:` has no attachment, so the "Copy diagnostics" row fills that gap by hand.
     private static var reportURL: URL {
         var components = URLComponents()
         components.scheme = "mailto"
@@ -693,37 +574,20 @@ struct SettingsTab: View {
 
 // MARK: - Home Screen Widget Preview
 
-/// The two home-screen sizes, side by side and to scale.
-///
-/// Side by side rather than stacked, which is how the gallery shows them and how they are
-/// actually met: the pair is the choice being offered, and one above the other reads as two
-/// things to scroll past. The proportions are the real ones — a medium widget is a little over
-/// twice the width of a small and exactly the same height — and every size in here is derived
-/// from the width the card has, so the pair fills a large phone and still fits a small one
-/// instead of being one fixed size that is wrong on most of them.
+/// Side by side and to scale (a medium widget is a little over twice a small's width and the same height), derived from the width the card has.
 private struct HomeScreenWidgetPreview: View {
     let hostNames: [String]
 
-    /// A medium widget is 338×158 points and a small is 158×158, so this ratio is the whole of
-    /// what makes one look like the other. The gap between them is not from the gallery — two
-    /// widgets on a home screen sit flush — it is what separates two diagrams on one card.
+    /// A medium widget is 338x158 points and a small is 158x158.
     private static let mediumToSmall: CGFloat = 2.14
     private static let gap: CGFloat = 12
 
-    /// The size of the small preview, and the unit everything else is drawn in: `design` is how
-    /// the numbers below were chosen, and the small's side scales all of them.
-    ///
-    /// Seeded rather than measured on the first pass, because a `@State` starts at whatever it is
-    /// declared with and the pair would otherwise be drawn once at the wrong size. `design` is
-    /// the width the pair was drawn at by hand; anything that fits inside the narrowest phone is
-    /// close enough for the frame before the measurement arrives.
+    /// Seeded rather than measured on the first pass: `@State` starts at its declared value and the pair would otherwise be drawn once at the wrong size.
     @State private var smallSide: CGFloat = 94
     private static let design: CGFloat = 132
 
     private var primaryName: String { hostNames.first ?? String(localized: "Your Mac") }
 
-    /// Everything inside a preview, as a multiple of the size it is being drawn at. One unit at
-    /// the design size is one point, so the numbers stay the ones a designer would have picked.
     private var unit: CGFloat { smallSide / Self.design }
 
     var body: some View {
@@ -732,10 +596,6 @@ private struct HomeScreenWidgetPreview: View {
             column(String(localized: "Medium")) { medium }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Measured rather than assumed: the card is 18 points in from the screen's edge and 16
-        // more in from its own, and what is left of an iPhone's width differs by 70 points across
-        // the sizes this runs on. Reading it here rather than at the call site keeps the preview
-        // and the card that has to hold it from having to agree on a number.
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
             guard width > 0 else { return }
             smallSide = (width - Self.gap) / (1 + Self.mediumToSmall)
@@ -797,9 +657,6 @@ private struct HomeScreenWidgetPreview: View {
             }
         }
         .padding(15 * unit)
-        // The same height as the small, which is what makes the pair read as one set of choices.
-        // It used to be a `minHeight` on a flexible width, so the medium grew with the card and
-        // its proportion drifted on every phone.
         .frame(
             width: smallSide * Self.mediumToSmall,
             height: smallSide,
@@ -814,11 +671,7 @@ private struct HomeScreenWidgetPreview: View {
 }
 
 private extension View {
-    /// The surface of a widget: a lit pane rather than a card of the app's own.
-    ///
-    /// The radius is passed in rather than fixed at 24 because the previews are no longer one
-    /// size. A real widget's corner is about a sixth of its height, and a preview drawn at 94
-    /// points with a 24-point radius would be rounder than any widget on the home screen.
+    /// The radius is passed in because the previews differ in size: a real widget's corner is about a sixth of its height.
     func widgetPreviewSurface(radius: CGFloat) -> some View {
         background {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
@@ -842,7 +695,6 @@ private extension View {
 private struct LockScreenWidgetPreview: View {
     var body: some View {
         HStack(spacing: 10) {
-            // Compact leading — app icon placeholder
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(Color.white.opacity(0.15))
@@ -867,7 +719,6 @@ private struct LockScreenWidgetPreview: View {
 
             Spacer()
 
-            // Timer pill
             Text("0:24")
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .monospacedDigit()

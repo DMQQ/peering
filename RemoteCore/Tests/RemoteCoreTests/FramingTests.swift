@@ -5,7 +5,6 @@ import Testing
 
 @Suite("Framing")
 struct FramingTests {
-    /// Decodes everything currently buffered into an array, for concise assertions.
     private func drain(_ decoder: inout FrameDecoder) throws -> [Frame] {
         var frames: [Frame] = []
         while let frame = try decoder.next() { frames.append(frame) }
@@ -37,8 +36,6 @@ struct FramingTests {
         #expect(Array(encoded) == [0x00, 0x00, 0x00, 0x01, MessageKind.ping.rawValue])
     }
 
-    /// The bug that broke every command in the original design: two messages arriving in
-    /// one TCP read must decode as two frames, not one fused blob.
     @Test("decodes two coalesced frames from a single read")
     func coalescedFrames() throws {
         var decoder = FrameDecoder()
@@ -52,8 +49,6 @@ struct FramingTests {
         #expect(frames[1] == Frame(kind: .pong, payload: Data("bb".utf8)))
     }
 
-    /// The other half of the same bug: a message split across reads must be buffered,
-    /// not rejected or truncated.
     @Test("reassembles a frame split across reads")
     func splitFrame() throws {
         let original = Frame(kind: .command, payload: Data("split me".utf8))
@@ -78,18 +73,15 @@ struct FramingTests {
             _ = try decoder.next()
         }
         decoder.append(Data())
-        // Rebuild from scratch since we consumed as we went.
         var fresh = FrameDecoder()
         fresh.append(FrameEncoder.encode(original))
         #expect(try drain(&fresh) == [original])
     }
 
-    /// A corrupt or hostile length field must be refused *before* allocating, or the host
-    /// is trivially memory-exhausted by four bytes of input.
+    /// Refused before allocating, or four bytes of input exhaust host memory.
     @Test("rejects an oversized declared length without buffering it")
     func oversizedRejected() {
         var decoder = FrameDecoder()
-        // Declares 0xFFFFFFFF bytes, but supplies nothing further.
         decoder.append(Data([0xFF, 0xFF, 0xFF, 0xFF, MessageKind.command.rawValue]))
 
         #expect(throws: FramingError.frameTooLarge(declared: 0xFFFF_FFFF)) {
@@ -117,7 +109,6 @@ struct FramingTests {
         let original = Frame(kind: .videoFrame, payload: payload)
 
         var decoder = FrameDecoder()
-        // Deliver in 8 KiB chunks, as a socket would.
         let encoded = FrameEncoder.encode(original)
         var offset = encoded.startIndex
         var decoded: Frame?

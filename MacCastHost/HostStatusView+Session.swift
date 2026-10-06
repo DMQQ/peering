@@ -3,7 +3,6 @@ import MacCastKit
 import RemoteCore
 import SwiftUI
 
-/// The live picture, and the shape of its frame.
 extension HostStatusView {
     var nowShowingSection: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -27,7 +26,6 @@ extension HostStatusView {
         }
     }
 
-    /// The source's name laid over the foot of the picture, on a scrim so it reads over any desktop.
     private var previewCaption: some View {
         HStack(alignment: .bottom, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
@@ -170,36 +168,19 @@ extension HostStatusView {
         return 16.0 / 10.0
     }
 
-    /// How tall the picture's frame is: as tall as the pane is wide, in the picture's own shape.
-    ///
-    /// A band of fixed height was the first thing this was, and it was wrong for the reason any
-    /// fixed frame around a variable picture is wrong — a Mac display is wider than it is tall by
-    /// half again, so a wide short band left a stripe of black down each side of the picture and a
-    /// wide window made the stripe wider instead of the picture larger. The frame takes the
-    /// picture's shape, and the picture fills it.
-    ///
-    /// Capped at 4:3, which is the one place the shape does not win. A single tall window is a
-    /// legitimate thing to share, and its shape would otherwise ask for a frame taller than the
-    /// window it is in — so past that the picture letterboxes instead, and the layout is not held
-    /// hostage by the narrowest thing someone might have picked.
+    /// The frame takes the picture shape, capped at 4:3 so a tall window letterboxes instead of forcing a taller frame than the window.
     var previewHeight: CGFloat {
         let panel = max((paneWidth > 0 ? paneWidth : 1000) - Self.paneInset * 2, 320)
         return min(max(panel / previewAspect, 220), panel * 0.75)
     }
 
-    /// The picture itself, in a frame cut to its own shape.
-    ///
-    /// The letterbox is black because that is what the phone is being sent, so the two show the
-    /// same frame — and it should be visible only where the picture genuinely does not fill the
-    /// shape, which is the capped case above rather than every case.
+    /// The letterbox is black because that is what the phone is sent.
     var previewPane: some View {
         ZStack {
             Color.black
 
             if !showsPreview {
-                // Says which of the two reasons this frame is empty, because they mean opposite
-                // things: off is a setting, and "not streaming" is a state the user would want
-                // to know about.
+                // Distinguishes a setting (off) from a state (not streaming).
                 VStack(spacing: 7) {
                     Image(systemName: "rectangle.on.rectangle.slash")
                         .font(.system(size: 21, weight: .light))
@@ -224,10 +205,7 @@ extension HostStatusView {
         .frame(height: previewHeight)
         .frame(maxWidth: .infinity)
         .animation(HostMotion.state, value: preview == nil)
-        // The switch is on the thing it switches. It was only in Settings, which is the right
-        // place for a setting and the wrong place for a control somebody reaches for while
-        // looking at the preview — the picture is where the question "is this still updating"
-        // comes up, so it is where the answer goes.
+        // The switch sits on the preview, where the question of whether it is still updating comes up.
         .overlay(alignment: .topTrailing) {
             Button {
                 withAnimation(HostMotion.state) { showsPreview.toggle() }
@@ -254,18 +232,12 @@ extension HostStatusView {
         case .display: return "display"
         case .application: return "macwindow.on.rectangle"
         case .window: return "macwindow"
-        // The same symbol the client's mosaic row wears, so the two ends of one feature look
-        // like the same feature.
         case .mosaic: return "rectangle.split.2x2"
-        // Not `display.slash`: that symbol does not exist in SF Symbols, and a name that resolves
-        // to nothing draws nothing — the chip came out as an empty rounded square, which reads as
-        // a rendering fault rather than as a state. `rectangle.slash` is the one that is there.
+        // Not display.slash: it does not exist in SF Symbols and a missing name draws nothing.
         case nil: return "rectangle.slash"
         }
     }
 
-    /// The catalogue's name for the source where there is one, and a description of the state
-    /// where there is not — a bare display ID would be a worse answer than an honest sentence.
     var capturingTitle: String {
         if let title = model.capturingSourceTitle { return title }
         return model.connectedClients.isEmpty ? String(localized: "Nothing yet") : String(localized: "Choosing a screen…")
@@ -282,15 +254,10 @@ extension HostStatusView {
         case .application: return String(localized: "One application, streaming live.")
         case .window: return String(localized: "One window, streaming live.")
         case .mosaic(let layout):
-            // The count, because it is the one number that says how much work this window is
-            // asking of the Mac: every tile is a ScreenCaptureKit stream of its own.
             return String(localized: "\(layout.tiles.count) windows, composited live.")
         }
     }
 
     // MARK: - Devices
 
-    /// On a wide window the compact device list sits beside the longer activity feed, making
-    /// the overview an intentionally uneven dashboard. At the minimum window width it falls
-    /// back to the familiar vertical reading order.
 }

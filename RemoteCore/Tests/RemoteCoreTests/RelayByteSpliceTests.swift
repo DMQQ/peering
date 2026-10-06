@@ -4,7 +4,6 @@ import Testing
 
 @testable import RemoteCore
 
-/// A flag two threads can share, for telling a callback apart from a timeout.
 private final class LockedFlag: @unchecked Sendable {
     private let lock = NSLock()
     private var flag = false
@@ -13,11 +12,7 @@ private final class LockedFlag: @unchecked Sendable {
     func set() { lock.withLock { flag = true } }
 }
 
-/// A listener on loopback that hands over the first connection it accepts.
-///
-/// Stands in for one end of a real splice: the local side is the TLS transport, the relay side is
-/// `peeringd`. Both are just TCP peers as far as the splice is concerned, so a loopback listener is
-/// the whole of what it needs to be exercised.
+/// A loopback listener standing in for one end of a real splice (TLS transport or `peeringd`).
 private final class LoopbackEndpoint: @unchecked Sendable {
     let listener: NWListener
     private let lock = NSLock()
@@ -56,12 +51,7 @@ private final class LoopbackEndpoint: @unchecked Sendable {
         }
     }
 
-    /// The next accepted connection, **already started and ready to carry bytes**.
-    ///
-    /// Waiting for `.ready` is not tidiness: a `send` on a connection that is still setting up is
-    /// accepted and then dropped, which leaves the test reading a socket nothing was ever written
-    /// to. That looks exactly like a splice that stopped forwarding, which is the failure these
-    /// tests exist to find.
+    /// Waiting for `.ready` matters: a `send` on a connection still setting up is dropped, which looks exactly like a splice that stopped forwarding.
     func next() async -> NWConnection {
         let connection = await withCheckedContinuation { continuation in
             lock.lock()
@@ -74,9 +64,7 @@ private final class LoopbackEndpoint: @unchecked Sendable {
                 lock.unlock()
             }
         }
-        // An accepted connection is not started for you, and one that is never started never
-        // becomes ready, so a `send` on it would be dropped and the test would read a socket
-        // nothing was written to.
+        // An accepted connection is not started for you, and an unstarted one never becomes ready.
         connection.start(queue: DispatchQueue(label: "test.connection"))
         await connection.waitUntilReady()
         return connection
@@ -84,10 +72,7 @@ private final class LoopbackEndpoint: @unchecked Sendable {
 }
 
 extension NWConnection {
-    /// Resolves once this connection can carry bytes, or once it has failed.
-    ///
-    /// Only safe on a connection the caller owns: it takes the state handler, so anything else
-    /// waiting on that connection's state has to set its own afterwards.
+    /// Takes the state handler, so anything else waiting on this connection's state must set its own afterwards.
     func waitUntilReady() async {
         await withCheckedContinuation { continuation in
             let resumed = LockedFlag()
@@ -128,12 +113,7 @@ private func send(_ data: Data, on connection: NWConnection) async -> (any Error
     }
 }
 
-/// Reads until `count` bytes have arrived, or until the deadline passes.
-///
-/// **Bounded on purpose.** A splice that has stopped forwarding never completes a `receive`, and a
-/// test that waits for one hangs instead of failing — which tells you nothing about which buffer
-/// went missing or how far the transfer got. This returns what it has, so the assertion that fails
-/// carries the number.
+/// Bounded on purpose: a stalled splice never completes a `receive`, so the test returns what it has and the assertion carries the number.
 private func receive(
     _ count: Int, on connection: NWConnection, within seconds: Double = 15
 ) async -> Data {
@@ -156,7 +136,6 @@ private func receive(
     return collected
 }
 
-/// Resumes a continuation at most once, whichever of the two racers gets there first.
 private final class Once: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<(Data, Bool, (any Error)?), Never>?
@@ -177,24 +156,13 @@ private final class Once: @unchecked Sendable {
     }
 }
 
-/// A byte pattern that changes everywhere, so a buffer delivered twice, dropped, or reordered
-/// cannot pass by being mostly the same as its neighbour.
 private func payload(bytes: Int) -> Data {
     Data((0..<bytes).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ 7) })
 }
 
-/// What the relay path does with bytes, over real sockets.
-///
-/// **A test rather than a reading.** The pump was made pipelined, and the ways that can go wrong
-/// are all invisible in the source: a direction that stops reading once the window fills, two
-/// reads outstanding on one connection at once, or a buffer dropped at the seam. Each of those
-/// looks exactly like a working splice until the traffic gets large enough to hit it.
+/// The pipelined pump can fail invisibly in the source (a direction stopping when the window fills, two reads outstanding, a dropped buffer) until traffic is large.
 @Suite("The relay byte splice", .timeLimit(.minutes(1)))
 struct RelayByteSpliceTests {
-    /// One splice, wired between two loopback endpoints.
-    ///
-    /// Returns the far side of each: `atLocal` is what the TLS transport would write to and read
-    /// from, `atRelay` is what `peeringd` would.
     private func spliceUnderTest(
         onStop: (@Sendable () -> Void)? = nil
     ) async throws -> (splice: RelayByteSplice, atLocal: NWConnection, atRelay: NWConnection) {
@@ -204,8 +172,6 @@ struct RelayByteSpliceTests {
         await relayEnd.start()
 
         let queue = DispatchQueue(label: "test.splice")
-        // Deliberately not started here: the splice owns this connection's lifecycle and starts
-        // it itself, and it takes the state handler when it does.
         let local = NWConnection(to: try loopback(localEnd.port), using: tcp())
 
         let splice = try RelayByteSplice(
@@ -221,13 +187,8 @@ struct RelayByteSpliceTests {
         return (splice, await localEnd.next(), await relayEnd.next())
     }
 
-    /// A first, small transfer: enough to prove the pumps run at all, before asking whether the
-    /// window logic holds up under load. A failure here is a splice that never copied anything.
     @Test func aFewHundredBytesCrossTheSplice() async throws {
-        // The splice is held for the whole test, deliberately. Binding it to `_` releases it
-        // the moment the helper returns, every `[weak self]` in the pump goes nil, and the
-        // splice silently copies nothing — which looks exactly like the bug these tests exist
-        // to find.
+        // Held for the whole test: binding to `_` releases it, every `[weak self]` in the pump goes nil and nothing is copied.
         let (splice, atLocal, atRelay) = try await spliceUnderTest()
         defer { splice.cancel() }
         _ = await receive(16, on: atRelay)
@@ -240,18 +201,12 @@ struct RelayByteSpliceTests {
         #expect(arrived == sent)
     }
 
-    /// **Larger than the window on purpose.** A transfer smaller than the splice's in-flight limit
-    /// never fills it, so it never exercises the pause-and-resume that is the whole of the new
-    /// logic — and it would pass against the stop-and-wait version just as well.
+    /// Larger than the window on purpose: a smaller transfer never exercises pause-and-resume.
     @Test func aTransferLargerThanTheWindowArrivesWholeAndInOrder() async throws {
-        // The splice is held for the whole test, deliberately. Binding it to `_` releases it
-        // the moment the helper returns, every `[weak self]` in the pump goes nil, and the
-        // splice silently copies nothing — which looks exactly like the bug these tests exist
-        // to find.
+        // Held for the whole test: binding to `_` releases it, every `[weak self]` in the pump goes nil and nothing is copied.
         let (splice, atLocal, atRelay) = try await spliceUnderTest()
         defer { splice.cancel() }
 
-        // The relay's routing token goes first and is not part of what is being copied.
         let token = await receive(16, on: atRelay)
         #expect(token == Data(repeating: 0x5A, count: 16), "the routing token never arrived")
 
@@ -263,12 +218,8 @@ struct RelayByteSpliceTests {
         #expect(arrived == sent)
     }
 
-    /// The other leg, which is the one that carries the picture back.
     @Test func theRelayToLocalDirectionCarriesAsWell() async throws {
-        // The splice is held for the whole test, deliberately. Binding it to `_` releases it
-        // the moment the helper returns, every `[weak self]` in the pump goes nil, and the
-        // splice silently copies nothing — which looks exactly like the bug these tests exist
-        // to find.
+        // Held for the whole test: binding to `_` releases it, every `[weak self]` in the pump goes nil and nothing is copied.
         let (splice, atLocal, atRelay) = try await spliceUnderTest()
         defer { splice.cancel() }
         _ = await receive(16, on: atRelay)
@@ -280,16 +231,9 @@ struct RelayByteSpliceTests {
         #expect(arrived == sent)
     }
 
-    /// Both directions at once.
-    ///
-    /// This is what a session does, and it is where a splice that shares one piece of state between
-    /// its two legs comes apart: the legs are independent, and a window or a read flag that is not
-    /// per-direction leaves one of them waiting on the other.
+    /// The legs are independent: state shared between them leaves one waiting on the other.
     @Test func bothDirectionsCarryAtOnce() async throws {
-        // The splice is held for the whole test, deliberately. Binding it to `_` releases it
-        // the moment the helper returns, every `[weak self]` in the pump goes nil, and the
-        // splice silently copies nothing — which looks exactly like the bug these tests exist
-        // to find.
+        // Held for the whole test: binding to `_` releases it, every `[weak self]` in the pump goes nil and nothing is copied.
         let (splice, atLocal, atRelay) = try await spliceUnderTest()
         defer { splice.cancel() }
         _ = await receive(16, on: atRelay)
@@ -309,9 +253,6 @@ struct RelayByteSpliceTests {
         #expect(downArrived == down)
     }
 
-    /// A splice whose local end goes away has to stop rather than sit there holding the relay
-    /// socket open. `onStop` is what the proxy uses to clear its reference and what the bridge
-    /// uses to learn the connection is over.
     @Test func theSpliceStopsWhenTheLocalEndCloses() async throws {
         let stopped = LockedFlag()
         let (splice, atLocal, atRelay) = try await spliceUnderTest(onStop: { stopped.set() })
@@ -319,8 +260,6 @@ struct RelayByteSpliceTests {
 
         atLocal.cancel()
 
-        // Polled rather than awaited: the stop is delivered on the splice's own queue, and the
-        // only thing worth asserting is that it arrives rather than that it arrives promptly.
         for _ in 0..<100 where !stopped.value {
             try await Task.sleep(for: .milliseconds(50))
         }

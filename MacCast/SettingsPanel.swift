@@ -3,30 +3,19 @@ import RemoteCore
 import SwiftUI
 import VideoToolbox
 
-/// Everything the session sheet used to hold, as a floating panel.
-///
-/// A `List` of `Section`s does not survive being put on top of live video inside a sheet of glass —
-/// it brings its own background, its own separators and its own inset behaviour, all of which were
-/// chosen for a screen filling the display. This is the same content grouped by the panel's own
-/// rules, so the settings look like the rest of the in-session chrome rather than like a piece of
-/// iOS that landed on top of it.
+/// A `List` brings its own background, separators and insets, chosen for a full-screen display, and does not survive on top of live video.
 struct SettingsPanel: View {
     @Environment(SessionModel.self) private var model
 
     @Binding var chromeFrames: [ChromeRegion: CGRect]
 
-    /// Opens the source picker in this same panel rather than stacking a second one beside it.
     var onShowSources: () -> Void
 
     @State private var confirmLock = false
 
-    /// Read here as well as in the screen that obeys it. Same key, one name for it in
-    /// ``PreferenceKey`` — two spellings would be a switch that does nothing for one of them.
+    /// Read here as well as in the screen that obeys it, under one key in ``PreferenceKey``: two spellings would be a switch that does nothing for one.
     @AppStorage(PreferenceKeys.hidesPanelAfterSelect) private var hidesPanelAfterSelect = true
-    /// Read here as well as in ``SessionPiP``, under the same key — see ``PreferenceKey``.
     @AppStorage(PreferenceKeys.pipAutoStart) private var pipAutoStart = true
-    /// Read here to say what it does in words, and in ``SessionModel`` to obey it. The default
-    /// matches the model's: on, which is how the app behaved before the switch existed.
     @AppStorage(PreferenceKeys.allowRelay) private var allowsRelay = true
     @AppStorage(PreferenceKeys.opensKeyboardForTextFields) private var opensKeyboardForTextFields = true
     @State private var query = ""
@@ -73,18 +62,12 @@ struct SettingsPanel: View {
             info("Mac", model.hostName ?? String(localized: "None"))
             info(String(localized: "State"), stateDescription)
             info("Path", model.connectionPath?.rawValue ?? "None")
-            // Only when it is worth reading. A session whose picture is going straight to the Mac
-            // has nothing to explain, and a row saying "Straight to 83.1.2.3:52507" beside the
-            // path is a sentence about plumbing on a screen somebody opened to change the bitrate.
+            // Only when worth reading: a direct session has nothing to explain.
             if !model.usedDirectPath {
                 info(String(localized: "Direct path"), model.directPathStatus.summary)
             }
             info(String(localized: "Video"), model.videoStatus)
-            // Two rows, because these are two different paths and only one of them is the
-            // picture's. The control connection goes through the relay in every session, punched
-            // or not, so its round trip is the relay's even when the video went straight between
-            // the two ends — and one row labelled "Latency" showing that is what made a punched
-            // session look slower than it is.
+            // Two rows, because the control connection goes through the relay in every session, so its round trip is the relay's even when the video went straight; one "Latency" row made punched sessions look slower than they are.
             if let path = model.pathLatencyMilliseconds {
                 info(
                     model.pathLatencyIsDirect ? String(localized: "Latency · direct") : String(localized: "Latency · relay"),
@@ -176,22 +159,8 @@ struct SettingsPanel: View {
 
             quality
 
-            // The Mac's audio, which this app has always carried and, until now, had no way to
-            // unmute. Its own row rather than part of the quality picker: what the picture costs
-            // and what you hear are two decisions, and this is the one somebody reaches for in
-            // the middle of a session, when the Mac starts making a noise.
-            //
-            // Written straight through to the player, which turns the mixer down rather than
-            // tearing the engine apart. See ``RemoteAudioPlayer/isMuted`` for why one sound is
-            // the reason this exists.
-            //
-            // **The switch is the switch on every plan.** It is dimmed and inert without the
-            // capability, with the plan's name on its corner, and the tap opens the plans: what the
-            // row is for has not changed, so the row is not drawn differently. It used to be a
-            // padlock in the switch's place with the words kept, which left a row saying "Sound
-            // from the Mac" and a control that could have been anything. A hidden row was never
-            // the answer either, and is still not: that is the app deciding for the user that they
-            // are not interested.
+            // Its own row: what the picture costs and what you hear are two decisions, and this is the one reached for mid-session.
+            // The switch is the switch on every plan: dimmed and inert without the capability, and the tap opens the plans. A padlock in its place left a row whose control could have been anything.
             PlanLocked(capability: .macSound, title: String(localized: "Sound from the Mac")) {
                 Toggle(isOn: Binding(
                     get: { !model.hostAudioMuted },
@@ -211,9 +180,7 @@ struct SettingsPanel: View {
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                // The plan-aware sentence stays, and it is the *only* thing the locked state adds
-                // to the row: the control is already the control, so what is left to say is which
-                // plan turns it on and what else comes with it.
+                // The plan-aware sentence is the only thing the locked state adds: which plan turns it on.
                 Text("Whatever the Mac plays would come out of this device. It is part of \(PlanCapability.macSound.minimumPlan.name), along with Picture in Picture and files that move both ways.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
@@ -241,17 +208,7 @@ struct SettingsPanel: View {
         }
     }
 
-    /// Who picks the picture's bitrate: the app, or the person watching it.
-    ///
-    /// The status bar has offered the same four presets in one menu since it was a segmented row
-    /// that did not fit, and in that list "Auto" reads as the fourth rung of a ladder rather than
-    /// as the other answer to the question. The question has two answers and one of them has
-    /// three settings under it, so that is what this draws: a mode, and a level that appears only
-    /// beneath the mode that has levels. A row of three rates under "Automatic" would be a
-    /// control wired to nothing.
-    ///
-    /// The chip stays as it is. Four presets in a menu and a mode with three levels are the same
-    /// four states, and the chip is the faster way to reach one mid-session.
+    /// "Auto" read as the fourth rung of a ladder; the question has two answers and one has three settings under it, so this draws a mode and a level shown only under the mode that has levels.
     private var quality: some View {
         VStack(alignment: .leading, spacing: 6) {
             Picker("Quality", selection: Binding(
@@ -284,11 +241,7 @@ struct SettingsPanel: View {
         }
     }
 
-    /// What the two modes do to the picture, in the words the numbers need.
-    ///
-    /// Both branches carry the figures, because "Manual" alone is not a setting anyone can weigh:
-    /// the choice being made is how much of the connection to spend on the picture, and the
-    /// presets on their own name a rung on a ladder the user has never been shown.
+    /// Both branches carry the figures: "Manual" alone is not a setting anyone can weigh.
     private var qualityExplanation: String {
         guard !model.isAutomaticQuality else {
             return """
@@ -325,10 +278,6 @@ struct SettingsPanel: View {
         }
     }
 
-    /// The floating window, and whether it arrives on its own.
-    ///
-    /// The switch is drawn on every plan, as itself: dimmed and inert without the capability, with
-    /// the plan's name on its corner.
     private var picture: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel(String(localized: "Picture"))
@@ -339,8 +288,7 @@ struct SettingsPanel: View {
                         .font(.subheadline.weight(.medium))
                 }
                 .tint(ColorPalette.accent)
-                // Pushed straight through rather than read on the next attach: the setting has to
-                // take effect on the controller that is already running.
+                // Pushed straight through: the controller that is already running must pick it up.
                 .onChange(of: pipAutoStart) { _, on in model.setPiPAutoStart(on) }
             }
 
@@ -358,12 +306,7 @@ struct SettingsPanel: View {
         }
     }
 
-    /// The one switch here that is about what leaves the device rather than how the app looks.
-    ///
-    /// Written out in full rather than left as a bare label, because a privacy setting the user
-    /// cannot understand is a setting they cannot make. This is the switch; ``FAQView`` is the
-    /// why, at length. Both have to say the same thing, and neither may say more than is true:
-    /// the relay cannot read what it carries, and it does see who is connecting and when.
+    /// A privacy setting the user cannot understand is one they cannot make; ``FAQView`` has the why. Both must say the same and nothing untrue: the relay cannot read what it carries and does see who connects and when.
     private var privacy: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel(String(localized: "Privacy"))
@@ -431,8 +374,7 @@ struct SettingsPanel: View {
     private var macros: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel(String(localized: "Macros"))
-            // Scrolls sideways rather than wrapping: the macros are a fixed, short list, and a
-            // wrapped grid would change the panel's height every time a title did.
+            // Scrolls sideways: a wrapped grid would change the panel's height whenever a title did.
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(Macro.defaults) { macro in

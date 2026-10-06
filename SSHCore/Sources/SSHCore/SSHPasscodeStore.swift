@@ -5,11 +5,7 @@ import os
 
 private let passcodeLog = Logger(subsystem: "pl.dmq.peering", category: "ssh")
 
-/// A passcode as it is kept: a random salt, and the digest of the passcode under it.
-///
-/// The salt is what stops the stored blob from being a lookup table. Without one, two servers the
-/// user gave the same passcode would carry the same bytes — and one of those servers being looked
-/// up somewhere else would be enough to recognise the other.
+/// A random salt and the digest of the passcode under it, so equal passcodes on two servers do not share bytes.
 public struct SSHPasscodeHash: Codable, Sendable, Equatable {
     public var salt: Data
     public var hash: Data
@@ -20,25 +16,11 @@ public struct SSHPasscodeHash: Codable, Sendable, Equatable {
     }
 }
 
-/// The per-server passcodes, keyed by host id.
-///
-/// One Keychain entry holding a dictionary, which is ``SSHCredentialStore``'s shape for the same
-/// reason: the alternative is an entry per server with no index of which servers have one, and then
-/// "is this one locked" becomes a Keychain lookup per row of a list.
-///
-/// **What the digest is and is not for.** Six digits is a million possibilities, so a salted
-/// SHA-256 is not a defence against anyone who can *read* this blob — a million hashes is a moment.
-/// What actually protects a passcode is the Keychain entry's ACL and its
-/// `AfterFirstUnlockThisDeviceOnly` accessibility, exactly as it protects a stored password. The
-/// digest is there so that the other things that happen to a blob of bytes — a device backup, a
-/// diagnostic dump, a crash report — do not hand over a six-digit number the user has very likely
-/// used somewhere that matters more than this.
+/// One Keychain entry holding a dictionary, keyed by host id (``SSHCredentialStore``'s shape). Six digits is a million possibilities, so the salted SHA-256 is no defence against anyone who can read the blob; the Keychain ACL and `AfterFirstUnlockThisDeviceOnly` are the protection, and the digest keeps backups and dumps from handing over the number.
 public struct SSHPasscodeStore: Sendable {
     public static let service = "pl.dmq.peering.ssh.passcodes"
     private static let account = "passcodes"
 
-    /// Six digits, which is the length the app already uses for a pairing code — and long enough
-    /// that guessing one on a pad is not a realistic way past it.
     public static let length = 6
 
     private let backend: SSHSecretBackend
@@ -47,21 +29,16 @@ public struct SSHPasscodeStore: Sendable {
         self.backend = backend
     }
 
-    /// Whether a typed passcode is one this store would accept, so the pad and the editor agree on
-    /// what "six digits" means without either of them counting characters for itself.
     public static func isValid(_ passcode: String) -> Bool {
         passcode.count == length && passcode.allSatisfy { $0.isASCII && $0.isNumber }
     }
 
-    /// Everything stored, or an empty dictionary when nothing is.
     public func all() -> [String: SSHPasscodeHash] {
         guard let data = backend.read(service: Self.service, account: Self.account) else { return [:] }
         do {
             return try JSONDecoder().decode([String: SSHPasscodeHash].self, from: data)
         } catch {
-            // Logged and returned as empty rather than as a crash — the same call
-            // ``SSHCredentialStore`` makes, and for the same reason: a blob that will not decode is
-            // a store something has corrupted, and there is nothing to be done about it but say so.
+            // Logged and returned empty rather than crashing, as ``SSHCredentialStore`` does.
             passcodeLog.error("could not read stored SSH passcodes: \(String(describing: error), privacy: .public)")
             return [:]
         }
@@ -75,10 +52,7 @@ public struct SSHPasscodeStore: Sendable {
         hash(for: hostID) != nil
     }
 
-    /// Sets a passcode, replacing any the server already had.
-    ///
-    /// Returns whether it was actually written, and the caller must not report success on `false` —
-    /// a server marked as locked with nothing stored behind it is a server that cannot be opened.
+    /// Returns whether it was written; a locked server with nothing stored behind it cannot be opened, so the caller must not report success on `false`.
     @discardableResult
     public func set(_ passcode: String, for hostID: UUID) -> Bool {
         guard Self.isValid(passcode) else { return false }
@@ -92,15 +66,10 @@ public struct SSHPasscodeStore: Sendable {
         return write(passcodes)
     }
 
-    /// Whether a typed passcode is the one this server was given.
-    ///
-    /// `false` for a server that has none, so a caller cannot turn "nothing is stored" into a way
-    /// through a lock by passing anything at all.
+    /// `false` for a server with none, so "nothing is stored" can never be a way through a lock.
     public func verify(_ passcode: String, for hostID: UUID) -> Bool {
         guard let stored = hash(for: hostID) else { return false }
-        // Constant time, even though the comparison is over digests and the attacker would have to
-        // be holding the Keychain entry to have anything to compare against: the rule for a secret
-        // comparison is the same whether or not a particular caller can exploit breaking it.
+        // Constant time: the rule for a secret comparison holds whether or not a caller can exploit breaking it.
         return ConstantTime.equals(Self.digest(passcode, salt: stored.salt), stored.hash)
     }
 
@@ -111,7 +80,6 @@ public struct SSHPasscodeStore: Sendable {
         return write(passcodes)
     }
 
-    /// Clears every passcode. For the reset path, and for tests.
     @discardableResult
     public func removeAll() -> Bool {
         backend.remove(service: Self.service, account: Self.account)

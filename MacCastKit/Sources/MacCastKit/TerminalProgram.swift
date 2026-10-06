@@ -1,26 +1,16 @@
 import Foundation
 
-/// What a command the user typed is about to run, where that changes how the terminal should look.
-///
-/// A full-screen program lays itself out for eighty columns, and only the smallest type size holds
-/// all eighty on a phone held upright, so the size is set when one is asked for.
-///
-/// A program started from the Mac's own keyboard is not this end's business.
+/// A full-screen program lays out for eighty columns, and only the smallest type size holds them on an upright phone, so the size is set when one is asked for. Programs started from the Mac's keyboard are not this end's business.
 public enum TerminalProgram {
-    /// The ones that draw a screen of their own rather than printing lines: they all address a grid
-    /// they expect to be a terminal's whole width.
+    /// The ones that draw a screen of their own rather than printing lines.
     private static let fullScreen: Set<String> = [
         "claude", "codex", "opencode", "hermes", "gemini", "vim", "vi", "nvim", "view", "top", "htop", "btop", "less", "more", "man", "tmux",
         "screen", "emacs", "nano", "pico", "w3m", "lynx", "irssi", "weechat",
     ]
 
-    /// Wrappers that are not the program, and are skipped to find what is being run.
     private static let wrappers: Set<String> = ["sudo", "doas", "env", "command", "nohup", "time"]
 
-    /// Whether this command line starts something that lays itself out for a full terminal.
-    ///
-    /// Only the first word that is not a wrapper is looked at: `grep vim` searches for the word
-    /// rather than starting vim.
+    /// Only the first non-wrapper word is looked at: `grep vim` is not vim.
     public static func prefersSmallText(_ command: String) -> Bool {
         for word in words(of: command) where !wrappers.contains(word) {
             return fullScreen.contains(word)

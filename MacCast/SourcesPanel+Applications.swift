@@ -4,17 +4,8 @@ import SwiftUI
 import UIKit
 
 extension SourcesPanel {
-    /// One application: what it is, and every window it is showing.
-    ///
-    /// The heading is the application itself and is a control — tapping it captures the whole
-    /// application, every window composited, which is what the separate Applications list used
-    /// to offer. The tiles under it are that application's windows, one each. So the two things a
-    /// person can want are one above the other: "this whole application" and "that one window of
-    /// it", with nothing to work out about which belongs to what.
-    ///
-    /// A heading with no application row behind it is not tappable — see
-    /// ``SourceGrouping/applicationGroups(applications:windows:)`` for the catalogue shape that
-    /// produces one. Its windows are still offered, which is the point.
+    /// The heading is a control: tapping it captures the whole application, and the tiles under it are its windows.
+    /// A heading with no application row behind it is not tappable, but its windows are still offered.
     @ViewBuilder
     func applicationSection(_ group: ApplicationGroup) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -28,8 +19,7 @@ extension SourcesPanel {
                 applicationHeading(group)
             }
 
-            // One row per application, scrolling sideways, with the + outside the scroll so it is
-            // always in the same place however many windows there are.
+            // One row per application, scrolling sideways, with the + outside the scroll so it stays in one place.
             HStack(alignment: .top, spacing: Self.tileGap) {
                 Self.tileRow {
                     ForEach(group.windows) {
@@ -41,13 +31,10 @@ extension SourcesPanel {
                 }
             }
         }
-        // **Room above each application, over and above the stack's own gap.** A heading, its
-        // windows and its count are one subject; set off by the same twelve points that separate a
-        // heading from its own grid, the applications read as one long list of everything.
+        // Room above each application beyond the stack's gap: otherwise the applications read as one long list.
         .padding(.top, 8)
     }
 
-    /// A tile after an application's windows that asks the Mac for one more.
     func newWindowTile(_ bundleIdentifier: String) -> some View {
         addTile(label: String(localized: "New window")) {
             model.send(.openNewWindow(bundleIdentifier: bundleIdentifier))
@@ -55,9 +42,7 @@ extension SourcesPanel {
         }
     }
 
-    /// The dashed + tile at the end of a row of tiles, the same height as them.
-    ///
-    /// Outlined and dashed rather than filled: it is a place a tile could be, not one.
+    /// Outlined and dashed: a place a tile could be, not one.
     func addTile(
         label: String, busy: Bool = false, disabled: Bool = false,
         height: CGFloat = packedTileHeight, action: @escaping () -> Void
@@ -85,11 +70,7 @@ extension SourcesPanel {
         .accessibilityLabel(busy ? String(localized: "\(label), in progress") : label)
     }
 
-    /// An application's name, its icon, and how many windows it is showing.
-    ///
-    /// **Marked on the same terms as a tile**, because a heading is one too: in the accumulating
-    /// mode tapping it picks the whole application, and a heading that took the tap without
-    /// showing that it had would be the one control in the panel with no answer.
+    /// Marked on the same terms as a tile: in accumulating mode tapping it picks the whole application, and it must show that it took the tap.
     func applicationHeading(_ group: ApplicationGroup) -> some View {
         let placed = group.application.map { placement(of: $0) }
         let marked = placed?.marked ?? false
@@ -101,9 +82,7 @@ extension SourcesPanel {
                 .foregroundStyle(marked ? ColorPalette.accent : ColorPalette.ink)
                 .lineLimit(1)
             if marked, placed?.place == nil {
-                // The ordinary pick, where the mark says which source the phone is showing. In
-                // the accumulating mode the number says it instead — see below — and the two are
-                // never drawn together.
+                // The ordinary pick shows the mark; in accumulating mode the number does, never both.
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 12))
                     .foregroundStyle(ColorPalette.accent)
@@ -124,12 +103,7 @@ extension SourcesPanel {
         .contentShape(Rectangle())
     }
 
-    /// The groups the query leaves showing.
-    ///
-    /// **A window match keeps its application's heading**, so a search finds a window without
-    /// stranding it under a name nobody typed — and a heading match keeps every window under it,
-    /// because somebody who typed "Safari" is asking about Safari rather than about the one window
-    /// whose title happens to contain it.
+    /// A window match keeps its application's heading; a heading match keeps every window, since "Safari" asks about Safari.
     var filteredGroups: [ApplicationGroup] {
         let catalog = model.catalog
         let groups = SourceGrouping.applicationGroups(
@@ -149,12 +123,7 @@ extension SourcesPanel {
         }
     }
 
-    /// The applications installed on the Mac but not running, as icons.
-    ///
-    /// The same grid as the running ones and deliberately so: a name in this list becomes a row in
-    /// the one above the moment it is opened, and two arrangements would make that look like the
-    /// entry moved rather than started. What differs is the tap — one switches a source, this one
-    /// launches an application — and the sentence under the grid saying so.
+    /// Same grid as the running ones: a name here becomes a row above once opened, and a different arrangement would look like the entry moved rather than started.
     @ViewBuilder
     var installedGrid: some View {
         let installed = filteredInstalled
@@ -171,7 +140,6 @@ extension SourcesPanel {
                                 ApplicationIcon(
                                     data: application.iconPNGData,
                                     fallback: "app.dashed",
-                                    // The whole column, less a few points so neighbours do not touch.
                                     size: iconCellWidth > 0 ? iconCellWidth - 4 : Self.iconSize
                                 )
                                 Text(application.title)

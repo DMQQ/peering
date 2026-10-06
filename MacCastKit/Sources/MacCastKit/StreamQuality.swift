@@ -1,13 +1,7 @@
 import Foundation
 import RemoteCore
 
-/// A preset for the picture's bitrate, or the app's own choice of one.
-///
-/// The raw value is a storage token and not the word on screen, because `@AppStorage` persists it:
-/// keying a saved preference on UI copy means the day the chip's label is reconsidered, every
-/// stored preference resets to automatic. The token is decoded through `init?(rawValue:)` rather
-/// than force-read, so an unknown one is distinguishable from a real answer, the same shape as
-/// ``InteractionMode``. The old spelling, the words on screen, decodes to nothing and starts over.
+/// The raw value is a storage token, not the word on screen: `@AppStorage` persists it, so keying on UI copy would reset every stored preference when a label changes. Decoded with `init?(rawValue:)` so an unknown token is distinguishable from a real answer.
 public enum StreamQuality: CaseIterable, Hashable, Sendable, RawRepresentable {
     public typealias RawValue = String
 
@@ -32,11 +26,7 @@ public enum StreamQuality: CaseIterable, Hashable, Sendable, RawRepresentable {
         }
     }
 
-    /// The three rates that can be picked by hand, in order.
-    ///
-    /// `auto` is not a fourth rung of this ladder, it is the other answer to the same question, and
-    /// ``SettingsPanel`` shows it that way as one mode and then three levels. The picker asks for
-    /// this list rather than spelling the three out, so a case added here cannot leave it behind.
+    /// `auto` is the other answer to the same question, not a fourth rung. The picker uses this list so a new case cannot be left behind.
     public static let manualCases: [StreamQuality] = allCases.filter { $0 != .auto }
 
     /// The same three numbers as ``AutoQualityPolicy/Tier``, and the same source for them:
@@ -50,8 +40,6 @@ public enum StreamQuality: CaseIterable, Hashable, Sendable, RawRepresentable {
         }
     }
 
-    /// What the status chip prints, abbreviated for the row it sits in. ``title`` and ``menuTitle``
-    /// carry the roomier spellings.
     public var chipTitle: String {
         switch self {
         case .auto: return String(localized: "Auto")
@@ -61,7 +49,6 @@ public enum StreamQuality: CaseIterable, Hashable, Sendable, RawRepresentable {
         }
     }
 
-    /// The name spelled out, for somewhere with more room than the status chip.
     public var title: String {
         switch self {
         case .auto: return String(localized: "Automatic")
@@ -71,10 +58,7 @@ public enum StreamQuality: CaseIterable, Hashable, Sendable, RawRepresentable {
         }
     }
 
-    /// The name and what it costs, for a menu that has to say what is being given up.
-    ///
-    /// Shared by the status chip's menu (``RemoteScreen``) and the Settings tab, so the two cannot
-    /// describe the same four presets differently.
+    /// Shared by the status chip's menu and the Settings tab so they cannot describe the presets differently.
     public var menuTitle: String {
         switch self {
         case .auto: return String(localized: "Auto, follows the network")
@@ -84,8 +68,7 @@ public enum StreamQuality: CaseIterable, Hashable, Sendable, RawRepresentable {
         }
     }
 
-    /// The preset that names a given automatic tier, so a manual choice starts where the policy
-    /// settled. The two enums share their numbers through ``bitrateKbps`` but not their cases.
+    /// The preset naming an automatic tier, so a manual choice starts where the policy settled. The enums share ``bitrateKbps`` but not cases.
     public init(_ tier: AutoQualityPolicy.Tier) {
         switch tier {
         case .low: self = .low
@@ -96,28 +79,17 @@ public enum StreamQuality: CaseIterable, Hashable, Sendable, RawRepresentable {
 }
 
 extension StreamQuality {
-    /// The preset the app is set to, read straight from the defaults.
-    ///
-    /// Failable decoding on purpose: an absent or unrecognised token means nothing has been stored
-    /// yet and reads as ``StreamQuality/auto``. A force-read would make a token from a future
-    /// version read as a choice somebody made, and a token written under the old spelling decodes
-    /// to nothing rather than silently becoming a different preset.
-    ///
-    /// The defaults are a parameter so the rule can be exercised without writing to the real store.
+    /// Failable decoding on purpose: an absent or unrecognised token reads as ``StreamQuality/auto``, and a token from the old spelling or a future version is not mistaken for a choice. Defaults are a parameter for tests.
     public static func stored(in defaults: UserDefaults = .standard) -> StreamQuality {
         defaults.string(forKey: PreferenceKeys.streamQuality)
             .flatMap(StreamQuality.init(rawValue:)) ?? .auto
     }
 
-    /// The level to come back to when the rate is taken over by hand again, or `nil` for automatic.
-    ///
-    /// `nil` for a stored ``StreamQuality/auto``: there is no manual level to come back to, and the
-    /// policy's current tier stands in. See `setAutomaticQuality(_:)`.
+    /// `nil` for a stored ``StreamQuality/auto``: the policy's current tier stands in. See `setAutomaticQuality(_:)`.
     public static func storedManualLevel(in defaults: UserDefaults = .standard) -> StreamQuality? {
         let stored = stored(in: defaults)
         return stored.isManual ? stored : nil
     }
 
-    /// Whether this preset names a rate, which is the same question as whether it is ``auto``.
     public var isManual: Bool { bitrateKbps != nil }
 }

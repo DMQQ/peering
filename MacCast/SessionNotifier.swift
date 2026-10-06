@@ -7,53 +7,26 @@ import os
 
 private let notifierLog = Logger(subsystem: "pl.dmq.peering", category: "notifications")
 
-/// Puts ``SessionAwareness``'s banners up, and takes them back once the session has moved
-/// past what they said.
-///
-/// A singleton because the thing it talks to is one: notification permission is granted to
-/// the app, not to an object, so a second instance would only be a second copy of a fact that
-/// is already global.
+/// Puts ``SessionAwareness``'s banners up and takes them back. A singleton because notification permission belongs to the app.
 @MainActor
 final class SessionNotifier {
     static let shared = SessionNotifier()
     static let remoteTokenChangedName = Notification.Name("pl.dmq.peering.remoteTokenChanged")
 
     private var hasAskedForPermission = false
-    /// The current APNs device token, set when the OS delivers one.
     private(set) var remoteToken: Data?
-    /// Why this device has no token, when registering for one failed.
-    ///
-    /// **Kept rather than dropped, because it is the whole answer to a question with no other
-    /// evidence.** A phone that never registered looks exactly like a phone whose Mac never sent
-    /// anything: nothing arrives, at either end, and the reason was a thrown-away error on this
-    /// side of it. Shown in Settings, where somebody wondering why their Mac cannot reach them is
-    /// already looking.
+    /// Kept rather than dropped: a phone that never registered looks exactly like a Mac that never sent anything, and this is the only evidence. Shown in Settings.
     private(set) var remoteTokenFailure: String?
 
-    /// Whether the plan includes the Mac being able to reach this device about a terminal.
-    ///
-    /// **Pushed in rather than read here**, the way ``SessionPiP/isOnPlan`` is, and for the same
-    /// reason: this object owns no store, and a plan read inside it would be a second copy of an
-    /// entitlement nothing keeps in step with the first. ``SessionModel`` tells it, from the one
-    /// function that owns that answer.
-    ///
-    /// **False until something says otherwise**, and that is the direction to fail in. The
-    /// decision this gates has no tap to wait for: a shell stopping raises its banner by itself,
-    /// so the wrong default is the paid half of the feature arriving for somebody who has not
-    /// bought it. It gates the terminal's banner only. The banners about a session's own state
-    /// are free on every plan and do not ask this.
+    /// Pushed in, like ``SessionPiP/isOnPlan``: this object owns no store.
+    /// False until told otherwise, the direction to fail in: a shell stopping raises its banner with no tap, so the wrong default delivers the paid half to someone who has not bought it. Gates the terminal banner only.
     var isOnPlan = false
 
     private init() {}
 
     // MARK: - Permission
 
-    /// Called when the user first reaches for a Mac — not at launch.
-    ///
-    /// The prompt is a decision nobody has the context for until they have tried to connect
-    /// to something, and an app that asks on first run is an app whose notifications get
-    /// denied by reflex. What is being asked for is exactly "tell me when the Mac needs me",
-    /// so it is asked at the moment the user demonstrates they want that.
+    /// Asked when the user first reaches for a Mac, not at launch: an app that asks on first run gets denied by reflex.
     func prepareForFirstConnect() {
         guard !hasAskedForPermission else { return }
         hasAskedForPermission = true
@@ -61,9 +34,7 @@ final class SessionNotifier {
         Task {
             let center = UNUserNotificationCenter.current()
             let settings = await center.notificationSettings()
-            // A question already answered is not asked again, whichever way it was answered.
-            // The answer is still read, because someone who turned notifications on in
-            // Settings since the last launch should get them this time.
+            // Answered questions are not asked again, but the answer is still read: notifications turned on in Settings should apply this time.
             guard settings.authorizationStatus == .notDetermined else {
                 let authorized = settings.authorizationStatus == .authorized
                 if authorized {
@@ -82,30 +53,18 @@ final class SessionNotifier {
         }
     }
 
-    /// Whether banners may be posted, asked of the system rather than remembered.
-    ///
-    /// **Because the decision is not one this app finishes.** It is asked for once, on the first
-    /// connection, and what the user does next is go to iOS Settings, turn it on or off, and come
-    /// back — none of which this process sees. So it is read wherever it is wanted, which is where
-    /// a banner is about to be posted and where the answer is shown, and nothing caches it: a
-    /// remembered copy of this is a user who turned notifications on an hour ago and hears nothing
-    /// until the next launch.
+    /// Read from the system wherever wanted and never cached: the user toggles it in iOS Settings without this process seeing it.
     func refreshAuthorization() async -> Bool {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         return settings.authorizationStatus == .authorized
     }
 
-    /// Called by the app delegate when the OS delivers or refreshes the APNs device token.
     func remoteTokenDidChange(_ token: Data) {
         remoteToken = token
         remoteTokenFailure = nil
         NotificationCenter.default.post(name: Self.remoteTokenChangedName, object: nil)
     }
 
-    /// Called by the app delegate when registering for push failed.
-    ///
-    /// The error is the point: it is the only thing anywhere that says *why* a Mac cannot reach
-    /// this phone, and it is thrown away in the delegate no longer.
     func remoteTokenDidFail(_ error: Error) {
         remoteToken = nil
         remoteTokenFailure = error.localizedDescription
@@ -114,11 +73,7 @@ final class SessionNotifier {
 
     // MARK: - Banners
 
-    /// The one entry point the model uses, on every phase change.
-    ///
-    /// Withdraws before posting: arriving at `.ready` retires the pairing prompt, a fresh
-    /// attempt retires the failure before it, so nothing is left in Notification Center
-    /// claiming a state the session has already left.
+    /// Withdraws before posting, so nothing in Notification Center claims a state the session has left.
     func sessionMoved(
         from previous: ClientSession.Phase,
         to phase: ClientSession.Phase,
@@ -150,26 +105,14 @@ final class SessionNotifier {
         post(notification)
     }
 
-    /// Everything this feature has ever put in Notification Center, called when the app comes
-    /// back to the front: from that moment the screen is what the user is reading, and a
-    /// banner behind it describes a moment that has passed.
+    /// Called when the app returns to the front: a banner behind the screen describes a moment that has passed.
     func retractAll() {
         retract(SessionAwareness.Kind.allCases)
     }
 
-    /// Terminal prompts are the case where the Mac explicitly needs the person back. The
-    /// in-app attention badge is always updated, on every plan, because it belongs to the
-    /// terminal; this adds a banner only when the plan includes being told, while Peering is not
-    /// frontmost, and once notification permission has been granted.
-    ///
-    /// **The same message is sent by the Mac over the relay and APNs**, whether or not a session is
-    /// up, to the token the phone registered on the way in. That system-owned route is what makes
-    /// alerts reliable while Picture in Picture keeps the control channel connected but iOS
-    /// suspends this process. This local route is the fallback when no APNs token exists.
-    ///
-    /// `macName` is the second line rather than the first, because the message is what the user
-    /// needs and the Mac is what tells them which of several to look at: two Macs can both have a
-    /// shell called `prod`, and this is read on a locked screen with nothing else on it.
+    /// The in-app attention badge updates on every plan; the banner needs the plan, the app not frontmost, and permission.
+    /// The Mac also sends this message over the relay and APNs to the registered token, which is what stays reliable while PiP keeps the channel connected but iOS suspends the process; this local route is the fallback with no token.
+    /// `macName` is the second line: two Macs can both have a shell called `prod`, and this is read on a locked screen.
     func terminalNeedsAttention(_ message: String, sessionID: UUID, macName: String? = nil) {
         guard isOnPlan, UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
@@ -179,17 +122,8 @@ final class SessionNotifier {
         deliver(content, identifier: "peering-terminal-\(sessionID.uuidString)")
     }
 
-    /// The banner for a shell the user walked away from with a prompt still open.
-    ///
-    /// ``terminalNeedsAttention(_:sessionID:macName:)`` says nothing while the app is in front,
-    /// which is right, and the Mac's detector will not fire again for the same prompt: it waits
-    /// for an answer before it will recognise another. So a prompt that arrived while the user was
-    /// looking had no way of ever reaching them once they put the phone down, and leaving the
-    /// screen is the second and last chance to say so.
-    ///
-    /// The sentence is the Mac's own, from ``TerminalSessionManager``, because both of them end up
-    /// on the same Lock Screen: one banner reading "Terminal “prod” is waiting for a password" and
-    /// another reading something else about the same state would look like two features.
+    /// `terminalNeedsAttention` says nothing while the app is in front and the Mac's detector will not fire again for the same prompt, so leaving the screen is the last chance to say so.
+    /// The sentence is the Mac's own, so two banners about one state do not read as two features.
     func terminalStillWaiting(
         _ kind: TerminalAttentionKind,
         name: String,
@@ -204,15 +138,8 @@ final class SessionNotifier {
         )
     }
 
-    /// A command that took a while has returned control to the prompt. Unlike
-    /// ``terminalNeedsAttention(_:sessionID:macName:)`` there is nothing waiting on an answer, so
-    /// there is no ``terminalStillWaiting(_:name:sessionID:macName:)`` counterpart to re-raise this
-    /// on backgrounding: the Mac's detector fires once, when the prompt reappears, and by the time
-    /// somebody backgrounds the app that moment has already passed or already been told.
-    ///
-    /// Gated on the same ``isOnPlan`` as attention. The Mac also sends the identical sentence over
-    /// the relay and APNs whenever this phone has registered a token; this local route is retained
-    /// for a phone that has notification permission but has not obtained an APNs token.
+    /// A command that took a while has returned to the prompt. No `terminalStillWaiting` counterpart: nothing waits on an answer.
+    /// Gated on `isOnPlan`; the local route is the fallback when no APNs token exists.
     func terminalFinishedWork(_ message: String, sessionID: UUID, macName: String? = nil) {
         guard isOnPlan, UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
@@ -223,29 +150,20 @@ final class SessionNotifier {
     }
 
     private func post(_ notification: SessionAwareness.Notification) {
-        // A banner about the screen the user is looking at is noise rather than news, and on
-        // a frontmost app iOS would not present it anyway — the check here is what keeps the
-        // "not posted" decision in one readable place instead of in the delegate's rules.
+        // A banner about the screen the user is looking at is noise, and iOS would not present it anyway.
         guard UIApplication.shared.applicationState != .active else { return }
 
         let content = UNMutableNotificationContent()
         content.title = notification.title
         content.body = notification.body
-        // Sound for the two that can arrive with the phone in a pocket. "Connected" is
-        // confirmation of something the user just did, to someone already holding the phone.
+        // Sound for the two that can arrive with the phone in a pocket; "Connected" confirms something the user just did.
         content.sound = notification.kind == .connected ? nil : .default
 
         deliver(content, identifier: notification.identifier)
     }
 
-    /// The one place a banner is handed to iOS, and the one place the permission is read.
-    ///
-    /// Read here rather than checked by the callers, so that the answer is the one the system has
-    /// *now*: the user is told about a shell waiting while notifications are off, turns them on in
-    /// iOS Settings, and the next shell to stop has to reach them without a relaunch in between.
-    ///
-    /// Nothing is scheduled: every one of these is about something that has just happened, so a
-    /// trigger would only be a delay.
+    /// Permission is read here, not by callers, so it is current: a user who turns notifications on in Settings must be reached by the next shell without a relaunch.
+    /// Nothing is scheduled: each is about something that just happened.
     private func deliver(_ content: UNMutableNotificationContent, identifier: String) {
         Task {
             guard await refreshAuthorization() else { return }
@@ -259,19 +177,8 @@ final class SessionNotifier {
         }
     }
 
-    /// Takes banners back by the identifier their kind owns. Both lists, because a request
-    /// that has been added but not yet delivered sits in the pending one — and it would then
-    /// arrive at exactly the wrong moment.
-    ///
-    /// **By prefix rather than by exact name**, which is what several Macs made necessary: an
-    /// identifier is now `kind.hostID`, so the exact string is no longer knowable from the kind
-    /// alone, and the Mac whose state has changed is not always the one being asked about — a
-    /// session coming up retires the pairing-code banner of any Mac, including one this end can
-    /// no longer name because its session has already been let go of.
-    ///
-    /// Reading what is delivered is an `await`, which is why this is a `Task` where it used to be
-    /// three synchronous lines. Nothing waits on it: taking a banner back is housekeeping, and a
-    /// user who sees it for a moment longer has lost nothing.
+    /// Both lists: a request added but not yet delivered sits in pending and would arrive at the wrong moment.
+    /// By prefix: an identifier is `kind.hostID`, and a session coming up retires the pairing-code banner of any Mac, including one this end can no longer name.
     private func retract(_ kinds: [SessionAwareness.Kind]) {
         guard !kinds.isEmpty else { return }
         let prefixes = kinds.map(\.identifier)

@@ -22,7 +22,6 @@ public struct AutoQualityPolicy: Sendable {
             }
         }
 
-        /// Where this rung sits in the ladder, for the one comparison a ceiling needs.
         var rank: Int {
             switch self {
             case .low: return 0
@@ -50,12 +49,9 @@ public struct AutoQualityPolicy: Sendable {
 
     public private(set) var tier: Tier
     private let path: Path
-    /// The fastest this session may go, which is the plan's answer rather than the network's.
     private let ceiling: Tier
     private var healthySamples = 0
 
-    /// - Parameter ceiling: how far the picture may climb on this session. Relayed bytes are the
-    ///   operator's, so a relayed session is capped by the plan; a direct one has nothing to sell.
     public init(path: Path, ceiling: Tier = .high) {
         self.path = path
         self.ceiling = ceiling

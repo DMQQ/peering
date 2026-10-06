@@ -2,23 +2,8 @@ import MacCastKit
 import RemoteCore
 import UIKit
 
-/// A paragraph about this install, for pasting into a message when something is wrong.
-///
-/// The app has no analytics and no crash reporting, which is a promise rather than an oversight —
-/// so when something breaks there is nothing on this side to look at. This is the replacement for
-/// that, and the reason it is a *copy* button rather than an automatic report: the user sees
-/// exactly what is being sent, and decides whether to send it, which is what an app that says
-/// "nothing is sent to us" has to mean.
-///
-/// It is written for the failure modes this app actually has. "It cannot connect" is usually a
-/// protocol version mismatch or a relay problem, so both are on the first three lines. "The
-/// picture is black" wants to know the path and the video state. "It says I am out of relay time"
-/// wants the plan and the device ID, because the relay meters by device and that is the only
-/// thing on this page the relay has ever seen.
-///
-/// Everything here is either a version number, a state the user can already see on screen, or the
-/// device ID that the identity card in Settings already displays. There is no Mac name, no SSID,
-/// no location, and no account — there isn't one.
+/// A paragraph about this install, for pasting into a message. The app has no analytics or crash reporting, so this copy button is the replacement: the user sees what is sent and decides.
+/// Only versions, on-screen state and the device ID already shown in Settings; no Mac name, SSID or location.
 enum Diagnostics {
     @MainActor
     static func text(model: SessionModel) -> String {
@@ -30,8 +15,6 @@ enum Diagnostics {
 
         lines.append("Peering \(version) (\(build))")
         lines.append("\(deviceModel()), iOS \(UIDevice.current.systemVersion)")
-        // Named as what it is for rather than as what it is called: the number only ever matters
-        // when the two apps disagree, and somebody reading this aloud needs to know that.
         lines.append("App version: \(ProtocolInfo.version) (the mobile and Mac apps must match)")
         lines.append("")
 
@@ -43,24 +26,12 @@ enum Diagnostics {
 
         lines.append("State: \(model.phase)")
         lines.append("Path: \(model.connectionPath.map { "\($0)" } ?? "none")")
-        // Recorded beside the path rather than folded into it: a session that found a path between
-        // the two machines still has a relayed connection, because the relay goes on splicing its
-        // control connection and metering it either way. This is the line that says which of the
-        // two carried the picture.
+        // Recorded beside the path: a session that found a direct path still has a relayed control connection, so this says which carried the picture.
         lines.append("Picture path: \(model.usedDirectPath ? "direct (peer to peer)" : "relay")")
-        // **The figure the whole several-Macs-at-once design stands on.** How long the picture
-        // takes to come back after this end asks for it again is the difference between switching
-        // Macs and reconnecting to one, and it is measurable in exactly one place: the ask goes
-        // out from here and the frames come back to the renderer, so this is the only code that
-        // sees both ends of the interval. Read off the last session rather than a live one, like
-        // the datagram counts above and for the same reason. "not measured" rather than omitted,
-        // because a missing line reads as a feature that does not exist.
+        // How long the picture takes to come back after asking again: the figure the several-Macs design stands on, measurable only here. Read off the last session; "not measured" rather than omitted.
         let resume = model.activeSession?.lastResumeMilliseconds
         lines.append("Picture resume: \(resume.map { "\(Int($0.rounded())) ms" } ?? "not measured")")
-        // Only for a session that had a datagram lane, and from the last one rather than the
-        // live one, because Settings cannot be opened while a session is running. These are the
-        // four figures that tell a lane the network is dropping from one this end is refusing,
-        // and they are worth nothing once the counters have been reset by the next session.
+        // From the last session rather than a live one, because Settings cannot open while a session runs.
         if let counts = model.datagramCounts {
             lines.append("Video datagrams: \(counts.summary)")
         }
@@ -69,8 +40,6 @@ enum Diagnostics {
         lines.append("Mac terminals open: \(model.terminals.count)")
         lines.append("")
 
-        // The last few sessions, because "it drops after a while" is a question about a pattern
-        // rather than about one connection, and the shape of the last three answers it.
         let recent = model.sessionHistory.prefix(3)
         if recent.isEmpty {
             lines.append("No sessions recorded yet.")
@@ -81,13 +50,7 @@ enum Diagnostics {
             }
         }
 
-        // **The crashes, which are the one part of this nobody can describe from memory.** Somebody
-        // reporting a bug can say what they were doing and cannot say what the stack was, and this
-        // is the text that already travels with the report, both attached as a file and behind the
-        // "Copy diagnostics" row. Without it a crash report is a paragraph and a guess.
-        //
-        // Bounded on both axes: the three most recent, and only the first frames of each. A launch
-        // crash produces sixty frames of SwiftUI, and the interesting part is always the top of it.
+        // Crashes are the part nobody can describe from memory. Bounded to the three most recent and the first frames of each.
         let crashes = CrashLog.entries(subject: "phone").prefix(3)
         lines.append("")
         if crashes.isEmpty {
@@ -108,16 +71,9 @@ enum Diagnostics {
         return lines.joined(separator: "\n")
     }
 
-    /// How much of one crash report travels. Forty lines: a header, and enough frames to tell a
-    /// stack overflow in a view from a protocol error in a socket.
     private static let framesCarried = 40
 
-    /// The hardware identifier rather than the marketing name.
-    ///
-    /// `UIDevice.model` says "iPhone" for every phone ever made, and `name` is whatever the owner
-    /// called it — which is a person's word for their own possession and none of our business.
-    /// The identifier ("iPhone16,2") answers the question a report is asking, which is whether the
-    /// hardware is special in some way.
+    /// The hardware identifier: `UIDevice.model` says iPhone for every phone and `name` is the owner's own word for it.
     private static func deviceModel() -> String {
         var system = utsname()
         guard uname(&system) == 0 else { return UIDevice.current.model }

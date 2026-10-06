@@ -2,22 +2,7 @@ import AppKit
 import RemoteCore
 import SwiftUI
 
-/// How a phone gets here, and the two permissions that let it.
 extension HostStatusView {
-    /// How a phone gets here — shown only while nothing is attached.
-    ///
-    /// The rest of this pane answers questions about a device that is already connected: what it
-    /// is looking at, when it arrived, what it has been doing. Open the window on an idle Mac and
-    /// every one of those is an answer to a question nobody has asked yet, which is what made
-    /// this screen read as a single empty panel. This is the question to answer for a Mac that
-    /// nobody has reached yet, and the only part of this pane that has anything to say then.
-    ///
-    /// It sits under the picture rather than above it. Instructions at the top of a window push
-    /// the actual subject down out of sight, and this is a window whose subject arrives on its
-    /// own — but the panel still reads second, which is where someone who is stuck will look.
-    ///
-    /// Withdrawn as soon as something connects, because then the answers below are the ones
-    /// being looked for.
     @ViewBuilder
     var connectSection: some View {
         if model.connectedClients.isEmpty {
@@ -80,11 +65,7 @@ extension HostStatusView {
                     Label("Pair a new iPhone", systemImage: "iphone.and.arrow.forward")
                         .font(.title3.weight(.semibold))
 
-                    // Two sentences, because the two pairings ask for different things. On the
-                    // network the phone can read the code itself, and the person here is the
-                    // one confirming. Over the relay there is somebody else at the other end,
-                    // and the only way the digits cross is that this person reads them out —
-                    // so the card says which of the two situations it is looking at.
+                    // Two sentences: on the network the phone reads the code and this person confirms; over the relay this person reads the digits out.
                     Text(pairing.isRemote
                          ? "This iPhone reached this Mac over the relay, so it is not on this network. Read the six digits out to whoever is holding it: they enter them on the iPhone, and the pairing only goes through if they match."
                          : String(localized: "Scan this code with Peering, or enter the six digits on \(pairing.clientName)."))
@@ -164,12 +145,7 @@ extension HostStatusView {
             }
             .hostPanel()
 
-            // Two buttons rather than one, because they do different things and only one of them
-            // can help with Screen Recording. Accessibility is re-read on every check, so
-            // "Check again" is the whole story there; Screen Recording is read once, when the
-            // process starts, so a grant made while this window is open does nothing until the
-            // app is opened again. The caption used to say "restart Peering" beside a button that
-            // could not do it, which sent the user to the Dock to quit by hand.
+            // Screen Recording is read once at process start, so a grant made while open needs a relaunch; Accessibility is re-read on every check.
             HStack(spacing: 8) {
                 Button("Check again") { model.refreshPermissions() }
                     .controlSize(.small)

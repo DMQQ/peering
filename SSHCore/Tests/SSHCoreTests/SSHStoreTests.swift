@@ -3,8 +3,6 @@ import Testing
 
 @testable import SSHCore
 
-/// A `UserDefaults` of its own, so a test never writes into the real app's preferences and never
-/// has to tidy up after itself.
 private func scratchDefaults() -> UserDefaults {
     UserDefaults(suiteName: "peering.ssh.tests.\(UUID().uuidString)")!
 }
@@ -109,8 +107,7 @@ struct SSHCredentialStoreTests {
 
     @Test("a backend that refuses the write is reported, not swallowed")
     func failedWriteIsReported() {
-        // The whole reason `save` returns a Bool: the caller has to be able to tell the user their
-        // password was *not* kept, rather than showing a tick and asking for it again next time.
+        // Why `save` returns a Bool: the caller must be able to say the password was not kept.
         let store = SSHCredentialStore(backend: RefusingBackend())
         #expect(store.save(.password("hunter2"), for: UUID()) == false)
     }
@@ -130,8 +127,6 @@ struct SSHCredentialStoreTests {
         #expect(store.save(.key(pair), for: id))
         #expect(store.credential(for: id) == .key(pair))
 
-        // A password and a key are alternatives for one host, so the second save is a replacement
-        // rather than an addition. Nothing about the shape allows both to be held at once.
         store.save(.password("hunter2"), for: id)
         #expect(store.credential(for: id) == .password("hunter2"))
         #expect(store.all().count == 1)
@@ -139,12 +134,7 @@ struct SSHCredentialStoreTests {
 
     @Test("a password saved by the previous build still reads back")
     func passwordFromAv1Build() throws {
-        // The exact bytes the version before keys wrote: Swift's synthesized enum encoding names
-        // the case, so a second case beside `.password` does not move the first one's fields. This
-        // is written out by hand rather than produced by the current encoder, because an assertion
-        // that a value round-trips through *this* build is not evidence about a blob written by
-        // another one — and the failure this guards is every saved password in the app being lost
-        // at the next update, with the user asked to type them all again.
+        // The exact bytes the version before keys wrote, by hand rather than the current encoder: round-tripping through this build says nothing about a blob from another, and failing here loses every saved password.
         let backend = InMemorySecretBackend()
         let id = UUID()
         let blob = Data(#"{"\#(id.uuidString)":{"password":{"_0":"hunter2"}}}"#.utf8)
@@ -182,9 +172,7 @@ struct SSHKnownHostsTests {
 
     @Test("a different key for a known host is a change, not a first sight")
     func changed() {
-        // The distinction the whole feature rests on. Treated as "unknown", a changed key would
-        // bring up the same friendly first-connect prompt a genuine new host does, and the user
-        // would accept it — which is precisely the attack the check exists to catch.
+        // Treated as "unknown", a changed key would raise the friendly first-connect prompt and the user would accept it, which is the attack.
         let hosts = SSHKnownHosts(backend: InMemorySecretBackend())
         hosts.record(endpoint: Self.endpoint, algorithm: "ssh-ed25519", publicKey: Self.keyA)
 

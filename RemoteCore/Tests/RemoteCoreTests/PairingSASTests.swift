@@ -32,8 +32,7 @@ struct PairingSASTests {
         #expect(code.count == 6)
         #expect(code.allSatisfy { $0.isNumber })
 
-        // Zero-padding matters: a naive string conversion of 42 would show "42" and
-        // give a user only two digits to compare.
+        // Zero-padding matters: 42 must show as 000042.
         for _ in 0..<200 {
             let random = PairingTranscript(
                 protocolVersion: 1,
@@ -54,15 +53,11 @@ struct PairingSASTests {
         #expect(PairingSAS.code(for: transcript()) == PairingSAS.code(for: transcript()))
     }
 
-    /// Pins the exact output so a refactor cannot silently change what users compare,
-    /// and so the iOS and macOS implementations stay byte-compatible.
     @Test("matches the frozen vector")
     func frozenVector() {
         #expect(PairingSAS.code(for: transcript()) == "365357")
     }
 
-    /// Every field must be covered. If any one of them could change without disturbing
-    /// the digits, an attacker could vary it freely.
     @Test("changing any transcript field changes the code")
     func allFieldsBound() {
         let base = PairingSAS.code(for: transcript())
@@ -79,14 +74,11 @@ struct PairingSASTests {
 
         for variation in variations {
             let changed = PairingSAS.code(for: variation)
-            // A 10⁻⁶ collision is possible in principle; across seven variations the
-            // chance of a false failure is ~7×10⁻⁶.
+            // A 10^-6 collision is possible in principle, so a false failure has probability ~7x10^-6.
             #expect(changed != base, "a field is not bound into the code")
         }
     }
 
-    /// Without length prefixes, ("ab","c") and ("a","bc") serialize identically, so two
-    /// peers disagreeing about the field split would still show matching digits.
     @Test("length prefixes make the encoding unambiguous")
     func lengthPrefixingPreventsAmbiguity() {
         let first = transcript(clientID: "ab", serverID: "c")
@@ -110,8 +102,6 @@ struct PairingSASTests {
         #expect(PairingSAS.verify(commitment: commitment, ephemeralPublicKey: ephemeral, nonce: nonce))
     }
 
-    /// The property the whole commitment exchange exists for: a peer cannot swap its
-    /// contribution after seeing the other side's reveal.
     @Test("rejects a reveal that does not match the commitment")
     func commitmentRejectsSubstitution() {
         let ephemeral = Data(repeating: 0x7A, count: 65)
@@ -150,9 +140,7 @@ struct ConstantTimeTests {
         #expect(ConstantTime.equals(Data(), Data()))
     }
 
-    /// The difference is in the *first* byte, so a short-circuiting comparison would
-    /// return almost immediately. This does not measure timing — it pins the behaviour
-    /// that the loop must visit every byte regardless of where the difference is.
+    /// A difference in the first byte must still visit every byte; this pins the behaviour, not timing.
     @Test("does not short-circuit on an early difference")
     func noShortCircuit() {
         let long = Data(repeating: 0, count: 4096)

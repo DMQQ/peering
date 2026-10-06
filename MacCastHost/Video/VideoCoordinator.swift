@@ -8,17 +8,6 @@ import os
 private let coordinatorLog = Logger(subsystem: "pl.dmq.peering.host", category: "video")
 
 /// Owns the capture → encode → send chain, start to finish.
-///
-/// Deliberately not `@MainActor`: frames arrive up to sixty times a second from VideoToolbox, and
-/// routing each one through the main actor would put the video path behind whatever SwiftUI happens
-/// to be doing. `HostModel` keeps the main-actor state the window needs; everything below it lives
-/// here, and the only things that cross back are status strings and failures.
-///
-/// It exists as a type because of one ordering rule that is easy to get wrong and impossible to see
-/// when it is: a client cannot be sent a frame before it has been sent the description needed to
-/// decode that frame. Parameter sets live in the encoder's format description, which does not exist
-/// until the encoder has produced its first frame, so a video connection cannot be served on arrival.
-/// It has to wait for a keyframe, and this is where that wait is kept.
 final class VideoCoordinator: @unchecked Sendable {
     private let pipeline: CapturePipeline
     private let streamer: VideoStreamer
@@ -26,14 +15,8 @@ final class VideoCoordinator: @unchecked Sendable {
     private let lock = NSLock()
 
 /// Which client is being sent the picture, and which ones have asked for no frames.
-///
-/// Kept here as well as in `VideoStreamer` so connection lifetime and capture lifetime can be changed
-/// under one lock. A paused connection is one of these rather than nothing at all: the client is still
-/// connected and still coming back, and the socket it is holding is the expensive thing a resume would
-/// otherwise have to rebuild.
     private var audience = VideoAudience<PeerConnection>()
 
-    /// The source the stream is on, or `nil` when nothing is being captured.
     private var currentSource: CaptureSource?
     private var currentAudioConfig: AudioStreamConfig?
 
@@ -43,30 +26,13 @@ final class VideoCoordinator: @unchecked Sendable {
     private var lifecycleTail: Task<Void, Never>?
 
 /// The source a client chose, as opposed to the default the host fell back to.
-///
-/// The two are not interchangeable even when they name the same source, because they have different
-/// lifetimes: a default belongs to the host and outlives everyone, while a choice belongs to the
-/// client that made it. So it outlives a pause and not a disconnect.
-///
-/// Held as the source itself rather than as a flag beside ``currentSource``, because a paused capture
-/// has no running source to remember the choice by: the stop clears ``currentSource``, and a flag
-/// alone would leave the next start with nothing to name but the default display.
     private var chosenSource: CaptureSource?
 
 /// How the next stream is built: the size of its surface, and the rate it is asked for.
-///
-/// Read when a capture starts and not when they are set, because neither can be changed on a stream
-/// that is already running: the surface's dimensions and its frame interval are fixed when the
-/// `SCStream` is created, and the encoder is built around them. What the window shows for them is a
-/// promise about the next capture. Under ``lock`` with the rest of the state, since the window writes
-/// them on the main actor while the lifecycle queue reads them.
     private var captureResolution: CaptureResolution = .full
     private var captureFrameRate: CaptureFrameRate = .sixty
 
 /// Called when the user changes either one in the host window.
-///
-/// Both at once rather than one at a time: the pair is what the next capture is built from, and a
-/// setter that wrote only its own half would leave the other one holding whatever it was last given.
     func setCaptureFormat(resolution: CaptureResolution, frameRate: CaptureFrameRate) {
         lock.withLock {
             captureResolution = resolution
@@ -75,33 +41,16 @@ final class VideoCoordinator: @unchecked Sendable {
     }
 
 /// Fires if capture starts and then produces nothing at all.
-///
-/// This exists because the failure it catches is otherwise invisible. Without Screen Recording
-/// permission, `SCShareableContent` still hands back a catalogue, the content filter still builds, and
-/// `startCapture` still returns without error, and then no frames ever arrive. Nothing throws, nothing
-/// logs, and the host window says "Capturing Built-in Retina Display" while the client shows a black
-/// rectangle.
-///
-/// It covers the start window only, and that restriction is what makes it correct rather than noisy.
-/// A static screen also produces no frames, but it still delivers its first one, so "no frame has ever
-/// arrived" distinguishes a dead stream from a still one and a later silence is not evidence of
-/// anything.
     private var watchdog: DispatchWorkItem?
 
-    /// The catalogue push a burst of invalidations is already owed. See ``refreshCatalog()``.
     private var pendingCatalogPush: Task<Void, Never>?
 
     /// When the last one went out, so a burst cannot become a storm. See ``refreshCatalog()``.
     private var lastCatalogPushAt: Date?
 
-    /// Which push is pending, and whether it is still sleeping out the interval. An immediate ask
-    /// replaces a sleeping push rather than waiting behind it.
     private var pendingCatalogPushID = 0
     private var pendingCatalogPushIsWaiting = false
 
-/// How long capture may go without producing a single frame before it is called dead. Generous: the
-/// first frame has to survive encoder creation and a stream start, and a false accusation here sends
-/// the user to System Settings for no reason.
     private static let firstFrameGrace: TimeInterval = 5
 
     /// Called for anything the user should see in the host window. `@Sendable` because this
@@ -111,16 +60,8 @@ final class VideoCoordinator: @unchecked Sendable {
 
 /// The mapping from client coordinates to screen points for the active source, sent whenever it can
 /// change.
-///
-/// Re-published on every source start rather than computed once, because it depends on the source: a
-/// display maps through the display's bounds, while a window or an application maps through wherever
-/// that content happens to be. Nil means nothing is being captured and the caller should fall back to
-/// the display it is looking at.
     var onInputTransform: (@Sendable (InputTransform?) -> Void)?
 
-    /// Called with the source list whenever it changes. The host pushes it to clients so
-    /// their picker offers what actually exists right now, rather than what existed when
-    /// they connected.
     var onCatalog: (@Sendable (CaptureCatalog) -> Void)?
 
     init(pipeline: CapturePipeline) {
@@ -219,42 +160,22 @@ final class VideoCoordinator: @unchecked Sendable {
         return (config, frame)
     }
 
-/// Where the captured content in the frame being handed to the network sits, for mapping client
-/// input. It deliberately follows encoding rather than raw capture: VideoToolbox is asynchronous,
-/// and publishing raw-frame geometry can move clicks to a new source while the phone still shows
-/// the old one.
     var onGeometry: (@Sendable (FrameGeometry) -> Void)?
 
 /// What is being streamed now, or `nil` when nothing is.
-///
-/// Reported rather than pulled, because the answer changes for reasons the window never sees, and it
-/// is decided on the lifecycle queue while the window is read on the main actor. ``source`` below
-/// answers the same question, but only to a caller who already knows when to ask.
     var onSourceChanged: (@Sendable (CaptureSource?) -> Void)?
 
-    /// The capture source being captured, if any.
     var source: CaptureSource? { lock.withLock { currentSource } }
 
 /// Whether what is being captured is a canvas rather than one of the Mac's sources.
-///
-/// Read by the input path, which refuses user input while one is up: a point on a canvas means
-/// nothing on the Mac until a tile has been chosen for it, and the tile is chosen on the phone.
-/// See ``CaptureSource/isMosaic``.
     var isShowingMosaic: Bool { lock.withLock { currentSource?.isMosaic ?? false } }
 
     // MARK: - Video clients
 
-    /// A client has opened a video connection, and the host has already checked that a live
-    /// authorized control session belongs to the same key. Called on the server queue.
     func handleVideoConnection(_ peer: PeerConnection) {
 // Weak, because the connection owns this closure. A strong capture would keep the connection alive
 // for as long as the streamer holds the peer, which is exactly the leak that makes a disconnected
 // client keep receiving frames.
-//
-// Chained, not assigned. A relayed session's video "connection" is the control connection itself,
-// which the session has already claimed to know when its peer goes away, and replacing that handler
-// would take the teardown with it: the session would never leave the server's list and the datagram
-// lane, whose whole lifetime is this one, would go on sending to a client that has gone.
         let announced = peer.onClose
         peer.onClose = { [weak self, weak peer] error in
             announced?(error)
@@ -265,10 +186,6 @@ final class VideoCoordinator: @unchecked Sendable {
     }
 
 /// Attaches a client's video connection, or holds it until the stream has a description.
-///
-/// Shared by a connection that has just arrived and by one a client is asking for again after a
-/// pause, because the two are the same event. The only difference is where the connection came from,
-/// and a second path for it is how the two would come to disagree about the keyframe.
     private func serve(_ peer: PeerConnection) {
         let config = adapter.config
         lock.withLock {
@@ -277,22 +194,11 @@ final class VideoCoordinator: @unchecked Sendable {
         }
 
         if let config {
-// The description is already known from a previous client or an earlier frame, so there is nothing to
-// wait for. The attach itself asks for a keyframe, which gives this client a picture it can decode
-// without waiting out the encoder's interval.
             streamer.attach(peer, config: config)
         }
     }
 
 /// Turns the picture on or off for one client, and touches nothing else.
-///
-/// This is the whole of the host's half of ``RemoteCommand/setVideoEnabled(_:)``, and the property it
-/// exists to preserve is that only the frames change. The session, the control channel, the terminals,
-/// the clipboard and the assertion that keeps this Mac awake are all somebody else's business.
-///
-/// The client is identified by the key it presented rather than by the connection the request arrived
-/// on: in a direct session the request arrives on the control connection while the frames go out on a
-/// socket of their own, so the connection carrying the command is never the connection to act on.
     func setVideoEnabled(_ enabled: Bool, clientKey: Data?) {
         if enabled {
             resumeVideo(clientKey: clientKey)
@@ -302,14 +208,6 @@ final class VideoCoordinator: @unchecked Sendable {
     }
 
 /// Stops sending frames to a client, keeping its connection.
-///
-/// What stops is the capture, if this was the last client asking for a picture, and the bytes going to
-/// this one. What is deliberately not done is closing anything: on a direct session reopening the video
-/// socket costs a fresh TLS handshake, and on a relayed one the control connection is the video
-/// connection.
-///
-/// The source choice survives, unlike on a disconnect, because the client has not gone anywhere and the
-/// window it was watching is the one it must come back to.
     private func pauseVideo(clientKey: Data?) {
         let attached = lock.withLock { () -> PeerConnection? in
             guard let served = audience.served, served.peerPublicKey == clientKey else {
@@ -334,10 +232,6 @@ final class VideoCoordinator: @unchecked Sendable {
     }
 
 /// Starts sending frames to a client that has asked for them again.
-///
-/// The connection attached is the one this client paused, because it is still open and because it is
-/// the expensive thing to rebuild. When there is none there is nothing to attach, and the connection it
-/// opens next is served the way any new one is.
     private func resumeVideo(clientKey: Data?) {
         let resumed = lock.withLock {
             audience.pausedConnections.first { $0.peerPublicKey == clientKey }
@@ -347,9 +241,6 @@ final class VideoCoordinator: @unchecked Sendable {
     }
 
 /// A client's video connection went away.
-///
-/// The capture is not stopped by every close, only by one that takes the last of the audience with it,
-/// because a client that reconnects has a new connection accepted before the old one is reaped.
     private func videoPeerClosed(_ peer: PeerConnection) {
         let seat = lock.withLock { () -> VideoAudience<PeerConnection>.Seat in
             let departure = audience.closed(peer)
@@ -360,8 +251,6 @@ final class VideoCoordinator: @unchecked Sendable {
 // be discarded, and a client asking for a picture would be left with a capture that never starts.
             guard departure == .waiting || departure == .attached else { return departure }
 
-// A source choice belongs to the departed audience. Clear it synchronously so a replacement queued
-// behind the stop selects the host's default source.
             chosenSource = nil
 // And so does a transport choice. Left standing, the next client, which has asked for nothing, would
 // be served a capped picture on the control channel because of a decision somebody else made about a
@@ -394,15 +283,6 @@ final class VideoCoordinator: @unchecked Sendable {
 
     /// How long a freshly attached client is given to say what it wants before this Mac picks
     /// for it.
-    ///
-    /// A round trip was the whole of this number, and a round trip is not the whole of the wait:
-    /// the phone asks from what the catalogue names, so its ask goes out a round trip *after* that
-    /// list arrives, and the list costs an enumeration and a screen's worth of icons to build. A
-    /// quarter of a second therefore lost the race on every connection whose ask has any distance
-    /// to travel, which is visible as a desktop appearing first and being replaced.
-    ///
-    /// Paid by a client that asks for nothing, which is one that has never chosen a source, and
-    /// paid once per video connection. See ``ensureCapturing()``.
     private static let firstAskGrace = Duration.seconds(1)
 
     private func scheduleEnsureCapturingLocked(generation: UInt64) {
@@ -413,10 +293,6 @@ final class VideoCoordinator: @unchecked Sendable {
 // moment it connects, and what comes back is the source it was last on, usually a mosaic. Starting the
 // default display in the meantime builds a stream that is thrown away a round trip later, and the phone
 // watches it happen: a desktop appears, and then the arrangement it was waiting for.
-//
-// Waiting is free when the client does ask, because ``switchSource(_:)`` records the choice the moment
-// the command arrives rather than when its turn comes, so the check below sees it. It is only ever paid
-// by a client that wants the default, and then only once.
             if self.lock.withLock({ self.chosenSource }) == nil {
                 try? await Task.sleep(for: Self.firstAskGrace)
                 guard self.hasAudience(generation: generation) else { return }
@@ -425,8 +301,6 @@ final class VideoCoordinator: @unchecked Sendable {
             do {
                 try await self.ensureCapturing()
                 guard self.hasAudience(generation: generation) else { return }
-// If capture had to be started for this connection, the attach above asked for a keyframe before
-// there was an encoder to hear it.
                 self.pipeline.requestKeyframe()
             } catch {
                 self.onFailure?(error as? CaptureError ?? .encodingFailed("\(error)"))
@@ -457,8 +331,6 @@ final class VideoCoordinator: @unchecked Sendable {
             guard let self, self.isIdle(generation: generation) else { return }
             self.cancelWatchdog()
             await self.pipeline.stop()
-            // Nothing is being captured, so nothing can describe it. See
-            // ``CaptureFrameAdapter/forget()``.
             self.adapter.forget()
             let remainsIdle = self.lock.withLock { () -> Bool in
                 self.currentSource = nil
@@ -493,21 +365,6 @@ final class VideoCoordinator: @unchecked Sendable {
     // MARK: - Catalogue
 
 /// Re-reads the source list and offers it to ``onCatalog``.
-///
-/// Called when a client connects, and again whenever the resolver reports the list may have changed.
-/// Reading it needs Screen Recording permission, so this is also the point at which a client can be
-/// told the list is unavailable; a failure here is not worth interrupting anyone over, since a client
-/// that never receives a catalogue is still served the default display.
-///
-/// Coalesced, because every caller is a notification and notifications arrive in bursts. Each push is
-/// a full enumeration of the Mac's applications, its windows and its desktops, with a screenshot of
-/// every Space in it, on the same machine that is compositing the picture. The last request is always
-/// honoured, so nothing genuinely asked for is skipped.
-///
-/// - Parameter immediate: skip the interval, for the one caller that is not a change to the list but
-///   a client with none: see ``HostModel``'s `.clientConnected`. A client waits on this list before
-///   it can ask for the source it was last on, and the interval was holding that up for up to three
-///   seconds, which is how a desktop came to appear before the arrangement the phone had asked for.
     func forgetWindowListIfStale() {
         pipeline.forgetWindowListIfStale()
     }
@@ -545,7 +402,6 @@ final class VideoCoordinator: @unchecked Sendable {
         }
     }
 
-    /// The shortest gap between two catalogue pushes. See ``refreshCatalog()``.
     private static let catalogPushInterval: TimeInterval = 3
 
     private func pushCatalog() async {
@@ -556,7 +412,6 @@ final class VideoCoordinator: @unchecked Sendable {
 // tell which client already has it, so it answers "nobody needs this" for every client that has not
 // connected yet: the first client suppressed the push for all the others, and every later client got
 // an empty source picker. The suppression belongs where the knowledge is: each ``HostSession``
-// remembers what it has already sent.
             onCatalog?(catalog)
 // The Space count and preview count are the only way to tell a host that has never seen a desktop
 // from one that has: both send the same picker, and the difference is a screenshot that either
@@ -579,29 +434,10 @@ final class VideoCoordinator: @unchecked Sendable {
 
     // MARK: - Capture
 
-/// What to capture when a client connects without having chosen anything.
-///
-/// `CGMainDisplayID()` is safe to call without Screen Recording permission, since it reports which
-/// display the cursor is on and not what is on it, so this can be computed before the permission
-/// question is even asked.
     static var defaultSource: CaptureSource {
         .display(UInt32(CGMainDisplayID()))
     }
 
-/// Starts capturing if nothing is, or if what is being captured is a decision nobody is left to have
-/// made.
-///
-/// The question is deliberately not "is anything being captured": a stream left running on a departed
-/// client's source is still running, and answering the narrow question is what let it be shown to the
-/// next client. See ``videoPeerClosed(_:)``.
-///
-/// A paused client is the case that makes the choice worth keeping as a source rather than as a flag
-/// beside the running one: capture stops while it is paused, and this is what comes back to the window
-/// it was watching rather than to the host's default display.
-///
-/// The default is not restarted when it is already running, which is every client after the first on
-/// an untouched host: `startCapture` rebuilds the `SCStream` rather than reusing it, so an unnecessary
-/// call is a few hundred milliseconds of black for no change in the picture.
     private func ensureCapturing() async throws {
         let target = lock.withLock { chosenSource ?? Self.defaultSource }
         guard lock.withLock({ currentSource }) != target else { return }
@@ -609,16 +445,6 @@ final class VideoCoordinator: @unchecked Sendable {
     }
 
 /// Switches what is being captured.
-///
-/// The video connection survives; the capture stream does not. `switchSource` goes through
-/// ``startCapture(_:)``, which stops the running `SCStream` and builds a new one for the new source,
-/// rather than calling `SCStream.updateContentFilter(_:)`. That is a deliberate trade: an in-place
-/// filter swap still owes the client a fresh keyframe and still leaves the encoder holding a surface of
-/// the old size, so it would save the stream setup and nothing else while adding a second path whose
-/// failure mode is a stream producing frames in the wrong shape.
-///
-/// The client sees no reconnect either way: the new surface produces new parameter sets, the adapter
-/// reports that as a description change, and the streamer re-sends the config and forces a keyframe.
     func switchSource(_ source: CaptureSource) async throws {
         let operation = lock.withLock { () -> Task<Void, Error> in
 // Recorded before the switch, not after, so the intent is the client's even if the capture fails.
@@ -629,17 +455,9 @@ final class VideoCoordinator: @unchecked Sendable {
             let operation = Task { [weak self] in
                 if let previous { await previous.value }
                 guard let self else { return }
-// Nothing is captured for an audience of nobody. A client that has paused has asked for no frames and
-// the capture has stopped, so its switch is kept and not acted on: starting a stream here would be the
-// battery the pause was asked for, spent on a picture nobody is being sent. What starts it is the
-// resume, which is a connection arriving like any other: see ``serve(_:)``.
                 guard self.lock.withLock({ !self.audience.isIdle }) else { return }
-                // A reconnecting phone asks again for what is already running. Restarting it would
-                // cost a new stream and a blank moment; a keyframe is all the phone needs.
                 if self.lock.withLock({ self.currentSource }) == source {
                     self.pipeline.requestKeyframe()
-                    // Still announced: choosing the same window again is how the user brings it
-                    // back to the front, and that raise hangs off this.
                     self.onSourceChanged?(source)
                     return
                 }
@@ -665,9 +483,6 @@ final class VideoCoordinator: @unchecked Sendable {
 // streams.
         let (resolution, frameRate) = lock.withLock { (captureResolution, captureFrameRate) }
         // Before the start, because the description it holds belongs to the source being replaced:
-        // a client attaching in the middle of this switch is served from the streamer, and a
-        // description of the picture that has just been left is worse than none at all. See
-        // ``CaptureFrameAdapter/forget()``.
         adapter.forget()
         try await pipeline.start(
             source: source,
@@ -712,9 +527,6 @@ final class VideoCoordinator: @unchecked Sendable {
         item?.cancel()
     }
 
-/// Capture started and then produced nothing. Ask the system which of the two causes it is, rather
-/// than guessing: the remedy is completely different, and one of them is a button the user has to press
-/// in System Settings.
     private func reportNoFrames(source: CaptureSource) {
         let stats = statistics
         let permission = CGPreflightScreenCaptureAccess()
@@ -729,11 +541,6 @@ final class VideoCoordinator: @unchecked Sendable {
 // Frames that carry no picture are still frames, and a stream reporting them is working: it is
 // delivering on schedule and the screen is not changing. The two counters together are what tell the
 // difference, which is why ``CaptureEngine`` counts both.
-//
-// This signature has a second cause worth knowing: a frame-status reader that answers `nil` for every
-// frame puts the stream in exactly this state, alive at full rate with nothing ever delivered. If this
-// branch ever becomes the normal case rather than a rare one, the status read is the first thing to
-// check.
         if stats.idleSamples > 0 && stats.framesDelivered == 0 {
             onStatus?("Capturing \(source.description) · nothing new to send yet")
             return
@@ -744,61 +551,37 @@ final class VideoCoordinator: @unchecked Sendable {
             return
         }
 
-// **Not removed from the list, and this used to be.** A stream that produces nothing looks from here
-// exactly like a window ScreenCaptureKit will not render, and the tempting conclusion is that the
-// window is broken and should stop being offered. It is also what a window that is minimised, hidden
-// or sitting on a Space this Mac is not showing does, and those are ordinary states of a window
-// somebody is using: taking them out of the catalogue costs a Terminal its row in the picker until
-// the next launch or quit, which is a worse fault than the one it fixes. What is broken for good is
-// known at the ask instead, where the filter cannot be built at all. See
-// ``CaptureSourceResolver/markUncapturable(_:)``.
+// Do not drop the window from the list: a stream that produces nothing is also what a minimised,
+// hidden or off-Space window does, and those are ordinary states.
 
-// Permission is fine, so the stream itself is the problem. Say what was being captured and that
-// permission was not the reason, or the next reader goes looking in System Settings for something
-// already correct.
         onFailure?(.streamFailed(
             "Capture started but produced no frames from \(source.description), and Screen "
                 + "Recording permission is granted. The source may have gone away."
         ))
     }
 
-/// Re-photographs the desktop showing on each display. See
-/// ``RemoteCommand/refreshSpacePreviews``.
     func refreshSpacePreviews() {
         pipeline.refreshSpacePreviews()
     }
 
 /// A source this Mac has been asked for and cannot capture, so the catalogue stops offering it.
-///
-/// **The other half of the evidence ``markUncapturable(_:)`` is fed by.** A window a stream was
-/// built for and got nothing out of is one kind; a window whose filter cannot be built at all is
-/// another and arrives here, at the ask, before any stream exists. Both look identical from the
-/// phone: a row in the picker that does nothing when it is pressed, for as long as the two ends
-/// are connected.
     func markUncapturable(_ source: CaptureSource) {
         pipeline.markUncapturable(source)
     }
 
-    /// Photographs every running application. See
-    /// ``RemoteCommand/refreshSourceThumbnails``.
     func refreshSourceThumbnails() {
         pipeline.refreshSourceThumbnails()
     }
 
-    /// See ``RemoteCommand/watchSourceThumbnails(_:)``.
     func watchSourceThumbnails(_ watching: Bool) {
         pipeline.watchSourceThumbnails(watching)
     }
 
-    /// A still of what is being streamed. See ``CapturePipeline/snapshot(maxWidth:)``.
     func snapshot(maxWidth: Int) async -> CGImage? {
         await pipeline.snapshot(maxWidth: maxWidth)
     }
 
 /// Applies a stream-quality change requested by the client.
-///
-/// The client's figure is remembered rather than applied blindly, because there are two numbers here
-/// and only one of them is the client's to choose. See ``effectiveBitrateKbps``.
     func setStreamQuality(fps: Int, bitrateKbps: Int) {
         guard bitrateKbps > 0 else { return }
         lock.withLock { requestedBitrateKbps = bitrateKbps }
@@ -806,12 +589,6 @@ final class VideoCoordinator: @unchecked Sendable {
     }
 
 /// Moves video between the transport the client prefers and the control channel.
-///
-/// Both the request and the refusal are the client's to make and the host's to judge. The host knows
-/// two things the client cannot: whether it has been producing frames at all, and whether the connection
-/// asking is the one being served. Everything else, that the picture is missing and that the control
-/// channel answers, is the client's evidence. Datagrams are never acknowledged, so a blocked path and a
-/// working one look identical from this side of the socket.
     func setVideoTransport(_ request: VideoTransportRequest, clientKey: Data?, controlPeer: PeerConnection) {
         let served = lock.withLock { audience.served }
         if let served, let clientKey, served.peerPublicKey != clientKey {
@@ -851,16 +628,6 @@ final class VideoCoordinator: @unchecked Sendable {
     }
 
 /// Opens the relay's datagram path for a client that asked for it.
-///
-/// The secret comes back to the caller, which sends it inside the control channel's TLS session; this
-/// object never sees the control channel and the server never sees a socket. `nil` is a refusal, and
-/// there are three of them, each worth keeping apart: a client that is not the one being served (the
-/// same check ``setVideoTransport`` makes), no client at all, and an allocation this Mac cannot build a
-/// lane from. Every one of them leaves the session exactly as it was, on the control stream.
-///
-/// The lane is installed before the secret is handed back, so the first datagrams are already on their
-/// way by the time the client can read one. Losing those costs a few frames of a path that is allowed
-/// to lose frames; waiting for the client to confirm it has the key would cost a round trip.
     func enableVideoDatagrams(clientKey: Data?, relay: RelaySession) -> Data? {
         let served = lock.withLock { audience.served }
         if let served, let clientKey, served.peerPublicKey != clientKey {
@@ -902,12 +669,6 @@ final class VideoCoordinator: @unchecked Sendable {
 
 /// What the encoder should be running at: the client's choice, and the control channel's ceiling on top
 /// of it.
-///
-/// The cap is enforced here rather than asked for. The client is told to stop raising the rate while it
-/// is in fallback, but a request is not an enforcement: the preset buttons in the client's own interface
-/// send a figure directly, and a client that has been capped must not be able to undo it by tapping
-/// "High". Video on the control channel shares the link that carries input, so the ceiling holds
-/// whatever either end says.
     private var effectiveBitrateKbps: Int {
         lock.withLock {
             let asked = requestedBitrateKbps > 0
@@ -933,8 +694,6 @@ final class VideoCoordinator: @unchecked Sendable {
             scheduleLifecycleLocked { [weak self, pipeline] in
                 await pipeline.stop()
                 guard let self else { return }
-                // Nothing is being captured, so nothing can describe it. See
-                // ``CaptureFrameAdapter/forget()``.
                 self.adapter.forget()
                 self.lock.withLock { self.currentSource = nil }
             }
@@ -944,7 +703,6 @@ final class VideoCoordinator: @unchecked Sendable {
         onInputTransform?(nil)
     }
 
-    /// Diagnostics for the host window.
     var statistics: CapturePipeline.Statistics { pipeline.statistics }
     var streamStatistics: VideoStreamer.Stats { streamer.stats }
     var isDirectPathOpen: Bool { streamer.isDirectOpen }
@@ -953,16 +711,11 @@ final class VideoCoordinator: @unchecked Sendable {
 
     /// An encoded frame, on VideoToolbox's thread.
     private func deliver(_ encoded: EncodedFrame, source: CaptureSource) {
-// The stream has proved it is alive, so the start-window watchdog has nothing left to prove. Later
-// silence is not its business, see ``watchdog``.
         cancelWatchdog()
 
         let prepared = adapter.adopt(encoded, sourceID: source.stableID)
 
         if let config = prepared.config {
-// A frame established or changed the description. Which of the two it is decides the call: a first
-// description is what a waiting client was waiting for, while a later one means an attached client's
-// decoder is now holding parameter sets for a picture that no longer exists.
             let pending = lock.withLock { audience.described() }
             if let pending {
                 streamer.attach(pending, config: config)
@@ -976,11 +729,6 @@ final class VideoCoordinator: @unchecked Sendable {
 // second-guessing.
         streamer.submit(prepared.frame)
 
-// Publish the mapping for the exact frame just handed to the network, not for the raw frame that
-// entered an asynchronous encoder earlier. During a source switch the phone keeps drawing the
-// previous frame until this one arrives; changing the transform at stream-start time made every tap
-// in that gap land in the new source's rectangle. A display normally has complete frame geometry
-// too, with the catalogue-time transform as a defensive fallback for an OS sample that omitted it.
         if let transform = encoded.geometry.inputTransform ?? pipeline.inputTransform() {
             onInputTransform?(transform)
         }
@@ -991,15 +739,11 @@ final class VideoCoordinator: @unchecked Sendable {
 }
 
 extension CaptureSource {
-/// A short description for the host window. The raw values are meaningless on screen: a display is a
-/// number, and a window is worse.
     fileprivate var description: String {
         switch self {
         case .display(let id): return "display \(id)"
         case .application(let pid): return "application \(pid)"
         case .window(let id): return "window \(id)"
-// The count rather than the tiles: this ends up in status lines a person reads, and six window numbers
-// is a sentence nobody can hold.
         case .mosaic(let layout): return "a mosaic of \(layout.tiles.count) sources"
         }
     }

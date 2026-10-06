@@ -1,21 +1,8 @@
 import RemoteCore
 import SwiftUI
 
-/// What a shell's colour numbers mean on screen.
-///
-/// The xterm defaults rather than the app's palette, and that is a deliberate departure from how
-/// everything else here is coloured. ``ColorPalette`` exists so that this app looks like one
-/// product; a shell's output is not this app's to restyle. `LS_COLORS`, `git`'s diff colours and
-/// every `--color=auto` a server is configured with are written against *these* sixteen values,
-/// and a `git status` repainted in the app's blue would be output that looks different here than
-/// in any other terminal the user has ever opened — which reads as the app being wrong, not as
-/// the app having taste.
+/// The xterm defaults, not the app's palette: `LS_COLORS` and `--color=auto` output is written against these sixteen values.
 enum TerminalPalette {
-    /// The first sixteen, which are the ones anything ever names.
-    ///
-    /// Not pure primaries except where xterm is not either: these are the values xterm has used
-    /// for decades, and matching them matters more than being tasteful. A pure `#0000ff` blue is
-    /// hard to read on a black background, which is exactly why the real one is darker.
     private static let ansi: [Color] = [
         rgb(0x00, 0x00, 0x00),  // 0  black
         rgb(0xcd, 0x00, 0x00),  // 1  red
@@ -35,15 +22,9 @@ enum TerminalPalette {
         rgb(0xff, 0xff, 0xff),  // 15 bright white
     ]
 
-    /// The six levels the colour cube steps through. Zero, then the 95/135/175/215/255 scale —
-    /// not evenly spaced, because it was chosen for the hardware it had to look right on.
     private static let cubeLevels: [UInt8] = [0, 95, 135, 175, 215, 255]
 
-    /// A colour for a shell's value, or `nil` for "whatever the terminal's default is".
-    ///
-    /// Nil rather than a chosen default, because the default is not a colour this file gets to
-    /// pick: it is what the surrounding text is already drawn in, and returning a specific black
-    /// here would be unreadable the first time the terminal is not.
+    /// Nil means the terminal's default, which is whatever the surrounding text is already drawn in.
     static func color(for style: TerminalStyle) -> Color? {
         switch style {
         case .default:
@@ -60,7 +41,6 @@ enum TerminalPalette {
         if value < ansi.count {
             return ansi[value]
         }
-        // 16–231 are a 6×6×6 cube: red major, then green, then blue.
         if value < 232 {
             let n = value - 16
             return rgb(
@@ -69,8 +49,6 @@ enum TerminalPalette {
                 cubeLevels[n % 6]
             )
         }
-        // 232–255 are a greyscale ramp from 8 to 238 in steps of 10 — the one part of the
-        // 256-colour space that is evenly spaced, and the part a `git diff` uses for context.
         let level = UInt8(8 + (value - 232) * 10)
         return rgb(level, level, level)
     }
@@ -83,20 +61,11 @@ enum TerminalPalette {
         )
     }
 
-    /// A shell's styled lines, as one string to draw.
-    ///
-    /// Here rather than written out in each panel, and that is the whole reason it is a function:
-    /// the Mac's terminal and an SSH one show the same kind of thing, and two copies of these
-    /// rules are two places for them to drift — which is exactly what had happened, with one
-    /// terminal coloured by ANSI and the other not coloured at all.
     static func attributed(_ lines: [TerminalStyledLine], fontSize: CGFloat) -> AttributedString {
         var rendered = AttributedString()
 
         for line in lines {
-            // A line the shell coloured itself is left exactly as it asked for. Only a line with
-            // no colour of its own falls back to the word-matching guess — which predates any of
-            // this, and is still the only thing that marks a failure in the plain output of a
-            // command that never learned to colour.
+            // A line the shell coloured itself is left as asked; only uncoloured lines get the word-matching failure guess.
             let isColoured = line.runs.contains {
                 $0.foreground != .default || $0.background != .default
             }
@@ -105,9 +74,7 @@ enum TerminalPalette {
                 var piece = AttributedString(run.text)
 
                 if let colour = color(for: run.foreground) {
-                    // Dim is a shell asking for *less* of a colour — `ls` marks the things you are
-                    // least likely to want with it — and there is no dimmer weight of a colour, so
-                    // it is faded rather than darkened.
+                    // Dim has no dimmer colour weight, so it is faded rather than darkened.
                     piece.foregroundColor = run.dim ? colour.opacity(0.6) : colour
                 } else if !isColoured {
                     switch line.kind {
@@ -117,9 +84,7 @@ enum TerminalPalette {
                     }
                 }
 
-                // Backgrounds are not decoration: `htop`'s header and its meter bars are drawn
-                // entirely out of them, and a terminal that shows the foreground and drops the
-                // background turns a full-screen program into text with gaps in it.
+                // Backgrounds are not decoration: `htop`'s header and meters are drawn entirely from them.
                 if let background = color(for: run.background) {
                     piece.backgroundColor = background
                 }

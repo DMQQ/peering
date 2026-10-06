@@ -3,11 +3,7 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-/// Both clipboards side by side, and the moves between them.
-///
-/// Opening it asks the Mac for its clipboard, so the Mac's row is current without a button for it.
-/// The iPhone's row cannot show its text for free: reading the pasteboard asks the user, so it names
-/// the kind of thing copied and shows the text only once this app has read or written it.
+/// Reading the iPhone pasteboard asks the user, so its text is shown only once this app has read or written it.
 struct ClipboardPanel: View {
     @Binding var chromeFrames: [ChromeRegion: CGRect]
     @Environment(SessionModel.self) private var model

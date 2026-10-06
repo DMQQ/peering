@@ -1,15 +1,7 @@
 import Foundation
 import MacCastKit
 
-/// One Mac's session, as a record.
-///
-/// **Per session, and filed app-wide.** The record this builds already carries a `hostID`, so
-/// the list of finished sessions is naturally one list across every Mac — what was per Mac was
-/// only ever the session *in flight*, which is what this file holds. See
-/// ``SessionModel/finishSessionHistory`` for the half that stays on the model.
 extension MacSession {
-    /// How long this session has been up, or zero before it came up.
-    ///
     /// **This segment of it, not the record it belongs to.** A record continued across a drop
     /// covers a span with the gap in it, and the half of the session that has already happened is
     /// still in the history, as the very record this one continues: counting it here as well would
@@ -19,39 +11,18 @@ extension MacSession {
         return Date().timeIntervalSince(activeSessionHistoryStartedAt)
     }
 
-    /// The same fact with a start on it, which is what the allowance needs.
-    ///
     /// **A stretch rather than a number of seconds, because the window is the relay's and not this
     /// phone's.** The relay charges a splice as it runs, against a bucket that turns over at the
     /// epoch day, so a session that was open when the day turned over is charged for its minutes
     /// either side of it out of two allowances, and a figure with no times in it cannot be placed
     /// against either. See ``RelayAllowance/secondsUsed(records:windowStart:liveRelaySegments:)``.
-    ///
-    /// `nil` before the session comes up, which is a session spending nothing.
     var activeSessionConnectedSegment: DateInterval? {
         guard let activeSessionHistoryStartedAt else { return nil }
         return DateInterval(start: activeSessionHistoryStartedAt, duration: activeSessionDuration)
     }
 
-    /// Opens the record for the session that has just come up, or takes up the one a drop filed.
-    ///
-    /// - Parameter resuming: whether this Mac's session had already come up before this attempt,
-    ///   which is the whole of the difference between a reconnect and a connection. When it had,
-    ///   the record the drop filed is continued, and the Sessions tab keeps the one row the user
-    ///   was looking at rather than growing a second one beside it.
-    ///
-    /// **The attempt and not the session that preceded it.** A session iOS killed the app with is
-    /// not one this can be true of: the process that held it is gone, the app that comes back is
-    /// opening a Mac rather than putting a session back, and it files a record of its own. The
-    /// alternative would be a row spanning however long the app was closed, which is a session the
-    /// user did not have.
-    ///
-    /// The rule itself, and the facts it refuses on, are ``SessionContinuation``: this is the
-    /// question and the history, and nothing else.
     func beginSessionHistory(resuming: Bool) {
         guard activeSessionHistoryID == nil else { return }
-        // This segment's own id, which is the record's when the record is a new one. A continued
-        // record keeps the id it already had; nothing outside this file reads either.
         activeSessionHistoryID = UUID()
         activeSessionHistoryStartedAt = sessionStartedAt ?? Date()
         activeSessionBytes = 0
@@ -79,22 +50,10 @@ extension MacSession {
         lastBandwidthSampleBytes = bytes
     }
 
-    /// Files the session that has just ended, and asks whether it is worth an offer.
-    ///
-    /// Returns the record it filed, or `nil` when there was nothing to file — which is the case
-    /// for a connection that never reached `.ready`, since ``beginSessionHistory(resuming:)`` is
-    /// what creates the session this reads. Callers are free to ignore the result; the offer is
-    /// made here rather than at each of them because both teardown paths want it and neither wants
-    /// to know about it.
-    ///
     /// **A session that was put back after a drop is filed as the record it continued**, which is
     /// the row the user already had rather than a second one beside it: the same identity, the same
     /// start, its bytes and its log carried forward, and the gap it was not connected for in the
     /// span but not in the meter. See ``SessionContinuation``.
-    ///
-    /// `@discardableResult` rather than changing the two call sites: this is the one funnel every
-    /// ended session passes through, and a hook that has to be remembered at each caller is a hook
-    /// that will be missed at the third.
     @discardableResult
     func finishSessionHistory() -> ClientSessionRecord? {
         guard let id = activeSessionHistoryID,
@@ -102,9 +61,6 @@ extension MacSession {
         captureSessionBandwidth()
 
         let endedAt = Date()
-        // A session that never dropped is a continuation of nothing, and it is filed through the
-        // same door as one that did, so that the two cannot come to disagree about what a record
-        // is: the span it covers, the seconds it was up for, and the bytes it carried.
         let continuation = activeSessionContinuation
             ?? SessionContinuation(id: id, startedAt: startedAt)
         let record = continuation.filed(
@@ -114,16 +70,10 @@ extension MacSession {
             // the row's duration is for the user to read, and what the connected seconds stay out
             // of. See ``ClientSessionRecord/connectedSeconds``.
             segmentStartedAt: startedAt,
-            // Filed beside the path rather than folded into it: the relay bills this session
-            // either way, so `path` stays what the allowance is counted by. See the note on
-            // ``ClientSessionRecord/usedDirectPath``.
             path: ConnectionPath.recordPath(of: connectionPath),
             hostID: hostID,
             hostName: hostName ?? String(localized: "A Mac"),
             segmentBytes: activeSessionBytes,
-            // The two logs joined, and cut to the same ceiling a session keeps while it is up:
-            // a record continued across several drops would otherwise grow by a segment's worth
-            // of notes every time, in a store that is read back at launch.
             logs: Array((continuation.logs + activeSessionLogs).suffix(Self.sessionLogLimit)),
             usedDirectPath: usedDirectPath,
             endedDeliberately: userEndedDeliberately
@@ -146,8 +96,6 @@ extension MacSession {
         activeSessionLogs = []
         activeSessionContinuation = nil
 
-        // Last, and after the lines above rather than before them.
-        //
         // The offer reads ``SessionModel/relaySecondsRemainingEstimate``, which counts the
         // finished session out of the history *and* the live one out of
         // ``activeSessionDuration`` — so armed before the clear, the session that just ended

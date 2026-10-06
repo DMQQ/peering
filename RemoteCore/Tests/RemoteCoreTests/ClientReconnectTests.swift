@@ -5,15 +5,11 @@ import Testing
 @testable import RemoteCore
 
 extension ClientPairingTests {
-    /// What the app's reconnect ladder stands on: a real session against a scripted Mac, dropped,
-    /// ended and brought back.
-    ///
     /// Nested so the parent's `.serialized` covers the Keychain keys these mint.
     @Suite("Connecting and reconnecting")
     struct Reconnect {
         private let hostID = "paired-mac"
 
-        /// A Mac this device has paired with, a session for it, and everything torn down after.
         private func withPairedMac(
             _ body: (ScriptedMac, ClientSession, SessionLog, SelfSignedIdentity) async throws -> Void
         ) async throws {
@@ -56,8 +52,6 @@ extension ClientPairingTests {
             ))
         }
 
-        /// Dials, answers the handshake, and takes the video socket a ready session opens, so the
-        /// next connection the Mac accepts belongs to the next dial.
         @discardableResult
         private func bringUp(
             _ mac: ScriptedMac,
@@ -77,7 +71,6 @@ extension ClientPairingTests {
             return (control, hello)
         }
 
-        /// The next frame of `kind`, skipping the pings a ready session sends every second.
         private func nextFrame(_ kind: MessageKind, on link: MacLink, within seconds: TimeInterval = 5) async -> Frame? {
             let deadline = Date().addingTimeInterval(seconds)
             while Date() < deadline {
@@ -87,7 +80,6 @@ extension ClientPairingTests {
             return nil
         }
 
-        /// The phases emitted since the `n`th `.connecting`, counting from one.
         private func phases(sinceConnecting n: Int, in log: SessionLog) -> [ClientSession.Phase] {
             var seen = 0
             return Array(log.phases.drop { phase in
@@ -109,7 +101,6 @@ extension ClientPairingTests {
             }
         }
 
-        /// The ladder dials again on whatever it holds, so a failed session has to be one that can.
         @Test func aFailedSessionConnectsAgain() async throws {
             try await withPairedMac { mac, session, log, _ in
                 let (first, _) = try await bringUp(mac, session, log)
@@ -134,9 +125,7 @@ extension ClientPairingTests {
             }
         }
 
-        /// **The old socket's close is not news about the new one.** A disconnect cancels the
-        /// socket, and the cancellation is reported later, from the network's queue. A dial made
-        /// straight after is already under way by then, and must not hear it.
+        /// The old socket close is reported later from the network queue and must not reach the next dial.
         @Test func aLateCloseFromTheOldSocketDoesNotReachTheNextDial() async throws {
             try await withPairedMac { mac, session, log, _ in
                 try await bringUp(mac, session, log)
@@ -153,8 +142,6 @@ extension ClientPairingTests {
             }
         }
 
-        /// Two dials on one session leave one handshake, not two racing. Before the handshake has
-        /// started the later dial takes over and the earlier one ends without a word.
         @Test func aSecondDialLeavesOneHandshake() async throws {
             try await withPairedMac { mac, session, log, _ in
                 let target = try target(mac)
@@ -186,7 +173,6 @@ extension ClientPairingTests {
             }
         }
 
-        /// What the app asks as it comes back to the front: is the Mac still there?
         @Test func aMacThatStopsAnsweringFailsWhenAsked() async throws {
             try await withPairedMac { mac, session, log, _ in
                 try await bringUp(mac, session, log)
@@ -213,8 +199,6 @@ extension ClientPairingTests {
             }
         }
 
-        /// A dial back to a Mac this device knows asks for the picture it was showing, so the Mac
-        /// can start on it rather than on a display and then switch.
         @Test func aReconnectAsksForWhatWasOnScreen() async throws {
             try await withPairedMac { mac, session, log, _ in
                 session.resumeSource = .window(42)
@@ -229,7 +213,6 @@ extension ClientPairingTests {
             }
         }
 
-        /// Input typed after a reconnect goes to the Mac that is there now.
         @Test func commandsAfterAReconnectReachTheNewConnection() async throws {
             try await withPairedMac { mac, session, log, _ in
                 let (first, _) = try await bringUp(mac, session, log)

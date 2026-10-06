@@ -5,11 +5,7 @@ import Testing
 
 @testable import MacCastKit
 
-/// Serialized, like the suite next door that remembers a source and for the same reason: these
-/// tests write one key in `UserDefaults.standard` and read it back, and Swift Testing runs them in
-/// parallel by default, so two of them overlap on that key and one reads the other's arrangement.
-/// The failure is a round trip that came back with something else, which reads as a broken store
-/// rather than as a test that raced itself.
+/// Serialized, like the source-store suite: these tests write one key in `UserDefaults.standard`, and parallel runs read each other's arrangement.
 @Suite("Remembering an arrangement", .serialized)
 struct MosaicArrangementTests {
     private func descriptor(_ source: CaptureSource, title: String = "A window") -> CaptureSourceDescriptor {
@@ -28,8 +24,6 @@ struct MosaicArrangementTests {
             applications: [],
             windows: [descriptor(.window(42)), descriptor(.window(7))]
         )
-        // The middle one was quit since: the arrangement comes back as the two that are still
-        // there rather than as nothing at all. Six windows and one closed is still the point.
         let remembered = [
             MosaicChoice(source: .window(42), weight: 2),
             MosaicChoice(source: .window(99)),
@@ -37,8 +31,6 @@ struct MosaicArrangementTests {
         ]
         let restored = MosaicArrangement.restored(remembered, into: catalog)
         #expect(restored.map(\.source) == [.window(42), .display(1)])
-        // And the sizes come back with them, which is the half of an arrangement that cannot be
-        // read back off the picture.
         #expect(restored.first?.weight == 2)
     }
 
@@ -51,8 +43,6 @@ struct MosaicArrangementTests {
             into: catalog
         ).isEmpty)
 
-        // And with no catalogue at all, which is the state before the Mac has answered: nothing
-        // is restored rather than everything being assumed to exist.
         #expect(MosaicArrangement.restored([MosaicChoice(source: .display(1))], into: nil).isEmpty)
     }
 
@@ -68,8 +58,6 @@ struct MosaicArrangementTests {
         MosaicArrangementStore.save(choices, hostID: host)
         #expect(MosaicArrangementStore.load(hostID: host) == choices)
 
-        // Saving nothing is how an arrangement is forgotten, so the Mac it belonged to opens on
-        // whatever it would open on with no arrangement at all.
         MosaicArrangementStore.save([], hostID: host)
         #expect(MosaicArrangementStore.load(hostID: host).isEmpty)
     }

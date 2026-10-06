@@ -1,44 +1,26 @@
 import Foundation
 
-/// Replacing a file with one that arrives in pieces.
-///
-/// One rule, and it is the whole of this file: a replacement lands in one move, or it does not land
-/// at all. A file written piece by piece into place is half the old contents and half the new for as
-/// long as the transfer takes, and the thing being replaced is usually somebody's script.
+/// A replacement lands in one move or not at all.
 public enum FileReplacement {
     public enum Outcome: Equatable {
         case written(Int)
         case failure(String)
     }
 
-    /// Where a replacement for `destination` waits while it arrives.
-    ///
-    /// Beside the destination rather than in a temporary directory: the move at the end has to be a
-    /// rename, and a rename across volumes is a copy. `/tmp` and the home folder are separate volumes
-    /// on some Macs.
-    ///
-    /// Dotted so it is hidden, and tagged so that two transfers of the same path cannot be appending
-    /// into one file. Resolved first, so a destination which is a symbolic link gets its replacement
-    /// beside the file the link actually names.
+    /// Beside the destination, not in a temp dir: the final move must be a rename, and `/tmp` and home can be separate volumes.
+    /// Tagged so two transfers of one path cannot append into one file; resolved first so a symlink destination stages beside its target.
     public static func stagingURL(for destination: URL, tag: String) -> URL {
         let target = destination.resolvingSymlinksInPath()
         return target.deletingLastPathComponent()
             .appendingPathComponent(".\(target.lastPathComponent).peering-\(tag).part")
     }
 
-    /// Moves a finished scratch file over its destination.
-    ///
-    /// Answers with how many bytes landed, taken from the file on disk rather than from a count kept
-    /// alongside it, which would be a second answer that can disagree with the first. The
-    /// destination's own permissions are kept, so a file that was executable stays executable, and
-    /// the scratch file is removed on every failure path.
+    /// The byte count comes from the file on disk. The destination's permissions are kept, and the scratch file is removed on every failure path.
     public static func commit(staging: URL, to destination: URL) -> Outcome {
         let target = destination.resolvingSymlinksInPath()
         let existing = try? FileManager.default.attributesOfItem(atPath: target.path)
 
-        // A folder is refused rather than written over, and refused here rather than earlier: the
-        // destination may have become a folder during the transfer, and this is the last moment at
-        // which that can be noticed.
+        // Refused here, not earlier: the destination may have become a folder during the transfer.
         if let existing, existing[.type] as? FileAttributeType == .typeDirectory {
             try? FileManager.default.removeItem(at: staging)
             return .failure("That is a folder, so a file cannot be written over it.")
@@ -49,8 +31,7 @@ public enum FileReplacement {
         // Qualified, because an unqualified `rename` inside a type resolves to a method before it
         // resolves to the C function, and the method that wins does not move a file.
         guard Darwin.rename(staging.path, target.path) == 0 else {
-            // Read before anything else can overwrite it, which for `errno` means the very next
-            // statement.
+            // Read immediately: the next statement can overwrite `errno`.
             let code = errno
             try? FileManager.default.removeItem(at: staging)
             return .failure(message(for: NSError(domain: NSPOSIXErrorDomain, code: Int(code))))
@@ -62,11 +43,6 @@ public enum FileReplacement {
         return .written(written)
     }
 
-    /// What to tell the user when the filesystem refuses a write.
-    ///
-    /// Its own function rather than a share of the browsing failures: writing is refused both by
-    /// Files and Folders and by the file being somebody else's, and the sentence below has to cover
-    /// either without pretending to know which it was.
     public static func message(for error: any Error) -> String {
         let error = error as NSError
         if error.domain == NSCocoaErrorDomain {

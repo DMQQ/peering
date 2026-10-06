@@ -3,12 +3,7 @@ import XCTest
 @testable import MacCastKit
 import RemoteCore
 
-/// Fixtures are lines captured from a real Claude Code 2.1.289 process:
-///
-///     claude -p --input-format stream-json --output-format stream-json --verbose \
-///       --include-partial-messages --replay-user-messages --permission-prompt-tool stdio
-///
-/// trimmed to the fields the parser reads, with the values those runs carried.
+/// Fixtures are lines captured from a real Claude Code 2.1.289 process (`claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages --replay-user-messages --permission-prompt-tool stdio`), trimmed to the fields the parser reads.
 final class AgentClaudeStreamTests: XCTestCase {
     private func payloads(_ lines: [String]) -> [AgentStreamEvent.Payload] {
         var stream = AgentClaudeStream()
@@ -73,8 +68,7 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertEqual(model, "deepseek-flash[1m]")
         XCTAssertEqual(directory, "/private/tmp/agentchat-capture")
 
-        // The prompt echo produces nothing: the host writes prompts into the transcript itself,
-        // the same way for both CLIs, so the echo would be a second telling.
+        // The prompt echo produces nothing: the host writes prompts into the transcript itself.
         XCTAssertEqual(payloads.count, 5)
         XCTAssertEqual(payloads[1], .textDelta(text: "rea"))
         XCTAssertEqual(payloads[2], .textDelta(text: "dy"))
@@ -92,7 +86,6 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertEqual(summary.model, "deepseek-flash[1m]")
     }
 
-    /// The CLI reports the session's cumulative cost, so the second turn's pill is the difference.
     func testCostIsPerTurn() {
         let payloads = payloads([initLine, resultLine, secondResultLine])
         guard case .turnFinished(let first) = payloads[1], case .turnFinished(let second) = payloads[2] else {
@@ -123,7 +116,6 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertFalse(truncated)
     }
 
-    /// A denied call answers the same card with the refusal the CLI wrote.
     func testDeniedToolResult() {
         let payloads = payloads([deniedToolResult])
         guard case .toolFinished(_, let ok, let output, _) = payloads[0] else {
@@ -148,7 +140,6 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertEqual(reason, "Remove nonexistent.txt from /tmp/agentchat-capture")
     }
 
-    /// An edit carries the change it proposes, so the card can be read before it is allowed.
     func testEditBuildsDiff() {
         let edit = #"""
         {"type":"assistant","message":{"id":"m2","role":"assistant","content":[{"type":"tool_use","id":"toolu_02","name":"Edit","input":{"file_path":"/app/src/a.ts","old_string":"const a = 1;","new_string":"const a = 2;"}}]},"parent_tool_use_id":null,"session_id":"s","uuid":"u5"}
@@ -165,7 +156,6 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertTrue(diff.contains("+const a = 2;"), diff)
     }
 
-    /// A stopped turn is a summary with the flag the UI's "Stopped" marker reads.
     func testInterruptedResult() {
         let interrupted = #"""
         {"type":"result","subtype":"success","is_error":false,"terminal_reason":"aborted_streaming","num_turns":1,"session_id":"s"}
@@ -177,7 +167,6 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertTrue(summary.stopped)
     }
 
-    /// Progress chatter and unknown types are quiet once, or quiet entirely.
     func testNoiseHandling() {
         let status = #"{"type":"system","subtype":"status","status":"requesting","session_id":"s"}"#
         let thinking = #"{"type":"system","subtype":"thinking_tokens","estimated_tokens":5,"session_id":"s"}"#
@@ -189,13 +178,10 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertEqual(stream.receive(line: status), [])
         XCTAssertEqual(stream.receive(line: thinking), [])
         XCTAssertEqual(stream.receive(line: unknown).count, 1)
-        // The same unknown twice is one line in the transcript, not one per message.
         XCTAssertEqual(stream.receive(line: unknown), [])
         XCTAssertEqual(stream.receive(line: garbage).count, 1)
     }
 
-    /// The prompt echo and the control machinery are quiet: each is this side's own traffic coming
-    /// back, and neither is a sentence for the transcript.
     func testReplayEchoAndControlResponsesAreQuiet() {
         var stream = AgentClaudeStream()
         XCTAssertEqual(stream.receive(line: replayedPrompt), [])
@@ -203,7 +189,6 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertEqual(stream.receive(line: receipt), [])
     }
 
-    /// The input of a waiting approval is kept for the answer and released when it is taken.
     func testApprovalInputIsHeldForTheAnswer() {
         var stream = AgentClaudeStream()
         _ = stream.receive(line: approvalRequest)
@@ -212,7 +197,6 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertNil(stream.takeApprovalInput("49f17c21-744b-4bc7-a5ee-4ecf7225a13c"))
     }
 
-    /// A question ask: the question is the card's content and the choices are the card's buttons.
     /// Captured from a real `AskUserQuestion` control request on 2.1.289.
     func testQuestionAskCarriesTheQuestionAndChoices() {
         let question = #"""
@@ -229,11 +213,9 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertEqual(call.detail, "Which colour do you prefer?")
         XCTAssertEqual(call.options?.map(\.label), ["Red", "Blue"])
         XCTAssertEqual(call.options?.first?.detail, "You prefer red.")
-        // The input is what the answer is built from, so it has to be there to take.
         XCTAssertNotNil(stream.takeApprovalInput(approvalID))
     }
 
-    /// A subagent's messages share the stream and are none of the main transcript's business.
     func testSubagentTrafficIsIgnored() {        let subagentTool = #"""
         {"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"t","name":"Bash","input":{"command":"ls"}}]},"parent_tool_use_id":"toolu_parent","session_id":"s","uuid":"u6"}
         """#
@@ -241,7 +223,6 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertEqual(payloads([subagentTool, subagentDelta]), [])
     }
 
-    /// Long output is cut at the wire's budget and said to be cut.
     func testLongOutputIsTruncated() {
         let long = String(repeating: "x", count: 40_000)
         let line = #"""

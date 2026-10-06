@@ -1,12 +1,6 @@
 import StoreKit
 import SwiftUI
 
-/// What the app shows when a subscription purchase completes.
-///
-/// Presented as a full-screen overlay over the paywall, so the purchase has its own moment
-/// rather than the paywall rewriting itself. The icon springs in first, then the text lifts and
-/// fades up in sequence, giving the confirmation a pace that reads as arrival rather than
-/// replacement.
 struct ThankYouView: View {
     let tier: StoreManager.Tier
     let onDismiss: () -> Void
@@ -54,7 +48,6 @@ struct ThankYouView: View {
                     Text("Renews automatically. Cancel any time in your App Store settings.")
                         .fixedSize(horizontal: false, vertical: true)
 
-                    // Markdown link so the address is tappable inline rather than a separate row.
                     Text("Questions or suggestions? [support@getpeering.app](mailto:support@getpeering.app)")
                         .fixedSize(horizontal: false, vertical: true)
                         .tint(Color(white: 1, opacity: 0.46))

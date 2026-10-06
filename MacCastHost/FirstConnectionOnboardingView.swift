@@ -2,9 +2,6 @@ import AppKit
 import RemoteCore
 import SwiftUI
 
-/// Third onboarding step: how to pair the first iPhone. Shown once, and left automatically the
-/// moment a device actually connects, since that is the real finish line — "Skip for now" is
-/// there only for someone who would rather come back to it later.
 struct FirstConnectionOnboardingView: View {
     @Environment(HostModel.self) private var model
     let onContinue: () -> Void
@@ -82,9 +79,6 @@ struct FirstConnectionOnboardingView: View {
         }
     }
 
-    /// The live handshake, drawn the moment a phone actually tries — the same code and QR
-    /// `HostStatusView`'s own pairing card shows, so what appears here is the real thing rather
-    /// than a preview of it.
     @ViewBuilder
     private var livePairingCard: some View {
         if let pairing = model.pairing {
@@ -136,10 +130,6 @@ struct FirstConnectionOnboardingView: View {
         }
     }
 
-    /// A device that is not on this network reaches this Mac by its ID, and that ID is scannable
-    /// from the first second hosting starts — not only once a phone has already found the Mac the
-    /// other way. Skipped for an ID nothing has registered yet, the same guard `remotePairingSection`
-    /// on Devices uses.
     @ViewBuilder
     private var remoteQRCard: some View {
         if PairingPayload.canonicalIdentifier(model.deviceID) != nil,

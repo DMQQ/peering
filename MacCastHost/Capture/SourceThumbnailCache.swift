@@ -6,22 +6,13 @@ import os
 
 private let thumbnailLog = Logger(subsystem: "pl.dmq.peering.host", category: "capture")
 
-/// A screenshot encoded as a JPEG that fits a byte budget.
-///
-/// The quality steps down rather than giving up: the budget is a rule about what may travel, and
-/// a picture that misses it by a few kilobytes is still a picture of the thing it is of. Each step
-/// exists so a busy screen costs a slightly softer tile instead of costing the tile entirely.
-/// Only when even the last rung misses does this return `nil`, which the caller draws as an empty
-/// tile.
-///
-/// - Parameter what: names the thing in the log, since two features drop pictures this way.
+/// Quality steps down until it fits the budget; returns nil only when the last step misses.
 func encodeJPEG(
     _ image: CGImage,
     quality: CGFloat,
     maximumBytes: Int,
     what: String
 ) -> Data? {
-// The last quality at which a screenshot is still recognisably itself at tile size.
     let floor: CGFloat = 0.3
 
     var attempt = quality
@@ -52,39 +43,21 @@ func encodeJPEG(
     }
 }
 
-/// What each application looked like when a client last asked to see it.
-///
-/// A lock-guarded class rather than an actor, as with the rest of the capture layer: the shots are
-/// taken on a background task and read while a catalogue is being built on its own schedule, and
-/// nothing here waits long enough to be worth suspending over.
-///
-/// In memory only, unlike ``SpacePreviewCache``. An application that is running is on screen, so
-/// its picture can be retaken for the price of one screenshot, and every launch makes the last set
-/// stale anyway.
+/// In memory only: a running application picture can be retaken cheaply.
 final class SourceThumbnailCache: @unchecked Sendable {
     private let lock = NSLock()
     private var shots: [String: SourceThumbnail] = [:]
 
-/// How wide a thumbnail is, in pixels.
-///
-/// `SCStreamConfiguration`'s dimensions are pixels and not points. Half a desktop preview, because
-/// this is drawn in a grid tile rather than across a panel.
+/// Pixels, not points (SCStreamConfiguration).
     static let pixelWidth = 240
 
-    /// JPEG quality, and JPEG rather than PNG for the reason ``SourceThumbnail`` gives.
     static let jpegQuality: CGFloat = 0.45
 
-    /// The picture for one source, or `nil` if none has been taken.
     func thumbnail(for source: CaptureSource) -> SourceThumbnail? {
         lock.withLock { shots[source.stableID] }
     }
 
-/// Files a picture under the source it is of.
-///
-/// Keyed by ``CaptureSource/stableID`` rather than by position in the catalogue: the catalogue is
-/// rebuilt from scratch on every launch and quit, and a position is not a name. The same
-/// application would otherwise keep its picture, lose it, or inherit the one above it depending
-/// only on what else was running.
+/// Keyed by stableID, not catalogue position, which is rebuilt on every launch.
     /// Returns whether the picture differs from the one already held. The encoder is
     /// deterministic, so identical pixels give identical bytes.
     @discardableResult
@@ -96,18 +69,11 @@ final class SourceThumbnailCache: @unchecked Sendable {
         }
     }
 
-/// Drops every picture whose application is no longer offered.
-///
-/// Called once per catalogue build with the applications that build produced. An application that
-/// quit is not in it, and its picture is a photograph of a window that is no longer on screen.
+/// Called once per catalogue build; a quit application picture is stale.
     func keep(only liveIDs: Set<String>) {
         lock.withLock { shots = shots.filter { liveIDs.contains($0.key) } }
     }
 
-/// Encodes a screenshot as the thumbnail that travels in the catalogue.
-///
-/// Split from the capture so that this half has no ScreenCaptureKit in it and can be handed any
-/// image.
     static func thumbnail(from image: CGImage) -> SourceThumbnail? {
         guard let data = encodeJPEG(
             image,

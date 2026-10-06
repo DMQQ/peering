@@ -3,19 +3,13 @@ import Testing
 
 @testable import RemoteCore
 
-/// A stand-in for a video connection.
-///
-/// A class, because identity is what the audience compares and that is the point of the model:
-/// two connections from the same client are still two connections, and a model that matched
-/// them by value would attach the one that has already gone.
+/// A class, because the audience compares identity: matching connections by value would attach one that has gone.
 private final class Connection {
     let client: String
 
     init(_ client: String) { self.client = client }
 }
 
-/// The decisions behind ``RemoteCommand/setVideoEnabled(_:)``, which the host's coordinator
-/// applies and this package can reason about without a socket anywhere in sight.
 @Suite("The video audience")
 struct VideoAudienceTests {
     @Test("a connection with a description is served straight away")
@@ -29,8 +23,6 @@ struct VideoAudienceTests {
         #expect(!audience.isIdle)
     }
 
-    /// A client that arrives before the encoder has produced a frame cannot be attached: its
-    /// decoder has no parameter sets, so a description has to find it and attach it later.
     @Test("a connection with no description waits for one")
     func undescribedConnectionWaits() {
         var audience = VideoAudience<Connection>()
@@ -59,16 +51,12 @@ struct VideoAudienceTests {
         )
     }
 
-    /// The plan's "two phones, one pauses" case, and the reason a pause is per-peer rather than
-    /// per-Mac: the request names a connection, and a client that is not the one being served
-    /// has nothing to stop.
     @Test("pausing a client that is not being served changes nothing")
     func pauseFromAnUnservedClient() {
         var audience = VideoAudience<Connection>()
         let first = Connection("phone-a")
         let second = Connection("phone-b")
         audience.connected(first, described: true)
-        // One picture, one decoder, so a second connection takes the stream from the first.
         audience.connected(second, described: true)
         let generation = audience.generation
 
@@ -93,9 +81,6 @@ struct VideoAudienceTests {
         #expect(audience.pausedConnections.count == 2, "both connections are still open")
     }
 
-    /// The resume is the same transition as a connection arriving, which is what keeps it on the
-    /// path a reconnect already takes: the caller attaches the connection it gets back, and the
-    /// attach is what asks the encoder for the keyframe a decoder that has been idle needs.
     @Test("a client that paused gets its own connection back")
     func resumedConnectionIsTakenOutOfThePausedList() {
         var audience = VideoAudience<Connection>()
@@ -113,9 +98,6 @@ struct VideoAudienceTests {
         #expect(!audience.isIdle)
     }
 
-    /// The command is idempotent by construction, so a client that repeats it (or sends it
-    /// twice while the first is still in flight) cannot un-schedule the capture the first one
-    /// stopped, nor leave a second entry behind for the same connection.
     @Test("a repeated pause changes nothing")
     func repeatedPauseIsStable() {
         var audience = VideoAudience<Connection>()
@@ -129,9 +111,7 @@ struct VideoAudienceTests {
         #expect(audience.pausedConnections.count == 1)
     }
 
-    /// A paused connection closing is not an audience change, and the generation says so. It is
-    /// the value a queued capture start is checked against, so advancing it here would discard
-    /// the start belonging to the client that is still watching.
+    /// A paused connection closing is not an audience change: advancing the generation would discard a queued start for the client still watching.
     @Test("a connection that closes while paused is forgotten quietly")
     func closingAPausedConnectionDisturbsNothing() {
         var audience = VideoAudience<Connection>()
@@ -158,9 +138,7 @@ struct VideoAudienceTests {
         #expect(audience.isIdle)
     }
 
-    /// A socket that was never part of the audience reports itself as unrelated, because the
-    /// caller acts on the answer: an unrelated close must not schedule a stop for the client
-    /// that is being served.
+    /// An unrelated close must not schedule a stop for the client being served.
     @Test("an unrelated close changes nothing")
     func unrelatedClose() {
         var audience = VideoAudience<Connection>()
@@ -174,9 +152,6 @@ struct VideoAudienceTests {
         #expect(audience.served === phone)
     }
 
-    /// Ends the host's sharing, and the source a client chose and the transport it asked for
-    /// with it: they belonged to the audience that has ended, and a replacement that has asked
-    /// for nothing must not inherit a decision somebody else made.
     @Test("the audience can be emptied completely")
     func removeAllForgetsEveryConnection() {
         var audience = VideoAudience<Connection>()

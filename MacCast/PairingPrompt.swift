@@ -2,8 +2,6 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-/// The blocking pairing prompt.
-///
 /// An overlay rather than a sheet, so it cannot be dismissed by a swipe. The connection is
 /// waiting on this answer: dismissing it without deciding would leave the session stalled
 /// with no way back to the question.
@@ -15,18 +13,10 @@ struct PairingPrompt: View {
     @State private var showsMismatch = false
     @State private var showsScanner = false
 
-    /// What to say about a code the scanner read and refused, if anything.
-    ///
-    /// Only ever about the last one: the scanner stays armed after a refusal, precisely so the
-    /// next code gets the same chance, and a sentence about a code that is no longer in frame
-    /// should go when the next one arrives.
     @State private var scanNote: String?
 
     @FocusState private var codeFieldFocused: Bool
 
-    /// How wide the card grows before it stops following the screen.
-    ///
-    /// Fixed rather than proportional, and that is the point on an iPad: without a ceiling this
     /// sat directly in the session `ZStack` with nothing to size itself against but the picture
     /// behind it, so on a Mac's full display width the six digits, the icon and both buttons all
     /// grew to match — a phone-sized question stretched into a poster. A card asking for six
@@ -135,12 +125,6 @@ struct PairingPrompt: View {
         .sheet(isPresented: $showsScanner) {
             NavigationStack {
                 PairingCodeScanner { payload in
-                    // The parser lives in `RemoteCore` beside the encoder that drew the code
-                    // and beside the one for the Mac's device ID, because the two codes are
-                    // read by two screens and each has to refuse the other's — see
-                    // ``PairingPayload``. It refuses anything that is not six digits, so a
-                    // Mac's ID scanned here is refused here rather than carried on with.
-                    //
                     // **`false` rather than a bare `return`.** The scanner retires itself on a
                     // code it has taken, and it used to decide that before this ran: one wrong
                     // code in frame, and the camera went on showing a live picture that it would

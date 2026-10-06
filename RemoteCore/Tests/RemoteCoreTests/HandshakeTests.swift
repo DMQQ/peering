@@ -44,10 +44,6 @@ struct HandshakeTests {
         #expect(hello.macAddresses == nil)
     }
 
-    /// The flag that keeps an un-updated Mac reachable. See
-    /// ``RemoteCommand/setVideoEnabled(_:)`` for why it is a capability rather than a version
-    /// bump, and note what this test is for: the command is only safe to send to a Mac that has
-    /// said `true`, so the claim has to survive the wire intact.
     @Test("serverHello carries the video pause capability")
     func serverHelloCarriesTheVideoPauseCapability() throws {
         let hello = ServerHello(
@@ -67,9 +63,6 @@ struct HandshakeTests {
         #expect(decoded == hello)
     }
 
-    /// A Mac older than the field sends a hello with no such key, and that has to read as "no".
-    /// `nil` cannot be told apart from a Mac too old to have heard the question, and the two
-    /// call for the same behaviour: send nothing, and let that tab go on streaming.
     @Test("a serverHello with no capability reads as a refusal")
     func serverHelloWithoutTheCapability() throws {
         let data = Data(#"{"serverID":"server-1","hostName":"Mac","protocolVersion":16,"alreadyPaired":true}"#.utf8)
@@ -154,8 +147,6 @@ struct HandshakeTests {
             try MessageCodec.decode(ServerHello.self, from: olderServer)
                 .supportsAgentChat == nil
         )
-        // The two capabilities this round added are absent from the same older hello, which is
-        // what keeps their requests from being sent to a Mac that cannot decode them.
         #expect(
             try MessageCodec.decode(ServerHello.self, from: olderServer)
                 .supportsFileBrowser == nil
@@ -207,10 +198,6 @@ struct HandshakeTests {
         #expect(decodedClient == client)
     }
 
-    /// The other direction, and the one that decides whether the flag is additive at all: a
-    /// client that has never heard of the field ignores it, which is what makes an updated Mac
-    /// reachable from an older phone. A Mac that cannot be reached is the cost this design
-    /// refuses to pay, and it is why the capability exists instead of a version bump.
     @Test("a serverHello with a field this build does not know still decodes")
     func unknownServerHelloField() throws {
         let data = Data(#"""
@@ -236,11 +223,7 @@ struct HandshakeTests {
             try JSONSerialization.jsonObject(with: data) as? [String: Any]
         )
 
-        // A tripwire, not a formality. The host's public key must reach the client through
-        // the TLS certificate, which the client verifies against its pin. If the key were
-        // ever added here, the client would instead be trusting a value the peer simply
-        // asserted, and pinning would be decorative. Adding a field should fail this test
-        // so that possibility has to be considered deliberately.
+        // A tripwire: the host key must reach the client via the TLS certificate. Adding a field here would make pinning decorative, so it must be a deliberate decision.
         #expect(Set(object.keys) == ["serverID", "hostName", "protocolVersion", "alreadyPaired"])
     }
 
@@ -276,8 +259,6 @@ struct HandshakeTests {
 
     @Test("a pairResult without a reason round-trips")
     func pairResultWithoutReason() throws {
-        // The success case omits `reason`, so the optional has to survive a round trip as
-        // nil rather than arriving as an empty string the caller has to special-case.
         let result = PairResult(accepted: true)
         let decoded = try MessageCodec.decode(
             PairResult.self,
@@ -298,8 +279,6 @@ struct HandshakeTests {
 
     @Test("a payload that is valid JSON of the wrong shape is rejected")
     func wrongShapeIsRejected() {
-        // Decoding must fail loudly rather than silently producing a default value: a
-        // half-understood handshake message is exactly the case that should stop a session.
         let notAHello = Data(#"{"unexpected": true}"#.utf8)
         #expect(throws: (any Error).self) {
             try MessageCodec.decode(ClientHello.self, from: notAHello)
@@ -309,7 +288,6 @@ struct HandshakeTests {
 
 @Suite("Device identity")
 struct DeviceIdentityTests {
-    /// A throwaway defaults domain, so tests never touch the real device identity.
     private func scratchDefaults() -> UserDefaults {
         let name = "pl.dmq.maccast.tests.\(UUID().uuidString)"
         return UserDefaults(suiteName: name)!
@@ -345,8 +323,6 @@ struct DeviceIdentityTests {
 
     @Test("two fresh stores get different IDs")
     func idsAreNotShared() {
-        // The ID identifies one device, so two devices must not collide — and the only way
-        // that happens is if something is accidentally reading shared storage.
         let a = DeviceIdentity.loadOrCreate(defaultName: "a", from: scratchDefaults())
         let b = DeviceIdentity.loadOrCreate(defaultName: "b", from: scratchDefaults())
         #expect(a.id != b.id)

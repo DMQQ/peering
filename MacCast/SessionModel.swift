@@ -10,12 +10,7 @@ import os
 private let modelLog = Logger(subsystem: "pl.dmq.peering", category: "app")
 
 /// Which keyboard the user is driving the Mac with.
-///
-/// Not a preference: the two are different protocols on the wire. ``unicode`` sends
-/// ``RemoteCommand/textInput(_:)``, which the host injects as text, so emoji and CJK arrive
-/// intact but no physical keycode is ever pressed and ⌘S or ⌘Tab never fires. ``keycode``
-/// presses real macOS virtual keycodes, so shortcuts work but a character with no keycode on
-/// the Mac's layout cannot be typed.
+/// Not a preference: the two are different protocols. `unicode` sends `textInput` (emoji and CJK arrive intact, but no keycode is pressed so ⌘S never fires); `keycode` presses real virtual keycodes, so shortcuts work but a character with no keycode on the Mac's layout cannot be typed.
 enum KeyboardMode: String, CaseIterable, Identifiable {
     case unicode
     case keycode
@@ -39,7 +34,6 @@ enum KeyboardMode: String, CaseIterable, Identifiable {
     }
 }
 
-/// One macro button: a keycode with modifiers, sent as a press and a release.
 struct Macro: Identifiable, Hashable, Codable {
     let id: String
     let title: String
@@ -73,105 +67,58 @@ struct Macro: Identifiable, Hashable, Codable {
 @Observable
 @MainActor
 final class SessionModel {
-    /// When this process's model came up, for ``resumeTheLastMacIfNothingIsOpen()``'s own grace.
     let launchedAt = Date()
 
-    /// Which way a session's control connection is carried.
-    ///
-    /// Declared on ``MacSession`` and merely named here, because the answer is a property of one
-    /// connection rather than of the app: one Mac can be on this network while another is on the
-    /// other side of the country.
+    /// Declared on ``MacSession`` and merely named here: the answer belongs to one connection (one Mac can be on this network while another is across the country).
     typealias ConnectionPath = MacSession.ConnectionPath
 
-    /// A file on its way to one Mac, and the change asked for on one Mac. Named here as well as on
-    /// ``MacSession`` for the same reason ``ConnectionPath`` is.
     typealias FileWrite = MacSession.FileWrite
     typealias FileChange = MacSession.FileChange
 
-    /// A preset for the picture's bitrate, or the app's own choice of one.
-    ///
-    /// Declared in ``MacCastKit`` and merely named here: it is storage policy rather than app state,
-    /// and all of it can be checked without an app bundle.
     typealias StreamQuality = MacCastKit.StreamQuality
 
     // MARK: - The sessions
 
-    /// Every Mac that has been connected to in this launch. ``connect(to:)`` replaces the list with
-    /// the session it starts, so it holds one at a time; the per-Mac state lives on these objects.
-    /// See ``MacSession``.
+    /// ``connect(to:)`` replaces the list with the session it starts, so it holds one at a time; per-Mac state lives on the objects.
     private(set) var sessions: [MacSession] = []
 
-    /// Which session the screens are about, and the one input goes to.
-    ///
-    /// Assigned as the user moves between Macs, and never chosen directly: the tab strip moves it,
-    /// and input follows it.
     var activeSessionID: UUID?
 
-    /// The session the app is showing, or `nil` when there is not one. Every per-Mac property below
-    /// reads and writes through it.
     var activeSession: MacSession? {
         guard let activeSessionID else { return nil }
         return sessions.first { $0.id == activeSessionID }
     }
 
-    /// Whether that Mac is on screen, or the user has stepped back to the picker with it still
-    /// connected.
-    ///
-    /// **A session that is open and a session being watched are two things, and this is the second
-    /// one.** The picker could not tell them apart: a live session took the whole screen until it was
-    /// ended, so looking at the list of Macs meant giving up the one you were on. The state itself
-    /// costs one flag; what keeps the session alive is that nothing else changes while it is set.
-    /// The control channel, the shells, the clipboard and the sleep assertion all stay, and only the
-    /// picture stops (see ``MacSession/setPicturePaused(_:)``), which is what a Mac nobody is looking
-    /// at should be doing with its battery and its bandwidth.
-    ///
+    /// A session that is open and one being watched are two things. While this is set, the control channel, shells, clipboard and sleep assertion stay and only the picture stops (see `setPicturePaused(_:)`).
     /// Put back by every route that shows a session: ``returnToSession()``, ``activateSession(_:)``,
     /// ``connect(to:replacing:)`` and ``disconnect(deliberate:)``.
     var isSessionOnScreen = true
 
-    /// Whether the picture was stopped by stepping away rather than by the user's own switch.
-    ///
-    /// Held apart from ``MacSession/picturePaused`` so that coming back does not undo a pause
-    /// somebody asked for: only the pause this took is taken back. Internal rather than private so
-    /// the end of a session can clear it with the rest of the session state. See
-    /// ``stepAwayFromSession()``.
+    /// Held apart from `picturePaused` so coming back does not undo a pause somebody asked for. Internal so the end of a session can clear it.
     var pausedBySteppingAway = false
 
-    /// Makes one session the Mac the app is showing, and tells the Macs about it.
-    ///
-    /// The cheap one: the handshake, the pairing, the sockets, the shells and the sleep assertion all
-    /// stay where they are, and only which Mac's picture is decoded changes. The Mac being left is
-    /// asked to pause, which is what keeps it from spending its battery on frames nobody is looking
-    /// at.
-    ///
-    /// A no-op for the session already on screen, deliberately: asking a Mac for its picture again
-    /// would blink it. The one case that is not a no-op is the Mac already in hand *with the screen
-    /// away from it*, which is the whole of what ``returnToSession()`` does.
+    /// The cheap one: only which Mac's picture is decoded changes; the Mac left is asked to pause.
+    /// A no-op for the session already on screen, deliberately: asking for its picture again would blink it.
     func activateSession(_ id: UUID) {
         guard id != activeSessionID else {
             returnToSession()
             return
         }
         guard let session = sessions.first(where: { $0.id == id }) else { return }
-        // Stopped before the switch rather than after: otherwise both Macs stream for however long
-        // the handover takes.
+        // Stopped before the switch: otherwise both Macs stream for the handover.
         activeSession?.setPicturePaused(true)
         let left = activeSession
         activeSessionID = id
         session.setPicturePaused(false)
-        // Arriving at a Mac is being on its screen, whatever the last one's screen was doing, and a
-        // pause taken for stepping away went with that screen. See ``isSessionOnScreen``.
+        // Arriving at a Mac is being on its screen, and a pause taken for stepping away went with the old screen.
         isSessionOnScreen = true
         pausedBySteppingAway = false
 
-        // The sound follows the tab: a player built for the Mac on screen goes on playing after the
-        // user has looked away unless it is told. See ``MacSession/shouldPlayAudio``.
+        // The sound follows the tab: a player for the Mac on screen keeps playing after the user looks away unless told.
         left?.refreshAudioMuteState()
         session.refreshAudioMuteState()
 
-        // The card follows the tab, name and clock and all. Its own entry point rather than a phase
-        // change: the Mac being arrived at has its own clock. See
-        // ``SessionActivity/followActiveSession``.
+        // Its own entry point rather than a phase change: the Mac arrived at has its own clock.
         SessionActivity.shared.followActiveSession(
             hostName: session.hostName ?? String(localized: "the Mac"),
             startedAt: session.sessionStartedAt,
@@ -180,25 +127,12 @@ final class SessionModel {
             path: MacSession.activityPath(session.connectionPath),
             sessionCount: openSessions.count
         )
-        // The widget's idea of which Mac is in hand. See ``publishOpenMacs()``.
         publishOpenMacs()
-        // And what that Mac is running, which the card lists under its own line.
         session.publishWork()
     }
 
-    /// Puts the picture away and shows the picker, leaving the Mac connected.
-    ///
-    /// The session stays exactly as it is: what this changes is one flag, the frames the Mac is asked
-    /// for, and the sound. Nothing is sent that could not be sent back, which is the difference
-    /// between this and ``disconnect(deliberate:)`` — and it is why the pill draws them as two
-    /// controls rather than one.
-    ///
-    /// The pause is taken only if the user had not already asked for one, and only if nothing else is
-    /// watching: a picture somebody stopped by hand stays stopped when they come back to it, and a
-    /// picture floating in a Picture in Picture window is somebody still watching, so it goes on
-    /// arriving for the window rather than freezing in it. A Mac too old to be asked for silence goes
-    /// on streaming at nobody, which is the honest failure: the session works and the frames are
-    /// wasted.
+    /// Nothing is sent that could not be sent back, unlike `disconnect(deliberate:)`.
+    /// The pause is taken only if the user had not already asked for one and nothing else watches: a picture floating in PiP keeps arriving. A Mac too old to be asked for silence streams at nobody, the honest failure.
     func stepAwayFromSession() {
         guard isSessionOnScreen, let session = activeSession else { return }
         isSessionOnScreen = false
@@ -209,11 +143,6 @@ final class SessionModel {
         session.refreshAudioMuteState()
     }
 
-    /// Brings the live session back on screen, and the picture back with it.
-    ///
-    /// The other half of ``stepAwayFromSession()``, and the same shape as arriving at a Mac in
-    /// ``activateSession(_:)``: the frames are asked for again only if stepping away was what
-    /// stopped them.
     func returnToSession() {
         guard !isSessionOnScreen, let session = activeSession else { return }
         isSessionOnScreen = true
@@ -224,27 +153,17 @@ final class SessionModel {
         session.refreshAudioMuteState()
     }
 
-    /// The Macs that are open, in the order they were opened.
-    ///
-    /// Not the same list as ``sessions``: an ended session is kept until the next one arrives so its
-    /// failure can still be read, and a Mac nobody is connected to is not a tab.
+    /// Not `sessions`: an ended session is kept until the next arrives so its failure can be read, and it is not a tab.
     var openSessions: [MacSession] { sessions.filter(\.isLive) }
 
-    /// Whether any Mac is open, which is the question the picker and the gate both ask.
     var hasOpenSession: Bool { !openSessions.isEmpty }
 
-    /// Whether another Mac may be opened on this plan.
-    ///
-    /// The first Mac is free on every plan, so the question is never "is this paid" but "is this
-    /// paid, or is this the first one".
+    /// The first Mac is free on every plan, so the question is "is this paid, or the first one".
     var canAddAnotherSession: Bool {
         storeManager.access.includes(.concurrentSessions) || openSessions.isEmpty
     }
 
-    /// The most Macs the app will hold open at once.
-    ///
-    /// A ceiling on the phone rather than on the service: each open Mac costs this device a control
-    /// connection, a keepalive and a sleep assertion, and the phone is what pays for servicing them.
+    /// A ceiling on the phone: each open Mac costs a control connection, a keepalive and a sleep assertion.
     static let sessionCeiling = 4
 
     // MARK: - Connection state
@@ -255,50 +174,30 @@ final class SessionModel {
     }
     var hosts: [DiscoveredHost] = []
 
-    /// The Bonjour endpoint each Mac was last reached at on this network, by host ID.
-    ///
-    /// **Because the path is re-derived from Bonjour at the moment of the dial, and that is the one
-    /// moment Bonjour cannot be relied on.** A drop that follows a backgrounding is a drop whose mDNS
-    /// results went stale while the app was suspended; a re-browse takes seconds and the reconnect
-    /// ladder's first rung is one. Kept on disk so a relaunch can dial at once. An address from a
-    /// network the phone has since left simply loses the race to the relay. See ``DialRace``.
+    /// Re-derived from Bonjour at the dial, which is the one moment it cannot be trusted: after a backgrounding its mDNS results are stale and a re-browse takes seconds. Kept on disk so a relaunch dials at once; an address from a network since left loses the race to the relay. See ``DialRace``.
     private var lastLANHosts: [String: DiscoveredHost] = RememberedLANHosts.load() {
         didSet { RememberedLANHosts.save(lastLANHosts) }
     }
 
-    /// The endpoint a Mac was last reached at, if this launch has reached it on this network.
     func rememberedLANHost(_ hostID: String) -> DiscoveredHost? {
         lastLANHosts[hostID]
     }
 
-    /// What one dial is allowed to take when nothing more specific is asked for, matching
-    /// `ClientSession.connect`'s own default.
     static let standardConnectTimeout: TimeInterval = 10
 
-    /// How long the rung that dials a remembered address may take. Short, because it is the one dial
-    /// whose address may be wrong: a Mac that has moved costs this much before the relay is tried.
+    /// Short, because it is the one dial whose address may be wrong.
     static let rememberedPathTimeout: TimeInterval = 3
 
-    /// Whether each paired Mac is registered with the relay, by host ID.
-    ///
-    /// Three states, which is why it is not a `Set`: `true` and `false` are the relay's answers, and
-    /// an absent key is nobody having found out. The screen draws the last two differently.
+    /// Three states, so not a `Set`: an absent key is nobody having found out.
     var relayPresence: [String: Bool] = [:]
-    /// `nil` = never polled. `true` = relay answered last poll. `false` = relay was unreachable.
     var relayReachable: Bool? = nil
 
-    /// What this phone knows about whether a paired Mac can be reached right now.
-    ///
-    /// Not a `Bool`: "not reachable" is two different facts, and only one of them is about the Mac.
+    /// Not a `Bool`: "not reachable" is two facts and only one is about the Mac.
     enum Reachability: Equatable {
-        /// On this network. Bonjour can see it, so it is up and it is addressable directly.
         case nearby
-        /// Registered with the relay, so it is up and reachable from anywhere.
         case viaRelay
-        /// The relay says it is not registered. Not quite "switched off": a Mac can be awake on its
-        /// own network while registered nowhere, and that one is out of reach.
+        /// Not quite "switched off": a Mac can be awake on its own network while registered nowhere.
         case notRegistered
-        /// Nobody has found out, or the asking did not come back.
         case unknown
 
         var isReachable: Bool {
@@ -309,7 +208,6 @@ final class SessionModel {
         }
     }
 
-    /// The three facts, in the order that decides them: this network, then the relay, then nothing.
     func reachability(ofHost hostID: String) -> Reachability {
         if hosts.contains(where: { $0.id == hostID }) { return .nearby }
         switch relayPresence[hostID] {
@@ -326,32 +224,22 @@ final class SessionModel {
 
     /// The bitrate preset; redrawing on change requires a stored var, not a UserDefaults read.
     var streamQuality: StreamQuality = SessionModel.storedQuality
-    /// The level to come back to when the rate is taken over by hand again.
-    ///
-    /// Seeded from the stored preference, so that Automatic to Manual returns to the level last saved
-    /// rather than to whatever the policy happens to be sitting on. `nil` when the stored value is
-    /// automatic, since there is no manual level to come back to.
+    /// Seeded from the stored preference so Automatic to Manual returns to the last saved level; nil when the stored value is automatic.
     var lastManualQuality: StreamQuality? = .storedManualLevel()
 
 
     // MARK: - Clipboard
-    /// The most recently received host clipboard. `nil` until the first pull.
-    ///
-    /// A payload rather than a string: the Mac's pasteboard holds a picture as readily as a line of
-    /// text, and both arrive the same way. See ``ClipboardPayload``.
     var hostClipboard: ClipboardPayload? {
         get { activeSession?.hostClipboard }
         set { activeSession?.hostClipboard = newValue }
     }
 
-    /// Whether a clipboard pull is in flight.
     var clipboardPulling: Bool {
         get { activeSession?.clipboardPulling ?? false }
         set { activeSession?.clipboardPulling = newValue }
     }
 
     // MARK: - Wake-on-LAN
-    /// Hardware MAC addresses reported by the host's ServerHello. Stored by host ID.
     var hostMACAddresses: [String: [String]] = {
         guard let data = UserDefaults.standard.data(forKey: "hostMACAddresses"),
               let decoded = try? JSONDecoder().decode([String: [String]].self, from: data) else {
@@ -362,32 +250,22 @@ final class SessionModel {
 
     // MARK: - Audio
 
-    /// The player for the Mac's audio, one per session. One Mac's sound at a time: two Macs' worth
-    /// arriving at one phone would be two things playing at once.
+    /// One Mac's sound at a time.
     var audioPlayer: RemoteAudioPlayer? {
         get { activeSession?.audioPlayer }
         set { activeSession?.audioPlayer = newValue }
     }
 
-    /// Whether the Mac's own audio is played here, or dropped. On by default.
-    ///
-    /// The channel carries what the Mac plays and also every system sound it makes in response to
-    /// this phone's input, so the alert for a chord that leads nowhere is heard a round trip after
-    /// the gesture.
+    /// The channel also carries system sounds the Mac makes in response to this phone's input, so a chord that leads nowhere is heard a round trip late.
     var hostAudioMuted = UserDefaults.standard.object(forKey: PreferenceKeys.hostAudioMuted) as? Bool ?? false {
         didSet {
             UserDefaults.standard.set(hostAudioMuted, forKey: PreferenceKeys.hostAudioMuted)
-            // Every Mac, not the one on screen: a Mac behind the one being looked at is exactly the
-            // one that would keep playing unnoticed. See ``MacSession/shouldPlayAudio``.
+            // Every Mac, not the one on screen: one behind it would keep playing unnoticed.
             for session in sessions { session.refreshAudioMuteState() }
         }
     }
 
-    /// Whether the Mac's audio comes out of this phone: the switch and the plan together.
-    ///
-    /// A gate on the switch alone would not be enough, because the audio keeps arriving over a
-    /// connection the user already has: a free user who never touches anything would still hear it
-    /// unless the player is told, so this is asked where the player is configured.
+    /// The audio arrives over a connection the user already has, so a free user would still hear it unless the player is told.
     var playsHostAudio: Bool {
         !hostAudioMuted && storeManager.access.includes(.macSound)
     }
@@ -406,49 +284,41 @@ final class SessionModel {
 
     // MARK: - File browsing
 
-    /// Every folder the active Mac has listed, keyed by the terminal and the path.
     var directories: [RemoteDirectoryKey: RemoteDirectory] {
         get { activeSession?.directories ?? [:] }
         set { activeSession?.directories = newValue }
     }
 
-    /// Which folder each terminal's browser is showing.
     var browsingPaths: [UUID: String] {
         get { activeSession?.browsingPaths ?? [:] }
         set { activeSession?.browsingPaths = newValue }
     }
 
-    /// Folders asked for and not yet answered, which is what a spinner on the panel is reading.
     var pendingDirectories: Set<RemoteDirectoryKey> {
         get { activeSession?.pendingDirectories ?? [] }
         set { activeSession?.pendingDirectories = newValue }
     }
 
-    /// Why a folder could not be listed, until it lists.
     var browseFailures: [RemoteDirectoryKey: String] {
         get { activeSession?.browseFailures ?? [:] }
         set { activeSession?.browseFailures = newValue }
     }
 
-    /// The file being shown, and how much of it has arrived.
     var filePreview: RemoteFilePreview? {
         get { activeSession?.filePreview }
         set { activeSession?.filePreview = newValue }
     }
 
-    /// A command waiting for the shell that will run it.
     var pendingRun: String? {
         get { activeSession?.pendingRun }
         set { activeSession?.pendingRun = newValue }
     }
 
-    /// Files on their way to the Mac, by the terminal they are being written through.
     var writes: [UUID: FileWrite] {
         get { activeSession?.writes ?? [:] }
         set { activeSession?.writes = newValue }
     }
 
-    /// Why a write did not land, by the terminal it was made through, and kept apart by door.
     var saveFailures: [UUID: String] {
         get { activeSession?.saveFailures ?? [:] }
         set { activeSession?.saveFailures = newValue }
@@ -458,32 +328,22 @@ final class SessionModel {
         set { activeSession?.uploadFailures = newValue }
     }
 
-    /// Changes in the air, by the terminal they were asked through.
     var changes: [UUID: FileChange] {
         get { activeSession?.changes ?? [:] }
         set { activeSession?.changes = newValue }
     }
 
-    /// Why a change did not happen, by the terminal it was asked through.
     var changeFailures: [UUID: String] {
         get { activeSession?.changeFailures ?? [:] }
         set { activeSession?.changeFailures = newValue }
     }
 
-    /// What each trusted Mac is called, by the ID its pin is keyed by. The pin store knows only the
-    /// ID, and the handshake is the only moment the client is told both, so it is the only moment
-    /// this can be recorded.
+    /// The pin store knows only the ID, and the handshake is the only moment the client is told both.
     var hostNames: [String: String] = [:]
 
-    /// The ID a first pairing was dialled by, while one is in flight or has just failed.
-    ///
-    /// The relay answers for whatever holds the ID it was given, so "not registered" and "you typed
-    /// one digit wrong" arrive as the same message, and only the ID the user asked for tells them
-    /// apart. Cleared by every other connect, so it can never caption another kind of session. See
-    /// ``connect(to:)``.
+    /// The relay answers for whatever holds the ID, so "not registered" and a mistyped digit look the same; only the ID asked for tells them apart. Cleared by every other connect.
     var remotePairingHostID: String?
 
-    /// When each trusted Mac was last successfully connected to, keyed by host ID.
     var lastConnectedAt: [String: Date] = {
         guard let data = UserDefaults.standard.data(forKey: "hostLastConnectedAt"),
               let decoded = try? JSONDecoder().decode([String: Date].self, from: data) else {
@@ -492,31 +352,21 @@ final class SessionModel {
         return decoded
     }()
 
-    /// The failure to show the user, if the session is in one. The phase carries it, and the picker
-    /// needs it: without it a connection that failed instantly looks like a button that did nothing.
+    /// The phase carries it, and the picker needs it: otherwise an instantly failed connection looks like a button that did nothing.
     var failureMessage: String? {
         if case .failed(let message) = phase { return message }
         return nil
     }
 
-    /// Names the user has chosen, which win over the name the Mac reports.
-    ///
-    /// Kept apart from ``hostNames`` rather than overwriting an entry in it: `hostNames` is rewritten
-    /// from the Mac's own `ServerHello` on every connect, so a rename stored there would survive
-    /// until the next handshake and then quietly revert.
+    /// Kept apart from `hostNames`, which is rewritten from `ServerHello` on every connect, so a rename stored there would silently revert.
     var customHostNames: [String: String] = [:]
 
     /// Set when the device's own identity could not be loaded: without a client certificate there is
-    /// nothing for the Mac to pin, so everything else is moot.
     var identityFailure: String?
 
     // MARK: - User choices
 
-    /// The address and port the manual-connect card is showing.
-    ///
-    /// Remembered across launches and deliberately not used to reconnect to anything: a stored IP is
-    /// the thing that goes stale exactly when a network changes. They are kept so a Mac on a custom
-    /// port does not have to be typed in again on every launch.
+    /// Remembered but deliberately not used to reconnect: a stored IP goes stale exactly when a network changes. Kept so a Mac on a custom port is not retyped each launch.
     var manualAddress: String {
         didSet { UserDefaults.standard.set(manualAddress, forKey: Self.manualAddressKey) }
     }
@@ -542,20 +392,13 @@ final class SessionModel {
     var isObserving = false
     var latchedModifiers: Modifiers = []
 
-    /// What the joystick multiplies the pointer's travel by.
-    ///
-    /// A number rather than an index, so the label and the arithmetic read the same, and persisted
-    /// because it is a property of the hand rather than of the session.
+    /// A number rather than an index so label and arithmetic agree; persisted as a property of the hand.
     var pointerSpeed: Double =
         UserDefaults.standard.object(forKey: PreferenceKeys.pointerSpeed) as? Double ?? 1
 
     var showKeyboard = false {
         didSet {
-            // Putting the keyboard away ends the line this bar was keeping: what it holds is the
-            // sentence the keyboard has typed since it was last emptied, and with the keyboard gone
-            // there is nothing left that would ever correct it. This is also the way out of a
-            // preview that has drifted, which is otherwise a bar showing text with no way to clear
-            // it: delete the characters, or put the keyboard down and pick it up again.
+            // Putting the keyboard away ends the line this bar was keeping: nothing would ever correct it, and this is the way out of a drifted preview.
             if !showKeyboard { typedPreview = "" }
             keyboardOpenedByFocus = false
         }
@@ -565,14 +408,9 @@ final class SessionModel {
     /// again when focus leaves. A keyboard the user opened is theirs to close.
     var keyboardOpenedByFocus = false
 
-    /// Whether a panel is open over the picture. Set by ``RemoteScreen``.
-    ///
-    /// A keyboard the Mac asked for must not close a panel the user opened: switching desktops
-    /// from the sources panel moves focus into whatever text field the new desktop has.
+    /// A keyboard the Mac asked for must not close a panel the user opened: switching desktops from the sources panel moves focus into the new desktop's text field.
     var isPanelOpen = false
 
-    /// Opens the keyboard when the Mac's focus lands in a text field, and closes it on the way out
-    /// if it was opened that way. See ``TextFocus``.
     func textFocusChanged(_ focus: TextFocus) {
         let enabled = UserDefaults.standard.object(forKey: PreferenceKeys.opensKeyboardForTextFields) as? Bool ?? true
         typedDraft = ""
@@ -588,32 +426,20 @@ final class SessionModel {
         }
     }
 
-    /// What the keyboard has typed into the Mac since the line was last committed.
-    ///
-    /// The bar's own record rather than the Mac's, which is why it is emptied by Return, by a
-    /// newline arriving as text, and by the keyboard being put away: every one of those is this
-    /// side deciding it is no longer describing the same line. Anything that *sends* characters
-    /// has to go through ``handleTypedText(_:)`` and ``handleBackspace()`` — a keycode sent
-    /// directly leaves this showing a character the Mac has already lost.
+    /// The bar's own record, emptied by Return, a newline as text, and the keyboard going away. Anything that sends characters must go through `handleTypedText(_:)` and `handleBackspace()`, or this shows a character the Mac has lost.
     var typedPreview = ""
 
-    /// What the keyboard's field holds, kept here because the field is rebuilt every time the keyboard
-    /// opens. The Mac's field still has this text when the keyboard is put away and brought back, so the
-    /// phone's must too; it ends with a Return or when the Mac's focus moves to a different element.
+    /// Kept here because the field is rebuilt each time the keyboard opens; the Mac's field keeps its text, so the phone's must. It ends with a Return or when the Mac's focus moves.
     var typedDraft = ""
 
-    /// Bumped each time the Mac's field is applied to the phone's, which is what tells the field to
-    /// take ``typedDraft`` and ``draftSelection`` as they now stand rather than as it last left them.
+    /// Bumped when the Mac's field is applied, so the field takes `typedDraft` and `draftSelection` as they now stand.
     var fieldSerial = 0
     var draftSelection = NSRange(location: 0, length: 0)
-    /// Where the Mac's insertion point is in the picture, when it said.
     var fieldCaret: NormalizedPoint?
-    /// When the phone's field last changed by typing. The Mac's report of a line still being typed is
-    /// older than the line, and applying it would delete the last few characters.
+    /// When the phone's field last changed by typing: the Mac's report of a line still being typed is older than the line, and applying it would delete the last characters.
     var lastLocalEdit = Date.distantPast
     private var pendingField: FieldState?
 
-    /// The Mac's field, taken in once the phone has been quiet for a moment.
     func fieldStateChanged(_ state: FieldState) {
         fieldCaret = state.caret
         guard state.text != nil else { return }
@@ -642,33 +468,15 @@ final class SessionModel {
     // MARK: - Purchase
 
     let storeManager = StoreManager()
-    /// Why the paywall is up, or `nil` when it is not. Shows `PaywallView`.
-    ///
-    /// The reason travels with the flag rather than beside it, so the screen showing the paywall never
-    /// has to guess which door the user came through.
     var paywallReason: PaywallView.Reason?
 
-    /// The plan whose allowance ran out under a live session, or `nil` when no session was cut.
-    ///
-    /// The one case where a session ends and nothing on screen says why: the relay stops splicing the
-    /// moment the allowance is spent and says nothing, so this end sees a socket closed like any other
-    /// and reconnects, and the reason first exists when that reconnect is refused with `quotaExceeded`.
-    /// Carries the plan, because the sheet names the allowance the user was on. See
-    /// ``relaySessionDropped``.
+    /// The one case where a session ends and nothing says why: the relay stops splicing silently, so this end sees an ordinary close and reconnects, and the reason first exists when the reconnect is refused with `quotaExceeded`.
     var spentAllowance: RelayPlan?
 
-    /// Whether a relay session has dropped since the last time the relay refused a connection.
-    ///
-    /// `quotaExceeded` looks identical whether the user tapped Connect into a spent allowance or the
-    /// relay has just cut a running session, and only one of those is a wall the user walked into, so
-    /// the difference is recorded before the refusal arrives.
+    /// `quotaExceeded` looks identical whether the user tapped Connect into a spent allowance or the relay cut a running session, and only the first is a wall they walked into.
     var relaySessionDropped = false
 
-    /// Closes the explanation, and puts the app back where a session that has ended belongs.
-    ///
-    /// Closing alone is not enough: a session the relay cut is torn down as a failed reconnect, and a
-    /// failed attempt during a resume is swallowed rather than shown, so the phase can be left sitting
-    /// on a connecting state with nothing behind it. A session that is up is left alone.
+    /// Closing alone is not enough: a failed attempt during a resume is swallowed, so the phase can be left on a connecting state with nothing behind it.
     func dismissSpentAllowance() {
         spentAllowance = nil
         if phase.holdsSession, phase != .ready {
@@ -683,23 +491,15 @@ final class SessionModel {
     let pins = ClientPinStore.standard
     let browser = HostBrowser()
 
-    /// Watches the phone's own network so that a switch is answered at once rather than waited out.
-    /// Created in ``start()``.
     private var networkWatcher: NetworkPathWatcher?
     let notifier = SessionNotifier.shared
 
-    /// Whether the last thing Bonjour said was a failure. The browser replaces a dead one on its own,
-    /// but a suspended app is not running to do it, so the foreground is the one moment worth
-    /// restarting immediately.
+    /// The browser replaces a dead one itself, but a suspended app is not running to do it, so the foreground is the moment to restart.
     var browseFailed = false
     var identity: SelfSignedIdentity?
     var device = DeviceIdentity(id: "", name: "")
 
-    /// The offer that is waiting for the screen change to finish. See
-    /// ``SessionModel/offerSubscriptionIfDue(after:)``.
-    ///
-    /// A task rather than a timestamp, because what has to be cancellable is the showing and not the
-    /// decision, and it doubles as the flag that stops a second offer being armed.
+    /// A task rather than a timestamp: the showing must be cancellable, not the decision, and it doubles as the flag that stops a second offer.
     var pendingOffer: Task<Void, Never>?
 
 
@@ -718,24 +518,15 @@ final class SessionModel {
             modelLog.error("could not load the client identity: \(String(describing: error), privacy: .public)")
         }
 
-        // The renderer is the model's, and the session on screen is the one whose frames it shows.
         renderer.onFirstFrame = { [weak self] in
             self?.frameArrived += 1
         }
     }
 
-    /// Bumped each time a frame of the stream the session just configured reaches the live layer.
-    ///
-    /// A hero transition's cue to let its frozen snapshot go: this is the moment the picture the
-    /// app describes is actually decoded and ready, which a plain `@Observable` read of the
-    /// renderer cannot answer, since the renderer runs off the main actor and is not observable
-    /// itself. See ``isReadyToPlace(of:)``.
+    /// A hero transition's cue to drop its frozen snapshot: the renderer runs off the main actor and is not observable, so a plain read cannot say the picture is decoded.
     var frameArrived = 0
 
-    /// Whether the renderer has a frame of a stream of this size ready on the live layer.
-    ///
-    /// The size is what identifies the stream, because the order a frame and its config reach the
-    /// main actor cannot be relied on.
+    /// The size identifies the stream, as the order a frame and its config reach the main actor cannot be relied on.
     func isReadyToPlace(of size: CGSize) -> Bool {
         let snapshot = renderer.currentSnapshot
         return snapshot.configGeneration > 0
@@ -746,37 +537,22 @@ final class SessionModel {
 
     // MARK: - Push token
 
-    /// Whether the user has allowed banners, for the one row that reports it. Held here because
-    /// reading it is an `await` on the system. See ``SessionNotifier/refreshAuthorization()``.
+    /// Held here because reading it is an `await` on the system.
     private(set) var notificationsAuthorized = false
 
-    /// "Yes", or the reason this phone cannot be reached with no session up. Nil when the device holds
-    /// no push token and nothing went wrong saying why, which is a fresh install that has not yet been
-    /// authorized. Read through the notifier rather than copied, because it is written from an
-    /// app-delegate callback.
+    /// Read through the notifier rather than copied, as it is written from an app-delegate callback.
     var pushRegistration: String? {
         if notifier.remoteToken != nil { return String(localized: "Yes") }
         return notifier.remoteTokenFailure
     }
 
-    /// Re-reads the notification permission, from the one screen that shows it.
     func refreshNotificationAuthorization() async {
         notificationsAuthorized = await notifier.refreshAuthorization()
     }
 
-    /// Sends the current APNs token to every session that is ready, or clears it when the plan does
-    /// not include being told.
-    ///
-    /// This is the gate for the push half of the feature, and it is here rather than at the Mac: the
-    /// Mac sends a notification to a token and knows nothing else about the user, so a phone that never
-    /// hands one over cannot be reached on any plan.
-    ///
-    /// An empty registration is sent rather than skipped, and it is the message that forgets the token
-    /// the Mac was given while the plan did include it, because a subscription that lapses is exactly
-    /// the case this has to answer.
-    ///
-    /// Nothing is sent while the entitlement has not been read, so a subscriber is not stripped of the
-    /// feature in the first moments of a launch.
+    /// This is the gate for the push half, here rather than at the Mac, which sends to a token and knows nothing else: a phone that never hands one over cannot be reached on any plan.
+    /// An empty registration is sent rather than skipped: it forgets the token the Mac was given while the plan included it, which a lapsed subscription needs.
+    /// Nothing is sent while the entitlement has not been read, so a subscriber is not stripped at launch.
     func sendPushToken() {
         guard let plan = storeManager.access.plan else { return }
 
@@ -797,19 +573,16 @@ final class SessionModel {
 
     func start() {
         guard identityFailure == nil else { return }
-        // Anything on the Lock Screen from a previous run describes a session this process did not
-        // survive, and nothing else in this launch knows it is there.
+        // Anything on the Lock Screen from a previous run describes a session this process did not survive.
         SessionActivity.shared.adoptOrphan()
         browser.onEvent = { [weak self] event in
-            // Bound once, outside the `Task`: a `weak self` reference is a mutable variable, and
-            // reading it from a closure that outlives this one is a data race.
+            // Bound once outside the `Task`: a `weak self` is a mutable variable and reading it from an outliving closure is a data race.
             guard let self else { return }
             // HostBrowser reports from its own queue, and each of these touches observable state.
             Task { @MainActor in self.apply(event) }
         }
 
-        // Started with the app rather than at the first drop: the watcher compares against the path
-        // the last dial was made on, so one begun at a drop would call its first update a change.
+        // Started with the app, not at the first drop: the watcher compares against the path of the last dial, so one begun at a drop would call its first update a change.
         let watcher = NetworkPathWatcher()
         watcher.hasSomethingToPutBack = { [weak self] in
             self?.sessions.contains { $0.isResumingAfterDrop } ?? false
@@ -820,23 +593,13 @@ final class SessionModel {
         watcher.start()
     }
 
-    /// Asks the network watcher whether the path has moved since the last dial.
-    ///
-    /// For the moment a wait begins rather than the moment the network moves, which is the relay case.
-    /// Deferred by a turn at the call site, because it can dial. See
-    /// ``NetworkPathWatcher/judgeNow()``.
+    /// For the moment a wait begins, not when the network moves (the relay case). Deferred by a turn at the call site, because it can dial.
     func considerNetworkChange() {
         networkWatcher?.judgeNow()
     }
 
-    /// The phone's network has changed to something that can carry a session, so dial now rather than
-    /// wait out a backoff that was counted against a network which is gone.
-    ///
-    /// Only for a Mac that is on its way back: a path change with a working session is not a reason to
-    /// dial anything, and one with no session at all is not either.
-    ///
-    /// The counter is deliberately not reset, which is what keeps the ladder finite on a phone whose
-    /// network flaps between two cells. Dialling early costs a rung rather than the ladder.
+    /// Only for a Mac on its way back.
+    /// The counter is deliberately not reset, which keeps the ladder finite on a phone whose network flaps; dialling early costs a rung, not the ladder.
     private func networkChanged() {
         for session in sessions where session.isResumingAfterDrop {
             session.stopReconnecting()
@@ -844,8 +607,7 @@ final class SessionModel {
         }
     }
 
-    /// Asks every connected Mac to answer now, so one whose connection died with the old network
-    /// or with the app's suspension is redialled at once rather than after the silence watchdog.
+    /// Asks every connected Mac to answer now, so a connection that died with the old network or suspension is redialled at once rather than after the silence watchdog.
     func verifyLiveSessions() {
         for session in sessions where session.phase == .ready {
             session.wire?.verifyStillAnswering()
@@ -865,19 +627,14 @@ final class SessionModel {
         browser.start()
     }
 
-    /// Whether a Mac is open, which is what the picker's rows are disabled by.
-    ///
-    /// Any Mac, not the one on screen: a row disabled by the active session's phase alone would be
-    /// enabled the moment the user looked at a Mac that had finished, which is exactly when the gate is
-    /// the thing standing between them and a connection.
+    /// Any Mac, not the one on screen: gating on the active session's phase would enable the row the moment the user looked at a Mac that had finished.
     var isBusy: Bool { hasOpenSession }
 
     func connect(to target: ClientSession.Target) {
         connect(to: target, replacing: nil)
     }
 
-    /// The Mac a target names, or `nil` for a literal address. Written out rather than asked of
-    /// ``ClientSession/Target``, whose own answer to this is internal to `RemoteCore`.
+    /// Written out rather than asked of `ClientSession/Target`, whose answer is internal to `RemoteCore`.
     private static func hostID(of target: ClientSession.Target) -> String? {
         switch target {
         case .discovered(let host): return host.id
@@ -886,13 +643,7 @@ final class SessionModel {
         }
     }
 
-    /// Opens a Mac, replacing one session if there is one to replace.
-    ///
-    /// - Parameter old: the session this attempt supersedes, or `nil` when it is a Mac being opened
-    ///   from the picker. A replaced session is removed rather than left to be pruned, because its
-    ///   ladder has just handed over and two entries for one Mac read as "it connected twice".
-    /// - Parameter timeout: how long this attempt may take. Short only for the rung of a resume that
-    ///   dials a remembered address.
+    /// - Parameter old: the session this attempt supersedes, removed rather than pruned since two entries for one Mac read as "it connected twice".
     func connect(
         to target: ClientSession.Target,
         replacing old: MacSession?,
@@ -902,10 +653,7 @@ final class SessionModel {
         CrashLog.note("dial \(Self.hostID(of: target) ?? "unknown")\(old == nil ? "" : ", replacing a session") · \(sessions.count) open")
         guard let identity, identityFailure == nil else { return }
 
-        // A Mac that is already open is brought to the front rather than dialled again: two sessions to
-        // one Mac would be two control channels and two clients on the Mac, for one phone. Every route
-        // that names a Mac passes through here, so this is the one place it can be answered.
-        //
+        // A Mac already open is brought to the front, not dialled again: two sessions would be two clients on the Mac. Every route passes here.
         // Not for a ladder putting a Mac back: `old` is how it says so.
         if old == nil, let hostID = Self.hostID(of: target),
            let open = sessions.first(where: { $0.hostID == hostID && $0.isLive }) {
@@ -913,58 +661,40 @@ final class SessionModel {
             return
         }
 
-        // A Mac being dialled is a Mac the user wants to look at, so the screen goes to it from the
-        // first frame of the connecting card: a session stepped away from and then dialled again
-        // must not leave the picker up behind the card. See ``isSessionOnScreen``.
+        // The screen goes to the Mac from the first frame of the connecting card, so a stepped-away session dialled again does not leave the picker up behind it.
         isSessionOnScreen = true
         pausedBySteppingAway = false
 
-        // The gate, at the one place every route passes through: a gate drawn on one door cannot be
-        // walked past by another. See ``PlanCapability/concurrentSessions``.
-        //
-        // A ladder putting a Mac back is deliberately not gated: that Mac is already open and the plan
-        // was checked when it was, so asking again would end a paid session mid-reconnect.
+        // The gate, at the one place every route passes: a gate on one door can be walked past by another.
+        // A ladder putting a Mac back is not gated: the plan was checked when it opened, and asking again would end a paid session mid-reconnect.
         if old == nil, hasOpenSession, !canAddAnotherSession {
             paywallReason = .feature(.concurrentSessions)
             return
         }
-        // Said rather than silently refused: the ceiling is a fact about this phone rather than the
-        // user's plan, and a tap that did nothing would read as the app being broken.
+        // Said rather than silently refused: the ceiling is a fact about this phone, and a tap that did nothing would read as broken.
         if old == nil, openSessions.count >= Self.sessionCeiling {
             append(note: String(localized: "This device holds \(Self.sessionCeiling) Macs open at once. Close one to open another."))
             return
         }
 
-        // Remembered for the home-screen widget, which can offer to connect but has no way of knowing
-        // to what. Written twice on purpose: the app reads its own defaults, and the widget can only
-        // see the shared container. See ``reconnectToLastHost()``.
+        // Remembered for the widget, which can offer to connect but cannot know to what. Written twice: the app reads its own defaults, the widget only the shared container.
         UserDefaults.standard.set(target.displayName, forKey: Self.lastHostNameKey)
         SharedStore.lastHostName = target.displayName
-        // A widget is not a live view and is not told anything, so without this it goes on showing the
-        // previous Mac until the system next refreshes it.
+        // A widget is not told anything, so without this it keeps showing the previous Mac until the system refreshes it.
         WidgetCenter.shared.reloadAllTimelines()
 
         // An attempt from the backoff timer would race this one and start a second session.
         stopReconnecting()
-        // A session that is already up is torn down rather than replaced: assigning over it leaves the
-        // first connection running with nothing holding it, so the peer sees it drop mid-handshake,
-        // which with a retry following it is a loop rather than a session. The object below replaces it,
-        // and the events the old connection is still emitting have nothing left to land on, which
-        // describes a Mac nobody is looking at any more.
+        // A session already up is torn down rather than replaced: assigning over it leaves the first connection running unheld, so the peer sees it drop mid-handshake, which with a retry is a loop.
         activeSession?.connectTask?.cancel()
         activeSession?.connectTask = nil
         activeSession?.wire?.disconnect()
-        // The user has just asked to reach a Mac, which is the first moment "tell you when it needs
-        // you?" means anything.
+        // The user has just asked to reach a Mac, the first moment "tell you when it needs you?" means anything.
         notifier.prepareForFirstConnect()
 
-        // The new session: every per-Mac fact below is set on it rather than on the model, and the
-        // screens go on reading them through the forwarders.
         let session = MacSession(model: self, renderer: renderer)
 
-        // Cleared for every new session, whatever the target: a punched path belongs to the session
-        // that proved it, the NAT mapping behind it can be gone by the next one, and a stale `true`
-        // would have the app reporting a direct path it is not using.
+        // Cleared for every new session: a punched path belongs to the session that proved it, and a stale `true` would report a direct path not in use.
         session.usedDirectPath = false
         switch target {
         case .discovered(let host):
@@ -979,81 +709,47 @@ final class SessionModel {
         case .relayPairing(let hostID, _, _):
             session.connectionPath = .relay
             remotePairingHostID = hostID
-            // Same reasoning as the literal address below: nothing has been proven to be this Mac yet,
-            // so nothing is remembered as "the last Mac". The handshake writes the ID it actually
-            // reached, and a half-typed ID left here would be dialled again by the reconnect ladder.
+            // Nothing is proven to be this Mac yet, so nothing is remembered as the last Mac: a half-typed ID would be dialled again by the ladder.
             UserDefaults.standard.removeObject(forKey: Self.lastHostIDKey)
         case .address:
             session.connectionPath = .direct
             remotePairingHostID = nil
-            // The handshake replaces this with the server's real ID; keeping a different Mac's ID
-            // during that window could make an automatic retry dial the relay for the wrong machine.
+            // The handshake replaces this with the real ID; a different Mac's ID in the window could make a retry dial the relay for the wrong machine.
             UserDefaults.standard.removeObject(forKey: Self.lastHostIDKey)
         }
         // Fresh for the path this session just chose: the policy's tier is tuned per path.
         session.autoQualityPolicy = AutoQualityPolicy(path: session.autoQualityPath)
         session.lastAutoDroppedFrames = 0
 
-        // Two facts belong to the Mac rather than to this attempt at reaching it, so they are carried
-        // across a dial of that Mac and only of that Mac. Everything else above is the connection's.
-        //
-        // `hasBeenReady` tells a resume apart from a first connection: the ladder builds a new object,
-        // so without it a Mac that dropped and is being put back is indistinguishable from one being
-        // opened for the first time, and the connecting theatre goes back on screen for a network blip.
-        //
-        // `reconnectAttempt` is carried because the counter lives on the object and the object is
-        // replaced on every attempt: without it a Mac that keeps failing stays on the first rung for as
-        // long as it keeps failing.
-        // The third fact of the same kind, and the one that cannot be carried from `old`: a cold
-        // launch's restoration is the resume with no session behind it, so the intent arrives on the
-        // model and is handed to the object being built. See ``MacSession/isComingBack``.
+        // Two facts belong to the Mac, not this attempt, and are carried across a dial of that Mac only.
+        // `hasBeenReady` tells a resume from a first connection: the ladder builds a new object, so otherwise a blip would put the connecting card back.
+        // `reconnectAttempt` is carried because the object is replaced on every attempt, or a failing Mac would stay on the first rung.
+        // The third fact cannot be carried from `old`: a cold launch's restoration has no session behind it, so the intent arrives on the model. See `isComingBack`.
         session.isComingBack = isResuming
 
         if let old, let targetID = target.hostID, targetID == old.hostID {
             session.hasBeenReady = old.hasBeenReady
             session.reconnectAttempt = old.reconnectAttempt
-            // And the clock the window is measured on, for the same reason as the counter: the run
-            // of attempts is one run however many objects it is made of.
+            // And the clock the window is measured on: the run of attempts is one run however many objects it spans.
             session.reconnectingSince = old.reconnectingSince
 
-            // And which source was on screen, because the screen is staying up: the Mac goes on
-            // capturing the same display or window across a client reconnect, so a session that forgot
-            // would have ``PictureIdentity`` read the picture as a different one and ``RemoteScreen``
-            // reset the zoom and the pan, which is exactly the state a resume is meant to preserve.
-            //
-            // The catalogue itself is deliberately not carried: the Mac sends it again on `.ready`, and
-            // a stale one naming sources that are gone is worse than a moment without one.
+            // And which source was on screen: the Mac keeps capturing the same display across a client reconnect, so forgetting it would make `PictureIdentity` read a different picture and `RemoteScreen` reset zoom and pan.
+            // The catalogue is deliberately not carried: the Mac resends it on `.ready`, and a stale one naming gone sources is worse than none.
             session.activeSourceID = old.activeSourceID
 
-            // **The arrangement, for the same reason, and the one this used to leave behind.** The
-            // choices, not `isAskingForMosaic` or `askedMosaicLayout`: those are written as a side
-            // effect of asking (see `SessionModel/selectSource(_:)`), and the reconnect's own
-            // catalogue-triggered re-ask (`pendingSourceReassertion`) is what writes them again, from
-            // these. Left uncarried, `activeSourceID` went on naming the arrangement while nothing
-            // else on the new object agreed it was one — no borders, no tap to open a tile, no way
-            // back — because a mosaic built from zero choices is not a mosaic at all.
+            // The arrangement choices, not `isAskingForMosaic` or `askedMosaicLayout`: those are side effects of asking, and the reconnect's catalogue-triggered re-ask (`pendingSourceReassertion`) writes them from these. Uncarried, `activeSourceID` named the arrangement while nothing else agreed: no borders, no tile taps, no way back.
             session.mosaicChoices = old.mosaicChoices
 
-            // The renderer and this screen survive a reconnect, so the description of the picture
-            // they are still showing has to survive with them. A fresh session used to forget this
-            // while leaving the final mosaic frame visible; until another matching config happened
-            // to arrive, the grid looked intact but had no mosaic overlay or tile hit targets.
-            // The next source-tagged config remains authoritative and will replace this value when
-            // the host actually changes pictures.
+            // The renderer and screen survive a reconnect, so the description of the picture they show must too, or the grid looks intact but has no overlay or hit targets until a matching config arrives. The next source-tagged config replaces it.
             session.pictureMosaicLayout = old.pictureMosaicLayout
         }
 
-        // **The episode begins with the dial that starts it, not only with a rung.** A restoration
-        // and the relay-to-LAN hand-over dial once with no ladder under them, so a dial that never
-        // answers is otherwise bounded by nothing at all. A rung of a ladder already carries its
-        // clock, which is why this only starts one. See ``SessionModel/reconnectWindow``.
+        // The episode begins with the dial, not only a rung: a restoration and the relay-to-LAN handover dial with no ladder, so a dial that never answers is otherwise unbounded. See `reconnectWindow`.
         if isResuming, session.reconnectingSince == nil {
             session.reconnectingSince = Date()
         }
 
         session.hostName = target.displayName
-        // Nothing else has to be cleared: everything below this line was this connection's, and this
-        // connection is new.
 
         let race = relay == nil ? nil : DialRace(session: session)
         session.dialRace = race
@@ -1061,21 +757,15 @@ final class SessionModel {
         let resumeSource = old?.hostID == target.hostID ? old?.sourceToResume : nil
         wire.resumeSource = resumeSource
         session.wire = wire
-        // The only place the container changes: a Mac that has finished is not a Mac anybody is
-        // connected to and is let go of here, except a session still being retried, which has a ladder
-        // running.
+        // The only place the container changes: a finished Mac is let go, except one still being retried.
         if let old { sessions.removeAll { $0 === old } }
         sessions.removeAll { !$0.isLive }
         sessions.append(session)
         activeSessionID = session.id
         publishOpenMacs()
 
-        // Whether a missing picture could be a network blocking video, which is a question about
-        // *where* this Mac is: a Mac found over Bonjour is on this network, while the relay and a
-        // typed-in address both cross networks nobody here controls.
-        //
-        // On the relay the picture already shares the control channel, so asking for it there is a
-        // reduction in rate rather than a move.
+        // Whether a missing picture could be a network blocking video depends on where the Mac is: Bonjour means this network, while the relay and a typed address cross networks nobody here controls.
+        // On the relay the picture shares the control channel, so asking there reduces rate rather than moving.
         wire.videoFallbackEnabled = session.connectionPath != .lan
         session.startVideoPolling()
 
@@ -1102,19 +792,15 @@ final class SessionModel {
         }
     }
 
-    /// How long the LAN is dialled alone before the relay joins it. The LAN is free, so it gets
-    /// the first chance, but a Mac on the same network answers in well under this.
+    /// The LAN is free so it gets the first chance, but a Mac on the same network answers well within this.
     static let relayHeadStart: Duration = .milliseconds(300)
 
-    /// A wire whose events reach `session`, held back behind a gate while it is in a race.
     private func makeWire(
         for session: MacSession,
         identity: SelfSignedIdentity,
         race: DialRace?
     ) -> (ClientSession, WireGate) {
-        // Bound outside the closure, which runs on the network queue. Frames and configs go straight
-        // to the renderer's own queue from there, in wire order: hopping them through the main actor
-        // would put a 60 Hz stream behind layout.
+        // Bound outside the closure (network queue). Frames and configs go straight to the renderer's queue in wire order: hopping the main actor would put a 60 Hz stream behind layout.
         let renderer = self.renderer
         let gate = WireGate(admitted: race == nil)
         let box = WeakWire()
@@ -1153,29 +839,18 @@ final class SessionModel {
 
     // MARK: - Clipboard history
 
-    /// Everything pulled from the Mac this device has kept, newest first.
-    ///
-    /// The Mac's pasteboard holds one thing, so a second pull replaces the first, and this is the only
-    /// place the earlier ones exist. Held here rather than in the panel because the panel is rebuilt
-    /// every time it opens.
+    /// The Mac's pasteboard holds one thing, so this is the only place earlier pulls exist; held here because the panel is rebuilt each time it opens.
     var clipboardHistory: [ClipboardEntry] = SessionModel.loadClipboardHistory()
 
-    /// How many pulls have been recorded, so a view can tell the list changed. The entries carry no
-    /// identity to diff on and the text is arbitrary, including text that repeats.
+    /// A count so a view can tell the list changed: entries carry no identity and text can repeat.
     var clipboardHistoryCount = 0
 
-    /// Text this app put on the iPhone's pasteboard or read from it, and the pasteboard's change
-    /// count at the time. Reading the pasteboard asks the user, so this is the only text the
-    /// clipboard panel can show for free, and only while the count still matches.
+    /// Reading the pasteboard asks the user, so this is the only text the panel can show for free, and only while the change count matches.
     var knownPhoneClipboard: (changeCount: Int, text: String)?
 
     // MARK: - Wake-on-LAN
 
-    /// Sends a Wake-on-LAN magic packet for the given host ID, and says what came of it.
-    ///
-    /// A magic packet is a UDP broadcast that nobody acknowledges, so there is no answer to wait for
-    /// and silence would be indistinguishable from a row that did nothing at all. The sentence also
-    /// carries the limit that matters, that a broadcast does not leave the network it was sent on.
+    /// A magic packet is an unacknowledged UDP broadcast, so silence would look like a row that did nothing; the sentence carries the limit that it does not leave the network.
     func wakeHost(id: String) {
         let addresses = hostMACAddresses[id] ?? []
         let sent = addresses.filter { WakeOnLAN.send(to: $0) }.count
@@ -1192,20 +867,10 @@ final class SessionModel {
 
     var pendingHostID: String?
 
-    /// Whether a trusted Mac has been asked for and not yet found.
     var isWaitingForHost: Bool { pendingHostID != nil }
 
-    /// Whether a Mac may be reached through the relay, or only over the local network.
-    ///
-    /// The one thing in the app that can turn a feature off outright. Turning it off does not make
-    /// anything more encrypted, since the relay cannot read what it carries anyway; it makes a
-    /// different promise, that the Mac's device ID and the times it connects never reach a server at
-    /// all, and that promise is only keepable if this gates every dial. All of them are gated:
-    /// ``connectToTrusted(hostID:)``, ``reconnectToLastHost()``, ``resumeIfNeeded()`` and
-    /// ``pairWithRemoteMac(hostID:)``.
-    ///
-    /// Read through `object(forKey:)` rather than `bool(forKey:)`, so that unset is distinguishable
-    /// from off: the default is on, and `bool(forKey:)` would report that as `false`.
+    /// The one thing that can turn a feature off outright: it promises the Mac's device ID and connection times never reach a server, keepable only if this gates every dial (`connectToTrusted`, `reconnectToLastHost`, `resumeIfNeeded`, `pairWithRemoteMac`).
+    /// Read through `object(forKey:)` so unset is distinguishable from off: the default is on.
     var allowsRelay: Bool {
         UserDefaults.standard.object(forKey: PreferenceKeys.allowRelay) as? Bool ?? true
     }
@@ -1215,57 +880,29 @@ final class SessionModel {
 
     static let resumeKey = "Peering.resumeWhenReachable"
 
-    /// Set while a dropped session is being put back, so the Live Activity can say so rather than keep
-    /// claiming a connection that is not there. Read off the session on screen, because the card
-    /// describes one Mac. See ``MacSession/isReconnecting`` for why the ladder is per Mac.
+    /// Read off the session on screen, because the card describes one Mac.
     var isReconnecting: Bool {
         get { activeSession?.isReconnecting ?? false }
         set { activeSession?.isReconnecting = newValue }
     }
 
-    /// Whether the Mac on screen dropped and is being put back. The rule is ``SessionResume``'s, and
-    /// the screens ask here so that they read one answer. See ``MacSession/isResumingAfterDrop``.
+    /// The rule is ``SessionResume``'s; screens ask here to read one answer.
     var isResumingAfterDrop: Bool { activeSession?.isResumingAfterDrop ?? false }
 
-    /// Whether the Mac on screen is being put back, including the dial a cold launch makes.
-    ///
-    /// The forwarder the header reads, so that the two flags behind it are answered in one place.
-    /// See ``MacSession/isBeingPutBack``.
     var isBeingPutBack: Bool { activeSession?.isBeingPutBack ?? false }
 
-    /// How long to wait before each attempt at putting a dropped session back.
-    ///
-    /// Spread out, because the usual cause is the Mac being asleep or the network being briefly gone,
-    /// and retrying every second for a minute spends a radio and a battery on an answer that has not
-    /// changed. Five attempts over about forty seconds covers a Wi-Fi roam, a display waking and a Mac
-    /// that was asleep and is not any more.
+    /// Spread out: the usual cause is a sleeping Mac or a brief network loss, and retrying every second spends radio and battery on an unchanged answer. Five attempts over about forty seconds cover a Wi-Fi roam and a Mac waking.
     static let reconnectDelays: [Duration] = [
         .seconds(1), .seconds(2), .seconds(5), .seconds(10), .seconds(20),
     ]
 
-    /// The same ladder for a Mac that dropped and is being put back, and it is short on purpose.
-    ///
-    /// A resume is silent: it shows a picture that has stopped moving and says nothing about it, so
-    /// "still coming back" and "gone" look exactly alike, and the only difference the user can act on
-    /// is how long they are asked to wonder. The first rung is nearly immediate, because a drop is
-    /// now noticed as it happens rather than ten seconds later.
-    ///
-    /// The two ladders share a counter, which is why they are the same shape, biggest rung last:
-    /// `reconnectAttempt` indexes into whichever one is in use and is carried across a dial, so the
-    /// shorter list is simply the one that runs out sooner.
+    /// A resume is silent, so "still coming back" and "gone" look alike and the only difference the user can act on is how long they wonder: hence short, with a nearly immediate first rung.
+    /// The two ladders share a counter: `reconnectAttempt` indexes into whichever is in use and is carried across a dial, so the shorter simply runs out sooner.
     static let resumeReconnectDelays: [Duration] = [
         .milliseconds(250), .seconds(1), .seconds(3),
     ]
 
-    /// How long a Mac is given to come back before the app stops trying.
-    ///
-    /// The ladder's own end is a count of rungs, and a rung is a wait plus a dial that can take ten
-    /// seconds to fail on its own, so "three rungs" is not a duration: a Mac that is gone can be
-    /// waited on for half a minute, and a dial that never answers at all is not bounded by the
-    /// count in any way. This is the bound that does not depend on the network answering, and it
-    /// covers the restoration as well, which dials once and has no ladder to run out. Ten seconds
-    /// is a Mac that has to be found and shake hands, and nothing more. See
-    /// ``MacSession/giveUpAfterReconnectWindow()``.
+    /// A rung is a wait plus a dial that can take ten seconds to fail, so "three rungs" is not a duration, and a dial that never answers is not bounded by the count. This bound does not depend on the network answering and covers the restoration, which dials once with no ladder.
     static let reconnectWindow: TimeInterval = 10
 
     var reconnectTask: Task<Void, Never>? {
@@ -1278,20 +915,10 @@ final class SessionModel {
         set { activeSession?.reconnectAttempt = newValue }
     }
 
-    /// Set while ``resumeIfNeeded()`` is connecting, so a failure it causes is retried by the ladder
-    /// rather than reported.
-    ///
-    /// Coming back to the foreground is the case this exists for, and it is a race with the teardown of
-    /// the session that just ended: that drop cancelled a socket moments ago and the kernel has not
-    /// finished with it, so the connect is aborted before it starts. It clears itself in well under a
-    /// second, and nobody asked for this attempt, so there is nobody to tell.
+    /// Coming back to the foreground races the teardown of the session that just ended: its cancelled socket is not finished with, so the connect aborts before it starts. It clears within a second and nobody asked for this attempt, so nobody is told.
     var isResuming = false
 
-    /// Clears ``isResuming`` when no Mac has an attempt of its own in flight any more.
-    ///
-    /// One flag for every Mac, so the last one to finish is the one that clears it, and "is one
-    /// still running" is asked of the sessions rather than kept alongside. See
-    /// ``MacSession/giveUpOnReconnecting()``.
+    /// One flag for every Mac, so the last to finish clears it, asked of the sessions.
     func clearResumingIfNothingIsUnderWay() {
         guard !sessions.contains(where: { $0.isResumingAfterDrop }) else { return }
         isResuming = false
@@ -1303,7 +930,6 @@ final class SessionModel {
 
     // MARK: - Input
 
-    /// User-defined macros, persisted across launches. Shown after the built-in defaults.
     var customMacros: [Macro] = {
         guard let data = UserDefaults.standard.data(forKey: PreferenceKeys.customMacros),
               let decoded = try? JSONDecoder().decode([Macro].self, from: data) else {
@@ -1312,33 +938,20 @@ final class SessionModel {
         return decoded
     }()
 
-    /// All macros, built-in first, then custom.
     var allMacros: [Macro] { Macro.defaults + customMacros }
 
     // MARK: - Commands to the active Mac
 
-    // Forwarders, like the properties above and for the same reason: a command belongs to a session,
-    // and the panels have one Mac in hand. Where a command names a terminal, the ID came from the Mac
-    // that made it and is unique across Macs, which is what routes it to the Mac that owns it rather
-    // than to the one on screen.
+    // Forwarders: a command belongs to a session. A terminal ID came from the Mac that made it and is unique across Macs, which routes it to its owner rather than the one on screen.
 
-    /// The commands sent from this phone, newest first.
-    ///
-    /// App-wide rather than per Mac: the Mac's own shell keeps the real history, and this is the
-    /// shortlist the panel offers, so a command typed on one Mac is one the user is likely to want on
-    /// the other.
-    ///
-    /// Stored rather than computed from the defaults, because the panel has to redraw when it changes
-    /// and a computed property reading `UserDefaults` is a change nothing observes.
+    /// App-wide rather than per Mac: this is the shortlist the panel offers, and a command from one Mac is likely wanted on another.
+    /// Stored, not computed from the defaults: nothing observes `UserDefaults`.
     var terminalHistory: [String] =
         UserDefaults.standard.stringArray(forKey: PreferenceKeys.terminalHistory) ?? []
 
     static let terminalHistoryLimit = 30
 
-    /// Adds a command to the list the panel offers, and writes it down.
-    ///
-    /// De-duplicated, so a command run twice moves to the top rather than appearing twice, and capped,
-    /// because this is a convenience and not a history file: the Mac's own shell keeps the real one.
+    /// De-duplicated so a repeated command moves to the top, and capped: this is a convenience, the Mac's own shell keeps the history.
     func rememberTerminalCommand(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -1352,7 +965,6 @@ final class SessionModel {
         forgetTerminalHistoryIfStored(history)
     }
 
-    /// Takes one command back out, for the shell that said it did not exist.
     func removeFromTerminalHistory(_ command: String) {
         var history = terminalHistory
         history.removeAll { $0 == command }
@@ -1364,18 +976,14 @@ final class SessionModel {
         UserDefaults.standard.set(history, forKey: PreferenceKeys.terminalHistory)
     }
 
-    /// Files a note against the Mac on screen. With no session up there is nowhere for one to go,
-    /// which is right: a note describes what a Mac did, and there is no Mac to have done it. See
-    /// ``MacSession/append(note:)``.
+    /// With no session up a note has nowhere to go, which is right: no Mac did anything.
     func append(note: String) { activeSession?.append(note: note) }
 
     func refreshTerminals() { activeSession?.refreshTerminals() }
 
     func refreshAgents() { activeSession?.refreshAgents() }
 
-    /// The agents to offer: only those the Mac has. Before it has said, what it said last time, and
-    /// failing that nothing, for a Mac that will answer: a list of all of them that then shrank was
-    /// a blink. A Mac that cannot say gets every agent.
+    /// Before the Mac has said, what it said last time, else nothing for a Mac that will answer: a list of all that then shrank was a blink. A Mac that cannot say gets every agent.
     var availableAgents: [TerminalAgent] {
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "Peering.showAllAgents") { return TerminalAgent.all }
@@ -1387,20 +995,16 @@ final class SessionModel {
         return TerminalAgent.all.filter { installed.contains($0.command) }
     }
 
-    /// Whether the Mac has yet to say which agents it has, and will.
     var isAwaitingAgentList: Bool {
         guard let session = activeSession else { return false }
         return session.hostSupportsAgentList && session.knownInstalledAgents == nil
     }
 
-    /// Whether one more shell is allowed right now. See ``MacSession/canOpenAnotherShell``.
     var canOpenAnotherShell: Bool { activeSession?.canOpenAnotherShell ?? true }
 
-    /// The running shell a command lands in when another cannot be opened, if there is one.
     var runningShellTargetID: UUID? { activeSession?.runningShellTargetID }
 
-    /// The shell the Mac has just made, which the terminals panel moves to. Written back to nil
-    /// when taken, so the same arrival is not opened twice.
+    /// Written back to nil when taken, so the same arrival is not opened twice.
     var newTerminalID: UUID? {
         get { activeSession?.newTerminalID }
         set { activeSession?.newTerminalID = newValue }
@@ -1408,7 +1012,6 @@ final class SessionModel {
 
     func createTerminal() { activeSession?.createTerminal() }
 
-    /// A shell that opens in a folder the user chose. See ``MacSession/createTerminal(inDirectory:)``.
     func createTerminal(inDirectory path: String?) { activeSession?.createTerminal(inDirectory: path) }
 
     func runInNewTerminal(_ command: String) { activeSession?.runInNewTerminal(command) }
@@ -1433,18 +1036,12 @@ final class SessionModel {
 
     // MARK: - The active Mac's file browser
 
-    /// Whether this Mac opens browsing scopes of its own, which is what the Mac terminals
-    /// screen's Files screen needs before it is offered at all. See
-    /// ``ServerHello/supportsFileBrowser``.
     var hostSupportsFileBrowser: Bool { activeSession?.hostSupportsFileBrowser ?? false }
 
-    /// The scope this phone browses the Mac's files through when no shell is involved.
     var browserID: UUID? { activeSession?.browserID }
 
-    /// Announces that scope to the Mac. Sent when the browser opens and on every reconnect.
     func openFileScope() { activeSession?.openFileScope() }
 
-    /// Where the hub's own browser is looking, and `nil` until it has looked at anything.
     var browserPath: String? {
         guard let session = activeSession else { return nil }
         return session.browsingPath(for: session.browserID)
@@ -1453,6 +1050,15 @@ final class SessionModel {
     func setBrowserPath(_ path: String?) {
         guard let session = activeSession else { return }
         session.setBrowsingPath(path, for: session.browserID)
+        if let path, let mac = session.hostName { FolderMemory().remember(path, for: mac) }
+    }
+
+    var rememberedFilesFolder: String? {
+        activeSession?.hostName.flatMap { FolderMemory().folder(for: $0) }
+    }
+
+    func forgetFilesFolder() {
+        if let mac = activeSession?.hostName { FolderMemory().forget(for: mac) }
     }
 
     func browsingPath(for id: UUID) -> String? { activeSession?.browsingPath(for: id) }
@@ -1475,8 +1081,7 @@ final class SessionModel {
         activeSession?.saveFile(text, sessionID: id)
     }
 
-    /// Sends a file to a folder on the Mac, named outright: the chat screen's attachments, which
-    /// go into the folder the agent works in rather than into whatever a browser is looking at.
+    /// The chat screen's attachments go into the folder the agent works in, not whatever a browser is looking at.
     func uploadFile(_ url: URL, toFolder folder: String, sessionID id: UUID) {
         activeSession?.uploadFile(url, toFolder: folder, sessionID: id)
     }
@@ -1485,12 +1090,10 @@ final class SessionModel {
         activeSession?.uploadFile(url, sessionID: id)
     }
 
-    /// Sends one or more things, folders and all, in one run.
     func uploadItems(_ urls: [URL], sessionID id: UUID) {
         activeSession?.uploadItems(urls, sessionID: id)
     }
 
-    /// What a folder being sent through this shell is doing, or what the last one came to.
     func folderProgress(sessionID id: UUID) -> String? {
         activeSession?.folderProgress(sessionID: id)
     }
@@ -1533,7 +1136,6 @@ final class SessionModel {
 
     func uploadFailure(sessionID id: UUID) -> String? { activeSession?.uploadFailure(sessionID: id) }
 
-    /// Which path the rate policy is tuned for, read off the active session.
     var autoQualityPath: AutoQualityPolicy.Path {
         switch connectionPath {
         case .lan: return .lan
@@ -1544,15 +1146,12 @@ final class SessionModel {
 
     var activeSourceTitle: String? { activeSession?.activeSourceTitle }
 
-    /// The size of the captured content in pixels, if it is known.
     var capturePixelSize: CGSize? { activeSession?.capturePixelSize }
 
-    /// The captured content's size in the Mac's *points*.
     var capturePointSize: CGSize {
         activeSession?.capturePointSize ?? CGSize(width: 1512, height: 982)
     }
 
-    /// The picture a video config describes, named as far as this end can name it.
     func pictureIdentity(of config: VideoStreamConfig) -> PictureIdentity {
         PictureIdentity.forStream(
             config,
@@ -1563,16 +1162,11 @@ final class SessionModel {
 }
 
 extension ClientSession.Phase {
-    /// Whether a live connection is still behind this phase.
-    ///
-    /// The three that are not are the ones where anything the session was holding, a latched modifier
-    /// or a pressed mouse button, has no way left to be released. Everything that cares asks here
-    /// rather than listing the phases again.
+    /// The three phases with no live connection are where a latched modifier or pressed button has no way left to be released.
 }
 
 extension Modifiers {
-    /// Names the latched modifiers for the notes list. Symbols, not words: it is read next to the same
-    /// glyphs the buttons are drawn with.
+    /// Symbols, not words: read next to the same glyphs the buttons use.
     var label: String {
         var names: [String] = []
         if contains(.command) { names.append("⌘") }

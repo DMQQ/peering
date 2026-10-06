@@ -1,7 +1,6 @@
 import RemoteCore
 import SwiftUI
 
-/// A sheet for creating a new custom macro.
 struct MacroEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     var onAdd: (Macro) -> Void
@@ -77,7 +76,6 @@ struct MacroEditorSheet: View {
     }
 }
 
-/// A list view for managing custom macros.
 struct MacroEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @State var model: SessionModel
@@ -151,7 +149,6 @@ struct MacroKey: Identifiable, Hashable, Codable {
     let keyCode: UInt16
 
     static let popular: [MacroKey] = [
-        // Letters
         MacroKey(id: "a", label: "A", keyCode: 0),
         MacroKey(id: "b", label: "B", keyCode: 11),
         MacroKey(id: "c", label: "C", keyCode: 8),
@@ -178,7 +175,6 @@ struct MacroKey: Identifiable, Hashable, Codable {
         MacroKey(id: "x", label: "X", keyCode: 7),
         MacroKey(id: "y", label: "Y", keyCode: 16),
         MacroKey(id: "z", label: "Z", keyCode: 6),
-        // Special keys
         MacroKey(id: "return",    label: String(localized: "Return ⏎"), keyCode: 36),
         MacroKey(id: "escape",    label: String(localized: "Escape ⎋"),  keyCode: 53),
         MacroKey(id: "tab",       label: String(localized: "Tab ⇥"),     keyCode: 48),
@@ -193,7 +189,6 @@ struct MacroKey: Identifiable, Hashable, Codable {
         MacroKey(id: "down",      label: "↓",          keyCode: 125),
         MacroKey(id: "left",      label: "←",          keyCode: 123),
         MacroKey(id: "right",     label: "→",          keyCode: 124),
-        // Function keys
         MacroKey(id: "f1",  label: "F1",  keyCode: 122),
         MacroKey(id: "f2",  label: "F2",  keyCode: 120),
         MacroKey(id: "f3",  label: "F3",  keyCode: 99),

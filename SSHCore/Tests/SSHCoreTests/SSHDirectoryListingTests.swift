@@ -4,12 +4,6 @@ import Testing
 
 @testable import SSHCore
 
-/// What a server said about a folder, turned into what the browser draws.
-///
-/// The SSH browser has two providers and one view, and everything that makes those two agree
-/// happens in these functions: the sort, the cap, the two dot-entries, and the reading of a mode
-/// word. None of it needs a server, which is the point of it being here rather than inside the
-/// service that talks to one.
 @Suite("SSH directory listings")
 struct SSHDirectoryListingTests {
     private func entry(
@@ -47,8 +41,7 @@ struct SSHDirectoryListingTests {
         #expect(normalised.entries.map(\.name) == ["alpha", "beta", "apple.txt", "zebra.txt"])
     }
 
-    /// The reason `localizedStandardCompare` is used rather than `<`: a plain byte comparison puts
-    /// `file 10` before `file 9`, which is not the order anyone reads numbers in.
+    /// `localizedStandardCompare` rather than `<`, which would put `file 10` before `file 9`.
     @Test("numbers inside names sort as numbers")
     func numericNames() {
         let normalised = SSHDirectoryListing.normalise([
@@ -77,8 +70,6 @@ struct SSHDirectoryListingTests {
         #expect(SSHDirectoryListing.normalise(many).isTruncated == false)
     }
 
-    /// Cut after the sort, so what survives is the beginning of a real order rather than whatever
-    /// the server happened to send first.
     @Test("the cut keeps the first names in order, not the first names sent")
     func cutAfterSorting() {
         var many = (1...SSHDirectoryListing.maximumEntries).map { entry("b\($0)") }
@@ -90,8 +81,7 @@ struct SSHDirectoryListingTests {
 
     // MARK: - The one-name-per-line fallback
 
-    /// Real output from `ls -1pA`, including the two names that are the reason the quoting rule
-    /// exists: a space and a single quote are both just characters here.
+    /// Real output from `ls -1pA`; a space and a single quote are just characters here.
     @Test("a one-name-per-line listing reads back with folders marked")
     func plainListing() {
         let output = """
@@ -121,9 +111,7 @@ struct SSHDirectoryListingTests {
         #expect(entries.first?.isSymlink == false)
     }
 
-    /// The lossy case, spelled out rather than left as a surprise: a newline in a name is a
-    /// separator in this format, so such a name arrives as two rows. See the trade recorded on
-    /// `SSHFileService.listCommand`.
+    /// A newline in a name is a separator in this format, so it arrives as two rows (see `SSHFileService.listCommand`).
     @Test("a name containing a newline arrives as two rows")
     func newlineInName() {
         let entries = SSHDirectoryListing.entries(fromListing: "two\nlines\n")
@@ -134,19 +122,15 @@ struct SSHDirectoryListingTests {
 
     @Test("a mode word becomes the same string ls would print")
     func modeWords() {
-        // `S_IFREG` with 0644, the mode every text file on a server has.
         #expect(SSHDirectoryListing.entry(name: "a", mode: 0o100_644, size: 12, modified: nil).permissions == "-rw-r--r--")
         #expect(SSHDirectoryListing.entry(name: "a", mode: 0o040_755, size: 0, modified: nil).permissions == "drwxr-xr-x")
         #expect(SSHDirectoryListing.entry(name: "a", mode: 0o120_777, size: 9, modified: nil).permissions == "lrwxrwxrwx")
     }
 
-    /// The three bits that are printed in place of an execute bit, which are the three a naive
-    /// implementation gets wrong.
     @Test("setuid, setgid and sticky replace the execute character")
     func specialBits() {
         #expect(SSHDirectoryListing.entry(name: "a", mode: 0o104_755, size: 0, modified: nil).permissions == "-rwsr-xr-x")
         #expect(SSHDirectoryListing.entry(name: "a", mode: 0o102_755, size: 0, modified: nil).permissions == "-rwxr-sr-x")
-        // Set where the execute bit is *not* set, which is the capital letter.
         #expect(SSHDirectoryListing.entry(name: "a", mode: 0o104_644, size: 0, modified: nil).permissions == "-rwSr--r--")
         #expect(SSHDirectoryListing.entry(name: "a", mode: 0o041_777, size: 0, modified: nil).permissions == "drwxrwxrwt")
     }
@@ -156,10 +140,7 @@ struct SSHDirectoryListingTests {
         let folder = SSHDirectoryListing.entry(name: "a", mode: 0o040_755, size: 4_096, modified: nil)
         #expect(folder.isDirectory)
         #expect(folder.isSymlink == false)
-        // A folder's size is what the attributes said it was — the bytes its own entry takes,
-        // which is the number `ls -l` prints beside a folder and the same rule the Mac's browser
-        // follows. It is deliberately not a walk of what is inside the folder: that is a number
-        // neither provider has, and the row would have to wait on a tree read to show it.
+        // A folder's size is its own entry's bytes, as `ls -l` prints; deliberately not a walk of its contents.
         #expect(folder.size == 4_096)
 
         let link = SSHDirectoryListing.entry(name: "a", mode: 0o120_777, size: 0, modified: nil)
@@ -188,12 +169,7 @@ struct SSHDirectoryListingTests {
 
     // MARK: - The command itself
 
-    /// Pinned exactly, because this is the one string in the SSH browser that a server executes.
-    ///
-    /// Two things are load-bearing in it. The path goes through the shared quoting rule, so a
-    /// folder called `; rm -rf ~` is a folder. And `head` asks for exactly one row more than the
-    /// cap, which is what makes "this folder has more in it than is shown here" true rather than
-    /// a guess — so the two numbers are deliberately tied to each other here.
+    /// Pinned exactly: a server executes it. The path goes through the shared quoting rule, so a folder called `; rm -rf ~` is a folder, and `head` asks for exactly one row more than the cap so truncation is a fact, not a guess.
     @Test("the fallback command quotes the folder and caps the answer at one past the cap")
     func theCommand() {
         let expected = "command ls -1pA -- '/tmp/it'\\''s here' | command head -n 2001"

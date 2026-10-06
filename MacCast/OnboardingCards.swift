@@ -3,14 +3,6 @@ import StoreKit
 import SwiftUI
 import UIKit
 
-/// The picture on the page about being told: this app's notifications on a phone nobody is
-/// looking at.
-///
-/// Drawn rather than captured because there is nothing to capture: the notifications arrive while
-/// the app is closed. Every number is a fraction of the screen width, the unit every other drawing
-/// in this file is written in, so the one drawing lands in the phone frame and in the iPad's without
-/// a second version of it.
-///
 /// The type runs roughly a fifth larger than a real notification's. The tour draws a phone about
 /// 200 points wide, where an honest 13-point app name is seven points and the weight that separates
 /// it from the title stops reading.
@@ -110,9 +102,6 @@ struct NotificationBanner: View {
         .padding(.horizontal, width * 0.035)
         .padding(.vertical, width * 0.023)
         .frame(width: width * 0.92, alignment: .leading)
-        // The row surface's own fill and the card's own hairline, in the frame's units rather than
-        // in points: those helpers carry a 14 and a 24, and a fixed radius inside a box that is
-        // 200 points wide on one device and 350 on the other is two different shapes.
         .background {
             shape.fill(
                 LinearGradient(
@@ -134,9 +123,6 @@ struct NotificationBanner: View {
         }
     }
 
-    /// The app's icon, which is what a notification shows rather than a glyph tile. Its dark
-    /// appearance is a near-black plate with white pears, and ``Pears`` is that mark with the plate
-    /// keyed out, so the plate and the scale are the icon's own.
     func icon(_ size: CGFloat) -> some View {
         Image(String(localized: "Pears"))
             .resizable()
@@ -160,22 +146,9 @@ struct NotificationBanner: View {
 
 // MARK: - Plan choice
 
-/// One plan on the last page: what it is called, what it costs, and one line about what it is for.
-///
-/// The row's subject is a tier rather than a product, so it is drawn whether or not the store has
-/// answered and only the price waits on the answer — a list that appears in pieces as the products
-/// arrive is a list that looks like it is still loading after it has finished.
-/// One rung of the ladder on the last page, the free one included.
-///
-/// Takes the four strings rather than a ``StoreManager/Tier``, because the free plan has no tier:
-/// it is the floor the other three are measured from and it is not for sale, so it has no product,
-/// no price and no badge. A row that took a tier and special-cased free inside itself would put
-/// that branch in the one place a reader checks when asking what the free plan includes.
 struct PlanChoice: View {
     let name: String
-    /// What the rung is, in one line, on the axis the ladder is built on.
     let line: String
-    /// The displayed price, including the free row's explicit "No charge" label.
     let price: String
     let recommended: Bool
     let selected: Bool

@@ -1,10 +1,6 @@
 import Foundation
 
-/// Recognises the marker a Mac-hosted terminal's shell hook emits when a command that ran a while
-/// returns control to the prompt. See ``TerminalSessionManager``'s hook injection for where the
-/// marker is written: an OSC sequence private to this app, in a range no real terminal convention
-/// uses, that a real terminal (and this app's own ``TerminalScreen``/``TerminalTextSanitizer``)
-/// already swallows as an unrecognised operating system command without rendering anything.
+/// Recognises the marker a Mac-hosted terminal's shell hook emits when a long command returns to the prompt: an OSC sequence private to this app (see ``TerminalSessionManager``'s hook injection), which real terminals swallow as unrecognised.
 public struct TerminalCommandFinishDetector: Sendable {
     private static let maximumTailBytes = 4_096
     private static let marker = "\u{1B}]9999;"
@@ -25,9 +21,7 @@ public struct TerminalCommandFinishDetector: Sendable {
         }
     }
 
-    /// Consumes one piece of PTY output and returns a decoded marker, if a complete one is now in
-    /// the tail. At most one per call: a shell emits at most one marker per prompt, and bytes
-    /// through the marker's terminator are dropped afterward so it is never matched twice.
+    /// At most one marker per call; bytes through its terminator are dropped so it is never matched twice.
     public mutating func receive(_ data: Data) -> Finish? {
         guard !data.isEmpty else { return nil }
 
@@ -39,9 +33,7 @@ public struct TerminalCommandFinishDetector: Sendable {
         let text = String(decoding: tail, as: UTF8.self)
         guard let markerRange = text.range(of: Self.marker) else { return nil }
         let bodyStart = markerRange.upperBound
-        // BEL is what this app's own hook always sends; ESC (the two-byte ST terminator's first
-        // byte) is accepted too, on the same terms the OSC-stripping regexes elsewhere in this
-        // package do, since nothing about the marker format depends on which one arrives.
+        // BEL is what the hook sends; ESC (start of ST) is accepted as the OSC-stripping regexes do.
         guard let terminator = text[bodyStart...].firstIndex(where: { $0 == "\u{07}" || $0 == "\u{1B}" })
         else { return nil }
 
@@ -52,9 +44,7 @@ public struct TerminalCommandFinishDetector: Sendable {
         return Self.parse(body: body)
     }
 
-    /// How a duration reads in a notification, rounded to whole seconds: shared by the host (a
-    /// push body composed with no session up) and the phone (a live banner) so the two sentences
-    /// never quietly drift apart.
+    /// Shared by host (push body) and phone (live banner) so the two sentences cannot drift.
     public static func durationSuffix(_ duration: TimeInterval) -> String {
         let totalSeconds = Int(duration.rounded())
         let minutes = totalSeconds / 60

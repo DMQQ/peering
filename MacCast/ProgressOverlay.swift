@@ -19,5 +19,3 @@ struct ProgressOverlay: View {
         }
     }
 }
-
-/// Session details, the capture-source picker, and the two destructive actions.

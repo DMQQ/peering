@@ -2,27 +2,12 @@
 import SwiftUI
 import UIKit
 
-/// Camera surface used only during pairing, and it hands back whatever the QR code said.
-///
-/// Two different codes are read through it, and neither is a credential: the Mac's pairing
-/// panel shows the six-digit SAS value the user can also type by hand, and the same panel
-/// shows the Mac's device ID for pairing across networks. Which one was scanned is decided by
-/// ``PairingPayload``, not here — this type only knows how to read a QR code, and a view that
-/// wants one kind of code has to say what it does with the other.
 struct PairingCodeScanner: UIViewControllerRepresentable {
-    /// Hands over what the code said, and answers whether it was any use.
-    ///
-    /// **The answer is why this is not `(String) -> Void`.** The scanner reads whatever QR code
-    /// is in front of the camera, and the screens that use it are looking for one particular
-    /// kind: the pairing prompt wants six digits and refuses a Mac's device ID, which is also a
     /// QR code the app itself draws. This used to be a one-shot callback: the flag that stopped
     /// it firing twice was set *before* the payload was looked at, so the first wrong code
     /// (somebody's Wi-Fi code, a screenshot, the Mac's own ID) ended the scanner for the life of
     /// the sheet. The camera kept running, the picture kept moving, and nothing it saw was ever
     /// reported again.
-    ///
-    /// Returning `false` leaves the scanner armed; returning `true` retires it. A caller that
-    /// cannot refuse anything just returns `true`.
     let onCode: (String) -> Bool
 
     func makeCoordinator() -> Coordinator { Coordinator(onCode: onCode) }
@@ -50,8 +35,6 @@ struct PairingCodeScanner: UIViewControllerRepresentable {
                   let readable = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
                   let value = readable.stringValue
             else { return }
-            // Set only once the code has been taken. A code that was refused leaves this false,
-            // and the next one to come into frame gets the same chance the first one had.
             if onCode(value) { delivered = true }
         }
     }
@@ -112,8 +95,6 @@ final class ScannerViewController: UIViewController {
         previewLayer = preview
     }
 
-    /// Says that there is no camera to scan with, and why.
-    ///
     /// Two reasons, and the difference matters to whoever is holding the phone. A device or a
     /// simulator without one is a fact about the hardware; a camera this app has been refused is
     /// a switch somebody can go and turn on, and "Camera unavailable" sends them looking for a

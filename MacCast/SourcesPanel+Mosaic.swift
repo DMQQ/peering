@@ -4,25 +4,8 @@ import SwiftUI
 import UIKit
 
 extension SourcesPanel {
-    /// The arrangement that is on screen: the way back to it, and the way to change it.
-    ///
-    /// **Two rows on one card, where there were two pills.** They were a filled blue capsule with
-    /// a tinted blue one under it: the same shape twice, so the pair read as a control and its
-    /// copy, and neither of them was what this app's blue is for, which is a state and not a
-    /// thing you can tap. What is drawn now is the panel's own row, the one the way in above
-    /// them and every source below them is built from, and one card around the pair because they
-    /// are two things that can be done to one arrangement. The rule between them is
-    /// ``Controls/divider``, which is not drawn after a last row.
-    ///
-    /// **The way back, and it is not in the pill.** Leaving an arrangement by tapping one of its
-    /// windows used to leave a chip in the status pill that returned to it; that chip is gone,
-    /// and without this row there was no way back at all. It belongs here rather than in the pill
-    /// for the same reason the rest of this panel exists: choosing what the picture shows is what
-    /// this panel is for, and the arrangement is one of the things it can show. It is drawn only
-    /// while the arrangement is *not* the picture, because a row that goes where you already are
-    /// is the "button that goes nowhere" this app refuses everywhere else, and it is asked of what
-    /// the user asked for rather than of what has arrived, for the reason on
-    /// ``MacSession/canReturnToMosaic``.
+    /// Two rows on one card: the earlier pair of blue capsules read as a control and its copy, and this app's blue is for a state, not for taps. The rule between them is ``Controls/divider``.
+    /// The way back lives here, not in the pill: choosing what the picture shows is what this panel is for. Drawn only while the arrangement is not the picture, asked of what the user asked for rather than what arrived (see `canReturnToMosaic`).
     @ViewBuilder
     var mosaicEdit: some View {
         VStack(spacing: 0) {
@@ -52,13 +35,7 @@ extension SourcesPanel {
         .rowSurface()
     }
 
-    /// One of the two things that can be done to the arrangement.
-    ///
-    /// The glyph, the name and the pad are the way-in row's, which is deliberate: this block is
-    /// that row or these two, and they cross-fade into each other, so a row that changed its
-    /// measurements on the way would be the whole block moving rather than one thing replacing
-    /// another. The chevron is what every row in this app that leads somewhere wears, and the
-    /// detail is the count the pill used to carry.
+    /// The glyph, name and pad are the way-in row's: the block cross-fades between that row and these two, and changed measurements would make the whole block move.
     func mosaicAction(
         icon: String,
         title: String,
@@ -92,18 +69,12 @@ extension SourcesPanel {
         .accessibilityLabel(detail.map { "\(title), \($0)" } ?? title)
     }
 
-    /// How many things the arrangement holds.
-    ///
-    /// **A window, even when a tile is a screen or an application.** That is already this app's
-    /// word for a tile: the pill over the picture says "in 4 windows" for the same list, and the
-    /// row under this one says "add or remove windows". One word for one thing. It is not always
-    /// plural, because a tile can be taken out of the arrangement from the picture and leave one.
+    /// A window, even when a tile is a screen or an application: the pill says "in 4 windows" for the same list. Not always plural, since a tile can be taken out from the picture and leave one.
     var arrangementSize: String {
         let count = model.mosaicChoicesList.count
         return count == 1 ? String(localized: "1 window") : String(localized: "\(count) windows")
     }
 
-    /// Building one: what has been picked, how many may be, and the way to see it.
     @ViewBuilder
     var mosaicPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -118,11 +89,7 @@ extension SourcesPanel {
             }
 
             HStack(spacing: 8) {
-                // **A way back rather than a way to give up.** This said "Cancel", which is what
-                // a sheet says when it is about to throw your work away — and it does throw the
-                // picks away, which is right, but "Cancel" is not a word anybody reads as "back
-                // to the list I came from". The chevron and the name of the thing it goes back to
-                // are, and they are the same control the rest of the app uses for it.
+                // A way back, not a way to give up: "Cancel" is not read as "back to the list I came from", though the picks are thrown away.
                 Button {
                     withAnimation(Motion.settle) {
                         buildingMosaic = false
@@ -159,28 +126,17 @@ extension SourcesPanel {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(ColorPalette.accent)
-                // Two is the fewest that is a mosaic at all, and the cap is the Mac's own: it
-                // runs one capture per tile, so the number is the Mac's to decide, and it is
-                // read from the same constant the host trims to rather than copied here.
+                // Two is the fewest that is a mosaic, and the cap is the Mac's own (one capture per tile), read from the constant the host trims to.
                 .disabled(picked.count < 2 || picked.count > MosaicLayout.maximumTileCount)
             }
         }
-        // The list's own inset rather than one of its own, so this bar starts and ends where the
-        // search field above it does. See ``tileRoom``.
+        // The list's own inset, so the bar starts and ends where the search field does.
         .padding(.horizontal, Self.tileRoom)
         .padding(.vertical, 10)
         .glassSurface(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    /// One display or window, as a picture with its name under it.
-    ///
-    /// **The picture is drawn at its own shape inside a box that bounds it.** Every tile used to
-    /// *be* a 16:10 box with the picture filled into it, which for a window taller than it is wide
-    /// meant the middle stripe of it: an iPhone Simulator window came out looking like a landscape
-    /// one with the top and bottom of the phone cut away. The picture is the only reason this
-    /// panel draws pictures rather than names, so it is drawn whole; what is bounded is how large
-    /// it may be, so a tall window is a narrow tile rather than a tall one. See ``tileBox`` and
-    /// ``tileShape(for:)``.
+    /// The picture is drawn at its own shape inside a box that bounds it: filling a 16:10 box cropped a tall window to its middle stripe.
     func previewTile(
         _ descriptor: CaptureSourceDescriptor, fallbackIcon: String, height: CGFloat? = nil
     ) -> some View {
@@ -208,16 +164,10 @@ extension SourcesPanel {
                                let image = thumbnails.image(for: descriptor.id, data: thumbnail.jpegData) {
                                 Image(uiImage: image)
                                     .resizable()
-                                    // Filled, which the shape around it has made the same thing
-                                    // as fitted: the box this is drawn into is this picture's
-                                    // shape, so there is nothing left over to crop away.
+                                    // Filled equals fitted here, as the box is this picture's shape.
                                     .aspectRatio(contentMode: .fill)
                             } else {
-                                // What the tile can honestly show before there is a picture,
-                                // which is an ordinary state rather than a failure: the Mac takes
-                                // these when it is asked to and not before, so every tile is drawn
-                                // this way between the panel opening and the photographs landing.
-                                // See ``CaptureSourceResolver/refreshSourceThumbnails()``.
+                                // Before there is a picture is an ordinary state: the Mac takes thumbnails when asked, so every tile is drawn this way until they land.
                                 Image(systemName: fallbackIcon)
                                     .font(.system(size: 20, weight: .medium))
                                     .foregroundStyle(.tertiary)
@@ -234,8 +184,7 @@ extension SourcesPanel {
                                     lineWidth: placed.marked ? 2 : 1
                                 )
                         }
-                        // On the picture, not on the box: a number in the corner of a box that is
-                        // twice the width of what it sits beside is a number by itself.
+                        // On the picture, not the box: a number in the corner of a box twice the width of what it sits beside is a number by itself.
                         .overlay(alignment: .topTrailing) { placeBadge(placed.place) }
                         .overlay {
                             if showsControls {
@@ -248,28 +197,17 @@ extension SourcesPanel {
                         }
                 }
 
-                // **No wider than the picture it names.** A cell is one shape and the pictures
-                // inside it are not: a tall window is drawn as a narrow picture in the middle of a
-                // cell-wide box, and its title used to run the full width of the cell, so the name
-                // of a sliver of a window was a line of text twice its width with the picture at
-                // one end. Clipped to the picture, the two read as one tile. See
-                // ``captionWidth(shape:)``.
+                // No wider than the picture it names: a tall window's title ran the cell's full width with the picture at one end. See ``captionWidth(shape:)``.
                 caption(descriptor, isLive: placed.isLive)
                     .frame(maxWidth: pictureWidth ?? captionWidth(shape: shape), alignment: .leading)
             }
             .frame(width: pictureWidth)
-            // Measured here, from whichever tile lays out first: every cell of an adaptive grid is
-            // the same width, and the arithmetic below needs one number for all of them.
+            // Measured from whichever tile lays out first: every cell of an adaptive grid is the same width.
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
                 if height == nil, abs(width - tileCellWidth) > 0.5 { tileCellWidth = width }
             }
         }
-        // **A tile that has just become the picture steps forward and stays there.** Tapping a
-        // source used to change the accent edge and nothing else, which is a mark appearing on a
-        // control the user has already finished looking at — the face of the thing they are now
-        // watching should be the part that moves. It is the only movement in either grid, and it
-        // is small on purpose: a quarter of the gutter either side, so a tile that grows into
-        // the gap reads as arriving rather than as a grid that has gone ragged.
+        // A tile that has just become the picture steps forward and stays there: tapping used to change the accent edge only. Small on purpose: a quarter of the gutter either side.
         .scaleEffect(placed.isLive ? Self.tileGrowth : 1)
         .animation(Motion.settle, value: placed.isLive)
         .buttonStyle(RailButtonStyle(scale: 0.94))
@@ -283,15 +221,10 @@ extension SourcesPanel {
                 withAnimation(Motion.morph) { windowControlsFor = descriptor.id }
             }
         )
-        // The picture is the point of the tile and carries no text of its own, so the label is
-        // what a screen reader announces instead of a wall of unlabelled images.
+        // The picture carries no text, so the label is what a screen reader announces.
         .accessibilityLabel(spoken(descriptor))
     }
 
-    /// The buttons a long press on this tile offers, in the Mac's title-bar order.
-    ///
-    /// A window gets the Mac's own three. A display this app added gets the same dots for what can
-    /// be done to it: red removes it, yellow renames it.
     func tileControls(for descriptor: CaptureSourceDescriptor) -> [TileControl] {
         switch descriptor.source {
         case .window(let id):
@@ -318,13 +251,8 @@ extension SourcesPanel {
         }
     }
 
-    /// The dots, drawn over the middle of the tile on one glass capsule.
-    ///
-    /// The one place the panel uses colours other than the state blue: these are quoting the
-    /// Mac's own title-bar buttons, and they are recognised by their colours before anything else.
-    ///
-    /// Stacked on a tile too narrow to hold them side by side, which a tall window's tile is: a row
-    /// of three would hang off both edges, and the scroll row would clip the dots at the ends.
+    /// The one place the panel uses colours other than the state blue: they quote the Mac's title-bar buttons.
+    /// Stacked on a tile too narrow for a row: a row of three would hang off both edges and be clipped by the scroll row.
     @ViewBuilder
     func tileControlBar(_ controls: [TileControl], stacked: Bool = false) -> some View {
         let layout = stacked
@@ -342,12 +270,10 @@ extension SourcesPanel {
     static let controlSpacing: CGFloat = 10
     static let controlPadding: CGFloat = 8
 
-    /// How wide the dots are side by side, to tell whether a tile can hold them that way.
     static func controlBarWidth(count: Int) -> CGFloat {
         CGFloat(count) * controlSize + CGFloat(max(count - 1, 0)) * controlSpacing + 2 * controlPadding
     }
 
-    /// One button's face: glass tinted the button's colour on iOS 26, a plain dot before it.
     @ViewBuilder
     private func trafficLight(_ colour: Color) -> some View {
         if #available(iOS 26.0, *) {
@@ -377,7 +303,6 @@ extension SourcesPanel {
     }
 }
 
-/// One of the dots a long press shows on a tile.
 struct TileControl: Identifiable {
     static let red = Color(red: 1.0, green: 0.37, blue: 0.34)
     static let yellow = Color(red: 1.0, green: 0.74, blue: 0.18)

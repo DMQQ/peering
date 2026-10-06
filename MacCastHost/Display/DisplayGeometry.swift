@@ -2,15 +2,8 @@ import CoreGraphics
 import Foundation
 import RemoteCore
 
-/// Builds the normalized→global mapping for a physical display.
-///
-/// Uses `CGDisplayBounds` and `CGDisplayPixelsWide` rather than ScreenCaptureKit, so the
-/// mapping needs no capture stream.
 enum DisplayGeometry {
-/// The transform for a display, or `nil` if it is not a display the system knows about.
-///
-/// `CGDisplayBounds` is in points and `CGDisplayPixelsWide` in pixels. The ratio is the backing
-/// scale and is not always 2, so it is computed rather than assumed.
+/// CGDisplayBounds is in points and CGDisplayPixelsWide in pixels; the backing scale is not always 2.
     static func transform(for displayID: CGDirectDisplayID) -> InputTransform? {
         let bounds = CGDisplayBounds(displayID)
         let width = CGDisplayPixelsWide(displayID)
@@ -25,10 +18,7 @@ enum DisplayGeometry {
         )
     }
 
-/// Every display under the pointer, in the order the window server reports them.
-///
-/// The main display comes back rather than an empty list when the query fails, so no caller has
-/// to handle "no display at all".
+/// Falls back to the main display when the query fails.
     static func pointerDisplayIDs() -> [CGDirectDisplayID] {
         let point = CGEvent(source: nil)?.location ?? .zero
         var count: UInt32 = 0
@@ -40,15 +30,11 @@ enum DisplayGeometry {
         return Array(displays.prefix(Int(count)))
     }
 
-/// The display the pointer is on, falling back to the main display.
-///
-/// "Main" is not "the active one": on a multi-display Mac, anything acting on "the display the
-/// user means" has to ask where the pointer is rather than assume.
+/// Main is not the active display on a multi-display Mac.
     static func pointerDisplayID() -> CGDirectDisplayID {
         pointerDisplayIDs().first ?? CGMainDisplayID()
     }
 
-    /// The transform for the display the pointer is on, falling back to the main display.
     static func activeTransform() -> InputTransform? {
         for display in pointerDisplayIDs() {
             if let transform = transform(for: display) { return transform }

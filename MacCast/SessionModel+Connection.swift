@@ -2,16 +2,8 @@ import MacCastKit
 import RemoteCore
 import SwiftUI
 
-/// Pairing, connecting, and getting back to a Mac. An extension on the model rather than a type of
-/// its own, because this state is the model's.
 extension SessionModel {
-    /// What this device can say about what it bought, in the shape the relay asks for it.
-    ///
-    /// Built in one place because a call site that forgets part of it counts a paying subscriber down
-    /// at the free allowance. The receipt is the part that matters: the relay verifies it against
-    /// Apple's root and meters by the product it names, and the plan beside it is read only when there
-    /// is no receipt to check, which is the case for an older app and for the moment before
-    /// ``StoreManager/start()`` has asked the App Store what is current. See ``RelayEntitlement``.
+    /// Built in one place because a call site that forgets part of it counts a paying subscriber at the free allowance. The relay verifies the receipt; the plan is read only when there is none.
     var relayEntitlement: RelayEntitlement {
         RelayEntitlement(
             plan: storeManager.relayPlan.rawValue,
@@ -20,27 +12,15 @@ extension SessionModel {
         )
     }
 
-    /// The relay target for a paired Mac.
     func relayTarget(hostID: String, name: String) -> ClientSession.Target {
         .relay(hostID: hostID, name: name, entitlement: relayEntitlement)
     }
 
-    /// The relay target for a Mac this device has never met.
     func relayPairingTarget(hostID: String, name: String) -> ClientSession.Target {
         .relayPairing(hostID: hostID, name: name, entitlement: relayEntitlement)
     }
 
-    /// Starts a first pairing with a Mac that is not on this network.
-    ///
-    /// The one path into a Mac with no pin behind it, and the licence is the user: every other route in
-    /// insists on a stored pin for the ID, because each is the app acting on its own about a Mac it
-    /// already knows, while here the user has just read a device ID off the other machine. The guard is
-    /// answered rather than relaxed: the Mac still asks both people to compare six digits, and that
-    /// comparison is what authorises the pairing. The ID only decided who was asked. See
-    /// ``ClientSession/Target/relayPairing(hostID:name:entitlement:)``.
-    ///
-    /// - Returns: what is wrong with the text, or `nil` once an attempt is in flight. The caller
-    ///   shows the sentence where the user can see the field it came from.
+    /// The one path into a Mac with no pin behind it: the user has just read a device ID off the other machine. The guard is answered, not relaxed: the Mac still asks both people to compare six digits.
     @discardableResult
     func pairWithRemoteMac(hostID text: String) -> PairingPayloadError? {
         let hostID: String
@@ -49,62 +29,40 @@ extension SessionModel {
         } catch let problem as PairingPayloadError {
             return problem
         } catch {
-            // Unreachable: `PairingPayload` reports every refusal as one of its own cases. The field
-            // is the user's text, so something has to be said about it either way.
+            // Unreachable: `PairingPayload` reports every refusal as its own case.
             return .notAnIdentifier(text)
         }
 
         guard allowsRelay else {
-            // A setting the user turned off rather than a failure of the pairing. Said here as well
-            // because this path cannot work without it: the Mac is not on this network, so there is no
-            // second route to try.
+            // A setting the user turned off, said here too because this path cannot work without it.
             append(note: String(localized: "Remote access is turned off in Settings, so a Mac on another network cannot be reached."))
             return nil
         }
 
-        // Named "A Mac" until the handshake says otherwise: a first pairing has not been told what the
-        // Mac calls itself, and the ID is not a name.
         connect(to: relayPairingTarget(hostID: hostID, name: String(localized: "A Mac")))
         return nil
     }
 
     func confirmPairing(accepted: Bool) {
-        // Declining ends the session from the Mac's side too, and that arrives as a `.disconnected`
-        // like any other, so without this the user's own "no" comes back to them as a lost connection.
-        //
-        // The *session* object and not the wire: what this records is about the Mac, not the
-        // connection the frame goes out on.
+        // Declining ends the session from the Mac's side too and arrives as `.disconnected`, so without this the user's own "no" reads as a lost connection.
         if !accepted { activeSession?.userEndedDeliberately = true }
         session?.confirmPairing(accepted: accepted)
     }
 
-    /// Ends the session now.
-    ///
-    /// `deliberate` answers "did the user mean to do this", which is not the same question as "who
-    /// called this function". A disconnect the user tapped is silent; one iOS forced because it is
-    /// about to suspend the app is not, because a banner is the only way they will hear about it.
+    /// `deliberate` is "did the user mean it", not "who called": a tapped disconnect is silent, one iOS forced is not, since a banner is the only way they hear of it.
     func disconnect(deliberate: Bool = true) {
-        // Taken first: the card that outlives a non-deliberate end needs both to say what was lost,
-        // and after the lines below they are simply nil.
+        // Taken first: the card that outlives a non-deliberate end needs both, and below they are nil.
         let wasStartedAt = sessionStartedAt
         let wasPath = MacSession.activityPath(connectionPath)
 
-        // Only for a deliberate end. A drop, and the end iOS forces on a backgrounded app, are the two
-        // cases where coming back to the app should find the session restored.
+        // Only for a deliberate end: a drop and the end iOS forces should find the session restored on return.
         if deliberate { UserDefaults.standard.set(false, forKey: Self.resumeKey) }
 
-        // Every Mac, not the one on screen: the control says "Disconnect", and the end iOS forces is
-        // for the whole process, with every session suspended with it. See ``backgroundTimeExpired()``.
-        //
-        // The answer is handed to each Mac rather than kept in one place for them to share: a single
-        // record of "the user meant this" is consumed by whichever session answers first, and the rest
-        // would be read as having dropped and would arm a ladder that can never finish. See
-        // ``MacSession/userEndedDeliberately``.
+        // Every Mac, not the one on screen: the forced end is for the whole process.
+        // Handed to each Mac rather than shared: a single record of "the user meant this" is consumed by the first session to answer, and the rest would arm a ladder that can never finish.
         for session in sessions { session.endSession(deliberate: deliberate) }
 
-        // The arrangement is forgotten when the user says they are done with this Mac: it is remembered
-        // for coming back to it, and a user who pressed Disconnect has said the opposite. Keeping it left
-        // them with a mosaic that reappeared on every connection. See ``MosaicArrangementStore``.
+        // Forgotten on Disconnect: it is kept for coming back, and a user who disconnected said the opposite (it made a mosaic reappear on every connection).
         if deliberate {
             for session in sessions {
                 if let hostID = session.hostID { MosaicArrangementStore.save([], hostID: hostID) }
@@ -117,30 +75,17 @@ extension SessionModel {
                 session.pictureMosaicLayout = nil
             }
         }
-        // Detached only for a deliberate end. A non-deliberate one is followed by the reconnect ladder
-        // and the RemoteScreen is deliberately kept mounted across it: detaching severs the renderer
-        // from that still-mounted view, and SwiftUI does not call `makeUIView` again, so a healthy new
-        // connection would have every frame disappear into no display.
+        // Detached only for a deliberate end: the RemoteScreen stays mounted across the reconnect ladder, and detaching severs the renderer from it since SwiftUI does not call `makeUIView` again.
         if deliberate { renderer.detach() }
-        // Nothing is open any more, which is the widget's business as much as the card's.
         publishOpenMacs()
-        // An end this app chose is not a session the relay cut. Cleared here as well as on a session
-        // coming up, because this path sets the phase directly and so never passes through the drop
-        // handling that would clear it.
+        // An end this app chose is not a session the relay cut. Cleared here too because this path never passes through the drop handling.
         relaySessionDropped = false
         latchedModifiers = []
-        // Nothing is on screen to have stepped away from, and the session after this one takes the
-        // screen from the start. See ``isSessionOnScreen``.
         isSessionOnScreen = true
         pausedBySteppingAway = false
 
-        // This method is how both a deliberate and a forced end arrive, so which announcement is made
-        // turns on `deliberate`: backgrounding the app must not make the card vanish as though the user
-        // had quit.
-        //
-        // The keepalive and the floating window go with the session, and this method has to do that
-        // itself for the same reason the card does: it sets the phase rather than letting the event path
-        // announce it, so nothing that hangs off a phase *change* runs.
+        // Both a deliberate and a forced end arrive here, so the announcement turns on `deliberate`: backgrounding must not make the card vanish as if the user quit.
+        // This sets the phase itself, so nothing hanging off a phase change runs: the keepalive and floating window go here.
         SessionAudio.shared.end()
         SessionPiP.shared.detach()
 
@@ -155,25 +100,15 @@ extension SessionModel {
         }
     }
 
-    /// Ends one Mac's session, and hands the picture over if it was the one on screen.
-    ///
-    /// The picture, the sound, the floating window and the Live Activity are singular and belong to
-    /// whichever Mac is being looked at, so ending that Mac gives them to the next one: leaving them
-    /// pointed at a stopped session would have the screens go on drawing a Mac that is gone, and the
-    /// strip show a selection with no tab to match it. Ending a Mac that is not on screen needs none of
-    /// that.
+    /// The picture, sound, floating window and Live Activity are singular, so ending the Mac on screen hands them to the next; leaving them on a stopped session would keep drawing a gone Mac.
     func endSession(_ id: UUID) {
         guard let session = sessions.first(where: { $0.id == id }) else { return }
 
-        // Cleared before the teardown, so what follows reads as a switch *out of* a session rather than
-        // into one: ``activateSession(_:)`` is a no-op for the Mac already on screen, and the Mac being
-        // ended is still that until this line runs.
+        // Cleared before the teardown so it reads as a switch out of a session: `activateSession(_:)` is a no-op for the Mac already on screen.
         let wasActive = activeSessionID == id
         if wasActive { activeSessionID = nil }
 
-        // The user asked for this one: `wire` announces its own end and the phases are already where they
-        // are by the time it arrives, so this is the only evidence that the user rather than the network
-        // ended it. See ``MacSession/userEndedDeliberately``.
+        // The only evidence that the user, not the network, ended it: `wire` announces its own end after the phases have moved.
         session.endSession(deliberate: true)
 
         guard wasActive else {
@@ -184,8 +119,6 @@ extension SessionModel {
         if let next = openSessions.first {
             activateSession(next.id)
         } else {
-            // Nothing left to hand to: these are one of each for the whole app, and a Mac nobody is
-            // connected to must not be left owning any of them.
             renderer.detach()
             SessionAudio.shared.end()
             SessionPiP.shared.detach()
@@ -194,10 +127,6 @@ extension SessionModel {
         }
     }
 
-    /// Connects to a Mac this device has paired with before, by ID.
-    ///
-    /// Bonjour wins when it has the Mac, preserving the direct LAN path. Otherwise the same stable host
-    /// ID is sent to the relay; no remembered IP address is involved.
     /// Opens the Mac a tapped notification came from and, when it names one, the window it is about.
     func openFromNotification(hostID: String, sourceID: String?) {
         guard pairedHostIDs.contains(hostID) else { return }
@@ -213,7 +142,6 @@ extension SessionModel {
             }
             return
         }
-        // The session is new if the dial made one; its Mac ID is only known after the handshake.
         let before = activeSessionID
         connectToTrusted(hostID: hostID)
         if let sourceID, activeSessionID != before {
@@ -228,9 +156,7 @@ extension SessionModel {
             return
         }
         guard allowsRelay else {
-            // Waited for rather than refused: the Mac is paired, and the only thing missing is that it
-            // is not on this network yet. That is a state that ends by itself, when it walks back into
-            // range or the Mac wakes, and the browser's next update connects with no further tap.
+            // Waited for rather than refused: the Mac is paired and merely not on this network yet, a state that ends by itself when the browser next updates.
             pendingHostID = hostID
             return
         }
@@ -238,8 +164,7 @@ extension SessionModel {
         connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? String(localized: "A Mac")))
     }
 
-    /// Explicit route choices from the trusted-Mac row. Unlike a regular row tap these do not fall back
-    /// to the other transport.
+    /// Explicit route choices from the trusted-Mac row do not fall back to the other transport.
     func connectToTrustedOverLAN(hostID: String) {
         guard let host = hosts.first(where: { $0.id == hostID }) else { return }
         pendingHostID = nil
@@ -254,10 +179,7 @@ extension SessionModel {
 
     // MARK: - Quick connect
 
-    /// Where the name of the last Mac this device connected to is kept: `UserDefaults` rather than the
-    /// app group a widget would have to read, because the widget does not need to know *which* Mac,
-    /// only that there is one to offer. That keeps a shared container and its provisioning out of a
-    /// feature whose whole job is to save one tap.
+    /// `UserDefaults` rather than the app group: the widget only needs to know there is one Mac to offer, which keeps a shared container out of the feature.
     func connectToManualAddress() {
         guard let port = UInt16(manualPort.trimmingCharacters(in: .whitespaces)) else {
             append(note: String(localized: "“\(manualPort)” is not a port number."))
@@ -268,8 +190,6 @@ extension SessionModel {
         connect(to: .address(host: host, port: port))
     }
 
-    /// Reconnects to the Mac this device used last. A matching Bonjour result uses the direct LAN path;
-    /// a trusted ID that is not currently visible uses the relay.
     func reconnectToLastHost() {
         guard !phase.holdsSession else { return }
         let defaults = UserDefaults.standard
@@ -282,26 +202,11 @@ extension SessionModel {
         }
     }
 
-    /// Whether the next sight of the last Mac should put the session back, and the putting back itself.
-    ///
-    /// Written down rather than remembered, because the case that matters most is the one where iOS
-    /// killed the app while it was backgrounded: nothing of the session survives that, so "there was
-    /// one" has to have been recorded before it happened. A deliberate disconnect clears the flag and
-    /// nothing here fires; a dropped connection leaves it set.
-    ///
-    /// Called from three places because they cover different arrivals: coming back to the front, a host
-    /// appearing, and the ladder's own tick.
+    /// Written down because iOS may kill the app while backgrounded and nothing of the session survives. A deliberate disconnect clears it; a drop leaves it set.
     // MARK: - Relay presence
 
-    /// Asks the relay which of the paired Macs are up, and takes the answer as the whole truth.
-    ///
-    /// An empty answer is not news: `hostPresence` returns nothing both when the relay answered with an
-    /// error and when the network was down, and neither is the relay saying every Mac has gone, so a
-    /// round that learned nothing leaves what was known standing.
-    ///
-    /// Called by the Connect tab while it is on screen. Nothing polls in the background: a phone that
-    /// asked after its Macs from a pocket would be telling the relay where its owner is for no one's
-    /// benefit.
+    /// An empty answer is not news: `hostPresence` returns nothing on an error or no network, so a round that learned nothing leaves what was known.
+    /// Called by the Connect tab while on screen; nothing polls in the background.
     func refreshRelayPresence() async {
         let hostIDs = pairedHostIDs
         guard !hostIDs.isEmpty, allowsRelay else {
@@ -316,30 +221,18 @@ extension SessionModel {
         relayReachable = reachable
         guard !answers.isEmpty else { return }
 
-        // Replaced rather than merged: a Mac that has gone is *absent* from the answer, and merging
-        // would leave a stale `true` on the row of a Mac that is switched off.
+        // Replaced rather than merged: a Mac that has gone is absent from the answer, and merging would leave a stale `true`.
         relayPresence = answers
     }
 
-    /// Puts every Mac that has dropped back, and starts the one that was open last if none is.
-    ///
-    /// Each session resumes itself, see ``MacSession/resumeIfNeeded()``; what is left here is the launch
-    /// where there is no session at all and the only evidence of one is what was written down before the
-    /// app died.
     func resumeIfNeeded() {
         for session in sessions { session.resumeIfNeeded() }
         resumeTheLastMacIfNothingIsOpen()
     }
 
-    /// The cold launch: nothing is open, and `resumeKey` says there was something.
-    ///
-    /// A separate path rather than a branch of the loop above, because a session that does not exist yet
-    /// cannot know which Mac it is for: the ID is in the defaults and nowhere else. It is also the only
-    /// case where Bonjour can be consulted by *name*.
+    /// A separate path: a session that does not exist yet cannot know which Mac it is for, and this is the only case where Bonjour is consulted by name.
     private func resumeTheLastMacIfNothingIsOpen() {
-        // Only the launch with nothing in it: with a session object at all, the loop above has already
-        // asked that session to put itself back, and a second dial for the same Mac would race the first
-        // and close its connection mid-handshake.
+        // Only the launch with nothing in it: otherwise a second dial for the same Mac would race the first and close its connection mid-handshake.
         guard sessions.isEmpty else { return }
         guard UserDefaults.standard.bool(forKey: Self.resumeKey) else { return }
 
@@ -354,8 +247,7 @@ extension SessionModel {
 
         guard let hostID else { return }
 
-        // The address the Mac was last reached at, dialled at once and raced against the relay, so a
-        // relaunch does not wait for Bonjour to find a Mac that is sitting on the same network.
+        // Dialled at once and raced against the relay, so a relaunch does not wait for Bonjour.
         if let remembered = rememberedLANHost(hostID), pins.hostIDs.contains(hostID) {
             isResuming = true
             let relay = allowsRelay
@@ -367,14 +259,7 @@ extension SessionModel {
 
         guard allowsRelay, pins.hostIDs.contains(hostID) else { return }
 
-        // **The same grace ``enteringForeground()`` gives a background return, given here to a cold
-        // launch too.** This runs on the first call this process makes to `resumeIfNeeded()`, which
-        // is driven by `HostBrowser`'s *own* first report — often within milliseconds of
-        // `startBrowsing()`, before a browser that has barely started has heard from Bonjour at all.
-        // Dialling the relay right there is what sent a phone straight past a Mac on its own LAN on
-        // every cold launch: the relay usually answers before that first sweep finishes, the session
-        // gets its picture, and the LAN hand-over in `apply(_:)` above never has a reason to fire —
-        // its guard is `!hasHadPicture`, and a relay session that has already sent a frame has one.
+        // The same grace `enteringForeground()` gives, for a cold launch: dialling the relay before Bonjour's first sweep sent phones past a Mac on their own LAN, since the relay session gets a picture and the LAN handover's `!hasHadPicture` guard never fires.
         let elapsedMilliseconds = Date().timeIntervalSince(launchedAt) * 1000
         guard elapsedMilliseconds >= Double(Self.localMacGrace) else {
             Task { [weak self] in
@@ -390,20 +275,12 @@ extension SessionModel {
         connect(to: relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? String(localized: "A Mac")))
     }
 
-    /// Opens a Mac that is already paired, beside the ones already open.
-    ///
-    /// The door the strip's `+` and the picker's rows both come through. The gate and the ceiling are
-    /// enforced one level down in ``SessionModel/connect(to:replacing:)``, where every route from
-    /// anywhere in the app arrives; this is where the "already open" question is answered.
     func addSession(hostID: String) {
-        // A Mac already open is brought to the front rather than opened twice: two sessions to one Mac
-        // would be two control channels and two clients on the Mac, for one phone.
+        // Brought to the front rather than opened twice: two sessions would be two clients on the Mac.
         if let open = sessions.first(where: { $0.hostID == hostID && $0.isLive }) {
             activateSession(open.id)
             return
         }
-        // The same preference the picker's rows have: Bonjour, then the address this launch last reached
-        // it at, and the relay only when neither can be had. See ``connectToTrusted(hostID:)``.
         if let host = hosts.first(where: { $0.id == hostID }) {
             connect(to: .discovered(host))
         } else if let remembered = rememberedLANHost(hostID) {
@@ -413,8 +290,7 @@ extension SessionModel {
         }
     }
 
-    /// The paired Macs that are not already open, which is what the strip's `+` offers. Most recently
-    /// connected first, since the Mac someone wants to add is almost always one they have used lately.
+    /// Most recently connected first.
     var closedPairedMacs: [(id: String, name: String)] {
         let open = Set(sessions.compactMap(\.hostID))
         return pairedHostIDs
@@ -423,11 +299,7 @@ extension SessionModel {
             .map { (id: $0, name: displayName(forHostID: $0) ?? String(localized: "A Mac")) }
     }
 
-    /// Replaces one Mac's session with a fresh attempt at the same Mac, and leaves the rest alone.
-    ///
-    /// The old session is removed rather than left to be pruned: it is the one being replaced and its
-    /// ladder has just handed over, and leaving it would put two entries for one Mac in the strip for as
-    /// long as the new attempt takes, which reads as "it connected twice".
+    /// The old session is removed rather than pruned: leaving it shows two entries for one Mac and reads as "it connected twice".
     func reconnect(
         _ session: MacSession,
         to target: ClientSession.Target,
@@ -437,24 +309,12 @@ extension SessionModel {
         connect(to: target, replacing: session, timeout: timeout, racingRelay: relay)
     }
 
-    /// Stops the active Mac being retried, *without* resetting its backoff.
-    ///
-    /// The counter belongs to a run of attempts, and resetting it here is what turns a failing reconnect
-    /// into a permanent loop: the attempt count returns to zero and the delays never advance past the
-    /// first second. Only a session that actually came up clears it, in the `.ready` branch of
-    /// ``MacSession/apply(_:)``.
+    /// Without resetting the backoff: resetting it turns a failing reconnect into a permanent loop with delays never past the first second. Only `.ready` clears it.
     func stopReconnecting() { activeSession?.stopReconnecting() }
 
     // MARK: - Backgrounding
 
-    /// Tells the object that floats the picture whether the plan includes it, and answers the same
-    /// question for the caller.
-    ///
-    /// One writer, called wherever the answer can change: when the entitlement first lands, whenever it
-    /// changes under a running app, and as the app leaves the screen. It is a function rather than a line
-    /// at each of those sites because the one easy to leave out is the launch, and a controller armed
-    /// before the App Store answered would be armed with the wrong answer for the rest of the session.
-    /// See ``SessionPiP/isOnPlan``.
+    /// One writer called wherever the answer can change; the easy one to miss is launch, and a controller armed before the App Store answered stays wrong.
     @discardableResult
     func applyPictureInPicturePlan() -> Bool {
         let included = PictureInPictureAccess.canArm(access: storeManager.access)
@@ -462,15 +322,7 @@ extension SessionModel {
         return included
     }
 
-    /// Tells the object that raises terminal banners whether the plan includes them, and answers the same
-    /// question for the caller.
-    ///
-    /// Its twin, called from the same moments. A push rather than a read, because the object it informs
-    /// owns no store, the same arrangement ``SessionPiP`` is kept in; the other half of the feature is the
-    /// registration refused in ``sendPushToken()``, which has the store in front of it.
-    ///
-    /// The banner it gates has no tap to wait for, so failing closed until the answer is known costs a
-    /// subscriber one banner in the first moments of a launch.
+    /// Its twin. A push because the object owns no store; failing closed costs a subscriber one banner at launch.
     @discardableResult
     func applyTerminalAlertPlan() -> Bool {
         let included = TerminalAlertsAccess.canNotify(access: storeManager.access)
@@ -480,31 +332,17 @@ extension SessionModel {
 
     func setPiPAutoStart(_ on: Bool) { SessionPiP.shared.autoStart = on }
 
-    /// Called when the app is backgrounded with a session up.
-    ///
-    /// There is no background mode a remote desktop can honestly claim, so this is the whole of the
-    /// reprieve: it buys the few seconds that make switching to another app for something and coming
-    /// straight back survivable, and nothing beyond that.
+    /// No background mode a remote desktop can honestly claim: this only buys the few seconds that make switching away and straight back survivable.
     func enteringBackground() {
         SessionActivity.shared.enteringBackground()
 
-        // The plan, pushed into the singleton before it is asked to float anything: the picture is drawn
-        // by an object that owns no store. Written on every backgrounding rather than once, because an
-        // entitlement can arrive or lapse while the app runs.
-        //
-        // The switch's own preference is not pushed from here: it belongs to ``SessionPiP``, and a third
-        // copy would be a third place for it to disagree.
+        // The plan is pushed into the singleton before it floats anything: written on every backgrounding because an entitlement can arrive or lapse while running.
         let pipIncluded = applyPictureInPicturePlan()
 
-        // And the other thing allowed to arrive on its own: a shell that stops while the app is not on
-        // screen raises its banner rather than waiting for a tap, so the answer it reads has to be
-        // current.
+        // A shell that stops off screen raises its banner without a tap, so the answer it reads has to be current.
         applyTerminalAlertPlan()
 
-        // A shell the user is leaving with a prompt still open. The Mac's detector fires once, when the
-        // prompt appears, and this side says nothing while the app is in front of the user, so without
-        // this that prompt could never reach a banner. See
-        // ``SessionNotifier/terminalStillWaiting(_:name:sessionID:macName:)``.
+        // The Mac's detector fires once when the prompt appears and this side says nothing while the app is in front, so without this a prompt left open never reaches a banner.
         for session in sessions where session.phase == .ready {
             for terminal in session.terminals {
                 guard let kind = terminal.attention else { continue }
@@ -517,21 +355,11 @@ extension SessionModel {
             }
         }
 
-        // Started here rather than left to `canStartPictureInPictureAutomaticallyFromInline`: that flag
-        // is set, but iOS never takes the hint, because automatic PiP is gated on the system considering
-        // the app to be *playing*, and an `AVAudioPlayer` running silence is not counted.
-        //
-        // The moment matters as well: this runs as the app leaves the screen, when
-        // `startPictureInPicture` still has a view hierarchy to lift the layer out of.
-        //
-        // `false` for a plan without it, which reads in ``SessionPiP`` as "no session up" and is the
-        // honest answer: there is nothing here to float.
+        // Started here, not left to `canStartPictureInPictureAutomaticallyFromInline`: iOS never takes the hint, since an `AVAudioPlayer` running silence does not count as playing.
+        // The moment matters: as the app leaves the screen, `startPictureInPicture` still has a view hierarchy to lift the layer from.
         SessionPiP.shared.backgrounding(sessionIsUp: phase.holdsSession && pipIncluded)
 
-        // Held while any Mac is open or being retried: what iOS suspends is the process, so the
-        // assertion is about the app rather than the Mac on screen. A LAN session that drops moves to
-        // `.failed` before `enteringBackground()`, so without this the app suspends, `Task.sleep`
-        // freezes, and the "dropped" Live Activity card is never shown.
+        // Held while any Mac is open or retrying: iOS suspends the process, and a LAN session that drops to `.failed` before `enteringBackground()` would freeze `Task.sleep` and never show the "dropped" card.
         guard hasOpenSession, backgroundTask == .invalid else { return }
         backgroundTask = UIApplication.shared.beginBackgroundTask(withName: String(localized: "Peering session")) { [weak self] in
             Task { @MainActor in self?.backgroundTimeExpired() }
@@ -539,11 +367,7 @@ extension SessionModel {
     }
 
     func enteringForeground() {
-        // If the card is still showing the Mac as dropped from the background timeout, and that
-        // Mac is already back within reach, jump straight to "reconnecting" instead of leaving
-        // "dropped" up for the round trip `resumeIfNeeded()` below is about to make. The check is
-        // ``reachability(ofHost:)``, the same one the picker's own dot reads, so the two agree the
-        // moment the app is back on screen rather than a beat later while the dial is in flight.
+        // If the card still shows dropped and the Mac is back in reach, jump to "reconnecting" instead of leaving "dropped" up for the round trip. `reachability(ofHost:)` keeps it in agreement with the picker's dot.
         if let session = activeSession,
            !session.phase.holdsSession,
            !session.userEndedDeliberately,
@@ -560,25 +384,13 @@ extension SessionModel {
         endBackgroundAssertion()
         verifyLiveSessions()
 
-        // The App Store's answer, re-read before anything is armed from it again: a subscription that ran
-        // out while the app was off screen produced no transaction to notice it by, so the plan this
-        // process holds can be hours out of date, and every gate reads it. Asked here because the reading
-        // is local and this is the one point where waiting for it costs nothing.
+        // Re-read before anything is armed: a subscription that ran out while off screen produced no transaction, so the held plan can be hours stale.
         Task { await storeManager.rereadEntitlement() }
-        // A browse that died while the app was in the background has been sitting behind its own backoff
-        // in a suspended process, so starting one now is the difference between a list that is there when
-        // the user looks and one that fills in several seconds later.
+        // A browse that died in the background sits behind its own backoff, so restart it now.
         if browseFailed { restartBrowsing() }
 
-        // **A moment for the local network to answer before the ladder leaves for the relay.** Bonjour
-        // is the only thing that can say whether this Mac is on this network, and it is the one answer a
-        // spell in the background spoils: the browser is suspended with the app and its daemon connection
-        // can die, so a resume that goes out the instant the app is back finds no Macs, dials the relay,
-        // and is then handed over to the LAN a beat later, which costs the picture twice. Paid only when
-        // a session names a Mac the list does not have, which is exactly the case that would have gone to
-        // the relay anyway, so a Mac that is already visible resumes without waiting.
-        // A Mac with a remembered address is dialled there at once, racing the relay, so it needs
-        // no wait for Bonjour.
+        // A moment for the local network before the ladder leaves for the relay: the browser is suspended with the app, so an instant resume finds no Macs, dials the relay, and is handed to the LAN a beat later, costing the picture twice. Paid only when a session names a Mac the list lacks.
+        // A remembered address is dialled at once, racing the relay, so it needs no wait.
         let waitingForALocalMac = sessions.contains { session in
             guard let hostID = session.hostID else { return false }
             return !hosts.contains { $0.id == hostID } && rememberedLANHost(hostID) == nil
@@ -594,47 +406,27 @@ extension SessionModel {
         }
     }
 
-    /// How long the local network is given to name a Mac before the relay is dialled. See
-    /// ``enteringForeground()``.
     private static let localMacGrace = 900
 
-    /// Puts every Mac back, and repaints the picture that came with it.
-    ///
-    /// Split out of ``enteringForeground()`` so that the wait above can sit in front of it: what it
-    /// does is the same either way. See ``MacSession/resumeWithoutWaiting()`` for why a rung already
-    /// running is cut short first.
     private func resumeEveryMac() {
-        // **The ladder's pending wait is cut short before it is consulted.** A Mac partway through a
-        // rung would otherwise spend the rest of it in front of the user, waiting for time that has
-        // already passed.
+        // The ladder's pending wait is cut short first: a Mac mid-rung would otherwise wait for time that has already passed.
         for session in sessions { session.resumeWithoutWaiting() }
         resumeIfNeeded()
-        // The layer's contents do not survive the background and the host sends nothing new for a Mac
-        // that has not changed, so this is what brings the picture back. See
-        // ``VideoRenderer/repaintAfterForegrounding()``.
+        // The layer's contents do not survive the background and the host sends nothing for an unchanged Mac, so this brings the picture back.
         activeSession?.renderer.repaintAfterForegrounding()
     }
 
-    /// Ends the session when the background window runs out, rather than letting the system kill it.
-    ///
-    /// The Live Activity is taken down and the Mac is told the session is over, instead of a Lock Screen
-    /// card claiming a connection that ended, which nothing of ours is running to correct. And the user,
-    /// who is not looking, gets a banner.
+    /// Takes down the card and tells the Mac, instead of a Lock Screen card claiming a connection that ended; the user gets a banner.
     func backgroundTimeExpired() {
         let shouldEndSession = BackgroundSessionExpiry.shouldEndSession(
             assertionIsActive: backgroundTask != .invalid,
             appIsBackground: UIApplication.shared.applicationState == .background,
             hasOpenSession: hasOpenSession,
-            // PiP is a system-owned background presentation: once it is active iOS is keeping the app
-            // alive for real media playback, and the temporary assertion expiring must not tear down the
-            // session underneath the floating window.
+            // PiP is a system-owned background presentation: while active iOS keeps the app alive, so the expiring assertion must not tear down the session under the floating window.
             pictureInPictureIsActive: SessionPiP.shared.isActive
         )
         endBackgroundAssertion()
-        // Every Mac, in one call because ``disconnect(deliberate:)`` already means all of them: a Mac
-        // behind the active one would otherwise be left to be killed unobserved. The card and the banner
-        // are taken down by the same path, which is why this ends the session tidily rather than letting
-        // the system do it.
+        // Every Mac in one call, since `disconnect(deliberate:)` means all: one behind the active would be killed unobserved.
         guard shouldEndSession else { return }
         disconnect(deliberate: false)
     }
@@ -645,9 +437,7 @@ extension SessionModel {
         backgroundTask = .invalid
     }
 
-    /// Forgets the pin for a Mac. The Mac keeps its half, so the next connection is refused by it until
-    /// it is unpaired on that side too, which is the honest behaviour for "forget" rather than a silent
-    /// re-pair.
+    /// The Mac keeps its half, so the next connection is refused by it until unpaired there too: the honest behaviour for "forget".
     func forget(hostID: String) {
         pins.remove(hostID: hostID)
         pairedHostIDs = pins.hostIDs
@@ -655,9 +445,7 @@ extension SessionModel {
         append(note: String(localized: "Forgot \(hostID). Unpair this device on the Mac as well."))
     }
 
-    // A `resetDeviceIdentity()` belongs here again only alongside a quota the relay counts against
-    // something a reset cannot change: the relay counts relay time per client ID, so it would hand the
-    // caller a fresh allowance, a day's worth per tap, whatever the plan said.
+    // A `resetDeviceIdentity()` belongs here only alongside a quota the relay cannot reset per client ID: it would hand out a fresh allowance per tap.
 
     func setDeviceName(_ name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespaces)

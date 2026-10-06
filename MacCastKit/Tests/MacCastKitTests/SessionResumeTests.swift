@@ -2,11 +2,7 @@ import XCTest
 @testable import MacCastKit
 import RemoteCore
 
-/// The rule that decides whether a Mac that is not connected is being put back.
-///
-/// It is worth its own file because it is asked from four places that all have to agree — the
-/// screen that stays up, the card that stays down, the banner that stays quiet and the ladder that
-/// is shorter — and because two of its cases are states that nothing else can tell apart.
+/// Whether a disconnected Mac is being put back; four places must agree on the answer.
 final class SessionResumeTests: XCTestCase {
     private func isUnderWay(
         hasBeenReady: Bool = true,
@@ -33,10 +29,7 @@ final class SessionResumeTests: XCTestCase {
         XCTAssertTrue(isUnderWay(phase: .handshaking))
     }
 
-    /// The turn between the ladder building its new session and that session emitting its first
-    /// phase. Nothing is armed and nothing holds a session, so every fact except the phase says
-    /// no, and answering no here is a picker that flickers in and straight back out during a
-    /// handover.
+    /// Between the ladder building a session and its first phase: answering no flickers the picker in and out.
     func testTheTurnAcrossADialIsUnderWay() {
         XCTAssertTrue(isUnderWay(phase: .idle))
     }
@@ -60,25 +53,17 @@ final class SessionResumeTests: XCTestCase {
         )
     }
 
-    /// **The case that made this a rule rather than a flag.** `userEndedDeliberately` is consumed
-    /// by the first transition that reads it, so by the time the session is sitting at
-    /// `.disconnected` there is nothing left on it that says the user asked for this. Read as a
-    /// resume, the screen keeps a picture whose renderer has been detached: a black screen with no
-    /// way back to the picker.
+    /// userEndedDeliberately is consumed by the first transition, so a deliberate disconnect must not read as a resume (black screen, no way back).
     func testASessionTheUserEndedIsNotAResume() {
         XCTAssertFalse(isUnderWay(phase: .disconnected))
     }
 
-    /// The same shape, one state over: the ladder ran out and the phase will never change again.
-    /// Keeping the screen here would leave a frozen frame up for ever, which is the failure this
-    /// whole change has to be careful not to trade itself for.
+    /// Ladder exhausted: the phase will never change, so keeping the screen would freeze a frame.
     func testALadderThatHasGivenUpIsNotAResume() {
         XCTAssertFalse(isUnderWay(hasGivenUpResuming: true))
         XCTAssertFalse(isUnderWay(hasGivenUpResuming: true, phase: .connecting))
     }
 
-    /// A drop that no ladder will pick up, which is what a declined pairing prompt and an
-    /// exhausted relay allowance both leave behind.
     func testAFailureWithNothingArmedIsNotAResume() {
         XCTAssertFalse(isUnderWay(phase: .failed("The Mac refused the connection.")))
     }

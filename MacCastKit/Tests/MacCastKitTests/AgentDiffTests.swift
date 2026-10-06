@@ -23,7 +23,6 @@ final class AgentDiffTests: XCTestCase {
         XCTAssertEqual(diff, "-one\n-two\n+one\n+three\n")
     }
 
-    /// A trailing newline is how a file ends, not an empty line in the change.
     func testTrailingNewlineIsNotALine() {
         let diff = AgentDiff.replacement(old: "a\n", new: "b\n", path: nil)
         XCTAssertEqual(diff, "-a\n+b\n")

@@ -2,7 +2,6 @@ import AppKit
 import RemoteCore
 import SwiftUI
 
-/// The rows that change what the host does.
 extension HostStatusView {
     var settingsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -62,9 +61,7 @@ extension HostStatusView {
     }
 
 #if DEBUG
-    /// A notification sent on purpose, so that "it has never arrived" can be told apart from "it
-    /// was never sent". A diagnostic for a developer chasing an APNs problem, not a row a shipped
-    /// Mac should carry, so it is built out of the Release configuration the install script uses.
+    /// A notification sent on purpose, to tell never-arrived from never-sent. A developer diagnostic, built out of Release.
     var pushTestRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "bell.badge")
@@ -88,11 +85,7 @@ extension HostStatusView {
     }
 #endif
 
-    /// Whether the window shows a live still of the Mac.
-    ///
-    /// The only setting here that is about what this Mac does when nobody is connected to it:
-    /// the snapshot behind the overview is taken every couple of seconds for as long as the
-    /// window is open, whether or not anyone is looking at it. Off, that loop does not run.
+    /// The snapshot behind the overview is taken every couple of seconds while the window is open; off, that loop does not run.
     var previewRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "rectangle.on.rectangle.slash")
@@ -113,11 +106,7 @@ extension HostStatusView {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)
-                // The accent, unlike everything else in this window. The window's controls are
-                // tinted with the ink so that buttons do not come back as white pills — but a
-                // switch is not a button, and with no colour an on one and an off one differ
-                // only by which end the knob is at. Blue for "on" is both what macOS means by it
-                // and what this app's own accent already means everywhere else.
+                // The accent, unlike the rest of the window: a switch with no colour differs on and off only by knob position.
                 .tint(HostPalette.accent)
         }
         .padding(.horizontal, 14)
@@ -146,20 +135,7 @@ extension HostStatusView {
         .padding(.vertical, 12)
     }
 
-    /// The size of the picture, which is the setting that trades quality for everything else
-    /// at once.
-    ///
-    /// Worth a switch rather than a constant because of what it is measured against: a phone
-    /// draws the whole display a few hundred points wide, so a stream at the display's own
-    /// size is already being scaled down by a factor of four before anyone looks at it, and
-    /// the pixels given up here are ones the phone was going to throw away.
-    /// The size of the picture, which is the setting that trades quality for everything else
-    /// at once.
-    ///
-    /// Worth a switch rather than a constant because of what it is measured against: a phone
-    /// draws the whole display a few hundred points wide, so a stream at the display's own
-    /// size is already being scaled down by a factor of four before anyone looks at it, and
-    /// the pixels given up here are ones the phone was going to throw away.
+    /// A phone draws the display a few hundred points wide, so full size is scaled down about fourfold anyway.
     var captureResolutionRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "rectangle.compress.vertical")
@@ -170,9 +146,7 @@ extension HostStatusView {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Capture resolution")
                     .font(.subheadline.weight(.medium))
-                // Says when it lands, because the switch cannot show it: the setting is read
-                // when a stream is built, so a change made with a phone attached looks like
-                // one that did nothing until the next capture is started.
+                // Says when it lands: the setting is read when a stream is built.
                 Text("3/4 captures at 75% width and height (~56% of pixels). Half is a quarter of the pixels. Applies when the next stream starts, which is a change of source or the next connection.")
                     .hostCaption()
             }
@@ -195,16 +169,7 @@ extension HostStatusView {
         .padding(.vertical, 12)
     }
 
-    /// How many frames a second the stream is asked for.
-    ///
-    /// The setting for a Mac whose screen moves faster than the phone can be shown it. Only a
-    /// panel that refreshes faster than sixty times a second has anything to give here, and
-    /// doubling the rate doubles what has to be encoded and sent.
-    /// How many frames a second the stream is asked for.
-    ///
-    /// The setting for a Mac whose screen moves faster than the phone can be shown it. Only a
-    /// panel that refreshes faster than sixty times a second has anything to give here, and
-    /// doubling the rate doubles what has to be encoded and sent.
+    /// Only a panel refreshing faster than 60 Hz has anything to give; doubling the rate doubles encode and send.
     var frameRateRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "speedometer")
@@ -258,18 +223,7 @@ extension HostStatusView {
         .padding(.horizontal, 14).padding(.vertical, 12)
     }
 
-    /// The port, as a field rather than the label it used to be.
-    ///
-    /// A Mac sharing its network with something already on 51515 had nowhere to go, and the
-    /// number was a constant compiled into both apps. Bonjour carries whatever is bound here, so
-    /// a phone on this network needs no change of its own; only the manual-address path has to be
-    /// told, which is what the detail line says.
-    /// The port, as a field rather than the label it used to be.
-    ///
-    /// A Mac sharing its network with something already on 51515 had nowhere to go, and the
-    /// number was a constant compiled into both apps. Bonjour carries whatever is bound here, so
-    /// a phone on this network needs no change of its own; only the manual-address path has to be
-    /// told, which is what the detail line says.
+    /// Bonjour carries whatever port is bound, so only the manual-address path needs telling.
     var portRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "number")
@@ -297,9 +251,7 @@ extension HostStatusView {
                 }
                 .onAppear { portDraft = String(model.boundPort) }
                 .onChange(of: model.boundPort) { _, bound in
-                    // Only while nobody is editing it: overwriting the field under a cursor
-                    // that is halfway through typing a new number would be the app arguing
-                    // with the user about what they meant.
+                    // Only while nobody is editing: overwriting under the cursor would fight the user.
                     if !portFocused { portDraft = String(bound) }
                 }
         }
@@ -307,8 +259,6 @@ extension HostStatusView {
         .padding(.vertical, 12)
     }
 
-    /// Applies the draft, or puts the real port back if it is not one.
-    /// Applies the draft, or puts the real port back if it is not one.
     func commitPort() {
         guard let port = UInt16(portDraft.trimmingCharacters(in: .whitespaces)), port > 0 else {
             portDraft = String(model.boundPort)
@@ -320,9 +270,4 @@ extension HostStatusView {
 
     // MARK: - Devices and activity
 
-    /// What the connected device is looking at.
-    ///
-    /// First in the window, because it is the question this app exists to answer for whoever is
-    /// sitting at the Mac. Everything else — who is attached, whether a permission is granted —
-    /// is context for this one fact.
 }

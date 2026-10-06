@@ -1,19 +1,6 @@
 import MacCastKit
 import SwiftUI
 
-/// One thing the app does, and the plan it needs if it needs one.
-///
-/// `capability` is `nil` for everything the free plan includes, which is most of the app. Where it
-/// is set, the row draws a badge, and the badge is **read off the capability**, not typed onto
-/// the row, because the badge on this row and the badge drawn on the control it describes are
-/// the same fact seen from two screens. ``PlanCapability`` is where that fact lives; the two screens
-/// are one tap apart and a feature that is free here and gated there is not a difference of opinion,
-/// it is a page contradicting itself.
-///
-/// **The badges are the map, and so are the gates.** Every line below that wears a plan name is a
-/// control that is gated on that plan, and every line with no badge is something the app does not
-/// gate at all. That is checkable against the build rather than against an intention, and
-/// `MacCastKitTests.PlanAccessTests` is where the map those two read is itself held still.
 struct PlanFeature: Identifiable {
     let id = UUID()
     let icon: String
@@ -21,7 +8,6 @@ struct PlanFeature: Identifiable {
     let detail: String
     var capability: PlanCapability?
 
-    /// The plan name on the badge, or `nil` for a row every plan includes.
     var planName: String? { capability?.minimumPlan.name }
 }
 
@@ -31,16 +17,6 @@ struct PlanFeatureGroup: Identifiable {
     let features: [PlanFeature]
 }
 
-/// Everything the app does, in one place, one tap from the subscription sheet.
-///
-/// A paywall is a comparison, and a comparison is only as honest as what it leaves out. The cards
-/// answer "which of these is worth it" in three lines each, which is the right length for a
-/// decision and the wrong length for an inventory, so the sheet carries a way to see the whole
-/// list rather than making its case by omission.
-///
-/// It is also the answer to a question people actually ask before subscribing: *what am I paying
-/// for, exactly*. The list is checkable against the app, one line per claim, which is the same
-/// rule the FAQ and the landing page follow.
 struct PlanFeaturesView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -66,8 +42,6 @@ struct PlanFeaturesView: View {
                             }
                         }
 
-                        // Where the subscription actually changes something, said once and plainly,
-                        // rather than implied by what is missing from the cards above.
                         Controls.card(
                             String(localized: "What a plan changes"),
                             footer: String(localized: "Connecting over your own network is unlimited on every plan, including the free one, and every paid plan pairs with every Mac you own. Free pairs with one. Relay time is the only thing metered.")
@@ -99,10 +73,6 @@ struct PlanFeaturesView: View {
         .preferredColorScheme(.dark)
     }
 
-    /// One feature: the glyph, what it is, and what it means in a sentence.
-    ///
-    /// Two lines rather than one, because half of these names are the app's own shorthand and the
-    /// sentence under them is where a reader finds out whether it is the thing they hoped for.
     private func row(_ feature: PlanFeature) -> some View {
         HStack(alignment: .top, spacing: 11) {
             Controls.icon(feature.icon)
@@ -135,24 +105,10 @@ struct PlanFeaturesView: View {
         .padding(.vertical, 5)
     }
 
-    /// What a tier buys, in the two numbers that differ: relay time and Macs.
-    ///
-    /// Both on one line because they are one decision. A reader comparing three rows is comparing
-    /// two facts about each, and splitting them into two tables makes the middle row look like two
-    /// separate choices rather than one worse one.
     private func summary(for tier: StoreManager.Tier) -> String {
         "\(tier.plan.allowanceSpelling.capitalized) · \(StoreManager.Tier.macCount)"
     }
 
-    /// The inventory.
-    ///
-    /// Written from the app rather than from ambition: every line here is something a user can do
-    /// in the build they have. Anything not built yet does not get a line, because a feature list
-    /// that describes the roadmap is a list that makes the paywall a lie in the one place it is
-    /// least affordable.
-    ///
-    /// Order matters and follows the way the app is met: connect, look, drive, open a shell, and
-    /// then the things that keep working once the app is in the background.
     static let groups: [PlanFeatureGroup] = [
         PlanFeatureGroup(title: String(localized: "Connecting"), features: [
             PlanFeature(
@@ -315,31 +271,18 @@ struct PlanFeaturesView: View {
                 title: String(localized: "A shell on your Mac"),
                 detail: String(localized: "Open a terminal inside the session, with the control keys a phone keyboard cannot send. It runs on the Mac rather than here, and it keeps going when you disconnect.")
             ),
-            // **The row that says what the concurrency costs, and the one that was missing.** It
-            // used to be implied by the line above, which said "with tabs you can name" and wore no
-            // badge, so the list promised tabs and the plans document sold them, and the one screen
-            // a reader checks before paying was the one that got it wrong. It is its own row now,
-            // for the same reason it is its own row on the cards: one shell is free, the second one
-            // at the same time is not, and that is a sentence no single line can hold.
             PlanFeature(
                 icon: "rectangle.stack",
                 title: String(localized: "Several shells at once"),
                 detail: String(localized: "One shell at a time is in every plan, on your Mac and on any server you have added. This is naming a tab and keeping several open, each with its own scrollback and its own directory."),
                 capability: .shellTabs
             ),
-            // The same line the paywall's own door for it uses, and deliberately: these two are
-            // read minutes apart by the same person, and the row that reads well on its own is
-            // the row that disagrees with the one beside it.
             PlanFeature(
                 icon: "bell.badge",
                 title: String(localized: "Told when a shell needs you"),
                 detail: String(localized: "A banner when a shell on the Mac or on one of your servers stops and waits for you, on this device while the session is open and through the Mac when it is not. The terminal and the mark on its own tab are on every plan."),
                 capability: .terminalAlerts
             ),
-            // The same sentence the paywall's door for it uses, and the same care about what it
-            // promises: the tiles are live pictures rather than stills, and the one thing a
-            // reader has to know before buying is that the Mac is doing more work than it does
-            // for one window.
             PlanFeature(
                 icon: "rectangle.split.2x2",
                 title: String(localized: "Several windows at once"),
@@ -357,11 +300,6 @@ struct PlanFeaturesView: View {
                 title: String(localized: "Commands you ran before"),
                 detail: String(localized: "The last commands sent to a shell, one tap from the input field. A command the shell did not recognise is dropped from the list.")
             ),
-            // **Free, and it was the one row that read as a hostage.** A server is a machine the
-            // user typed in themselves and named themselves, and the row that said it needed Relay
-            // Plus was the app asking to be paid for a list of their own hosts. What a plan runs
-            // out of is shells at once, which is the row above this one, so this line carries no
-            // capability and wears no badge.
             PlanFeature(
                 icon: "server.rack",
                 title: String(localized: "SSH servers"),

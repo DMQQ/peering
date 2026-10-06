@@ -2,32 +2,15 @@ import MacCastKit
 import RemoteCore
 import SwiftUI
 
-/// Where a chat should work, asked before it starts.
-///
-/// The folder is the agent's whole world: it decides what the model can see and change, so it is
-/// chosen deliberately rather than defaulted. Drawn as the file browser is drawn, because it is
-/// the same task: the same rows, the same breadcrumbs, the same walk one folder per tap. It is
-/// deliberately not the browser itself, which carries previews and write operations this has no
-/// business offering mid-start.
 struct AgentFolderPicker: View {
-    /// What the screen is called, which is the agent for a chat and the thing being made for a
-    /// shell: the same walk of the same folders, asking the same question about where.
     let title: String
-    /// Whose recent folders are offered. The chat agents each keep their own; a shell keeps one
-    /// list of its own under a name of its own.
     let agentID: String
     let choose: (String?) -> Void
 
     @Environment(SessionModel.self) var model
 
-    /// What the user is looking for among the folders. Filtered here rather than asked of the
-    /// Mac, the same way the file browser filters its own lists: the listing is already in hand,
-    /// and a round trip per letter typed is a list that flickers behind the keyboard.
     @State private var query = ""
     @State private var chosen = false
-    /// Whether folders whose names begin with a dot are listed. Filtered on this side, so both
-    /// browsers behave the same way about it. Off to start with, because on a Mac that is usually
-    /// what "the folders in this folder" means to a person.
     @State private var showsHiddenFolders = false
     @FocusState private var searchFocused: Bool
 
@@ -59,9 +42,6 @@ struct AgentFolderPicker: View {
     }
 
     var body: some View {
-        // The button floats over the list rather than sitting in a bar under it: the list runs on
-        // behind the glass, so the last folder is never pushed off the bottom of the screen by a
-        // strip of chrome, and the one thing this screen wants the user to do stands out from it.
         ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
                 header
@@ -78,8 +58,7 @@ struct AgentFolderPicker: View {
                 model.browseAgentFolder(nil)
             }
         }
-        // Typed in one folder, cleared on the way into the next: a filter that follows you down
-        // the tree hides folders you have never seen and looks like a folder that is not there.
+        // Cleared on the way into the next folder: a filter that follows you down hides folders you have not seen.
         .onChange(of: picker.path) { _, _ in
             query = ""
             searchFocused = false
@@ -88,8 +67,6 @@ struct AgentFolderPicker: View {
 
     // MARK: - Header
 
-    /// Where the walk is, drawn as the browser draws it: monospaced segments, every one a way
-    /// back, the last one written rather than made tappable.
     private var header: some View {
         VStack(spacing: 0) {
             ScrollViewReader { reader in
@@ -132,9 +109,6 @@ struct AgentFolderPicker: View {
                         .padding(.trailing, 14)
                 }
             }
-            // The same two controls the file browser's header carries, in the same band under the
-            // path: a field for finding one folder among many, and the eye that says whether the
-            // dot ones count as folders.
             HStack(spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
@@ -181,9 +155,6 @@ struct AgentFolderPicker: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 9)
 
-            // What choosing this folder means, said once and quietly. It lives here rather than
-            // under the button because the button floats over the list, and a sentence over a
-            // scrolling list is a sentence nobody can read.
             Text("The agent can read and change files in the folder you choose.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -230,22 +201,17 @@ struct AgentFolderPicker: View {
                         if index > 0 { Controls.divider }
                         row(entry)
                     }
-                    // Only where the walk started: deeper in, a shortcut out of the folder being
-                    // looked at is a second way to answer a question the user has not asked yet.
                     if picker.path == picker.startPath, !recents.isEmpty {
                         recentSection
                     }
                 }
             }
         }
-        // Room for the floating button at the end of the content only. Padding the scroll view
-        // itself shrank it and left a dead band under the list, which the button sat in.
+        // Padding for the floating button goes on the content end only: padding the scroll view shrank it and left a dead band.
         .contentMargins(.bottom, Self.floatingClearance, for: .scrollContent)
         .scrollBounceBehavior(.basedOnSize)
     }
 
-    /// One folder, drawn as the file browser draws one: the same glyph, the same two lines, the
-    /// same chevron on the other side of the tap.
     private func row(_ entry: RemoteDirectoryEntry) -> some View {
         Button {
             guard let path = picker.path else { return }
@@ -277,7 +243,6 @@ struct AgentFolderPicker: View {
         .buttonStyle(.plain)
     }
 
-    /// The row out of this folder, as the browser writes it.
     private func upRow(_ parent: String) -> some View {
         Button {
             model.browseAgentFolder(parent)
@@ -345,18 +310,8 @@ struct AgentFolderPicker: View {
 
     // MARK: - Action bar
 
-    /// The one button that leaves this screen: use what is on it. The trust sentence sits with
-    /// it, because starting an agent in a folder is granting the agent that folder.
-    /// How much room the list leaves at its end: the button's own height and its margin, and no
-    /// more. Padding it further is a band of nothing above the button when the list is scrolled to
-    /// the bottom, which reads as a container rather than as something floating.
     private static let floatingClearance: CGFloat = 70
 
-    /// The one way out of this screen: the folder on it, floating.
-    ///
-    /// The button alone, lifted off the page by a shadow rather than boxed in a card: it is the
-    /// only thing the screen asks for, and a container around one control is a second edge saying
-    /// nothing.
     private var floatingAction: some View {
         Button {
             pick(picker.path)
@@ -377,8 +332,6 @@ struct AgentFolderPicker: View {
 
     // MARK: - Paths
 
-    /// Once, because the screen stays up until the Mac answers and a second tap would start a
-    /// second one.
     private func pick(_ directory: String?) {
         guard !chosen else { return }
         chosen = true
@@ -396,8 +349,6 @@ struct AgentFolderPicker: View {
         return parent.isEmpty ? "/" : parent
     }
 
-    /// The home folder, learned rather than assumed: the first answer from the Mac is what home
-    /// is, because only the Mac knows.
     private var isAtHome: Bool {
         picker.path == picker.startPath
     }

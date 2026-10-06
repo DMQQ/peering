@@ -2,32 +2,14 @@
 //  TourFlowTests.swift
 //  MacCastUITests
 //
-//  Walks the first-run tips: the Connect screen's tour runs to its end, the Servers screen's is
-//  skipped, neither comes back after a relaunch, the Settings row puts them all back, and a shell
-//  on a server hands its own tour over to the terminal's.
-//
-//  It exists because the whole of this feature is invisible to everything below it. What the tips
-//  are made of is a preference key and two rectangles, and every unit test of those passes on a
-//  build where the overlay is never mounted at all, which is exactly what happened: the tips ran
-//  on no screen for a while because the modifier was applied to the wrong view, and nothing in
-//  `MacCastKitTests` could tell. What is worth asserting is not that the app compiles. It is that
-//  a screen nobody has seen before shows a card, that the card's Next button moves it on, and that
-//  a screen that has been answered goes quiet, including after the app has been launched again,
-//  which is the half of "once" that a single launch cannot show.
-//
-//  **Run it against a wiped container**, for the reason the SSH flow test gives: the tips are
-//  remembered in `UserDefaults`, and a second run starts with them already answered:
+// Walks the first-run tips: the Connect screen's tour runs to its end, the Servers screen's is skipped, neither returns after a relaunch, the Settings row restores them, and a shell hands its tour to the terminal's.
+// **Run it against a wiped container**: the tips are remembered in `UserDefaults`, so a second run starts answered:
 //
 //      xcrun simctl uninstall 825ECC2B-F0D1-439A-9F1B-AD942DFE178F pl.dmq.peering
 //
-//  The scheme's `TestAction` also has no `TestableReference` for `MacCastUITests`, so `xcodebuild
-//  test` refuses until one is added to `MacCast.xcscheme`. A temporary edit, and the same one the
-//  other UI tests in this target document.
+// The scheme has no `TestableReference` for `MacCastUITests`, so `xcodebuild test` refuses until one is added to `MacCast.xcscheme` (temporary edit).
 //
-//  The welcome flow is skipped with a launch argument rather than by tapping through it. That is
-//  the argument domain, which outranks the app's own defaults for the length of the launch and
-//  writes nothing down, so it cannot be mistaken for a tour flag being set.
-//
+// The welcome flow is skipped with a launch argument (argument domain), which writes nothing down.
 
 import XCTest
 
@@ -37,17 +19,8 @@ final class TourFlowTests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// The tip that is on screen, found by a phrase from the step it is showing.
-    ///
-    /// **By the sentence and not by the counter on the card.** How many steps a tour has depends on
-    /// what the screen has room for: the Connect screen's last step is a card that is only on the
-    /// screen when the list above it has not pushed it past the fold, and the same build answers
-    /// "1 of 3" on one run and "1 of 4" on the next as the list finds a Mac and grows a row. The
-    /// counter is the right thing to *read* and the wrong thing to assert on.
-    ///
-    /// Matched inside `staticTexts` rather than anywhere in the app, because a step's words are
-    /// also the accessibility label of the dimmed layer behind it (the whole screen is one element
-    /// while a tip is up), and a query that matches both is a query that fails.
+    /// The tip on screen, found by a phrase from its step and not the counter, whose total varies with the room the screen has.
+    /// Matched inside `staticTexts`: a step's words are also the label of the dimmed layer behind it.
     @MainActor
     private func tip(_ phrase: String, in app: XCUIApplication) -> XCUIElement {
         app.staticTexts
@@ -55,7 +28,6 @@ final class TourFlowTests: XCTestCase {
             .firstMatch
     }
 
-    /// The first step of the Connect screen's tour, by a phrase only that step's sentence has.
     private let connectFirstStep = "This card has the Mac download"
     private let connectSecondStep = "appears here while Peering is"
     private let connectThirdStep = "type or scan the device ID"
@@ -66,20 +38,15 @@ final class TourFlowTests: XCTestCase {
     private let terminalFirstStep = "Control keys and the commands you save"
     private let terminalSecondStep = "Type here and press Return"
 
-    /// A tab on the system's bar, named through `tabBars` for the reason the FAQ test gives: the
-    /// word "Servers" is also the leading item on the shell screen, which is a button too.
+    /// Named through `tabBars`: "Servers" is also the leading button on the shell screen.
     @MainActor
     private func tab(_ name: String, in app: XCUIApplication) -> XCUIElement {
         app.tabBars.buttons[name]
     }
 
-    /// Puts every tip back, through the row a user would press to see them again.
+    /// Puts every tip back through the Settings row.
     ///
-    /// **Both tests open with this, and it is not belt and braces.** The two of them share one
-    /// container and one set of five flags, and XCTest runs test methods in alphabetical order: the
-    /// shell walk answers the Servers screen's tips on its way past, so a walk that ran second
-    /// would find a screen that had already been taught. Starting from the row makes each test
-    /// independent of the other, and it exercises the row into the bargain.
+    /// Both tests open with this: they share a container and the shell walk answers the Servers tips, so a later test would find them taught.
     @MainActor
     private func resetTips(in app: XCUIApplication) {
         tab("Settings", in: app).tap()
@@ -91,7 +58,6 @@ final class TourFlowTests: XCTestCase {
         row.tap()
     }
 
-    /// The Connect screen's tips, then the Servers screen's, then both again on purpose.
     @MainActor
     func testTipsRunOnceAndTheSettingsRowBringsThemBack() throws {
         let app = XCUIApplication()
@@ -103,9 +69,6 @@ final class TourFlowTests: XCTestCase {
 
         // MARK: The Connect screen
 
-        // Four steps written and three or four shown, depending on whether the trusted Macs are
-        // above the fold: the card that explains the first pairing, the list of what is on this
-        // network, the way in for a Mac that is not on it, and the Macs already paired.
         XCTAssertTrue(
             tip(connectFirstStep, in: app).waitForExistence(timeout: 10),
             "the Connect screen's tips never appeared:\n\(app.debugDescription)"
@@ -118,9 +81,7 @@ final class TourFlowTests: XCTestCase {
             "Next did not move on"
         )
 
-        // On to the end, whichever step that turns out to be: the button says `Next` until the last
-        // one and `Done` on it, so tapping while it says `Next` is the walk that does not care how
-        // many steps the screen had room for.
+        // Tap `Next` until it says `Done`, so the step count does not matter.
         for _ in 0..<6 where app.buttons["Next"].exists {
             app.buttons["Next"].tap()
         }
@@ -153,8 +114,7 @@ final class TourFlowTests: XCTestCase {
         )
         capture(app, "5-servers-last-step")
 
-        // Skipped rather than finished, which is the exit that has to write the flag just as
-        // firmly: it is the one somebody in the middle of something uses.
+        // Skipped rather than finished: the exit that must write the flag just as firmly.
         app.buttons["Skip"].tap()
         XCTAssertTrue(
             tip(serversSecondStep, in: app).waitForNonExistence(timeout: 4),
@@ -196,12 +156,6 @@ final class TourFlowTests: XCTestCase {
         capture(app, "7-connect-owed-again")
     }
 
-    /// A shell's own tips, and the terminal's following them.
-    ///
-    /// One screen owes two tours, and the second is not a repeat of the first: the strip and the
-    /// switch between the shell and the server's files are about the *connection*, and the log, the
-    /// keys and the command line are about the terminal. The hand-over is the thing worth seeing,
-    /// because it is the part of the mechanism no single-screenshot check can show.
     @MainActor
     func testAShellsTipsHandOverToTheTerminals() throws {
         let app = XCUIApplication()
@@ -214,9 +168,7 @@ final class TourFlowTests: XCTestCase {
 
         tab("Servers", in: app).tap()
 
-        // The Servers tab owes its own tips now that the row above has been pressed, and a tip is
-        // a dimmed screen with one control lit: "Add a server" is behind it and the tap would land
-        // on the dim. Answered here, which is also the only way to reach the button underneath.
+        // A tip dims the screen, so "Add a server" is unreachable until the Servers tips are answered.
         XCTAssertTrue(tip(serversFirstStep, in: app).waitForExistence(timeout: 10),
                       "the Servers screen's tips never appeared")
         app.buttons["Skip"].tap()
@@ -227,8 +179,7 @@ final class TourFlowTests: XCTestCase {
 
         app.buttons["Add a server"].tap()
 
-        // The simulator's own loopback, where nothing is listening: the shell is refused within a
-        // second, and a shell that failed still has a strip, a toggle and a terminal.
+        // Nothing listens on loopback, so the shell is refused; a failed shell still has a strip, a toggle and a terminal.
         let host = app.textFields["box.example.com"]
         XCTAssertTrue(host.waitForExistence(timeout: 5), "the Host field never appeared")
         host.tap()
@@ -240,8 +191,7 @@ final class TourFlowTests: XCTestCase {
 
         app.buttons["Add server"].tap()
 
-        // `firstMatch`, because a container that has not been wiped has the servers of every
-        // previous run in this list, and the tap only needs one of them.
+        // `firstMatch`: an unwiped container lists earlier runs' servers.
         let saved = app.staticTexts["127.0.0.1"].firstMatch
         XCTAssertTrue(saved.waitForExistence(timeout: 5), "the server was not saved")
 

@@ -12,19 +12,8 @@ import UIKit
 import XCTest
 @testable import MacCast
 
-/// The two tests that need a real UIKit view, and the whole of what is left here.
-///
-/// **Everything else that was in this file now lives in `MacCastKitTests`**, where it runs. See
-/// that file's header for why: Xcode 27 cannot execute this target's test action at all, because
-/// for a test action it builds every package product as a separate dynamic framework and the Crypto
-/// product's target never runs a link step, so X509, RemoteCore and the app fail to link in a
-/// cascade. Nothing in the app can fix that, so the policy moved to where it could be checked and
-/// this is what genuinely cannot follow it: a `GestureSurfaceView` has to lay out before it will
-/// report the bounds two of these measure against, and there is no honest way to do that without a
-/// view.
-///
-/// These will run the day the test action works again. Until then they compile, and they are the
-/// only things here that do not run somewhere else.
+/// The two tests that need a real UIKit view; everything else lives in `MacCastKitTests`.
+/// Xcode 27 cannot run this target's test action (the package products fail to link), so these only compile for now.
 @MainActor
 final class MacCastTests: XCTestCase {
 

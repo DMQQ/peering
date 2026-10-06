@@ -1,10 +1,6 @@
 import Foundation
 
-/// Why a forward's details were not accepted.
-///
-/// Each case carries the sentence the editor shows, for the same reason ``SSHKeyError`` does: the
-/// user is looking at three fields they have just typed into, and "invalid" makes them re-read all
-/// three. Naming the field is the whole of the help here.
+/// Each case carries the sentence the editor shows, naming the field at fault.
 public enum SSHPortForwardError: Error, Sendable, Equatable {
     case localPortNotANumber
     case localPortOutOfRange
@@ -12,8 +8,7 @@ public enum SSHPortForwardError: Error, Sendable, Equatable {
     case remotePortOutOfRange
     case remoteHostEmpty
     case remoteHostNotAHostname
-    /// Another forward on this server already listens on that port, which cannot work: two
-    /// listeners on one port is an address already in use, and the second one to start loses.
+    /// Another forward on this server already listens on that port; the second to start would lose.
     case localPortAlreadyUsed(Int)
 
     public var message: String {
@@ -36,40 +31,16 @@ public enum SSHPortForwardError: Error, Sendable, Equatable {
     }
 }
 
-/// One tunnel a saved server carries: a port on this phone, onto something the server can reach.
 ///
-/// ## The direction, because it is the thing users get backwards
-///
-/// This is OpenSSH's `-L`: the listener is on the *phone* and the connection is made by the
-/// *server*. A user pointing at a database behind a firewall writes the database's address and port
-/// here, and then points an app on the phone at `localhost:<localPort>`. The server does the
-/// connecting, from where it sits, which is the whole reason the tunnel is worth having.
-///
-/// ## What is not here
-///
-/// No bind address, and that is a decision rather than an omission. The listener is always on
-/// `127.0.0.1`, so only this phone can reach it. A forward bound to `0.0.0.0` would expose whatever
-/// is at the far end to every device on the coffee shop's wifi, and it would do it silently, from a
-/// switch labelled "port forward" that says nothing about a network. OpenSSH's own default for `-L`
-/// is the same, and a user who needs the other one can say so the day the app has a field that
-/// explains what it costs.
-///
-/// No remote-side listener either. That is `-R`, and it needs the server's cooperation in a way
-/// this does not, so it is a different feature rather than a second field here.
+/// This is OpenSSH's `-L`: the listener is on the *phone* and the connection is made by the *server*.
+/// No bind address: the listener is always on `127.0.0.1`, since `0.0.0.0` would silently expose the far end to every device on the network. No remote-side listener (`-R`) either: that needs the server's cooperation.
 public struct SSHPortForward: Identifiable, Hashable, Codable, Sendable {
     public let id: UUID
-    /// What the user calls it. Empty means "say it as the address it is".
     public var label: String
-    /// The port on this phone. Everything an app on the phone connects to.
     public var localPort: Int
-    /// Where the *server* connects to, which is usually a name that resolves only from there.
     public var remoteHost: String
     public var remotePort: Int
-    /// Whether this starts with the shell.
-    ///
-    /// Stored rather than held in memory, because the answer has to survive the app being closed:
-    /// a forward the user turned off that comes back on the next launch is a port they thought was
-    /// shut.
+    /// Stored because the answer must survive the app closing: a forward the user turned off must not come back on.
     public var isEnabled: Bool
 
     public init(
@@ -88,29 +59,18 @@ public struct SSHPortForward: Identifiable, Hashable, Codable, Sendable {
         self.isEnabled = isEnabled
     }
 
-    /// What the row shows first.
     public var displayName: String {
         label.isEmpty ? "\(localPort) → \(remoteHost):\(remotePort)" : label
     }
 
-    /// The line under it, which is always the addresses, whether or not there is a name.
-    ///
-    /// Both halves are shown, and `localhost` is spelled out rather than left implicit: the one
-    /// thing a user has to know to use a forward is what to point their app at, and a row that says
-    /// only `web.internal:80` never tells them.
+    /// The addresses, with `localhost` spelled out: the user needs to know what to point their app at.
     public var detail: String {
         "localhost:\(localPort) → \(remoteHost):\(remotePort)"
     }
 
     // MARK: - Reading the editor's three fields
 
-    /// Turns what was typed into a forward, or says which field is wrong.
-    ///
-    /// Takes the strings rather than the numbers because this runs on every keystroke's worth of
-    /// state, and a `Int?` computed by the caller would be a second place that has to decide what
-    /// "not a number yet" means. `existing` is the other forwards on the same server, so the
-    /// duplicate check can be part of the same answer rather than a second rule the editor has to
-    /// remember to apply.
+    /// Takes strings because this runs per keystroke and the caller should not decide what "not a number yet" means. `existing` makes the duplicate check part of the same answer.
     public static func reading(
         label: String,
         localPort: String,
@@ -138,9 +98,7 @@ public struct SSHPortForward: Identifiable, Hashable, Codable, Sendable {
         }
         guard (1...65535).contains(remoteNumber) else { return .failure(.remotePortOutOfRange) }
 
-        // The id of the forward being edited is kept, so that saving a change does not replace one
-        // record with another: the row a user is looking at must not vanish from under them because
-        // they changed which port it names.
+        // The id is kept so saving a change does not make the row vanish.
         return .success(
             SSHPortForward(
                 id: id ?? UUID(),
@@ -153,12 +111,7 @@ public struct SSHPortForward: Identifiable, Hashable, Codable, Sendable {
         )
     }
 
-    /// Whether a string could name a machine.
-    ///
-    /// Deliberately loose: a hostname is resolved on the *server*, and this app has no way to know
-    /// what that server's resolver accepts. What it does reject is the thing a user actually types
-    /// by mistake, which is a whole command line copied out of a tutorial, and rejecting that here
-    /// turns a handshake that fails silently into a sentence under the field.
+    /// Deliberately loose: the hostname is resolved on the server. It rejects a whole command line pasted from a tutorial.
     private static func isHostname(_ text: String) -> Bool {
         !text.contains(" ") && text.allSatisfy { character in
             character.isLetter || character.isNumber

@@ -44,7 +44,6 @@ public enum CanvasGestureRouting {
         translation: CGPoint,
         whilePinching: Bool
     ) -> TwoFingerPanDecision {
-        // The pinch owns both fingers while it lasts: its translation is the picture moving under it.
         guard !whilePinching else {
             return TwoFingerPanDecision(
                 // Throw the simultaneous pan's copy away now: if UIKit ends the pinch recognizer
@@ -54,7 +53,6 @@ public enum CanvasGestureRouting {
             )
         }
 
-        // Incremental: the caller resets the recognizer once the accumulated translation is consumed.
         return TwoFingerPanDecision(
             resetsRecognizerTranslation: true,
             translation: translation == .zero ? nil : translation

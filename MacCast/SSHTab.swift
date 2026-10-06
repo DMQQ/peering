@@ -3,43 +3,22 @@ import SSHCore
 import SwiftUI
 
 /// The Servers tab: the machines saved by hand, and whichever shell is open.
-///
-/// A tab of its own rather than a section of the Connect screen, because the two lists are answers
-/// to different questions. Connect answers "which of my Macs is this" — discovery, pairing, a
-/// connection that carries video. This answers "which server do I want a shell on", where the list
-/// is typed in by hand and nothing is discovered. Putting them in one card would mean one list
-/// where half the rows behave nothing like the other half.
 struct SSHTab: View {
-    /// Owned by the app rather than by this screen, because an intent has to be able to open a
-    /// shell before this screen has ever been built — see ``MacCastApp``.
+    /// Owned by the app: an intent must be able to open a shell before this screen is built.
     @Environment(SSHModel.self) private var model
 
-    /// The session model, for the account rather than the server: the second shell is on Relay
-    /// Plus, and the plan is not ``SSHModel``'s to own.
-    ///
-    /// **A server is not a thing a plan has.** It used to be: SSH servers were a capability, and
-    /// this screen asked it twice, once for the button that adds one and once for every row in the
-    /// list. What is left on a plan is the *concurrency*: one shell at a time on free, on a Mac and
-    /// on a server alike, which is ``PlanCapability/shellTabs`` and is asked where a second shell
-    /// would start, not here. Reading a plan on this screen at all is now the stranger thing: the
-    /// list of machines a user owns is theirs on every plan, and gating it meant the app held the
-    /// user's own saved hosts behind a paywall.
     @Environment(SessionModel.self) private var session
 
-    /// Whether this screen's first-run tips have been seen. See ``Tour``.
     @AppStorage(PreferenceKeys.hasSeenTourServers) private var hasSeenTourServers = false
 
     @State private var isAdding = false
     @State private var editingHost: SSHHost?
-    /// The host whose public key is being shown, from the row's own menu.
     @State private var showingPublicKey: SSHHost?
-    /// The host whose saved credential is being thrown away, pending an answer.
     @State private var deletingCredential: SSHHost?
     @State private var password = ""
     @State private var rememberPassword = true
 
-    /// The host whose password is being asked for. The model holds it rather than this screen,
-    /// because the request can come from Siri as easily as from a tap.
+    /// Held on the model: the request can come from Siri as easily as from a tap.
     private var isAskingForPassword: Binding<Bool> {
         Binding(
             get: { model.pendingPasswordHost != nil },
@@ -47,8 +26,7 @@ struct SSHTab: View {
         )
     }
 
-    /// The server a lock is asking about. Held on the model for the same reason the password is:
-    /// the request can arrive from a Shortcut, before this screen has ever been built.
+    /// Held on the model: the request can arrive from a Shortcut.
     private var isLocked: Binding<Bool> {
         Binding(
             get: { model.lockedHost != nil },
@@ -131,22 +109,15 @@ struct SSHTab: View {
                 VStack(alignment: .leading, spacing: 20) {
                     TabScreenHeader("Servers", detail: String(localized: "Shells on machines you added by hand."))
 
-                    // A shell keeps running while the list is up — leaving the screen is not
-                    // hanging up — so the list has to offer a way back to it. Without this the
-                    // session would still be open with nothing on screen that says so, which is
-                    // the worst of both: a connection the user is paying for and cannot reach.
+                    // A shell keeps running while the list is up, so the list must offer a way back to it.
                     if !model.openShells.isEmpty {
                         card(String(localized: "Open"), systemImage: "terminal") {
-                            // `openShells`, not every terminal: a connection that failed has no
-                            // session behind it, and a row offering to go back to it is a row
-                            // that leads to the same error a second time.
+                            // `openShells`, not every terminal: a failed connection has no session to return to.
                             ForEach(model.openShells) { open in
                                 openRow(open)
                             }
                         }
-                        // Only drawn while something is open, so this step of the tour is only
-                        // drawn then either: an absent control reports no frame, and a step with
-                        // no frame is dropped rather than ringed around nothing.
+                        // An absent control reports no frame, and the tour drops a step with no frame.
                         .tourAnchor(.serversOpen)
                     }
 
@@ -161,13 +132,6 @@ struct SSHTab: View {
                     }
                     .tourAnchor(.serversList)
 
-                    // **Add a server is free, and it is one button again.** It was two: the same
-                    // row with a plus on one plan and a padlock on the other, which is the shape
-                    // this app has stopped drawing. The server list is now the same list on every
-                    // plan, because what a plan restricts is the second shell open at once and not
-                    // the machines the user has saved (see ``SSHModel``). This is also the one action
-                    // that makes the whole surface exist: a free user who never sees "Add a server"
-                    // never finds out Peering speaks SSH at all.
                     Button {
                         isAdding = true
                     } label: {
@@ -192,9 +156,6 @@ struct SSHTab: View {
         .firstRunTours(dueServerTours) { $0.markSeen() }
     }
 
-    /// What this screen owes. Nothing is gated on the list being empty or full: the three steps
-    /// are three things this screen always has to say, and the one about the shells already open
-    /// is dropped on its own when there are none.
     private var dueServerTours: [Tour] {
         hasSeenTourServers ? [] : [.servers]
     }
@@ -213,15 +174,6 @@ struct SSHTab: View {
         .rowSurface()
     }
 
-    /// A card of rows, in the shape the Connect and Sessions tabs already use: a sentence-case
-    /// heading with a glyph, then one raised surface per row.
-    ///
-    /// Deliberately not ``Controls/card(_:footer:content:)``, which is the Settings tab's shape —
-    /// an uppercase label over rows that share one surface and are divided by rules. The two are
-    /// different answers to "what is this screen made of". Settings is a list of *settings*, where a
-    /// rule between two of them draws the eye across a boundary that means nothing; this is a list
-    /// of *objects*, where each row is a thing with its own name, its own state and its own menu,
-    /// and the gap between them is the point.
     private func card<Content: View>(
         _ title: String,
         systemImage: String,
@@ -237,20 +189,9 @@ struct SSHTab: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// One saved server, drawn as the Connect tab draws a trusted Mac — the same tile, the same
-    /// two lines, the same surface per row and the same ellipsis at the end. The two are the same
-    /// kind of thing to a reader: a machine this phone can open, with a name and an address, and a
-    /// set of things you might want to do to it that are not the tap.
     private func row(_ host: SSHHost) -> some View {
         HStack(spacing: 10) {
-            // Through the gate rather than straight to `open`, so a locked server asks first. The
-            // whole of that decision lives on the model, because this row is not the only way in.
-            // That gate is the server's own passcode lock and has nothing to do with a plan.
-            //
-            // The plan used to be asked here too, and the answer was a padlock on a row the user
-            // had already saved: a machine they added themselves, shown to them as something they
-            // could not reach. No plan gates a server now. What a plan runs out of is shells, so
-            // how many can be open at once is asked where one is opened.
+            // Through the gate so a locked server asks first; the gate lives on the model because this row is not the only way in.
             Button {
                 model.requestOpen(host)
             } label: {
@@ -268,11 +209,7 @@ struct SSHTab: View {
                             .lineLimit(1)
                     }
 
-                    // No chevron: both of these rows *do* something rather than lead somewhere. A
-                    // server row opens a shell on it, and an open-shell row comes back to the one
-                    // already running, and neither is a place a chevron could point at. The badge
-                    // that used to sit at this end of the row is gone with the gate: a server is
-                    // free on every plan, so the row is an ordinary row and this is its full width.
+                    // No chevron: these rows do something rather than lead somewhere.
                     Spacer(minLength: 8)
                 }
                 .contentShape(Rectangle())
@@ -286,37 +223,14 @@ struct SSHTab: View {
         .rowSurface()
     }
 
-    /// The second line: what the server is, and what it will ask for.
-    ///
-    /// The lock belongs here rather than as a glyph by the chevron, which is where it started. The
-    /// detail line is where a trusted Mac says "Nearby · tap to connect" — the sentence about what
-    /// tapping is going to do — and a server that is going to ask for a passcode is saying the same
-    /// kind of thing. It also survives truncation in a way a bare padlock does not: the padlock by
-    /// the chevron had no room to say *which* lock, and this has room to say that there is one.
     private func serverDetail(_ host: SSHHost) -> String {
         host.lock.isLocked ? String(localized: "\(host.detail) · Locked") : host.detail
     }
 
-    /// The things that are not the tap.
-    ///
-    /// A menu on the row rather than the long-press it was, which is what the trusted Macs have and
-    /// for the reason they have it: a long press is a gesture nothing on the screen mentions, and
-    /// "Forget its key" is the one control a user needs exactly when the connection has stopped
-    /// working — which is the worst possible moment to be told to press and hold.
+    /// A menu rather than a long press: nothing mentions the gesture, and forgetting a key is needed exactly when the connection has failed.
     private func rowMenu(_ host: SSHHost) -> some View {
         Menu {
-            // The second shell, which the plain tap deliberately does not give you. Still in the
-            // menu on a plan that runs one shell, rather than missing from where it was: a menu
-            // item that has disappeared is a menu the user thinks has changed under them.
-            //
-            // It keeps its own glyph and its own words and the tap opens the plans, which is the
-            // app's rule for a gated control everywhere else. What it cannot do is wear the plan
-            // badge the other gated controls wear, because a menu row is a line of the system's own
-            // menu rather than a view this app lays out. So the one control in the app whose locked
-            // form is invisible is also the one whose locked form cannot be drawn, and it is
-            // written out rather than routed through ``PlanLocked`` for that reason: what is left
-            // of the gate is the action, and a badge that cannot be drawn is not worth four lines
-            // of a nested button.
+            // Kept in the menu on a one-shell plan so the item does not vanish; tap opens the plans. Written out rather than via ``PlanLocked`` because a system menu row cannot draw the badge.
             Button("New shell", systemImage: "plus.rectangle.on.rectangle") {
                 if session.storeManager.access.includes(.shellTabs) {
                     openAnother(host)
@@ -326,10 +240,7 @@ struct SSHTab: View {
             }
             Button("Edit…", systemImage: "pencil") { editingHost = host }
 
-            // The way to the public half from the list, and it is here as well as in the editor on
-            // purpose. A key the user cannot get at is a key they cannot install, and the moment
-            // they need the line is the moment they are sitting at the server wondering why it
-            // will not take them — which is not the moment to be told to open an edit sheet.
+            // Also here, not only in the editor: the user needs the key line while sitting at the server.
             if case .key = model.storedCredential(for: host) {
                 Button("Public key…", systemImage: "doc.on.doc") { showingPublicKey = host }
             }
@@ -342,9 +253,7 @@ struct SSHTab: View {
             }
 
             if model.isKeyKnown(for: host) {
-                // The only route past a changed key. Named for what it does rather than for the
-                // problem it solves, because the screen that says "the key changed" is where the
-                // user will come looking for it.
+                // The only route past a changed key; the screen that says the key changed is where users look.
                 Button("Forget its key", systemImage: "key.slash", role: .destructive) {
                     model.forgetKey(for: host)
                 }
@@ -364,8 +273,6 @@ struct SSHTab: View {
         .accessibilityLabel("More options for \(host.displayName)")
     }
 
-    /// A shell that is already open. Tapping it goes back to it rather than opening a second one —
-    /// the row names the machine, and the machine is what it is already connected to.
     private func openRow(_ open: SSHTerminal) -> some View {
         // Siblings, not nested: a tap on the close must not also mean "go to this shell".
         HStack(spacing: 10) {
@@ -373,9 +280,6 @@ struct SSHTab: View {
                 model.selectedTerminalID = open.id
             } label: {
                 HStack(spacing: 12) {
-                    // The dot is in the corner of the tile rather than beside the name, which is
-                    // where a trusted Mac carries its own — and it means the same thing here: this
-                    // one is live, and here is how far along it is.
                     ZStack(alignment: .bottomTrailing) {
                         IconTile(symbol: "terminal")
                         Circle()
@@ -396,18 +300,13 @@ struct SSHTab: View {
                             .lineLimit(1)
                     }
 
-                    // No chevron: both of these rows *do* something rather than lead somewhere. A
-                    // server row opens a shell on it, and an open-shell row comes back to the one
-                    // already running, and neither is a place a chevron could point at.
+                    // No chevron: these rows do something rather than lead somewhere.
                     Spacer(minLength: 8)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
-            // Closing from here, because the list is where a user comes when they have lost track
-            // of what is open — and being told there are three shells with no way to end one from
-            // the screen that counts them is the wrong place to have to go looking for a way out.
             Button {
                 model.requestClose(open)
             } label: {
@@ -423,7 +322,6 @@ struct SSHTab: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
         .rowSurface()
-        // Asked at the row, not at the bottom of the screen — see ``TerminalEndPrompt``.
         .terminalEndPrompt(
             name: open.title,
             detail: String(localized: "The shell on the server stops, along with anything running in it. Your other shells are left alone."),
@@ -446,7 +344,6 @@ struct SSHTab: View {
         }
     }
 
-    /// What the dot means, in words, on the line under the name.
     private func openStatus(_ open: SSHTerminal) -> String {
         switch open.phase {
         case .connecting: return String(localized: "\(open.host.detail) · Connecting")
@@ -457,11 +354,7 @@ struct SSHTab: View {
 
     // MARK: - Connecting
 
-    /// Opens another shell on a machine that already has one.
-    ///
-    /// Straight to ``SSHModel/open(_:password:remember:)`` rather than through the gate, which is
-    /// the one deliberate way past a lock: see ``SSHModel/requestOpen(_:)``. The user is asking for
-    /// a second tab on a machine they are already signed in to.
+    /// Straight to open, bypassing the lock gate on purpose: the user is already signed in to this machine.
     private func openAnother(_ host: SSHHost) {
         if let stored = model.storedCredential(for: host) {
             model.open(host, credential: stored, remember: false)
@@ -500,9 +393,7 @@ struct SSHTab: View {
             }
             .padding(24)
             .background(ColorPalette.backdrop)
-            // Cleared here rather than by whoever raised the question, because there are now three
-            // of those — the row, the log, and the gate that opens a code lock — and a password
-            // typed at the last one must not be waiting in the box at the next.
+            // Cleared here: three paths raise the question, and a password typed at the last must not wait at the next.
             .onAppear {
                 password = ""
                 rememberPassword = true
@@ -573,12 +464,7 @@ struct SSHTab: View {
     }
 }
 
-/// Confirming that a saved secret should be thrown away.
-///
-/// An alert rather than a dialog, for the reason ``TerminalEndPrompt`` records at length: a
-/// presentation that cannot be placed wrongly beats one that could be placed better. This is also
-/// the app's only control that destroys a key, and a key thrown away is one the user has to go back
-/// to the machine that made it to get again — so it is asked about, never done on the tap.
+/// An alert, see ``TerminalEndPrompt``. It destroys a key the user can only regenerate on the machine that made it.
 extension View {
     func forgetCredentialPrompt(
         host: SSHHost?,

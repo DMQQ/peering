@@ -32,9 +32,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
-        // Remote push is a nice-to-have for the banners this app raises itself, and it is the
-        // *only* way a Mac reaches this phone when no session is up. The error is the one piece of
-        // evidence about why that never happens, so it is kept rather than dropped.
+        // Remote push is the only way a Mac reaches this phone with no session up, and the error is the only evidence of why that never happens, so it is kept.
         SessionNotifier.shared.remoteTokenDidFail(error)
     }
 }
@@ -42,18 +40,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct MacCastApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    /// One session for the app's life.
-    ///
-    /// Owned here rather than by a view, because the thing it represents — a connection to a
-    /// Mac, with a certificate identity and a command queue behind it — outlives any screen.
-    /// A model created by `HostPickerView` would be destroyed the moment the picker left the
-    /// hierarchy, which is precisely when the connection starts being used.
+    /// Owned here, not by a view: a connection outlives any screen, and a model created by `HostPickerView` would be destroyed when the picker left the hierarchy, which is when the connection starts being used.
     @State private var model = SessionModel()
-    /// The SSH side's model, owned here for the same reason and one more: an intent has no view
-    /// hierarchy to read it from, and "open a shell on prod" arrives before any screen exists to
-    /// have made one.
+    /// Owned here also because an intent has no view hierarchy and "open a shell on prod" arrives before any screen exists.
     @State private var servers = SSHModel()
-    /// The commands both terminals keep one tap away, owned here because both read them.
     @State private var quickCommands = QuickCommands()
     @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = false
 
@@ -65,11 +55,7 @@ struct MacCastApp: App {
             UNUserNotificationCenter.current().removeAllDeliveredNotifications()
         }
         #endif
-        // **First, before any view exists and before anything that could crash.** Two things
-        // depend on being here rather than in a screen's `onAppear`: the file a crash is written to
-        // has to exist before the crash, and the last run's report has to be filed before this
-        // run's can overwrite it. A crash on launch is the case this is for, and the launch is
-        // exactly what a handler installed later would miss.
+        // First, before any view exists: the crash file must exist before the crash and the last run's report must be filed before this run's can overwrite it. A handler installed later would miss a crash on launch.
         CrashLog.install(subject: "phone")
         UNUserNotificationCenter.current().delegate = NotificationRouter.shared
     }
@@ -79,19 +65,7 @@ struct MacCastApp: App {
             SecuredRootView {
                 ContentView()
             }
-                // Sideways, a screen may only move if it has somewhere to go.
-                //
-                // Every screen here is a vertical scroll view, and iOS gives one of those a bounce
-                // on both axes whether or not there is anything to the side — so a tab whose
-                // content is exactly the width of the phone still slides under a thumb dragged
-                // across it, and comes back. It reads as a layout that has come loose, and on a
-                // screen that is only ever scrolled down it is a movement with no meaning at all.
-                //
-                // `.basedOnSize` rather than `.never`, so this is a rule and not a ban: the two
-                // places in the app that genuinely scroll sideways — the tour's pages and the
-                // terminal — keep the movement they are made of. It sits here, on the root, because
-                // the value travels down through the environment to every scroll view beneath it,
-                // including the screens pushed from a tab and the sheets presented over one.
+                // Sideways, a screen may only move if it has somewhere to go: iOS bounces a vertical scroll view on both axes. `.basedOnSize` rather than `.never` so the tour's pages and the terminal, which scroll sideways, keep it. On the root because the value travels through the environment to every scroll view, sheets included.
                 .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
                 .environment(model)
                 .environment(servers)
@@ -106,9 +80,7 @@ struct MacCastApp: App {
                 .task {
                     model.start()
                     await model.storeManager.start()
-                    // Handed over once, so Siri and Shortcuts have something to reach. The
-                    // intents cannot read a view hierarchy and the model is owned here, not by
-                    // a view — see ``IntentHost``.
+                    // Handed over once so Siri and Shortcuts have something to reach: intents cannot read a view hierarchy (see ``IntentHost``).
                     IntentHost.model = model
                     IntentHost.servers = servers
                     NotificationRoute.deliverPending()
@@ -119,26 +91,12 @@ struct MacCastApp: App {
                     }
                     TerminalActivity.shared.adoptOrphan()
                 }
-                // The plan, into the object that floats the picture, as soon as the App Store
-                // answers and again whenever the answer changes under a running app: a
-                // subscription bought, renewed or lapsed while this process is up.
-                //
-                // **PiP is the one paid capability that cannot wait for a tap.** Every other
-                // gate in the app is asked by a control the user is looking at; this one is
-                // armed in advance and spends itself when the app is *left*, which is a gesture
-                // rather than a press and has no moment at which a gate could ask. So the
-                // answer is pushed in on every change instead, and the object that holds the
-                // controller keeps the last one. See ``SessionPiP/isOnPlan``.
+                // PiP cannot wait for a tap: it is armed in advance and spends itself when the app is left, so the plan is pushed in on every change and the holder keeps the last. See ``SessionPiP/isOnPlan``.
                 .onChange(of: model.storeManager.access) { _, _ in
                     model.applyPictureInPicturePlan()
-                    // The other one that spends itself without a tap. Sound, files and the rest
-                    // are asked by the control the user is looking at, so they need no push.
                     model.applyTerminalAlertPlan()
                 }
-                // The banners are for a user who is somewhere else. Coming back to the front
-                // is the moment they stop being the current news: the screen says the same
-                // thing, and the banner sitting behind it is a claim about the past — a
-                // pairing prompt from last night is the case this exists to prevent.
+                // Coming back to the front ends the banners' relevance: a pairing prompt from last night is a claim about the past.
                 .onChange(of: scenePhase, initial: true) { _, phase in
                     switch phase {
                     case .active:
@@ -148,21 +106,14 @@ struct MacCastApp: App {
                         model.enteringForeground()
                     case .background:
                         CrashLog.setForeground(false)
-                        // Asks for the few seconds iOS grants before it suspends an app. The
-                        // session still ends when that runs out — see
-                        // ``SessionModel/backgroundTimeExpired()`` — but it ends *tidy*, with
-                        // the Mac told and the Live Activity taken down, instead of a socket
-                        // dying unobserved and a Lock Screen card left claiming otherwise.
+                        // The few seconds iOS grants before suspending: the session still ends when that runs out (``SessionModel/backgroundTimeExpired()``), but tidy, with the Mac told and the Live Activity taken down.
                         model.enteringBackground()
                     default:
                         break
                     }
                 }
-                // The home-screen widget cannot connect anything itself — the session, the
-                // identity and the sockets all live in this process — so it hands over with the
-                // one instruction it can give. Live Activity buttons use the same channel.
+                // The widget cannot connect anything itself, since the session, identity and sockets live in this process, so it hands over with one instruction. Live Activity buttons use the same channel.
                 .onOpenURL { url in
-                    // A Mac's QR code scanned with the camera, arriving as a universal link.
                     if PairingPayload.isHostLink(url) {
                         guard let hostID = try? PairingPayload.hostID(from: url.absoluteString) else { return }
                         if model.pairedHostIDs.contains(hostID) {
@@ -175,10 +126,7 @@ struct MacCastApp: App {
                     guard url.scheme == "peering" else { return }
                     switch url.host {
                     case "connect":
-                        // The widget's medium size names a Mac per row, so the URL carries which
-                        // one was asked for. Without an id — the small tile, which has only one
-                        // thing it could mean — this is the Mac used last, which is what it
-                        // always was.
+                        // The medium widget names a Mac per row, so the URL carries which; without an id (the small tile) it is the Mac used last.
                         let requested = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                             .queryItems?
                             .first { $0.name == "id" }?

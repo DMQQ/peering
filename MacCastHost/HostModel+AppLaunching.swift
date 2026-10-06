@@ -5,20 +5,8 @@ import RemoteCore
 // MARK: - Launching and raising applications
 
 extension HostModel {
-    /// Brings a captured application to the front, so what the client sees and where its clicks
-    /// land are the same thing.
-    ///
-    /// Capturing an application is not controlling it, and the gap is invisible from the client.
-    /// ScreenCaptureKit composites the app's *windows*, so the client sees the app whether it is
-    /// occluded, minimised or on another Space. Input goes to the HID tap, where the window server
-    /// hit-tests the real screen and hands the click to whatever is genuinely at those coordinates.
-    /// The user sees the app, clicks where it appears to be, and hits whatever is on top of it.
-    ///
-    /// `.activateAllWindows` rather than a plain activation, because ``InputTransform`` for an
-    /// application is the union of every window it owns.
-    ///
-    /// The cost: this moves the app in front of whatever the Mac's own user was doing, and switches
-    /// Spaces if its windows are elsewhere.
+    /// SCK composites the windows of an application wherever they are, but input hits whatever is genuinely at those coordinates, so the app is raised first.
+    /// .activateAllWindows because InputTransform is the union of every window. Moves the app in front of the Mac user, and switches Spaces if needed.
     func raiseSource(for source: CaptureSource) {
         guard let pid = Self.owningProcess(of: source),
               let running = NSRunningApplication(processIdentifier: pid)
@@ -26,18 +14,9 @@ extension HostModel {
 
         bringToFront(running)
 
-        // **And then that window in particular.** Bringing an application to the front does not
-        // choose between its windows, and for the application that is already in front it does
-        // nothing at all — which is the case a phone moving from one window of an application to
-        // another one is always in. It was left looking at the window it had just left, drawn on
-        // top of the one it had asked for, and the click it aimed at the new window landed in the
-        // old one.
+        // Then that window in particular: activating the app does not choose between its windows, and does nothing for an app already in front.
         if case .window(let id) = source {
-            // **And again over the next second, because a window that has just appeared is not where
-            // it will be.** The first attempt is the one that matters when the source is already on
-            // screen; the rest are for the window an application made a moment ago, which has a frame
-            // only once the Mac has finished placing it, and for the first window of a launch, which
-            // does not exist yet when the switch returns.
+            // Retried over the next second: a window just created has no final frame yet, and the first window of a launch does not exist when the switch returns.
             if !focusWindow(id, ofProcess: pid) {
                 Task { @MainActor [weak self] in
                     for _ in 0..<5 {
@@ -50,13 +29,7 @@ extension HostModel {
         }
     }
 
-    /// Makes one window of a process the one the Mac is looking at, and the one an injected click
-    /// at its coordinates lands in.
-    ///
-    /// Found by its frame, because that is the only public way to say which window on the Mac a
-    /// `CGWindowID` means: the accessibility API hands out its own elements, and the identifier it
-    /// has for a window is not the window server's. The two agree on where a window is, both in
-    /// points and in the same top-left space, so the frame is an identity here rather than a guess.
+    /// Found by frame: the AX window identifier is not the window server CGWindowID, but both agree on the frame (points, top-left origin).
     @discardableResult
     private func focusWindow(_ windowID: CGWindowID, ofProcess pid: pid_t) -> Bool {
         guard let window = Self.accessibilityWindow(windowID, ofProcess: pid) else { return false }
@@ -67,7 +40,6 @@ extension HostModel {
         return true
     }
 
-    /// The accessibility element for a window server window.
     private static func accessibilityWindow(_ windowID: CGWindowID, ofProcess pid: pid_t) -> AXUIElement? {
         let appElement = AXUIElementCreateApplication(pid)
         var ref: CFTypeRef?
@@ -76,9 +48,7 @@ extension HostModel {
               let elements = ref as? [AXUIElement]
         else { return nil }
 
-        // By its frame where a frame matches, and by its name where none does: a window the Mac has
-        // not finished placing yet is at the frame it was created with, and the one thing that has
-        // already settled at that moment is what it is called.
+        // By frame, falling back to name: a window not yet placed is at its creation frame.
         let byFrame = elements.first { element in
             guard let frame = Self.frame(of: element) else { return false }
             // Half a point of slack: neither API rounds a window's edges the same way, and the same
@@ -137,12 +107,7 @@ extension HostModel {
         }
     }
 
-    /// Opens another window of a running application through its own "New Window" menu item,
-    /// then follows the new window into capture once it exists.
-    ///
-    /// The menu rather than a shortcut, because the shortcut differs: ⌘N in Zed is a new file
-    /// inside the current window. ⌘N is only the fallback for an app whose menu has no such item.
-    /// One that is not running is launched instead, which opens its first window.
+    /// The menu rather than a shortcut: Cmd-N in Zed is a new file. Cmd-N is the fallback for an app with no such item.
     func openNewWindow(bundleIdentifier: String) {
         guard let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
             .first(where: { $0.activationPolicy == .regular })
@@ -177,8 +142,6 @@ extension HostModel {
         }
     }
 
-    /// Finds and presses the first item in the app's menu bar titled "New Window", looking one
-    /// submenu deep for apps like Terminal that file it under a profile list.
     private static func pressNewWindowMenuItem(ofProcess pid: pid_t) -> Bool {
         func children(_ element: AXUIElement) -> [AXUIElement] {
             var ref: CFTypeRef?
@@ -203,7 +166,6 @@ extension HostModel {
         ) == .success, let bar = ref, CFGetTypeID(bar) == AXUIElementGetTypeID()
         else { return false }
 
-        // Menu bar item → its menu → the menu's items.
         for topItem in children(bar as! AXUIElement) {
             for menu in children(topItem) {
                 for item in children(menu) where title(item).hasPrefix("New Window") && enabled(item) {
@@ -230,7 +192,6 @@ extension HostModel {
         }
     }
 
-    /// The process's on-screen, normal-layer windows, front to back.
     private static func windowIDs(ofProcess pid: pid_t) -> [CGWindowID] {
         let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
             as? [[String: Any]] ?? []
@@ -242,7 +203,6 @@ extension HostModel {
         }
     }
 
-    /// Where the window server says a window is.
     private static func windowFrame(_ id: CGWindowID) -> CGRect? {
         guard let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], id) as? [[String: Any]],
               let bounds = info.first?[kCGWindowBounds as String] as? [String: CGFloat]
@@ -255,7 +215,6 @@ extension HostModel {
         )
     }
 
-    /// Where accessibility says a window it handed out is.
     private static func frame(of window: AXUIElement) -> CGRect? {
         var positionRef: CFTypeRef?
         var sizeRef: CFTypeRef?
@@ -272,17 +231,8 @@ extension HostModel {
         return CGRect(origin: origin, size: size)
     }
 
-    /// Which process's window this is, for the two kinds of source that have one.
-    ///
-    /// **A single window needs this for the same reason a whole application does**, and it went
-    /// without: ScreenCaptureKit composites a window whether it is in front, behind, or on another
-    /// Space, so the client is shown a window while the Mac has something else at those
-    /// coordinates, and the injected click is hit-tested against the real screen. Clicking the
-    /// prompt of a captured terminal therefore typed into whatever window happened to be over it.
-    ///
-    /// The window list rather than the resolver's catalogue: the same window server draws and
-    /// hit-tests the window, so its own answer cannot be stale, and a dragged window makes a
-    /// catalogue snapshot wrong within a second.
+    /// A single window needs this too: clicking the prompt of a captured terminal otherwise typed into whatever window was over it.
+    /// The window list, not the catalogue: its answer cannot go stale when a window is dragged.
     private static func owningProcess(of source: CaptureSource) -> pid_t? {
         switch source {
         case .application(let pid):
@@ -298,27 +248,15 @@ extension HostModel {
         }
     }
 
-    /// Brings an application to the front of the Mac's own screen.
-    ///
-    /// **`activate` is a request the window server is free to refuse, and this host is the case it
-    /// refuses.** It is a menu-bar app nobody is touching: the click that asked for this arrived over
-    /// the network, so no user is behind it as far as macOS is concerned, and AppKit says in as many
-    /// words that activation is not guaranteed and since macOS 14 is cooperative. The accessibility
-    /// API is not gated that way, the host already holds it for moving windows, and setting the
-    /// frontmost attribute is the same act as clicking the application's Dock icon.
-    ///
-    /// Both, because they answer different questions. `activate` asks for the app to be the frontmost
-    /// *process*, which is what the menu bar, the Dock and ⌘-Tab follow; the attribute is what brings
-    /// its windows forward, which is what the Mac's own user sees. Neither reports anything useful:
-    /// the activation returns a Bool nobody can act on, and the AX call nothing at all.
+    /// activate is a request the window server may refuse for a menu-bar app with no user behind it (cooperative since macOS 14).
+    /// Both: activate makes it the frontmost process (menu bar, Dock, Cmd-Tab); the AX frontmost attribute brings its windows forward.
     func bringToFront(_ application: NSRunningApplication) {
         application.activate(options: [.activateAllWindows])
         let element = AXUIElementCreateApplication(application.processIdentifier)
         AXUIElementSetAttributeValue(element, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
     }
 
-    /// Opens a GUI application by the bundle identifier offered in the catalogue, then follows it
-    /// into application capture. Executable paths never cross the network.
+    /// Executable paths never cross the network.
     func launchApplication(bundleIdentifier: String) {
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-")
         guard !bundleIdentifier.isEmpty,
@@ -359,11 +297,7 @@ extension HostModel {
                     return
                 }
                 self.record("Opened \(application.localizedName ?? bundleIdentifier)")
-                // **Asked for directly rather than left to the launch.** `activates = true` on the
-                // configuration is a request from a process with no user behind it, which is the
-                // request macOS stopped guaranteeing in 14. And once again after the windows exist:
-                // an application brought forward before it has one is an application the Mac's own
-                // user sees nothing of.
+                // Asked for directly: activates = true is a request macOS stopped guaranteeing in 14, and again after the windows exist.
                 self.bringToFront(application)
                 self.coordinator?.refreshCatalog()
                 if let target {
@@ -375,29 +309,14 @@ extension HostModel {
         }
     }
 
-    /// The display a freshly launched app's windows should land on: the one the client is
-    /// currently looking at, so the app picker never hands back a window on a desktop the phone
-    /// cannot see. `NSWorkspace` has no notion of "the client's display" — left alone, a launch
-    /// opens onto whatever the Mac's own window server considers current, which on a Mac driving
-    /// a virtual display is the built-in screen's desktop, not the virtual one.
-    ///
-    /// Falls back to a phone-requested display whenever one exists, even while the client is looking
-    /// at a single captured application: that display's Space is what the phone otherwise treats as
-    /// home, and a launch has nowhere else meaningful to prefer.
+    /// The display the client is looking at, since a launch otherwise opens on the built-in screen. Falls back to a phone-requested display if one exists.
     var launchTargetDisplayID: UInt32? {
         if case .display(let id) = capturingSource { return id }
         return managedVirtualDisplays.first?.displayID
     }
 
-    /// Moves every window `application` currently owns onto `displayID`'s bounds.
-    ///
-    /// Spaces are a window/display pairing kept by the window server, not a property of the
-    /// window itself: a window whose position crosses onto another display joins whatever Space
-    /// that display is currently showing. So repositioning is all this needs — no Space switch,
-    /// and nothing about `SpaceReader`'s chord dance applies here.
-    ///
-    /// Polled rather than tried once: a launch completion can precede the app actually having a
-    /// window, the same race ``switchToLaunchedApplication(_:)`` already accounts for.
+    /// Spaces pair windows with displays: moving a window onto another display joins the Space it is showing, so no Space switch is needed.
+    /// Polled: a launch completion can precede the app having a window.
     func relocateLaunchedApplication(_ application: NSRunningApplication, toDisplay displayID: UInt32) async {
         for attempt in 0..<20 {
             if relocateWindows(ofPID: application.processIdentifier, toDisplay: displayID) { return }
@@ -407,8 +326,6 @@ extension HostModel {
         }
     }
 
-    /// Repositions every movable window of `pid` into `displayID`'s bounds. Returns whether it
-    /// found any windows at all, which is what the poll above is waiting on.
     func relocateWindows(ofPID pid: pid_t, toDisplay displayID: UInt32) -> Bool {
         var ref: CFTypeRef?
         let appElement = AXUIElementCreateApplication(pid)
@@ -430,9 +347,7 @@ extension HostModel {
                 AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
             }
 
-            // Cascaded so a second window launched moments later is not stacked exactly on the
-            // first, and clamped so a window sized for the Mac's own screen does not spill off a
-            // much smaller virtual display.
+            // Cascaded so windows do not stack, and clamped so a window sized for the Mac does not spill off a small virtual display.
             let offset = CGFloat(index) * 24
             let maxX = max(bounds.minX, bounds.maxX - size.width)
             let maxY = max(bounds.minY, bounds.maxY - size.height)
@@ -455,8 +370,7 @@ extension HostModel {
         let source = CaptureSource.application(application.processIdentifier)
         pendingCaptureSource = source
 
-        // A launch completion can precede creation of the first capturable window, so poll the
-        // observable result rather than assuming a live process means SCK has something to capture.
+        // Polled: a launch completion can precede the first capturable window.
         Task { [weak self, weak coordinator] in
             guard let self, let coordinator else { return }
             var lastError: Error?

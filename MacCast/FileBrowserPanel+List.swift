@@ -15,15 +15,7 @@ extension FileBrowserPanel {
         }
     }
 
-    /// Why a change did not happen, in a band above the list rather than in place of it.
-    ///
-    /// **The difference from ``failure`` is the whole reason this exists.** A folder that could not
-    /// be read has nothing to draw, so the panel replaces the list and offers to try again; a
-    /// rename that would not land left the folder perfectly readable, and covering it up would take
-    /// away the row the user is about to try again on — along with their place in a long list.
-    ///
-    /// It cannot be dismissed by hand, and it does not need to be: every one of the three
-    /// operations clears it on the way out, and so does opening a file or leaving the browser.
+    /// Why a change did not happen, above the list rather than replacing it: unlike ``failure``, the folder is readable and the row to retry stays. Cleared by the three operations, opening a file or leaving the browser.
     @ViewBuilder
     var changeFailureBanner: some View {
         if let changeFailure {
@@ -55,10 +47,7 @@ extension FileBrowserPanel {
         } else if let directory, hasVisibleEntries(directory) {
             list(directory)
         } else if isFiltering, let directory, !directory.entries.isEmpty {
-            // Asked before the loading branch, because a filter that matched nothing is an answer
-            // about the folder in hand and not a wait: a reload of a folder whose rows are all
-            // filtered out would otherwise sit on "Reading…" until it arrived, to say the same
-            // thing it was already saying.
+            // Asked before the loading branch: a filter that matched nothing is an answer about the folder, not a wait.
             state(symbol: "magnifyingglass", message: emptyMessage(directory), detail: hiddenHint(directory))
         } else if isLoading {
             state(symbol: "folder", message: "Reading…", detail: slowReadHint)
@@ -69,17 +58,13 @@ extension FileBrowserPanel {
         }
     }
 
-    /// What is being looked for, with the spaces around it dropped — a filter of one space is not
-    /// a filter, and it should not throw the folder away either.
+    /// Trimmed: a filter of one space is not a filter.
     var needle: String {
         query.trimmingCharacters(in: .whitespaces)
     }
 
-    /// Whether the rows on screen are the ones that matched rather than the ones that are there.
     var isFiltering: Bool { !needle.isEmpty }
 
-    /// Why a filter that the folder does not look like it has found nothing — the one case worth
-    /// naming, because the answer is on the row below, in the eye.
     func hiddenHint(_ directory: RemoteDirectory) -> String? {
         guard !showsHidden, !hasVisibleEntries(directory) else { return nil }
         let hidden = directory.entries.filter { $0.name.hasPrefix(".") && matches($0) }
@@ -89,25 +74,17 @@ extension FileBrowserPanel {
             : String(localized: "\(hidden.count) hidden files match. Show hidden files to see them.")
     }
 
-    /// The hint, but only after the wait has gone on long enough to be worth explaining.
     var slowReadHint: String? {
         waitingLongEnough ? waitingHint : nil
     }
 
-    /// The one line a running job gets, under the path bar.
-    ///
-    /// A spinner beside it even when the run has stopped, because the line is what the run came to
-    /// and is still the most recent thing that happened in this folder — the same reason it stays
-    /// at all. See ``FolderUpload``.
     func progressLine(_ text: String) -> some View {
         HStack(spacing: 8) {
             ProgressView().controlSize(.mini)
             Text(text)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-                // Truncated in the middle, because both ends of this sentence carry something: the
-                // count at the front and the name of the file at the back, and a tail truncation
-                // would take the name every time it was long.
+                // Truncated in the middle: the count at the front and the file name at the back both matter.
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: 0)
@@ -119,16 +96,12 @@ extension FileBrowserPanel {
     }
 
     func list(_ directory: RemoteDirectory) -> some View {
-        // Filtered once for the whole list. This is drawn from three places, and computing it at
-        // each of them was three full passes over the folder per body pass.
+        // Filtered once for the whole list: it was drawn from three places, so computing it at each cost three passes.
         let entries = visible(directory)
         return ScrollView(.vertical, showsIndicators: false) {
-            // Lazy, because a listing can be two thousand rows and a plain stack builds all of
-            // them whether or not anyone scrolls that far.
+            // Lazy: a listing can be two thousand rows.
             LazyVStack(spacing: 0) {
-                // The row a shell browser would have. Written as `..` rather than as the parent's
-                // name because that is what the audience reads: this panel lives in a terminal,
-                // and the two dots are what a terminal has always called "up one level".
+                // `..` rather than the parent's name, as a terminal calls up one level.
                 if let parent {
                     upRow(parent)
                     if !entries.isEmpty { Controls.divider }
@@ -151,22 +124,11 @@ extension FileBrowserPanel {
         .scrollDismissesKeyboard(.immediately)
     }
 
-    /// One entry: a glyph, its name, what it is, and the way in — plus, when the file can be run,
-    /// a second way that is not "in".
-    ///
-    /// The same row as the app's other lists — see ``SSHQuickCommandsEditor/row`` — because it is
-    /// the same object: a thing with a name, a line about it, and something on the other side of
-    /// the tap.
     func row(_ entry: RemoteDirectoryEntry) -> some View {
         let offersRun = onRun != nil && entry.isExecutable
-        // Two buttons side by side rather than one inside the other. A `Button` nested in another
-        // button's label draws, and looks right, and never receives the tap: the outer one claims
-        // the whole row first. So the row is a row that *contains* two tappable things, which is
-        // the only arrangement where both of them work.
+        // Two buttons side by side: a Button nested in another's label draws but never receives the tap, since the outer one claims the whole row.
         return HStack(spacing: 0) {
             Button {
-                // Opening something is leaving the list, and a keyboard left up over the folder
-                // that arrives next is one the user has to put away before they can see it.
                 searchFocused = false
                 onOpen(entry)
             } label: {
@@ -179,9 +141,7 @@ extension FileBrowserPanel {
                             .foregroundStyle(ColorPalette.ink)
                             .lineLimit(1)
                             .truncationMode(.middle)
-                        // No font here — the two runs of it are set in two faces inside — and one
-                        // line only, because a row whose second line wrapped would be a row of two
-                        // heights in a list read by scanning down it.
+                        // One line only: a wrapping second line gives rows of two heights.
                         detail(for: entry)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -189,15 +149,10 @@ extension FileBrowserPanel {
 
                     Spacer(minLength: 10)
 
-                    // Pointing rather than offering to open: a tap on a file shows what is in it,
-                    // and a tap on a folder goes into it. Both are "in there", so both get the
-                    // same glyph.
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.tertiary)
                 }
-                // The trailing inset is shared with the run button when there is one, so the
-                // chevrons of two rows next to each other still line up.
                 .padding(.leading, 16)
                 .padding(.trailing, offersRun ? 2 : 16)
                 .padding(.vertical, 8)
@@ -214,8 +169,7 @@ extension FileBrowserPanel {
                     Button("Delete", systemImage: "trash", role: .destructive) {
                         pendingDelete = entry
                     }
-                    // `role:` colours the label and not the glyph, so a destructive item needs
-                    // both or it draws a red word beside a white bin. See `Theme.menuDanger`.
+                    // `role:` colours the label and not the glyph, so a destructive item needs both (see `Theme.menuDanger`).
                     .menuDanger()
                 }
 
@@ -243,7 +197,6 @@ extension FileBrowserPanel {
         }
     }
 
-    /// The row out of this folder, drawn as a folder row so the list keeps one shape.
     func upRow(_ parent: String) -> some View {
         Button {
             searchFocused = false
@@ -268,27 +221,13 @@ extension FileBrowserPanel {
         .buttonStyle(.plain)
     }
 
-    /// The folder one level up, or nothing when there is nowhere further up to go.
     var parent: String? {
         guard let path, path.hasPrefix("/") else { return nil }
         let up = (path as NSString).deletingLastPathComponent
         return up == path ? nil : up
     }
 
-    /// What a row says under the name: the mode bits, the size, and when it last changed.
-    ///
-    /// `ls -l`'s first and fifth columns and then the date, in that order, because that listing
-    /// is what this panel is a picture of and somebody who reads one already reads the other. The
-    /// mode bits are the only run on the line that is terminal output rather than app writing, so
-    /// they are set in the terminal's own face — and they carry the type as their first character,
-    /// which is why a folder no longer also needs the word.
-    ///
-    /// A symbolic link still says what it is rather than how big it is: the size of a link is the
-    /// length of the path it holds — a number about the link and not about anything the user has.
-    ///
-    /// The one listing with neither a mode nor a size is the `ls` fallback, which answers with
-    /// names and nothing else. That entry is given the word for what it is and no numbers, because
-    /// a `0 bytes` and a zero date invented on this side would be this panel making them up.
+    /// The mode bits, size and date, as `ls -l` orders them; the mode bits are terminal output so they use the terminal's face. A symlink says what it is, since its size is the length of its path. The `ls` fallback has neither mode nor size, so it gets no invented numbers.
     func detail(for entry: RemoteDirectoryEntry) -> Text {
         guard !entry.permissions.isEmpty else {
             let word = entry.isSymlink ? String(localized: "Symbolic link") : (entry.isDirectory ? String(localized: "Folder") : "File")
@@ -299,38 +238,21 @@ extension FileBrowserPanel {
         if entry.isSymlink {
             parts.append(String(localized: "Symbolic link"))
         } else {
-            // The empty file is named rather than counted, because Foundation will not: every
-            // combination of `byteCount`'s options answers zero bytes with "Zero kB", which is a
-            // unit for a thing that has none. This is the one row in a folder where the number is
-            // the whole of what there is to say, and wrong is worse here than verbose.
+            // The empty file is named, not counted: every `byteCount` option answers zero as "Zero kB".
             parts.append(entry.size == 0 ? String(localized: "Zero bytes") : entry.size.formatted(.byteCount(style: .file)))
         }
         if let modified = entry.modified {
             parts.append(modified.formatted(date: .abbreviated, time: .omitted))
         }
 
-        // Both fonts are named here rather than by the row, because the two runs are two faces on
-        // one line: a `.font` applied to the concatenation would set both and lose the difference.
+        // Fonts are set on each run: a `.font` on the concatenation would lose the difference between the two faces.
         return Text(entry.permissions)
             .font(.system(size: 11, design: .monospaced))
             + Text(" · " + parts.joined(separator: " · "))
                 .font(.caption)
     }
 
-    /// The entries to show: the hidden ones dropped unless they were asked for, then the ones
-    /// that match what is being looked for.
-    ///
-    /// A leading dot, which is the rule every Unix tool uses and the one the shell this panel
-    /// belongs to already obeys. The Finder's own hidden flag is a second rule and is not part of
-    /// what crosses the wire, so a folder that is hidden to the Finder and not to `ls` is listed
-    /// here — which is the right answer for a terminal.
-    ///
-    /// The filter goes second, so it narrows what is on screen rather than reaching behind the
-    /// eye. A search that quietly listed dotfiles while the toggle beside it said they were
-    /// hidden would be two controls disagreeing about one list.
-    /// Whether one entry is drawn: a hidden name only when hidden files are shown, and a name the
-    /// filter accepts. One predicate for the check and for the list, so the two cannot disagree about
-    /// whether a folder looks empty.
+    /// Hidden means a leading dot, as the shell obeys; the Finder's hidden flag does not cross the wire. The filter goes second so it narrows what is on screen. One predicate serves the check and the list, so they cannot disagree about whether a folder looks empty.
     func shows(_ entry: RemoteDirectoryEntry) -> Bool {
         if !showsHidden, entry.name.hasPrefix(".") { return false }
         return matches(entry)
@@ -340,17 +262,12 @@ extension FileBrowserPanel {
         directory.entries.filter(shows)
     }
 
-    /// Whether anything would be drawn, without building the list to find out: the body asks this on
-    /// every pass, and this stops at the first row that matches.
+    /// Stops at the first match: the body asks this on every pass.
     func hasVisibleEntries(_ directory: RemoteDirectory) -> Bool {
         directory.entries.contains(where: shows)
     }
 
-    /// Whether a name is one the user is looking for.
-    ///
-    /// `localizedStandardContains` rather than a plain one, which is the same comparison the two
-    /// providers sort by: it is insensitive to case and to accents, and it puts `file 10` where a
-    /// Finder would — so what the filter keeps is in the order it was already in.
+    /// `localizedStandardContains`: case and accent insensitive and Finder-ordered, like the providers' sort.
     func matches(_ entry: RemoteDirectoryEntry) -> Bool {
         isFiltering ? entry.name.localizedStandardContains(needle) : true
     }
@@ -385,9 +302,6 @@ extension FileBrowserPanel {
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
-                    // It arrives while the user is watching the spinner, so it should look like
-                    // something appearing rather than something that was always there and they
-                    // somehow missed.
                     .transition(.opacity)
             }
             if let actionTitle, let action {
@@ -401,8 +315,6 @@ extension FileBrowserPanel {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// The line between one band of the panel and the next, the terminal's own — see
-    /// ``TerminalScreen``. Shared here by being the same one point of the same white.
     var hairline: some View {
         Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
     }

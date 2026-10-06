@@ -3,13 +3,7 @@ import XCTest
 @testable import MacCastKit
 import RemoteCore
 
-/// Fixtures are lines captured from a real opencode 1.18.34 process:
-///
-///     opencode run --format json --auto -m opencode/big-pickle "<prompt>"
-///
-/// and the same with `-s <session id>` for the second turn, trimmed to the fields the parser reads.
-/// The permission case is real too: without `--auto` a call outside the folder is rejected and the
-/// CLI says so in the tool's own error.
+/// Fixtures are lines captured from a real opencode 1.18.34 process, trimmed to the fields the parser reads. The permission case is real: without `--auto` a call outside the folder is rejected.
 final class AgentOpenCodeStreamTests: XCTestCase {
     private func payloads(_ lines: [String]) -> [AgentStreamEvent.Payload] {
         var stream = AgentOpenCodeStream(directory: "/tmp/oc")
@@ -53,7 +47,6 @@ final class AgentOpenCodeStreamTests: XCTestCase {
         XCTAssertEqual(started.count, 1)
         let finished = payloads.filter { if case .turnFinished = $0 { return true } else { return false } }
         XCTAssertEqual(finished.count, 1)
-        // The tokens of both steps, which is what the turn cost.
         guard case .turnFinished(let summary) = finished[0] else { return XCTFail() }
         XCTAssertEqual(summary.inputTokens, 16691 + 89)
         XCTAssertEqual(summary.outputTokens, 88 + 17)

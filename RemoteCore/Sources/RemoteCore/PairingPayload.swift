@@ -1,15 +1,11 @@
 import Foundation
 
-/// What is wrong with text that was supposed to be a Mac's device ID, one case per mistake:
-/// the three failures have three different remedies, rather than one "that did not work".
+/// One case per mistake, since the three failures have different remedies.
 public enum PairingPayloadError: LocalizedError, Sendable, Equatable {
-    /// Nothing was entered, or only whitespace.
     case empty
     /// A six-digit pairing code arrived where a device ID was wanted, scanned or typed from the panel.
     case shortAuthenticationCode
-    /// A QR code that is not one of ours, or one of our URLs that is not a pairing code.
     case unrecognisedCode
-    /// Text that is neither a code nor an identifier.
     case notAnIdentifier(String)
 
     public var errorDescription: String? {
@@ -26,46 +22,30 @@ public enum PairingPayloadError: LocalizedError, Sendable, Equatable {
     }
 }
 
-/// The two things a Mac can show as a QR code, and the parser for each.
-///
-/// `peering://pair?code=NNNNNN` carries the short authentication string, the value both screens
-/// derive from the pairing transcript and the two people compare: it authorises the pairing.
-/// `https://getpeering.app/mac?id=<uuid>` (formerly `peering://mac?id=<uuid>`) carries the Mac's
-/// device ID, an address rather than a secret, which holds no authority and proves nothing about
-/// the Mac that answers.
-///
-/// Both parsers live together so that each refuses the other's code as a property of the format.
+/// `peering://pair?code=NNNNNN` carries the SAS both screens derive and compare: it authorises the pairing. `https://getpeering.app/mac?id=<uuid>` (formerly `peering://mac?id=<uuid>`) carries the Mac's device ID, an address with no authority.
+/// Each parser refuses the other's code as a property of the format.
 public enum PairingPayload {
     public static let scheme = "peering"
 
-    /// The host component of the short-authentication-string code, unchanged from what the host
-    /// draws on its pairing panel.
     public static let codeHost = "pair"
 
-    /// The host component of the device-identifier code, a different word from ``codeHost`` on
-    /// purpose: both scanners test the host first, so neither code can be read as the other.
+    /// Different from ``codeHost`` on purpose: both scanners test the host first, so neither code reads as the other.
     public static let identifierHost = "mac"
 
     public static let codeKey = "code"
 
-    /// The web form of the device-ID code, which the iPhone app claims as a universal link. A
-    /// camera scan without the app installed lands on the site instead of nowhere.
+    /// Claimed by the iPhone app as a universal link; a scan without the app lands on the site.
     public static let linkDomain = "getpeering.app"
     public static let linkPath = "/mac"
     public static let identifierKey = "id"
 
-    /// The one spelling of a device ID that everything compares in: uppercase and hyphenated, which
-    /// is what ``UUID/uuidString`` produces. The relay matches exactly, so typing passes through here.
-    ///
-    /// - Returns: the canonical spelling, or `nil` if this is not a UUID at all.
+    /// Uppercase and hyphenated (``UUID/uuidString``); the relay matches exactly.
     public static func canonicalIdentifier(_ text: String) -> String? {
         UUID(uuidString: text)?.uuidString
     }
 
-    /// The QR payload for a Mac's device ID.
     public static func encode(hostID: String) -> String {
-        // Falls back to whatever it was given rather than refusing: this is the Mac's own ID from
-        // its own store, so a value that is not a UUID is a bug worth seeing rather than hiding.
+        // Falls back to the input: a non-UUID from the Mac's own store is a bug worth seeing.
         let value = canonicalIdentifier(hostID) ?? hostID
         var components = URLComponents()
         components.scheme = "https"
@@ -75,13 +55,11 @@ public enum PairingPayload {
         return components.string ?? "https://\(linkDomain)\(linkPath)?\(identifierKey)=\(value)"
     }
 
-    /// Whether this is the web form of the device-ID code.
     public static func isHostLink(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "https", let host = url.host?.lowercased() else { return false }
         return (host == linkDomain || host == "www." + linkDomain) && url.path == linkPath
     }
 
-    /// The QR payload for a short authentication string.
     public static func encode(code: String) -> String {
         var components = URLComponents()
         components.scheme = scheme
@@ -90,8 +68,7 @@ public enum PairingPayload {
         return components.string ?? "\(scheme)://\(codeHost)?\(codeKey)=\(code)"
     }
 
-    /// Reads a device ID out of what was typed, pasted or scanned. A bare ID is accepted as well
-    /// as the URL, because one of the two ways this value arrives has no URL in it.
+    /// A bare ID is accepted as well as the URL, since one way this value arrives has no URL.
     public static func hostID(from raw: String) throws -> String {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw PairingPayloadError.empty }
@@ -99,8 +76,7 @@ public enum PairingPayload {
         // Before anything is parsed as a URL: a bare UUID is also a legal relative URL.
         if let canonical = canonicalIdentifier(text) { return canonical }
 
-        // Digits typed in from the Mac's pairing panel. Not a URL at all, so this has to be asked
-        // before the parsing below rather than by it.
+        // Not a URL, so asked before the parsing below.
         guard !isShortAuthenticationCode(text) else {
             throw PairingPayloadError.shortAuthenticationCode
         }
@@ -117,8 +93,7 @@ public enum PairingPayload {
 
         switch components.host?.lowercased() ?? "" {
         case codeHost:
-            // The Mac's pairing panel, scanned into the wrong screen: the user did scan a Peering
-            // code, so this is said plainly rather than as "not an ID".
+            // The user did scan a Peering code, so say so plainly.
             throw PairingPayloadError.shortAuthenticationCode
         case identifierHost:
             return try identifier(in: components)
@@ -137,14 +112,10 @@ public enum PairingPayload {
         return canonical
     }
 
-    /// Reads a six-digit code out of a scanned payload, or `nil` if it is not one.
-    ///
-    /// Optional rather than throwing, unlike ``hostID(from:)``: the caller already has the digits
-    /// it expects, so a wrong scan is a mismatch to report rather than a mistake to explain.
+    /// Optional rather than throwing: a wrong scan is a mismatch to report, not a mistake to explain.
     public static func code(from raw: String) -> String? {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Typed or pasted digits, as a bare ID is accepted above.
         if isShortAuthenticationCode(text) { return text }
 
         guard let components = URLComponents(string: text),
@@ -156,8 +127,7 @@ public enum PairingPayload {
         return value
     }
 
-    /// Whether this is exactly six digits, which is the whole shape of a pairing code. A mistyped
-    /// device ID is likely six digits too, so the two are told apart by shape before interpretation.
+    /// Exactly six digits. A mistyped device ID can be six digits too, so shape is checked first.
     public static func isShortAuthenticationCode(_ text: String) -> Bool {
         text.count == PairingSAS.digitCount && text.allSatisfy(\.isNumber)
     }

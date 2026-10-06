@@ -3,21 +3,11 @@ import MacCastKit
 import RemoteCore
 import SwiftUI
 
-/// What the menu bar icon is saying.
-///
-/// Four states rather than the two this had, and the third question is why: the icon is read
-/// from across a room, and "is a device attached" without "is this Mac available at all" leaves
-/// the most common state — hosting, nobody connected — looking like the least useful one.
 enum HostMenuBarState {
-    /// The app cannot host until its two required macOS permissions are granted.
     case setupRequired
-    /// A device is attached and the screen is going out.
     case streaming
-    /// Hosting, with at least one device paired. Reachable the moment one asks.
     case ready
-    /// Hosting, but nothing has ever paired. Reachable, and to nobody.
     case waiting
-    /// Not hosting at all.
     case stopped
 
     var symbol: String {
@@ -28,10 +18,7 @@ enum HostMenuBarState {
         }
     }
 
-    /// The system's own colours rather than picked ones, because this icon cannot adapt. See
-    /// ``HostMenuBarLabel`` — a coloured glyph is no longer a template, which means it no longer
-    /// follows the menu bar's light and dark appearance, so every one of these has to be legible
-    /// on both. Apple's semantic colours are the ones with that property already worked out.
+    /// System semantic colours: a coloured glyph is not a template, so it must be legible on both menu bar appearances.
     var colour: NSColor {
         switch self {
         case .streaming: return .systemGreen
@@ -53,24 +40,7 @@ enum HostMenuBarState {
     }
 }
 
-/// The menu bar icon: whether a device is attached, and whether this Mac is available at all.
-///
-/// The host is a background agent, so this question is asked with the window shut — which is
-/// almost always. The window is where the host is set up; this is where it is glanced at.
-///
-/// **Why the icon had to stop being a template to carry a colour.** macOS draws a menu bar extra
-/// as a *template* image: it keeps the shape and paints it in the menu bar's own foreground
-/// colour. A tint applied to a symbol is therefore discarded, and every state comes out the same
-/// shade — which is exactly what this icon used to do, and why its two states had to differ by
-/// shape instead.
-///
-/// The way out is not to ship a template. The symbol is rendered into an `NSImage` with the
-/// colour already in it and `isTemplate` is turned off, which makes the colour part of the
-/// artwork rather than a hint macOS is free to ignore.
-///
-/// The cost is that the icon no longer follows the menu bar's appearance on its own — see
-/// ``HostMenuBarState/colour`` — and shape still carries the state as well, so it reads for
-/// anyone who cannot tell the colours apart.
+/// macOS draws a menu bar extra as a template and discards symbol tints, so the colour is baked into an NSImage with isTemplate off.
 struct HostMenuBarLabel: View {
     let state: HostMenuBarState
 
@@ -103,8 +73,6 @@ struct HostMenuBarLabel: View {
     }
 }
 
-/// The menu bar panel. A window-style extra rather than a menu, so it can carry live timers,
-/// switches and readings instead of one disabled string per line.
 struct HostMenuBarContent: View {
     @Environment(HostModel.self) private var model
     @Environment(Updater.self) private var updater
@@ -596,10 +564,7 @@ struct HostMenuBarContent: View {
     }
 }
 
-/// Zooms the panel's window in from the menu bar, and back out when it closes.
-///
-/// Animated on the window rather than on its content: the system shows the panel at full
-/// opacity, so it is caught here before the first frame and taken back to transparent.
+/// Animated on the window: the system shows the panel at full opacity, so it is caught before the first frame.
 private struct PanelWindowEntrance: NSViewRepresentable {
     final class Probe: NSView {
         private var observer: NSObjectProtocol?

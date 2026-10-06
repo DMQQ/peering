@@ -31,8 +31,7 @@ struct RelayProtocolTests {
         let encoded = try RelayMessageCodec.encode(message)
         let text = String(decoding: encoded, as: UTF8.self)
 
-        // Every field by name, because the relay reads them by name and a rename here is a
-        // registration that silently stops proving anything.
+        // Every field by name: the relay reads them by name.
         for fragment in [
             #""type":"registerHost""#, #""deviceId":"mac-1""#, #""publicKey":"04aa""#,
             #""proof":"3045""#, #""proofTime":1760000000"#,
@@ -41,11 +40,7 @@ struct RelayProtocolTests {
         }
     }
 
-    /// **The string both ends have to build identically**, and the reason this test spells it out
-    /// rather than calling the function twice: a signature is over bytes, so two ends that compose
-    /// "what was signed" differently produce a proof that fails for a reason nothing on either side
-    /// can see. The relay pins the same literal in `device_proof::tests`, and these two are meant
-    /// to be read side by side.
+    /// Spelled out, not computed twice: both ends must build the signed bytes identically, and the relay pins the same literal in `device_proof::tests`.
     @Test("the signed payload is the same string the relay builds")
     func proofPayload() {
         let payload = RelayDeviceProof.payload(
@@ -57,11 +52,7 @@ struct RelayProtocolTests {
             "peeringd-host-registration-v1\n8B88D893-55BD-4F68-AF3F-E81D885A50A7\n1760000000")
     }
 
-    /// **The client's payload, pinned to the relay's spelling of it.** The two are written in two
-    /// languages and neither can see the other, so this literal is the contract: `client_payload`
-    /// in the relay's `device_proof.rs` has to produce exactly this string, tag and newlines and
-    /// all, or every proof fails to verify and reads, from the relay, exactly like a client that
-    /// sent none.
+    /// Pinned to the relay's `client_payload` in `device_proof.rs`: any difference makes every proof fail, reading like a client that sent none.
     @Test("the client payload is the string the relay builds")
     func clientPayloadMatchesTheRelay() {
         let payload = RelayDeviceProof.clientPayload(
@@ -73,9 +64,7 @@ struct RelayProtocolTests {
             "peeringd-client-registration-v1\nA1B2\n1760000000")
     }
 
-    /// And the two domains are different strings, which is the whole reason the tag is there: a
-    /// registration signed for a Mac must not be presentable as one from a phone, and the fields
-    /// have the same names on the wire.
+    /// The tag separates the domains: a Mac registration must not be presentable as a phone's.
     @Test("a host registration and a client registration are different strings")
     func theTwoProofDomainsDiffer() {
         let host = RelayDeviceProof.payload(deviceID: "A1B2", proofTime: 1_760_000_000)
@@ -84,9 +73,6 @@ struct RelayProtocolTests {
         #expect(host != client)
     }
 
-    /// The connect request carries the proof under the same three field names the Mac's
-    /// registration uses, and leaves all three out when there is none: the relay's spelling of
-    /// "no proof" is the fields being absent.
     @Test("a connection request carries the client's proof, or nothing")
     func connectRequestCarriesTheClientProof() throws {
         let proved = try RelayMessageCodec.encode(RelayClientMessage.connectToHost(
@@ -117,9 +103,7 @@ struct RelayProtocolTests {
         #expect(!plain.contains("proofTime"))
     }
 
-    /// A device id cannot contain a newline and a time cannot contain anything but digits, so no
-    /// two different registrations can sign the same bytes. That is what makes the delimiter safe
-    /// rather than clever.
+    /// Ids cannot contain a newline and times only digits, so no two registrations sign the same bytes.
     @Test("the payload separates its fields so two registrations cannot collide")
     func proofPayloadIsUnambiguous() {
         let one = RelayDeviceProof.payload(deviceID: "a\n1", proofTime: 2)
@@ -158,9 +142,7 @@ struct RelayProtocolTests {
             #"{"clientId":"phone-1","hostId":"mac-1","protocolVersion":3,"type":"connectToHost"}"#)
     }
 
-    /// The plan is the client's claim, and peeringd reads it by name: `free`, `relay`, `plus`,
-    /// `pro`. Anything else, including this field being absent, is the free allowance on the relay
-    /// side, so a typo here costs a subscriber their allowance rather than granting anything.
+    /// The plan is a claim: anything unknown or absent is the free allowance on the relay.
     @Test("a connection request states the plan the client claims")
     func connectRequestNamesItsPlan() throws {
         let encoded = try RelayMessageCodec.encode(RelayClientMessage.connectToHost(
@@ -174,9 +156,7 @@ struct RelayProtocolTests {
             #"{"clientId":"phone-1","hostId":"mac-1","plan":"relay","protocolVersion":3,"type":"connectToHost"}"#)
     }
 
-    /// The receipt travels beside the claim rather than instead of it, and the relay decides which
-    /// of the two it believes. The field name is Apple's — `Transaction.jwsRepresentation` — so that
-    /// what is sent here and what is read there are recognisably the same document.
+    /// The receipt travels beside the claim; the relay decides which it believes.
     @Test("a connection request carries the signed transaction beside the plan")
     func connectRequestCarriesItsReceipt() throws {
         let encoded = try RelayMessageCodec.encode(RelayClientMessage.connectToHost(
@@ -191,9 +171,7 @@ struct RelayProtocolTests {
             #"{"clientId":"phone-1","hostId":"mac-1","jwsRepresentation":"eyJhbGci.eyJidW5kbGUi.c2ln","plan":"pro","protocolVersion":3,"type":"connectToHost"}"#)
     }
 
-    /// Absent rather than empty when there is nothing to prove. The relay reads a field that is not
-    /// there as "no receipt" and an empty string as a receipt that is malformed; they end in the
-    /// same allowance, but only one of them is what the app means, and the relay's log says which.
+    /// Absent rather than empty: the relay reads an empty string as a malformed receipt.
     @Test("a connection request with nothing to prove leaves the receipt out")
     func connectRequestOmitsAnAbsentReceipt() throws {
         let encoded = try RelayMessageCodec.encode(RelayClientMessage.connectToHost(
@@ -229,9 +207,7 @@ struct RelayProtocolTests {
         #expect(decoded == .registered(sessionTTLSeconds: 300))
     }
 
-    /// The introduction, asked for. Spelled out rather than round-tripped, because the other end of
-    /// this contract is Rust: a rename on either side is a silent break at runtime rather than a
-    /// compile error here, which is exactly the kind of failure a literal pins.
+    /// Spelled out because the other end is Rust: a rename is a silent runtime break, not a compile error.
     @Test("asking where the peer is sends the asker's own token, in the relay's hex")
     func peerAddressRequest() throws {
         let message = RelayClientMessage.requestPeerAddress(
@@ -244,9 +220,7 @@ struct RelayProtocolTests {
             #"{"type":"requestPeerAddress","videoToken":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"}"#)
     }
 
-    /// A leading zero is the one byte a hex encoder can silently drop, and what that produces is a
-    /// thirty-one character token the relay refuses by length alone — a session that never opens,
-    /// from a fault that looks like nothing at all in a diff.
+    /// A hex encoder can drop a leading zero, giving a 31-character token the relay refuses by length.
     @Test("a token whose first byte is zero keeps both of its digits")
     func peerAddressRequestKeepsLeadingZeros() throws {
         let message = RelayClientMessage.requestPeerAddress(
@@ -259,15 +233,9 @@ struct RelayProtocolTests {
         #expect(text.contains("\"videoToken\":\"00" + String(repeating: "ab", count: 15) + "\""))
     }
 
-    /// **The token decoder's length check has to be in the units the loop moves in.** It asked for
-    /// thirty-two *bytes* and then walked thirty-two *characters*, so a string that was thirty-two
-    /// bytes but fewer characters made the sixteenth step ask for an index past the end. That is a
-    /// trap, not a thrown error, and it is reachable from whatever the relay sends: this test would
-    /// have crashed the suite rather than failed it.
+    /// The length check must be in the units the loop moves in: 32 bytes but fewer characters walked off the end and trapped.
     @Test("a token of thirty-two bytes but fewer characters is refused, not crashed on")
     func tokenWithMultibyteCharactersIsRefused() throws {
-        // Twenty-eight digits and one four-byte character: thirty-two bytes, twenty-nine
-        // characters, which is exactly the shape that used to walk off the end.
         let token = String(repeating: "a", count: 28) + "💥"
         #expect(token.utf8.count == 32)
         #expect(token.count == 29)
@@ -283,9 +251,7 @@ struct RelayProtocolTests {
         }
     }
 
-    /// A token that is the right length and the wrong alphabet. `UInt8(_:radix:)` accepts a
-    /// leading `+`, so sixteen `+1` pairs would otherwise decode to sixteen one-bytes and be
-    /// handed on as though the relay had sent them.
+    /// `UInt8(_:radix:)` accepts a leading `+`, so `+1` pairs would otherwise decode as one-bytes.
     @Test("a token of plus signs is refused rather than parsed as numbers")
     func tokenWithSignsIsRefused() throws {
         let token = String(repeating: "+1", count: 16)
@@ -311,9 +277,7 @@ struct RelayProtocolTests {
         #expect(decoded == .peerAddress(RelayPeerAddress(host: "203.0.113.7", port: 51234)))
     }
 
-    /// An IPv6 literal is just a host string to this codec, and the relay does not bracket it. This
-    /// pins that the two ends agree — the alternative is finding out when the first v6 user cannot
-    /// be reached, which is a bug with no symptom at all on an IPv4 machine.
+    /// An IPv6 literal is an unbracketed host string to this codec; the ends must agree.
     @Test("an IPv6 address survives as the relay spells it")
     func peerAddressIPv6() throws {
         let json = #"{"type":"peerAddress","host":"2001:db8::1","port":443}"#
@@ -333,9 +297,7 @@ struct RelayProtocolTests {
             #"{"hostId":"8B88D893","type":"hostPresence"}"#)
     }
 
-    /// **The two answers are both answers.** `online: false` is the relay stating a fact, and it
-    /// has to arrive as a decoded value rather than as an error, because the screen draws it as
-    /// one and the absence of an answer as something else entirely.
+    /// `online: false` is a fact and must decode as a value, not an error.
     @Test("both presence answers decode, and neither is an error")
     func presenceAnswers() throws {
         let online = try RelayMessageCodec.decode(
@@ -351,9 +313,7 @@ struct RelayProtocolTests {
         #expect(offline == .hostPresence(deviceID: "mac-1", online: false))
     }
 
-    /// The "not yet" answer arrives as an error, so it is worth pinning that it is a code the caller
-    /// can tell apart from a refusal — the two lead to opposite decisions, one being to ask again
-    /// and the other to give up on the relay entirely.
+    /// The not-yet answer must be a code distinguishable from a refusal: one means ask again, the other give up on the relay.
     @Test("the unknown-peer answer is a code, not just a failure")
     func peerAddressUnknown() throws {
         let json = #"{"type":"error","code":"peerAddressUnknown","message":"not yet"}"#

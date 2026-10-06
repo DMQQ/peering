@@ -30,8 +30,6 @@ struct SSHPortForwardTests {
         #expect(forward.localPort == 5432)
         #expect(forward.remotePort == 5432)
         #expect(forward.remoteHost == "db.internal")
-        // Trimmed, so a label pasted with a trailing space does not produce a row that looks right
-        // and sorts nowhere near where the user expects in the list.
         #expect(forward.label == "Database")
         #expect(forward.isEnabled)
     }
@@ -42,16 +40,11 @@ struct SSHPortForwardTests {
         #expect(named.displayName == "Database")
         #expect(named.detail == "localhost:5432 → db.internal:5432")
 
-        // With no name the address is the name: a row called "Forward" twice over tells the user
-        // nothing about which is which.
         let unnamed = SSHPortForward(localPort: 8080, remoteHost: "web.internal", remotePort: 80)
         #expect(unnamed.displayName == "8080 → web.internal:80")
     }
 
-    /// The refusal a spec produced, or nil when it was accepted.
-    ///
-    /// A helper rather than `if case` at every call site: an enum case with a payload is not a
-    /// property, so `result.failure` reads as the case's own constructor and does not compile.
+    /// A helper rather than `if case`: an enum case with a payload is not a property, so `result.failure` does not compile.
     private func refusal(_ result: Result<SSHPortForward, SSHPortForwardError>) -> SSHPortForwardError? {
         guard case .failure(let error) = result else { return nil }
         return error
@@ -71,8 +64,7 @@ struct SSHPortForwardTests {
 
     @Test("a command line pasted into the host field is refused before it reaches a server")
     func aCommandLineIsNotAHost() {
-        // The mistake this exists for: a user copying `ssh -L 8080:db.internal:5432 user@box` out
-        // of a tutorial and pasting the whole thing into the middle field.
+        // A user pasting a whole `ssh -L ...` command from a tutorial into the middle field.
         let pasted = read(local: "8080", remote: "db.internal:5432 user@box", port: "5432")
         #expect(refusal(pasted) == .remoteHostNotAHostname)
         #expect(SSHPortForwardError.remoteHostNotAHostname.message.contains("hostname"))
@@ -80,7 +72,6 @@ struct SSHPortForwardTests {
 
     @Test("an address and a name with awkward characters are both accepted")
     func hostnamesAreReadLoosely() throws {
-        // Resolution happens on the *server*, so anything it might accept has to be allowed here.
         #expect(try read(local: "8080", remote: "10.0.0.4", port: "80").get().remoteHost == "10.0.0.4")
         #expect(try read(local: "8080", remote: "::1", port: "80").get().remoteHost == "::1")
         #expect(try read(local: "8080", remote: "db_1.internal", port: "80").get().remoteHost == "db_1.internal")
@@ -99,15 +90,12 @@ struct SSHPortForwardTests {
     func editingIsNotADuplicate() throws {
         let existing = SSHPortForward(localPort: 8080, remoteHost: "web.internal", remotePort: 80)
 
-        // Keeping the port and changing the far end is the common edit, and a check that counted
-        // the row being edited would refuse it — which is a form the user cannot fill in.
+        // Editing the far end is common, and counting the row being edited would refuse it.
         let edited = try read(local: "8080", remote: "other.internal", port: "443",
                               existing: [existing], ignoring: existing.id).get()
 
         #expect(edited.id == existing.id)
         #expect(edited.remoteHost == "other.internal")
-        // And the switch survives the edit. A forward turned off that comes back on because the
-        // user corrected a port number is a port they thought was shut.
         #expect(edited.isEnabled == existing.isEnabled)
     }
 
@@ -151,10 +139,7 @@ struct SSHHostForwardTests {
 
     @Test("a host saved before forwards existed still loads")
     func aHostFromThePreviousBuild() {
-        // Written out in the shape the previous build produced, with no `forwards` key at all. The
-        // failure this guards is the one ``SSHHost``'s own decoding comment describes: a missing
-        // key throws, `load()` answers a failed decode with an empty list, and the user opens the
-        // app to a Servers tab that has lost every machine they saved.
+        // The shape the previous build produced, with no `forwards` key: a missing key throws and `load()` would return an empty list.
         let defaults = scratchDefaults()
         let json = """
         [{"id":"\(UUID().uuidString)","name":"Prod","hostname":"box.local","port":22,\
@@ -170,8 +155,6 @@ struct SSHHostForwardTests {
 
     @Test("a host that never had a forward is not equal to one that has an empty list")
     func emptyIsTheDefault() {
-        // Both spellings mean the same thing, which is what makes the default safe to write into
-        // the initialiser as well as into the decoder.
         let explicit = SSHHost(hostname: "box.local", username: "root", forwards: [])
         let implicit = SSHHost(hostname: "box.local", username: "root")
         #expect(explicit.forwards == implicit.forwards)

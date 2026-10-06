@@ -1,13 +1,8 @@
 import Foundation
 import RemoteCore
 
-/// What the app has to say when nobody is looking at it.
-///
-/// A value rather than a side effect: this one function is the whole rule about which events are
-/// worth interrupting the user for, and it can be tested without an app bundle or a live session.
 public enum SessionAwareness {
-    /// One per thing worth saying: the identifier is fixed per kind, so a second banner of a kind
-    /// replaces the first instead of stacking, and the app can take one back by name.
+    /// The identifier is fixed per kind, so a second banner replaces the first.
     public enum Kind: String, CaseIterable, Sendable {
         case connectionEnded
         case awaitingPairingCode
@@ -21,12 +16,7 @@ public enum SessionAwareness {
         public let title: String
         public let body: String
 
-        /// Which Mac the banner is about, where the caller knows.
-        ///
-        /// The kind alone is fixed per kind on purpose, so with more than one Mac open that rule
-        /// would mean "the newest news about anything": two Macs ending a session at once produce
-        /// one banner about one of them, and the pairing code on the Mac nobody is sitting at is
-        /// the one that loses. A `nil` identifier falls back to the kind's own.
+        /// With more than one Mac open the per-kind identifier would let one Mac's banner replace another's. `nil` falls back to the kind's own.
         public let hostID: String?
 
         public init(kind: Kind, title: String, body: String, hostID: String? = nil) {
@@ -42,15 +32,8 @@ public enum SessionAwareness {
         }
     }
 
-    /// The banner for one transition, or `nil` for the transitions that deserve none.
-    ///
-    /// It takes the phase the session came *from* because the events worth announcing are changes
-    /// of state rather than states. A Mac that is unreachable stays unreachable, and a rule that
-    /// announced the phase would turn a reconnect loop into a notification loop.
-    ///
-    /// `deliberate` is the user's own doing and cannot be read off the phases: a session the user
-    /// ended and one that dropped are both `.disconnected` from here. `resuming` is a drop the app
-    /// is already putting back on its own, and a Mac being retried is not news.
+    /// Takes the phase the session came from because only changes are worth announcing: a reconnect loop must not become a notification loop.
+    /// `deliberate` cannot be read off the phases (ended and dropped are both `.disconnected`). `resuming` is a drop the app is already repairing, not news.
     public static func notification(
         from previous: ClientSession.Phase,
         to phase: ClientSession.Phase,
@@ -59,16 +42,12 @@ public enum SessionAwareness {
         deliberate: Bool,
         resuming: Bool = false
     ) -> Notification? {
-        // The same phase arriving twice is not an event. This one happens in practice: the
-        // model sets `.disconnected` itself and the session then reports one of its own.
+        // The same phase twice is not an event: the model sets `.disconnected` itself and the session then reports its own.
         guard previous != phase else { return nil }
 
         switch phase {
         case .ready:
-            // Same rule as `.failed`: a Mac the app is quietly putting back on its own, most often
-            // after the background/foreground cycle tears the socket down, is not news either. The
-            // user never saw it leave, so telling them it arrived is telling them about a trip they
-            // did not know their Mac took.
+            // A Mac the app is quietly putting back (often after backgrounding) is not news; the user never saw it leave.
             guard !resuming else { return nil }
             return Notification(
                 kind: .connected,
@@ -78,9 +57,7 @@ public enum SessionAwareness {
             )
 
         case .confirming:
-            // The six digits are deliberately not in the body: a notification is readable on a
-            // locked screen, and comparing that code against the Mac's own screen is the single
-            // thing standing between this device and a Mac nobody sat down at.
+            // The code stays out of the body: a notification is readable on a locked screen, and comparing the code against the Mac's screen is the pairing safeguard.
             return Notification(
                 kind: .awaitingPairingCode,
                 title: String(localized: "Pairing with \(hostName)"),
@@ -89,14 +66,10 @@ public enum SessionAwareness {
             )
 
         case .failed(let message):
-            // Not a failure, a handover: the app is already dialling this Mac again, and saying so
-            // would be the one visible trace of a switch that is meant to be invisible. When the
-            // ladder runs out the phase is still `.failed` and the retry is no longer running, so
-            // the banner arrives then, which is the moment it is true.
+            // A handover, not a failure: announcing it would expose a switch meant to be invisible. When the ladder runs out the phase is still `.failed` and the banner arrives then.
             guard !resuming else { return nil }
 
-            // The Mac's own wording, not a summary of it: these messages say what to do next, and a
-            // banner is often the only place the user will ever read one.
+            // The Mac's own wording: it says what to do next.
             return Notification(
                 kind: .connectionEnded,
                 title: String(localized: "Connection to \(hostName) failed"),
@@ -105,8 +78,7 @@ public enum SessionAwareness {
             )
 
         case .disconnected:
-            // Nothing was connected, so nothing has been lost, and this is also where the model
-            // arrives on its way out of a session it never held.
+            // Nothing was connected; the model also arrives here leaving a session it never held.
             guard previous.holdsSession, !deliberate else { return nil }
             return Notification(
                 kind: .connectionEnded,

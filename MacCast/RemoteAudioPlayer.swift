@@ -5,11 +5,6 @@ import RemoteCore
 
 private nonisolated let audioLog = Logger(subsystem: "pl.dmq.peering", category: "audio")
 
-/// Renders incoming PCM audio frames from a Mac session.
-///
-/// Built once per audio stream (one ``AudioStreamConfig`` → one player), so a stream
-/// restart — codec change, sample rate change — starts a fresh instance. The old one
-/// is simply released; AVAudioEngine cleans up on deinit.
 final class RemoteAudioPlayer: @unchecked Sendable {
     private let engine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
@@ -36,7 +31,6 @@ final class RemoteAudioPlayer: @unchecked Sendable {
         engine.mainMixerNode.outputVolume = 1.0
 
         do {
-            // Allow other audio sessions (music, calls) to continue alongside.
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: .mixWithOthers)
             try AVAudioSession.sharedInstance().setActive(true)
             try engine.start()
@@ -52,13 +46,6 @@ final class RemoteAudioPlayer: @unchecked Sendable {
         engine.stop()
     }
 
-    /// Whether the Mac's audio comes out of this phone.
-    ///
-    /// A volume rather than a teardown. The frames arrive whether or not anyone is listening, so
-    /// stopping the engine would only mean rebuilding it on the next one — and the reason to
-    /// reach for this switch is usually a single sound rather than a decision to stop hearing
-    /// the Mac.
-    ///
     /// The sound that prompted it: macOS plays its alert — the "woop" — when a chord it was
     /// given leads nowhere, such as going back through a history that has nothing in it. An
     /// injected ⌘[ is a real key press and gets the real alert, and then the phone plays it back
@@ -68,8 +55,6 @@ final class RemoteAudioPlayer: @unchecked Sendable {
         didSet { engine.mainMixerNode.outputVolume = isMuted ? 0 : 1 }
     }
 
-    /// Converts interleaved Float32 samples to a non-interleaved AVAudioPCMBuffer and schedules
-    /// them for playback.
     func enqueue(_ frame: EncodedAudioFrame) {
         let (sampleValues, sampleOverflow) = frame.sampleCount.multipliedReportingOverflow(by: channelCount)
         let (expectedBytes, byteOverflow) = sampleValues.multipliedReportingOverflow(by: MemoryLayout<Float>.size)

@@ -3,18 +3,11 @@ import Foundation
 import RemoteCore
 
 /// Holds input meant for a window on a desktop the Mac is not showing, until the Mac has gone there.
-///
-/// Such a window streams without being shown, so opening it does not move the Mac. Input is posted
-/// at screen positions, though, and would land on whatever is showing instead. So the first
-/// deliberate touch or key moves the Mac to the window's desktop, and it and everything after it
-/// are held until the window is on screen, then delivered in order.
 final class OffDesktopInputGate: @unchecked Sendable {
     private let lock = NSLock()
-    /// Commands waiting for the window, oldest first, or `nil` when nothing is being held.
     private var held: [RemoteCommand]?
     private let deliver: @Sendable (RemoteCommand) -> Void
 
-    /// How long the Mac is given to bring the window on screen before the held input goes anyway.
     private static let arrivalTimeout: Duration = .milliseconds(1500)
 
     init(deliver: @escaping @Sendable (RemoteCommand) -> Void) {
@@ -49,8 +42,6 @@ final class OffDesktopInputGate: @unchecked Sendable {
         }
     }
 
-    /// Delivers what was held, including anything that arrives while it is being delivered, so
-    /// nothing overtakes an older command.
     private func flush() {
         while let next = lock.withLock({ () -> RemoteCommand? in
             guard var queue = held, !queue.isEmpty else {

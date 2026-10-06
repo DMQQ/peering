@@ -4,13 +4,6 @@ import CoreImage.CIFilterBuiltins
 import RemoteCore
 import SwiftUI
 
-/// What the window is showing.
-///
-/// A sidebar rather than one long scroll, because the window has grown two kinds of content
-/// that want different things: what is happening *now* — the picture, who is attached — and
-/// what can be configured or looked up, which is reference material that gets in the way until
-/// it is wanted. `overview` is first and is the default, so the answer to "is someone on my
-/// Mac" costs nothing.
 enum HostSection: String, CaseIterable, Identifiable {
     case overview
     case devices
@@ -47,12 +40,6 @@ enum HostSection: String, CaseIterable, Identifiable {
     }
 }
 
-/// The host's window: whether it is reachable, whether it has permission to do its job, and the
-/// pairing code when a client is asking to be trusted.
-///
-/// Split across `HostStatusView+*.swift` extensions rather than kept as one file, since the state
-/// is the window's either way and the window is easier to read in pieces than as one file of
-/// fifteen hundred lines.
 struct HostStatusView: View {
     @Environment(HostModel.self) var model
     @Environment(Updater.self) var updater
@@ -62,20 +49,10 @@ struct HostStatusView: View {
         _section = State(initialValue: initialSection)
     }
 
-    /// The last still of what the connected device is seeing.
-    ///
-    /// Held by the view rather than the model because it is only wanted while this window is
-    /// on screen — the task below is cancelled with the view, which is what stops a closed or
-    /// hidden window taking a screenshot of this Mac every couple of seconds.
+    /// Held by the view: the task is cancelled with it, which stops a hidden window screenshotting the Mac every couple of seconds.
     @State var preview: CGImage?
 
-    /// What is in the port field while it is being edited.
-    ///
-    /// A draft rather than a binding to the model, because the model's setter restarts the
-    /// listener: bound directly, every keystroke would tear down the server and start it again.
-    /// The value is committed on Return or when the field loses focus, and reverted if it is not
-    /// a usable port — a field that silently keeps a number the host is not listening on is worse
-    /// than one that puts the real number back.
+    /// A draft: the model setter restarts the listener, so binding directly would restart the server on every keystroke. Committed on Return or focus loss, and reverted if not a usable port.
     @State var portDraft = ""
     @FocusState var portFocused: Bool
     @State var forgetDevice: (id: String, name: String)?
@@ -83,41 +60,17 @@ struct HostStatusView: View {
     @State var hoveredSection: HostSection?
     @State var heroHovered = false
 
-    /// Whether this window keeps a still of the Mac on screen behind it.
-    ///
-    /// Persisted, because it is a decision about the Mac rather than about the moment. Off, the
-    /// snapshot loop does not run at all — see the `.task` in `body` — which is the point: the
-    /// preview is the only thing this app does that touches the screen when nobody asked it to.
-    /// It is not a privacy control and does not pretend to be one — a connected iPhone sees the
-    /// same screen either way. It is for a window left open on a second display, a screen being
-    /// shared, or simply not wanting the Mac photographed every two seconds for a picture nobody
-    /// is looking at.
+    /// Off, the snapshot loop does not run at all: the preview is the only thing this app does that touches the screen unasked. Not a privacy control; a connected iPhone sees the same screen either way.
     @AppStorage("hostShowsPreview") var showsPreview = true
 
-    /// What the snapshot loop is keyed on: which source, and whether a preview is wanted at all.
     private struct PreviewKey: Equatable {
         let source: CaptureSource?
         let enabled: Bool
     }
 
-    /// How much room the pane has, measured rather than assumed.
-    ///
-    /// The picture's height is derived from it — see `previewHeight` — so the frame it is drawn
-    /// in is always the shape of what is being sent rather than a strip with letterbox bars
-    /// above and below it.
     @State var paneWidth: CGFloat = 0
 
-    /// What this app is costing the Mac, and the timer that keeps it current.
-    ///
-    /// Held by the window rather than by the card, and that is the whole arrangement: the card
-    /// is rebuilt every time its section is opened, while the readings' baseline has to survive
-    /// as long as there is something to subtract from. `Resources` in
-    /// `HostStatusView+Resources.swift` is where it is fed.
-
-    /// The pane's own inset from the window edge.
-    ///
-    /// Named because the picture's height is computed from the width this leaves: a number in two
-    /// places is a picture that stops fitting the frame it is drawn in.
+    /// Named because the picture height is computed from the width this leaves.
     static let paneInset: CGFloat = 26
 
     var body: some View {
@@ -131,10 +84,7 @@ struct HostStatusView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        // Above the pane rather than inside one. A pairing request is the only
-                        // thing in this window that needs an answer, and burying it in a
-                        // section the user is not looking at is how a phone sits at "waiting
-                        // for you to compare the digits" with nobody comparing them.
+                        // Above the pane: a pairing request is the only thing needing an answer, and burying it leaves a phone waiting on nobody.
                         if model.pairing != nil || model.lastOutcome != nil {
                             pairingSection
                         }
@@ -144,15 +94,9 @@ struct HostStatusView: View {
                     .padding(.horizontal, Self.paneInset)
                     .padding(.top, 22)
                     .padding(.bottom, 28)
-                    // The pane is only as wide as its widest row, and a scroll view centres
-                    // what it is given. Overview looked right by accident — the preview pane
-                    // asks for the full width — while a pane holding one short line of text
-                    // floated in the middle of the window.
+                    // The pane is only as wide as its widest row and a scroll view centres it, so pin leading.
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    // Measured rather than assumed, and only the width is kept: the picture's
-                    // height follows from it, so feeding the height back in would be asking the
-                    // layout to solve itself. The width does not depend on the height, so this
-                    // settles on the first pass and only moves when the window does.
+                    // Only the width is kept: the height is derived from it, so feeding it back would make the layout solve itself.
                     .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
                         if abs(width - paneWidth) > 1 { paneWidth = width }
                     }
@@ -160,51 +104,17 @@ struct HostStatusView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        // The sidebar column and the titlebar are two more surfaces the system paints for us, and
-        // both default to a material over the window's own background — which on this window is
-        // the grey the palette exists to get away from. Filling the window with the stage behind
-        // the split view and pinning the toolbar to it leaves nothing drawing its own grey.
+        // The sidebar and titlebar default to a material over the window background; filling behind the split view and pinning the toolbar leaves nothing drawing its own grey.
         .background(HostPalette.backdrop)
         .toolbarBackground(HostPalette.backdrop, for: .windowToolbar)
-        // Ink, not the accent, and the difference is the whole reason this window reads as one
-        // object rather than as a settings panel: a window-wide accent tint paints every button
-        // the system draws for us, so `Forget all` and `Copy all` and two segmented pickers all
-        // arrive blue, and the one blue that is supposed to mean something is somewhere in that
-        // crowd. Left monochrome, the accent is spent on exactly two things — the row you are on
-        // and the button that starts sharing — and both are things you look for.
-        //
-        // It is also what fixes a destructive button drawing in the colour that means "press me".
+        // Ink, not the accent: a window-wide tint paints every system button blue, including destructive ones, and drowns the one blue that means something.
         .tint(HostPalette.controlTint)
-        // The floor a Mac window for this job should never go under, and the size it wants to be.
-        // The pane is only ever as wide as its widest row, so a window narrowed past the floor
-        // starts clipping sentences rather than reflowing them.
-        //
-        // The ideal is load-bearing rather than decorative: `windowResizability(.contentSize)`
-        // sizes the window to what its content asks for, and a content that only states a minimum
-        // gets the minimum — which is how this opened at 900 wide with `defaultSize` set to 1200.
-        // `defaultSize` is the first frame a window is ever given; the ideal is what it keeps
-        // coming back to.
+        // The ideal is load-bearing: windowResizability(.contentSize) sizes the window to what content asks for, and a minimum alone gave a 900 wide window despite defaultSize 1200.
         .frame(minWidth: 900, idealWidth: 1200, minHeight: 620, idealHeight: 870)
         .task { model.start() }
-        // Keyed on the source, so a client switching to another screen refreshes the picture at
-        // once instead of showing the old one until the next tick. Two seconds is chosen against
-        // what the picture is for: it is here to answer "what can they see", and a still that is
-        // a second old answers that as well as a live one, for a fraction of the work.
-        //
-        // The switch is part of the key as well as a guard, because turning the preview off has
-        // to *stop* this loop rather than let it run on drawing pictures nobody asked for. A
-        // cancelled task is the only way to stop taking screenshots of someone's Mac.
+        // Keyed on the source so a switch refreshes at once, and on the switch so turning the preview off cancels the loop (the only way to stop taking screenshots).
         .task(id: PreviewKey(source: model.capturingSource, enabled: showsPreview)) {
-            // Two reasons to stop, and the second one used to be missing. With no device attached
-            // there is no coordinator, so `snapshot()` answers nil in the same breath it is asked
-            // — and the loop wrote that nil into `preview` every two seconds regardless, a write
-            // that invalidates this window and everything in it. The task is on the window rather
-            // than on the Overview pane, so a Mac with nobody on it paid twice a second, on every
-            // pane, for a picture it already knew was absent.
-            //
-            // `capturingSource` is the honest gate rather than a second look at the setting: it
-            // is what the pane draws, it is set from the coordinator's own report of what it is
-            // sending, and it is nil exactly when there is nothing being sent.
+            // capturingSource is the gate: with no device there is no coordinator and snapshot() answers nil, and writing that nil every two seconds invalidated the whole window.
             guard showsPreview, model.capturingSource != nil else {
                 preview = nil
                 return
@@ -216,21 +126,7 @@ struct HostStatusView: View {
                 try? await Task.sleep(for: .seconds(2))
             }
         }
-        // **The one question this feature asks, and the reason it asks it.** The keep-awake
-        // switches are the user's own instruction, and nothing in the app can know that the phone
-        // has been put away for the night: the last client leaving is the only signal there is that
-        // nobody is using this Mac. Unasked, the Mac stays awake until somebody remembers, and
-        // nobody remembers.
-        //
-        // "Let it sleep" is the default action rather than the safe-looking "Keep it awake": the
-        // whole point of the question is that the answer somebody meant to give was to let it go,
-        // and the switches stay where they were either way, so a wrong answer costs one reconnect
-        // rather than a setting to find again.
-        // **A statement and two actions, not a question and two answers.** This was titled "Keep
-        // this Mac awake?", which reads as a yes/no and then offered "Let it sleep" and "Keep it
-        // awake": the right answer to the question as written was the button that does the opposite
-        // of what the question asks. Naming the state and labelling both buttons for what they do
-        // is the whole of the fix.
+        // A statement and two actions, not a question: a yes/no title made the right answer the button that did the opposite. Let it sleep is the default because a wrong answer costs one reconnect.
         .alert(
             "This Mac is being kept awake and nothing is connected",
             isPresented: Binding(
@@ -274,11 +170,7 @@ struct HostStatusView: View {
     var pane: some View {
         switch section {
         case .overview:
-            // The picture and how to get here, and nothing past it. Who is trusted and what has
-            // happened used to live in this same pane, under the picture — which made Overview
-            // answer three different questions at once and made the device list and the log
-            // read as clutter under the one thing this pane actually opens onto. Each now has
-            // the whole of its own pane instead of a card's worth of one shared with two others.
+            // The picture and how to get here only; devices and the log have their own panes.
             VStack(alignment: .leading, spacing: 24) {
                 nowShowingSection
                 connectSection
@@ -314,9 +206,7 @@ struct HostStatusView: View {
 
     // MARK: - Helpers
 
-    /// Connected outranks listening: "is anyone there" is the question this window is answering,
-    /// and "Ready for iPhone" is true whether or not a client is attached — which is why it was
-    /// the wrong thing to say while one was.
+    /// Connected outranks listening: Ready for iPhone is true whether or not a client is attached.
     var statusColor: Color {
         if !model.connectedClients.isEmpty { return HostPalette.success }
         switch model.status {
@@ -340,28 +230,17 @@ struct HostStatusView: View {
         }
     }
 
-    /// The longest-attached device, or nil when none is.
-    ///
-    /// With more than one client attached the oldest is the session — it is the one that has
-    /// been waiting to be noticed for longest.
+    /// The oldest client is the session.
     var connectedClient: ConnectedClient? {
         model.connectedClients.min { $0.since < $1.since }
     }
 
-    /// Grouped as `123 456`. Six unbroken digits are harder to compare by eye.
     func formatted(_ code: String) -> String { formattedPairingCode(code) }
 
-    /// Draws whatever ``PairingPayload`` encoded, so the strings on this side and the ones the
-    /// iPhone parses are produced by one implementation rather than two that agree by hand.
     func qrCode(encoding payload: String) -> NSImage? { qrCodeImage(encoding: payload) }
 }
 
-/// The two sizes and the two rates as words.
-///
-/// Deliberately without the pixel dimensions: the size a stream is built at follows the
-/// source, and the source is the phone's to choose — a label carrying numbers would be
-/// wrong for every source but the one that happened to be selected when the window was
-/// drawn, and the row is on screen while the client switches between them.
+/// Without pixel dimensions: the stream size follows the source, which the phone chooses, so a number would be wrong for every other source.
 extension CaptureResolution {
     var title: String {
         switch self {
@@ -383,13 +262,7 @@ extension CaptureFrameRate {
 }
 
 extension View {
-    /// The pairing card, and the one place in the window that is allowed to raise its voice.
-    ///
-    /// A pairing request is the only thing here that needs an answer from the person at the Mac,
-    /// so it lifts off the stage further than a panel does — a raised surface and a shadow, which
-    /// is what this app already means by "in front of the rest." An accent-coloured ring around
-    /// the whole card read as a promotional banner rather than a request for attention, and the
-    /// digits inside it already carry the only colour this moment needs.
+    /// Lifted further than a panel because it is the only thing that needs an answer; an accent ring read as a promotional banner.
     func priorityPanel() -> some View {
         padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -19,8 +19,6 @@ struct CaptureSourceTests {
 
     @Test("stableID distinguishes kinds that share a numeric id")
     func stableIDs() {
-        // A display with id 1 and a window with id 1 are different things, so their
-        // identifiers must not collide in the client's picker.
         #expect(CaptureSource.display(1).stableID != CaptureSource.window(1).stableID)
         #expect(CaptureSource.display(1).stableID == "display:1")
         #expect(CaptureSource.application(-1).stableID == "application:-1")
@@ -134,8 +132,6 @@ struct CaptureSourceTests {
         let decoded = try roundTrip(app)
         #expect(decoded.thumbnail == picture)
         #expect(decoded.thumbnail?.width == 320)
-        // The picture is part of the value, which is what makes the host's per-session
-        // "already sent this catalogue" check notice a set of new thumbnails.
         #expect(decoded == app)
     }
 
@@ -146,8 +142,6 @@ struct CaptureSourceTests {
             pixelSize: CGSize(width: 800, height: 600)
         )
         #expect(app.thumbnail == nil)
-        // Decoded from a payload written by a host that has never taken one, which is what a
-        // client predating this field sends itself.
         #expect(try roundTrip(app).thumbnail == nil)
     }
 
@@ -161,8 +155,6 @@ struct CaptureSourceTests {
 
         let withPicture = app.withThumbnail(picture)
         #expect(withPicture.thumbnail == picture)
-        // Everything else survives the copy, or the catalogue would silently lose a row's name
-        // the moment a picture landed on it.
         #expect(withPicture.id == app.id)
         #expect(withPicture.title == app.title)
         #expect(withPicture.pixelSize == app.pixelSize)
@@ -178,7 +170,6 @@ struct CaptureSourceTests {
         )
         let oversize = Data(repeating: 1, count: SourceThumbnail.maximumByteCount + 1)
 
-        // The type itself refuses it, which is where the limit is enforced.
         #expect(throws: DecodingError.self) {
             try JSONDecoder().decode(
                 SourceThumbnail.self,
@@ -189,8 +180,7 @@ struct CaptureSourceTests {
             )
         }
 
-        // And the descriptor survives it, which is the half that matters: a throw here would
-        // cost the client its whole source list, and with it the session, over a picture.
+        // A throw here would cost the client its whole source list over a picture.
         guard var json = try JSONSerialization.jsonObject(
             with: JSONEncoder().encode(app)
         ) as? [String: Any] else {
@@ -261,8 +251,6 @@ struct CaptureSourceTests {
         #expect(try roundTrip(info) == info)
     }
 
-    /// The flat properties predate a second screen. They describe the first — the main — display,
-    /// so that everything written before this change keeps meaning what it meant.
     @Test("flat accessors describe the main display")
     func spaceInfoDerivedAccessors() {
         let info = SpaceInfo(displays: [
@@ -277,13 +265,10 @@ struct CaptureSourceTests {
         #expect(info.count == 2)
         #expect(info.current == 2)
         #expect(info.totalCount == 5)
-        // Flattened across screens, so a preview is never lost by looking at the wrong one.
         #expect(info.previews.count == 2)
     }
 
-    /// A deck built before this type described more than one display sends the old flat shape.
-    /// Refusing it would take the whole catalogue — and with it the session — down over a
-    /// thumbnail.
+    /// Refusing the old flat shape would take down the whole catalogue and the session over a thumbnail.
     @Test("space info accepts the shape sent before a Mac had two screens")
     func legacySpaceInfoDecode() throws {
         let json = #"""
@@ -298,8 +283,6 @@ struct CaptureSourceTests {
         #expect(info.previews.count == 1)
     }
 
-    /// Numbering restarts per display, which is why `count` and `current` had to stop being the
-    /// only things a payload carried: two screens each have a desktop numbered 1.
     @Test("each display numbers its own desktops")
     func perDisplayNumbering() {
         let info = SpaceInfo(displays: [
@@ -329,8 +312,7 @@ struct RemoteCommandTests {
             .keyUp(keyCode: 1, modifiers: []),
             .textInput("héllo 👋 世界"),
             .switchSpace(direction: .left),
-            // The display is part of the payload: index 1 names a different desktop on every
-            // screen, so a round trip that dropped it would still compare unequal.
+            // The display is part of the payload: index 1 names a different desktop on every screen.
             .switchToSpace(display: 2, index: 3),
             .joystickMove(dx: -0.5, dy: 0.5),
             .setCaptureSource(.application(4242)),
@@ -352,26 +334,20 @@ struct RemoteCommandTests {
         }
     }
 
-    /// The wire shape, pinned, because both ends have to agree on it and because the failure of
-    /// getting it wrong is not symmetric anywhere. A Mac that does not know this command fails
-    /// on it rather than ignoring it, which is why a client may only send it to one that has
-    /// said it understands it, see ``ServerHello/supportsVideoPause``.
+    /// Pinned: a Mac that does not know this command fails on it, so a client may send it only to one that declared ``ServerHello/supportsVideoPause``.
     @Test("the video switch encodes as one keyed payload")
     func videoSwitchEncoding() throws {
         let encoded = try JSONEncoder().encode(RemoteCommand.setVideoEnabled(false))
         #expect(String(decoding: encoded, as: UTF8.self) == #"{"setVideoEnabled":{"_0":false}}"#)
     }
 
-    /// An absolute state produced by a tab switch, so it must neither be merged with another
-    /// one nor held back for the coalescing window: a Mac that goes on producing frames for
-    /// another 16 ms is the thing the command exists to stop.
+    /// An absolute state from a tab switch: never merged or held for the coalescing window.
     @Test("the video switch is neither merged nor delayed")
     func videoSwitchIsNotCoalesced() {
         #expect(RemoteCommand.setVideoEnabled(false).coalescing == Coalescing.none)
         #expect(RemoteCommand.setVideoEnabled(true).coalescing == Coalescing.none)
     }
 
-    /// `OptionSet` does not get synthesised `Codable`, so this pins the hand-written one.
     @Test("modifiers encode as a single bitmask")
     func modifierEncoding() throws {
         let encoded = try JSONEncoder().encode(Modifiers([.command, .shift]))
@@ -379,8 +355,7 @@ struct RemoteCommandTests {
         #expect(try JSONDecoder().decode(Modifiers.self, from: encoded) == [.command, .shift])
     }
 
-    /// Verified against `NSEvent.h`; these values must line up with `CGEventFlags` so the
-    /// host's translation is a bare `CGEventFlags(rawValue:)`.
+    /// Values must match `CGEventFlags` so the host translates with a bare `CGEventFlags(rawValue:)`.
     @Test("modifier bits match the platform layout")
     func modifierBits() {
         #expect(Modifiers.shift.rawValue == 1 << 17)
@@ -389,7 +364,6 @@ struct RemoteCommandTests {
         #expect(Modifiers.command.rawValue == 1 << 20)
     }
 
-    /// Coalescing a relative command by "newest wins" would silently drop scroll distance.
     @Test("coalescing treats absolute and relative commands differently")
     func coalescing() {
         #expect(RemoteCommand.mouseMove(to: NormalizedPoint(x: 0, y: 0)).coalescing == .replaceLatest)
@@ -397,11 +371,7 @@ struct RemoteCommandTests {
         #expect(RemoteCommand.scroll(dx: 1, dy: 1).coalescing == .accumulate)
     }
 
-    /// Losing any of these leaves the host stuck, with a button held down or a key repeating, or
-    /// leaves a request that is sent exactly once stranded with nothing to repeat it. A video
-    /// switch is the second kind, and it is the same shape as ``setCaptureSource(_:)``: a
-    /// resume that never arrives is a client waiting for a picture that never starts, and a
-    /// pause that never arrives is a Mac capturing for somebody who is looking elsewhere.
+    /// A lost press, release or once-only request leaves the host stuck or a client waiting for a picture that never starts.
     @Test("press and release events are never dropped")
     func criticalEvents() {
         for command: RemoteCommand in [
@@ -435,14 +405,10 @@ struct RemoteCommandTests {
             .setCaptureSource(.display(1)),
             .launchApplication(bundleIdentifier: "com.example.Editor"),
             .setStreamQuality(fps: 0, bitrateKbps: 8_000),
-            // Stopping the picture changes what the Mac is showing, not what it is doing: a
-            // session in observe mode is exactly the one that goes on watching a Mac it is not
-            // allowed to touch.
+            // Stopping the picture changes what the Mac shows, not what it does, so observe mode may do it.
             .setVideoEnabled(false),
             .refreshSpacePreviews,
-            // Asking for pictures changes what the picker shows and nothing about the Mac, so
-            // a session in observe mode may do it — the same reading ``refreshSpacePreviews``
-            // gets two lines up.
+            // Asking for pictures changes only what the picker shows, so observe mode may do it.
             .refreshSourceThumbnails,
             .setPrivacyMode(enabled: true),
             .lockScreen,
@@ -501,12 +467,9 @@ struct MosaicWireTests {
     func identity() {
         let one = layout([tile(.window(42), 0, 0)])
         let again = layout([tile(.window(42), 0, 0)])
-        // **The reason this is written by hand rather than with `Hasher`.** The name is what a
-        // persisted selection and the client's picture identity are kept by, so the same
-        // arrangement has to answer the same string in a later process.
+        // Hand-written rather than `Hasher`: persisted selections and picture identity are keyed by this string, so it must be stable across processes.
         #expect(CaptureSource.mosaic(one).stableID == CaptureSource.mosaic(again).stableID)
 
-        // Moved, reordered, or drawn on a different canvas: three different pictures.
         #expect(CaptureSource.mosaic(one).stableID != CaptureSource.mosaic(layout([tile(.window(42), 0.5, 0)])).stableID)
         let two = [tile(.window(42), 0, 0), tile(.application(9), 0.5, 0)]
         let swapped = [tile(.application(9), 0.5, 0), tile(.window(42), 0, 0)]
@@ -515,29 +478,22 @@ struct MosaicWireTests {
             layout([tile(.window(42), 0, 0)], canvas: CGSize(width: 1280, height: 720))
         ).stableID)
 
-        // And the frame rate is *not* part of it: the same arrangement redrawn faster is the
-        // same arrangement, and a client that changed the rate has not changed the picture.
+        // Frame rate is not part of the identity.
         #expect(CaptureSource.mosaic(one).stableID == CaptureSource.mosaic(layout([tile(.window(42), 0, 0)], frameRate: 30)).stableID)
     }
 
     @Test("a canvas is fixed, so the picture identity treats it as a display")
     func doesNotMoveOnItsOwn() {
-        // The one-line decision with no compile error behind it: a mosaic is not a window. Its
-        // tiles are dragged around inside a canvas that never changes shape, so the client keeps
-        // the zoom and the pan it was given rather than resetting them under a moving finger.
+        // A mosaic is not a window: the client keeps the zoom and pan rather than resetting them under a moving finger.
         #expect(CaptureSource.mosaic(layout([tile(.window(42), 0, 0)])).contentMovesOnItsOwn == false)
     }
 
     @Test("the host trims what a client asks for rather than refusing it")
     func limits() {
-        // More tiles than a Mac will run streams for: the first ones are kept, which are the
-        // ones the user put there. The alternative is a Mac asked to melt by a device it paired
-        // with and does not control.
+        // More tiles than a Mac will run streams for: the first are kept.
         let many = (0..<9).map { tile(.window(UInt32($0 + 1)), Double($0) / 10, 0, size: 0.1) }
         #expect(layout(many).validated?.tiles.count == MosaicLayout.maximumTileCount)
 
-        // A canvas over the pixel budget is scaled to fit, keeping its shape: a 4K canvas is
-        // still 16:9 afterwards, and no larger than the budget.
         let huge = layout([tile(.display(1), 0, 0, size: 1)])
         let trimmed = MosaicLayout(
             canvas: CGSize(width: 7680, height: 4320),
@@ -549,40 +505,33 @@ struct MosaicWireTests {
             let pixels = trimmed.canvas.width * trimmed.canvas.height
             #expect(pixels <= CGFloat(MosaicLayout.maximumCanvasPixels))
             #expect(abs(trimmed.canvas.width / trimmed.canvas.height - 16.0 / 9.0) < 0.01)
-            // Even, because the encoder rounds down to even and the client's rects were
-            // measured against what it asked for.
+            // Even, because the encoder rounds down to even.
             #expect(trimmed.canvas.width.truncatingRemainder(dividingBy: 2) == 0)
             #expect(trimmed.canvas.height.truncatingRemainder(dividingBy: 2) == 0)
             #expect(trimmed.frameRate == MosaicLayout.maximumFrameRate)
         }
 
-        // A rate that is a slideshow or a space heater is pulled back rather than refused.
         #expect(layout([tile(.window(1), 0, 0)], frameRate: 1).validated?.frameRate == MosaicLayout.minimumFrameRate)
         #expect(layout([tile(.window(1), 0, 0)], frameRate: 0).validated?.frameRate == MosaicLayout.minimumFrameRate)
 
-        // Nothing to draw is not a mosaic.
         #expect(layout([]).validated == nil)
     }
 
     @Test("a rectangle cannot describe anything outside its canvas")
     func rectClamping() {
-        // The origin is clamped against what the size leaves, not against 1: a rect of
-        // x 0.9 with width 0.5 would otherwise run to 1.4 and be drawn past the edge.
+        // Origin clamped against what the size leaves, not against 1.
         let overhanging = NormalizedRect(x: 0.9, y: 0.9, width: 0.5, height: 0.5).clamped
         #expect(overhanging.x == 0.5)
         #expect(overhanging.y == 0.5)
         #expect(overhanging.x + overhanging.width <= 1)
         #expect(overhanging.y + overhanging.height <= 1)
 
-        // A rect wider than the canvas is the canvas, and one that is nothing is empty.
         #expect(NormalizedRect(x: 0, y: 0, width: 4, height: 4).clamped == NormalizedRect(x: 0, y: 0, width: 1, height: 1))
         #expect(NormalizedRect(x: 0.2, y: 0.2, width: 0, height: 0.4).clamped.width == 0)
 
-        // The host's side of it: a normalized rect becomes pixels in the canvas.
         let rect = NormalizedRect(x: 0.25, y: 0.5, width: 0.5, height: 0.5)
         #expect(rect.pixels(in: CGSize(width: 1920, height: 1080)) == CGRect(x: 480, y: 540, width: 960, height: 540))
 
-        // And the client's side: the point where two tiles meet belongs to exactly one.
         let left = NormalizedRect(x: 0, y: 0, width: 0.5, height: 1)
         let right = NormalizedRect(x: 0.5, y: 0, width: 0.5, height: 1)
         #expect(left.contains(NormalizedPoint(x: 0.49, y: 0.5)))
@@ -592,8 +541,7 @@ struct MosaicWireTests {
 
     @Test("an older Mac's hello still decodes, and reads as no")
     func capabilityIsAdditive() throws {
-        // The field is optional precisely so that a Mac built before it existed sends a hello
-        // this build reads as "no mosaic here", rather than failing to decode at the door.
+        // Optional so a Mac built before it sends a hello this build reads as no mosaic.
         let older = """
             {"serverID":"mac","hostName":"Studio","protocolVersion":17,"alreadyPaired":true}
             """
@@ -601,7 +549,6 @@ struct MosaicWireTests {
         #expect(decoded.supportsMosaic == nil)
         #expect(decoded.supportsMosaic != true)
 
-        // And one that has it says so, through a round trip.
         let hello = ServerHello(
             serverID: "mac", hostName: "Studio", protocolVersion: 17,
             alreadyPaired: true, supportsMosaic: true

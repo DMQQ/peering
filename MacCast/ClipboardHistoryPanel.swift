@@ -1,16 +1,7 @@
 import RemoteCore
 import SwiftUI
 
-/// What has been pulled from the Mac, newest first.
-///
-/// The Mac's pasteboard holds one thing, so a second pull replaces the first, and this list is the
-/// only place the earlier ones still exist. Tapping an entry puts it on this phone, which is what
-/// a clipboard list is nearly always for; sending one back the other way is in the row's menu,
-/// because it is the rarer of the two by a distance.
-///
-/// Everything pulled is kept, which is worth saying out loud: clipboard text is as sensitive as
-/// whatever was on the Mac at the time, and this is a list of it that survives relaunching the
-/// app. It is cleared in one tap from here.
+/// Everything pulled is kept across relaunches and clipboard text is sensitive, so it is clearable in one tap.
 struct ClipboardHistoryPanel: View {
     var onBack: () -> Void
     @Environment(SessionModel.self) private var model
@@ -84,8 +75,6 @@ struct ClipboardHistoryPanel: View {
             withAnimation(Motion.tap) { justCopied = entry.id }
         } label: {
             VStack(alignment: .leading, spacing: 6) {
-                // Three lines, not one. A clipboard is as often a paragraph as a word, and a
-                // list of first-lines is a list of nearly identical openings.
                 Text(entry.text)
                     .font(.callout)
                     .lineLimit(3)

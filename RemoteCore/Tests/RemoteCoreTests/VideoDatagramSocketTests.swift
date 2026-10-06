@@ -3,11 +3,7 @@ import Testing
 
 @testable import RemoteCore
 
-/// A bare UDP socket on loopback, for the other end of a test.
-///
-/// Deliberately *not* a `VideoDatagramSocket`. What these tests are about is what the socket under
-/// test does with bytes from a particular address, and putting the same type at both ends would make
-/// a mistake in it invisible on both sides at once.
+/// Deliberately not a `VideoDatagramSocket`: the same type at both ends would hide a mistake in it on both sides.
 private final class LoopbackSocket: @unchecked Sendable {
     enum Failure: Error {
         case unavailable(Int32)
@@ -17,9 +13,6 @@ private final class LoopbackSocket: @unchecked Sendable {
     let port: UInt16
 
     init() throws {
-        // A local rather than `fd` throughout: a closure that captured `self` here would be reading
-        // a property before the other one had been initialised, which Swift refuses — and rightly,
-        // since the whole point of the object is that the two agree.
         let descriptor = socket(AF_INET6, SOCK_DGRAM, 0)
         guard descriptor >= 0 else { throw Failure.unavailable(errno) }
 
@@ -49,9 +42,7 @@ private final class LoopbackSocket: @unchecked Sendable {
         }
         port = UInt16(bigEndian: actual.sin6_port)
 
-        // A deadline rather than a blocking read with none: every wait here is for something that
-        // either happens in milliseconds on loopback or never happens at all, and a test that hangs
-        // on the second kind is worse than one that fails.
+        // A deadline rather than a blocking read: a hang is worse than a failure.
         var timeout = timeval(tv_sec: 2, tv_usec: 0)
         setsockopt(
             descriptor, SOL_SOCKET, SO_RCVTIMEO, &timeout,
@@ -61,7 +52,6 @@ private final class LoopbackSocket: @unchecked Sendable {
         fd = descriptor
     }
 
-    /// One datagram, or nothing if none arrived inside the timeout.
     func receive() -> [UInt8] {
         var buffer = [UInt8](repeating: 0, count: 2048)
         let read = recv(fd, &buffer, buffer.count, 0)
@@ -83,18 +73,13 @@ private final class LoopbackSocket: @unchecked Sendable {
         }
     }
 
-    /// Named rather than `close`, which is a global function this would otherwise shadow inside the
-    /// type — the kind of shadowing that makes every later `close(fd)` in the file a compile error
-    /// pointing somewhere unhelpful.
+    /// Named rather than `close`, which would shadow the global function and break later `close(fd)` calls.
     func closeSocket() {
         Darwin.close(fd)
     }
 }
 
-/// Whether a fresh UDP socket can take a specific loopback port right now.
-///
-/// Used as the public lifecycle observation: once `VideoDatagramSocket.cancel()` returns, the
-/// descriptor it owned must no longer hold its local port.
+/// Observes the lifecycle: once `VideoDatagramSocket.cancel()` returns, its descriptor must no longer hold the port.
 private func canBindLoopback(port: UInt16) -> Bool {
     let descriptor = socket(AF_INET6, SOCK_DGRAM, 0)
     guard descriptor >= 0 else { return false }
@@ -113,7 +98,6 @@ private func canBindLoopback(port: UInt16) -> Bool {
     }
 }
 
-/// What a socket under test was handed, gathered off its own queue.
 private final class Collected: @unchecked Sendable {
     private let lock = NSLock()
     private var items: [(datagram: Data, source: VideoDatagramSocket.Source)] = []
@@ -135,7 +119,6 @@ private final class Collected: @unchecked Sendable {
 struct VideoDatagramSocketTests {
     private static let token = Data(repeating: 0xab, count: VideoDatagram.tokenSize)
 
-    /// Waits for something done on another queue, and gives up rather than hanging.
     private func waitUntil(_ condition: () -> Bool, timeout: TimeInterval = 2) async -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
@@ -183,8 +166,7 @@ struct VideoDatagramSocketTests {
         #expect(canBindLoopback(port: port), "deinitialization closes an owned descriptor")
     }
 
-    /// The bind is what tells the relay where this end is, and nothing is forwarded to an address
-    /// the relay has not been told about — so it has to go first, before any held frame.
+    /// The bind tells the relay where this end is, so it must go before any held frame.
     @Test("the socket binds before it sends anything else")
     func bindsFirst() async throws {
         let relay = try LoopbackSocket()
@@ -192,7 +174,6 @@ struct VideoDatagramSocketTests {
         let (socket, _) = try makeSocket(relayingTo: relay)
         defer { socket.cancel() }
 
-        // Asked for before the socket is started, so it can only have been held.
         socket.send([Data([0xde, 0xad])]) { _ in }
         socket.start()
 
@@ -218,9 +199,7 @@ struct VideoDatagramSocketTests {
         #expect(collected.firstFromPeer == nil, "an address that is the relay's is not a peer")
     }
 
-    /// The classification is by *not being the relay* rather than by matching a known peer, because
-    /// the Mac does not know the phone's address until a datagram arrives from it — a rule that
-    /// required knowing it first could never learn it.
+    /// Classified by not being the relay: the Mac does not know the phone's address until a datagram arrives from it.
     @Test("a datagram from anywhere else carries the address it came from")
     func strangerAddressIsReported() async throws {
         let relay = try LoopbackSocket()
@@ -244,13 +223,7 @@ struct VideoDatagramSocketTests {
         #expect(port == stranger.port, "the sender's port, not the relay's")
     }
 
-    /// **The receive path is one of the things that establishes where to send**, so the socket has
-    /// to survive being told its peer from inside the callback that reported a datagram.
-    ///
-    /// This is what `VideoDatagramLane.accept` does, and it is the shape that took the Mac down the
-    /// first time a probe ever arrived: the callback runs on the socket's own queue via the read
-    /// source, and a `queue.sync` from there is not a wait but an abort. It could not be caught
-    /// before because the direct path was inert, so nothing ever called into the socket this way.
+    /// The socket must survive being told its peer from inside the callback that reported a datagram: a `queue.sync` from there aborts. This took the Mac down the first time a probe arrived.
     @Test("the peer can be set from inside the callback that reported a datagram")
     func settingThePeerFromTheReceivePathIsSafe() async throws {
         let relay = try LoopbackSocket()
@@ -269,7 +242,6 @@ struct VideoDatagramSocketTests {
         let collected = Collected()
         socket.onDatagram = { datagram, source in
             collected.add(datagram, source)
-            // The lane's line, in the lane's position: on this queue, inside this callback.
             try? socket.setDirectPeer(host: "::1", port: peer.port)
         }
         socket.start()
@@ -280,13 +252,10 @@ struct VideoDatagramSocketTests {
         stranger.send([0x44], to: socket.localPort)
 
         #expect(await waitUntil { collected.firstFromPeer != nil })
-        // And it took: the socket has somewhere to send now, which is the whole reason the call is
-        // made from here rather than from a timer.
         #expect(await waitUntil { socket.hasDirectPeer })
     }
 
-    /// The prefix is the relay's addressing and nothing else, so a datagram going straight to the
-    /// one endpoint that could want it must not carry it.
+    /// The prefix is the relay's addressing only, so a direct datagram must not carry it.
     @Test("a direct send leaves the relay's token off")
     func directSendStripsTheToken() async throws {
         let relay = try LoopbackSocket()
@@ -306,14 +275,7 @@ struct VideoDatagramSocketTests {
         #expect(peer.receive() == [0x01, 0x02, 0x03], "everything after the token")
     }
 
-    /// **The case the framing got wrong, and the one that cost every direct session its picture.**
-    ///
-    /// `sendDirect` stripped the relay's token and `send` did not, and `send` is what carries
-    /// video. So the moment a punch opened, every frame went to the peer with sixteen bytes of
-    /// relay addressing still in front of it, which the receiver read as its counter and refused.
-    /// The probes came from `sendDirect` and kept working, so the path looked open from both ends
-    /// while no picture ever completed, and the client said "some of the Mac's video datagrams
-    /// could not be read" — which reads like a lossy network and was a framing mistake.
+    /// `send` (which carries video) once kept the relay's token on direct datagrams, so receivers refused every frame while the `sendDirect` probes kept the path looking open.
     @Test("a plain send goes direct without the relay's token once the path is live")
     func plainSendStripsTheTokenOnceThePathIsLive() async throws {
         let relay = try LoopbackSocket()
@@ -327,7 +289,6 @@ struct VideoDatagramSocketTests {
         defer { peer.closeSocket() }
         try socket.setDirectPeer(host: "::1", port: peer.port)
 
-        // The peer speaks once, which is the whole of what makes the direct path live.
         peer.send([0x01], to: socket.localPort)
         #expect(await waitUntil { collected.firstFromPeer != nil })
 
@@ -340,8 +301,6 @@ struct VideoDatagramSocketTests {
         )
     }
 
-    /// The whole mechanism in one test: the socket is on the relay, the peer speaks, and every send
-    /// after that goes to the peer instead — with nothing negotiated and nothing acknowledged.
     @Test("the socket moves to the peer once the peer has been heard from")
     func movesToThePeerOnceItIsHeardFrom() async throws {
         let relay = try LoopbackSocket()
@@ -356,19 +315,13 @@ struct VideoDatagramSocketTests {
         #expect(socket.localPort != 0, "the local port is what the peer is given to aim at")
         try socket.setDirectPeer(host: "::1", port: peer.port)
 
-        // Both frames carry the relay's token, because that is the shape ``VideoDatagramSealer``
-        // produces and the only shape this socket is ever handed. What changes with the
-        // destination is whether the socket keeps it: the relay needs it to know which session a
-        // datagram belongs to, and the peer has no relay to ask.
-        //
-        // Nothing has arrived from the peer, so the peer is only a place the socket *could* send.
+        // Both frames start with the relay's token; the socket keeps it for the relay and strips it for the peer.
         socket.send([Self.token + Data([0xa1])]) { _ in }
         #expect(
             relay.receive() == [UInt8](Self.token) + [0xa1],
             "until the peer is heard from, the relay carries it, token and all"
         )
 
-        // The peer speaks. That is the whole of what "the path is open" means.
         peer.send([0x01], to: socket.localPort)
 
         #expect(await waitUntil { collected.firstFromPeer != nil })
@@ -389,19 +342,11 @@ struct VideoDatagramSocketTests {
 
         socket.sendDirect([Self.token + Data([0x01])]) { _ in }
 
-        // A probe with nowhere to go must not fall back to the relay: the relay would forward it to
-        // the peer anyway, which would make it look like the direct path worked when it did not.
+        // A probe with nowhere to go must not fall back to the relay, which would make the direct path look open.
         #expect(relay.receive() == [])
     }
 
-    /// A v4 peer on a v6 socket is the ordinary case, and it used to be refused.
-    ///
-    /// ``makeSocket(relayingTo:)`` aims at `::1`, so this socket is built in `AF_INET6`, which is
-    /// what macOS builds for *any* IPv4-only relay name, because it answers an `AF_INET6` lookup
-    /// with the v4-mapped form. The relay then names the peer in the peer's real family, and a
-    /// phone on cellular IPv4 is named in `AF_INET`. `getaddrinfo` refuses the two together, so
-    /// every session between a Mac that reached the relay over v4-mapped and a phone on cellular
-    /// died at this line rather than in either network.
+    /// A v4 peer on a v6 socket is the ordinary case: macOS builds `AF_INET6` for any IPv4-only relay name, and `getaddrinfo` refused it alongside an `AF_INET` peer.
     @Test("a v4 peer is reachable from a socket built in v6")
     func v4PeerOnAV6Socket() throws {
         let relay = try LoopbackSocket()
@@ -411,8 +356,6 @@ struct VideoDatagramSocketTests {
 
         try socket.setDirectPeer(host: "127.0.0.1", port: relay.port)
 
-        // And the mapping is not a licence to accept anything: a host that is not an address at
-        // all is still refused, which is what keeps a relay from naming something unusable.
         #expect(throws: VideoDatagramError.unusablePeerAddress("not an address")) {
             try socket.setDirectPeer(host: "not an address", port: relay.port)
         }

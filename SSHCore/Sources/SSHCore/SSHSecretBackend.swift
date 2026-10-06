@@ -4,17 +4,7 @@ import os
 
 private let secretLog = Logger(subsystem: "pl.dmq.peering", category: "ssh")
 
-/// Where a secret is kept.
-///
-/// A protocol with two implementations rather than a call straight into the Keychain, and the
-/// reason is testing rather than layering: a test binary that calls `SecItemAdd` can hang on a
-/// prompt or come back `errSecMissingEntitlement` depending on how it was signed, so a store that
-/// could only speak to the Keychain could only be tested by hand. Everything above this protocol —
-/// which credentials exist, what happens when one cannot be written, when a host key is trusted —
-/// is then ordinary logic with ordinary tests.
-///
-/// It is also the seam a future "keep this in the Secure Enclave" or "read from 1Password" would
-/// use, without any of those being built now.
+/// A protocol so stores can be tested: a test binary that calls `SecItemAdd` can hang on a prompt or return `errSecMissingEntitlement`, depending on how it was signed.
 public protocol SSHSecretBackend: Sendable {
     func read(service: String, account: String) -> Data?
     /// Returns whether it was actually written. Callers must not report success on `false`.
@@ -24,20 +14,7 @@ public protocol SSHSecretBackend: Sendable {
     func remove(service: String, account: String) -> Bool
 }
 
-/// The Keychain, following the rules `ClientPinStore` already set for this app.
-///
-/// Three of them, and none is optional:
-///
-/// - **`AfterFirstUnlockThisDeviceOnly`.** Readable at launch after a reboot before the first
-///   unlock, and never restorable onto another device. The second half is what makes a credential
-///   stop being able to travel, which matters more here than for a pin: a password that can appear
-///   on another device is a password that can leak through a backup.
-/// - **Writes report failure.** A silent `true` on a failed write is the exact bug the pin store's
-///   own comment warns about — the user is told their password was saved and then asked for it
-///   again with no idea why.
-/// - **Unreadable is not empty.** Any status other than `errSecItemNotFound` is logged loudly
-///   rather than returned as "no credentials", because those two lead to opposite behaviours: one
-///   asks the user for a password, the other overwrites what is there.
+/// The Keychain, with three rules: `AfterFirstUnlockThisDeviceOnly` (readable at launch after reboot, never restorable onto another device); writes report failure (a silent `true` tells the user a password was saved when it was not); and unreadable is not empty (any status other than `errSecItemNotFound` is logged, because overwriting what is there is the opposite of asking for a password).
 public struct KeychainSecretBackend: SSHSecretBackend {
     public init() {}
 
@@ -74,8 +51,7 @@ public struct KeychainSecretBackend: SSHSecretBackend {
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
         ]
 
-        // Updated in place when it exists, so the accessibility attribute of an entry written by an
-        // older build is rewritten rather than inherited.
+        // Updated in place so an entry written by an older build gets its accessibility attribute rewritten.
         let updated = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
         if updated == errSecSuccess { return true }
         guard updated == errSecItemNotFound else {
@@ -102,15 +78,11 @@ public struct KeychainSecretBackend: SSHSecretBackend {
             kSecAttrAccount as String: account,
         ]
         let status = SecItemDelete(query as CFDictionary)
-        // Not finding it is success: the caller asked for it to be gone and it is.
         return status == errSecSuccess || status == errSecItemNotFound
     }
 }
 
-/// Secrets in a dictionary, for tests and previews.
-///
-/// A class rather than a struct because the stores hold it and expect the same contents back; the
-/// lock is what makes it `Sendable` without an actor in the way of a synchronous protocol.
+/// Secrets in a dictionary for tests and previews. A class because stores expect the same contents back; the lock makes it `Sendable`.
 public final class InMemorySecretBackend: SSHSecretBackend, @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [String: Data] = [:]
@@ -134,7 +106,6 @@ public final class InMemorySecretBackend: SSHSecretBackend, @unchecked Sendable 
         lock.withLock { storage.removeValue(forKey: key(service, account)) != nil }
     }
 
-    /// Everything held, for a test that wants to assert something was *not* written.
     public var isEmpty: Bool {
         lock.withLock { storage.isEmpty }
     }

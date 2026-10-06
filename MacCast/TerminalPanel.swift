@@ -2,26 +2,14 @@ import MacCastKit
 import RemoteCore
 import SwiftUI
 
-/// One step of the Mac terminals cover's own navigation.
-///
-/// Everything the cover holds is a screen of this one stack: the hub, a shell, a chat, and the
-/// folder a chat is started in. Nothing is presented over anything else, so a start or a close
-/// never moves the screen under a thumb, and the way back from any of them is the same back.
 enum TerminalFlowStep: Hashable {
     case terminal(UUID)
     case chat(UUID)
     case folder(TerminalAgent)
-    /// The Mac's folders, browsed with no shell behind them.
     case files
-    /// Where a new shell should open, asked before it is made.
     case terminalFolder
 }
 
-/// The Mac terminals cover: a hub of everything running on the Mac, and the screens it opens.
-///
-/// A full-screen cover rather than a sheet, and the hub is the answer to "what is over there and
-/// how do I start more": the shells this phone holds, the agent chats, the agents installed, and
-/// what has been started before. A tap pushes the thing itself.
 struct TerminalPanel: View {
     @Environment(SessionModel.self) var model
     @Environment(\.dismiss) var dismiss
@@ -48,9 +36,7 @@ struct TerminalPanel: View {
                         AgentChatScreen(sessionID: id)
                     case .folder(let agent):
                         AgentFolderPicker(title: agent.name, agentID: agent.id) { directory in
-                            // The picker stays up while the Mac opens it: the chat arrives as a session
-                            // and is pushed onto it, so the way in is one push. Popping to the hub
-                            // first and pushing from there read as two screens.
+                            // The picker stays up while the Mac opens the chat, so the way in is one push.
                             model.startAgentChat(agentID: agent.id, directory: directory)
                         }
                     case .files:
@@ -58,7 +44,6 @@ struct TerminalPanel: View {
                     case .terminalFolder:
                         AgentFolderPicker(title: String(localized: "New terminal"), agentID: "terminal") { directory in
                             AgentFolderHistory.record(directory: directory, agentID: "terminal", macName: model.hostName)
-                            // Stays up for the same reason as the chat picker above.
                             model.createTerminal(inDirectory: directory)
                         }
                     }
@@ -69,14 +54,11 @@ struct TerminalPanel: View {
             model.refreshTerminals()
             model.refreshAgents()
             model.refreshAgentSessions()
-            // A shell or a chat made while this cover was away has already been opened by whoever
-            // made it, so its arrival is not one to jump at now.
+            // A shell or chat made while the cover was away was already opened by its maker; do not jump to it.
             model.newTerminalID = nil
             model.newAgentSessionID = nil
         }
-        // **The Mac's answer moves the screen, never the tap.** A terminal and a chat have no id
-        // until the Mac says it made one, so the screen that asked cannot push at the tap; it waits
-        // here, takes the arrival, and clears the note so the same one is opened only once.
+        // **The Mac's answer moves the screen, never the tap.** A new terminal or chat has no id until the Mac says so; clear the note so it opens once.
         .onChange(of: model.newTerminalID) { _, id in
             guard let id else { return }
             model.newTerminalID = nil
@@ -95,14 +77,12 @@ struct TerminalPanel: View {
     }
 }
 
-/// What is running on the Mac, and the ways to start more: the hub's own screen.
 private struct TerminalHubScreen: View {
     @Binding var path: [TerminalFlowStep]
     @Environment(SessionModel.self) var model
 
     @State private var history = AgentHistory.load()
-    /// What a close was asked for and not yet confirmed. Both kinds behind one alert: two alerts
-    /// on one screen is one alert that does not present.
+    /// Both kinds behind one alert: two alerts on one screen means one does not present.
     @State private var pendingEnd: PendingEnd?
     @State private var renaming: Renaming?
     @State private var renameText = ""
@@ -170,9 +150,6 @@ private struct TerminalHubScreen: View {
         }
     }
 
-    /// Nothing running, drawn as a card that offers the way out of that rather than as a line of
-    /// grey text: on a Mac with nothing open this card holds the screen's one action, and it is
-    /// the first thing a new user sees.
     private var emptyTerminals: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
@@ -213,9 +190,6 @@ private struct TerminalHubScreen: View {
         }
     }
 
-    /// The one row that makes something rather than opening it. Gated by the plan the way the
-    /// toolbar's plus used to be: the first shell is free on every plan, so the question is only
-    /// "paid, or is this the first one".
     private var newTerminalRow: some View {
         PlanLocked(
             capability: .shellTabs,
@@ -235,13 +209,6 @@ private struct TerminalHubScreen: View {
 
     // MARK: - Files
 
-    /// The Mac's own folders, without opening a shell to reach them.
-    ///
-    /// Its own section rather than a row among the terminals, because it is not one: what the two
-    /// share is a way of looking at the Mac, and the row is here so that looking at files does not
-    /// require having a shell open first — which was the only way in before. A system toolbar was
-    /// tried for these actions and taken back out: an icon in a bottom bar had no word with it, and
-    /// the whole complaint this screen answers is which control opens a terminal.
     @ViewBuilder
     private var filesSection: some View {
         if model.hostSupportsFileBrowser {
@@ -288,8 +255,6 @@ private struct TerminalHubScreen: View {
         .accessibilityIdentifier("terminal-row")
     }
 
-    /// What the shell's dot says, which is only ever about now: a shell that has ended is not a
-    /// state worth a colour, and a shell still coming up has nothing to report yet.
     private func hubState(_ state: TerminalState) -> HubState? {
         switch state {
         case .running: return .live
@@ -299,11 +264,6 @@ private struct TerminalHubScreen: View {
         }
     }
 
-    /// What the row's second line says about the shell, in the app's own colours for the two
-    /// states that want the user: something waiting, and something broken.
-    ///
-    /// A shell that is up says for how long, which is a live reading rather than a fact: the
-    /// timeline re-draws it once a minute, so a hub left open does not go on claiming "just now".
     @ViewBuilder
     private func terminalDetail(_ terminal: RemoteTerminal) -> some View {
         let (text, tint) = terminalState(detail: terminal)
@@ -316,7 +276,6 @@ private struct TerminalHubScreen: View {
         }
     }
 
-    /// " · 12m" for a shell that was opened a while ago, and nothing for one that just was.
     private func runningSuffix(_ terminal: RemoteTerminal) -> String {
         guard let createdAt = terminal.createdAt else { return "" }
         let seconds = Date.now.timeIntervalSince(createdAt)
@@ -433,9 +392,6 @@ private struct TerminalHubScreen: View {
                         agentRow(agent)
                     }
                 }
-                // The one thing the rows cannot say by themselves: two controls, both of which
-                // start something on the Mac, and nothing in the words alone that says where each
-                // one puts you. Said once under them rather than on every row.
                 if !model.availableAgents.isEmpty {
                     Text("Chat is this app's own screen for the agent, where its questions arrive as buttons. Terminal opens the same agent in a shell on your Mac.")
                         .font(.caption)
@@ -492,8 +448,6 @@ private struct TerminalHubScreen: View {
         }
     }
 
-    /// One half of the Chat | Terminal capsule: the capsule is the single control, so a half draws
-    /// no outline of its own.
     private func splitSegment(_ title: LocalizedStringKey, symbol: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
@@ -505,11 +459,6 @@ private struct TerminalHubScreen: View {
         .contentShape(Rectangle())
     }
 
-    /// Starts a CLI agent, and moves to the shell it landed in.
-    ///
-    /// Which shell that is decides how the screen gets there: a new one arrives as a session and
-    /// the cover opens it, while on a plan that runs a single shell the command goes into the one
-    /// in hand, so the push happens here and names it.
     private func start(_ agent: TerminalAgent, restarting entry: AgentLaunch? = nil) {
         if !model.canOpenAnotherShell, let target = model.runningShellTargetID {
             model.launchAgent(agent, restarting: entry)
@@ -553,11 +502,6 @@ private struct TerminalHubScreen: View {
         }
     }
 
-    /// One row of the history, which goes somewhere rather than being a line of text.
-    ///
-    /// The shell the launch opened, when it is still there — that is "continue" for a CLI session,
-    /// and it is what the row is for. A shell that has gone means the agent starts again, which is
-    /// the same thing the Start button on its own row does, so the row is never a dead tap.
     private func historyRow(_ entry: AgentLaunch) -> some View {
         let agent = TerminalAgent.all.first { $0.id == entry.agentID }
         let live = entry.terminalID.flatMap { id in
@@ -596,9 +540,6 @@ private struct TerminalHubScreen: View {
 
     // MARK: - Rows
 
-    /// The same row for a line that draws itself, which is the one row whose second line is a live
-    /// reading rather than a sentence: a shell says how long it has been up, and that changes while
-    /// the screen is open.
     private func hubRowLive<Control: View, Detail: View>(
         symbol: String,
         title: String,
@@ -613,12 +554,6 @@ private struct TerminalHubScreen: View {
         }
     }
 
-    /// One line of the hub: the tile, the name, the sentence under it, and whatever the row's own
-    /// action is. Everything here is drawn this way, so a shell, a chat and an agent read as three
-    /// of one thing rather than three designs.
-    ///
-    /// A filled row with no card around it, which the user chose: the rows carry the app's one
-    /// filled surface and an outline around them was a second edge saying nothing.
     private func hubRow<Control: View>(
         symbol: String,
         title: String,
@@ -675,16 +610,9 @@ private struct TerminalHubScreen: View {
         .contentShape(Rectangle())
     }
 
-    /// The one place colour is spent on this screen, and it is a measurement rather than an
-    /// ornament: what is happening right now, in the dot language the session tabs and the Lock
-    /// Screen card already use. A hub of identical grey rows is a page where nothing can be found
-    /// at a glance — and these disappear entirely when everything is quiet.
     enum HubState {
-        /// Something is running.
         case live
-        /// Something is waiting on the user.
         case pending
-        /// Something ended badly.
         case failed
     }
 
@@ -693,8 +621,6 @@ private struct TerminalHubScreen: View {
         if let state {
             Circle()
                 .fill(tint(for: state))
-                // Ringed in the page's own colour, which is what makes the dot read as sitting on
-                // the tile's corner rather than as part of its glyph.
                 .overlay(Circle().strokeBorder(ColorPalette.backdrop, lineWidth: 2))
                 .frame(width: 11, height: 11)
                 .offset(x: 2, y: 2)

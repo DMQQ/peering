@@ -1,11 +1,7 @@
 import SSHCore
 import SwiftUI
 
-/// The commands a user keeps one tap away in a shell.
-///
-/// A separate kind of thing from the app's macros, and the separation is not tidiness — a `Macro`
-/// is a macOS virtual keycode, which means "the L key" on a Mac and nothing at all to a Linux box.
-/// These are text, because what a shell takes is text.
+/// Text, not `Macro`: a Macro is a macOS virtual keycode and means nothing to a Linux box.
 struct SSHQuickCommandsEditor: View {
     let commands: QuickCommands
 
@@ -116,7 +112,6 @@ struct SSHQuickCommandsEditor: View {
     }
 }
 
-/// Adding or changing one command.
 struct SSHQuickCommandSheet: View {
     let existing: SSHQuickCommand?
     let onSave: (SSHQuickCommand) -> Void
@@ -155,9 +150,7 @@ struct SSHQuickCommandSheet: View {
                         Controls.divider
                         HStack(spacing: 11) {
                             Controls.icon("terminal")
-                            // Monospaced and autocorrect off, because a command is not prose —
-                            // iOS capitalising the first word of `docker ps` produces a command
-                            // that does not exist, and the failure comes back as "not found".
+                            // Autocorrect off: iOS capitalising `docker ps` yields a command that does not exist.
                             TextField("docker ps", text: $command)
                                 .font(.system(.subheadline, design: .monospaced))
                                 .textInputAutocapitalization(.never)

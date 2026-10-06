@@ -1,10 +1,4 @@
-// `@preconcurrency`, and it is load-bearing rather than decorative.
-//
-// ActivityKit's `Activity` is a class Apple does not mark `Sendable`, while its `update` and `end`
-// are `@concurrent`. That combination means every call below sends a non-Sendable reference off
-// the main actor, and Swift 6 rejects all five of them without this. The framework cannot be
-// corrected from here; this is the escape hatch for a dependency that has not been annotated yet,
-// and it keeps the calls compiling without claiming anything about `Activity` that is not true.
+// `@preconcurrency` is load-bearing: ActivityKit's `Activity` is not `Sendable` while `update` and `end` are `@concurrent`, so Swift 6 rejects every call without it.
 @preconcurrency import ActivityKit
 import Foundation
 import MacCastKit
@@ -13,19 +7,13 @@ import os
 
 private let activityLog = Logger(subsystem: "pl.dmq.peering", category: "activity")
 
-/// Starts, updates and ends the Live Activity that mirrors the session.
-///
-/// A singleton for the same reason ``SessionNotifier`` is one: a Live Activity belongs to the
-/// app rather than to an object. A second instance would hold a second handle to the same
-/// activity and the two would take turns overwriting each other.
+/// A singleton like ``SessionNotifier``: a second instance would hold a second handle to the same activity and they would overwrite each other.
 @MainActor
 final class SessionActivity {
     static let shared = SessionActivity()
 
     private var activity: Activity<SessionActivityAttributes>?
 
-    /// The state the card holds, so a change to one part of it — the list of what is running —
-    /// does not have to rebuild the rest from callers that do not know it.
     private var current: SessionActivityAttributes.ContentState?
 
     private var isEnabled: Bool {
@@ -34,7 +22,6 @@ final class SessionActivity {
 
     private init() {}
 
-    /// The one entry point, called beside the notifier on every phase change.
     func sessionMoved(
         from previous: ClientSession.Phase,
         to phase: ClientSession.Phase,
@@ -51,8 +38,7 @@ final class SessionActivity {
         }
         guard previous != phase else { return }
 
-        // A dropped session is put back on its own, and the card should say so rather than
-        // disappear for the forty seconds the retries take — see ``showReconnecting(hostName:)``.
+        // A dropped session is put back on its own; the card says so rather than disappearing for the forty seconds the retries take.
         if reconnecting, !phase.holdsSession {
             show(.reconnecting, hostName: hostName, startedAt: startedAt, path: path)
             return
@@ -60,8 +46,7 @@ final class SessionActivity {
 
         switch phase {
         case .connecting, .handshaking, .confirming, .ready:
-            // Only ever started from the foreground: every route into these phases starts with a
-            // tap, and `Activity.request` is dropped silently from the background.
+            // Only from the foreground: `Activity.request` is dropped silently from the background.
             apply(carryingWork(SessionActivityAttributes.ContentState(
                 phase: phase == .ready ? .active : .pending,
                 startedAt: startedAt,
@@ -71,13 +56,7 @@ final class SessionActivity {
             )))
 
         case .idle, .failed, .disconnected:
-            // Only a deliberate end takes the card down. The user closed the session; a card
-            // offering to put back what they just shut is arguing with them.
-            //
-            // Everything else used to remove it too, and that was wrong in both directions: a
-            // card that vanishes says nothing about what happened, and the moment the card is
-            // most useful — the connection has gone, would you like it back — is the moment it
-            // was being taken away.
+            // Only a deliberate end takes the card down: a card offering to put back what the user just shut is arguing with them, and a dropped session is when the card is most useful.
             if deliberate {
                 end()
             } else {
@@ -86,24 +65,12 @@ final class SessionActivity {
         }
     }
 
-    /// Ends the card outright.
-    ///
-    /// Reached separately from ``sessionMoved(from:to:hostName:startedAt:reconnecting:)``
-    /// because a deliberate disconnect does not travel through it. `SessionModel.disconnect`
-    /// sets the phase itself — it has to, so the screen leaves the session the instant it is
-    /// tapped — and the announcement `ClientSession` then makes carries the phase the model has
-    /// *already* moved to. `sessionMoved` treats a phase that has not changed as nothing to do,
-    /// which is right in general and was wrong here: the card the user had just dismissed by
-    /// quitting was left running on the Lock Screen, claiming a session that was over.
+    /// A deliberate disconnect does not travel through `sessionMoved`: `SessionModel.disconnect` sets the phase itself, so the announcement carries an unchanged phase, which `sessionMoved` ignores. Without this the card stayed on the Lock Screen after a quit.
     func sessionEnded() {
         end()
     }
 
-    /// Puts a card up saying the session dropped and is being put back.
-    ///
-    /// `startedAt` is carried through so the clock does not restart: the session being recovered
-    /// is the same one, and a duration that began again at the drop would be describing a
-    /// reconnect as a new connection.
+    /// `startedAt` is carried through so the clock does not restart on a reconnect.
     func showReconnecting(
         hostName: String,
         startedAt: Date?,
@@ -114,11 +81,7 @@ final class SessionActivity {
         show(.reconnecting, hostName: hostName, startedAt: startedAt, path: path, sessionCount: sessionCount)
     }
 
-    /// The session was lost rather than ended, and the card stays up to say so.
-    ///
-    /// Its own entry point because the caller is not a phase change: `SessionModel.disconnect`
-    /// is how both a tapped quit and an end forced by iOS arrive, and only the first of those
-    /// should take the card down.
+    /// Its own entry point: `SessionModel.disconnect` serves both a tapped quit and an end forced by iOS, and only the first takes the card down.
     func sessionDropped(
         hostName: String,
         startedAt: Date?,
@@ -129,23 +92,12 @@ final class SessionActivity {
         show(.dropped, hostName: hostName, startedAt: startedAt, path: path, sessionCount: sessionCount)
     }
 
-    /// Applies the Settings switch immediately. Enabling takes effect on the next connection;
-    /// disabling also removes a card that is already on the Lock Screen.
     func preferenceChanged(enabled: Bool) {
         if !enabled { end() }
     }
 
-    /// Re-points the card at the Mac that is now on screen.
-    ///
-    /// **Not a phase change, which is why it cannot go through ``sessionMoved(from:to:hostName:startedAt:reconnecting:deliberate:path:sessionCount:)``.**
-    /// That method treats a phase it has already seen as nothing to do, and a tab switch changes
-    /// everything about the card *except* the phase: the name, the clock and the path all belong
-    /// to the Mac being moved to, and the state the user was in has not moved at all.
-    ///
-    /// The clock is restarted from the new Mac's own `sessionStartedAt`, which is what makes the
-    /// card honest across a switch: the Mac being arrived at has been connected for as long as it
-    /// has been connected, and a duration carried over from the Mac being left would be timing
-    /// somebody else's session.
+    /// Not a phase change, so it cannot go through `sessionMoved`: that ignores a seen phase, and a tab switch changes everything but the phase.
+    /// The clock restarts from the new Mac's own `sessionStartedAt`, not carried over from the Mac left.
     func followActiveSession(
         hostName: String,
         startedAt: Date?,
@@ -167,10 +119,7 @@ final class SessionActivity {
         Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
     }
 
-    /// **What is running, as the Lock Screen lists it.** The one part of the card that is not
-    /// about the connection: shells and chats come and go without the session moving at all, and
-    /// this is how those arrive. Ignored when nothing changed, so a chatty terminal does not
-    /// re-render a Lock Screen card per keystroke.
+    /// Shells and chats come and go without the session moving. Ignored when nothing changed, so a chatty terminal does not re-render the card per keystroke.
     func workChanged(_ work: [SessionActivityAttributes.ContentState.Work]) {
         guard isEnabled, var state = current, state.work != work else { return }
         state.work = work
@@ -179,13 +128,7 @@ final class SessionActivity {
         Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
     }
 
-    /// A session's phase, said in the card's three words.
-    ///
-    /// Written out here rather than inlined at the two places that need it, because the mapping
-    /// is not obvious from either side: a session that has not finished connecting is `pending`,
-    /// and a Mac that is being put back is `reconnecting` rather than whatever its phase says,
-    /// since the phase during a retry is `.failed` and the card's whole job at that moment is to
-    /// say it is coming back rather than that it went.
+    /// A session still connecting is `pending`; a Mac being put back is `reconnecting` because its phase during a retry is `.failed`.
     static func cardPhase(
         of phase: ClientSession.Phase,
         reconnecting: Bool
@@ -198,11 +141,6 @@ final class SessionActivity {
         }
     }
 
-    /// Shows a state that is about the session rather than being it.
-    ///
-    /// The two — dropped and reconnecting — differ only in which phase they set, and both are
-    /// reached at moments when the card must *stay up*, which is the whole reason they are not
-    /// a switch over `ClientSession.Phase`.
     private func show(
         _ phase: SessionActivityAttributes.Phase,
         hostName: String,
@@ -219,11 +157,7 @@ final class SessionActivity {
         )))
     }
 
-    /// The same state with the work list kept.
-    ///
-    /// Every other part of the card is about the connection and is rebuilt whenever that changes;
-    /// the list is about the Mac, lives in its own field, and would be quietly emptied by every
-    /// phase change if each construction site had to remember it.
+    /// The work list lives in its own field and would be emptied by every phase change if each site had to remember it.
     private func carryingWork(
         _ state: SessionActivityAttributes.ContentState
     ) -> SessionActivityAttributes.ContentState {
@@ -232,37 +166,23 @@ final class SessionActivity {
         return state
     }
 
-    /// Called when the app enters the background with an active session.
-    ///
-    /// Stamps a stale date on the running card so that if the process is killed before the
-    /// background-task window expires — a force-quit from the app switcher, for instance —
-    /// the Lock Screen card grays out automatically rather than sitting there indefinitely
-    /// claiming an active connection that has been gone since the user swiped away.
+    /// Stamps a stale date so a force-quit before the background window expires greys the card out instead of claiming a dead connection.
     func enteringBackground() {
         guard let activity, activity.activityState == .active else { return }
         let state = activity.content.state
         Task { await activity.update(ActivityContent(state: state, staleDate: Date().addingTimeInterval(30))) }
     }
 
-    /// Called when the app returns to the foreground. Lifts the stale-date imposed by
-    /// ``enteringBackground()`` so the card looks live again while the session continues.
     func returningToForeground() {
         guard let activity, activity.activityState == .active else { return }
         let state = activity.content.state
         Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
     }
 
-    /// Takes down an activity left behind by a previous run of the app.
-    ///
-    /// Without this, an activity started before the process was killed keeps a running clock on
-    /// the Lock Screen for a session that ended hours ago, and this launch would have no idea it
-    /// was there to remove — the handle is nil after a relaunch, which is the only way back to it.
+    /// The handle is nil after a relaunch, so an activity from a killed run would keep its clock on the Lock Screen.
     func adoptOrphan() {
         guard activity == nil else { return }
-        // **All of them, not the first.** One card at a time is the design, so more than one
-        // means something went wrong in an earlier run; removing only the first would leave the
-        // rest to sit on the Lock Screen for the system's own eight hours, describing a session
-        // from a process that has been gone since before this one started.
+        // All of them, not the first: more than one means an earlier run went wrong, and the rest would sit there for the system's eight hours.
         let orphans = Activity<SessionActivityAttributes>.activities
         for orphan in orphans {
             Task { await orphan.end(nil, dismissalPolicy: .immediate) }
@@ -271,11 +191,6 @@ final class SessionActivity {
         activityLog.info("ended \(orphans.count) Live Activit\(orphans.count == 1 ? "y" : "ies") left by a previous launch")
     }
 
-    /// Puts a state on the card, starting one if there is none.
-    ///
-    /// The two halves were written out at each of the four call sites; they are one function
-    /// because the interesting case is the missing one, and four copies of "start it if it is
-    /// not there" is four chances to forget the stale date.
     private func apply(_ state: SessionActivityAttributes.ContentState) {
         current = state
         guard let activity else {
@@ -290,12 +205,10 @@ final class SessionActivity {
         current = state
         do {
             activity = try Activity.request(
-                // No attributes: everything that varies is in the state, so that a card can be
-                // re-pointed at another Mac rather than replaced. See ``ContentState/hostName``.
+                // No attributes: everything varies in the state, so a card can be re-pointed at another Mac.
                 attributes: SessionActivityAttributes(),
                 content: ActivityContent(state: state, staleDate: staleDate(for: state)),
-                // Local only. Every update here is produced in-process on a phase change, so a
-                // push token would be a standing promise to a server that does not exist.
+                // Local only: a push token would be a promise to a server that does not exist.
                 pushType: nil
             )
         } catch {
@@ -310,19 +223,12 @@ final class SessionActivity {
         Task { await activity.end(nil, dismissalPolicy: .immediate) }
     }
 
-    /// When the system should re-render this without being told to.
-    ///
-    /// A live session passes `nil`: marking a genuinely running session stale puts the dimmed
-    /// "not updating" treatment on the one state that is certainly still true. A pending one
-    /// gets a deadline instead, so a connect that hangs stops looking like progress.
+    /// A live session passes `nil`: marking it stale dims the one state certainly still true. A pending one gets a deadline so a hung connect stops looking like progress.
     private func staleDate(for state: SessionActivityAttributes.ContentState) -> Date? {
-        // Both of these are waiting on something that could hang, and neither should be able to
-        // sit there looking like progress forever.
         switch state.phase {
         case .pending, .reconnecting: return Date().addingTimeInterval(45)
         case .active: return nil
-        // No deadline: a dropped session does not become less true by waiting, and the card is
-        // the only route back to it. The system retires it on its own after a few hours.
+        // No deadline: a dropped session does not become less true by waiting, and the card is the only route back.
         case .dropped: return nil
         }
     }

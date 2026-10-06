@@ -1,16 +1,10 @@
 import Foundation
 
 /// An assistant's text, split into the blocks a chat draws differently.
-///
-/// Not a markdown parser: the paragraphs keep their inline markdown for the text view to render,
-/// and what this decides is only where one kind of block ends and the next begins. Fenced code
-/// and bullet lists are the two that cannot be drawn as a sentence; everything else is prose.
 public enum AgentMarkdown {
     public enum Block: Equatable {
         case paragraph(String)
         case heading(level: Int, text: String)
-        /// A fenced block's contents, fence markers removed. The language, when named, is dropped:
-        /// nothing here colours syntax.
         case code(String)
         case bullets([String])
     }
@@ -71,8 +65,6 @@ public enum AgentMarkdown {
             paragraph.append(line)
         }
 
-        // An unclosed fence is the stream caught mid-block, not a fault: what arrived is code
-        // until the closing line does or the turn ends.
         if inCode {
             blocks.append(.code(code.joined(separator: "\n")))
         }
@@ -80,8 +72,6 @@ public enum AgentMarkdown {
         return blocks
     }
 
-    /// `#` through `######`, with the space an ATX heading requires. Without the space the line
-    /// is a paragraph starting with hashes, which is what a shell transcript looks like.
     private static func heading(in trimmed: String) -> Block? {
         var level = 0
         var rest = Substring(trimmed)

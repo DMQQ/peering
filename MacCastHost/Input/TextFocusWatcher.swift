@@ -6,15 +6,10 @@ import os
 private let focusLog = Logger(subsystem: "pl.dmq.peering.host", category: "focus")
 
 /// Reports each move of the Mac's keyboard focus, and whether it landed somewhere that takes typing.
-///
-/// Polled rather than observed: an `AXObserver` is per application and would have to be moved every
-/// time the frontmost one changes, while one question to the system-wide element covers every app.
-/// Runs only while a phone is connected.
 nonisolated final class TextFocusWatcher: @unchecked Sendable {
     private var onChange: (@Sendable (TextFocus) -> Void)?
     private var onField: (@Sendable (FieldState) -> Void)?
     private var transform: (@Sendable () -> InputTransform?)?
-    /// The last state sent, so a tick that finds nothing new sends nothing.
     private var lastField: FieldState?
     /// Past this a field is a document, and sending it whole every time it changes is the wrong trade.
     private static let longestReadableText = 8000
@@ -25,7 +20,6 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
     /// Set on start, so where focus already is when a phone connects is recorded rather than sent:
     /// only a move the user makes should open the phone's keyboard.
     private var needsBaseline = true
-    /// Applications already asked to expose their accessibility tree. See ``exposeTree(of:)``.
     private var exposed: Set<pid_t> = []
 
     init() {
@@ -53,8 +47,6 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
         }
     }
 
-    /// Tells the client whether a click landed in something editable, even when focus did not move:
-    /// a tap back into the focused field, or a click on empty space that leaves the field focused.
     func clicked(at location: CGPoint) {
         queue.asyncAfter(deadline: .now() + .milliseconds(150)) { [self] in
             guard timer != nil, AXIsProcessTrusted() else { return }
@@ -122,7 +114,6 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
         if editable { pollField(element) }
     }
 
-    /// Reads the focused field's text, selection and caret, and sends them if any of the three moved.
     private func pollField(_ element: AXUIElement) {
         guard onField != nil, Self.isEditable(element) else { return }
         AXUIElementSetMessagingTimeout(element, 0.25)
@@ -162,10 +153,6 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
     }
 
     /// The middle of the insertion point's line, in the picture's normalized space.
-    ///
-    /// Asked of the caret's own range first, then of the character before it, because an empty range at
-    /// the end of a line has no bounds in many applications. The whole element is the last resort, and a
-    /// coarse one: for a tall text area it is the middle of the area rather than the line being typed.
     private func caretPoint(of element: AXUIElement, selection: CFRange) -> NormalizedPoint? {
         guard let transform = transform?() else { return nil }
         var candidates = [selection]
@@ -214,8 +201,6 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
            [kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole].contains(role) {
             return true
         }
-        // Editable web content (a `contenteditable` element, a rich editor) keeps its own role and
-        // names the editable element it sits inside.
         var ancestor: CFTypeRef?
         return AXUIElementCopyAttributeValue(element, "AXEditableAncestor" as CFString, &ancestor) == .success
             && ancestor != nil

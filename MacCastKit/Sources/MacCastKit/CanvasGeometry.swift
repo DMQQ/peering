@@ -2,12 +2,7 @@ import CoreGraphics
 import RemoteCore
 
 /// Where the video is actually drawn inside the canvas.
-///
-/// The layer letterboxes with `videoGravity = .resizeAspect`, so the picture occupies a
-/// centred rect whose aspect matches the captured pixels. Every touch has to be mapped through
-/// that rect, or the pointer lands proportionally wrong when the two aspects differ.
 public enum CanvasGeometry {
-    /// The layer's letterboxed rect for a captured size, inside `bounds`.
     public static func videoRect(bounds: CGSize, pixelSize: CGSize?) -> CGRect {
         guard let pixelSize, pixelSize.width > 0, pixelSize.height > 0,
               bounds.width > 0, bounds.height > 0
@@ -25,18 +20,11 @@ public enum CanvasGeometry {
     }
 
     /// Whether a touch belongs to the window's own chrome rather than to the Mac.
-    ///
-    /// The chrome is drawn over the gesture surface by SwiftUI, which does not stop a touch on a
-    /// button from also reaching the Mac, and there is nothing in the geometry to tell the two
-    /// apart.
     public static func isBlocked(_ point: CGPoint, regions: [CGRect]) -> Bool {
         regions.contains { $0.contains(point) }
     }
 
     /// Turns a touch into a normalized position, undoing the canvas's zoom and pan first.
-    ///
-    /// Normalized, never pixels: the host maps the result through its own transform, the only
-    /// side that knows where the captured content sits in the Mac's global coordinate space.
     public static func normalized(
         point: CGPoint,
         bounds: CGSize,
@@ -56,16 +44,10 @@ public enum CanvasGeometry {
 
         let x = (content.x - rect.minX) / rect.width
         let y = (content.y - rect.minY) / rect.height
-        // Clamped rather than rejected: a finger that slides off the edge of a letterboxed
-        // picture has still expressed "as far as possible in that direction", and dropping the
-        // sample would stall the cursor at the boundary while the finger keeps moving.
         return NormalizedPoint(x: Double(min(max(x, 0), 1)), y: Double(min(max(y, 0), 1)))
     }
 
     /// The same mapping as ``point(normalized:bounds:pixelSize:zoom:pan:)``, for a rectangle.
-    ///
-    /// Two corners through that function rather than the arithmetic written out a second time, so
-    /// the drawn tile borders and the drawn remote cursor cannot come apart.
     public static func rect(
         normalized: NormalizedRect,
         bounds: CGSize,
@@ -90,8 +72,6 @@ public enum CanvasGeometry {
         )
     }
 
-    /// Places a normalized remote pointer back into the exact canvas coordinate space used by
-    /// ``normalized(point:bounds:pixelSize:zoom:pan:)``.
     public static func point(
         normalized: NormalizedPoint,
         bounds: CGSize,
@@ -114,22 +94,6 @@ public enum CanvasGeometry {
         )
     }
 
-    /// The zoom and the pan that move one rectangle of the picture onto another.
-    ///
-    /// The mapping above, run backwards: `rect` is somewhere on screen, and the answer is what
-    /// `zoom` and `pan` would have to become for that rectangle to land on `target`.
-    ///
-    /// A target rectangle rather than the screen: tapping a window in a mosaic should end with that
-    /// window exactly where it will be when it is the whole picture, so the moment the real stream
-    /// arrives nothing moves. Handing it `bounds` fills the screen instead.
-    ///
-    /// The larger of the two ratios, so rectangles differing by a rounding still cover the target.
-    ///
-    /// The result is a drawn scale, in the same terms `zoom` is used in by that function: a caller
-    /// whose picture is drawn at another scale, as the app's Fill setting does, has to convert.
-    ///
-    /// `nil` when there is nothing to work with: no rectangle, no screen, no target, or a zoom of
-    /// zero, which has no inverse.
     public static func transform(
         of rect: CGRect,
         mappingTo target: CGRect,
@@ -144,8 +108,6 @@ public enum CanvasGeometry {
         else { return nil }
 
         let centre = CGPoint(x: bounds.width / 2, y: bounds.height / 2)
-        // The rectangle in the picture's own coordinates: ``point(normalized:bounds:pixelSize:zoom:pan:)``
-        // solved for its input.
         let content = CGRect(
             x: (rect.minX - centre.x - pan.width) / zoom + centre.x,
             y: (rect.minY - centre.y - pan.height) / zoom + centre.y,

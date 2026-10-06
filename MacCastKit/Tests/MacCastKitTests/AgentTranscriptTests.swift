@@ -41,12 +41,9 @@ final class AgentTranscriptTests: XCTestCase {
         // The authoritative block, even with a delta lost: replacement, not appending.
         transcript.apply(event(6, .textFinal(text: "Running the tests now.")))
         XCTAssertEqual(reply(transcript), "Running the tests now.")
-        // Only one reply: the final is the same block, not a second one.
         XCTAssertEqual(transcript.items.filter { if case .reply = $0 { return true }; return false }.count, 1)
     }
 
-    /// A tool between two text blocks: the reply before it is closed, and the next delta opens a
-    /// new one rather than appending across the card.
     func testTextAroundAToolIsTwoReplies() {
         var transcript = AgentTranscript()
         transcript.apply(event(1, .textFinal(text: "Let me check.")))
@@ -71,8 +68,6 @@ final class AgentTranscriptTests: XCTestCase {
         XCTAssertEqual(transcript.lastIndex, 7)
     }
 
-    /// What reattaching looks like: the Mac replays what it holds, a live event may already have
-    /// arrived, and the result must be the same conversation either way.
     func testRebuildFromReplayWithALiveEventAlreadyApplied() {
         let live = [event(4, .textDelta(text: "live"))]
 
@@ -116,8 +111,6 @@ final class AgentTranscriptTests: XCTestCase {
         XCTAssertEqual(tool(transcript)?.output, "24 tests passed")
     }
 
-    /// A finished call with no card (the start of the conversation was trimmed away) is not a
-    /// reason to draw an empty one.
     func testOrphanToolResultIsIgnored() {
         var transcript = AgentTranscript()
         transcript.apply(event(1, .toolFinished(callID: "gone", ok: true, output: "x", truncated: false)))
@@ -141,14 +134,12 @@ final class AgentTranscriptTests: XCTestCase {
         XCTAssertEqual(transcript.state, .working)
     }
 
-    /// A CLI that asks without having shown the call first still gets a card to draw.
     func testApprovalWithoutACardMakesOne() {
         var transcript = AgentTranscript()
         transcript.apply(event(1, .approvalRequested(approvalID: "req_2", call: call(id: "t9"), reason: nil)))
         XCTAssertEqual(tool(transcript)?.state, .awaitingApproval(id: "req_2"))
     }
 
-    /// A turn cannot end still holding an ask, and a summary row is what it leaves behind.
     func testTurnEndClearsPendingApprovalsAndAddsSummary() {
         var transcript = AgentTranscript()
         transcript.apply(event(1, .approvalRequested(approvalID: "req_3", call: call(), reason: nil)))
@@ -173,12 +164,10 @@ final class AgentTranscriptTests: XCTestCase {
 
     // MARK: - Trimming
 
-    /// The transcript holds a bounded amount, cuts only at turn boundaries, and says that it cut.
     func testTrimmingKeepsWholeTurns() {
         var transcript = AgentTranscript()
         let chunk = String(repeating: "x", count: 64 * 1024)
         var index: UInt64 = 0
-        // Eight turns of 64 KB: over the 512 KB budget.
         for turn in 1...8 {
             index += 1
             transcript.apply(event(index, .userPrompt(text: "turn \(turn)")))
@@ -197,7 +186,6 @@ final class AgentTranscriptTests: XCTestCase {
         }
         XCTAssertTrue(firstKept.hasPrefix("turn "), firstKept)
         XCTAssertFalse(firstKept.hasPrefix("turn 1"), "the oldest whole turn should be the one dropped")
-        // The newest turn is untouched, whatever was dropped from the front.
         XCTAssertEqual(reply(transcript), chunk)
     }
 }

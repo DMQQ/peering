@@ -1,17 +1,10 @@
 import XCTest
 @testable import MacCastKit
 
-/// The rule for asking a Mac to photograph its running applications.
-///
-/// The same shape as ``MosaicSupportTests`` and for the same reason — a request an older Mac
-/// cannot decode ends the session rather than degrading it — but the moment it lands on is
-/// easier to reach than the mosaic's: this one is sent when somebody opens the Apps panel, which
-/// is an ordinary thing to do.
+/// Same rule as ``MosaicSupportTests``: an undecodable request ends the session.
 final class SourceThumbnailSupportTests: XCTestCase {
     func testAMacThatHasNotHeardTheQuestionIsNotAsked() {
-        // `nil` is a Mac built before the field existed. Reading it as "not false, so probably
-        // fine" would send a command that Mac cannot decode, and the session would end for
-        // asking to see a thumbnail.
+        // nil is an older Mac; reading it as "not false" sends a command it cannot decode.
         XCTAssertFalse(SourceThumbnailSupport.maySend(hostDeclared: nil))
     }
 

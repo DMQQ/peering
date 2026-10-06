@@ -3,13 +3,7 @@ import Testing
 
 @testable import RemoteCore
 
-/// What a PTY's byte stream becomes on screen.
-///
-/// These exist because the answer was wrong in a way that read as a rendering fault rather than
-/// as a parsing one: every line of a shell's output ran into the next, so a terminal looked like
-/// a single unbroken string of text. The cause was a Swift subtlety worth a test of its own —
-/// `"\r\n"` is a *single* `Character` — so the loop matched neither `\r` nor `\n` and dropped the
-/// pair as control characters.
+/// `"\r\n"` is a single `Character` in Swift, so a loop matching `\r` and `\n` drops the pair as control characters.
 @Suite("Terminal text")
 struct TerminalTextSanitizerTests {
     private func render(_ text: String) -> String {
@@ -18,8 +12,6 @@ struct TerminalTextSanitizerTests {
 
     @Test("a CRLF line ending ends the line")
     func carriageReturnLineFeed() {
-        // The regression. A default PTY maps newline to CRLF on output, so this is the shape of
-        // all of it — not an edge case.
         #expect(render("hello\r\nworld\r\n") == "hello\nworld\n")
     }
 
@@ -35,7 +27,6 @@ struct TerminalTextSanitizerTests {
 
     @Test("a progress bar keeps its last value and nothing behind it")
     func progressRedraw() {
-        // The case the carriage-return handling exists for: each frame writes over the last.
         #expect(render("10%\r20%\r100%\r\ndone\r\n") == "100%\ndone\n")
     }
 
@@ -46,8 +37,7 @@ struct TerminalTextSanitizerTests {
 
     @Test("colour codes are removed rather than printed")
     func ansiColours() {
-        // The pattern used to spell the escape as `\u{001B}` inside the regex, which the engine
-        // reads as six literal characters — so nothing matched and the codes arrived as text.
+        // The escape was once spelled `\u{001B}` inside the regex, which the engine reads as six literal characters.
         #expect(render("\u{001B}[32mgreen\u{001B}[0m\r\n") == "green\n")
     }
 
@@ -70,8 +60,7 @@ struct TerminalTextSanitizerTests {
 
     @Test("a file that merely has error in its name is not coloured")
     func errorInAFilename() {
-        // The reason the signals are phrases rather than words: a listing is full of names like
-        // this one, and a rule that matched "error" would colour half of a directory listing.
+        // The signals are phrases rather than words: a listing holds names like this and would be coloured on "error".
         let lines = TerminalTextSanitizer.renderLines(Data("error.log  notes.txt\r\n".utf8))
         #expect(lines.first?.kind == .plain)
     }
@@ -79,15 +68,12 @@ struct TerminalTextSanitizerTests {
     @Test("only the shell's own refusal counts as an unknown command")
     func unknownCommandDetection() {
         #expect(TerminalTextSanitizer.reportsUnknownCommand(Data("zsh: command not found: foo\r\n".utf8)))
-        // A command that ran and failed is a command, and is kept.
         #expect(!TerminalTextSanitizer.reportsUnknownCommand(Data("make: *** [all] Error 2\r\n".utf8)))
         #expect(!TerminalTextSanitizer.reportsUnknownCommand(Data("everything is fine\r\n".utf8)))
     }
 
     @Test("output that spans several reads still renders")
     func splitReads() {
-        // The history is re-rendered from the whole buffer on every read, so a line split across
-        // two reads is the normal case rather than a special one.
         #expect(render("first half") == "first half")
         #expect(render("first half second half\r\n") == "first half second half\n")
     }

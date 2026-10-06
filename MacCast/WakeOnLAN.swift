@@ -1,18 +1,8 @@
 import Foundation
 import Network
 
-/// Sends an IEEE 802 Wake-on-LAN magic packet to a single hardware MAC address.
-///
-/// The packet is a 6-byte broadcast header (0xFF×6) followed by the target MAC repeated
-/// 16 times — 102 bytes total. Sent as a UDP broadcast on port 9 (the discard port, which
-/// is what routers expect) and also port 7 as a fallback.
+/// Sends a Wake-on-LAN magic packet (0xFF x6, then the MAC x16) as a UDP broadcast on port 9, and port 7 as a fallback.
 enum WakeOnLAN {
-    /// Parses a colon-separated MAC address string and sends the magic packet.
-    ///
-    /// Answers whether a packet went out. It used to answer nothing, which left the caller with
-    /// no way to tell a malformed address from a Mac that simply did not wake, and the caller
-    /// was the one place a person could be told either. Nothing acknowledges a magic packet, so
-    /// this is the only fact available: it was sent, or it was not.
     @discardableResult
     static func send(to macString: String) -> Bool {
         let fields = macString.split(separator: ":", omittingEmptySubsequences: false)

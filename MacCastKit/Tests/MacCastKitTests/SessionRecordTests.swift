@@ -6,45 +6,25 @@
 import XCTest
 @testable import MacCastKit
 
-/// What a session leaves behind, and what the allowance makes of it.
-///
-/// **The two rules Stage 1 moved here, and the reason they moved rather than being tested through
-/// the app.** Both are arithmetic over a session's own facts — which path it took, how long it was
-/// up — and both were previously written where nothing could run them: the app target cannot run
-/// its test action at all under this toolchain, so a rule that stays in `SessionModel` is a rule
-/// nobody checks. See `AGENTS.md`.
-///
-/// The second of the two is the one with a real defect behind it. The allowance used to add the
-/// single session the app considered live, which was correct only for as long as there could be
-/// exactly one. Two Macs on the relay and the meter under-reports by the Mac nobody was looking
-/// at, and the user is cut off before the bar says they should be.
-///
-/// **And the third rule here, added with the record's connected time.** A session the app puts
-/// back after a drop is one row rather than two, which is a decision about the history and a sum
-/// about the allowance at once: the record a drop filed is continued, so the same Mac cannot be
-/// counted twice, and only its connected seconds are ever spent. See ``SessionContinuation``.
+/// Session filing and allowance rules, moved out of SessionModel because the app target cannot run its tests (see AGENTS.md).
+/// The allowance sums every live relay session, and a session put back after a drop is one row (see ``SessionContinuation``).
 final class SessionRecordTests: XCTestCase {
 
     // MARK: - Filing a session under the path it took
 
-    /// Each path files under its own spelling, in the record's own words.
     func testEachPathFilesUnderItsOwnRecordSpelling() {
         XCTAssertEqual(ConnectionPath.lan.recordPath, .lan)
         XCTAssertEqual(ConnectionPath.relay.recordPath, .relay)
         XCTAssertEqual(ConnectionPath.direct.recordPath, .direct)
     }
 
-    /// **A session with no path is not a relayed one.** Filing it as relayed would spend the
-    /// user's allowance on a connection the relay never spliced.
+    /// A session with no path is not a relayed one; filing it so would spend allowance on a splice that never happened.
     func testASessionWithNoPathIsFiledAsLocal() {
         XCTAssertEqual(ConnectionPath.recordPath(of: nil), .lan)
     }
 
-    /// The mapping is total over the cases, so a case added later cannot fall through silently.
     func testEveryCaseHasARecordSpelling() {
         for path in ConnectionPath.allCases {
-            // The same three cases, and the record spells each of them differently from the
-            // panel: "Relay" beside a date, "RELAY" on a diagnostics line.
             XCTAssertEqual(path.recordPath.rawValue.lowercased(), path.rawValue.lowercased())
         }
     }
@@ -64,9 +44,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(used, 900)
     }
 
-    /// **The defect this rule exists for.** Both live sessions are on the relay, so both are
-    /// being charged for, and a meter that counted one of them would say 600 where the answer
-    /// is 900.
+    /// Both live sessions are on the relay, so both are charged: counting one would say 600 where the answer is 900.
     func testRelayTimeSumsEveryLiveSessionAndNotJustOne() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let used = RelayAllowance.secondsUsed(
@@ -80,16 +58,11 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(used, 900)
     }
 
-    /// **The gap is not charged for.** A session the app put back is one record covering the
-    /// minutes the phone spent backgrounded, the ladder spent retrying and the Mac spent
-    /// unreachable, and the relay splices none of them. The meter is the allowance, so a record
-    /// summed by its span would cut a free user off early, on the screen they go to in order to
-    /// find out why.
+    /// The gap is not charged: the relay splices none of the time spent backgrounded or retrying.
     func testRelayTimeCountsConnectedSecondsAndNotTheGap() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let used = RelayAllowance.secondsUsed(
             records: [
-                // Two hours of span, ten minutes of which the session was up.
                 record(
                     path: .relay,
                     startedAt: start,
@@ -103,9 +76,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(used, 600)
     }
 
-    /// The same sum over a live session, where the stretch is this segment's: the half of a
-    /// continued session that has already happened is in the history, still, as the record the
-    /// live one continues, and counting it in both places would spend the allowance twice.
+    /// The same sum over a live session, whose stretch is only this segment; the earlier half is already in the history.
     func testALiveSessionAddsOnlyTheSegmentItIsRunning() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let used = RelayAllowance.secondsUsed(
@@ -125,20 +96,12 @@ final class SessionRecordTests: XCTestCase {
 
     // MARK: - What a window spends
 
-    /// **The boundary case the record's own times exist for.** The relay charges a splice as it
-    /// runs, against a bucket that turns over at the epoch day, so a session that was up when the
-    /// day turned over is charged for its minutes either side of it out of two allowances. The
-    /// meter has to answer the same question the same way: half of this session is inside the
-    /// window and half is not, and only the half inside is spending this window.
-    ///
-    /// A rule that read the record's start instead lost the whole of it, which told the user they
-    /// had an allowance the relay had already spent, and the app would go on saying so until they
-    /// were refused.
+    /// The relay charges per epoch day, so a session spanning the turnover is charged only for the part inside the window.
+    /// Reading the record's start instead loses the whole session.
     func testARecordSpanningTheWindowIsCountedFromItsStart() {
         let windowStart = Date(timeIntervalSince1970: 86_400 * 20_000)
         let used = RelayAllowance.secondsUsed(
             records: [
-                // Up ten minutes before the day turned over, and twenty after it.
                 record(
                     path: .relay,
                     startedAt: windowStart.addingTimeInterval(-600),
@@ -151,8 +114,6 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(used, 1_200, "the twenty minutes on this side of the boundary")
     }
 
-    /// A record that ended before the window began belongs to the previous one, which the relay
-    /// has already forgotten. Nothing of it is inside, so nothing of it is spent.
     func testARecordThatEndedBeforeTheWindowIsNotCounted() {
         let windowStart = Date(timeIntervalSince1970: 86_400 * 20_000)
         let used = RelayAllowance.secondsUsed(
@@ -169,9 +130,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(used, 0)
     }
 
-    /// **The session that was put back, which is the case the merge widened.** Its first stretch
-    /// is yesterday's and its second is today's, and only the second is spending today's
-    /// allowance. A rule that read the record's start would have counted neither.
+    /// A put-back session: only the second stretch spends today's allowance.
     func testOnlyTheStretchOfAResumedSessionInsideTheWindowIsCounted() {
         let windowStart = Date(timeIntervalSince1970: 86_400 * 20_000)
         let used = RelayAllowance.secondsUsed(
@@ -198,8 +157,6 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(used, 600)
     }
 
-    /// A session that is up right now is clipped the same way, so that it is metered by the same
-    /// rule while it runs as after it ends. This one came up before the day turned over.
     func testALiveSessionIsCountedFromTheWindowAndNotFromItsStart() {
         let windowStart = Date(timeIntervalSince1970: 86_400 * 20_000)
         let used = RelayAllowance.secondsUsed(
@@ -215,9 +172,6 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(used, 900)
     }
 
-    /// And clipping the other end too: a stretch cannot spend more of a window than falls in it.
-    /// Unreachable from the app, which only ever reads the window it is standing in, and pinned
-    /// here because the arithmetic is what decides what a user is told.
     func testAStretchRunningPastTheWindowIsCountedToTheEndOfIt() {
         let windowStart = Date(timeIntervalSince1970: 86_400 * 20_000)
         let used = RelayAllowance.secondsUsed(
@@ -230,8 +184,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(used, RelayAllowance.windowLength)
     }
 
-    /// A session over the LAN spends nothing, and neither does one that took a direct path:
-    /// the relay is not splicing either of them.
+    /// LAN and direct sessions spend nothing: the relay is not splicing them.
     func testLocalSessionsSpendNothing() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let used = RelayAllowance.secondsUsed(
@@ -253,8 +206,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(remaining, 900)
     }
 
-    /// Spent past the allowance reads as nothing left rather than as a negative number of
-    /// seconds, which would draw a bar running backwards.
+    /// Overspent reads as nothing left, not a negative bar.
     func testRemainingNeverGoesNegative() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let remaining = RelayAllowance.secondsRemaining(
@@ -266,7 +218,6 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(remaining, 0)
     }
 
-    /// A plan with no allowance has no figure to draw, which is not the same as one with none left.
     func testAnUnlimitedPlanHasNoRemainingFigure() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let remaining = RelayAllowance.secondsRemaining(
@@ -280,7 +231,6 @@ final class SessionRecordTests: XCTestCase {
 
     // MARK: - Continuing a session across a drop
 
-    /// The row the user already had, continued rather than a second one started beside it.
     func testAResumeContinuesTheRecordTheDropFiled() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let dropped = record(path: .relay, startedAt: start, duration: 300, bytes: 4_096)
@@ -298,10 +248,7 @@ final class SessionRecordTests: XCTestCase {
         )
     }
 
-    /// **The arithmetic the whole thing is for.** The record filed when the session finally ends
-    /// keeps the identity and the start of the one the drop filed, carries the bytes of both
-    /// segments, counts the connected time of both, and spans from the first connect to the last
-    /// disconnect with the gap in it.
+    /// The final record keeps the first record's identity and start, sums bytes and connected time, and spans the gap.
     func testTheRecordFiledForAResumedSessionKeepsItsIdentityAndItsBytesAccumulate() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let dropped = record(path: .relay, startedAt: start, duration: 300, bytes: 4_096)
@@ -309,7 +256,6 @@ final class SessionRecordTests: XCTestCase {
             in: [dropped], hostID: "A1B2C3", path: .relay
         )
 
-        // Three hours later the phone comes back, is up for ten minutes, and disconnects.
         let segmentStart = start.addingTimeInterval(3 * 3_600)
         let endedAt = segmentStart.addingTimeInterval(600)
         let filed = continuation?.filed(
@@ -340,8 +286,7 @@ final class SessionRecordTests: XCTestCase {
         )
     }
 
-    /// A session that never dropped is a continuation of nothing, and the record it files has to
-    /// come out exactly as it always did: connected from end to end, with its own bytes.
+    /// A session that never dropped files exactly as before.
     func testASessionThatNeverDroppedIsFiledConnectedEndToEnd() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let endedAt = start.addingTimeInterval(600)
@@ -362,9 +307,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(filed.videoBytesReceived, 100)
     }
 
-    /// A session the user ended is finished with, so the next connection they make to that Mac is
-    /// a row of its own. Without this, Disconnect followed by Connect an hour later would fold two
-    /// sessions into one.
+    /// A deliberately ended session is not continued, or Disconnect then Connect an hour later folds two sessions into one.
     func testARecordTheUserEndedIsNotContinued() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let ended = record(path: .relay, startedAt: start, duration: 300, endedDeliberately: true)
@@ -372,9 +315,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertNil(SessionContinuation.continued(in: [ended], hostID: "A1B2C3", path: .relay))
     }
 
-    /// **The newest record for the Mac, and no other.** A deliberate end writes a record too, so a
-    /// rule that reached past one would continue a session that came and went before it rather than
-    /// the one this reconnect is answering.
+    /// Only the newest record for the Mac continues; a deliberate end writes a record too.
     func testADeliberateEndStopsTheSearchRatherThanBeingLookedPast() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let dropped = record(path: .relay, startedAt: start, duration: 600)
@@ -383,7 +324,6 @@ final class SessionRecordTests: XCTestCase {
             endedDeliberately: true
         )
 
-        // Newest first, which is how the store keeps them.
         XCTAssertNil(
             SessionContinuation.continued(in: [ended, dropped], hostID: "A1B2C3", path: .relay)
         )
@@ -396,8 +336,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertNil(SessionContinuation.continued(in: [other], hostID: "A1B2C3", path: .relay))
     }
 
-    /// A Mac that never said which one it is has nothing of its own to continue: `nil == nil` would
-    /// otherwise match every record the app has been unable to attribute.
+    /// A Mac with no identity continues nothing, or nil == nil matches every unattributed record.
     func testARecordWithNoMacIsNotContinuedByASessionWithNoMac() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let unattributed = record(hostID: nil, path: .relay, startedAt: start, duration: 300)
@@ -405,9 +344,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertNil(SessionContinuation.continued(in: [unattributed], hostID: nil, path: .relay))
     }
 
-    /// **Money.** A record is metered by its path and its connected time together, so one carrying
-    /// minutes from two paths under a single path would either charge the relay for a splice that
-    /// did not happen or lose one that did.
+    /// A record is metered by path and connected time together; mixing paths would mischarge the relay.
     func testARecordIsNotContinuedOnADifferentPath() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let onTheRelay = record(path: .relay, startedAt: start, duration: 300)
@@ -416,8 +353,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertNil(SessionContinuation.continued(in: [onTheRelay], hostID: "A1B2C3", path: .direct))
     }
 
-    /// The punching flag is the session's answer rather than this segment's: it is filed to say how
-    /// often punching works, and a session that punched before the drop is one it worked in.
+    /// The punching flag is the whole session's answer: it records how often punching works.
     func testAPunchThatHappenedBeforeTheDropIsCarriedIntoTheRecord() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let dropped = record(path: .relay, startedAt: start, duration: 300, usedDirectPath: true)
@@ -443,11 +379,7 @@ final class SessionRecordTests: XCTestCase {
 
     // MARK: - The two figures a row can show
 
-    /// **The rule that decides whether the screen says it twice.** A session that was never
-    /// dropped was connected for the whole of its span, so a second row reading the first one back
-    /// is noise; a session the app put back covers minutes it was not connected for, and the row
-    /// that says so is the only place the two figures that come out of one session can be told
-    /// apart. Nearly every record is the first kind.
+    /// A never-dropped session was connected for its whole span, so a second figure would be noise.
     func testASessionThatWasNeverInterruptedHasNothingToSay() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let whole = record(path: .relay, startedAt: start, duration: 600)
@@ -471,9 +403,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertTrue(resumed.wasInterrupted)
     }
 
-    /// Whole seconds, because whole seconds are what the screen prints. A difference the reader
-    /// cannot see is the same figure twice, and a row that reads "Connected 10m 0s" under
-    /// "Duration 10m 0s" is the noise this rule exists to keep off the card.
+    /// Whole seconds, since that is what the screen prints: a difference the reader cannot see is the same figure twice.
     func testADifferenceTheReaderCannotSeeIsNotShown() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let nearlyWhole = record(
@@ -490,9 +420,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertFalse(nearlyWhole.wasInterrupted)
     }
 
-    /// And the other near miss: a difference of a fraction of a second that *does* cross a printed
-    /// second is a difference the reader can see, so it is shown. Half a second is the case where
-    /// comparing the gap instead would have rounded to one and printed the same figure twice.
+    /// A sub-second difference that crosses a printed second is shown; comparing the raw gap would print the same figure twice.
     func testADifferenceThatCrossesAPrintedSecondIsShown() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let halfASecondShort = record(
@@ -560,8 +488,7 @@ final class SessionRecordTests: XCTestCase {
 
     // MARK: - The window
 
-    /// The window is the relay's arithmetic and not a calendar's: epoch days, so the meter and
-    /// the server's own counter turn over at the same instant wherever the phone is.
+    /// Epoch days, as the relay counts them, so meter and server turn over together.
     func testTheWindowIsEpochDays() {
         let windowNumber = RelayAllowance.windowNumber(at: Date(timeIntervalSince1970: 86_400 * 20_000 + 5))
         XCTAssertEqual(windowNumber, 20_000)
@@ -574,10 +501,7 @@ final class SessionRecordTests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// A record as it was filed, with the ordinary answer for everything the test is not about.
-    ///
-    /// `connectedSegments` is left out for the records that are not about a gap: the answer is then
-    /// one stretch covering the span, which is only ever true of a session that was never dropped.
+    /// A record as filed. connectedSegments is omitted for records not about a gap, giving one stretch over the span.
     private func record(
         id: UUID = UUID(),
         hostID: String? = "A1B2C3",

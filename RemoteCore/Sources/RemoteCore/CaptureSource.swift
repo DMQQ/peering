@@ -11,28 +11,16 @@ public enum CaptureSource: Codable, Sendable, Hashable {
     /// A single window. `UInt32` is a `CGWindowID` raw value.
     case window(UInt32)
 
-    /// Several sources drawn into one picture, at the rectangles the client asked for.
-    ///
-    /// The only source here that is not a source: everything else names something macOS is already
-    /// showing, while this one names a canvas the host builds out of several, because the phone has
-    /// one video layer and cannot be sent N streams. The Mac opens one capture per distinct tile,
-    /// draws each into its rectangle, and encodes the result once.
-    ///
-    /// It takes no input, since a tile's picture means a different coordinate per tile. Selecting a
-    /// tile gives a source back its input, as an ordinary source switch. See ``MosaicTile``.
+    /// Several sources drawn into one picture, at the rectangles the client asked for. It takes no input, since a tile's picture means a different coordinate per tile.
     case mosaic(MosaicLayout)
 
-    /// Stable string used as the `Identifiable` id and in persisted selections,
-    /// so a client's chosen source survives a reconnect.
     public var stableID: String {
         switch self {
         case .display(let id): return "display:\(id)"
         case .application(let pid): return "application:\(pid)"
         case .window(let id): return "window:\(id)"
         case .mosaic(let layout):
-            // The canvas as well as the tiles: two arrangements of the same tiles at different
-            // canvas sizes are two pictures. The frame rate is deliberately not here: redrawing an
-            // arrangement faster is the same arrangement.
+            // The canvas size is part of the name but the frame rate is not: the same arrangement redrawn faster is the same picture.
             let name = "\(layout.canvas.width)x\(layout.canvas.height)"
                 + layout.tiles.map { "|\($0.stableID)" }.joined()
 
@@ -46,31 +34,23 @@ public enum CaptureSource: Codable, Sendable, Hashable {
         }
     }
 
-    /// Whether this source is a canvas the host builds rather than something the Mac is showing. A
-    /// mosaic is never offered by the Mac, only asked for, so the host refuses input while one is up
-    /// and the picker has no row to tick for it.
+    /// A mosaic is only asked for, never offered by the Mac, so the host refuses input while one is up.
     public var isMosaic: Bool {
         if case .mosaic = self { return true }
         return false
     }
 
-    /// The layout of a mosaic source, or `nil` for anything else.
     public var mosaicLayout: MosaicLayout? {
         if case .mosaic(let layout) = self { return layout }
         return nil
     }
 
-    /// Whether the captured content moves without anything announcing it.
-    ///
-    /// A display's geometry read once at capture starts stays true; only the per-frame content rect
-    /// observes an application or a window being dragged and resized.
+    /// Whether the captured content moves unannounced; only the per-frame content rect sees an app or window being dragged or resized.
     public var contentMovesOnItsOwn: Bool {
         switch self {
         case .display: return false
         case .application, .window: return true
-        // A mosaic is a display, not a window: its canvas is a size the client asked for and keeps,
-        // while the tiles inside it come and go without it changing shape. A tile resizing is not a
-        // reason to throw away where the user was looking; a different arrangement is.
+        // A mosaic is a display: a tile resizing must not reset where the user was looking.
         case .mosaic: return false
         }
     }
@@ -78,9 +58,6 @@ public enum CaptureSource: Codable, Sendable, Hashable {
 
 /// A rectangle in the canvas's own space: (0,0) at the top left of the canvas and (1,1) at its
 /// bottom right, whatever the canvas's aspect ratio.
-///
-/// Normalized rather than in pixels, for the same reason ``NormalizedPoint`` is: neither end can name
-/// the other's units. The host multiplies by the canvas's pixels, the client by the picture's rect.
 public struct NormalizedRect: Codable, Sendable, Equatable, Hashable {
     public var x: Double
     public var y: Double
@@ -108,7 +85,6 @@ public struct NormalizedRect: Codable, Sendable, Equatable, Hashable {
         )
     }
 
-    /// The rect in a canvas of the given pixel size, for the host's compositor.
     public func pixels(in size: CGSize) -> CGRect {
         let rect = clamped
         return CGRect(
@@ -128,28 +104,17 @@ public struct NormalizedRect: Codable, Sendable, Equatable, Hashable {
     }
 }
 
-/// What a mosaic is: the canvas it is drawn in, what sits on it, and how often it is redrawn. One
-/// value rather than three parameters, because the canvas is part of what a mosaic is and
-/// ``CaptureSource/stableID`` has to tell two canvases apart.
+/// What a mosaic is: canvas, tiles and redraw rate. The canvas is part of its identity, see ``CaptureSource/stableID``.
 public struct MosaicLayout: Codable, Sendable, Equatable, Hashable {
-    /// The most tiles one mosaic may have, and the number both ends read.
-    ///
-    /// Nine, because a grid is square and nine of the 2560×1440 canvas cap, see
-    /// ``maximumCanvasPixels``, are 853×480 a tile, where a window's title is still legible.
-    ///
-    /// A limit on the Mac rather than the phone, where every tile is a capture of its own; the host
-    /// trims rather than refuses, so a newer client gets a smaller mosaic rather than no picture.
+    /// The most tiles one mosaic may have. Nine, so a tile at the canvas cap is still 853×480 and legible. The host trims rather than refuses.
     public static let maximumTileCount = 9
 
     /// The most pixels a canvas may be built at, in total: the tile count alone bounds nothing, and
     /// one tile over a 7680×4320 canvas is a quarter of a billion pixels per second to composite.
     public static let maximumCanvasPixels = 2560 * 1440
 
-    /// The canvas in pixels, as the client wants it drawn on its own screen.
     public let canvas: CGSize
     public let tiles: [MosaicTile]
-    /// How often the canvas is redrawn, which is every tile's frame rate as well as the
-    /// encoder's. See ``minimumFrameRate``.
     public let frameRate: Int
 
     /// A mosaic's frame rate is its cost, multiplied. The floor is what still reads as motion; the
@@ -163,11 +128,7 @@ public struct MosaicLayout: Codable, Sendable, Equatable, Hashable {
         self.frameRate = frameRate
     }
 
-    /// What a host will actually build, or `nil` when there is no mosaic in this at all.
-    ///
-    /// Trimmed rather than refused, since the layout arrives from a device the Mac does not control.
-    /// The canvas is clamped by area rather than by each side, so a 4000×300 canvas is trimmed to fit
-    /// the budget rather than reshaped.
+    /// What a host will actually build, or `nil` when there is no mosaic. Trimmed rather than refused, since the layout comes from an untrusted device; the canvas is clamped by area, so 4000×300 fits the budget unreshaped.
     public var validated: MosaicLayout? {
         guard !tiles.isEmpty else { return nil }
 
@@ -192,7 +153,6 @@ public struct MosaicLayout: Codable, Sendable, Equatable, Hashable {
     }
 }
 
-/// One source's place in a mosaic.
 public struct MosaicTile: Codable, Sendable, Equatable, Hashable {
     public let source: CaptureSource
     public let rect: NormalizedRect
@@ -202,9 +162,7 @@ public struct MosaicTile: Codable, Sendable, Equatable, Hashable {
         self.rect = rect
     }
 
-    /// This tile's own name: which source, and where it sits. The rectangle is part of it, and the
-    /// numbers are rounded to a thousandth, because a rect that has been through floating-point
-    /// arithmetic on both ends is not bit-for-bit what was sent.
+    /// This tile's name: source and rect, rounded to a thousandth since floating-point round trips are not bit-exact.
     var stableID: String {
         func thousandths(_ value: Double) -> Int { Int((value * 1000).rounded()) }
         let rect = rect.clamped
@@ -214,15 +172,8 @@ public struct MosaicTile: Codable, Sendable, Equatable, Hashable {
 }
 
 /// A picture of one source, for the picker's grid.
-///
-/// A photograph taken when the host was asked, not a live view, the same idea as ``SpacePreview``
-/// one level down. An application's thumbnail is a picture of its windows, so the tile answers what
-/// this app is showing rather than only what it is called. JPEG rather than PNG, for the reason
-/// ``SpacePreview`` gives.
 public struct SourceThumbnail: Codable, Sendable, Equatable, Hashable {
-    /// The largest thumbnail worth carrying: the catalogue is re-sent whenever anything in it
-    /// changes, so one pathological thumbnail is a cost paid on every push. Half what a desktop
-    /// preview is allowed, because this one is drawn in a grid tile rather than across a panel.
+    /// The largest thumbnail worth carrying: the catalogue is re-sent on every change, so one huge one is a cost on every push.
     public static let maximumByteCount = 32 * 1_024
 
     /// Pixels, not points, and the pair the tile uses to keep its shape before the image is
@@ -239,7 +190,6 @@ public struct SourceThumbnail: Codable, Sendable, Equatable, Hashable {
 
     /// Refuses an oversize picture rather than truncating it. The caller reads this with `try?`, so
     /// one bad picture costs one tile instead of the catalogue. See
-    /// ``CaptureSourceDescriptor/init(from:)``.
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         width = try values.decode(Int.self, forKey: .width)
@@ -259,13 +209,9 @@ public struct SourceThumbnail: Codable, Sendable, Equatable, Hashable {
     }
 }
 
-/// One entry in the list of things the host can capture, as pushed to the client. The host enumerates
-/// its own reality and the client renders whatever it is given, so nothing here is hardcoded on the
-/// client.
+/// One entry in the list of things the host can capture, as pushed to the client.
 public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable {
-    /// Icons are PNGs rendered by the host at picker size, and this is a hard ceiling: the whole
-    /// catalogue is one control message. Kept in step with the render size, since the host draws them
-    /// at 128 pixels, where an ordinary application's artwork lands near 20 KB.
+    /// Icons are host-rendered PNGs, a hard ceiling since the whole catalogue is one control message.
     public static let maximumIconByteCount = 48 * 1_024
 
     public enum Kind: String, Codable, Sendable {
@@ -274,40 +220,20 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
 
     public let id: String
     public let kind: Kind
-    /// Primary label: "Built-in Display", "Xcode", "ContentView.swift".
     public let title: String
-    /// Secondary label: "2560×1440", "3 windows".
     public let subtitle: String?
-    /// Present for application and application-owned window rows when macOS exposes it.
     public let bundleIdentifier: String?
-    /// A small, render-ready PNG. `nil` means the client should use its fallback symbol.
     public let iconPNGData: Data?
-    /// A photograph of this source's content, or `nil` when the host has not taken one.
-    ///
-    /// Only ever set for an application, and absent is the ordinary state: the host takes these when
-    /// a client about to draw them asks, so a tile is briefly its own outline and then fills in.
-    ///
-    /// A separate field from ``iconPNGData``: that says what this application is, this says what it
-    /// is showing.
+    /// A photograph of this source's content, set only for applications and only when the host was asked, so absent is the ordinary state.
     public let thumbnail: SourceThumbnail?
     public let source: CaptureSource
     /// Real pixel dimensions of the captured content, not points: `SCDisplay.width`/`height` report
     /// points, so a 5K panel reports half its actual width. This feeds the normalized→pixel mapping,
     /// and getting it wrong drifts the remote cursor on Retina displays.
     public let pixelSize: CGSize
-    /// Whether this display is one the host process itself made, and so one a client may ask the
-    /// host to remove with ``RemoteCommand/removeVirtualDisplay(displayID:)``.
-    ///
-    /// `false` for every other kind of row: a physical monitor and a window are never removable
-    /// this way, and defaulting `false` here (and on decode, for a payload sent before this field
-    /// existed) means an older host's rows read as ordinary and offer no remove control at all.
+    /// Whether this display was made by the host process, and so removable by a client via ``RemoteCommand/removeVirtualDisplay(displayID:)``. Defaults `false`, including on decode, so an older host's rows offer no remove control.
     public let isManagedVirtualDisplay: Bool
-    /// Whether this display exists only in software — this host's own switch-made display as
-    /// well as every phone-managed one, which is the broader question ``isManagedVirtualDisplay``
-    /// does not answer: that one is true only for a display *this phone* may remove, and false
-    /// for the switch-made one even though it is exactly as virtual. A client that only had that
-    /// flag to go on could not tell a software display it may not touch from a real monitor, and
-    /// the two read as the same row.
+    /// Whether this display exists only in software, including the host's own switch-made one. Unlike ``isManagedVirtualDisplay``, which is true only for displays this phone may remove.
     public let isVirtualDisplay: Bool
 
     public init(
@@ -335,8 +261,7 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
         self.isVirtualDisplay = isVirtualDisplay || isManagedVirtualDisplay
     }
 
-    /// This descriptor with a thumbnail attached, or itself when there is none. A modifier rather
-    /// than an initializer argument, because the pictures are taken later, off the capture path.
+    /// This descriptor with a thumbnail attached, or itself when none. A modifier because pictures are taken later, off the capture path.
     public func withThumbnail(_ thumbnail: SourceThumbnail?) -> CaptureSourceDescriptor {
         guard let thumbnail else { return self }
         return CaptureSourceDescriptor(
@@ -433,12 +358,8 @@ public struct InstalledApplicationDescriptor: Codable, Sendable, Identifiable, H
     }
 }
 
-/// One display's desktops, and which of them is on screen. Spaces are per-display, identified by the
-/// pair (display, position in that display's ordered list), so two displays can each have a
-/// "Desktop 1".
+/// One display's desktops and which is on screen. Identified by (display, position in its ordered list).
 public struct SpaceDisplay: Codable, Sendable, Equatable, Identifiable {
-    /// `CGDirectDisplayID`'s raw value, the same platform-neutral convention as
-    /// ``CaptureSource/display(_:)``, and the value a client needs to build one.
     public let displayID: UInt32
 
     /// How many Spaces this display has. Sent rather than counted from ``previews``, which is
@@ -449,8 +370,7 @@ public struct SpaceDisplay: Codable, Sendable, Equatable, Identifiable {
     /// when the display is showing a fullscreen application, where no desktop is current.
     public let current: Int?
 
-    /// This display's desktops, as the host last saw them. Sparse on purpose: a Space with no entry
-    /// has never been visited since the host started, or could not be captured.
+    /// Sparse: a Space with no entry has never been visited since the host started, or could not be captured.
     public let previews: [SpacePreview]
 
     public var id: UInt32 { displayID }
@@ -462,7 +382,6 @@ public struct SpaceDisplay: Codable, Sendable, Equatable, Identifiable {
         self.previews = previews
     }
 
-    /// The preview for a 1-based index within this display, if the host has one.
     public func preview(for index: Int) -> SpacePreview? {
         previews.first { $0.index == index }
     }
@@ -471,8 +390,6 @@ public struct SpaceDisplay: Codable, Sendable, Equatable, Identifiable {
         case displayID, count, current, previews
     }
 
-    /// Lenient about `previews` for the same reason ``SpaceInfo`` is: one missing thumbnail is not
-    /// worth the catalogue.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         displayID = try container.decode(UInt32.self, forKey: .displayID)
@@ -496,12 +413,9 @@ public struct SpaceInfo: Codable, Sendable, Equatable {
         self.displays = displays
     }
 
-    /// Derived from the main display, for the readers that predate multiple displays.
     public var count: Int { displays.first?.count ?? 0 }
     public var current: Int? { displays.first?.current }
-    /// Every display's previews, flattened.
     public var previews: [SpacePreview] { displays.flatMap(\.previews) }
-    /// Desktops across every display.
     public var totalCount: Int { displays.reduce(0) { $0 + $1.count } }
 
     /// Only the stored property, so `encode(to:)` can still be synthesised: the properties above are
@@ -510,7 +424,6 @@ public struct SpaceInfo: Codable, Sendable, Equatable {
         case displays
     }
 
-    /// The pre-multi-display shape. Read, never written.
     private enum LegacyCodingKeys: String, CodingKey {
         case count, current, previews
     }
@@ -541,17 +454,11 @@ public struct SpaceInfo: Codable, Sendable, Equatable {
     }
 }
 
-/// One desktop, as the host last saw it.
-///
-/// A snapshot rather than a live view, and it has to be: ScreenCaptureKit captures what is on the
-/// display, the other Spaces are not on it, and Mission Control's view is built from window-server
-/// calls no third-party app can make.
+/// One desktop, as the host last saw it: a snapshot, since ScreenCaptureKit only captures what is on the display.
 public struct SpacePreview: Codable, Sendable, Equatable, Identifiable {
-    /// 1-based, in the same numbering as ``SpaceInfo/current``.
     public let index: Int
     public let width: Int
     public let height: Int
-    /// JPEG rather than PNG: a photograph of a screen drawn at a couple of hundred points.
     public let jpegData: Data
 
     public var id: Int { index }
@@ -564,20 +471,14 @@ public struct SpacePreview: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// The full set of capture sources the host is currently offering. Kept as a single value so it can
-/// be pushed atomically; a client rendering a half-updated list would show entries it cannot select.
+/// The full set of capture sources the host offers, pushed atomically so a client never sees entries it cannot select.
 public struct CaptureCatalog: Codable, Sendable, Equatable {
-    /// Keeps catalogue size predictable even on developer machines with huge app folders.
-    ///
-    /// The bound is real: every entry carries an icon of up to ``maximumIconByteCount``. Apple's
-    /// applications under `/System/Applications` and in the App cryptex add around ninety titles, and
-    /// the list is applied with `prefix`, so an overflow drops by alphabet.
+    /// Bounded because every entry carries an icon of up to ``maximumIconByteCount``; applied with `prefix`, so an overflow drops by alphabet.
     public static let maximumInstalledApplicationCount = 250
     public let displays: [CaptureSourceDescriptor]
     public let applications: [CaptureSourceDescriptor]
     public let windows: [CaptureSourceDescriptor]
     public let installedApplications: [InstalledApplicationDescriptor]
-    /// Desktop Spaces info, if the host could read it.
     public let spaceInfo: SpaceInfo?
 
     public init(

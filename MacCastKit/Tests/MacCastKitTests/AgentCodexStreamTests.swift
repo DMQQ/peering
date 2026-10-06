@@ -3,14 +3,7 @@ import XCTest
 @testable import MacCastKit
 import RemoteCore
 
-/// Fixtures are lines captured from a real codex-cli 0.157.1 process:
-///
-///     codex exec --json --sandbox workspace-write --skip-git-repo-check \
-///       -m gpt-5.6-luna "<prompt>"        (and `exec resume <thread_id>` for the second turn)
-///
-/// trimmed to the fields the parser reads, with the values those runs carried. The failed turn is
-/// real too: that account's configured model is refused by the API, which is how a Codex failure
-/// looks on the wire.
+/// Fixtures are lines captured from a real codex-cli 0.157.1 process (`codex exec --json`), trimmed to the fields the parser reads. The failed turn is real: that account's model is refused by the API.
 final class AgentCodexStreamTests: XCTestCase {
     private func payloads(_ lines: [String], directory: String = "/tmp/agentchat-capture") -> [AgentStreamEvent.Payload] {
         var stream = AgentCodexStream(directory: directory)
@@ -112,8 +105,7 @@ final class AgentCodexStreamTests: XCTestCase {
         XCTAssertFalse(ok)
     }
 
-    /// A file change draws a card with the paths it touched. There is no diff to attach: this
-    /// CLI's exec items carry none, which is the one place Codex's cards are thinner than Claude's.
+    /// No diff is attached: this CLI's exec items carry none.
     func testFileChange() {
         let payloads = payloads([fileStarted, fileCompleted])
 
@@ -131,8 +123,7 @@ final class AgentCodexStreamTests: XCTestCase {
         XCTAssertEqual(output, "add /tmp/agentchat-capture/codex-out.txt")
     }
 
-    /// The API's sentence is one JSON layer down, and the same failure arrives twice: once as the
-    /// top-level error and once as the failed turn. The transcript gets one line, not two.
+    /// The failure arrives twice (top-level error and failed turn); the transcript gets one line.
     func testFailedTurnReportsTheAPISentenceOnce() {
         let payloads = payloads([topLevelError, failedTurn])
         XCTAssertEqual(
@@ -160,7 +151,6 @@ final class AgentCodexStreamTests: XCTestCase {
         XCTAssertEqual(stream.receive(line: "not json").count, 1)
     }
 
-    /// A resume repeats the id the first turn gave, which is what keeps the thread addressable.
     func testResumeRepeatsTheThreadID() {
         let payloads = payloads([threadStarted, turnStarted, agentMessage, completedTurn])
         guard case .sessionReady(_, let sessionID, _, _) = payloads[0] else {

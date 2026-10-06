@@ -1,10 +1,6 @@
 import SwiftUI
 
-/// The six dots a passcode fills in, and — when the wrong one was typed — the colour they turn.
-///
-/// Shared by the two places a passcode is typed: the sheet that sets one and the lock that asks
-/// for it. They are the same act with different sentences above them, and two pads would be two
-/// chances for the second one to be a little different from the first.
+/// The passcode dots and keys, shared by the set and unlock sheets.
 struct PasscodeDots: View {
     let filled: Int
     let total: Int
@@ -34,12 +30,7 @@ struct PasscodeDots: View {
     }
 }
 
-/// The keys.
-///
-/// A pad rather than a text field, and this is the one place in the app where that is true. A field
-/// brings a keyboard that covers half the sheet, a caret, a selection, and the possibility of
-/// pasting in something that is not six digits — none of which a passcode needs, and all of which
-/// are things to get wrong. Twelve fixed keys cannot be got wrong.
+/// A fixed pad rather than a text field: no keyboard covering the sheet and no pasting non-digits.
 struct PasscodePad: View {
     let onDigit: (Int) -> Void
     let onDelete: () -> Void
@@ -60,8 +51,6 @@ struct PasscodePad: View {
             }
 
             HStack(spacing: 10) {
-                // Empty rather than another key, so the zero sits under the eight where a keypad
-                // puts it instead of in the middle of a row of three.
                 Color.clear.frame(maxWidth: .infinity, minHeight: keyHeight)
 
                 padKey(action: { onDigit(0) }) {

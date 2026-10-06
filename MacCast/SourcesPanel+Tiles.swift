@@ -4,14 +4,7 @@ import SwiftUI
 import UIKit
 
 extension SourcesPanel {
-    /// What a tile has to draw about its source: whether it is marked, and where it sits in an
-    /// arrangement being built.
-    ///
-    /// **One mark per mode, never two.** In the ordinary pick the accent says which source the
-    /// phone is showing, which is what ``desktopTile(_:index:showsScreenName:)`` means by it too.
-    /// In the accumulating one the same accent says which tiles have been picked, and the badge
-    /// says where each of them landed — the arrangement is filled in reading order, so that number is the tile's place in
-    /// the finished picture. Both at once would be one mark meaning two things.
+    /// One mark per mode, never two: in the ordinary pick the accent says which source is shown; accumulating, it says which are picked and the badge says where each landed (reading order).
     func placement(
         of descriptor: CaptureSourceDescriptor
     ) -> (marked: Bool, isLive: Bool, place: Int?) {
@@ -24,27 +17,16 @@ extension SourcesPanel {
 
     func choose(_ descriptor: CaptureSourceDescriptor) {
         if buildingMosaic {
-            // `morph` rather than `tap`, because a pick is a control gaining something rather
-            // than one changing state: the badge has to arrive with enough give to be seen
-            // arriving, or picking a fifth window is a tap with no answer. See ``placeBadge``.
+            // `morph` rather than `tap`: a pick is a control gaining something, and the badge needs give to be seen arriving.
             withAnimation(Motion.morph) { toggle(descriptor) }
         } else {
-            // Animated because of the one case where this leaves a standing mosaic: the tile
-            // borders drawn over the picture fade out as the arrangement is given up, and that
-            // fade belongs to the tap that caused it.
+            // Animated because the tile borders over a standing mosaic fade out as the arrangement is given up, and that fade belongs to the tap.
             withAnimation(Motion.settle) { model.selectSource(descriptor) }
             onSelect()
         }
     }
 
-    /// The tile's place in the arrangement being built, springing in as it is picked.
-    ///
-    /// **The badge is the selection's only movement, and that is deliberate.** The accent edge
-    /// changes colour under `Motion.tap` and says which tiles are in; this says *where* each of
-    /// them landed, and it is the one thing that appears where nothing was. A tile that slid or
-    /// scaled would be moving in a grid the user is still choosing from, so the number is what
-    /// arrives — over `Motion.morph`, the app's curve for a control that changes shape rather
-    /// than one that changes state.
+    /// The badge is the selection's only movement: a sliding or scaling tile would move in a grid still being chosen from.
     @ViewBuilder
     func placeBadge(_ place: Int?) -> some View {
         if let place {
@@ -58,10 +40,7 @@ extension SourcesPanel {
         }
     }
 
-    /// How a place badge arrives and leaves: from nothing, with a little give.
-    ///
-    /// One definition for the two grids, so a number cannot appear one way on a window and
-    /// another way on a heading.
+    /// One definition for the two grids, so a number cannot appear one way on a window and another on a heading.
     static let badge = AnyTransition.scale(scale: 0.4).combined(with: .opacity)
 
     func caption(
@@ -84,12 +63,7 @@ extension SourcesPanel {
         .frame(maxWidth: .infinity, alignment: alignment == .center ? .center : .leading)
     }
 
-    /// How wide a tile's title may be: the width of the picture, which is the box's height times
-    /// the picture's shape.
-    ///
-    /// The box is the cell wide and ``tileAspect`` tall, so a picture that is narrower than that
-    /// shape is drawn narrower than the box, and its name has to be told by how much. A picture
-    /// wider than the box is the cell wide and gets the cell's width, which is what the `min` says.
+    /// The box is the cell wide and `tileAspect` tall, so a narrower picture is drawn narrower and its name must be told by how much.
     func captionWidth(shape: CGFloat) -> CGFloat {
         guard tileCellWidth > 0, Self.tileAspect > 0 else { return .infinity }
         return min(tileCellWidth, tileCellWidth / Self.tileAspect * shape)
@@ -99,48 +73,22 @@ extension SourcesPanel {
         [descriptor.title, descriptor.subtitle].compactMap { $0 }.joined(separator: ", ")
     }
 
-    /// The grids' own numbers.
-    ///
-    /// **Pictures and icons are two grids rather than one with two skins.** A picture wants a wide
-    /// tile and as much of the panel as it can have; an icon is square, smaller, and wants its
-    /// neighbours close, because a grid of icons is read as one shape at a glance.
-    ///
-    /// Adaptive rather than a fixed count: the panel is a fixed fraction of a phone, but the
-    /// phones are not all the same width, and a count that suits one leaves a second column
-    /// hanging off the edge of another. **That happened**, in the desktops grid this section
-    /// replaced: it sized its tiles off a width worked out by its caller, the caller left the
-    /// margin outside the glass card out of that number, and the tiles hung off the screen. An
-    /// adaptive grid cannot make that mistake, because the width it divides is the width it is
-    /// actually drawn in.
+    /// Pictures and icons are two grids: a picture wants a wide tile, an icon is square and wants close neighbours.
+    /// Adaptive rather than a fixed count: a count that suits one phone leaves a column hanging off another. That happened in the desktops grid this replaced, which sized tiles from a caller-computed width that omitted the margin outside the glass card.
     static var iconColumns: [GridItem] {
         Array(repeating: GridItem(.flexible(), spacing: iconGap, alignment: .top), count: 5)
     }
 
-    /// The width a picture tile asks for. Adaptive columns give every cell at least this much and
-    /// then share out what is left, so this is the floor a tile can come out at rather than a size
-    /// it is given.
-    ///
-    /// **Raised by half**, because at a hundred and four the pictures were small enough that a
-    /// window's contents could not be told from the same few greys of another, which is the whole
-    /// reason this panel shows pictures instead of a list of names. Widening the floor costs
-    /// columns on a narrow phone, which is the trade being made on purpose.
+    /// The floor adaptive columns give each cell, not a size.
+    /// Raised by half: at 104 a window's contents could not be told from another's greys, which is the reason the panel shows pictures.
     static let tileMinimumWidth: CGFloat = 156
     static let tileGap: CGFloat = 8
 
-    /// The shape a tile is drawn at when there is no size to take one from: a source the Mac has
-    /// reported nothing about. Every other tile is its own picture's shape. See ``tileShape(_:)``.
+    /// The shape for a source the Mac reported nothing about.
     static let tileAspect: CGFloat = 16.0 / 10.0
 
-    /// The box a tile is drawn inside: as wide as its cell, and no taller than a 16:10 tile.
-    ///
-    /// **Invisible, and only ever a bound.** The picture inside takes its own shape, as large as
-    /// this allows and no larger, so a portrait window comes out as a narrow tile rather than a
-    /// tall one and a wide one fills the width without being stretched. It is also what makes a
-    /// row of differently shaped tiles a row: every tile is measured against the same box rather
-    /// than against its neighbours, so the names under them stay on one line.
-    ///
-    /// Given a height, the box is exactly the picture instead, for rows that pack tiles by their
-    /// own widths.
+    /// Invisible, only a bound: the picture takes its own shape as large as this allows, and every tile measured against the same box keeps the names on one line.
+    /// Given a height, the box is exactly the picture, for rows that pack by their own widths.
     @ViewBuilder
     static func tileBox<Content: View>(
         height: CGFloat? = nil, shape: CGFloat = tileAspect, @ViewBuilder content: () -> Content
@@ -154,8 +102,6 @@ extension SourcesPanel {
         }
     }
 
-    /// Tiles in one row that scrolls sideways, with room for the live tile's growth, which the
-    /// scroll view would otherwise clip.
     static func tileRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         ScrollView(.horizontal) {
             HStack(alignment: .top, spacing: tileGap) { content() }
@@ -165,34 +111,18 @@ extension SourcesPanel {
         .padding(-tileRoom)
     }
 
-    /// The row height of packed window tiles: the height a 16:10 tile has at the grid's floor.
     static let packedTileHeight: CGFloat = tileMinimumWidth / tileAspect
 
-    /// The two ends ``tileShape(_:)`` holds a shape between.
-    ///
-    /// **Not every shape a size can have is one a tile should be drawn at.** The box bounds how
-    /// tall a tile may be, so an extreme shape does not overflow anything, it is a sliver: a window
-    /// a few points wide would be a few points wide here, with its name under it. These two lie
-    /// outside every shape that turns up in practice, a phone's window being about 0.47 and an
-    /// ultrawide monitor about 2.3, so all they cost is a source at one extreme being drawn very
-    /// slightly cropped.
+    /// Not every shape is one a tile should be drawn at: an extreme size would be a sliver. These bounds sit outside every shape seen in practice (phone window about 0.47, ultrawide about 2.3).
     static let tileShapeBounds: ClosedRange<CGFloat> = 0.4...2.5
 
-    /// The shape a tile for this source is drawn at: the picture's own.
-    ///
-    /// The thumbnail is asked first because it is the thing that gets drawn, and a box that
-    /// disagrees with its picture is a box with something cropped off it. A source with no picture
-    /// yet falls back to the size the Mac reports, which is that picture's shape, so a tile does
-    /// not change shape when the picture lands.
+    /// The thumbnail is asked first since it is what gets drawn; with none, the Mac's reported size gives the same shape, so the tile does not change shape when the picture lands.
     static func tileShape(for descriptor: CaptureSourceDescriptor) -> CGFloat {
         guard let thumbnail = descriptor.thumbnail else { return tileShape(descriptor.pixelSize) }
         return tileShape(CGSize(width: CGFloat(thumbnail.width), height: CGFloat(thumbnail.height)))
     }
 
-    /// One desktop's tile shape: that desktop's own picture, or the screen's shape without one.
-    ///
-    /// The second half is what keeps a desktop tile from resizing when its photograph is taken,
-    /// and every desktop of a screen shares a shape, so the row is one shape rather than several.
+    /// Without a photograph the screen's shape keeps a desktop tile from resizing when one lands.
     func desktopShape(_ display: SpaceDisplay, index: Int) -> CGFloat {
         guard let preview = display.preview(for: index) else {
             let size = model.catalog?.descriptor(for: .display(display.displayID))?.pixelSize ?? .zero
@@ -201,11 +131,7 @@ extension SourcesPanel {
         return Self.tileShape(CGSize(width: CGFloat(preview.width), height: CGFloat(preview.height)))
     }
 
-    /// A size's shape, held between the two ends a tile is drawn at.
-    ///
-    /// **A window is whatever shape the user left it, which is not a promise about anything.** A
-    /// size with nothing in it keeps the panel's own 16:10, and a shape past the bounds is drawn
-    /// at the bound, which crops the picture by that same small amount. See ``tileShapeBounds``.
+    /// A window is whatever shape the user left it: a shape past the bounds is drawn at the bound, cropping by a small amount.
     static func tileShape(_ size: CGSize) -> CGFloat {
         guard size.width > 0, size.height > 0 else { return tileAspect }
         return min(
@@ -214,30 +140,16 @@ extension SourcesPanel {
         )
     }
 
-    /// How much bigger a tile gets when it becomes the picture.
-    ///
-    /// A quarter of the gutter either side, so a tile that grows into the gap reads as arriving
-    /// rather than as a grid that has gone ragged. What it costs the panel is in ``tileRoom``.
+    /// A quarter of the gutter either side; the cost is in `tileRoom`.
     static let tileGrowth: CGFloat = 1.045
 
-    /// The room the panel leaves inside its edges for a tile that has grown.
-    ///
-    /// **A scaled tile is wider than the cell it sits in, and a scroll view clips at its own
-    /// bounds.** Half of ``tileGrowth`` comes off each side, and on the widest phone a grid of two
-    /// columns gives a tile about 190 points, so it grows 4.3 points each way; six leaves that a
-    /// little to spare. Without it the first and last tile of every row lost the ends of their
-    /// border, which is a ring cut open rather than the mark of the one being watched.
+    /// A scaled tile is wider than its cell and a scroll view clips at its bounds: without this room the first and last tile of every row lost the ends of their border.
     static let tileRoom: CGFloat = 6
 
-    /// The icon size before the grid has measured a cell: five fit across the narrowest phone.
     static let iconSize: CGFloat = 56
     static let iconGap: CGFloat = 8
 
-    /// Adds or removes one source from the arrangement being built.
-    ///
-    /// The cap is enforced here rather than by greying rows out: a row that cannot be added is
-    /// a row that looks broken, and the honest answer to "why not" is that the Mac is already
-    /// capturing as many as it will. Picking past it replaces nothing, it simply does not add.
+    /// The cap is enforced here rather than by greying rows: a row that cannot be added looks broken, and the Mac is already capturing as many as it will.
     func toggle(_ descriptor: CaptureSourceDescriptor) {
         if let index = picked.firstIndex(where: { $0.source == descriptor.source }) {
             picked.remove(at: index)

@@ -2,13 +2,8 @@ import CoreMedia
 import Foundation
 import RemoteCore
 
-/// Turning one decoded frame of the wire into a sample the renderer can be given.
-///
-/// The three attachments it sets decide whether the picture plays at all, so they live here rather
-/// than on the renderer: `MacCastPolicyTests` asserts them without an app bundle.
+/// The attachments decide whether the picture plays at all; they live here so `MacCastPolicyTests` can assert them without an app bundle.
 public enum VideoSampleBuffer {
-    /// Wraps one AVCC payload in a `CMSampleBuffer` the renderer can decode.
-    ///
     /// `decodeTimeStamp = .invalid` is correct: the host encodes with `AllowFrameReordering` false,
     /// so presentation order is decode order and there is no second timestamp to supply.
     public static func make(

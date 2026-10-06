@@ -2,20 +2,7 @@ import MacCastKit
 import RemoteCore
 import SwiftUI
 
-/// The edges and names of the tiles, drawn over a picture the Mac has already composited.
-///
-/// **Nothing here is the picture.** The Mac draws the canvas; this draws where one window ends
-/// and the next begins, which is the difference between a user seeing several windows and a user
-/// seeing one strange arrangement of things. It is drawn as an overlay rather than as chrome and
-/// it takes no touches at all: a tap on a tile is routed by the gesture surface, which is the
-/// only layer that knows both where the picture is on screen and what is over it. An overlay that
-/// answered touches would have to know the same thing twice.
-///
-/// The rectangles arrive already mapped into the view's coordinates — through the same
-/// ``CanvasGeometry`` call the drawn remote cursor goes through, so the borders and the cursor
-/// cannot disagree about where the picture is — which keeps this a drawing and nothing else.
 struct MosaicOverlay: View {
-    /// One tile, where it is on screen and what to call it.
     struct Placed: Identifiable, Equatable {
         /// **The window, not its place in the arrangement.** Two tiles of one arrangement are two
         /// windows in two rectangles, and a reorder is the same rectangles holding different
@@ -30,37 +17,18 @@ struct MosaicOverlay: View {
 
     let placed: [Placed]
 
-    /// The window a long press is holding, if one is being moved. See ``Placed/id``.
     var held: String?
-    /// Where the finger holding it is. The held tile is drawn here rather than around its slot, so
-    /// that the thing being moved is under the thumb — the picture cannot follow it, because the
-    /// windows are one composited surface on the Mac, so the outline and the name are what travel.
     var heldPoint: CGPoint?
-    /// The window under the finger, which is where the held one would go if it were let go.
     var target: String?
 
-    /// How far the name sits from its tile's corner.
     private static let labelInset: CGFloat = 6
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             ForEach(placed) { tile in
-                // An outline rather than a fill: a filled tint over live video would tint the
-                // thing the user is trying to read, and the picture inside a tile is the whole
-                // point of the tile.
-                //
-                // **Two of them are drawn differently while a tile is being moved**, and they are
-                // the whole of the feedback the gesture has: which one is in the hand, and where it
-                // would land. The second is in the accent because it is a state rather than a
-                // place, which is the only thing this app spends that colour on.
                 let isHeld = tile.id == held
                 let isTarget = tile.id == target && held != nil && target != held
 
-                // **The tile in hand is drawn where the finger is**, not where its slot is: it has
-                // been picked up, and a frame that stayed behind would be the app saying it had not
-                // been. Everything else about it is the same shape and the same name, so what the
-                // user is holding is recognisably the window they pressed. Around the slot it came
-                // from there is nothing to draw: the gap it left is not a place in the picture.
                 let drawn = isHeld ? (heldPoint.map { CGRect(
                     x: $0.x - tile.rect.width / 2,
                     y: $0.y - tile.rect.height / 2,
@@ -80,18 +48,11 @@ struct MosaicOverlay: View {
                         isTarget ? ColorPalette.accent : Color.white.opacity(isHeld ? 0.9 : 0.22),
                         lineWidth: isHeld || isTarget ? 2 : 1
                     )
-                    // A shadow only on the one being carried, which is the whole of what makes it
-                    // read as lifted rather than as another tile's edge: it is the one shape here
-                    // that is over the picture instead of a part of it.
                     .shadow(color: .black.opacity(isHeld ? 0.6 : 0), radius: isHeld ? 10 : 0)
                     .frame(width: max(drawn.width, 0), height: max(drawn.height, 0))
                     .position(x: drawn.midX, y: drawn.midY)
 
                 if let title = tile.title, tile.rect.width > 120 {
-                    // Named only where there is room for a name. A tile smaller than this is a
-                    // label with a window behind it, and the user picked these windows knowing
-                    // which was which.
-                    //
                     // **A point, with the name drawn over it.** The name is given the width of its
                     // tile so a long one truncates where the tile ends. That is a *layout* claim,
                     // and a tile zoomed into is wider than the screen, so the claim grew with the
@@ -101,10 +62,6 @@ struct MosaicOverlay: View {
                     // bigger canvas. Measured at 59 points a frame until it hit four thousand, for
                     // as long as anyone left it running. An overlay takes no part in layout, which
                     // is the same trick the source tiles use for their pictures.
-                    //
-                    // Offset from the canvas's own top-left rather than positioned by its centre:
-                    // the label belongs to the tile's corner, and its width is whatever the name
-                    // happens to be, so centring it would make it move when the text did.
                     Color.clear
                         .frame(width: 1, height: 1)
                         .overlay(alignment: .topLeading) {

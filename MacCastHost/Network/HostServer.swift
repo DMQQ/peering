@@ -6,14 +6,6 @@ import os
 private let videoLog = Logger(subsystem: "pl.dmq.peering.host", category: "video")
 private let sessionLog = Logger(subsystem: "pl.dmq.peering.host", category: "session")
 
-/// Advertises the host over Bonjour and accepts both connection roles.
-///
-/// One listener serves the control and video channels; the first frame on each connection
-/// declares which it is. They are separate TCP connections on purpose: sharing one stream
-/// would put a 200 KB keyframe in front of the next mouse move.
-///
-/// All mutable state is confined to ``queue``. Everything crossing out of it does so as a
-/// ``HostEvent``.
 final class HostServer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "pl.dmq.peering.host.server")
 
@@ -22,10 +14,6 @@ final class HostServer: @unchecked Sendable {
     private let pins: PinStore
 
     /// The TCP port to listen on.
-    ///
-    /// A parameter, because a Mac whose network already uses 51515 has nowhere else to go.
-    /// Bonjour advertises whatever is bound here, so a phone on the same network follows a
-    /// custom port with no configuration of its own.
     private let port: UInt16
 
     private var listener: NWListener?
@@ -39,20 +27,12 @@ final class HostServer: @unchecked Sendable {
     private let agentManager = AgentSessionManager()
 
     /// A relay session's local end, and the allocation the relay gave it.
-    ///
-    /// Kept together because they are only ever known together: the allocation arrives on the
-    /// signalling socket and the connection it belongs to is accepted a moment later. The
-    /// allocation is what a granted datagram lane is built from (the relay's video address and
-    /// the token naming the session), so a tunnel that loses it has no picture but the one on
-    /// the control stream.
     private struct RelayTunnel {
         let id: UUID
         let bridge: RelayControlBridge
         let session: RelaySession
     }
 
-    /// Each video connection is tagged with the client key that authorized it, so it can be
-    /// torn down when that client's control session ends.
     private var videoConnections: [(peer: PeerConnection, clientKey: Data)] = []
 
     private let callbackLock = NSLock()
@@ -67,9 +47,6 @@ final class HostServer: @unchecked Sendable {
     private var _onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
 
     /// Called when a terminal needs attention, or has finished a command worth mentioning.
-    /// Arguments: APNs device token (hex), notification title, body. This also fires while the
-    /// phone is connected because that connection can be alive under Picture in Picture after iOS
-    /// has suspended the app.
     var onPushNeeded: (@Sendable (String, String, String) -> Void)? {
         get { callbackLock.withLock { _onPushNeeded } }
         set { callbackLock.withLock { _onPushNeeded = newValue } }
@@ -78,10 +55,6 @@ final class HostServer: @unchecked Sendable {
     private var _onAgentActivity: (@Sendable (Bool) -> Void)?
 
     /// Called when the set of chats that are doing something becomes empty, or stops being empty.
-    ///
-    /// Not the push path: this is about the Mac's own sleep assertion, which the phone neither
-    /// hears about nor controls. An agent left working with the phone away is the feature's
-    /// whole promise, and a Mac that sleeps under it breaks that promise quietly.
     var onAgentActivity: (@Sendable (Bool) -> Void)? {
         get { callbackLock.withLock { _onAgentActivity } }
         set { callbackLock.withLock { _onAgentActivity = newValue } }
@@ -104,10 +77,6 @@ final class HostServer: @unchecked Sendable {
 
     /// Called when a client asks for video to move between transports, with the key that
     /// identifies it and the control connection the request arrived on.
-    ///
-    /// Three arguments because the decision needs all three: the key says whether this client is
-    /// the one being served, the connection is where the picture goes if it moves, and the
-    /// request says which way.
     var onVideoTransport: (@Sendable (Data?, VideoTransportRequest, PeerConnection) -> Void)? {
         get { callbackLock.withLock { _onVideoTransport } }
         set { callbackLock.withLock { _onVideoTransport = newValue } }
@@ -115,11 +84,6 @@ final class HostServer: @unchecked Sendable {
 
     /// Called when a relayed client asks for the secret that seals video datagrams, with the
     /// key that identifies it and the allocation the session came from.
-    ///
-    /// Answers the secret when a datagram lane was set up for that client, or `nil` when it was
-    /// refused, which the session turns into silence rather than an error. The key and the
-    /// allocation are here rather than in the session because only the server knows which
-    /// allocation a given connection arrived through.
     var onVideoKeyRequest: (@Sendable (Data?, RelaySession) -> Data?)? {
         get { callbackLock.withLock { _onVideoKeyRequest } }
         set { callbackLock.withLock { _onVideoKeyRequest = newValue } }
@@ -127,23 +91,16 @@ final class HostServer: @unchecked Sendable {
 
     /// Called when a client asks for the picture to be turned on or off, with the key that
     /// identifies it.
-    ///
-    /// The key rather than the connection, because they are not the same socket: a direct
-    /// session's frames go out on a video connection of their own, a relayed one's on the control
-    /// connection this request arrived on. The key is the only thing naming the same client on
-    /// both paths.
     var onVideoEnabled: (@Sendable (Data?, Bool) -> Void)? {
         get { callbackLock.withLock { _onVideoEnabled } }
         set { callbackLock.withLock { _onVideoEnabled = newValue } }
     }
 
-    /// Called when any client requests the host clipboard. Return `nil` to send nothing.
     var onRequestClipboard: (@Sendable () -> ClipboardPayload?)? {
         get { callbackLock.withLock { _onRequestClipboard } }
         set { callbackLock.withLock { _onRequestClipboard = newValue } }
     }
 
-    /// Called when any client pushes its clipboard to the host.
     var onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)? {
         get { callbackLock.withLock { _onReceiveClipboard } }
         set { callbackLock.withLock { _onReceiveClipboard = newValue } }
@@ -184,7 +141,6 @@ final class HostServer: @unchecked Sendable {
         terminalManager.allPushTokens()
     }
 
-    /// Every registered token, connected or not. See ``TerminalSessionManager/registeredPushTokens()``.
     func registeredPushTokens() -> [String] {
         terminalManager.registeredPushTokens()
     }
@@ -201,8 +157,6 @@ final class HostServer: @unchecked Sendable {
         agentManager.onPushNeeded = { [weak self] token, title, message in
             self?.onPushNeeded?(token, title, message)
         }
-        // Kept as its own callback rather than folded into the push path: this one is about this
-        // Mac's own sleep assertion, which the phone has no say in and nothing to hear about.
         agentManager.onActivityChanged = { [weak self] active in
             self?.onAgentActivity?(active)
         }
@@ -281,15 +235,11 @@ final class HostServer: @unchecked Sendable {
         }
     }
 
-    /// Forgets every paired client. The UI calls this after confirming with the user.
     func unpairAll() -> Bool {
         pins.removeAll()
     }
 
     /// Revokes one client and ends any session it already has open.
-    ///
-    /// Removing the pin only changes the next handshake, so a phone already authorized would
-    /// otherwise keep its control and video sockets until it chose to disconnect.
     func unpair(clientID: String) -> Bool {
         guard pins.remove(peerID: clientID) else { return false }
         queue.async { [weak self] in
@@ -301,10 +251,6 @@ final class HostServer: @unchecked Sendable {
         return true
     }
 
-    /// Ends a client's session without revoking it.
-    ///
-    /// The difference from ``unpair(clientID:)`` is the pin, and it is the point: the phone stays
-    /// trusted and reconnects by itself.
     func disconnect(clientID: String) {
         queue.async { [weak self] in
             guard let self else { return }
@@ -319,12 +265,6 @@ final class HostServer: @unchecked Sendable {
     // MARK: - Advertising
 
     /// What this Mac announces on the network.
-    ///
-    /// The TXT record carries the persistent device ID, which is what lets a client recognise
-    /// this Mac across networks and DHCP leases. The ID is stable; the advertised address is not.
-    ///
-    /// Built rather than stored, so withdrawing and restoring it cannot leave a second copy of
-    /// the record behind to disagree with this one.
     private var bonjourService: NWListener.Service {
         NWListener.Service(
             name: device.name,
@@ -339,34 +279,9 @@ final class HostServer: @unchecked Sendable {
 
     /// Withdraws the Mac from the network while a device is using it, and puts it back when the
     /// last one leaves.
-    ///
-    /// A Mac serves whichever device connects and nothing in the protocol arbitrates between two,
-    /// so a second phone that can see this Mac is a second phone that can drive it. Withdrawing
-    /// the advertisement is the whole fix, and it costs nothing else: the listener stays up, a
-    /// *paired* device still reaches this Mac through the relay, and a phone on the same network
-    /// finds it again as soon as the session ends.
-    ///
-    /// Withdrawn on *authorization* rather than on connection, which is what keeps a failed
-    /// handshake from hiding the Mac.
-    /// How long a session may go unheard before it is treated as gone.
-    ///
-    /// The app pings once a second for the whole life of a session, so this is sixty missed pings.
-    ///
-    /// Sixty rather than fifteen: what this tests is "the client sends nothing on control", and
-    /// sending is a client behaviour, not something the protocol guarantees. A limit tuned to this
-    /// app's cadence breaks every other client (the probe speaks the protocol raw and never runs
-    /// the ping loop).
-    ///
-    /// Longer than the ~30 seconds iOS grants an app in the background, so switching away and
-    /// straight back does not cost the user their session.
     private static let silenceLimit: TimeInterval = 60
 
     /// How long a connection may occupy a session slot without completing authentication.
-    ///
-    /// Authorized sessions get the generous limit above because a real client can spend time
-    /// suspended in the background. A connection that has not authenticated has no reason to hold
-    /// a socket, and letting it does lets a peer accumulate half-open handshakes for as long as
-    /// the host runs. Thirty seconds still leaves time to confirm a first-pairing code.
     private static let handshakeSilenceLimit: TimeInterval = 30
 
     /// How often to look. Well under the limit, so a session ends within a few seconds of going
@@ -374,19 +289,6 @@ final class HostServer: @unchecked Sendable {
     private static let reaperInterval: TimeInterval = 5
 
     /// Ends sessions whose client has stopped answering.
-    ///
-    /// Without it the withdrawal in ``updateAdvertisement()`` leaves a session the host believes
-    /// in and the client does not as a Mac removed from the network with nothing to notice it:
-    /// the connection stays open and `isAuthorized` stays true.
-    ///
-    /// Video connections are excluded, and applying either limit to them is a bug: a video
-    /// connection is silent by design, so `silence` runs away from the moment it opens, and it is
-    /// never `isAuthorized`, so the shorter handshake limit would close the picture thirty seconds
-    /// into every session. The half-open handshakes that limit exists for never presented a role;
-    /// these did, and only the control session they belong to ends them.
-    ///
-    /// Skipping them leaves nothing behind: the control session they belong to is reaped on its
-    /// own limit, and its end sweeps the video connections for its key.
     private func reapSilentSessions() {
         for session in controlSessions where !session.isVideoConnection {
             let limit = session.isAuthorized ? Self.silenceLimit : Self.handshakeSilenceLimit
@@ -396,9 +298,6 @@ final class HostServer: @unchecked Sendable {
             } else {
                 sessionLog.notice("An unauthenticated connection stopped answering; ending its handshake")
             }
-            // `cancel()` closes the connection and the close handler does everything else: the
-            // session leaves the list, its video streams end, the advertisement goes back up.
-            // Doing any of that here as well would do it twice.
             session.cancel()
         }
     }
@@ -445,13 +344,8 @@ final class HostServer: @unchecked Sendable {
         }
         session.onVideoTransportRequest = { [weak self, weak session] request in
             guard let self, let session else { return }
-            // The control peer, not a lookup: this is the connection the request arrived on, so
-            // it is the connection that can carry the answer.
             self.onVideoTransport?(session.peerPublicKey, request, peer)
         }
-        // The key and not the connection, unlike the transport request above: what this answer
-        // acts on is whichever connection is being sent frames now, which on a direct session is
-        // a socket the request did not arrive on.
         session.onVideoEnabled = { [weak self, weak session] enabled in
             guard let self, let session else { return }
             self.onVideoEnabled?(session.peerPublicKey, enabled)
@@ -482,10 +376,6 @@ final class HostServer: @unchecked Sendable {
                 // carries no handshake of its own and does not say which client it belongs to,
                 // and the TLS verify block accepts any self-signed chain (authenticity comes from
                 // pairing, not a CA), so completing a TLS handshake proves nothing. Without this
-                // check any peer that reaches the port could ask for the user's screen and get it.
-                //
-                // The client key ties the two sockets together: it comes from the peer's
-                // certificate, so a client cannot claim one it does not hold.
                 videoLog.notice("refused a video connection with no authorized control session")
                 emit(.failed("Refused a video connection from an unauthorized client"))
                 videoPeer.cancel()
@@ -497,9 +387,6 @@ final class HostServer: @unchecked Sendable {
             videoPeer.onClose = { [weak self, weak videoPeer] error in
                 previousClose?(error)
                 guard let self, let videoPeer else { return }
-                // A video socket is independent from control and may reconnect several times in
-                // one session, so remove it as it closes rather than retaining every old
-                // PeerConnection until control ends.
                 self.videoConnections.removeAll { $0.peer === videoPeer }
             }
             onVideoConnection?(videoPeer)
@@ -518,9 +405,6 @@ final class HostServer: @unchecked Sendable {
 
         session.onEnded = { [weak self] in
             guard let self else { return }
-            // Pruning matters for more than tidiness: a finished session left in the list would
-            // go on authorizing video connections, since `isAuthorized` stays true on an object
-            // whose connection is gone.
             controlSessions.removeAll { $0 === session }
             if !controlSessions.contains(where: { $0.isAuthorized && $0.clientID == session.clientID }) {
                 self.terminalManager.disconnect(clientID: session.clientID)
@@ -529,22 +413,12 @@ final class HostServer: @unchecked Sendable {
             // And the streams it authorized end with it: a video connection that outlived its
             // control session would keep delivering the screen to a client the host believes is
             // gone.
-            //
-            // Only when nothing else holds this key, though. A phone whose network moved dials
-            // again while the old socket's close is still on its way, or while it waits out the
-            // sixty seconds a silent connection is given, so the replacement can be authorized
-            // and have its video connection attached before this fires; sweeping by key would
-            // then cancel the picture that had just come back.
-            //
-            // A video connection's own end needs no sweeping: the entry it left in
-            // `videoConnections` goes with its close handler.
             let keyIsStillServed = controlSessions.contains {
                 $0.isAuthorized && $0.peerPublicKey == session.peerPublicKey
             }
             if !session.isVideoConnection, !keyIsStillServed {
                 closeVideoConnections(for: session.peerPublicKey)
             }
-            // Last one out puts the Mac back on the network.
             self.updateAdvertisement()
             if let relayBridge {
                 relayBridge.cancel()
@@ -556,9 +430,6 @@ final class HostServer: @unchecked Sendable {
         session.start()
     }
 
-    /// Opens the host half of a relay session. A loopback bridge feeds the outbound internet
-    /// socket back into this listener, so Network.framework still sees an accepted TLS connection,
-    /// preserving the Mac's server role and the mTLS/pinning implementation.
     func connectThroughRelay(_ relaySession: RelaySession) {
         queue.async { [weak self] in
             guard let self, self.listener != nil else { return }
@@ -568,8 +439,6 @@ final class HostServer: @unchecked Sendable {
                     session: relaySession,
                     localPort: self.port,
                     onClose: { [weak self] in
-                        // RelayByteSplice owns a different queue: hand the change back to the
-                        // server queue so an accept and a close are ordered with the two arrays.
                         self?.queue.async { [weak self] in
                             self?.relayTunnelClosed(id: tunnelID)
                         }
@@ -588,20 +457,11 @@ final class HostServer: @unchecked Sendable {
     }
 
     /// Drops a relay allocation whether its loopback connection was accepted yet or not.
-    ///
-    /// A bridge that fails before `accept` must leave the pending FIFO, or the next unrelated
-    /// connection consumes its allocation and is treated as the relayed client. Active bridges go
-    /// too; their local EOF closes the corresponding HostSession independently.
     private func relayTunnelClosed(id: UUID) {
         pendingRelayBridges.removeAll { $0.id == id }
         activeRelayBridges.removeAll { $0.id == id }
     }
 
-    /// Pushes an updated capture catalogue to every authorized client.
-    ///
-    /// Every client, not the one that caused the change: the catalogue is host-wide state, and
-    /// two devices disagreeing about what is capturable shows up as one of them offering a source
-    /// that no longer exists.
     func broadcastCatalog(_ catalog: CaptureCatalog) {
         queue.async { [weak self] in
             guard let self else { return }
@@ -611,10 +471,6 @@ final class HostServer: @unchecked Sendable {
         }
     }
 
-    /// Says the same thing to every attached client.
-    ///
-    /// Every client, for the same reason ``broadcastCatalog(_:)`` does: what this describes is a
-    /// fact about this Mac (its screen is dark), not about one session.
     func broadcastNotice(_ payload: NoticePayload) {
         queue.async { [weak self] in
             guard let self else { return }
@@ -624,7 +480,6 @@ final class HostServer: @unchecked Sendable {
         }
     }
 
-    /// Tells every attached client that the Mac's keyboard focus moved.
     func broadcastTextFocus(_ focus: TextFocus) {
         queue.async { [weak self] in
             guard let self else { return }
@@ -634,7 +489,6 @@ final class HostServer: @unchecked Sendable {
         }
     }
 
-    /// Tells every attached client what the focused field holds.
     func broadcastFieldState(_ state: FieldState) {
         queue.async { [weak self] in
             guard let self else { return }

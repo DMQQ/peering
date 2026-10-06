@@ -3,13 +3,7 @@ import MacCastKit
 import RemoteCore
 import SwiftUI
 
-/// What a trusted phone can do, and what this app is.
 extension HostStatusView {
-    /// What pairing actually grants, said plainly.
-    ///
-    /// Worth the space: "trusted device" is a phrase that sounds broader than it is, and the
-    /// honest answer — it can see the screen you chose and send input — is both narrower and
-    /// easier to reason about than a phrase like "full access".
     var privacyNote: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeading(String(localized: "What a trusted phone can do"), detail: String(localized: "The whole of it."))
@@ -32,11 +26,7 @@ extension HostStatusView {
                 Divider()
                 privacyRow(
                     String(localized: "Clipboard, when you ask"),
-                    // **Files used to be named here as something that is never sent, and they are
-                    // sent**, in both directions, up to 64 MB at a time. A privacy screen that
-                    // understates what a trusted device can do is worse than no privacy screen,
-                    // because it is the one page a reader takes at its word. The microphone and the
-                    // camera really are not used, on either device, and saying so is worth keeping.
+                    // Files are sent in both directions, up to 64 MB; the privacy text must not understate what a trusted device can do.
                     String(localized: "Clipboard text moves only when you use Pull or Push on the iPhone. Files do move between the two, when you ask them to. No microphone and no camera is used, on either device.")
                 )
             }
@@ -85,10 +75,6 @@ extension HostStatusView {
             .textSelection(.enabled)
 
             HStack(spacing: 10) {
-                // The same row the iPhone app has, and here because this is the half of the
-                // pair that captures the screen: a picture that is black, late or the wrong
-                // size is a bug on this Mac, and the report should not have to start with
-                // "which app are you using".
                 Link(destination: Self.reportURL) {
                     Label("Report an issue", systemImage: "envelope")
                 }
@@ -99,23 +85,12 @@ extension HostStatusView {
         }
     }
 
-    /// Where a report goes, with the two facts that make one actionable already in the draft.
-    ///
-    /// The app version and the macOS release are the first things anyone has to ask for. Neither
-    /// identifies the person or the machine: there is no account, and nothing here is a serial
-    /// number. Nothing about the session is included either — no Mac name, no device ID.
-    ///
-    /// Shared with the menu bar, which offers the same thing: the menu is where this app is
-    /// usually being looked at when something has gone wrong, and a bug report that starts with the
-    /// user having to find a window first is one that does not get written.
+    /// Shared with the menu bar. Includes only the app version and macOS release, nothing identifying.
     static var reportURL: URL {
         let info = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "unknown"
         let build = info?["CFBundleVersion"] as? String ?? "unknown"
-        // **The last crash, and where the rest of them are.** A `mailto:` body is a URL, and a
-        // backtrace in one would be truncated by whichever mail client opened it, so what goes in
-        // is the line that identifies the crash: with the version and the date it is enough to tell
-        // two reports apart, and the path is where the whole of it can be attached from.
+        // A mailto body is truncated by mail clients, so only the line identifying the last crash goes in.
         let latest = CrashLog.entries(subject: "host").first
         let crash = latest.map { entry in
             """

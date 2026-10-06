@@ -2,17 +2,12 @@ import MacCastKit
 import RemoteCore
 import SwiftUI
 
-/// The Mac's folders, with no shell behind them.
-///
-/// The same browser the terminal shows instead of its output — same panel, same rows, same
-/// previews — hung on a browsing scope rather than a terminal, which is what lets it be opened
-/// on its own from the hub. What it does not have is the three shell keys and the Run button:
-/// there is no shell to type into or launch from here, and a control that answers nothing is
-/// worse than one that was never offered.
+/// The Mac's folders with no shell: the same browser as the terminal's, on a browsing scope. No shell keys or Run button, since there is no shell.
 struct MacFilesScreen: View {
     @Environment(SessionModel.self) var model
 
     @State var showsHiddenFiles = false
+    @State private var restoredPath: String?
 
     var body: some View {
         Group {
@@ -32,12 +27,27 @@ struct MacFilesScreen: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .onAppear {
             guard let id = model.browserID else { return }
-            // The scope first: the Mac keeps one only for the connection that made it, and it
-            // takes the same id again without complaint. The listing that follows travels after
-            // it on the same connection, so the scope exists by the time it is answered.
+            // The scope first: the Mac keeps one only for the connection that made it, and the listing that follows travels after it on the same connection.
             model.openFileScope()
+            if model.browserPath == nil, let saved = model.rememberedFilesFolder {
+                restoredPath = saved
+                model.setBrowserPath(saved)
+            }
             model.listDirectory(model.browserPath, sessionID: id)
         }
+        // A remembered folder that is gone, renamed or no longer readable falls back to the home folder instead of leaving the browser on an error.
+        .onChange(of: restoredFailure) { _, failure in
+            guard failure != nil, let id = model.browserID else { return }
+            restoredPath = nil
+            model.forgetFilesFolder()
+            model.setBrowserPath(nil)
+            model.listDirectory(nil, sessionID: id)
+        }
+    }
+
+    private var restoredFailure: String? {
+        guard let id = model.browserID, let restoredPath, model.browserPath == restoredPath else { return nil }
+        return model.browseFailure(restoredPath, sessionID: id)
     }
 
     @ViewBuilder
@@ -52,24 +62,17 @@ struct MacFilesScreen: View {
                     onRevealPath: nil,
                     onClose: { model.closePreview() },
                     onSave: { model.saveFile($0, sessionID: id) }
-                    // Reading and editing a file stay free; handing it to the phone does not, and
-                    // the panel gates the share button itself. See
-                    // ``PlanCapability/fileTransfer``.
+                    // Reading and editing stay free; the panel gates the share button (``PlanCapability/fileTransfer``).
                 )
             } else {
                 FileBrowserPanel(
                     path: model.browserPath,
                     directory: model.directory(model.browserPath, sessionID: id),
                     isLoading: model.isLoadingDirectory(model.browserPath, sessionID: id),
-                    // An upload that failed shares the slot, as it does on the other browsers: it
-                    // is a fact about this folder, and the next attempt clears it.
                     failure: model.uploadFailure(sessionID: id)
                         ?? model.browseFailure(model.browserPath, sessionID: id),
                     showsHidden: showsHiddenFiles,
-                    // The Mac blocks inside the listing call while macOS puts a Files-and-Folders
-                    // question on its screen, and nothing about that reaches this phone: the
-                    // request is simply outstanding, so the wait says what it is probably waiting
-                    // for and where the answer is.
+                    // The Mac blocks inside the listing call while macOS shows a Files-and-Folders prompt, and nothing of that reaches this phone, so the wait says what it is probably waiting for.
                     waitingHint: String(localized: "If your Mac is asking whether Peering may read this folder, answer it there."),
                     progress: model.folderProgress(sessionID: id),
                     onOpen: { open($0, in: id) },
@@ -78,8 +81,6 @@ struct MacFilesScreen: View {
                     onReload: { model.listDirectory(model.browserPath, sessionID: id) },
                     onUpload: { model.uploadFile($0, sessionID: id) },
                     onUploadItems: { model.uploadItems($0, sessionID: id) },
-                    // No Run: it exists to type a command into a shell, and this browser is
-                    // exactly the case where there is not one.
                     onRun: nil,
                     deleteHint: String(localized: "It can be put back from the Trash on your Mac."),
                     onCreate: canMake
@@ -108,8 +109,6 @@ struct MacFilesScreen: View {
         }
     }
 
-    /// Nothing to be careful about: a folder can be changed as soon as the Mac has said where this
-    /// browser opens, which is the one thing that has to be known before a change can name a path.
     private var canMake: Bool { model.browserPath != nil }
 
     private var folder: String { model.browserPath ?? "" }
@@ -123,8 +122,6 @@ struct MacFilesScreen: View {
         }
     }
 
-    /// Into a folder. No `cd` follows, unlike the terminal's browser: there is no shell here, so
-    /// looking at a folder is all this does.
     private func navigate(to path: String, in id: UUID) {
         model.setBrowserPath(path)
         model.listDirectory(path, sessionID: id)

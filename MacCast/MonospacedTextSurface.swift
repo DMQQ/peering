@@ -1,20 +1,6 @@
 import SwiftUI
 import UIKit
 
-/// A file's text on screen, wrapping or running off the side, read or written.
-///
-/// **One view for both modes, and that is the whole point of it.** The panel used to read through a
-/// `Text` in two nested scroll views and write through a `TextEditor`, which are two different
-/// renderers with two different opinions: the reader never wrapped, because a config, a script and
-/// a log are all read by their columns, and the editor always wrapped, because a text field has one
-/// axis and no way to have another. So the same file looked like two files depending on whether you
-/// had tapped a pencil — and the one thing the two modes should agree about is what the file looks
-/// like.
-///
-/// `UITextView` is the only text view on the platform that can do either, so both modes are this
-/// one, one flag apart. That the reader and the editor are now the same object is the point rather
-/// than a side effect: they cannot drift again.
-///
 /// **No wrap is a text container with an unbounded width.** `widthTracksTextView` is what makes a
 /// text view re-wrap to its own bounds, and turning it off leaves the container asking instead for
 /// the width it was given — which, given an unbounded one, is a single line for as long as it needs
@@ -26,13 +12,8 @@ import UIKit
 /// reached through `textContainer` and that is the compatibility path. It is a supported one, and
 /// at a hundred kilobytes of text there is nothing here that would notice the difference.
 struct MonospacedTextSurface: UIViewRepresentable {
-    /// What to show. When ``onEdit`` is absent this is only ever read.
     let text: String
-    /// Called with the whole text on every keystroke. Absent for a file that cannot be written,
-    /// which is also what makes the surface read-only.
     var onEdit: ((String) -> Void)?
-    /// Whether lines wrap to the width of the view. The one thing the two modes share, so that
-    /// toggling it means the same thing in both of them.
     var wraps: Bool = true
     var fontSize: CGFloat = 12
 
@@ -40,8 +21,6 @@ struct MonospacedTextSurface: UIViewRepresentable {
         let view = UITextView()
         view.delegate = context.coordinator
         view.isSelectable = true
-        // Matched to the terminal's own log, which is the other place in this app that shows a
-        // file's worth of text: same face, same size, same inset.
         view.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
         view.textColor = UIColor(ColorPalette.ink)
         view.tintColor = UIColor(ColorPalette.accent)
@@ -91,14 +70,9 @@ struct MonospacedTextSurface: UIViewRepresentable {
         }
     }
 
-    /// The two lines that decide whether this wraps.
-    ///
     /// Both branches set the container's size and not only the flag, because the flag changes what
     /// the container *asks for* and the size is what it already has: flipping the flag alone leaves
     /// the view laid out to the old width until something else forces a pass.
-    ///
-    /// Nothing here has to be redone when the view is resized: the wrapped container tracks the
-    /// width itself, and the unwrapped one was never interested in it.
     private static func applyWrapping(_ wraps: Bool, to view: UITextView) {
         let container = view.textContainer
         let unbounded = CGFloat.greatestFiniteMagnitude
@@ -115,8 +89,6 @@ struct MonospacedTextSurface: UIViewRepresentable {
 
     final class Coordinator: NSObject, UITextViewDelegate {
         var onEdit: ((String) -> Void)?
-        /// What the text container was last set to, so that an update which changed nothing about
-        /// the wrapping does not re-lay the file out. See ``updateUIView(_:context:)``.
         var appliedWraps: Bool?
 
         init(onEdit: ((String) -> Void)?) {

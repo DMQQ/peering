@@ -3,8 +3,6 @@ import Testing
 
 @testable import SSHCore
 
-/// A `UserDefaults` of its own, so a test never writes into the real app's preferences and never
-/// has to tidy up after itself.
 private func scratchDefaults() -> UserDefaults {
     UserDefaults(suiteName: "peering.ssh.lock.tests.\(UUID().uuidString)")!
 }
@@ -23,9 +21,7 @@ struct SSHPasscodeStoreTests {
 
         #expect(store.verify("481620", for: host))
         #expect(!store.verify("481621", for: host))
-        // The one that matters most: a passcode set on one server is not a passcode for every
-        // server. A store that answered `true` for an unknown id would make the lock a screen
-        // rather than a lock.
+        // A passcode set on one server is not a passcode for every server; `true` for an unknown id would make the lock a screen.
         #expect(!store.verify("481620", for: other))
     }
 
@@ -61,9 +57,7 @@ struct SSHPasscodeStoreTests {
 
     @Test("the same six digits on two servers do not store the same bytes")
     func saltSeparatesIdenticalPasscodes() {
-        // Without the salt, two servers given the same passcode would be recognisable as such from
-        // the stored blob alone — and one of those numbers being found anywhere else would point
-        // at the other.
+        // Without the salt, equal passcodes on two servers would be recognisable from the blob.
         let store = SSHPasscodeStore(backend: InMemorySecretBackend())
         let first = UUID()
         let second = UUID()
@@ -83,21 +77,16 @@ struct SSHPasscodeStoreTests {
         #expect(!SSHPasscodeStore.isValid("12345"))
         #expect(!SSHPasscodeStore.isValid("1234567"))
         #expect(!SSHPasscodeStore.isValid("12345a"))
-        // Digits that are not ASCII digits: `isNumber` alone accepts these, and a pad that can
-        // only produce 0–9 would never let the user type one back.
+        // `isNumber` alone accepts non-ASCII digits, which a pad could never let the user type back.
         #expect(!SSHPasscodeStore.isValid("١٢٣٤٥٦"))
         #expect(SSHPasscodeStore.isValid("000000"))
 
-        // And the store itself refuses to be talked into a short one by a caller that skipped the
-        // check, rather than storing something nobody could type.
         #expect(!store.set("123", for: host))
         #expect(!store.hasPasscode(for: host))
     }
 
     @Test("a backend that refuses the write is reported, not swallowed")
     func failedWriteIsReported() {
-        // The caller has to be able to turn the server's lock back off rather than leave it asking
-        // for a passcode that was never stored — see `SSHModel.save(_:passcode:)`.
         #expect(SSHPasscodeStore(backend: RefusingSecretBackend()).set("123456", for: UUID()) == false)
     }
 
@@ -119,7 +108,6 @@ private struct RefusingSecretBackend: SSHSecretBackend {
 
 @Suite("Servers saved before the lock existed")
 struct SSHHostLockDecodingTests {
-    /// A host as the previous build wrote it: no `lock` key at all, and no `lastConnectedAt`.
     private func legacyBlob(id: UUID) -> Data {
         Data("""
         [{"id":"\(id.uuidString)","name":"","hostname":"box.local","port":22,"username":"root","createdAt":0}]
@@ -128,10 +116,7 @@ struct SSHHostLockDecodingTests {
 
     @Test("the list loads, and nothing in it is locked")
     func missingKeyDecodesToUnlocked() throws {
-        // The trap this guards: a property default is not a decoding default, so a `lock` field
-        // added without a hand-written decoder makes every saved server fail to decode — and the
-        // store answers a failed decode with an empty list, so the user's whole list disappears on
-        // the first launch after an update.
+        // A property default is not a decoding default: a `lock` field without a hand-written decoder made every saved server fail to decode, and the store then returned an empty list.
         let defaults = scratchDefaults()
         defaults.set(legacyBlob(id: UUID()), forKey: SSHHostStore.key)
 
@@ -144,8 +129,7 @@ struct SSHHostLockDecodingTests {
 
     @Test("a lock this build does not know degrades to unlocked, and takes nothing else with it")
     func unknownLockDoesNotThrow() throws {
-        // A value from a newer build. Throwing here would cost the user every server they have;
-        // degrading costs them a lock this build could not have enforced in any case.
+        // A value from a newer build: throwing would cost every server, degrading costs a lock this build could not enforce anyway.
         let id = UUID()
         let defaults = scratchDefaults()
         let json = """
@@ -208,9 +192,7 @@ struct SSHConnectionHistoryTests {
 
     @Test("the log keeps the newest and drops the oldest")
     func capped() {
-        // The blob is drawn as the row is stored, so the cap is the length of the list on screen as
-        // well as on disk — an unbounded one is a `UserDefaults` value that grows with every
-        // connection the user ever makes.
+        // The cap is the length on screen as well as on disk; an unbounded blob would grow with every connection.
         let store = SSHConnectionHistoryStore(defaults: scratchDefaults())
         let many = (0..<(SSHConnectionHistoryStore.limit + 10)).map { record(from: Double($0)) }
 
@@ -230,9 +212,7 @@ struct SSHConnectionHistoryTests {
 
     @Test("the name and the address are kept, so a deleted server still reads")
     func recordOutlivesTheHost() {
-        // The record holds its own copy of what the server was called. Looking it up when the row
-        // is drawn would blank the whole log the moment the user deleted a server — which is
-        // exactly when they want to know when they last used it.
+        // The record holds its own copy of the name, so deleting a server does not blank the log.
         let gone = UUID()
         let store = SSHConnectionHistoryStore(defaults: scratchDefaults())
         store.save([record(host: gone)])

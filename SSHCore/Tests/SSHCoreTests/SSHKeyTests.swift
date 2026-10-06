@@ -3,20 +3,8 @@ import Testing
 
 @testable import SSHCore
 
-/// Keys made by `ssh-keygen`, kept here as text.
-///
-/// Fixtures rather than keys generated inside the test, and for the reason the whole feature turns
-/// on: ``SSHKeyPair`` claims the line it produces is byte-for-byte the line the server already
-/// knows about, and the only way to check a claim like that is against an implementation that is
-/// not this one. Every `.pub` compared against below was written by `ssh-keygen` itself, so these
-/// assertions measure this app's reading of a key against OpenSSH's.
-///
-/// These are throwaway keys for machines that do not exist. Nothing is ever signed with them.
-///
-/// Shared with the credential-store suite, which needs a real key to prove that a `.key` survives
-/// the same round trip a password does.
+/// Fixtures from `ssh-keygen`: the claim that ``SSHKeyPair`` produces the same line the server knows can only be checked against an implementation that is not this one. Throwaway keys, never used to sign; shared with the credential-store suite.
 enum KeyFixture {
-    /// ed25519, no passphrase, comment `nolabel`.
     static let plainPrivate = """
         -----BEGIN OPENSSH PRIVATE KEY-----
         b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
@@ -29,9 +17,7 @@ enum KeyFixture {
     static let plainPublic =
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIuvrsPnfzj60WuwqSQVHFj45YOWBG0hhqsxGoa2ToXi nolabel"
 
-    /// The same shape with a passphrase. The space in it is deliberate: a passphrase is bytes, and
-    /// trimming or splitting one would be a bug that only shows up for people whose passphrase is
-    /// a sentence.
+    /// The same with a passphrase; the space is deliberate, since trimming or splitting a passphrase would only bite users whose passphrase is a sentence.
     static let protectedPassphrase = "correct horse"
     static let protectedPrivate = """
         -----BEGIN OPENSSH PRIVATE KEY-----
@@ -46,7 +32,6 @@ enum KeyFixture {
     static let protectedPublic =
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICgGzVdkMRBdzw6KBh0QJMDRCkJLsWMu6y+EOVjy+5iJ phone@test"
 
-    /// RSA, no passphrase: the one algorithm besides ed25519 this app can sign with.
     static let rsaPrivate = """
         -----BEGIN OPENSSH PRIVATE KEY-----
         b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABFwAAAAdzc2gtcn
@@ -103,7 +88,6 @@ enum KeyFixture {
         -----END OPENSSH PRIVATE KEY-----
         """
 
-    /// An ECDSA key: readable, well-formed, and not something this app can sign with.
     static let ecdsaPrivate = """
         -----BEGIN OPENSSH PRIVATE KEY-----
         b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAaAAAABNlY2RzYS
@@ -191,10 +175,7 @@ struct SSHKeyTests {
     @Test("a passphrase-protected key opens with its passphrase and not without one")
     func passphrase() throws {
         let opened = try SSHKeyPair.imported(KeyFixture.protectedPrivate, passphrase: KeyFixture.protectedPassphrase)
-        // The key half matches ssh-keygen's line exactly; the label does not, because the comment
-        // sits behind the encryption and reading it would mean implementing aes-ctr and bcrypt here.
-        // The line is still a valid `authorized_keys` entry without one, and the editor offers a
-        // label of its own, so this is a cosmetic gap rather than one that leaves a key unusable.
+        // The key half matches `ssh-keygen`'s line; the label does not, since the comment sits behind the encryption. The line is still a valid `authorized_keys` entry.
         #expect(opened.publicKey == KeyFixture.protectedPublic.replacingOccurrences(of: " phone@test", with: ""))
         #expect(opened.comment == "")
         #expect(opened.algorithm == "ssh-ed25519")
@@ -276,7 +257,6 @@ struct SSHKeyTests {
 
     @Test("a truncated key is an error and not a crash")
     func truncated() {
-        // Cut in the middle of the base64 body, which is where a clipboard loses bytes.
         #expect(throws: SSHKeyError.self) {
             try SSHKeyPair.imported(String(KeyFixture.plainPrivate.dropLast(40)), passphrase: nil)
         }

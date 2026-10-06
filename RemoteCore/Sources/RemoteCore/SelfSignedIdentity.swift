@@ -3,21 +3,13 @@ import Security
 import SwiftASN1
 import X509
 
-/// A long-term TLS identity: a keychain-backed P-256 key with a self-signed certificate minted over
-/// it at launch. Used by both the host and the client.
-///
-/// The private key never leaves the keychain: `Certificate.PrivateKey(secKey)` signs through
-/// `SecKeyCreateSignature` rather than exporting the key material, and the key is eligible for
-/// Secure Enclave backing.
-///
-/// The certificate is regenerated on every launch, on purpose: peers pin the public key, not the
-/// certificate, so a fresh serial number and validity window change nothing.
-///
+/// A long-term TLS identity: a keychain-backed P-256 key with a self-signed certificate minted at launch, used by host and client.
+/// The private key never leaves the keychain (signing goes through `SecKeyCreateSignature`).
+/// The certificate is regenerated on every launch: peers pin the public key, not the certificate.
 /// `kSecAttrIsPermanent: true` is load-bearing: `SecIdentityCreate` returns nil for a key that is not
 /// keychain-backed.
 public final class SelfSignedIdentity: @unchecked Sendable {
-    /// Which side of the connection this identity represents: the two roles differ only in the
-    /// keychain tag and the extended key usage, so a machine running both keeps two distinct keys.
+    /// The two roles differ only in keychain tag and extended key usage, so one machine can hold both.
     public enum Role: Sendable {
         case server
         case client
@@ -42,13 +34,9 @@ public final class SelfSignedIdentity: @unchecked Sendable {
     public let secIdentity: SecIdentity
     public let certificateDER: Data
 
-    /// Canonical public-key bytes: the 65-byte uncompressed P-256 point, `0x04 ‖ X ‖ Y`.
-    ///
-    /// This is the pin value, byte-identical to what `SecKeyCopyExternalRepresentation` returns, which
-    /// lets either side verify a pin with no ASN.1 library.
+    /// The pin value: the 65-byte uncompressed P-256 point, `0x04 ‖ X ‖ Y`, identical to `SecKeyCopyExternalRepresentation`.
     public let publicKeyBytes: Data
 
-    /// The subject common name, shown in the peer's device list.
     public let commonName: String
 
     public enum Failure: LocalizedError {
@@ -91,13 +79,7 @@ public final class SelfSignedIdentity: @unchecked Sendable {
         self.commonName = commonName
     }
 
-    /// Signs a message with this identity's private key: ECDSA over P-256 with SHA-256, DER.
-    ///
-    /// The key does not leave the keychain to do this, so the private material never exists in this
-    /// process's memory.
-    ///
-    /// DER rather than the fixed 64-byte form, because that is what the algorithm identifier says and
-    /// what the relay's verifier expects. `.ecdsaSignatureMessageX962SHA256` hashes the message.
+    /// ECDSA P-256 over SHA-256, DER (what the relay's verifier expects, not the fixed 64-byte form). `.ecdsaSignatureMessageX962SHA256` hashes the message.
     public func signature(for message: Data) throws -> Data {
         var key: SecKey?
         let status = SecIdentityCopyPrivateKey(secIdentity, &key)
@@ -117,13 +99,8 @@ public final class SelfSignedIdentity: @unchecked Sendable {
         return signature as Data
     }
 
-    /// Loads the persistent key for `role`, generating it on first run, and mints a fresh certificate
-    /// over it.
-    ///
-    /// - Parameter keyTag: overrides the tag derived from `role`. Supply one to keep several
-    ///   independent identities on the same machine, a test client alongside the real one. The tag is
-    ///   part of the keychain ACL, so reusing another identity's tag from a differently signed process
-    ///   is denied by the system rather than silently shared.
+    /// Loads or generates the persistent key for `role` and mints a fresh certificate.
+    /// - Parameter keyTag: overrides the tag derived from `role`, for independent identities (a test client). The tag is part of the keychain ACL, so another process's tag is denied, not shared.
     public static func loadOrCreate(
         role: Role,
         commonName: String,
@@ -175,9 +152,7 @@ public final class SelfSignedIdentity: @unchecked Sendable {
         )
     }
 
-    /// Destroys the key for `role`. Every peer that pinned it must re-pair, which is what "reset
-    /// identity" should mean, hence a separate, explicit call.
-    ///
+    /// Destroys the key for `role`; every peer that pinned it must re-pair.
     /// Deleting is a loop, not a single call: a permanent EC key is stored as two keychain items
     /// sharing one application tag, and `SecItemDelete` removes one per call while reporting success,
     /// so a single call would leave the private key for the next `loadOrCreate` to find.
@@ -187,16 +162,13 @@ public final class SelfSignedIdentity: @unchecked Sendable {
             kSecAttrApplicationTag as String: keyTag ?? role.keyTag,
         ]
 
-        // Bounded because the exit condition is a status code, and a delete that neither
-        // succeeds nor reports not-found would otherwise spin forever.
+        // Bounded: a delete that neither succeeds nor reports not-found would spin forever.
         for _ in 0..<8 {
             let status = SecItemDelete(SecretStore.attributes(query))
             if status == errSecItemNotFound { return }
             guard status == errSecSuccess else { throw Failure.keychain(status) }
         }
 
-        // Items are still there after repeated deletes. Saying so beats reporting a reset that did
-        // not happen, since the caller's next step depends on it having worked.
         throw Failure.identityNotRemoved
     }
 
@@ -254,7 +226,6 @@ public final class SelfSignedIdentity: @unchecked Sendable {
             subject: subject,
             signatureAlgorithm: .ecdsaWithSHA256,
             extensions: Certificate.Extensions {
-                // Not a CA: this certificate signs nothing but itself.
                 Critical(BasicConstraints.notCertificateAuthority)
                 KeyUsage(digitalSignature: true)
                 extendedKeyUsage

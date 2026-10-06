@@ -5,18 +5,13 @@
 //  Walks the FAQ: every answer is closed to begin with, one question opens on a tap, and it
 //  closes again on the next one.
 //
-//  It exists because the whole of that change is a layout, and nothing below the screens can see
-//  one. What is worth asserting is not that the text is in the app. It is that the text is *not*
-//  on the screen until the question is asked, which is the property the list was rearranged for
-//  and the one a later edit could quietly undo by making the row unconditional again.
+//  Asserts the answer text is not on screen until the question is tapped, which a later edit could quietly undo.
 //
-//  **Run it against a wiped container**, for the reason the SSH flow test gives: the app keeps
-//  state in `UserDefaults`, and a second run starts from wherever the first one left off.
+//  Run against a wiped container, since state lives in `UserDefaults`:
 //
 //      xcrun simctl uninstall <device> pl.dmq.peering
 //
-//  The scheme's `TestAction` still lists only `MacCastTests`, whose target does not link, so the
-//  reference is swapped for this one to run the test and put back afterwards.
+//  The scheme's TestAction lists only MacCastTests, which does not link; swap the reference to run this.
 //
 
 import XCTest
@@ -27,17 +22,11 @@ final class FAQFlowTests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// A question near the top, and a phrase from the middle of its answer.
-    ///
-    /// A phrase rather than the whole sentence: the answer is asserted by containment, and pinning
-    /// it to its exact punctuation would make this test fail on a copy edit it has no opinion about.
+    /// A phrase from the answer's middle, matched by containment so copy edits do not break the test.
     private let question = "Do I need an account?"
     private let phrase = "There is no sign-up"
 
-    /// A tab on the system's bar.
-    ///
-    /// Named through `tabBars` rather than a bare `app.buttons["FAQ"]`, which would also match any
-    /// control with that name on the screen behind the bar.
+    /// A tab on the system bar, via tabBars so a same-named control behind it cannot match.
     private func tab(_ name: String, in app: XCUIApplication) -> XCUIElement {
         app.tabBars.buttons[name]
     }
@@ -64,8 +53,7 @@ final class FAQFlowTests: XCTestCase {
         capture(app, "2-faq-open")
 
         button.tap()
-        // The assertion the animation has to settle before this can pass, which is why it is a
-        // wait rather than a plain read: an answer on its way out is still on the screen.
+        // A wait, not a read: an answer on its way out is still on screen.
         XCTAssertTrue(
             answer.waitForNonExistence(timeout: 2),
             "Tapping the same question again should close it."

@@ -5,7 +5,6 @@ import Testing
 
 @Suite("Pairing payloads")
 struct PairingPayloadTests {
-    /// The spelling a `DeviceIdentity` mints, which is what a Mac's window shows.
     private let macID = "3D9F1C7A-2B44-4E71-9C0A-5F2E8B1D6A33"
 
     // MARK: - The device identifier
@@ -42,9 +41,6 @@ struct PairingPayloadTests {
         #expect(try PairingPayload.hostID(from: PairingPayload.encode(hostID: lower)) == macID)
     }
 
-    /// Foundation's UUID parser wants the hyphens, and so does the sentence this failure
-    /// produces: it says the ID is 36 characters with hyphens, which is what the Mac shows
-    /// and what a copy gives.
     @Test("an ID without its hyphens is refused rather than guessed at")
     func unhyphenated() {
         let compact = macID.replacingOccurrences(of: "-", with: "")
@@ -62,7 +58,6 @@ struct PairingPayloadTests {
         }
     }
 
-    /// The digits are on the Mac's screen in 42-point type and a user will try them.
     @Test("six bare digits are refused as an ID")
     func refusesBareDigits() {
         #expect(throws: PairingPayloadError.shortAuthenticationCode) {
@@ -70,8 +65,6 @@ struct PairingPayloadTests {
         }
     }
 
-    /// Five or seven digits are not a code either, so they are ordinary bad input rather
-    /// than something to send the user back to the Mac's pairing panel for.
     @Test("a number that is not six digits long is not reported as a pairing code")
     func digitsOfTheWrongLength() {
         #expect(throws: PairingPayloadError.notAnIdentifier("12345")) {
@@ -108,7 +101,6 @@ struct PairingPayloadTests {
         #expect(throws: PairingPayloadError.notAnIdentifier("hello")) {
             try PairingPayload.hostID(from: "peering://mac?id=hello")
         }
-        // A query item that is missing altogether is the same mistake as an empty one.
         #expect(throws: PairingPayloadError.notAnIdentifier("")) {
             try PairingPayload.hostID(from: "peering://mac")
         }
@@ -137,8 +129,6 @@ struct PairingPayloadTests {
         #expect(PairingPayload.code(from: "https://example.com/?code=042317") == nil)
     }
 
-    /// The two payloads are refused by each other's parser, which is what makes it
-    /// impossible to scan one into the other's screen and get a plausible reading.
     @Test("each payload is refused by the other's parser")
     func mutualRefusal() {
         let identifier = PairingPayload.encode(hostID: macID)
@@ -148,16 +138,13 @@ struct PairingPayloadTests {
         #expect(throws: PairingPayloadError.shortAuthenticationCode) {
             try PairingPayload.hostID(from: code)
         }
-        // And they are distinguishable without parsing at all, by the host component.
         #expect(identifier.hasPrefix("https://getpeering.app/mac?"))
         #expect(code.hasPrefix("peering://pair?"))
     }
 
     @Test("the code payload is spelled exactly as the host has always drawn it")
     func codePayloadIsUnchanged() {
-        // Written out rather than compared with `encode`, because this string is what
-        // shipped builds put on screen and scan; a change here is a pairing that stops
-        // working between two versions.
+        // Written out, not derived from `encode`: shipped builds scan this string, so a change breaks pairing between versions.
         #expect(PairingPayload.encode(code: "042317") == "peering://pair?code=042317")
     }
 }

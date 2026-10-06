@@ -16,16 +16,7 @@ private let watchedBundleIDs: Set<String> = [
     "net.kovidgoyal.kitty",
 ]
 
-/// Watches running terminal applications via the Accessibility API and calls ``onAttention``
-/// when output needs the user's response (a password prompt or a y/n confirmation).
-///
-/// The emulators the user already has running, alongside ``TerminalSessionManager``, which handles
-/// the shells Peering opens itself.
-///
-/// Requires the Accessibility permission the host already holds for input injection.
 final class NativeTerminalWatcher: @unchecked Sendable {
-    /// Called on a background queue when a native terminal needs the user's response, with a
-    /// sentence for the notification's body and the window it is in, when that could be read.
     var onAttention: (@Sendable (String, CGWindowID?) -> Void)?
 
     private let lock = NSLock()
@@ -95,10 +86,6 @@ final class NativeTerminalWatcher: @unchecked Sendable {
 // MARK: -
 
 /// Watches one running terminal process via AXObserver.
-///
-/// Registers for window-creation notifications at the application level and for value-change
-/// notifications on each window's text areas. A 300 ms debounce prevents repeated alerts while
-/// output is streaming, and a per-element hash prevents re-alerting for the same stuck prompt.
 private final class TerminalAppWatch: @unchecked Sendable {
     let pid: pid_t
     let appName: String
@@ -107,7 +94,6 @@ private final class TerminalAppWatch: @unchecked Sendable {
     private var axObserver: AXObserver?
     private var selfPtr: UnsafeMutableRawPointer?
     private let lock = NSLock()
-    /// The elements whose prompt has been alerted and not yet answered. See ``check(text:key:)``.
     private var awaiting: Set<CFHashCode> = []
     private var pending: [CFHashCode: DispatchWorkItem] = [:]
 
@@ -123,7 +109,6 @@ private final class TerminalAppWatch: @unchecked Sendable {
     }
 
     func start() {
-        // Retain self through refcon for the duration of the observer.
         let retained = Unmanaged.passRetained(self).toOpaque()
         selfPtr = retained
 
@@ -144,9 +129,7 @@ private final class TerminalAppWatch: @unchecked Sendable {
         axObserver = obs
 
         let appElement = AXUIElementCreateApplication(pid)
-        // App-level: fires when a new window is opened (handles new tabs in some emulators).
         AXObserverAddNotification(obs, appElement, kAXWindowCreatedNotification as CFString, retained)
-        // App-level: fires when focus shifts to a different element (catches new tabs in Terminal.app).
         AXObserverAddNotification(obs, appElement, kAXFocusedUIElementChangedNotification as CFString, retained)
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
 
@@ -157,7 +140,6 @@ private final class TerminalAppWatch: @unchecked Sendable {
     func stop() {
         if let obs = axObserver {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
-            // Releasing the observer removes all its registered notifications automatically.
         }
         axObserver = nil
         if let ptr = selfPtr {
@@ -177,12 +159,10 @@ private final class TerminalAppWatch: @unchecked Sendable {
         let note = notification as String
         switch note {
         case kAXWindowCreatedNotification:
-            // The element is the new window.
             if let obs = axObserver, let ptr = selfPtr {
                 registerTextAreas(in: element, observer: obs, refcon: ptr)
             }
         case kAXFocusedUIElementChangedNotification:
-            // Register the newly focused element if it is a text area (a new tab).
             if let obs = axObserver, let ptr = selfPtr {
                 var roleRef: CFTypeRef?
                 if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef) == .success,
@@ -209,9 +189,6 @@ private final class TerminalAppWatch: @unchecked Sendable {
     }
 
     /// Traverses the AX tree depth-first looking for text areas, registering each one found.
-    ///
-    /// Recursion stops past depth 8, which guards against pathological trees without missing the
-    /// text areas that sit a few levels down in any real terminal emulator.
     private func registerTextAreas(in element: AXUIElement, observer: AXObserver, refcon: UnsafeMutableRawPointer, depth: Int = 0) {
         guard depth < 8 else { return }
 
@@ -235,8 +212,6 @@ private final class TerminalAppWatch: @unchecked Sendable {
     // MARK: - Detection
 
     private func textAreaChanged(_ element: AXUIElement) {
-        // The last 4 KB: enough for pattern matching, without copying megabytes of scrollback on
-        // every keystroke.
         var ref: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &ref) == .success,
               let text = ref as? String, !text.isEmpty else { return }
@@ -245,8 +220,6 @@ private final class TerminalAppWatch: @unchecked Sendable {
         schedule(text: tail, title: Self.windowTitle(of: element), windowID: Self.windowID(of: element), key: key)
     }
 
-    /// The window server's ID for the window this text area is in, which is what the phone asks
-    /// to be shown when the notification is tapped.
     private static func windowID(of element: AXUIElement) -> CGWindowID? {
         var windowRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXWindowAttribute as CFString, &windowRef) == .success,
@@ -259,11 +232,6 @@ private final class TerminalAppWatch: @unchecked Sendable {
     }
 
     /// What the window this text area lives in is called.
-    ///
-    /// **The only name a shell watched from outside has.** There is no session here and no name of
-    /// its own: a shell in Terminal.app is a text area inside a window, and the window's title is
-    /// what the Mac's own user sees at the top of it — "prod — zsh — 80×24". Without it a banner
-    /// could only say which *application* is asking, which is one word for every shell on the Mac.
     private static func windowTitle(of element: AXUIElement) -> String? {
         var windowRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXWindowAttribute as CFString, &windowRef) == .success,
@@ -281,15 +249,6 @@ private final class TerminalAppWatch: @unchecked Sendable {
     }
 
     /// The window's title without the emulator's own tail.
-    ///
-    /// Terminal.app names a window "prod — zsh — 213×46", and the last field is the terminal's grid
-    /// in characters. It is true, it is what the Mac's own user sees in the title bar, and it is no
-    /// part of the answer to "which shell is asking": in a sentence read on a locked screen it is
-    /// four characters of noise between the reader and the name. Any of the three dashes a title
-    /// might be built from, and either multiplication sign, because this is somebody else's format.
-    ///
-    /// A title that is *only* a size leaves nothing behind, and is refused: the banner falls back to
-    /// the application's name, which is what it did before it had a window to name at all.
     private static func shortName(ofWindow title: String?) -> String? {
         guard let title, !title.isEmpty else { return nil }
         let gridTail = #"\s*[—–-]\s*\d+\s*[×x]\s*\d+\s*$"#
@@ -315,7 +274,6 @@ private final class TerminalAppWatch: @unchecked Sendable {
         // text ends in a question, and a program that repaints while it waits no longer ends in
         // anything, so keying on the text alone means a push per repaint. A terminal watched from
         // outside never tells us the user answered, so the latch re-arms when the question stops
-        // being there. Same rule ``TerminalAttentionDetector`` keeps for Peering's own shells.
         guard let kind = TerminalAttentionDetector.scan(text) else {
             lock.withLock { _ = awaiting.remove(key) }
             return

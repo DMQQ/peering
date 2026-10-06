@@ -1,19 +1,9 @@
 import SSHCore
 import SwiftUI
 
-/// Adding or changing one forward.
-///
-/// One screen for both, the same way the host editor is, and for the same reason: a field added to
-/// one and forgotten on the other is a setting that can be set once and cannot be changed.
-///
-/// The three fields are laid out in the direction the tunnel runs, and the footer says which end is
-/// which in as many words. Nearly every mistake a user makes here is one of direction — writing the
-/// *phone's* port in the second box, or the server's own address in the third — because `ssh -L`
-/// and `ssh -R` are two spellings of "forward" that differ only in which end listens.
+/// The three fields run in the direction the tunnel runs: nearly every mistake is one of direction, as `ssh -L` and `ssh -R` differ only in which end listens.
 struct SSHForwardEditor: View {
-    /// The forwards already on this server, so the local port can be checked against them.
     let existing: [SSHPortForward]
-    /// The one being changed, or nil for a new one.
     let editing: SSHPortForward?
     let onSave: (SSHPortForward) -> Void
     let onDelete: ((SSHPortForward) -> Void)?
@@ -26,7 +16,6 @@ struct SSHForwardEditor: View {
     @State private var remotePort: String
     @State private var isEnabled: Bool
     @State private var failure: SSHPortForwardError?
-    /// Whether the user has typed into anything, so the form does not go red before they start.
     @State private var isTouched = false
 
     init(
@@ -46,7 +35,6 @@ struct SSHForwardEditor: View {
         _isEnabled = State(initialValue: editing?.isEnabled ?? true)
     }
 
-    /// What the three fields currently read as, or the first thing wrong with them.
     private var reading: Result<SSHPortForward, SSHPortForwardError> {
         SSHPortForward.reading(
             label: label,
@@ -128,9 +116,7 @@ struct SSHForwardEditor: View {
             }
         }
         .preferredColorScheme(.dark)
-        // Set from the first keystroke rather than from the first render: a new forward opens with
-        // three empty boxes, and a form that is red before anything has been typed is a form that
-        // is telling the user off for arriving.
+        // Set from the first keystroke: a form red before anything is typed scolds the user for arriving.
         .onChange(of: localPort) { _, _ in isTouched = true }
         .onChange(of: remoteHost) { _, _ in isTouched = true }
         .onChange(of: remotePort) { _, _ in isTouched = true }
@@ -152,12 +138,7 @@ struct SSHForwardEditor: View {
     }
 }
 
-/// The forwards a server carries, as a card in the host editor.
-///
-/// The list lives *here*, on the server, because that is what it is a property of: a forward to a
-/// machine nobody has saved is a forward with no credentials to open it with. What lives on the
-/// shell's screen is the other half — whether any of it is up — because that is only true while a
-/// connection is.
+/// The list lives on the server because a forward to an unsaved machine has no credentials; the shell's screen holds whether any is up.
 struct SSHForwardsCard: View {
     @Binding var forwards: [SSHPortForward]
 
@@ -234,8 +215,7 @@ struct SSHForwardsCard: View {
             }
             .buttonStyle(.plain)
 
-            // The switch is here rather than only inside the editor, because turning one off is the
-            // common thing to want and opening a sheet to do it would be a form for a boolean.
+            // The switch is here too: turning one off is common and a sheet would be a form for a boolean.
             Toggle("", isOn: Binding(
                 get: { forward.isEnabled },
                 set: { isOn in
@@ -250,15 +230,8 @@ struct SSHForwardsCard: View {
     }
 }
 
-/// The tunnels a shell is carrying, and what each is doing.
-///
-/// Reached from the terminal screen's toolbar rather than from the Servers list, and that is the
-/// same decision the forward itself makes: this screen is about a *connection*. A list of forwards
-/// on a server that is not connected would be a list of things none of which are running.
-///
-/// The rule is stated in the footer in as many words. A user who expects a tunnel to survive them
-/// leaving the app is a user who will find out otherwise at the worst moment, and there is no way
-/// to make it survive: iOS runs no background daemon for an app like this one.
+/// Reached from the terminal toolbar: this screen is about a connection.
+/// The footer says tunnels do not survive leaving the app: iOS runs no background daemon for it.
 struct SSHForwardsSheet: View {
     let host: SSHHost
     let model: SSHModel
@@ -320,8 +293,7 @@ struct SSHForwardsSheet: View {
                     .font(.caption2.monospaced())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                // The state, on its own line and in the colour of what it means, because on this
-                // screen the state is the answer to the only question the user came here with.
+                // The state on its own line, since it answers the only question the user came with.
                 Text(state.summary)
                     .font(.caption2)
                     .foregroundStyle(tint(state))

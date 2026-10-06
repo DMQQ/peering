@@ -7,35 +7,16 @@ import os
 
 private let storeLog = Logger(subsystem: "pl.dmq.peering", category: "store")
 
-// ``RelayPlan`` is no longer here. It is the ladder the feature map is keyed on, so it lives beside
-// that map in `MacCastKit`, where the map's answers can be run: a ladder in the app target and a map
-// in a package would be two orderings of the same four rungs, kept in step by hand. What stays here
-// is everything that is about *buying* rather than about *plans*: the products, the prices, the
-// receipts, and the one bridge from an entitlement to the value every gate in the app asks.
+// RelayPlan lives in MacCastKit beside the feature map so the map's answers can be tested; this file is about buying.
 
-/// How often a plan is billed.
-///
-/// **Every tier is sold both ways, and that is a decision rather than a completeness.** The ladder
-/// used to sell one tier monthly and the one above it yearly, which made the comparison on the
-/// paywall a comparison of the two periods rather than of the two plans: the middle rung cost
-/// £179.88 over a year and the top one cost £39.99, so the middle was not a worse plan, it was a
-/// worse *deal*, and the price a user actually paid depended on which card they happened to read
-/// first. With a period on every card, the choice is "this plan, monthly or yearly" and the yearly
-/// is the one the monthly exists to make look good.
-///
-/// The monthly is the low-commitment way in and is deliberately the poorer value, at roughly eight
-/// months of it to the year. That is the ratio the field uses, and it is the reason to have a
-/// monthly at all: not to be bought, but to be the price the yearly is measured against.
+/// How often a plan is billed. Every tier is sold both ways so the paywall compares plans, not periods; monthly is roughly eight months to the year.
 nonisolated enum BillingPeriod: String, CaseIterable, Identifiable, Sendable {
     case monthly
     case yearly
 
     var id: String { rawValue }
 
-    /// The tier's own name for it inside a product identifier: `…relay.monthly`, `…relay.year`.
-    ///
-    /// `year` rather than `yearly` because that is what the identifiers already used, and a store
-    /// identifier that changes is a product that has to be recreated rather than edited.
+    /// `year`, not `yearly`: the store identifiers already use it and cannot be edited.
     var identifier: String {
         switch self {
         case .monthly: return "monthly"
@@ -43,7 +24,6 @@ nonisolated enum BillingPeriod: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// The word the price lines are built from: "£3.99 / month".
     var name: String {
         switch self {
         case .monthly: return "month"
@@ -51,7 +31,6 @@ nonisolated enum BillingPeriod: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// The same word, short enough to sit inside a buy button: "£3.99/mo".
     var shortName: String {
         switch self {
         case .monthly: return "mo"
@@ -59,7 +38,6 @@ nonisolated enum BillingPeriod: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// What the App Store calls the period, for the sentence under the buy button.
     var storeName: String {
         switch self {
         case .monthly: return "monthly"
@@ -71,20 +49,9 @@ nonisolated enum BillingPeriod: String, CaseIterable, Identifiable, Sendable {
 @Observable
 @MainActor
 final class StoreManager {
-    /// The stem every product identifier starts with, in one place.
-    ///
-    /// `nonisolated` because ``Tier`` and ``BillingPeriod`` are not main-actor types and could not
-    /// otherwise build an identifier: those are strings that never change, and the actor that owns
-    /// the purchase machinery has no business owning them.
+    /// `nonisolated`: ``Tier`` and ``BillingPeriod`` are not main-actor types and must be able to build identifiers.
     nonisolated static let productIDStem = "pl.dmq.peering.iap"
 
-    /// Everything that means paid, in one place.
-    ///
-    /// Asked as a set rather than as a chain of comparisons at each of the three places that
-    /// wondered whether the user had bought something, because the day a fourth product arrives
-    /// is the day one of those three is missed. Built by walking the tiers and the periods rather
-    /// than typed out, for the same reason one step further on: a set written by hand is a set
-    /// that stops being complete the first time a period is added.
     nonisolated static let paidProductIDs: Set<String> = Set(
         Tier.allCases.flatMap { tier in
             BillingPeriod.allCases.map { tier.productID(for: $0) }
@@ -92,96 +59,42 @@ final class StoreManager {
     )
 
     private(set) var products: [Product] = []
-    /// The tier the user has actually paid for, or `nil` when they have paid for nothing.
-    ///
-    /// One tier rather than a set of live entitlements, and the best of them rather than the first
-    /// found: more than one can be live at once — someone who bought Relay and then moved up to Pro
-    /// holds both until the first lapses — and the plan the app states to the relay has to be the
-    /// one they are paying the most for. The relay meters, so guessing low here meters a subscriber
-    /// rather than granting them something.
+    /// The best live tier, not the first: someone who moved up holds two, and the relay meters, so guessing low meters a subscriber.
     private(set) var activeTier: Tier?
-    /// Whether anything at all has been bought.
-    ///
-    /// **Not what a gate asks.** It is `false` both for a user who has bought nothing and for the
-    /// moment before `Transaction.currentEntitlements` has answered, and a gate that read it would
-    /// spend that moment showing a padlock to somebody who is paying. ``access`` is the question to
-    /// ask; this is here for the two places that want a plain "have they bought anything": the API
-    /// key the relay is offered, and the store's own reporting.
+    /// Not what a gate asks: false also before `Transaction.currentEntitlements` has answered. Use ``access``.
     var isPro: Bool { activeTier != nil }
     /// The plan this app states to the relay — free for anyone who has bought nothing.
     var relayPlan: RelayPlan { activeTier?.plan ?? .free }
 
-    /// Whether the App Store has answered the entitlement question yet.
-    ///
-    /// **A flag of its own rather than `activeTier != nil`**, because those are two different
-    /// facts and only one of them can be read off the other. `activeTier` is `nil` both for "this
-    /// account has bought nothing" and for "nobody has asked yet", and the whole of the
-    /// no-flash rule is the difference between them: see ``PlanAccess``.
+    /// Separate from `activeTier != nil`: nil means both "bought nothing" and "not asked yet", and the no-flash rule is that difference.
     private(set) var hasReadEntitlement = false
 
-    /// What the gates ask: the plan, or the fact that it is not known yet.
-    ///
-    /// `unknown` rather than a default of free until ``refreshEntitlement()`` has run, and read
-    /// off the *entitlement* rather than off ``products``, which is a network fetch that can
-    /// answer a minute late, or never, on a plane or before App Store Connect has the products.
+    /// `unknown` until ``refreshEntitlement()`` has run, read from the entitlement and not ``products``, a network fetch that can be late or never answer.
     var access: PlanAccess {
 #if DEBUG
-        // Ahead of the entitlement, and ahead of ``hasReadEntitlement`` too: a developer who has
-        // set this has said what the answer is, and a gate that showed `unknown` — which locks
-        // nothing and so shows nothing either — until StoreKit answered would make the override
-        // look like it had not taken effect for the first moment of every launch.
+        // Ahead of the entitlement: otherwise the override would look untaken for the first moment of every launch.
         if let planOverride { return .known(planOverride) }
 #endif
         return hasReadEntitlement ? .known(relayPlan) : .unknown
     }
-    /// The signed transaction for whatever ``activeTier`` is, or `nil` when there is nothing to
-    /// prove.
-    ///
-    /// This is the part the relay believes: it verifies the JWS against Apple's published root and
-    /// meters by the product the receipt names, so a device that reaches the relay with this set is
-    /// on the plan it paid for whatever the app claims beside it. It is `nil` for a user who has
-    /// bought nothing, and briefly at launch — the receipts come from `Transaction.currentEntitlements`
-    /// in ``start()``, and until that answers the relay has only the claim to go on. See the note
-    /// on ``RelayPlan`` for what that costs and what it is worth.
+    /// The signed transaction the relay verifies against Apple's root and meters by. Nil with nothing bought, and briefly at launch.
     private(set) var activeJWS: String?
     var isPurchasing = false
     var purchaseError: String?
-    /// Whether the last attempt to fetch prices came back with nothing.
-    ///
-    /// Kept apart from an empty ``products`` on purpose, because those two are different states
-    /// that look identical from the outside: one means the fetch is still in flight, the other
-    /// means it finished and the App Store returned no such products — which is what happens on
-    /// every launch until the products exist in App Store Connect, and in the simulator unless the
-    /// scheme carries a StoreKit configuration. Without the distinction the paywall showed a
-    /// spinner that never stopped, which is worse than an error: it looks like the app is thinking.
+    /// Separate from an empty ``products``: that means in flight, this means the store returned nothing (always until products exist in App Store Connect or the scheme has a StoreKit configuration). Without it the paywall spun forever.
     private(set) var productsUnavailable = false
 
 #if DEBUG
-    /// Where a hand-picked plan is remembered. See ``planOverride``.
     nonisolated static let planOverrideKey = "Peering.developerPlanOverride"
 
-    /// A plan chosen by hand, for looking at what a plan includes without buying it.
-    ///
-    /// **It changes what this app shows and nothing on the wire.** ``relayPlan`` is what a session
-    /// states to the relay and what the relay meters by, and it goes on being read from the real
-    /// entitlement while this is set: every gate, padlock and plan card behaves as the chosen
-    /// plan, and a session is still metered as whatever the Apple Account actually pays for.
-    ///
-    /// That split is the point rather than a limitation. A switch that also told the relay would
-    /// be a switch that spends relay allowance, and what is being tested here is the app's own
-    /// gating — which is the half that can be wrong in a way the App Store cannot see.
-    ///
-    /// `#if DEBUG`, so it is in every build `Tools/install-iphone.sh` writes and in no build the
-    /// App Store ever receives. It is kept in `UserDefaults` because the screens it unlocks are
-    /// several taps in, and one that reset on every install would be re-set on every install.
+    /// A hand-picked plan for inspecting gates. It changes what the app shows and never what is sent to the relay (``relayPlan`` still reads the real entitlement).
+    /// `#if DEBUG`: in install-iphone.sh builds, never in App Store builds.
     private(set) var planOverride: RelayPlan? {
         didSet {
             UserDefaults.standard.set(planOverride?.rawValue, forKey: Self.planOverrideKey)
         }
     }
 
-    /// Sets or clears ``planOverride``. A method rather than a writable property, so the only way
-    /// to reach it is the one the developer section uses.
     func setPlanOverride(_ plan: RelayPlan?) {
         planOverride = plan
         storeLog.notice("""
@@ -192,8 +105,7 @@ final class StoreManager {
 
     init() {
 #if DEBUG
-        // Read rather than assigned through ``setPlanOverride(_:)``, so loading it does not write
-        // back what it just read.
+        // Read, not assigned through ``setPlanOverride(_:)``, so loading does not write back.
         planOverride = UserDefaults.standard
             .string(forKey: Self.planOverrideKey)
             .flatMap(RelayPlan.init(rawValue:))
@@ -205,15 +117,7 @@ final class StoreManager {
         }
     }
 
-    /// The API key sent to the relay beside the plan.
-    ///
-    /// A UUID minted once and kept in the Keychain, and it is *not* a credential: the relay holds a
-    /// server-side list of keys that grant unlimited relay (`PEERINGD_PAID_KEYS`) and nothing can
-    /// add this to it, so it matches nothing and grants nothing. It travels anyway because that
-    /// list is one of the two grants the relay does not take a client's word for, and a device that
-    /// never says its key cannot be put on it. The other is the receipt — see
-    /// ``StoreManager/activeJWS`` — and what decides the allowance when neither applies is
-    /// ``relayPlan``, the app's claim about what it bought.
+    /// A UUID kept in the Keychain. Not a credential: it grants nothing unless it is on the relay's server-side paid list (PEERINGD_PAID_KEYS), which nothing here can add it to.
     var apiKey: String? {
         guard isPro else { return nil }
         return persistedKey()
@@ -224,44 +128,18 @@ final class StoreManager {
         await fetchProducts()
     }
 
-    /// Asks the App Store what this device is entitled to *now*, for the app coming back to the
-    /// front.
-    ///
-    /// **Because the answer was read once and then never again.** ``refreshEntitlement()`` runs at
-    /// launch and on the transactions StoreKit hands over, and a subscription does not produce a
-    /// transaction when it runs out: it simply stops being in `currentEntitlements`. So a plan that
-    /// lapsed under a running app stayed the plan this process believed in — for hours, in the case
-    /// of a session left open — and everything armed from it went on being armed. Picture in
-    /// Picture is the one that shows: it is handed to iOS in advance, so a lapsed user kept getting
-    /// the floating window until the app was next launched.
-    ///
-    /// **A local call, and it is made on the way in rather than on the way out.** The reading is
-    /// offline and takes milliseconds, and the moment the answer has to be true by is the one where
-    /// the app is about to leave the screen and arm something with it. Asking on the way *back in*
-    /// means it is already right before there is anything to arm, and nothing has to be awaited in
-    /// the path where the view hierarchy is being torn down and Picture in Picture is being asked
-    /// for. What it leaves is one gap: a subscription that runs out while the app stays in the
-    /// foreground, which nothing here can notice, and which is worth one floating window until the
-    /// user next leaves the app and comes back.
+    /// Re-reads the entitlement when the app returns to the front. A lapsed subscription produces no transaction, only absence from `currentEntitlements`, so a lapse under a running app kept the old plan armed (Picture in Picture especially).
+    /// Asked on the way in because it is a local call and must be true before anything is armed on the way out. One gap remains: a lapse while the app stays foreground.
     func rereadEntitlement() async {
         await refreshEntitlement()
     }
 
-    /// What a purchase came to, for the screen that started it.
-    ///
-    /// **The screen used to be told nothing.** `purchase` returned `Void`, so the paywall could
-    /// not tell a completed purchase from a cancelled one, a deferred one or a failure, and it
-    /// did what a screen with no answer does: it stayed exactly as it was. A user who had just
-    /// paid was left looking at the same ladder and the same buy button as a user who had not.
+    /// What a purchase came to; the paywall could not tell completed from cancelled, deferred or failed when this returned Void.
     enum PurchaseOutcome: Sendable, Equatable {
-        /// The App Store took the money and the transaction verified.
         case purchased
         /// Sent for approval: Ask to Buy, or a bank check. Neither a failure nor yet a purchase.
         case pending
-        /// The user backed out, or dismissed the sheet.
         case cancelled
-        /// Refused by the store, or completed and not verifiable. `purchaseError` carries the
-        /// sentence in both cases.
         case failed
     }
 
@@ -274,10 +152,7 @@ final class StoreManager {
             switch try await product.purchase() {
             case .success(let verification):
                 guard await handleVerification(verification) else {
-                    // **The one failure that must never be silent.** The money has left the
-                    // account, the app has unlocked nothing, and this used to return without a
-                    // word: the buy button simply came back. The sentence says what to do about
-                    // it, and the button below it is Restore.
+                    // Never silent: the money has left the account and nothing unlocked. The sentence points at Restore.
                     purchaseError = String(localized: "The App Store could not confirm that purchase. If you were charged, use Restore purchases, and get in touch if that does not bring it back.")
                     return .failed
                 }
@@ -296,12 +171,7 @@ final class StoreManager {
         }
     }
 
-    /// Whether a plan is live once the App Store has answered.
-    ///
-    /// The answer rather than `Void`, because "restored nothing" and "restored something" are the
-    /// two outcomes the button's own screen has to distinguish, and it has no other way to know:
-    /// the error it used to write goes to a surface that does not exist in the state that tells
-    /// people to restore.
+    /// Returns the outcome because the screen must tell "restored nothing" from "restored something".
     @discardableResult
     func restore() async -> Bool {
         isPurchasing = true
@@ -319,40 +189,14 @@ final class StoreManager {
 
     // MARK: - Tiers
 
-    /// What there is to buy, in the order it is shown.
-    ///
-    /// **Two rungs, and each one is a different bargain rather than more of the last.** Relay is
-    /// the remote working set: unlimited relay, every Mac you own, sound, Picture in Picture, wake
-    /// on LAN, and files moving both ways. Pro is the toolbox and the funder, which is the rung
-    /// somebody buys to have the tool rather than to run out of it.
-    ///
-    /// **They used to be a decoy ladder and that was the problem.** The middle rung cost more over
-    /// a year than the top one, because the middle was priced monthly and the top yearly, so the
-    /// comparison on the paywall was between two periods rather than two plans and the price a user
-    /// paid came down to which card they read first. Every tier is now sold at both periods, at
-    /// roughly eight months of the monthly to the year, so the monthly is what the yearly is
-    /// measured against instead of what the middle rung silently was.
-    ///
-    /// The copy is here and not in App Store Connect because the two are different things. What the
-    /// store holds is what the products are *called*; this is what each one is *for*, in the app's
-    /// own words and in its own order, and it is the app's because the app is where the comparison
-    /// is made. Prices are the one exception and always come from the store — a price written into
-    /// the app is a price that is wrong in every country but one.
-    /// `nonisolated` on the whole type, because every one of these is a string that never changes:
-    /// a tier's identifier, what it is called, what it costs and what the store product is called.
-    /// The isolation they would otherwise inherit is the store's, and the store is the actor that
-    /// owns the purchase machinery — which has no business owning the words on the cards, and
-    /// which is what stopped ``paidProductIDs`` from being written by walking the two enums.
+    /// What there is to buy, in the order shown.
+    /// `nonisolated`: constant strings should not inherit the store actor's isolation. Prices always come from the store, never written into the app.
     nonisolated enum Tier: String, CaseIterable, Identifiable {
         case relay
         case pro
 
         var id: String { rawValue }
 
-        /// The tier's own name inside a product identifier, which is not `rawValue`.
-        ///
-        /// The relay's plan names happen to agree with these, and that is a coincidence rather than
-        /// a dependency: ``plan`` is the thing that decides what the relay meters by.
         var identifier: String {
             switch self {
             case .relay: return "relay"
@@ -360,27 +204,12 @@ final class StoreManager {
             }
         }
 
-        /// The store product for this tier at a given period.
-        ///
-        /// **Two products per tier, not one per tier and one per period somewhere else.** The
-        /// monthly and the yearly of the same plan sit at the same level in the same subscription
-        /// group, which is what makes moving between them an upgrade or a downgrade rather than a
-        /// second subscription, and what stops somebody holding both at once.
+        /// Two products per tier at the same level of one subscription group, so moving between periods is an upgrade or downgrade, not a second subscription.
         func productID(for period: BillingPeriod) -> String {
             "\(StoreManager.productIDStem).\(identifier).\(period.identifier)"
         }
 
-        /// The tier whose products are in a set of entitled product IDs, or `nil` for none.
-        ///
-        /// The highest rather than the first, and `allCases` is in the order the ladder is shown,
-        /// cheapest first, so a user holding two entitlements gets the one they are paying more for.
-        /// Picking the other way round would meter somebody who has bought Pro as if they were on
-        /// Relay.
-        ///
-        /// **Matched on the tier inside the identifier rather than on a whole product id.** There
-        /// are two ids per tier now, and a table of them written out here would drop a yearly
-        /// subscriber to the free allowance the moment they renewed, which is the kind of mistake
-        /// that shows up as a support email rather than as a test failure.
+        /// The highest tier present (`allCases` is cheapest first), so two entitlements meter as the dearer. Matched on the tier inside the identifier, because a table of whole ids dropped yearly subscribers to free.
         static func named(by productID: String) -> Tier? {
             let parts = productID.split(separator: ".")
             guard parts.count >= 2 else { return nil }
@@ -393,8 +222,6 @@ final class StoreManager {
             }
         }
 
-        /// The plan this tier is sold as, which is the name the relay meters by.
-        ///
         var plan: RelayPlan {
             switch self {
             case .relay: return .relay
@@ -409,8 +236,6 @@ final class StoreManager {
             }
         }
 
-        /// The one line under the name, which is what the tier is *for*.
-        ///
         var tagline: String {
             switch self {
             case .relay: return String(localized: "Unlimited relay, on every Mac you own.")
@@ -418,25 +243,10 @@ final class StoreManager {
             }
         }
 
-        /// How many Macs a paid plan pairs with, in the words the plan screens use.
-        ///
-        /// **One answer for all three, because the number of Macs somebody owns is not a measure of
-        /// what they get out of this app.** TeamViewer, RealVNC, AnyDesk and Splashtop all gate the
-        /// device count, and it is the field's favourite axis; it is also the one thing here that
-        /// costs nothing to serve, which is why it belongs on the cheapest rung rather than being
-        /// sold back three times. Free is the rung that differs, at a single Mac, and it is the
-        /// pairing screen's rule to state.
-        ///
-        /// **Enforced at the pairings, by ``PlanCapability/extraMacs``.** A free user pairs one
-        /// Mac; the second is drawn with a lock and opens the paywall, which is the honest shape
-        /// for a limit on a list rather than on a control. What that costs is a limit the client
-        /// keeps rather than the server, which is the trust level the whole map is kept at.
+        /// One answer for all three paid tiers; free pairs a single Mac. Enforced client-side at the pairings by ``PlanCapability/extraMacs``.
         static let macCount = String(localized: "Every Mac")
 
-        /// Everything the plan includes, one line per row of the site's pricing table.
-        ///
-        /// Whole lists rather than "Everything in the tier below" plus the additions: a card read
-        /// on its own looked like it offered less than the one beside it.
+        /// Whole lists, not "everything below plus": a card read alone looked like it offered less.
         var features: [String] {
             let relay = [
                 String(localized: "Unlimited relay every day"),
@@ -461,68 +271,36 @@ final class StoreManager {
             }
         }
 
-        /// The tier the screen opens on, and the one the badge goes on.
         var isRecommended: Bool { self == .pro }
     }
 
-    /// The store's product for a tier at a period, or `nil` while the store has not answered.
     func product(for tier: Tier, period: BillingPeriod) -> Product? {
         products.first { $0.id == tier.productID(for: period) }
     }
 
-    /// A tier's whole price in one string: "£3.99 / month", or "£29.99 / year".
-    ///
-    /// Built here rather than at each screen because two screens print it now, the paywall and the
-    /// last page of the introduction, and a period spelled "/ month" on one and "per month" on the
-    /// other is the kind of difference that makes a fetched price look hand-typed.
     func priceLabel(for tier: Tier, period: BillingPeriod) -> String? {
         guard let product = product(for: tier, period: period) else { return nil }
         return "\(product.displayPrice) / \(period.name)"
     }
 
-    /// The same price, short enough to sit inside the buy button: "£3.99/mo".
-    ///
-    /// Shorter, and only shorter. "Continue with Pro, £7.99 / month" is a button that wraps
-    /// on a small phone, and a price that has wrapped is a price that was not read. The money is
-    /// the same string either way; only the spelling of the period changes.
+    /// Shorter only: a longer button label wraps on a small phone.
     func compactPriceLabel(for tier: Tier, period: BillingPeriod) -> String? {
         guard let product = product(for: tier, period: period) else { return nil }
         return "\(product.displayPrice)/\(period.shortName)"
     }
 
-    /// What the yearly works out at per month, in the store's own currency: "$2.50".
-    ///
-    /// **The number that makes a yearly price legible.** "$29.99 a year" is a sum, and a sum is what
-    /// the user has to divide by twelve in their head before it can be compared with anything. This
-    /// is the same money already divided, and it sits directly under the yearly price on the card,
-    /// which is the only place it means anything: beside the monthly price it would be the yearly
-    /// arguing for itself.
-    ///
-    /// Rounded by the currency formatter rather than by hand, because a price is a Decimal and
-    /// `Decimal` division does not produce the number a person would write down. The formatter also
-    /// knows the storefront's currency and where its symbol goes, which a hand-built string does not.
+    /// The yearly price divided by twelve in the store's currency. Rounded by the currency formatter, since `Decimal` division does not give the number a person would write.
     func effectiveMonthlyPrice(for tier: Tier) -> String? {
         guard let yearly = product(for: tier, period: .yearly) else { return nil }
         return (yearly.price / 12).formatted(yearly.priceFormatStyle)
     }
 
-    /// The smallest yearly saving on offer, for the one place a single number stands for both.
-    ///
-    /// The paywall prints it once on the period switch, and that switch applies to every plan, so
-    /// the number has to be true of all of them. The two land within a couple of points of each
-    /// other; the smallest is the one that is still honest when the user picks the card it is least
-    /// true of. `nil` until the store has answered with both periods for at least one tier, because
-    /// a saving printed beside a price that never arrived is a claim the screen cannot back.
+    /// The smallest yearly saving across tiers, for the one place a single number stands for both. Nil until a tier has both periods.
     var smallestYearlySaving: Int? {
         Tier.allCases.compactMap { yearlySaving(for: $0) }.min()
     }
 
-    /// What the yearly costs against the monthly, as a whole-number percentage saved: "33%".
-    ///
-    /// **Computed from the two prices rather than written down**, and `nil` unless both have been
-    /// fetched: a discount printed beside a price that never arrived is a claim the card cannot
-    /// back. Rounded down rather than to nearest, because the number is a promise about money and
-    /// the smaller of the two roundings is the one that is still true.
+    /// Computed from the two fetched prices, nil unless both exist, rounded down so the promise stays true.
     func yearlySaving(for tier: Tier) -> Int? {
         guard let monthly = product(for: tier, period: .monthly),
               let yearly = product(for: tier, period: .yearly) else { return nil }
@@ -537,16 +315,11 @@ final class StoreManager {
     // MARK: - Private
 
     private func fetchProducts() async {
-        // Cleared first, so a retry from an empty state goes back to the spinner rather than
-        // leaving the failure on screen while the second attempt is still running.
+        // Cleared first so a retry returns to the spinner.
         productsUnavailable = false
         do {
             let loaded = try await Product.products(for: Array(Self.paidProductIDs))
-            // Put back into the order the tiers are sold in rather than the order the store
-            // answers in, which is by price and therefore moves the day a price changes. A card
-            // that swaps places with its neighbour after an App Store price edit is a card the
-            // user has to find again. Within a tier the monthly comes first, which is the order
-            // the two are read in on the card that carries both.
+            // Tier order, then monthly first: the store answers by price, which reorders cards when a price changes.
             products = Tier.allCases.flatMap { tier in
                 BillingPeriod.allCases.compactMap { period in
                     loaded.first { $0.id == tier.productID(for: period) }
@@ -560,55 +333,28 @@ final class StoreManager {
         }
     }
 
-    /// Asks the App Store what this device is currently entitled to, and keeps the receipt along
-    /// with the answer.
-    ///
-    /// The two are collected together because they are one fact: the JWS is Apple's signature over
-    /// *this* transaction, so the receipt that travels to the relay has to be the one belonging to
-    /// the tier that wins. Holding them apart is how a device with two live subscriptions sends
-    /// proof of the cheaper one and is metered for it.
-    ///
-    /// `verification` is checked here as well as by the relay, and for a different reason: this one
-    /// decides what the app unlocks on the device, and an unverified transaction is one this
-    /// process cannot vouch for at all. The relay checks it again because the relay cannot trust
-    /// anything this process says — see ``RelayEntitlement``.
+    /// Collects the entitlement and its receipt together: the JWS belongs to one transaction, so it must be the winning tier's. `verification` is checked here for what the device unlocks; the relay checks again.
     private func refreshEntitlement() async {
         /// The signed transaction each live entitlement came with, by the tier it buys.
         var live: [Tier: String] = [:]
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result else { continue }
-            // Read off the identifier's middle word rather than matched against a table of whole
-            // ids: there are two per tier, and a table that knew about only one of them would
-            // leave a yearly subscriber looking like somebody who has bought nothing.
+            // Read off the identifier's middle word: two ids per tier, and a table of one would leave a yearly subscriber looking like they bought nothing.
             guard let tier = Tier.named(by: transaction.productID) else { continue }
             guard transaction.revocationDate == nil else { continue }
-            // Off the `VerificationResult` rather than off the transaction it wraps, which is where
-            // StoreKit puts it: the JWS is Apple's signature over this result, and reading it from
-            // the result that has just been checked is the only way to be sure the two belong
-            // together.
+            // Off the VerificationResult, not the wrapped transaction: the JWS is Apple's signature over this checked result.
             live[tier] = result.jwsRepresentation
             await transaction.finish()
         }
 
-        // The best of them rather than the first, in the order the ladder is shown: more than one
-        // can be live at once — someone who bought Relay and then moved up to Pro holds both until
-        // the first lapses — and the plan stated to the relay has to be the one they are paying the
-        // most for.
+        // The best tier, not the first: more than one can be live and the relay must hear the dearest.
         activeTier = Tier.allCases.last { live[$0] != nil }
         activeJWS = activeTier.flatMap { live[$0] }
-        // Set here and nowhere else, because this is the one place the question is answered. The
-        // loop above runs to its end even when there is nothing live: "this account has bought
-        // nothing" is an answer, and it is the one that must unlock the gates' own locks rather
-        // than leave them waiting. See ``PlanAccess``.
+        // Set only here. The loop runs to its end even when nothing is live, since "bought nothing" is an answer that must unlock the gates. See ``PlanAccess``.
         hasReadEntitlement = true
     }
 
-    /// Applies a transaction the App Store handed over, and says whether it was one Apple signed.
-    ///
-    /// Deliberately writes no UI state of its own. This is called from the `Transaction.updates`
-    /// loop as well as from a purchase, and an error raised by a renewal arriving in the
-    /// background would sit on `purchaseError` until somebody opened the paywall for an unrelated
-    /// reason and found a complaint about a purchase they did not make.
+    /// Writes no UI state: called from `Transaction.updates` too, and a background renewal error would sit on `purchaseError` until the paywall opened.
     @discardableResult
     private func handleVerification(_ result: VerificationResult<Transaction>) async -> Bool {
         switch result {

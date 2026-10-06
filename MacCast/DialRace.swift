@@ -2,11 +2,7 @@ import Foundation
 import MacCastKit
 import RemoteCore
 
-/// Whether a wire's events reach its session yet. A wire in a race is held back until it wins, so
-/// a loser's failure never reads as the Mac dropping and its picture never reaches the renderer.
-///
-/// Frames and configs are kept rather than dropped while held: they arrive on the network queue,
-/// and a config lost there would leave the decoder unable to read anything until the next one.
+/// A wire in a race is held back until it wins, so a loser's failure never reads as the Mac dropping. Frames and configs are kept, not dropped: a lost config leaves the decoder unable to read until the next one.
 nonisolated final class WireGate: @unchecked Sendable {
     private let lock = NSLock()
     private var admitted: Bool
@@ -16,7 +12,6 @@ nonisolated final class WireGate: @unchecked Sendable {
         self.admitted = admitted
     }
 
-    /// Returns true when the event may go straight through, or keeps it until ``admit(into:)``.
     func pass(video event: ClientSession.VideoEvent) -> Bool {
         lock.withLock {
             if admitted { return true }
@@ -27,8 +22,7 @@ nonisolated final class WireGate: @unchecked Sendable {
 
     var isAdmitted: Bool { lock.withLock { admitted } }
 
-    /// Opens the gate, handing over what was held in the order it arrived. Under the lock, so a
-    /// frame arriving meanwhile cannot overtake the ones held before it.
+    /// Under the lock, so a frame arriving meanwhile cannot overtake the held ones.
     func admit(into renderer: VideoRenderer) {
         lock.withLock {
             for event in heldVideo {
@@ -44,11 +38,7 @@ nonisolated final class WireGate: @unchecked Sendable {
     }
 }
 
-/// Dials a Mac by its LAN address and through the relay at once, and keeps whichever is ready first.
-///
-/// LAN is preferred because it is free and faster, so it starts first and the relay is only dialled
-/// after a short head start. A LAN that fails inside that head start brings the relay forward. A
-/// relay that wins is moved onto the LAN later by the usual Bonjour switch.
+/// LAN is tried first (free and faster); the relay starts after a short head start, sooner if the LAN fails. A relay winner moves onto the LAN later via the usual Bonjour switch.
 @MainActor
 final class DialRace {
     struct Entry {
@@ -74,7 +64,6 @@ final class DialRace {
         entries.append(Entry(wire: wire, gate: gate, path: path))
     }
 
-    /// Starts `dial` after `delay`, or at once if every attempt already running has failed.
     func startLater(after delay: Duration, _ dial: @escaping () -> Void) {
         queued = dial
         startLater = Task { [weak self] in
@@ -111,10 +100,7 @@ final class DialRace {
             if queued != nil {
                 startQueued()
             } else if entries.allSatisfy(\.failed) {
-                // Nothing left to wait for. A failure is handed over as the session's own, so the
-                // ladder carries on exactly as it would have after a single dial. A relay that
-                // refused on quota is the one that says why: the LAN's timeout, which often comes
-                // last, only says the Mac is not on this network.
+                // A relay that refused on quota says why; the LAN's timeout, which often comes last, only says the Mac is not on this network.
                 let refused = entries.firstIndex { entry in
                     entry.buffer.contains { if case .relayQuotaExceeded = $0 { true } else { false } }
                 }
@@ -125,7 +111,6 @@ final class DialRace {
         }
     }
 
-    /// Whether the session still wants this race: a disconnect in the meantime drops its wire.
     private func isStillWanted(by session: MacSession) -> Bool {
         session.dialRace === self && entries.contains { $0.wire === session.wire }
     }

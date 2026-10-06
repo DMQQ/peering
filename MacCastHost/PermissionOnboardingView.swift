@@ -2,9 +2,6 @@ import AppKit
 import SwiftUI
 
 /// Mandatory first-run setup for the two permissions that make the host functional.
-///
-/// This is deliberately the product root rather than a sheet or a dismissible tour. macOS can
-/// refuse either grant, but Peering must not pretend it can host while capture or input is absent.
 struct PermissionOnboardingView: View {
     @Environment(HostModel.self) private var model
 

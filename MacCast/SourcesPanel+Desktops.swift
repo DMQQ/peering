@@ -4,50 +4,19 @@ import SwiftUI
 import UIKit
 
 extension SourcesPanel {
-    /// Every screen, with its desktops under it.
-    ///
-    /// **This is where the desktops panel went.** "Which screen am I looking at" and "which
-    /// desktop of it" are one question asked at two depths, and they were two floating panels
-    /// behind two buttons that each listed the displays. A screen is drawn as its desktops now:
-    /// the screen is named once rather than twice, and the tap that moves the picture is the same
-    /// tap that picks the source.
-    ///
-    /// **One row per screen, and the row is the information.** A Mac with two screens shows two
-    /// rows here and each row correctly has a current desktop of its own, so the grouping is what
-    /// says which desktops belong to which screen. One flat strip of tiles would be several
-    /// unlabelled pictures two of which are called "Desktop 1".
-    ///
-    /// **A picture, which is what this section and the windows below it have in common.** A
-    /// screen and a window are somewhere you are looking, and the question somebody opens this
-    /// panel with is "which one had the thing I was on it", which only a picture answers: every
-    /// Mac's windows are a different arrangement of the same few greys. An application, and an
-    /// application that is not running yet, are identities instead, and an icon is the thing that
-    /// says which one it is in a way a photograph of one of its windows does not.
+    /// "Which screen" and "which desktop of it" are one question at two depths, so a screen is drawn as its desktops.
+    /// One row per screen: the grouping says which desktops belong to which screen, where one flat strip would show two "Desktop 1".
+    /// A picture for screens and windows, which answer "which had the thing I was on"; applications are identities, so they get an icon.
     @ViewBuilder
     func screensSection(_ descriptors: [CaptureSourceDescriptor]) -> some View {
-        // Real screens only, apart from building a mosaic. A virtual display has its own
-        // labelled group in ``virtualDisplaysSection`` the rest of the time, so it does not also
-        // turn up here as an unmarked tile indistinguishable from a real monitor — but a mosaic
-        // is picked from tiles with a badge showing where each one landed, which that group does
-        // not draw, so excluding it there instead would have made a virtual display the one
-        // source in the app that cannot go into an arrangement.
+        // Real screens only, apart from building a mosaic: a virtual display has its own group otherwise, but a mosaic is picked from tiles with a badge showing where each landed, which that group does not draw.
         let matches = filtered(descriptors).filter { buildingMosaic || !$0.isVirtualDisplay }
         if !matches.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(String(localized: "Screens"))
                 if buildingMosaic {
-                    // **Said here because the tap moves the Mac**, which is not what a picker is
-                    // expected to do and is the one thing about this panel worth warning a user
-                    // about before they meet it rather than after.
-                    //
-                    // There is no alternative to it. A tile is a live capture of a display, and a
-                    // desktop that is not on that display has no pixels in existence to capture,
-                    // so choosing which desktop a screen contributes *is* choosing which desktop
-                    // that screen is on.
-                    //
-                    // And the tap is a *move* rather than a second tile: a screen is one source, so
-                    // the second desktop of a screen already in the arrangement replaces the first.
-                    // Said here because a tap that quietly did that looks like one that failed.
+                    // Said here because the tap moves the Mac: a tile is a live capture, and a desktop not on the display has nothing to capture, so choosing a desktop is choosing which one the screen is on.
+                    // The tap is a move, not a second tile: a screen is one source, so a second desktop replaces the first, and doing it quietly would look like a failure.
                     Text("Picking a desktop switches that Mac's screen to it. A screen is in the arrangement once, so picking another of its desktops moves that tile rather than adding one.")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
@@ -58,23 +27,8 @@ extension SourcesPanel {
         }
     }
 
-    /// One screen: its desktops, or the screen itself where the desktops cannot be drawn.
-    ///
-    /// **Two things refuse them and they are different refusals, reached from one branch.** A Mac
-    /// that has sent no space catalogue has said nothing about its desktops, and a Mac whose Space
-    /// reader skipped this particular display has said nothing about that one, which is the same
-    /// answer: the catalogue lookup comes back empty either way, and the display's own tile is
-    /// then the only control that still selects it. A search is looking for a window by name, and
-    /// a desktop has no name of its own, so a block of them above the results would only push what
-    /// was searched for below the fold.
-    ///
-    /// **The desktops are drawn while an arrangement is being assembled too, and they mean
-    /// something different there.** Choosing which desktop a screen contributes is choosing which
-    /// desktop that screen is *on*, because a tile is a live capture and a desktop that is not on
-    /// the display has no pixels to capture. So the tap moves the Mac as well as the arrangement:
-    /// see ``chooseDesktopForMosaic(display:index:screen:)``. They are drawn rather than replaced
-    /// by the screen's own tile because that is the whole of the choice being offered, and a
-    /// picker that hides the options is not offering one.
+    /// Two refusals reach one branch: a Mac with no space catalogue, and one whose Space reader skipped this display, both leave the lookup empty. A search is by window name and desktops have none.
+    /// Desktops are drawn while assembling an arrangement too, where the tap moves the Mac as well as the arrangement: see `chooseDesktopForMosaic`.
     @ViewBuilder
     func screenBlock(_ descriptor: CaptureSourceDescriptor) -> some View {
         if let info = model.catalog?.spaceInfo,
@@ -86,8 +40,7 @@ extension SourcesPanel {
                 if namesScreen(info, display) { chip(for: display) }
 
                 Self.tileRow {
-                    // Offsets rather than `1...count`, which is an empty range when a display
-                    // reports nothing and traps on the way.
+                    // Offsets rather than `1...count`, an empty range that traps when a display reports nothing.
                     ForEach(0..<display.count, id: \.self) { offset in
                         desktopTile(
                             display,
@@ -103,18 +56,8 @@ extension SourcesPanel {
         }
     }
 
-    /// A screen's name, on its own line above that screen's desktops.
-    ///
-    /// Drawn when ``namesScreen(_:_:)`` says so, which is either because there is more than one
-    /// screen to tell apart or because the tiles under it have lost the mark that says where the
-    /// phone is looking. Above the tiles rather than beside them, and hugging its text rather than
-    /// given a width: display names are arbitrary user-facing strings, and a fixed width would
-    /// mean truncating real names to fit around a thumbnail.
-    ///
-    /// Filled rather than tinted when the video is showing that screen, because that is what this
-    /// app already means by "this one is on" (see ``ColorPalette/selectedFill``, and the same
-    /// mark on the sources list). A bare checkmark rather than the circled one used there: that
-    /// one sits on a dark row and needs the disc to carry it, while this sits on the fill itself.
+    /// Drawn when `namesScreen` says so. Above the tiles and hugging its text: display names are arbitrary strings, and a fixed width would truncate real names.
+    /// Filled when the video is showing that screen: that is what the app means by "this one is on" (``ColorPalette/selectedFill``).
     func chip(for display: SpaceDisplay) -> some View {
         let showing = isShowing(display)
 
@@ -132,8 +75,7 @@ extension SourcesPanel {
         .padding(.vertical, 4)
         .background(showing ? ColorPalette.selectedFill : ColorPalette.surface, in: Capsule())
         .overlay {
-            // The hairline is what gives the resting chip a body. On the filled one it is the
-            // fill doing that, and a border would only dull the accent.
+            // The hairline gives the resting chip a body; on the filled one a border would dull the accent.
             Capsule().strokeBorder(ColorPalette.ink.opacity(showing ? 0 : 0.15))
         }
         .animation(Motion.tap, value: showing)
@@ -143,56 +85,20 @@ extension SourcesPanel {
         model.catalog?.descriptor(for: .display(display.displayID))?.title ?? String(localized: "Display")
     }
 
-    /// Whether the picture on the phone is of this screen.
-    ///
-    /// **The same test ``placement(of:)`` makes, written from the other side.** A descriptor's
-    /// `id` *is* its source's ``CaptureSource/stableID``, so `descriptor.id` and
-    /// `CaptureSource.display(id).stableID` are one string spelled two ways. A desktop tile has no
-    /// descriptor to hand, so it is spelled this way here, and everything in this section that
-    /// asks the question goes through this one property rather than writing the comparison twice.
+    /// The same test as `placement(of:)` from the other side: `descriptor.id` and `CaptureSource.display(id).stableID` are one string spelled two ways, and a desktop tile has no descriptor.
     func isShowing(_ display: SpaceDisplay) -> Bool {
         model.activeSourceID == CaptureSource.display(display.displayID).stableID
     }
 
-    /// Whether a screen needs its name above its tiles.
-    ///
-    /// **Two reasons, and they are different questions.** With more than one screen, the name is
-    /// what says which screen the row of tiles belongs to, and that grouping is the whole reason
-    /// the screens are separate rows rather than one flat grid. With one screen there is nothing
-    /// to tell apart, and the chip is drawn for the other thing it carries instead: the mark that
-    /// *this* is the screen being watched. That mark has nowhere else to live when the display is
-    /// showing a fullscreen application, because `current` is nil then and no tile is the current
-    /// desktop, so the row of tiles would otherwise say nothing at all about where the phone is
-    /// looking. Exactly the case where the tiles have no answer is the case where the chip does.
+    /// Two reasons: with more than one screen the name says which row belongs to which; with one, the chip carries the mark that this screen is watched, which has nowhere else to live when a fullscreen app is showing (`current` is nil, so no tile is current).
     func namesScreen(_ info: SpaceInfo, _ display: SpaceDisplay) -> Bool {
         info.displays.count > 1 || (isShowing(display) && display.current == nil)
     }
 
-    /// One desktop of one screen, as a picture with its number under it.
-    ///
-    /// **A picture rather than a list of numbers**, because the question being asked is "which one
-    /// had my browser on it", and a number cannot answer that. Each tile is a photograph taken
-    /// when that desktop was last active, which is the only kind there can be: the other desktops
-    /// are by definition not on the display being captured. See ``SpacePreview``.
-    ///
-    /// **Two facts are drawn, and they are different facts.** `isCurrent` is where *that screen*
-    /// is, and every display has one of its own, so two highlighted tiles across two screens is
-    /// the honest answer rather than a fault. `isLive` is where the phone is looking, and exactly
-    /// one desktop can be it. Suppressing the first to fix the second was a worse trade: the
-    /// screen you are not watching then says nothing about where it is, so tapping "desktop 2" on
-    /// a screen already showing desktop 2 becomes a coin toss. It is not a no-op a user can see.
-    /// The panel closes, the picture does not move, and it reads as broken.
-    ///
-    /// `current` is optional and nil means a fullscreen application is on that display, which has
-    /// no current desktop to mark. Comparing through the optional gives exactly that answer: no
-    /// tile is current. ``namesScreen(_:_:)`` is what covers the fact that would otherwise be
-    /// lost with it.
-    ///
-    /// **Two jobs, and the tile says which one it is doing.** In the ordinary pick it reveals the
-    /// desktop and takes the picture with it. In the accumulating one it chooses which desktop
-    /// that screen contributes to the arrangement, which it can only do by moving the screen
-    /// there, and the mark moves with it: the accent and the arrangement's number sit on the
-    /// desktop the screen is *on*, because that is the one the finished mosaic will show.
+    /// A picture because "which one had my browser" is not answerable by a number; each tile was photographed when that desktop was last active.
+    /// `isCurrent` is where that screen is (every display has one) and `isLive` is where the phone is looking (exactly one). Suppressing the first made tapping "desktop 2" on a screen already on desktop 2 a visible non-event that read as broken.
+    /// `current` nil means a fullscreen app is on the display and no tile is current; `namesScreen` covers the fact that would be lost.
+    /// In the accumulating mode the tile chooses which desktop the screen contributes by moving the screen there, and the mark sits on the desktop the screen is on, which the finished mosaic will show.
     func desktopTile(
         _ display: SpaceDisplay, index: Int, screen: CaptureSourceDescriptor, showsScreenName: Bool
     ) -> some View {
@@ -200,15 +106,10 @@ extension SourcesPanel {
         let isCurrent = desktopIsCurrent(display, index: index)
         let isLive = showing && isCurrent
 
-        // What the arrangement has to say about this screen, asked once. A desktop is not a
-        // source, so every desktop of one screen answers with the same place, and only the one
-        // that is showing wears it: three tiles carrying "2" is the same arrangement reported
-        // three times, which is not three things.
+        // A desktop is not a source, so every desktop of one screen answers with the same place and only the showing one wears it.
         let placed = placement(of: screen)
         let marked = buildingMosaic ? (placed.marked && isCurrent) : isLive
-        // The desktop's own picture, so a screen that is rotated or not 16:10 is not cropped, and
-        // the screen's own shape when there is no picture yet, so the tile does not change shape
-        // when one arrives. See ``tileShape(for:)``.
+        // The desktop's own picture, so a rotated or non-16:10 screen is not cropped, and the screen's shape before one arrives so the tile does not change shape.
         let shape = desktopShape(display, index: index)
 
         return Button {
@@ -219,9 +120,6 @@ extension SourcesPanel {
             }
         } label: {
             VStack(alignment: .leading, spacing: 5) {
-                // The same box and the same picture the preview tiles are built from, so a row of
-                // desktops and a row of windows are measured the same way. A desktop's own
-                // picture goes in it at the screen's shape rather than at 16:10.
                 Self.tileBox(height: Self.packedTileHeight, shape: shape) {
                     ColorPalette.surface
                         .overlay {
@@ -234,10 +132,7 @@ extension SourcesPanel {
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
                             } else {
-                                // An empty tile is the truth: this desktop has not been on screen
-                                // since the host started, so there is no picture of it to show. A
-                                // placeholder image would be a picture of a desktop that does not
-                                // exist.
+                                // An empty tile is the truth: this desktop has not been on screen since the host started, and a placeholder would picture a desktop that does not exist.
                                 Image(systemName: "rectangle.dashed")
                                     .font(.system(size: 20, weight: .medium))
                                     .foregroundStyle(.tertiary)
@@ -269,14 +164,7 @@ extension SourcesPanel {
             }
             .frame(width: Self.packedTileHeight * shape)
         }
-        // The tile that has just become the picture steps forward, exactly as it does in the
-        // grids above: the face of the thing the user is now watching should be the part that
-        // moves. A quarter of the gutter either side, so a tile that grows into the gap reads as
-        // arriving rather than as a grid that has gone ragged.
-        //
-        // Driven by the desktop being current rather than by the mark, because the mark means two
-        // things now and only one of them is a tile arriving. A tile that stepped forward when it
-        // gained a number would be moving in a grid the user is still choosing from.
+        // The tile that has just become the picture steps forward, as in the grids above. Driven by the desktop being current rather than the mark, which also means something else now: a tile that stepped forward on gaining a number would move in a grid still being chosen from.
         .scaleEffect(isLive ? Self.tileGrowth : 1)
         .animation(Motion.settle, value: isLive)
         .animation(Motion.morph, value: placed.marked)
@@ -293,30 +181,15 @@ extension SourcesPanel {
         )
     }
 
-    /// Chooses which desktop a screen contributes to the arrangement, which moves the screen.
-    ///
-    /// **The only way this can work, and it is worth being plain about why.** A tile in an
-    /// arrangement is a live capture of a display. A desktop that is not on that display is not
-    /// being rendered, so it has no pixels in existence to capture, and the choice of which
-    /// desktop a screen contributes is therefore the choice of which desktop that screen is on.
-    /// The space switch goes out first so the picture and the arrangement agree by the time the
-    /// arrangement is built.
-    ///
-    /// **No source is selected and the panel is not closed**, both deliberately. Assembling is not
-    /// watching: selecting a source here would take the user out of the mosaic they are still
-    /// putting together, and closing the panel would end the session of picking after one tap.
+    /// A tile in an arrangement is a live capture, and a desktop not on the display has no pixels, so choosing a desktop is choosing which one the screen is on. The space switch goes out first so picture and arrangement agree.
+    /// No source is selected and the panel is not closed: assembling is not watching, and either would end the picking after one tap.
     func chooseDesktopForMosaic(
         display: SpaceDisplay, index: Int, screen: CaptureSourceDescriptor
     ) {
         let isPicked = picked.contains { $0.source == screen.source }
 
-        // Tapping the desktop the screen is already on, when that screen is already in, is the
-        // way back out. Every other tap moves the screen, and a tap that moved it to where it
-        // already is would be a tap that did nothing at all.
-        //
-        // Asked through ``desktopIsCurrent(_:index:)`` rather than of the Mac's list, so the tile
-        // that is drawn as "here" is the tile that takes the screen out, even in the seconds before
-        // the Mac's answer to a switch arrives.
+        // Tapping the desktop the screen is already on, when it is already in, is the way back out.
+        // Asked through `desktopIsCurrent(_:index:)` so the tile drawn as "here" is the one that takes the screen out, even before the Mac's answer arrives.
         if isPicked, desktopIsCurrent(display, index: index) {
             withAnimation(Motion.morph) { toggle(screen) }
             return
@@ -328,49 +201,31 @@ extension SourcesPanel {
         }
     }
 
-    /// Asks the Mac to show a desktop, and takes the mark here until the Mac's list says so.
-    ///
-    /// One door for the two taps that move a screen, because assembling an arrangement moves it
-    /// exactly as watching one does. See ``pendingDesktop``.
+    /// One door for both taps that move a screen.
     func askForDesktop(_ display: SpaceDisplay, index: Int) {
         guard !desktopIsCurrent(display, index: index) else { return }
         let pending = PendingDesktop(display: display.displayID, index: index)
         pendingDesktop = pending
         model.send(.switchToSpace(display: display.displayID, index: index))
-        // **Bounded, because a refusal is silent.** A switch the window server would not make
-        // leaves the Mac's list exactly as it was, so there is nothing in it to give the mark up
-        // for; the other half, a list that says something new, is watched for in the panel's body.
+        // Bounded because a refusal is silent: a refused switch leaves the list as it was, so nothing in it would give the mark up.
         Task {
             try? await Task.sleep(for: Self.pendingDesktopTimeout)
             if pendingDesktop == pending { pendingDesktop = nil }
         }
     }
 
-    /// How long a mark taken at a tap is trusted before the panel stops waiting to be told.
-    ///
-    /// Longer than the host's own coalescing of catalogue pushes (three seconds, see
-    /// ``VideoCoordinator/refreshCatalog()``), with room on top for the enumeration the push itself
-    /// has to make: the mark should be given up when the Mac's answer arrives, not just before it.
+    /// Longer than the host's three-second catalogue coalescing (see `refreshCatalog()`) plus the enumeration, so the mark is given up when the Mac's answer arrives, not just before.
     static let pendingDesktopTimeout: Duration = .seconds(6)
 
-    /// Which desktop a screen is on, as the tile that says "here" should read it.
-    ///
-    /// The Mac's own answer, or the one this phone has just asked for and has not yet seen it
-    /// confirm. See ``pendingDesktop``.
     func desktopIsCurrent(_ display: SpaceDisplay, index: Int) -> Bool {
-        // A tap on this screen answers for it until the Mac does, so the desktop being left loses
-        // its mark at the same moment the new one gains it rather than when the list arrives.
+        // A tap on this screen answers for it until the Mac does, so the old desktop loses its mark as the new one gains it.
         if let pending = pendingDesktop, pending.display == display.displayID {
             return pending.index == index
         }
         return index == display.current
     }
 
-    /// What a desktop tile is called out loud.
-    ///
-    /// The screen's name comes first when there is more than one screen, because the chip above
-    /// the row is a visual grouping and a screen reader does not get one: a list of "Desktop 1,
-    /// Desktop 2, Desktop 1" is three tiles with no way to tell which screen the last one is on.
+    /// The screen's name comes first with more than one screen: a screen reader gets no chip above the row.
     func spokenDesktop(
         _ display: SpaceDisplay,
         index: Int,
@@ -383,8 +238,7 @@ extension SourcesPanel {
         if picks {
             state = String(localized: ", in the mosaic")
         } else if buildingMosaic, isCurrent {
-            // The way out, said as such: this is the one tap that takes the screen back out, and
-            // a screen reader reaching the tile has no badge and no accent to tell it.
+            // The way out, said as such: a screen reader has no badge or accent to tell it.
             state = String(localized: ", current, tap to remove this screen")
         } else if buildingMosaic {
             state = String(localized: ", tap to switch this screen here")
@@ -396,42 +250,21 @@ extension SourcesPanel {
             : String(localized: "Desktop \(index)\(state)")
     }
 
-    /// Reveals a desktop, and takes the picture with it. Always both.
-    ///
-    /// A desktop tile names a *screen* as well as a desktop, so tapping one is a statement about
-    /// where to look. Switching only the Space left the user watching one screen while another
-    /// rearranged itself off-camera, and when the source was a window rather than a display,
-    /// which follows its window wherever that window is, nothing visible happened at all.
-    ///
-    /// The Space goes out first so the move reads as one thing. The Mac rearranges the desktop
-    /// that was asked for while the picture is still where it was, and the picture then arrives
-    /// on it already showing the right thing; the other order shows the screen being left, and
-    /// then a second jump.
+    /// A desktop tile names a screen too, so a tap is a statement about where to look: switching only the Space left the user watching one screen while another rearranged off-camera.
+    /// The Space goes out first, so the Mac rearranges the desktop while the picture is where it was; the other order shows the screen being left and then a second jump.
     func switchToDesktop(display: SpaceDisplay, index: Int) {
         askForDesktop(display, index: index)
 
         let source = CaptureSource.display(display.displayID)
         if model.activeSourceID != source.stableID {
-            // Through the model rather than `send`, so the choice is recorded as well as made.
-            // The raw send moved the host without moving `activeSourceID`, so the next tap back
-            // to a display already named there looked like no move at all and sent nothing.
+            // Through the model so the choice is recorded: the raw send moved the host without `activeSourceID`, so the next tap back looked like no move.
             model.selectSource(source)
         }
         onSelect()
     }
 
-    /// Whether the desktops are worth drawing at all.
-    ///
-    /// More than one desktop, **or** more than one screen. A second screen qualifies on its own
-    /// even with a single desktop on it, because tapping that desktop is how the picture is moved
-    /// to it: a control that can only ever do nothing is clutter, and this one can do something.
-    /// With one screen and one desktop there is nothing to switch to and nothing to tell apart,
-    /// and that screen draws the source tile this panel has always drawn for it.
-    ///
-    /// Read by ``RemoteScreen`` as well as by ``screenBlock(_:)``, and that is the point of it
-    /// being here rather than inline: the command that freshens the desktop pictures and the grid
-    /// that draws them are gated on one answer, so the panel cannot ask a Mac for photographs of
-    /// tiles it is not going to draw.
+    /// More than one desktop or more than one screen: a second screen qualifies alone since tapping its desktop moves the picture there.
+    /// Read by ``RemoteScreen`` too, so the command that freshens the desktop pictures and the grid are gated on one answer.
     static func showsDesktops(_ info: SpaceInfo) -> Bool {
         info.totalCount > 1 || info.displays.count > 1
     }

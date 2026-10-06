@@ -3,40 +3,15 @@ import RemoteCore
 import SwiftUI
 
 /// The Macs that are open, one tab each, and the `+` that opens another.
-///
-/// **Drawn only when there is more than one**, which is the whole of what makes the feature
-/// invisible to somebody who has one Mac: a strip with a single tab on it is a row of chrome that
-/// tells the user nothing they did not already know, and takes a line off the picture to do it.
-/// The first Mac is free on every plan, so a free user with one Mac never sees this at all.
-/// ``RemoteScreen`` is where that decision is made; this view draws whatever it is handed.
-///
-/// A tap switches rather than connects. The Mac being left is asked to stop sending its picture
-/// and the Mac being arrived at is asked to start, and neither is a disconnect: its shells keep
-/// running, its clipboard is still there, and it is still awake. That is the entire difference
-/// between this and ending one session to begin another. See ``SessionModel/activateSession(_:)``.
-///
-/// It draws on the one strip every other screen draws on — see ``TabStrip`` — rather than as the
-/// floating capsules it used to be. The session strip was the third copy of a tab and the one
-/// that had drifted furthest: no scroller, so four Macs squeezed into the width instead of
-/// scrolling, and a tab with no way to end it but the pill's quit-everything button.
+/// Drawn only when there is more than one: a single-tab strip is chrome telling the user nothing. ``RemoteScreen`` makes that decision.
+/// A tap switches rather than connects: the Mac left stops sending its picture but is not disconnected, and its shells keep running. See `activateSession(_:)`.
 struct SessionTabs: View {
     @Environment(SessionModel.self) private var model
 
-    /// Where the screen's chrome regions are collected.
-    ///
-    /// **Not optional, and it is the one thing about this view that is a correctness requirement
-    /// rather than a drawing.** The strip lies over the picture, and the gesture surface is a
-    /// UIKit view underneath the SwiftUI chrome: a touch aimed at a tab is delivered to the canvas
-    /// as well unless the region is reported. A tab switch that also clicks whatever is at that
-    /// point on the Mac is the failure this prevents, and it is silent — the Mac does something
-    /// the user did not ask for, a second after they asked for something else.
+    /// Not optional, a correctness requirement: the strip lies over the picture and the gesture surface is a UIKit view beneath it, so an unreported region also clicks whatever is at that point on the Mac.
     @Binding var chromeFrames: [ChromeRegion: CGRect]
 
-    /// The Mac the user has asked to end, while the question is up.
-    ///
-    /// Held here rather than on the container: it is a question about a tap that has just
-    /// happened, and the strip is rebuilt on every phase change of every Mac. Same shape as the
-    /// terminal strip's `pendingClose`, and for the same reason.
+    /// Held here, not on the container: the strip is rebuilt on every phase change of every Mac.
     @State private var pendingEnd: MacSession?
 
     var body: some View {
@@ -50,10 +25,7 @@ struct SessionTabs: View {
             addButton
         }
         .reportChromeFrame(.sessionTabs, into: $chromeFrames)
-        // **The question is asked from the strip rather than from the tab**, exactly as the
-        // terminal strip asks it from its own: one alert for the whole row, whose subject is a
-        // Mac named in the model. A copy per tab would be one alert per tab, all of them able to
-        // be up at once.
+        // Asked from the strip, not the tab: one alert for the row, not one per tab all able to be up at once.
         .terminalEndPrompt(
             name: pendingEnd.map(displayName) ?? "",
             detail: String(localized: "The connection to it closes. The Mac itself is left alone, and the shells running on it keep running."),
@@ -69,7 +41,6 @@ struct SessionTabs: View {
         )
     }
 
-    /// One Mac, named as the picker names it.
     private func tab(_ session: MacSession, isSelected: Bool) -> some View {
         let name = displayName(session)
 
@@ -79,10 +50,7 @@ struct SessionTabs: View {
             onClose: { pendingEnd = session },
             closeLabel: String(localized: "End \(name)")
         ) {
-            // The dot says what a name cannot: whether this Mac is up right now. Drawn the way
-            // the picker draws it — filled for a Mac that is there, hollow for one that is not
-            // known to be — and as a third thing for one being reconnected to, which is neither up
-            // nor gone and must not be drawn as either.
+            // The dot is drawn as the picker draws it: filled for up, hollow for not known, and a third form for reconnecting, which is neither up nor gone.
             Circle()
                 .fill(dotFill(session))
                 .overlay(
@@ -99,17 +67,9 @@ struct SessionTabs: View {
         .accessibilityLabel(isSelected ? String(localized: "\(name), showing") : name)
     }
 
-    /// The `+`, which is where the plan is asked for.
-    ///
-    /// **Drawn as itself whether or not the plan includes it**: a `+` that becomes a padlock is a
-    /// control that answers "what does this do" with nothing, and this button is how somebody with
-    /// one Mac finds out the app can hold several. See ``PlanLocked``.
-    ///
-    /// `isIncluded` is passed rather than left to the map because the first Mac is free on every
-    /// plan: the question is never "is this paid", it is "is this paid, or is this the first one".
-    ///
-    /// The 11 points of top padding centre it on the tab names rather than on the tab, which is
-    /// the same correction the strips inside the terminal panels make — see ``TabStrip``.
+    /// Drawn as itself whether or not the plan includes it: a `+` that became a padlock would not tell someone with one Mac that the app holds several.
+    /// `isIncluded` is passed because the first Mac is free on every plan.
+    /// The 11 points of top padding centre it on the tab names, as in the terminal panels' strips.
     @ViewBuilder
     private var addButton: some View {
         PlanLocked(
@@ -134,19 +94,13 @@ struct SessionTabs: View {
         .padding(.trailing, 8)
     }
 
-    /// What to call a Mac, in the one order that puts a person's own name for it first.
-    ///
-    /// The user's name if they have given one, then the Mac's own, then a placeholder. A tab
-    /// reading six hexadecimal characters would be the device ID standing where a person expects
-    /// the name of their machine, which is the mistake ``SessionModel/displayName(forHostID:)``
-    /// exists to prevent everywhere else.
+    /// The user's name, then the Mac's own, then a placeholder: never the device ID.
     private func displayName(_ session: MacSession) -> String {
         session.hostID.flatMap { model.displayName(forHostID: $0) }
             ?? session.hostName
             ?? String(localized: "A Mac")
     }
 
-    /// What colour a Mac's dot is, which is three answers rather than two.
     private func dotFill(_ session: MacSession) -> Color {
         if session.isReconnecting { return ColorPalette.caution }
         return session.phase == .ready ? .green : .clear

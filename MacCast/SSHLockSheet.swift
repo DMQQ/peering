@@ -1,11 +1,7 @@
 import SSHCore
 import SwiftUI
 
-/// The gate a locked server puts up before its shell opens.
-///
-/// Both kinds of lock share one sheet, because they are one question — "is this you" — asked in
-/// whichever of the two ways the user chose when they set it. Two sheets would be two places to
-/// keep the server's name, the cancel button and the wording of a refusal in step.
+/// Both lock kinds share one sheet, as they are one question asked two ways; two sheets would be two places to keep the name, cancel and refusal wording in step.
 struct SSHLockSheet: View {
     @Environment(SSHModel.self) private var model
     let host: SSHHost
@@ -40,10 +36,7 @@ struct SSHLockSheet: View {
         }
         .preferredColorScheme(.dark)
         .presentationDetents([.height(host.lock == .passcode ? 400 : 280)])
-        // Asked for as the sheet comes up rather than waiting on a tap: the user tapped a server
-        // and this is the lock they put on it, so the tap *is* the request. A cancelled system
-        // prompt leaves the sheet and its button exactly where they were, and the button is there
-        // for the second attempt.
+        // Asked as the sheet comes up: the tap on the server is the request. A cancelled prompt leaves the button for a second attempt.
         .task {
             if host.lock == .biometrics { await askDevice() }
         }
@@ -85,8 +78,7 @@ struct SSHLockSheet: View {
     private func submit() {
         let typed = passcode
         model.submit(passcode: typed, for: host)
-        // Still up means the passcode was wrong. Cleared rather than left in place: leaving six
-        // digits in a rejected pad makes the next attempt start by deleting somebody else's answer.
+        // Still up means the passcode was wrong; cleared so the next attempt does not start by deleting the last.
         if model.lockedHost != nil { passcode = "" }
     }
 
@@ -109,9 +101,7 @@ struct SSHLockSheet: View {
             .foregroundStyle(.white)
             .disabled(isAskingDevice || !DeviceAuthentication.canLockServers)
 
-            // A lock nobody can answer is worse than no lock: the server would still be in the
-            // list, and every tap on it would open a sheet with a dead button and no explanation.
-            // Reached when the device's passcode has been removed since the lock was set.
+            // A lock nobody can answer is worse than none: reached when the device passcode was removed since the lock was set, and every tap would open a sheet with a dead button.
             Text(DeviceAuthentication.canLockServers
                  ? "This server is locked to the owner of this device."
                  : "This iPhone has no passcode set, so there is no way to answer this server's lock. Set one in Settings, or turn the lock off for this server.")

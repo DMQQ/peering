@@ -5,9 +5,6 @@ struct TerminalAgent: Identifiable, Hashable {
     let name: String
     let command: String
     let symbol: String
-    /// Whether this agent can also be driven in its structured mode, which is what the native
-    /// chat screen needs. Not a plan question: the two agents without it simply have no chat,
-    /// on any plan, and their rows draw no chat button at all.
     let supportsChat: Bool
 
     static let all: [TerminalAgent] = [

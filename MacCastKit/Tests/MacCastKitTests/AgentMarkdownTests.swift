@@ -52,19 +52,15 @@ final class AgentMarkdownTests: XCTestCase {
         ])
     }
 
-    /// Seven hashes is not a heading, and neither is a hash with no space: both are lines a
-    /// shell transcript produces and should read as typed.
     func testHashesThatAreNotHeadings() {
         XCTAssertEqual(AgentMarkdown.split("####### seven hashes"), [.paragraph("####### seven hashes")])
         XCTAssertEqual(AgentMarkdown.split("#nospace"), [.paragraph("#nospace")])
     }
 
-    /// The stream caught mid-block: an unclosed fence is code until the closing line arrives.
     func testUnclosedFenceIsCode() {
         XCTAssertEqual(AgentMarkdown.split("```\nlet a = 1"), [.code("let a = 1")])
     }
 
-    /// Inline markdown stays in the paragraph, for the text view to render.
     func testInlineMarkdownIsLeftAlone() {
         XCTAssertEqual(AgentMarkdown.split("Use `npm test` **now**."), [.paragraph("Use `npm test` **now**.")])
     }

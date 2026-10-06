@@ -1,7 +1,6 @@
 import Darwin
 import Foundation
 
-/// Reads the hardware MAC addresses of physical network interfaces.
 enum NetworkInterfaceInfo {
     /// Returns colon-separated MAC address strings (e.g. "aa:bb:cc:dd:ee:ff") for all
     /// physical interfaces that carry a 6-byte link-level address.
@@ -23,12 +22,6 @@ enum NetworkInterfaceInfo {
                 let addressLength = Int(sdl.pointee.sdl_alen)
                 guard addressLength == 6 else { return }
 
-                // Read through the pointer, not out of `sdl_data`. `sdl_data` is declared as 12
-                // bytes but is the head of a variable-length tail: the kernel writes the whole
-                // interface name into it, so any name longer than that (`bridge0`) puts the
-                // address past the declared array, an out-of-bounds read Swift traps on. The
-                // address is contiguous in the `getifaddrs` buffer at the declared offset plus
-                // the name, and `sdl_len` is the bound that makes reading it there safe.
                 let totalLength = Int(sdl.pointee.sdl_len)
                 guard totalLength >= dataOffset + nameLength + addressLength else { return }
 

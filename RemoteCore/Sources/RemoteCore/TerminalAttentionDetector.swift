@@ -12,7 +12,6 @@ public struct TerminalAttentionDetector: Sendable {
 
     public init() {}
 
-    /// Consumes one piece of PTY output and returns the newly recognised kind of prompt, if any.
     public mutating func receive(_ data: Data) -> TerminalAttentionKind? {
         guard !data.isEmpty else { return nil }
 
@@ -28,37 +27,21 @@ public struct TerminalAttentionDetector: Sendable {
         return kind
     }
 
-    /// Starts a fresh prompt cycle after input has been sent to the terminal.
     public mutating func userDidRespond() {
         tail.removeAll(keepingCapacity: true)
         isAwaitingResponse = false
     }
 
-    /// The last visible line of what the shell has drawn, which is the question it is asking.
-    ///
-    /// **Because the prompt names whoever is asking.** "[sudo] password for damian:" and
-    /// "damian@example.com's password:" both say who wants the password and which password it is,
-    /// and a sentence that only reported "waiting for a password" said neither: two shells on one
-    /// Mac, one asking for sudo and one asking for ssh, produced two identical notifications.
-    ///
-    /// Read from the same tail the detection reads, so it is written in the terms of the prompt
-    /// that was just recognised. Empty when that tail does not end in something readable: a
-    /// full-screen program repaints with cursor moves rather than lines.
+    /// The last visible line, which is the question being asked. It names who is asking ("[sudo] password for damian:" vs ssh), without which two shells produced identical notifications. Empty when the tail is not readable (a full-screen program repaints with cursor moves).
     public var question: String? {
         Self.question(inPlainText: plainText)
     }
 
-    /// The tail with its terminal control sequences taken out, which is the text a person sees.
     private var plainText: String {
         Self.plain(String(decoding: tail, as: UTF8.self))
     }
 
-    /// The same rule, for a terminal read from outside.
-    ///
-    /// A terminal emulator watched through the Accessibility API has no tail of its own: it hands
-    /// over the text it can see, already plain, and asks the detector what the last line of it is.
-    /// One rule rather than two, because "this line is a prompt" is the same judgement in both
-    /// places, down to the bound that refuses a screenful of repainted nothing.
+    /// The same rule for a terminal read from outside (Accessibility text, already plain), so both places make one judgement.
     public static func question(inPlainText text: String) -> String? {
         chooserQuestion(of: text) ?? lastLine(of: text)
     }
@@ -80,10 +63,7 @@ public struct TerminalAttentionDetector: Sendable {
     }
 
     private static func lastLine(of text: String) -> String? {
-        // `whereSeparator: \.isNewline` rather than a separator of "\n", and the difference is a
-        // real one: a shell that ends its lines the DOS way writes CRLF as a single *grapheme*,
-        // which a search for the "\n" character does not match, so the whole tail came back as one
-        // line and every prompt was refused for being too long.
+        // `whereSeparator: \.isNewline`, not "\n": CRLF is one grapheme that a "\n" search misses, so the tail came back as one line and every prompt was refused as too long.
         guard let line = text
             .split(whereSeparator: \.isNewline)
             .last
@@ -97,20 +77,12 @@ public struct TerminalAttentionDetector: Sendable {
         return line
     }
 
-    /// Scans plain visible text for patterns that require the user's response.
-    ///
-    /// For text already rendered, with no ANSI codes, as the Accessibility API returns it for a
-    /// native terminal emulator's text area.
+    /// For text already rendered, with no ANSI codes (as the Accessibility API returns).
     public static func scan(_ text: String) -> TerminalAttentionKind? {
         detect(in: text)
     }
 
-    /// The text as a person sees it: everything the terminal uses to *place* characters removed,
-    /// everything it draws left in place.
-    ///
-    /// Two passes, because terminals use two: the CSI sequences (`ESC [ ... `) that move the
-    /// cursor, set colour and clear lines, and the OSC ones (`ESC ] ... BEL`) that set a window
-    /// title. Neither carries anything a notification wants to quote.
+    /// Strips CSI sequences (cursor, colour, clear) and OSC sequences (window title) so only drawn text remains.
     private static func plain(_ rawText: String) -> String {
         rawText
             .replacingOccurrences(

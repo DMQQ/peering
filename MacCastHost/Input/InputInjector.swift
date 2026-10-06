@@ -7,138 +7,65 @@ import os
 
 private let inputLog = Logger(subsystem: "pl.dmq.peering.host", category: "input")
 
-/// Posts synthetic input into the session.
-///
-/// **Every posting call is gated on Accessibility trust, and that gate is not defensive
-/// padding.** Without the permission `CGEvent.post` is a *silent no-op*: no error, no
-/// exception, no return value to check — the cursor simply does not move and keystrokes
-/// vanish. An app that assumes it worked is indistinguishable from one that is broken, and
-/// the only external symptom is "the client connects but nothing happens".
-///
-/// The transform is held behind a lock rather than being fixed at init because it changes
-/// mid-session: switching capture source, or the captured window being moved or resized,
-/// both replace the mapping from client coordinates to screen coordinates.
+/// Every posting call is gated on Accessibility trust: without it CGEvent.post is a silent no-op, so a client connects and nothing happens.
+/// The transform is behind a lock because it changes mid-session (source switch, window moved or resized).
 final class InputInjector: @unchecked Sendable {
     private let lock = NSLock()
     private var _transform: InputTransform?
-    /// Where the client last put the pointer, in the global space `CGEvent` posts into.
-    ///
-    /// Nothing writes it except a clamped position, which is what lets a click, a drag and a
-    /// scroll-at-cursor reuse it without asking again whether it is somewhere the user can
-    /// still see. The initial `.zero` is only ever read by a click that arrives before the
-    /// client has moved the pointer at all.
+    /// Only ever a clamped position, so clicks, drags and scroll-at-cursor can reuse it. The initial zero is read only by a click before any move.
     private var cursor: CGPoint = .zero
 
-    /// Where the last click from the client went, in global display points.
     var clickLocation: CGPoint { lock.withLock { cursor } }
 
     /// When the last joystick nudge arrived. See the `.joystickMove` case: it is what separates
     /// the first nudge of a gesture from the rest of one.
     private var lastJoystickAt: DispatchTime?
-    /// When we last actually posted a mouse-moved event for a joystick nudge.
     private var lastJoystickPostedAt: DispatchTime?
-    /// Accumulated delta not yet posted because the posting rate was capped.
     private var pendingJoystickDx: Double = 0
     private var pendingJoystickDy: Double = 0
 
-    /// How long a quiet gap makes the next joystick nudge the start of a new gesture.
     private static let joystickResyncGap: UInt64 = 250_000_000
-    /// Minimum nanoseconds between posted mouseMoved events (≈ 83 Hz).
-    ///
-    /// This is a burst guard, not a rate limit, and the distinction is the whole of its value.
-    /// The client sends its accumulated joystick delta at 60 Hz — one sample every 16.7 ms — so
-    /// a threshold *at* 16.7 ms sits exactly on the interval it is meant to be judging: jitter
-    /// of a millisecond either way decides whether a sample goes now or waits and travels with
-    /// the next one, and the cursor advances in alternating small and double steps. Sitting
-    /// below the interval means every sample clears it and goes immediately, while a genuine
-    /// burst is still capped.
-    ///
-    /// The ceiling it enforces is unchanged in practice. Posting still happens at the client's
-    /// rate, sixty times a second, which is what the cap was always aiming for.
+    /// Nanoseconds between posted mouseMoved events (about 83 Hz): a burst guard sitting below the client's 60 Hz interval (16.7 ms), since a threshold at the interval makes jitter alternate small and double steps.
     private static let joystickPostInterval: UInt64 = 12_000_000
 
-    // Reusing a single source avoids allocating a new CGEventSource on every event.
-    // hidSystemState reflects the current HID state so modifier keys are read correctly.
+    // One shared source avoids allocating per event; hidSystemState reads modifier state correctly.
     private let eventSource = CGEventSource(stateID: .hidSystemState)
     private var hasWarnedUntrusted = false
 
-    /// Which modifiers the system currently believes are held. Necessary because a modifier
-    /// has to be *released* explicitly — see ``postKey(code:down:modifiers:)``.
+    /// Which modifiers the system believes are held; a modifier must be released explicitly (see postKey).
     private var heldModifiers: Modifiers = []
 
-    /// The modifiers a chord pressed itself, per key, so its key-up releases only those.
-    /// Without this a chord containing a modifier the client had toggled on would switch
-    /// that toggle off on its way out.
+    /// Modifiers a chord pressed itself, so its key-up releases only those and not one the client toggled on.
     private var chordEngaged: [UInt16: Modifiers] = [:]
 
-    /// Mouse buttons the client has pressed and not yet released, in press order.
-    ///
-    /// Tracked for the same reason as ``heldModifiers``, and it is the worse of the two to
-    /// leave behind: a drag whose mouse-up never arrives keeps a button down on the Mac, so
-    /// the next thing the user physically clicks completes *the client's* drag instead. An
-    /// array rather than a set so the release order is the reverse of the press order, which
-    /// is what a real mouse does and what makes the teardown deterministic.
+    /// Buttons pressed and not yet released, in press order. A lost mouse-up leaves a button down so the user's next physical click completes the client's drag; an array so release is in reverse press order.
     private var heldButtons: [MouseButton] = []
 
-    /// The window drag the client is in the middle of, if any.
-    ///
-    /// Present from the mouse-down that starts a command-drag until the mouse-up that ends
-    /// it — including while the Accessibility lookup is still running and after it has come
-    /// back with nothing. Both of those matter: the first is why a move that arrives in the
-    /// meantime is not posted as a pointer move, and the second is why the mouse-up that
-    /// ends it is not posted as a button release the client never pressed.
+    /// From the mouse-down of a command-drag until the mouse-up, including while the AX lookup runs and after it returns nothing: moves meanwhile are not posted as pointer moves, and the mouse-up is not posted as a release.
     private var windowMove: WindowMove?
 
-    /// Bumped for every grab; see ``WindowMove/id``.
     private var nextWindowMoveID: UInt64 = 0
 
-    /// A window the client has picked up with a command-drag, and where it was picked up.
     private struct WindowMove {
-        /// What tells this grab apart from every other one. A session that ends mid-drag
-        /// leaves a lookup and a position change queued behind it, and the drag after it
-        /// must not be the thing they land on.
+        /// Tells grabs apart: a session ending mid-drag leaves queued work that must not land on the next drag.
         let id: UInt64
-        /// Where the pointer was at the grab, in the global space `cursor` is in. Every
-        /// offset is measured from it, so the window travels exactly as far as the client's
-        /// finger did and no further.
+        /// Pointer position at the grab, in cursor space; offsets are measured from it.
         let grab: CGPoint
-        /// The window itself, once the lookup has landed. `nil` before it does, and `nil`
-        /// for good when it came back empty; both mean there is nothing to move.
+        /// nil before the lookup lands, and for good when it came back empty.
         var window: AXUIElement?
-        /// The window's top-left at the grab. A window is positioned, not displaced — the
-        /// window server has no delta form — so this is what the offset is added to.
+        /// The window is positioned, not displaced (no delta form), so offsets are added to this.
         var origin: CGPoint = .zero
-        /// Whether a refused position change has been logged for this grab. One that is
-        /// refused is refused sixty times a second, and the log wants one line of that.
+        /// A refused position change is refused sixty times a second; log one line.
         var hasReportedFailure = false
     }
 
-    /// Where the Accessibility work runs.
-    ///
-    /// **Not the queue this type is called on, which is the network one.** `perform` runs on
-    /// the server's serial queue — the queue the control channel is read on, and in a
-    /// relayed session the one video arrives on too — and an Accessibility call to an
-    /// application that has stopped answering blocks until the API's own messaging timeout
-    /// gives up on it. A window drag asks sixty times a second, so a single stuck target
-    /// application would take the picture and the client's own control channel down with
-    /// it. This queue absorbs that wait and nothing else notices it.
-    ///
-    /// Serial, because a window drag is a state machine spread across commands — the press
-    /// that resolves the window, the moves that carry it, the release that ends it — and
-    /// order is the only thing that makes each one see the state the last one left.
+    /// Not the network queue: an Accessibility call to an unresponsive application blocks until the API timeout, and a window drag asks sixty times a second, which would stall the picture and control channel. Serial because a window drag is a state machine across commands.
     private let windowMoveQueue = DispatchQueue(label: "pl.dmq.peering.host.input.window-move")
 
-    /// The element every hit-test starts from. System-wide rather than per-application,
-    /// because the point of the exercise is to find whatever is under the pointer, and that
-    /// is whichever application happens to be in front of that pixel.
+    /// System-wide: the point is to find whatever is under the pointer in any application.
     private let systemWide = AXUIElementCreateSystemWide()
 
-    /// How far up a parent chain a window is looked for before giving up.
-    ///
-    /// A window is a handful of levels above whatever was hit. The bound is here because the
-    /// chain is read from another process a call at a time: a tree deeper than it should be
-    /// is that many round trips on every grab, and a loop in one would be round trips that
-    /// never come back.
+    /// Bounded because the chain is read from another process a call at a time; a loop would never return.
     private static let maximumAncestorDepth = 32
 
     /// The modifier keys in the order a chord presses them; a chord releases them in reverse.
@@ -168,10 +95,7 @@ final class InputInjector: @unchecked Sendable {
         get { lock.withLock { _transform } }
         set {
             lock.withLock {
-                // A frame reports its geometry sixty times a second and it is almost always the
-                // one already in force, so the comparison lives here rather than at each call
-                // site — the per-frame writer would otherwise take the lock and touch memory on
-                // every frame of a stream that is usually standing still.
+                // Frames report geometry sixty times a second, nearly always unchanged; comparing here avoids the lock and memory traffic per frame.
                 guard _transform != newValue else { return }
                 _transform = newValue
             }
@@ -187,10 +111,7 @@ final class InputInjector: @unchecked Sendable {
         switch command {
         case .mouseMove(let point):
             guard let location = location(for: point) else { return }
-            // Recorded even when the move itself is swallowed, and that is not a detail: the
-            // client really has put the pointer there, and the click, drag or scroll that
-            // comes next is posted at this position. Left behind at the grab, the first
-            // click after a window drag would land where the window used to be.
+            // Recorded even when the move is swallowed: the next click, drag or scroll posts here, and leaving it at the grab would land the first click where the window used to be.
             let moveID = lock.withLock { () -> (UInt64?, MouseButton?) in
                 cursor = location
                 return (windowMove?.id, heldButtons.last)
@@ -200,18 +121,7 @@ final class InputInjector: @unchecked Sendable {
                 postMouse(moveType(holding: held), at: location, button: cgButton(held ?? .left))
                 return
             }
-            // **Posted, and the window is carried as well.** The two do not fight: the window's
-            // position is computed from ``cursor``, which is set above, and never from what was
-            // posted — so posting it moves the pointer by the delta and ``applyWindowMove``
-            // moves the window by the same delta, and the point of the window that was under
-            // the finger at the grab stays under the finger. That is what an ordinary drag on
-            // the Mac does, and it is what makes the gesture read as carrying something.
-            //
-            // Swallowing the move instead left the drawn pointer parked at the grab point
-            // while the window slid out from under it — the overlay draws from the *live*
-            // cursor, so it went on drawing the pointer where the drag started. It reads as
-            // the window having come loose from the finger, which is the one thing a drag must
-            // never look like.
+            // Posted and the window carried too: the window position is computed from cursor, not from what was posted, so both move by the same delta. Swallowing the move left the drawn pointer parked at the grab while the window slid away, since the overlay draws from the live cursor.
             postMouse(moveType(holding: held), at: location, button: cgButton(held ?? .left))
 
             windowMoveQueue.async { [weak self] in
@@ -219,26 +129,10 @@ final class InputInjector: @unchecked Sendable {
             }
 
         case .mouseDown(let button):
-            // Uses the position we last posted, not the live cursor. If the user nudges the
-            // physical mouse between the client's move and its click, the live cursor is no
-            // longer where the client is drawing it — and a click has to land where the
-            // user is looking, which is the drawn position.
+            // The last posted position, not the live cursor: a click must land where the user is looking, which is the drawn position.
             let location = lock.withLock { cursor }
 
-            // A command-drag is a window move, and it is the client's Move button that arms
-            // it — it latches the same command bit the shortcuts panel's ⌘ does, so a
-            // command held at the moment of the press is the whole of the test.
-            //
-            // Decided here and not re-decided later: a drag that began as a window move is
-            // one until the button comes up, even if command is let go in between. The
-            // modifier is how the gesture is recognised, not a condition it runs under, and
-            // a drag abandoned halfway would leave the window wherever the finger was when
-            // the bit changed.
-            //
-            // Nothing is posted and no button is recorded as held, and both are the point:
-            // there is no click for the client to have meant, so the mouse-up that ends this
-            // drag must not be a release for a press that never went out. See the mouse-up
-            // case below.
+            // A command-drag is a window move, armed by the Move button latching the command bit. Decided at press and kept until the button comes up even if command is released. Nothing is posted and no button recorded held, so the mouse-up is not a release for a press that never went out.
             if button == .left, lock.withLock({ heldModifiers.contains(.command) }) {
                 beginWindowMove(from: location)
             } else {
@@ -249,21 +143,12 @@ final class InputInjector: @unchecked Sendable {
         case .mouseUp(let button):
             let location = lock.withLock { cursor }
             lock.withLock { heldButtons.removeAll { $0 == button } }
-            // The mouse-up that ends a window move posts nothing. No mouse-down went out
-            // either, so this would be a release with no press behind it — a real event, and
-            // one that whatever is under the cursor will act on. The window stays where the
-            // last move put it, which is where the finger let go.
+            // The mouse-up ending a window move posts nothing: no mouse-down went out, so it would be a release with no press that whatever is under the cursor acts on.
             if button == .left, endWindowMove() { return }
             postMouse(mouseType(for: button, pressed: false), at: location, button: cgButton(button))
 
         case .scroll(let dx, let dy):
-            // Vertical is wheel1 and horizontal is wheel2.
-            //
-            // The sign is flipped here rather than at the client, because the client's delta is
-            // only a statement of which way the fingers moved, and this is the sole place that
-            // knows what a `CGEvent` wheel delta means. Passed through unchanged, a downward
-            // two-finger drag scrolled the Mac the opposite way from the fingers — the delta
-            // reads positive-downward and the wheel reads positive-toward-the-end-of-the-document.
+            // Vertical is wheel1, horizontal wheel2. The sign is flipped here: the client delta is positive-downward while the wheel reads positive toward the end of the document.
             guard let event = CGEvent(
                 scrollWheelEvent2Source: nil,
                 units: .pixel,
@@ -274,12 +159,7 @@ final class InputInjector: @unchecked Sendable {
             ) else {
                 return
             }
-            // Placed at the position the client is drawing, for the reason the click path above
-            // gives. An event built with no source carries no location of its own, so macOS
-            // routes it to the *live* system cursor — and a wheel event goes to whatever is
-            // under the pointer. Nudging the physical mouse between the client's last move and
-            // its next scroll was therefore enough to scroll a different window than the one
-            // the user was looking at, silently and with nothing on either screen to explain it.
+            // Placed at the drawn position: an event with no location routes to the live cursor, so nudging the physical mouse could scroll a different window silently.
             event.location = lock.withLock { cursor }
             event.post(tap: .cghidEventTap)
 
@@ -298,28 +178,13 @@ final class InputInjector: @unchecked Sendable {
             postText(text)
 
         case .lockScreen:
-            // Control-Command-Q is macOS's documented Lock Screen shortcut. Sending it through
-            // the same Accessibility-gated path as every other key keeps this command inside
-            // the permission the user already granted, and never handles their Mac password.
+            // Control-Command-Q is the documented Lock Screen shortcut; going through the same gated path keeps it inside the granted permission.
             postKey(code: 12, down: true, modifiers: [.control, .command])
             postKey(code: 12, down: false, modifiers: [.control, .command])
             inputLog.notice("lock screen shortcut posted")
 
         case .switchSpace:
-            // Never reached, and deliberately so. `HostModel` matches this command before it
-            // gets here and routes it to `switchSpaceRelative`, which moves the desktop through
-            // the window server directly.
-            //
-            // This used to post Ctrl+←/Ctrl+→, on the theory that the real Spaces shortcut is
-            // handled by the window server and needs no target application's cooperation. That
-            // part is true; the events simply were not honoured — the window server consumes
-            // symbolic hot keys before an injected chord reaches it, which is why this side gave
-            // up on chords. **What was missed is that a chord posted through the Accessibility
-            // subsystem is honoured**, and `SpaceReader.performSwitch` posts one for exactly
-            // this reason: the direct call alone leaves the old desktop composited on screen.
-            // A chord here would still be swallowed; the difference is the route, not the keys.
-            // Left as an explicit no-op rather than deleted, because the command still exists on
-            // the wire and a future reader deserves to know which side handles it.
+            // Never reached: HostModel routes this to switchSpaceRelative first. Injected Ctrl+arrows are consumed by the window server before they act, but a chord posted through Accessibility is honoured (SpaceReader.performSwitch posts one). Kept as an explicit no-op because the command still exists on the wire.
             break
 
         case .joystickMove(let dx, let dy):
@@ -343,10 +208,7 @@ final class InputInjector: @unchecked Sendable {
                 pendingJoystickDx += dx
                 pendingJoystickDy += dy
 
-                // Cap the posting rate at ≈ 60 Hz. Accumulated deltas are carried forward so
-                // no movement is lost, only batched. Posting at .cghidEventTap on every frame
-                // at 30 Hz floods the window server and causes progressive stuttering as its
-                // internal queue fills up and everything — including display redraws — slows.
+                // Posting rate capped (about 60 Hz), deltas carried forward: posting at .cghidEventTap every frame floods the window server and stutters everything, including display redraws.
                 let sincePost = lastJoystickPostedAt.map { now.uptimeNanoseconds - $0.uptimeNanoseconds } ?? .max
                 guard sincePost >= Self.joystickPostInterval else { return nil }
 
@@ -355,11 +217,7 @@ final class InputInjector: @unchecked Sendable {
                 let pdy = pendingJoystickDy
                 pendingJoystickDx = 0
                 pendingJoystickDy = 0
-                // Clamped, and this is the path that most needs it: the origin is wherever the
-                // physical mouse was left when the gesture started, which is routinely a place
-                // the captured window is not, and a joystick reports a delta with no idea where
-                // it is pushing to. Left unclamped the pointer walks off the shared content and
-                // keeps walking, because the accumulated deltas never stop arriving.
+                // Clamped: the origin is wherever the physical mouse was left, and a joystick has no idea where it pushes to, so unclamped it walks off the content and keeps walking.
                 let target = clamped(CGPoint(x: origin.x + pdx, y: origin.y + pdy), to: _transform)
                 cursor = target
                 return target
@@ -381,38 +239,10 @@ final class InputInjector: @unchecked Sendable {
 
     // MARK: - Teardown
 
-    /// Releases everything the client left held, because the held state outlives the
-    /// connection that created it.
-    ///
-    /// **This is not tidiness, and the failure it prevents is on the user's own machine.**
-    /// A client that drops between a key's down and its up leaves the window server
-    /// believing the modifier is still pressed, and nothing on this side will ever clear
-    /// it: the release was going to come from the client that is gone. The Mac then sits
-    /// with ⌘ held — every later keystroke, from the physical keyboard, in every
-    /// application, is read as a shortcut — until a real key-up for that modifier happens
-    /// to arrive. A dropped mouse-down is the same class of bug and nastier to notice: the
-    /// button stays down, so the user's next physical click completes the *client's* drag.
-    ///
-    /// Called when the last client goes away rather than on every disconnect. The held
-    /// state belongs to the Mac, not to a session — it cannot be attributed to one client —
-    /// and releasing it while another client is still connected would drop a modifier that
-    /// client is legitimately holding. With one client, which is the case this app is built
-    /// for, "last client" and "the client" are the same thing.
-    ///
-    /// Deliberately **not** gated on Accessibility trust the way every other posting path
-    /// here is. That gate exists to avoid emitting events into an application the user has
-    /// not authorised; this is the one call whose entire purpose is to *undo* an event, and
-    /// refusing it would leave the stuck state in place. It is also unreachable while
-    /// untrusted — ``perform(_:)`` drops every command at the same gate, so nothing was
-    /// ever held and the guard below returns before posting anything.
-    ///
-    /// A window move in progress is dropped here too, and the window is left where the last
-    /// move put it rather than being put back. Putting it back would be a second change to a
-    /// window the session is no longer entitled to touch, and the position it would restore
-    /// is where the drag began, which is not where the user last asked for it. Dropped
-    /// before the guard rather than after, because that guard returns early when nothing is
-    /// held — and command can be let go before the drop, leaving a grab with no modifier
-    /// left to release. Left set, it would swallow every pointer move of the next session.
+    /// Releases what the client left held. A client dropping between key down and up leaves the window server believing the modifier is pressed (every later keystroke becomes a shortcut), and a lost mouse-down makes the next physical click complete the client's drag.
+    /// Called when the last client goes: held state belongs to the Mac and cannot be attributed to one client, and releasing it under another client would drop a modifier it holds for real.
+    /// Deliberately not gated on Accessibility trust: it only undoes events, and while untrusted nothing was ever held.
+    /// A window move in progress is dropped too, and the window left where the last move put it. Dropped before the guard because the guard returns when nothing is held, and command can be released first, leaving a grab that would swallow the next session's pointer moves.
     func releaseAll() {
         lock.withLock { windowMove = nil }
         let held = lock.withLock { () -> (buttons: [MouseButton], modifiers: Modifiers) in
@@ -421,16 +251,10 @@ final class InputInjector: @unchecked Sendable {
             chordEngaged.removeAll()
             return snapshot
         }
-        // Nothing to undo. Worth returning early rather than falling through: a flags change
-        // with no change in it, or a mouse-up for a button that was never pressed, invents
-        // input the client never asked for — and the mouse-up in particular is a real event
-        // that a view under the cursor would act on.
+        // Nothing to undo: a flags change with no change, or a mouse-up for a button never pressed, invents input (a real event a view under the cursor acts on).
         guard !held.buttons.isEmpty || !held.modifiers.isEmpty else { return }
 
-        // Through `transition` rather than by posting a flags change directly, so each bit
-        // is released along the same path a real chord uses: the state is cleared as part of
-        // the release, and every flags change carries the state that actually results rather
-        // than a guess at it. Reverse of the press order, as a keyboard releases.
+        // Through transition so each bit is released along a real chord's path, with the resulting state, in reverse press order.
         for (bit, _) in Self.modifierKeys.reversed() {
             transition(bit, down: false)
         }
@@ -449,49 +273,24 @@ final class InputInjector: @unchecked Sendable {
 
     // MARK: - Window moves
 
-    /// Picks up the window under the pointer, in place of the click that would have gone out.
-    ///
-    /// **This is the Move button, and it exists because command-drag does not do the job.**
-    /// macOS does move a window under a command-drag of its own, and that was the whole of
-    /// the original design: the client latches command, drags as usual, and the window is
-    /// supposed to follow. It does not. The modifier arrives as a real flags change and is
-    /// genuinely held, and the window still does not move — what the user gets is a pointer
-    /// that travels the entire gesture with nothing under it, which is indistinguishable
-    /// from the feature being broken, because it is. So the window is moved here, by the API
-    /// that exists for exactly this, and every step of it is checked rather than assumed.
-    ///
-    /// **A grab that finds nothing is not a click.** There is no fallback to posting the
-    /// mouse-down the way an ordinary click would: the user has asked for a window to be
-    /// carried, and a click that lands on whatever is under the pointer instead — a button,
-    /// a link, a text field — does something they did not ask for and cannot see coming. The
-    /// drag does nothing at all instead, which is what a command-drag across the desktop
-    /// does on a Mac.
-    ///
-    /// The Accessibility permission this needs is the one ``perform(_:)`` already refuses to
-    /// run without, so the gate at the top of it covers this path as well.
+    /// The Move button exists because command-drag does not work: the modifier is genuinely held and the window still does not move. So the window is moved by the AX position API, every step checked.
+    /// A grab that finds nothing is not a click: posting the mouse-down would do something the user did not ask for, so the drag does nothing at all.
     private func beginWindowMove(from pointer: CGPoint) {
         let id = lock.withLock { () -> UInt64 in
             nextWindowMoveID += 1
-            // Armed before the lookup is asked for, not after it answers. The moves that
-            // follow are suppressed on the strength of this being set, and a move that
-            // arrived first and was posted as an ordinary one would drag the pointer off the
-            // window by exactly as far as it had travelled.
+            // Armed before the lookup: moves that follow are suppressed on it, and one posted as ordinary would drag the pointer off the window.
             windowMove = WindowMove(id: nextWindowMoveID, grab: pointer)
             return nextWindowMoveID
         }
         windowMoveQueue.async { [weak self] in self?.resolveWindowMove(id: id) }
     }
 
-    /// Finds the window at the grab and remembers where it was.
     private func resolveWindowMove(id: UInt64) {
-        // Read once, under the lock: the window is placed by the pointer the client had when
-        // it pressed, not by the one it has by the time the lookup comes back.
+        // Read once under the lock: placed by the pointer at press, not the one when the lookup returns.
         guard let grab = lock.withLock({ windowMove?.id == id ? windowMove?.grab : nil }) else { return }
 
         guard let window = windowElement(at: grab) else {
-            // Nothing under the pointer. The grab stays armed until the button comes up and
-            // moves nothing — no window, and no pointer either, for the reason the mouseMove
-            // case gives. The command-drag is inert, which is the honest outcome.
+            // Nothing under the pointer: the grab stays armed until the button comes up and moves nothing, so the command-drag is inert.
             inputLog.notice("""
                 no window under \(grab.x, privacy: .public),\(grab.y, privacy: .public), so \
                 this command-drag moves nothing
@@ -504,12 +303,7 @@ final class InputInjector: @unchecked Sendable {
             return
         }
 
-        // Asked once, before the drag, rather than inferred from it. A window that will not
-        // accept a position is the one case where every single move of the gesture fails,
-        // and one question here says so once instead of sixty silent failures a second.
-        // Only a definite no stops the grab: a check that cannot be answered is not a
-        // refusal, and treating one as a refusal would refuse a window that moves perfectly
-        // well because the first call to its application timed out.
+        // Asked once before the drag: an unsettable window fails every move, so one question beats sixty silent failures a second. Only a definite no stops the grab; a timed-out check is not a refusal.
         var settable: DarwinBoolean = false
         let check = AXUIElementIsAttributeSettable(window, kAXPositionAttribute as CFString, &settable)
         if check == .success, !settable.boolValue {
@@ -524,12 +318,7 @@ final class InputInjector: @unchecked Sendable {
         }
     }
 
-    /// Carries the window by however far the pointer has travelled since the grab.
-    ///
-    /// The offset is measured from the grab every time rather than accumulated into a
-    /// running total, which is what makes a move that is delayed, coalesced or refused leave
-    /// nothing behind: the next one puts the window where the pointer is now, not where a
-    /// sum of past deltas believes it should be.
+    /// Measured from the grab each time, not accumulated, so a delayed, coalesced or refused move leaves nothing behind.
     private func applyWindowMove(to pointer: CGPoint, id: UInt64) {
         guard let move = lock.withLock({ windowMove?.id == id ? windowMove : nil }),
               let window = move.window else { return }
@@ -539,18 +328,7 @@ final class InputInjector: @unchecked Sendable {
             y: move.origin.y + (pointer.y - move.grab.y)
         )
 
-        // A bare `CGPoint`, because that is the space `cursor` is already in — the two
-        // agree, and nothing here converts or flips anything.
-        //
-        // **Verified rather than assumed, because the failure it rules out is a window that
-        // jumps a display height away from the pointer.** The header is explicit —
-        // `kAXPositionAttribute` is a `CGPoint` in points whose 0,0 is the top-left corner of
-        // the screen holding the menu bar, its y increasing downward — and the window server
-        // was asked as well, on this machine. The attribute read back from real windows
-        // agreed with `CGWindowListCopyWindowInfo` to the point, including a window sitting
-        // at y 33 rather than at 0 (a y growing upward would have said 4), and setting it to
-        // y + 90 moved the window down the screen by 90. So it is the same space
-        // `CGEvent` posts into, and the same one `cursor` is stored in.
+        // A bare CGPoint in the space cursor is in. Verified: kAXPositionAttribute is points with 0,0 at the top-left of the menu bar screen, y down, matching CGWindowListCopyWindowInfo (a window at y 33 read 33, and y + 90 moved it down 90); a window would otherwise jump a display height from the pointer.
         guard let value = AXValueCreate(.cgPoint, &target) else { return }
 
         let error = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, value)
@@ -558,10 +336,7 @@ final class InputInjector: @unchecked Sendable {
         reportWindowMoveFailure(error, id: id)
     }
 
-    /// Ends the window move, if one is in progress.
-    ///
-    /// - Returns: whether there was one. The caller posts nothing when there was, because
-    ///   nothing was posted to begin with.
+    /// Returns whether there was one; the caller posts nothing then, since nothing was posted to begin with.
     @discardableResult
     private func endWindowMove() -> Bool {
         lock.withLock {
@@ -571,8 +346,7 @@ final class InputInjector: @unchecked Sendable {
         }
     }
 
-    /// Logs a refused position change, once per grab. Sixty identical lines a second would
-    /// bury everything else the log had to say, and the first one already says all of it.
+    /// Once per grab: sixty identical lines a second would bury the log.
     private func reportWindowMoveFailure(_ error: AXError, id: UInt64) {
         let isFirst = lock.withLock { () -> Bool in
             guard windowMove?.id == id, windowMove?.hasReportedFailure == false else { return false }
@@ -586,39 +360,20 @@ final class InputInjector: @unchecked Sendable {
             """)
     }
 
-    /// The window under a point, or `nil` when there is not one.
     private func windowElement(at point: CGPoint) -> AXUIElement? {
-        // Asked of the window list *before* the hit test, and this is the whole of the fix for a
-        // crash rather than a tidiness. A hit test over one of this application's own windows is
-        // served **in-process**, on this queue, and answering it means running AppKit's and
-        // SwiftUI's accessibility machinery on a thread neither of them expects — which trips
-        // SwiftUI's main-thread assertion inside the attribute graph and takes the process down
-        // with it. The `pid` check below cannot cover that: by the time it runs, the hit test that
-        // crashes has already been served. A window list is Core Graphics, holds no UI state, and
-        // is safe to read from anywhere.
+        // Window list before the hit test, which fixes a crash: a hit test over one of our own windows is served in-process on this queue and runs AppKit and SwiftUI accessibility off the main thread, tripping SwiftUI's main-thread assertion. The pid check below runs too late. A window list is Core Graphics and safe anywhere.
         if ownsWindow(at: point) { return nil }
 
         var hit: AXUIElement?
-        // `kAXErrorNoValue` — nothing there at all — is an answer, not a fault, and it is
-        // handled the same way as the rest: no window, so nothing to move.
         guard AXUIElementCopyElementAtPosition(
             systemWide, Float(point.x), Float(point.y), &hit
         ) == .success, let hit else { return nil }
 
-        // The window a client is moving is one it is looking at, never the one showing it the
-        // picture. Kept as well as the check above rather than replaced by it: this one reads the
-        // element the *system* resolved, which is the only answer that covers an element whose
-        // owning process changed between the two calls.
+        // Kept as well as the check above: this reads the element the system resolved, covering an owner that changed between the calls.
         var pid: pid_t = 0
         if AXUIElementGetPid(hit, &pid) == .success, pid == getpid() { return nil }
 
-        // A hit lands on whatever is drawn at that pixel — the text area inside a terminal,
-        // a button, the group inside a split view — so the element that has to move is an
-        // ancestor of it and never the hit itself. `kAXWindowAttribute` is the direct answer
-        // and anything inside a window has one, so it is asked first, and the walk below is
-        // the fallback for the elements that have no window to name: a hit on the menu bar
-        // answers with no value at all, which is the correct answer, because a menu bar is
-        // in no window.
+        // A hit lands on whatever is drawn there, so the element to move is an ancestor: kAXWindowAttribute first, then the walk below for elements with no window (the menu bar answers no value, correctly).
         if let window = elementValue(kAXWindowAttribute, of: hit) { return window }
 
         var node: AXUIElement? = hit
@@ -631,17 +386,7 @@ final class InputInjector: @unchecked Sendable {
         return nil
     }
 
-    /// Whether a point in the global space lands on one of this application's own windows.
-    ///
-    /// Read from the window server rather than from AppKit, and that is not a preference:
-    /// `NSWindow` is main-thread state and this is asked from the window-move queue, which is the
-    /// same reason the whole lookup lives here instead of on the main actor. A window list is
-    /// Core Graphics — a value, not a view hierarchy — and can be read from anywhere.
-    ///
-    /// The list comes back front to back, and the first window containing the point is the one
-    /// being pointed at, so one that is ours decides the question on its own. Asked only as far
-    /// as the point: a window of ours somewhere else on the screen is not in the way of a drag
-    /// that is nowhere near it.
+    /// Read from the window server, not AppKit: NSWindow is main-thread state and this runs on the window-move queue. The first window containing the point decides, so only windows near the drag matter.
     private func ownsWindow(at point: CGPoint) -> Bool {
         guard let windows = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements],
@@ -660,13 +405,7 @@ final class InputInjector: @unchecked Sendable {
         return false
     }
 
-    /// The value of a point-valued attribute, or `nil` when the element does not answer with
-    /// one — an element that has gone away since the hit-test, or one whose position is not
-    /// the `CGPoint` its documentation promises. The type check is what makes the cast safe;
-    /// `AXValueGetValue` is what makes a value of the wrong type a `nil` rather than a trap.
-    ///
-    /// The attribute is taken as a `String` and bridged here, so the call sites can name the
-    /// constant as it is spelled rather than casting at each of them.
+    /// nil when the element does not answer with a CGPoint (gone since the hit test, or the wrong type); AXValueGetValue makes the wrong type a nil rather than a trap.
     private func pointValue(_ attribute: String, of element: AXUIElement) -> CGPoint? {
         var ref: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success,
@@ -676,16 +415,13 @@ final class InputInjector: @unchecked Sendable {
         return point
     }
 
-    /// The value of an element-valued attribute, or `nil` when the element has none.
     private func elementValue(_ attribute: String, of element: AXUIElement) -> AXUIElement? {
         var ref: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success,
               let ref, CFGetTypeID(ref) == AXUIElementGetTypeID() else { return nil }
-        // The type ID above is the check that makes this safe.
         return unsafeDowncast(ref, to: AXUIElement.self)
     }
 
-    /// The value of a string-valued attribute, or `nil` when the element has none.
     private func stringValue(_ attribute: String, of element: AXUIElement) -> String? {
         var ref: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success,
@@ -697,53 +433,19 @@ final class InputInjector: @unchecked Sendable {
 
     private func location(for point: NormalizedPoint) -> CGPoint? {
         guard let transform = lock.withLock({ _transform }) else {
-            // No capture source yet, so there is no space to map into. Dropping the command
-            // is right: guessing a display would send the cursor somewhere arbitrary, and
-            // the cursor would visibly jump the moment capture started.
+            // No capture source yet: dropping the command beats guessing a display, which would make the cursor jump when capture starts.
             return nil
         }
         let location = transform.globalPoint(fromNormalized: point)
-        // A NaN survives `min` and `max` — Swift propagates it rather than clamping it — so a
-        // malformed coordinate would pass through the clamp below and reach `CGEvent`, which
-        // puts the pointer somewhere no rectangle can describe and no user can find. Dropped
-        // for the same reason a missing transform is: a command that cannot be placed is worse
-        // than one that does not run. The joystick path needs no equivalent guard because it
-        // already rejects non-finite deltas before it accumulates them.
+        // NaN survives min and max, so a malformed coordinate would reach CGEvent and put the pointer somewhere no user can find. The joystick path rejects non-finite deltas earlier.
         guard location.x.isFinite, location.y.isFinite else { return nil }
         return clamped(location, to: transform)
     }
 
-    /// Holds a point inside whatever is being captured.
-    ///
-    /// **Without this the pointer can be sent somewhere the user cannot see or reach it.** The
-    /// client's canvas is not the shared content: it overscrolls during a gesture and its own
-    /// aspect ratio differs from the capture's, so a drag near an edge produces coordinates that
-    /// land off the display — or, worse because nothing on screen marks that boundary, outside
-    /// the window being shared and onto the desktop behind it. The client goes on drawing the
-    /// cursor at the edge of its canvas while the real one sits in neither place.
-    ///
-    /// Applied where a position is *produced*, rather than inside ``postMouse(_:at:button:)``, so
-    /// that every path moving the pointer inherits it: a click, a drag and a scroll-at-cursor all
-    /// reuse the last posted position, and clamping here is what makes that stored position safe
-    /// to reuse. Clamping again on the way *out* of a click would be the wrong place for it —
-    /// that click is deliberately posted at the position the client drew, and if the captured
-    /// window has moved since, a second clamp would pull the click to an edge the user never saw
-    /// the pointer at.
-    ///
-    /// Saturating rather than refusing, which is the whole point of putting it here. A finger
-    /// held past the boundary keeps producing out-of-range coordinates, and the pointer is meant
-    /// to stop at the edge and stay there — dropping the command instead would leave it frozen
-    /// short of the edge, and the correction that follows would then be measured from the wrong
-    /// place.
-    ///
-    /// Silent by design. A saturated edge is the expected result of a finger held past the
-    /// boundary, not a fault, and the client keeps sending the same out-of-range value for as
-    /// long as the finger stays there — anything logged here would repeat at its frame rate and
-    /// bury the log.
-    ///
-    /// - Parameter transform: The mapping in force, passed in rather than read here so the
-    ///   callers already holding the lock can use this without taking it a second time. `nil`
-    ///   leaves the point alone; so does a transform that describes no area.
+    /// Without this the pointer can be sent where the user cannot see it: the client canvas overscrolls and has its own aspect ratio, so a drag near an edge lands off the display or outside the shared window onto the desktop behind.
+    /// Applied where a position is produced, not in postMouse, so every path inherits it and the stored position is safe to reuse; clamping again on a click would pull it to an edge the user never saw.
+    /// Saturating, not refusing: a finger held past the boundary should stop the pointer at the edge, and dropping would freeze it short. Silent, since the client repeats the out-of-range value at frame rate.
+    /// - Parameter transform: passed in so callers already holding the lock need not retake it. nil leaves the point alone, as does a transform with no area.
     private func clamped(_ point: CGPoint, to transform: InputTransform?) -> CGPoint {
         guard let transform, let bounds = captureBounds(transform) else { return point }
         return CGPoint(
@@ -752,30 +454,11 @@ final class InputInjector: @unchecked Sendable {
         )
     }
 
-    /// The rect the captured content covers, in the global point space `CGEvent` posts into.
-    ///
-    /// Nothing has to be asked of the capture side to get this, and it works for all three kinds
-    /// of source from one expression: ``InputTransform`` is built *from* the content's own rect
-    /// every time it is made — a display's `CGDisplayBounds`, an application's window union, a
-    /// single window's frame, and for the two that move, the `screenRect` that travels with every
-    /// frame precisely because a dragged window reports the change no other way. So a window
-    /// capture clamps to that window and a display capture clamps to that display, and the
-    /// per-frame path means the rect stays right as the window moves.
-    ///
-    /// `origin` is the rect's **top-left** and this space has y increasing *downward* — the same
-    /// convention `CGEvent` posts in, and the one ``InputTransform/globalPoint(fromNormalized:)``
-    /// already relies on — so the height is added downward from `origin.y`. Flipping that is
-    /// invisible on a display whose origin is (0, 0) and wrong on every other one, which is what
-    /// makes it worth stating rather than assuming.
-    ///
-    /// `nil` for a transform that describes no area, which is what a degenerate one is: a source
-    /// that has gone away maps every coordinate to a single point, and that point must not be
-    /// read as a one-point cell to hold the cursor inside. Leaving the point untouched is the
-    /// honest answer there — the caller has already decided what a vanished source means.
+    /// InputTransform is built from the content's own rect (display bounds, application window union, or the per-frame screenRect that tracks a dragged window), so one expression serves every source kind.
+    /// origin is the top-left with y increasing downward, as CGEvent posts; flipping is invisible on a display at (0, 0) and wrong on every other.
+    /// nil for a transform with no area: a vanished source maps every coordinate to one point, which must not become a one-point cell holding the cursor.
     private func captureBounds(_ transform: InputTransform) -> CGRect? {
-        // `pixelSize` is in pixels and `origin` is in points. Skipping this division is not a
-        // near miss on a Retina panel: it describes a rect the size of the content *in pixels*,
-        // which for anything smaller than a display is larger than the display itself.
+        // pixelSize is pixels and origin is points; skipping this division on Retina yields a rect larger than the display.
         let scale = transform.pointPixelScale > 0 ? transform.pointPixelScale : 1
         let size = CGSize(
             width: transform.pixelSize.width / scale,
@@ -795,36 +478,12 @@ final class InputInjector: @unchecked Sendable {
             inputLog.error("could not create a \(String(describing: type), privacy: .public) event")
             return
         }
-        // Whatever the client has latched applies to the mouse as well as to the keyboard.
-        //
-        // A no-op for an ordinary click, and the whole of how a window is moved: macOS carries
-        // a window under a command-drag without bringing it to the front, so arming command is
-        // what turns a drag on the picture into "pick this window up" — from anywhere in it,
-        // rather than from a title bar a few pixels wide on a phone.
-        //
-        // Set explicitly rather than left to the event source. The source is `hidSystemState`,
-        // which reports what the *hardware* is doing, and a command key this app posted
-        // synthetically is not hardware: without this the drag would reach the window server as
-        // an ordinary one and nothing would move. `Modifiers`' raw values are the `CGEventFlags`
-        // bits, which is why this is a reinterpretation rather than a mapping.
-        //
-        // Safe to take the lock here: every caller posts outside it.
+        // Whatever the client has latched applies to the mouse too. This is how a window is moved: arming command turns a drag on the picture into picking the window up from anywhere in it. Set explicitly because hidSystemState reports hardware, and a synthetic command key is not hardware; Modifiers raw values are the CGEventFlags bits. Safe to lock: every caller posts outside it.
         event.flags = CGEventFlags(rawValue: UInt64(lock.withLock { heldModifiers }.rawValue))
         event.post(tap: .cghidEventTap)
     }
 
-    /// Posts a key, engaging and disengaging any modifiers around it.
-    ///
-    /// **The modifiers are posted as real key events, not merely as flag bits on the key
-    /// itself.** This is the whole reason the method is shaped like this. Setting
-    /// `CGEvent.flags` describes the modifier state *for that one event*; it does not
-    /// release the modifier, and the window server goes on believing it is held. The
-    /// symptom is quiet and severe: after `Cmd+V`, every later keystroke is read as a
-    /// shortcut — injected text becomes `Cmd+X`, cut, and the document stops receiving
-    /// characters entirely while every layer above reports success.
-    ///
-    /// So a chord is posted the way a keyboard posts one: modifiers down, the key, then
-    /// modifiers up in reverse order.
+    /// Modifiers are posted as real key events, not flag bits: flags describe state for one event and never release the modifier, so after Cmd+V every later keystroke reads as a shortcut and the document stops receiving characters while everything reports success. A chord goes modifiers down, the key, modifiers up in reverse.
     private func postKey(code: UInt16, down: Bool, modifiers: Modifiers) {
         if let bit = InputEncoding.modifierBit(for: code) {
             transition(bit, down: down)
@@ -832,9 +491,7 @@ final class InputInjector: @unchecked Sendable {
         }
 
         if InputEncoding.isModifierKeyCode(code) {
-            // Caps lock and fn: reported as flags changes, but with no bit to track, so the
-            // flags go out unchanged. Handled before the chord path because a modifier that
-            // has no bit can never be part of one.
+            // Caps lock and fn have no bit to track, so flags go out unchanged; handled before the chord path.
             postFlagsChange(code: code, flags: lock.withLock { heldModifiers })
             return
         }
@@ -878,8 +535,7 @@ final class InputInjector: @unchecked Sendable {
         }
     }
 
-    /// Presses and releases an `NX_KEYTYPE_*` key, which a keyboard sends as a system-defined
-    /// event (subtype 8) rather than a key code.
+    /// An NX_KEYTYPE_* key, sent by keyboards as a system-defined event (subtype 8) not a key code.
     private func postAuxiliaryKey(_ type: Int) {
         for down in [true, false] {
             let state = down ? 0xA : 0xB
@@ -908,11 +564,8 @@ final class InputInjector: @unchecked Sendable {
             return
         }
 
-        // Set explicitly rather than left to inherit. An event built from a null source takes
-        // whatever modifiers the system currently believes are held, so a chord posted just
-        // before this would otherwise rewrite the keystroke into a shortcut.
+        // Set explicitly: a null-source event inherits the modifiers the system believes are held, so a chord posted just before would turn the keystroke into a shortcut.
         var flags = cgFlags(lock.withLock { heldModifiers })
-        // A real keyboard marks F1 to F12 as function keys, and some shortcuts only match with it.
         if Self.functionKeyCodes.contains(code) { flags.insert(.maskSecondaryFn) }
         event.flags = flags
         event.post(tap: .cghidEventTap)
@@ -920,10 +573,7 @@ final class InputInjector: @unchecked Sendable {
 
     private static let functionKeyCodes = Set(MediaKey.functionKeyCodes)
 
-    /// Applies a modifier transition and posts the flags change describing it.
-    ///
-    /// - Returns: whether it changed anything. A chord only releases the modifiers it
-    ///   actually pressed, so a modifier the client had toggled on stays on.
+    /// Returns whether it changed anything: a chord releases only what it pressed.
     @discardableResult
     private func transition(_ bit: Modifiers, down: Bool, code: UInt16? = nil) -> Bool {
         let changed = lock.withLock { () -> Bool in
@@ -944,8 +594,6 @@ final class InputInjector: @unchecked Sendable {
         return true
     }
 
-    /// A flags change is how macOS reports a modifier moving: `virtualKey` names the key that
-    /// moved, and the flags carry the resulting state.
     private func postFlagsChange(code: UInt16, flags: Modifiers) {
         guard let event = CGEvent(
             keyboardEventSource: nil,
@@ -966,16 +614,13 @@ final class InputInjector: @unchecked Sendable {
 
     private func postText(_ text: String) {
         for chunk in InputEncoding.unicodeChunks(text) {
-            // A down/up pair per chunk, so the text arrives as ordinary typing rather than
-            // as whatever a lone key-down would mean to the focused application.
             postUnicode(chunk, down: true)
             postUnicode(chunk, down: false)
         }
     }
 
     private func postUnicode(_ units: [UInt16], down: Bool) {
-        // Keycode 0 is a placeholder: in Unicode mode the character comes from the string
-        // attached below, not from the keycode, so the value is never consulted.
+        // Keycode 0 is a placeholder: in Unicode mode the character comes from the attached string.
         guard let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: down) else {
             return
         }
@@ -985,30 +630,15 @@ final class InputInjector: @unchecked Sendable {
                 unicodeString: buffer.baseAddress
             )
         }
-        // Text is never modified. Left to inherit, this event would take the current modifier
-        // state — so typing immediately after a shortcut would submit the text as a keyboard
-        // command instead of inserting it.
+        // Text is never modified: inheriting the current modifier state would submit typing right after a shortcut as a keyboard command.
         event.flags = []
         event.post(tap: .cghidEventTap)
     }
 
     // MARK: - Helpers
 
-    /// The event a pointer movement goes out as: a drag while a button is held, a move otherwise.
-    ///
-    /// **A movement posted as `.mouseMoved` while a button is down is not a drag, and that
-    /// difference is the whole of whether dragging works.** The window server knows a button is
-    /// held — this app told it so — but the event *type* is what an application matches on, and a
-    /// `.mouseMoved` is delivered as `mouseMoved:` however many buttons are down. `mouseDragged:`
-    /// then never runs: no text is selected, no slider moves, no window follows its title bar.
-    /// What the user gets is a pointer that travels the whole gesture and drags nothing, which is
-    /// the report this was found by — "the cursor moves on screen but it is not dragged".
-    ///
-    /// The button comes from ``heldButtons`` rather than from the caller because the type and the
-    /// button have to agree: a `.leftMouseDragged` naming the button the press went out for is what
-    /// the window server matches against the press it is already tracking. A drag posted as
-    /// `.otherMouseDragged` while the left button is down is not a left drag with a stranger's
-    /// button on it — it is an event for a button no one pressed.
+    /// A movement posted as .mouseMoved while a button is down is not a drag: apps match on event type, so mouseDragged: never runs and nothing is selected or dragged.
+    /// The button comes from heldButtons so type and button agree: the window server matches a .leftMouseDragged against the press it tracks.
     private func moveType(holding button: MouseButton?) -> CGEventType {
         switch button {
         case .left: return .leftMouseDragged
@@ -1034,8 +664,7 @@ final class InputInjector: @unchecked Sendable {
         CGMouseButton(rawValue: UInt32(button.rawValue)) ?? .left
     }
 
-    /// Logged once, not per event. A client sending a stream of moves would otherwise write
-    /// thousands of identical lines and bury whatever else the log had to say.
+    /// Once, not per event: a stream of moves would bury the log.
     private func warnUntrustedOnce() {
         let shouldWarn = lock.withLock { () -> Bool in
             guard !hasWarnedUntrusted else { return false }

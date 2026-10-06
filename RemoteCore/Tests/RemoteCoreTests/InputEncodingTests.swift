@@ -19,8 +19,6 @@ struct InputEncodingTests {
 
     @Test("empty text produces no events")
     func emptyTextProducesNothing() {
-        // A keyboard event carrying no string is still delivered to the focused app.
-        // Posting one for empty input is a phantom keystroke.
         #expect(InputEncoding.unicodeChunks("").isEmpty)
     }
 
@@ -33,15 +31,12 @@ struct InputEncodingTests {
 
     @Test("never splits a surrogate pair")
     func doesNotSplitSurrogatePairs() {
-        // An emoji is two UTF-16 units. Split across events, each half is an unpaired
-        // surrogate — not valid text — and the client would render two replacement
-        // characters instead of one emoji.
+        // An emoji is two UTF-16 units; split across events each half is invalid text.
         let text = String(repeating: "😀", count: 6)  // 12 units
         let chunks = InputEncoding.unicodeChunks(text, maxUnits: 5)
 
         var rejoined: [UInt16] = []
         for chunk in chunks {
-            // Every chunk must independently be valid UTF-16.
             #expect(String(decoding: chunk, as: UTF16.self).contains("\u{FFFD}") == false)
             rejoined += chunk
         }
@@ -51,8 +46,6 @@ struct InputEncodingTests {
 
     @Test("a surrogate pair landing exactly on the boundary moves to the next chunk")
     func boundarySurrogateMoves() {
-        // "a" + emoji: 1 + 2 = 3 units, limit 2. The pair cannot fit in the first chunk,
-        // so the first chunk is just "a".
         let chunks = InputEncoding.unicodeChunks("a😀", maxUnits: 2)
 
         #expect(chunks[0] == Array("a".utf16))
@@ -61,8 +54,6 @@ struct InputEncodingTests {
 
     @Test("every chunk round-trips, for a varied string")
     func roundTripsMixedContent() {
-        // Accented Latin, CJK, an emoji with a variation selector, and an astral plane
-        // character — the cases that separate a real chunker from a naive one.
         let text = "café 日本語 👍🏽 𝄞 fin"
         let chunks = InputEncoding.unicodeChunks(text, maxUnits: 3)
 
@@ -71,7 +62,6 @@ struct InputEncodingTests {
 
         for chunk in chunks {
             #expect(chunk.count <= 3)
-            // A chunk starting with a low surrogate would mean a split pair.
             if let first = chunk.first {
                 #expect((0xDC00...0xDFFF).contains(first) == false)
             }
@@ -80,8 +70,7 @@ struct InputEncodingTests {
 
     @Test("an absurd chunk size is raised to two rather than looping forever")
     func degenerateChunkSizeStillProgresses() {
-        // maxUnits of 1 cannot clear a surrogate pair. Left alone it would either split the
-        // pair or fail to advance; either way the caller hangs or corrupts the text.
+        // maxUnits 1 cannot clear a surrogate pair: left alone it would split it or fail to advance.
         let chunks = InputEncoding.unicodeChunks("😀😀", maxUnits: 1)
         #expect(chunks.flatMap { $0 } == Array("😀😀".utf16))
     }
@@ -93,17 +82,14 @@ struct InputEncodingTests {
         #expect(InputEncoding.wheelValue(3.4) == 3)
         #expect(InputEncoding.wheelValue(3.6) == 4)
 
-        // Halves round away from zero, so the two directions stay symmetric in magnitude.
-        // `.toNearestOrEven` would send +2.5 to 2 but -2.5 to -2, making a scroll slightly
-        // weaker one way than the other.
+        // Halves round away from zero so both directions stay symmetric (`.toNearestOrEven` gives +2.5 to 2 but -2.5 to -2).
         #expect(InputEncoding.wheelValue(2.5) == 3)
         #expect(InputEncoding.wheelValue(-2.5) == -3)
     }
 
     @Test("a non-finite delta becomes zero instead of crashing")
     func rejectsNonFiniteDeltas() {
-        // Int32(Double.nan) traps in Swift. This value comes straight off the network, so
-        // without this clamping one malformed packet would kill the host process.
+        // Int32(Double.nan) traps, and this value comes off the network.
         #expect(InputEncoding.wheelValue(.nan) == 0)
         #expect(InputEncoding.wheelValue(.infinity) == 0)
         #expect(InputEncoding.wheelValue(-.infinity) == 0)
@@ -127,8 +113,7 @@ struct InputEncodingTests {
 
     @Test("recognises the modifier keycodes")
     func recognisesModifiers() {
-        // Posting an ordinary key-down for one of these leaves the modifier stuck down in
-        // every application, with no release event to clear it.
+        // An ordinary key-down for one of these leaves the modifier stuck in every application.
         for code: UInt16 in [54, 55, 56, 57, 58, 59, 60, 61, 62, 63] {
             #expect(InputEncoding.isModifierKeyCode(code))
         }
@@ -147,8 +132,6 @@ struct InputEncodingTests {
 struct ModifierKeycodeTests {
     @Test("both hands of a modifier map to the same bit")
     func leftAndRightAgree() {
-        // Collapsing the two is what keeps a left-Shift release from failing to clear a
-        // right-Shift press, so it is worth pinning rather than leaving implicit.
         #expect(InputEncoding.modifierBit(for: 55) == .command)
         #expect(InputEncoding.modifierBit(for: 54) == .command)
         #expect(InputEncoding.modifierBit(for: 56) == .shift)
@@ -161,8 +144,7 @@ struct ModifierKeycodeTests {
 
     @Test("ordinary keys have no modifier bit")
     func ordinaryKeys() {
-        // 0 is 'a', 49 is space, 123 is left arrow — the arrow matters because switchSpace
-        // sends it with a control flag, so treating it as a modifier would break Spaces.
+        // 123 is left arrow: switchSpace sends it with a control flag, so treating it as a modifier would break Spaces.
         for code: UInt16 in [0, 49, 123, 124] {
             #expect(InputEncoding.modifierBit(for: code) == nil)
             #expect(!InputEncoding.isModifierKeyCode(code))

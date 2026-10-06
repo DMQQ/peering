@@ -2,16 +2,8 @@ import RemoteCore
 import XCTest
 @testable import MacCastKit
 
-/// What listing the Mac's sessions has to leave alone.
-///
-/// Opening the panel lists them, and the Mac answers each one with its whole history, which is
-/// replayed here onto a screen built fresh. Those bytes were drawn for exactly one grid, the one
-/// the shell was last told it has, so the shape is the one thing a listing must not reset. Reset
-/// to the 80×24 default, every frame of a full-screen program is laid out wrapped and clipped, and
-/// the resize the panel sends a moment later only truncates and pads: the picture never comes back.
-///
-/// Taken from a traced session off the phone, where reopening a terminal that was drawn correctly
-/// came back as fragments.
+/// A listing replays history onto a fresh screen, which must keep the shape the shell was last told:
+/// at the 80x24 default full-screen frames wrap and clip, and the later resize cannot repair them.
 final class TerminalListingShapeTests: XCTestCase {
     private let id = UUID(uuidString: "1E1C6C7E-2E4A-4E1C-9F1E-6C7E2E4A4E1C")!
 
@@ -22,8 +14,6 @@ final class TerminalListingShapeTests: XCTestCase {
             .joined(separator: "\n")
     }
 
-    /// A frame of the kind a full-screen program draws: a rule as wide as the screen, a line under
-    /// it, and a status line the program places by addressing it.
     private func frame(columns: Int) -> Data {
         var bytes = Data()
         bytes.append(Data("\u{1b}[2J\u{1b}[H".utf8))
@@ -68,7 +58,6 @@ final class TerminalListingShapeTests: XCTestCase {
         let before = text(of: live.screen(for: drawn, columns: 102, rows: 66))
         XCTAssertTrue(before.contains("auto mode"), "the frame is one a program drew")
 
-        // The reopen: a screen built fresh for the listing's replay, on the shape the listing kept.
         let listed = RemoteTerminal.from(
             [TerminalSessionInfo(id: id, name: "Claude", isRunning: true)],
             remembering: [terminal(columns: 102, rows: 66)]
@@ -78,8 +67,6 @@ final class TerminalListingShapeTests: XCTestCase {
         XCTAssertEqual(after, before)
     }
 
-    /// The shape is load-bearing, which is why the listing keeps it: the same replay on the default
-    /// grid is a different screen, and the resize that follows does not undo it.
     func testAReplayOnTheDefaultGridIsNotTheScreenItWas() {
         let drawn = frame(columns: 102)
 

@@ -66,8 +66,6 @@ struct TerminalAttentionDetectorTests {
     func quotesThePromptThatAsked() {
         var sudo = TerminalAttentionDetector()
         #expect(sudo.receive(Data("$ ls\r\n[sudo] password for damian: ".utf8)) == .password)
-        // The prompt itself, rather than the last line of ordinary output, and with the terminal's
-        // colouring taken off: this is what goes in a sentence read on a locked screen.
         #expect(sudo.question == "[sudo] password for damian:")
 
         var coloured = TerminalAttentionDetector()
@@ -93,8 +91,6 @@ struct TerminalAttentionDetectorTests {
 
     @Test("a question that cannot be read is not guessed at")
     func refusesAnUnreadableQuestion() {
-        // A program that repaints rather than prints leaves a screenful of single line behind it,
-        // and the first eighty characters of that are not a sentence to put in a notification.
         var repainting = TerminalAttentionDetector()
         _ = repainting.receive(Data((String(repeating: "x", count: 200) + "\n").utf8))
         #expect(repainting.question == nil)

@@ -6,13 +6,7 @@ import UIKit
 
 // MARK: - Activity Tab
 
-/// One line in "Recent connections", whichever kind of machine was at the other end.
-///
-/// A type of this screen's own rather than a protocol over the two records. They answer different
-/// questions — a Mac session has a path and a byte count, a shell has an outcome — and the only
-/// things this list needs from either are a name, a sentence and a time. Flattening them here
-/// keeps that pairing in one place instead of teaching two stored records about a list neither of
-/// them is part of.
+/// A type of this screen's own, not a protocol over the two records: a Mac session and a shell answer different questions and the list needs only a name, a sentence and a time.
 private enum RecentConnection: Identifiable {
     case mac(ClientSessionRecord)
     case shell(SSHConnectionRecord)
@@ -32,12 +26,6 @@ private enum RecentConnection: Identifiable {
     }
 }
 
-/// One fact about a session: what it is on the left, what it came to on the right.
-///
-/// A free function rather than a method on either screen, because two screens in this file are made
-/// of these — a past session's detail, and the direct path's two rates — and a second copy of a
-/// row is where the two start drifting apart. It is the same reasoning the app's shared controls
-/// were lifted for, one size down.
 private func detailRow(_ label: String, _ value: String) -> some View {
     HStack(alignment: .firstTextBaseline, spacing: 12) {
         Text(label)
@@ -52,8 +40,6 @@ private func detailRow(_ label: String, _ value: String) -> some View {
 
 struct ActivityTab: View {
     @Environment(SessionModel.self) private var model
-    /// Read only for the shells: this tab is where everything that has connected is listed, and a
-    /// shell is one of those — see ``recent``.
     @Environment(SSHModel.self) private var servers
 
     var body: some View {
@@ -92,10 +78,6 @@ struct ActivityTab: View {
             }
             .foregroundStyle(.secondary)
 
-            // The whole allowance becomes the way to buy more of it. This card is where the
-            // limit is felt — it is the one place in the app that counts the minutes down — so
-            // it is the one place where "and here is how to stop counting" belongs. Paid plans
-            // never reach this view because they have no relay allowance to inspect.
             Button(action: openUpgradePaywall) {
                 relayMeterDetail
                     .contentShape(Rectangle())
@@ -114,9 +96,6 @@ struct ActivityTab: View {
                 Spacer(minLength: 8)
                 Text(relayRemainingLabel)
                     .font(.caption.weight(.medium))
-                    // Warms with the bar rather than staying grey. The figure is the one piece of
-                    // text on this card that changes on its own, and the moment it stops being
-                    // comfortable it should be the thing the eye lands on.
                     .foregroundStyle(relayAllowanceIsLow ? ColorPalette.caution : .secondary)
             }
 
@@ -139,9 +118,7 @@ struct ActivityTab: View {
             HStack {
                 Label(relayBandwidth, systemImage: "arrow.down.circle")
                 Spacer()
-                // The window the meter is counting in, which is the relay's own: a rolling 24
-                // hours rather than a calendar day. It used to say "last 30 days", which was the
-                // history limit and never what this number was.
+                // The relay's rolling 24 hours, not a calendar day or the 30-day history limit.
                 Text("last 24 hours")
             }
             .font(.caption)
@@ -159,17 +136,7 @@ struct ActivityTab: View {
         }
     }
 
-    /// The way to buy more of the allowance, drawn only when there is little enough left to say so.
-    ///
-    /// The card is already a button and already carries a chevron, which is enough for somebody who
-    /// came here to read the figure. This is for the moment the figure has become the reason they
-    /// came: there, "tap the card" is something the user has to work out, and a filled control they
-    /// can simply press is not.
-    ///
-    /// A label rather than a `Button`, and deliberately — it is *inside* one. The whole card is the
-    /// control, so every point of this is already part of a target that was there before it; a real
-    /// button nested in a button's label is a second tap target inside the first, and the outer one
-    /// is the one that wins.
+    /// A label rather than a Button: it sits inside the card's button, and a nested button's outer target wins.
     private var upgradeCallToAction: some View {
         HStack(spacing: 7) {
             Text("Upgrade to \(recommendedTierName)")
@@ -183,27 +150,13 @@ struct ActivityTab: View {
         .background(ColorPalette.ink, in: Capsule())
     }
 
-    /// Whether the day's allowance is nearly gone — the only thing the bar says beyond its length.
-    ///
-    /// One state rather than two, and the threshold is the same constant the app's own offer is
-    /// decided on, so the card and the sheet that follows a session agree about what "running low"
-    /// means. A bar at zero is the extreme of a bar running out, and two ambers a few degrees apart
-    /// — one for nearly, one for gone — is the near-match the palette's own note warns about. The
-    /// words distinguish the two; the colour only says to look.
-    ///
-    /// `nil` is an unmetered plan, which draws no bar at all — the unlimited branch is above.
+    /// One near-out state rather than two ambers: the words distinguish nearly from gone and the colour only says to look. The threshold is the constant the app's offer uses. `nil` is an unmetered plan.
     private var relayAllowanceIsLow: Bool {
         guard let fraction = model.relayAllowanceRemainingFraction else { return false }
         return fraction <= SessionOfferPolicy.lowRelayAllowanceFraction
     }
 
-    /// Opens the paywall saying the thing that is true of this card right now.
-    ///
-    /// The two reasons are not interchangeable: one names the figure that is left, the other
-    /// describes what the relay is to somebody who has not been told. A card showing "41m left" that
-    /// opens a screen never mentioning the 41 minutes is a card that was not reading its own meter —
-    /// and the same two reasons are what ``SessionModel`` chooses between when it offers by itself,
-    /// so the figure means the same thing whichever way the screen was reached.
+    /// Two paywall reasons, the same two ``SessionModel`` picks between: one names the minutes left, the other explains the relay.
     private func openUpgradePaywall() {
         if relayAllowanceIsLow, let remaining = model.relaySecondsRemainingEstimate {
             model.paywallReason = remaining <= 0 ? .quotaExhausted : .runningLow(remaining: remaining)
@@ -212,11 +165,7 @@ struct ActivityTab: View {
         }
     }
 
-    /// The name on the card's button when there is little enough left to offer more.
-    ///
-    /// Read off the tier the app recommends rather than typed, because the paywall this opens will
-    /// have that tier already chosen — and a button that names one rung of a ladder while the screen
-    /// it opens points at another is a promise the next tap breaks.
+    /// Read off the recommended tier so the button names the rung the paywall opens on.
     private var recommendedTierName: String {
         StoreManager.Tier.allCases.first { $0.isRecommended }?.name ?? "Pro"
     }
@@ -281,12 +230,6 @@ struct ActivityTab: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// Everything that has connected lately, Mac and server alike, newest first.
-    ///
-    /// One list rather than two cards, because the question the card answers — "what have I been
-    /// connected to" — does not change with the kind of machine at the other end. A shell on a VPS
-    /// is a connection this phone made in exactly the way a session with a Mac is, and two lists
-    /// would make the reader merge them by timestamp themselves.
     private var recent: [RecentConnection] {
         let macs = model.sessionHistory.map(RecentConnection.mac)
         let shells = servers.history.map(RecentConnection.shell)
@@ -305,19 +248,13 @@ struct ActivityTab: View {
                     name: session.hostName,
                     detail: "\(session.path.name) · \(durationLabel(session.duration)) · \(bytesLabel(session.videoBytesReceived))",
                     startedAt: session.startedAt,
-                    // The one of the three that leads somewhere: this is a NavigationLink, so the
-                    // chevron is a promise the row keeps.
                     navigates: true
                 )
             }
             .buttonStyle(.plain)
 
         case .shell(let record):
-            // Only when the server is still there. A log entry that outlives the machine is the
-            // reason the record carries its own copy of the name — but a *tap* on one has nowhere
-            // to go, and offering it would be a row that fails by opening a screen for a server
-            // that does not exist. Same rule as the Servers list, which draws nothing it cannot
-            // open.
+            // Only when the server still exists: a log entry outlives its machine, but a tap on one has nowhere to go.
             if let host = servers.hosts.first(where: { $0.id == record.hostID }) {
                 Button { servers.requestOpen(host) } label: {
                     recentRow(
@@ -339,11 +276,7 @@ struct ActivityTab: View {
         }
     }
 
-    /// What happened, in the order a reader wants it: how it went, then what it cost in time.
-    ///
-    /// A failure leads with the *reason* instead, because for a connection that never opened the
-    /// duration is how long it took to fail — a number nobody has ever wanted — and the sentence
-    /// the server produced is the only thing on the row worth reading.
+    /// A failure leads with the reason: for a connection that never opened the duration is just time to fail.
     private func shellDetail(_ record: SSHConnectionRecord) -> String {
         if let reason = record.outcome.reason {
             return String(localized: "Failed · \(reason)")
@@ -351,15 +284,7 @@ struct ActivityTab: View {
         return String(localized: "\(durationLabel(record.duration)) · Connected")
     }
 
-    /// One line of a session. Not always a row that leads anywhere, which is the whole of why it
-    /// takes a parameter for the chevron.
-    ///
-    /// **This one row is three different things.** A Mac session pushes to its detail; a server
-    /// shell is *opened*, which is an action rather than a destination; and a server that has since
-    /// been removed does nothing at all and is not even a button. Drawn with a chevron
-    /// unconditionally, it promised "there is somewhere further on" on all three, and kept that
-    /// promise on one. A chevron is a claim about what a tap does, so it is decided by what the tap
-    /// does rather than by which list the row is in.
+    /// The chevron is a parameter because this row is three things: a Mac session pushes to its detail, a server shell is opened (an action), and a removed server does nothing. A chevron claims what a tap does.
     private func recentRow(
         symbol: String,
         name: String,
@@ -399,15 +324,7 @@ struct ActivityTab: View {
         .rowSurface()
     }
 
-    /// How much relay is left, in the shape ``RelayTime`` decides on.
-    ///
-    /// The arithmetic moved there when the paywall needed the same sentence: the two screens are
-    /// read within seconds of each other — the meter, then the sheet it opens — and a figure spelled
-    /// two ways between them is the sort of difference that makes an app look like it is guessing.
-    ///
-    /// `nil` means the plan is not metered, which this card does not draw a meter for — the
-    /// unlimited branch is above. The word is here so the label is total rather than a crash waiting
-    /// for a plan change to arrive while the card is on screen.
+    /// The arithmetic lives in ``RelayTime``, shared with the paywall so both screens spell the figure the same way. `nil` is an unmetered plan.
     private var relayRemainingLabel: String {
         guard let remaining = model.relaySecondsRemainingEstimate else { return String(localized: "Unlimited") }
         return RelayTime.label(remaining) + " left"
@@ -429,22 +346,10 @@ struct ActivityTab: View {
     }
 }
 
-/// One past connection, in full.
-///
-/// Written as cards on the app's own backdrop rather than as a `List`, which is what it was: a
-/// system list brings its own background, its own section headers, its own insets and its own
-/// everything, and inside a screen that is all near-black and outlined cards it read as a piece of
-/// iOS that had landed on top of the app. The rows here are the same rows the Sessions tab uses
-/// for the connection it is in — a label on the left, a value on the right — so a session you had
-/// and a session you are having are recognisably the same kind of thing.
+/// Cards on the app's backdrop rather than a `List`, whose own background, headers and insets read as stray iOS inside a near-black screen.
 private struct SessionHistoryDetail: View {
     let session: ClientSessionRecord
 
-    /// Whether the last copy landed, so the button can say so for a moment.
-    ///
-    /// The same shape the Settings screen uses for its diagnostics copy, and for the same
-    /// reason: a button that gives no feedback after a tap reads as a button that did nothing,
-    /// and the only way to check a paste is to go somewhere else and paste it.
     @State private var copied = false
 
     var body: some View {
@@ -461,13 +366,7 @@ private struct SessionHistoryDetail: View {
                         detailRow(String(localized: "Started"), session.startedAt.formatted(date: .abbreviated, time: .shortened))
                         Controls.divider
                         detailRow(String(localized: "Duration"), durationLabel)
-                        // **The second figure, for the sessions where there are two.** A session the
-                        // app put back after a drop covers the minutes it was not connected for, and
-                        // this is the one screen that can say so: the relay meter counts the other
-                        // figure, so without this row a user reading "2h 10m" here and watching
-                        // their allowance fall by forty minutes has been told two things and given
-                        // nothing to reconcile them with. Shown only when the two differ, which for
-                        // a session that was never interrupted they do not.
+                        // The second figure, for sessions put back after a drop: the relay meter counts connected time, so without this row the duration and the allowance spent would disagree. Shown only when the two differ.
                         if session.wasInterrupted {
                             Controls.divider
                             detailRow(String(localized: "Connected"), connectedLabel)
@@ -506,9 +405,6 @@ private struct SessionHistoryDetail: View {
         .navigationTitle(session.hostName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // In the bar rather than in the card, because the card scrolls: a control that
-            // belongs to the whole screen should not be somewhere you have to scroll to find,
-            // and a session with sixty log lines puts the bottom of the card a long way down.
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     UIPasteboard.general.string = logText
@@ -529,13 +425,7 @@ private struct SessionHistoryDetail: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
-    /// Everything this screen knows, as text, for pasting into a message.
-    ///
-    /// The rows and the log together rather than the log alone. A line saying which transport
-    /// carried the picture means nothing without the session it belongs to, and whoever reads
-    /// this is looking at a pasted paragraph with none of the context this screen has around
-    /// it. The version is here for the same reason: "the two apps must match" is the first
-    /// thing anybody asks about a failure, and it costs one line to answer it in advance.
+    /// The rows and the log together: a transport line means nothing without its session, and the version answers the first question asked about a failure.
     private var logText: String {
         var lines = [
             String(localized: "Peering session · \(session.hostName)"),
@@ -544,9 +434,6 @@ private struct SessionHistoryDetail: View {
             String(localized: "Started: \(session.startedAt.formatted(date: .abbreviated, time: .shortened))"),
             String(localized: "Duration: \(durationLabel)"),
         ]
-        // The same second row the card draws, and for the same reason: this is what somebody pastes
-        // into a message about a session, and a paste that says three hours about a session the
-        // meter charged forty minutes for is the confusion the row above exists to remove.
         if session.wasInterrupted { lines.append("Connected: \(connectedLabel)") }
         lines.append("Video received: \(ByteCountFormatter.string(fromByteCount: session.videoBytesReceived, countStyle: .file))")
         lines.append("")
@@ -558,14 +445,8 @@ private struct SessionHistoryDetail: View {
 
     private var durationLabel: String { secondsLabel(session.duration) }
 
-    /// The seconds the session was actually up for, which is the figure the allowance spends.
     private var connectedLabel: String { secondsLabel(session.connectedSeconds) }
 
-    /// A stretch of time as this screen prints one.
-    ///
-    /// One spelling for both rows, because they sit on top of each other and are the same kind of
-    /// figure: two spellings would read as two different measurements rather than as the same one
-    /// taken twice.
     private func secondsLabel(_ seconds: TimeInterval) -> String {
         let total = Int(seconds.rounded())
         return total < 60 ? String(localized: "\(total) seconds") : "\(total / 60)m \(total % 60)s"

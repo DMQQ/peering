@@ -2,20 +2,8 @@ import AppKit
 import RemoteCore
 import SwiftUI
 
-/// The rail of sections, and what sits above it.
 extension HostStatusView {
-    /// The rail of sections, drawn here rather than handed to a sidebar `List`.
-    ///
-    /// A source-list `List` looks like the natural thing for five rows and was the first thing
-    /// this window used, and it has one behaviour that cannot be argued with: it paints every row's
-    /// symbol with the accent colour, and setting a `foregroundStyle` on the `Label` does not stop
-    /// it. Five blue glyphs under one blue selection is the whole window's worth of accent spent
-    /// before anything has happened, and the colour stops meaning "you are here" when it is also
-    /// what the row below it means, and the row below that.
-    ///
-    /// So the rows are buttons. What that gives up is the arrow-key walking a source list does for
-    /// free; what it buys is the ink staying ink, a selection that is a shape we chose, and
-    /// ⌘1–⌘5 — which is a shorter path to any of these panes than arrowing to it ever was.
+    /// Buttons, not a source-list List: that paints every symbol in the accent colour and ignores foregroundStyle on the Label.
     var sidebar: some View {
         VStack(spacing: 0) {
             sidebarHeader
@@ -45,7 +33,6 @@ extension HostStatusView {
         .background(HostPalette.backdrop)
     }
 
-    /// This Mac's ID as a code, for adding it from a phone on any network.
     @ViewBuilder
     var sidebarQRCode: some View {
         if PairingPayload.canonicalIdentifier(model.deviceID) != nil,
@@ -110,12 +97,7 @@ extension HostStatusView {
         .disabled(!updater.canCheck)
     }
 
-    /// One section. Selection is a fill rather than a tint, which is what the phone's rail does
-    /// and the reason it does it: at arm's length a coloured glyph is hard to find, and a coloured
-    /// shape is not.
-    /// One section. Selection is a fill rather than a tint, which is what the phone's rail does
-    /// and the reason it does it: at arm's length a coloured glyph is hard to find, and a coloured
-    /// shape is not.
+    /// Selection is a fill rather than a tint, as on the phone: a coloured glyph is hard to find at arm length.
     func sidebarRow(_ item: HostSection) -> some View {
         let isSelected = section == item
         return Button {
@@ -145,18 +127,7 @@ extension HostStatusView {
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
-    /// The one part of the window that is visible whatever pane is showing.
-    ///
-    /// The app's own icon rather than an SF Symbol: this is the thing in the Dock, and matching
-    /// it is what makes the window read as *this app* rather than as a settings panel that
-    /// happens to have a status line. The state is carried by the sentence below it, which is
-    /// the part a symbol cannot say.
-    /// The one part of the window that is visible whatever pane is showing.
-    ///
-    /// The app's own icon rather than an SF Symbol: this is the thing in the Dock, and matching
-    /// it is what makes the window read as *this app* rather than as a settings panel that
-    /// happens to have a status line. The state is carried by the sentence below it, which is
-    /// the part a symbol cannot say.
+    /// The app icon rather than an SF Symbol, to match the Dock; the state is the sentence below.
     var sidebarHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
@@ -179,13 +150,7 @@ extension HostStatusView {
                 Spacer(minLength: 0)
             }
 
-            // The sentence can outrun the column — "Connected — Damian's iPhone" is most of it
-            // — so it truncates and carries the whole thing as a tooltip.
-            //
-            // One fact, said once. This was a coloured dot, coloured text, a tinted fill and a
-            // tinted border, which is four marks for a state that has one value; at that point
-            // the colour stops meaning anything and the pill just looks loud. The dot carries the
-            // state, the sentence stays legible ink, and the pill itself is only a shape.
+            // The sentence can outrun the column, so it truncates and carries the whole text as a tooltip.
             HStack(spacing: 7) {
                 Circle()
                     .fill(statusColor)
@@ -202,20 +167,7 @@ extension HostStatusView {
             .overlay { Capsule().strokeBorder(HostPalette.hairline, lineWidth: 1) }
             .help(statusText)
 
-            // The frame goes on the label, not the button. A bordered button sizes itself to
-            // its label, so widening the button only pads the space around it — the control
-            // stays the size of the word and sits in the middle of the column.
-            //
-            // Big, and it is the only filled control in the app. Both are deliberate. This is
-            // the one thing the whole window exists to offer, and it used to be a small grey
-            // word in the middle of a column — the least prominent thing on a screen whose only
-            // question is whether the Mac is being shared. Everything else here is ink on a
-            // surface and stays that way; this is the exception that earns its fill.
-            //
-            // The same blue the phone uses for the one control it marks, rather than the Mac's
-            // own highlight colour, so the two apps agree about what "press this" looks like.
-            // Quiet when it stops: the two states are not equals, and one of them is how you
-            // put it down — see `HostHostingButtonStyle`.
+            // The frame goes on the label, not the button: a bordered button sizes itself to its label.
             Button {
                 model.status.isListening ? model.stop() : model.start()
             } label: {

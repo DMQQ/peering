@@ -1,15 +1,7 @@
 import Foundation
 
-/// What this device tells the relay about what it has bought, and what it can prove.
-///
-/// `jwsRepresentation` is the proof: the signed transaction read off the `VerificationResult` that
-/// `Transaction.currentEntitlements` yields, which the relay verifies against Apple's root and
-/// believes over everything else. `plan` is the claim, read only when there is no proof to check.
 public struct RelayEntitlement: Sendable, Equatable {
-    /// The plan this device is on: `free`, `relay`, `plus` or `pro`. Omitted means the free plan,
-    /// which is also what an unrecognised spelling means.
     public let plan: String?
-    /// The signed transaction for the subscription above, or `nil` when there is nothing to send.
     public let jwsRepresentation: String?
     public let apiKey: String?
 
@@ -26,28 +18,15 @@ public struct RelayEntitlement: Sendable, Equatable {
 
 /// Messages either app sends to `peeringd` over its signalling WebSocket.
 public enum RelayClientMessage: Sendable, Equatable, Encodable {
-    /// A Mac announcing itself, with the proof that it is the Mac it says it is.
-    ///
-    /// `proof` is optional on the wire and the relay accepts its absence, which is what lets a
-    /// build that predates it keep working. An ID proved once can only be registered by the device
-    /// that proved it.
+    /// `proof` is optional on the wire so a build that predates it keeps working.
     case registerHost(
         deviceID: String,
         name: String,
         protocolVersion: UInt16,
         proof: RelayDeviceProof? = nil
     )
-    /// A request for a session, with whatever this client can say about what it has bought.
-    ///
-    /// `plan` is a claim and `jwsRepresentation` is the evidence for it: the relay verifies the
-    /// receipt against Apple's published root and meters by the product it names, reading the plan
-    /// only when no receipt verifies. Both are read leniently, since an absent plan or a receipt
-    /// that does not verify means the free allowance rather than a refusal to connect.
-    ///
-    /// `clientProof`, when present, is what the allowance is keyed on: without it the relay meters
-    /// the announced client ID, a string in the app's own storage that starts over on reinstall,
-    /// rather than the Keychain key. Optional on the wire, so a build that predates it is metered
-    /// the old way rather than refused.
+    /// `plan` is a claim, `jwsRepresentation` the evidence; an unverifiable receipt means the free allowance, not a refusal.
+    /// `clientProof`, when present, keys the allowance (the announced client ID resets on reinstall). Optional on the wire.
     case connectToHost(
         hostID: String,
         clientID: String,
@@ -57,36 +36,17 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
         jwsRepresentation: String? = nil,
         clientProof: RelayDeviceProof? = nil
     )
-    /// Ask the relay where the other end of this session is.
-    ///
-    /// Asked with this end's own video token, the only thing either end holds that says which of
-    /// the session's two slots it is, so the answer is always the peer.
-    ///
-    /// `peerAddressUnknown` is the ordinary first answer rather than a failure: a client asks
-    /// before it has sent a datagram, so the peer has usually not been heard from yet.
+    /// `peerAddressUnknown` is the ordinary first answer, not a failure.
     case requestPeerAddress(videoToken: Data)
-    /// Is this Mac registered with the relay right now?
-    ///
-    /// Bonjour cannot answer this: a Mac reached through the relay was drawn as switched off,
-    /// because the green dot came from the local browse. The relay already gives the fact away in
-    /// `hostOffline`, so asking costs no session. It is asked while the Connect tab is open and
-    /// never in the background, because a phone that asks after three Macs has told the relay which
-    /// three it wants.
+    /// Asked only while the Connect tab is open, never in the background, so the relay cannot learn which Macs a phone wants.
     case hostPresence(hostID: String)
     case ping
-    /// Asks the relay to send an APNs push to a phone that is no longer reachable over the
-    /// control channel. Only a registered Mac may send this. The relay holds the APNs key;
-    /// this end holds only the device token it received from the phone.
-    ///
-    /// `source` is the capture source the notification is about (a terminal's window), which the
-    /// phone shows when it is tapped. Left out of the message when nil; a relay that predates it
-    /// ignores it.
+    /// Only a registered Mac may send this.
+    /// `source` is the terminal window the notification is about; omitted when nil.
     case notifyDevice(token: String, title: String, body: String, source: String? = nil)
 
     private enum CodingKeys: String, CodingKey {
         case type, name, protocolVersion, apiKey, plan, jwsRepresentation
-        // Both messages carry a proof under these three names. They are over different strings,
-        // which the relay tells apart by the payload's version tag rather than by the field name.
         case publicKey, proof, proofTime
         /// The APNs token, under its own key: `token` is the video token on the peer-address
         /// message, and the relay's `NotifyDevice` reads `device_token`.
@@ -107,8 +67,6 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encode(deviceID, forKey: .deviceID)
             try container.encode(name, forKey: .name)
             try container.encode(protocolVersion, forKey: .protocolVersion)
-            // All three or none: the relay treats a partial proof as a message it does not
-            // understand rather than salvaging what is there.
             try container.encodeIfPresent(proof?.publicKey, forKey: .publicKey)
             try container.encodeIfPresent(proof?.signature, forKey: .proof)
             try container.encodeIfPresent(proof?.proofTime, forKey: .proofTime)
@@ -126,20 +84,13 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encode(clientID, forKey: .clientID)
             try container.encode(protocolVersion, forKey: .protocolVersion)
             if let apiKey { try container.encode(apiKey, forKey: .apiKey) }
-            // Three fields or none, under the same names the host registration uses. What is signed
-            // is not the same, and the relay tells the two apart by their version tag rather than
-            // by the field names: this one is over
-            // ``RelayDeviceProof/clientPayload(clientID:proofTime:)``.
+            // Same field names as the host registration, signed over a different payload (told apart by version tag).
             if let clientProof {
                 try container.encode(clientProof.publicKey, forKey: .publicKey)
                 try container.encode(clientProof.signature, forKey: .proof)
                 try container.encode(clientProof.proofTime, forKey: .proofTime)
             }
-            // Left out rather than sent as null: the relay's spelling of "no plan" and "no receipt"
-            // is the field being absent.
             if let plan { try container.encode(plan, forKey: .plan) }
-            // A few kilobytes of base64, which the signalling socket's 64 KB message limit has room
-            // for; the relay's `MAX_JWS_BYTES` is what refuses an oversized one.
             if let jwsRepresentation {
                 try container.encode(jwsRepresentation, forKey: .jwsRepresentation)
             }
@@ -160,9 +111,7 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
         }
     }
 
-    /// Lowercase hex of sixteen bytes, which is how the relay spells a video token on the wire.
-    /// `%02x` is what keeps a leading zero, without which the token is thirty-one characters and
-    /// the relay's `unhex`, exact about length, refuses it.
+    /// `%02x` keeps leading zeros; the relay's `unhex` refuses a short token.
     private static func hex(_ bytes: Data) -> String {
         bytes.map { String(format: "%02x", $0) }.joined()
     }
@@ -194,11 +143,6 @@ public struct RelaySession: Sendable, Equatable {
     }
 }
 
-/// Where the other end of a session was last seen, as seen from the relay's outside.
-///
-/// An observation, not a promise: it is the source address of the peer's most recent video
-/// datagram, so it is the peer as its own NAT presents it. Whether that NAT will accept a packet
-/// from a third party is a different question, one the two ends settle between themselves.
 public struct RelayPeerAddress: Sendable, Equatable {
     public let host: String
     public let port: UInt16
@@ -226,13 +170,8 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
     case registered(sessionTTLSeconds: UInt64)
     case sessionReady(RelaySession)
     case hostOffline(deviceID: String)
-    /// Where the other end of this session is, in answer to `requestPeerAddress`.
     case peerAddress(RelayPeerAddress)
-    /// Whether a Mac is registered, in answer to `hostPresence`.
-    ///
-    /// `online: false` is a fact about the relay, not about the Mac: a Mac can be awake and
-    /// reachable on its own network while being registered nowhere, so the screen does not turn it
-    /// into the word "offline".
+    /// `online: false` is about registration with the relay, not the Mac's reachability.
     case hostPresence(deviceID: String, online: Bool)
     case pong
     case error(code: String, message: String)

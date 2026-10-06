@@ -1,16 +1,13 @@
 import Foundation
 
-/// A shortcut worth offering for a particular application: the same shape as the client's own macro
-/// buttons, in the shared module so it can be tested without a UI.
+/// A shortcut worth offering for a particular application, in the shared module so it can be tested without a UI.
 ///
-/// `detail` exists because a keycode is not self-explanatory: "⌃C" is a fact about a keyboard, while
-/// "interrupt what is running" is the reason anyone would press it.
+/// `detail` gives the reason to press a key: "⌃C" is a keyboard fact, "interrupt what is running" is the purpose.
 public struct ApplicationAction: Sendable, Hashable, Identifiable {
     /// Stable across releases, because the client remembers which of these a user has pinned.
     public let id: String
     public let title: String
     public let detail: String
-    /// A word or two for a button too small for `detail`, such as a dock cell.
     public let label: String
     /// A macOS virtual keycode, the values `CGEvent` takes, not a USB HID usage and not a
     /// character. The same convention every other keycode in this module uses.
@@ -34,12 +31,10 @@ public struct ApplicationAction: Sendable, Hashable, Identifiable {
     }
 }
 
-/// What the app knows about one application, and what it can therefore offer.
 public struct ApplicationProfile: Sendable, Hashable, Identifiable {
     public var id: String { bundleID }
     public let bundleID: String
-    /// The name to show above the actions. Not the running app's localised name: that arrives with
-    /// the catalogue and can be in any language, and this one is a heading.
+    /// The heading to show: not the running app's localised name, which arrives with the catalogue in any language.
     public let name: String
     public let actions: [ApplicationAction]
 
@@ -50,22 +45,15 @@ public struct ApplicationProfile: Sendable, Hashable, Identifiable {
     }
 }
 
-/// The applications the app has something particular to say about, and how to ask.
-///
-/// A lookup by bundle identifier rather than a protocol, one implementation behind an interface
-/// buying nothing. A second way would be a second argument here and a second line in
-/// ``profile(forBundleID:)``; the callers do not change. The table is data rather than code, so
-/// adding an application is adding a row.
+/// The applications the app has something particular to say about.
+/// A lookup table rather than a protocol; adding an application is adding a row.
 public enum ApplicationActions {
-    /// The profile for a bundle identifier, or `nil` when there is nothing special to offer: nil is
-    /// the common case and not a failure, since an app nobody has thought about keeps the client's
-    /// default macros.
+    /// `nil` when there is nothing special to offer; an unknown app keeps the client's default macros.
     public static func profile(forBundleID bundleID: String?) -> ApplicationProfile? {
         guard let bundleID else { return nil }
         return profiles[bundleID]
     }
 
-    /// Every application with a profile, for tests and for anything that wants to list them.
     public static var known: [ApplicationProfile] { Array(profiles.values) }
 
     private static let profiles: [String: ApplicationProfile] = {
@@ -91,7 +79,6 @@ public enum ApplicationActions {
                 ApplicationAction(id: "terminal.newtab", title: "⌘T", detail: "New tab", label: "New tab", keyCode: 17, modifiers: .command),
             ]
         ),
-        // Ghostty is a shell window like the other two.
         ApplicationProfile(
             bundleID: "com.mitchellh.ghostty",
             name: "Ghostty",
@@ -108,7 +95,6 @@ public enum ApplicationActions {
                 ApplicationAction(id: "ghostty.newtab", title: "⌘T", detail: "New tab", label: "New tab", keyCode: 17, modifiers: .command),
             ]
         ),
-        // iTerm2 asks the same things of a shell and gives the same answers.
         ApplicationProfile(
             bundleID: "com.googlecode.iterm2",
             name: "iTerm",

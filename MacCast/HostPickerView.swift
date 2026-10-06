@@ -4,23 +4,13 @@ import SSHCore
 import SwiftUI
 import UIKit
 
-/// The app's five places, in the order the bar shows them.
-///
-/// A whole file's business rather than the picker's alone, which is why it sits outside it: the bar
-/// draws itself from this list, and a nested type would be private to the picker. It is still
-/// `private`, so the list of the app's screens does not leave this file.
-///
-/// The bar reads its titles and glyphs from here rather than from a second list beside it, so the
-/// two cannot come apart: a sixth screen means a sixth case, and the switch in
-/// ``HostPickerView/content(for:)`` does not compile until that case has somewhere to go.
+/// Drawn from this list so a sixth screen needs a sixth case, and the switch in ``HostPickerView/content(for:)`` fails to compile without one.
 private enum Screen: CaseIterable, Identifiable {
     case connect, servers, sessions, faq, settings
 
     var id: Self { self }
 
-    /// Localized here rather than left as a literal, because a bar title is drawn from a `String`
-    /// and a `String` is never looked up: `Label(item.title, …)` takes the text as it is, so two of
-    /// these five said "Connect" and "Servers" in every language the app ships in.
+    /// Localized here: `Label(item.title, ...)` takes a String as is and never looks it up.
     var title: String {
         switch self {
         case .connect: String(localized: "Connect")
@@ -31,10 +21,7 @@ private enum Screen: CaseIterable, Identifiable {
         }
     }
 
-    /// One weight for all five. `.macbook.and.iphone` and `server.rack` carry no filled variant —
-    /// they are composite device glyphs, not simple shapes — so outline is the one style every
-    /// symbol here actually has, and the other three are held to it rather than the reverse. Mixed,
-    /// the bar read as two icons that had not finished loading beside three that had.
+    /// One weight for all five: the composite glyphs (`.macbook.and.iphone`, `server.rack`) have no filled variant, so outline is the one style every symbol has.
     var symbol: String {
         switch self {
         case .connect: "macbook.and.iphone"
@@ -46,7 +33,6 @@ private enum Screen: CaseIterable, Identifiable {
     }
 }
 
-/// Root navigation for connection, sessions, help, and settings.
 struct HostPickerView: View {
     @Binding var acknowledgedFailure: String?
 
@@ -97,12 +83,7 @@ struct HostPickerView: View {
         TabView(selection: $screen) {
             ForEach(Screen.allCases) { item in
                 content(for: item)
-                    // The bar goes while a shell is up, and it is asked for on the screen rather
-                    // than on the tab view: applied there the bar is made invisible but is not
-                    // taken away, and its five items stay in the accessibility tree over the
-                    // shell. The condition belongs to the Servers tab, because the shell screen
-                    // is that tab's own root and nothing about the hierarchy changes when it
-                    // opens.
+                    // The bar is hidden on the Servers tab's screen rather than on the tab view: applied there it is invisible but stays in the accessibility tree over the shell.
                     .toolbar(
                         item == .servers && servers.selectedTerminal != nil ? .hidden : .visible,
                         for: .tabBar
@@ -113,14 +94,12 @@ struct HostPickerView: View {
         }
     }
 
-    /// The accessory only exists when it has a session to carry and the tab bar itself is visible.
     private var showsSessionAccessory: Bool {
         let hasSessions = !model.openSessions.isEmpty || !servers.openShells.isEmpty
         let terminalIsUp = screen == .servers && servers.selectedTerminal != nil
         return hasSessions && !terminalIsUp
     }
 
-    /// The session controls carried by the native iOS 26 tab-view accessory.
     private var sessionAccessory: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
@@ -225,20 +204,13 @@ struct HostPickerView: View {
     }
 
     private func focusServers(_: Bool, _ wantsFocus: Bool) {
-        // `initial: true`, because "open a shell on prod" usually launches the app rather than
-        // arriving at one already open, so the flag is already up by the time this view first
-        // appears and a plain `onChange` would sit there waiting for it to change.
+        // `initial: true`: a launch for "open a shell on prod" has the flag up before this view appears, so a plain onChange would wait for a change that never comes.
         guard wantsFocus else { return }
         screen = .servers
-        // Cleared, or the tab would jump back here every time the user tried to leave it.
+        // Cleared, or the tab would jump back here whenever the user tried to leave.
         servers.wantsFocus = false
     }
 
-    /// The screen behind each tab.
-    ///
-    /// One switch rather than five copies inlined into the tab view, so the five places the app
-    /// has are stated once. The bar's own titles and glyphs come from ``Screen``, which the tab
-    /// view reads directly.
     @ViewBuilder
     private func content(for item: Screen) -> some View {
         switch item {
@@ -253,16 +225,7 @@ struct HostPickerView: View {
 
 // MARK: - The site
 
-/// Where the other half of the product comes from.
-///
-/// **The Mac app is not in the App Store.** It is a download, and that makes this the only address
-/// that reaches it: the phone app cannot find a Mac that has nothing running on it, cannot pair
-/// with one, and shows an empty list until that download is installed and opened. So the two rows
-/// that carry this link are not marketing in a settings screen, they are the two places somebody
-/// is stuck without it.
-///
-/// Named once here for the reason ``Legal`` is named once in `PaywallView`: the address has to
-/// agree with the site, the App Store listing and the docs, and only one of those can be compiled.
+/// The Mac app is not in the App Store, so this download is the only address that reaches it, and the phone app is empty without it. Named once so it agrees with the site, listing and docs.
 private extension View {
     @ViewBuilder
     func tabBarMinimizeOnScrollIfAvailable() -> some View {
@@ -275,15 +238,9 @@ private extension View {
 }
 
 enum PeeringSite {
-    /// The download page rather than the home page: it is one tap further from a visitor who has
-    /// not decided and one tap closer to the file for somebody who has.
     static let download = URL(string: "https://getpeering.app/download")!
 
-    /// The two documents that have to be reachable without leaving the app for a search engine.
-    ///
-    /// The extensionless forms, which is the same shape as ``download`` and the form the App Store
-    /// listing and the receipts point at. Both are served, and the one that is written here is the
-    /// one that stays the same if the site ever stops being a folder of `.html` files.
+    /// Extensionless, matching ``download`` and what the App Store listing and receipts point at.
     static let privacy = URL(string: "https://getpeering.app/privacy")!
     static let terms = URL(string: "https://getpeering.app/terms")!
 }

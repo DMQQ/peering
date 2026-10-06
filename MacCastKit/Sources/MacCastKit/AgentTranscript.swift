@@ -1,14 +1,12 @@
 import Foundation
 import RemoteCore
 
-/// One approval waiting on the user, as the bar above the composer draws it.
 public struct AgentApproval: Equatable, Identifiable {
     public let id: String
     public let call: AgentToolCall
     public let reason: String?
 }
 
-/// One tool call in the transcript: the card, and what has become of it.
 public struct AgentToolItem: Equatable {
     public var call: AgentToolCall
     public var state: State
@@ -25,7 +23,6 @@ public struct AgentToolItem: Equatable {
     }
 }
 
-/// One row of the chat.
 public enum AgentTranscriptItem: Equatable, Identifiable {
     case user(id: UUID, text: String)
     case reply(id: UUID, text: String)
@@ -44,23 +41,15 @@ public enum AgentTranscriptItem: Equatable, Identifiable {
 }
 
 /// A session's conversation, rebuilt from the event stream.
-///
-/// A value with no reference to a view or a session: the panel draws it, the model owns it, and
-/// every rule about what an event does to the transcript is testable here rather than entangled
-/// with either. Rebuildable by construction, because that is how a reattached phone gets its
-/// conversation back: reset, then every event the Mac replays.
 public struct AgentTranscript: Equatable {
     public private(set) var items: [AgentTranscriptItem] = []
     public private(set) var state: AgentSessionState = .idle
     public private(set) var pendingApprovals: [AgentApproval] = []
-    /// The highest event index applied, the whole of the replay contract: a replayed event at or
-    /// below this is one already on screen.
     public private(set) var lastIndex: UInt64 = 0
     /// Set when the Mac could not replay the start of the conversation, so the panel can say the
     /// transcript begins mid-story rather than pretending it does not.
     public private(set) var truncatedAtFront = false
 
-    /// The reply currently being streamed, so a delta appends to it and a final replaces it.
     private var openReplyID: UUID?
     /// An approximate total of the text held, kept so trimming does not walk the whole list on
     /// every token.
@@ -70,7 +59,6 @@ public struct AgentTranscript: Equatable {
 
     public var isEmpty: Bool { items.isEmpty }
 
-    /// Throws everything away, for a rebuild from a full replay.
     public mutating func reset() {
         self = AgentTranscript()
     }
@@ -90,7 +78,6 @@ public struct AgentTranscript: Equatable {
     public mutating func apply(_ payload: AgentStreamEvent.Payload) {
         switch payload {
         case .sessionReady:
-            // The session's own facts; the transcript holds the conversation.
             break
 
         case .userPrompt(let text):
@@ -192,7 +179,6 @@ public struct AgentTranscript: Equatable {
         }
     }
 
-    /// A replay that starts mid-conversation says so once, whichever chunk carries the flag.
     public mutating func markTruncatedAtFront() {
         truncatedAtFront = true
     }
@@ -204,11 +190,6 @@ public struct AgentTranscript: Equatable {
     }
 
     /// Drops whole turns from the front once the transcript outgrows its budget.
-    ///
-    /// At a turn boundary and never mid-turn: a tool card whose result was cut away is worse than
-    /// a shorter history, and the start of the transcript is the part least likely to be read
-    /// again. The boundary is a user's own prompt, which is where a turn begins; a summary row
-    /// belongs to the turn above it and must not be left heading a transcript of its own.
     private mutating func trimIfNeeded() {
         guard bytes > AgentLimits.maximumTranscriptBytes else { return }
         let turnStarts = items.indices.filter { index in

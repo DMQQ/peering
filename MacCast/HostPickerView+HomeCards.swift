@@ -19,10 +19,7 @@ extension HomeTab {
 
         let normalized = detail.lowercased()
 
-        // A first pairing that found nothing at the ID it was given. The relay answers the
-        // same way whether the Mac is asleep or the ID was mistyped, and the ID is the half
-        // the user can check, so it is named here rather than in the sentence beside it —
-        // which was written for a Mac this device has paired with and knows.
+        // A first pairing that found nothing: the relay answers the same whether the Mac is asleep or the ID was mistyped, and the ID is what the user can check.
         if let pairingID = model.remotePairingHostID,
            normalized.contains(String(localized: "not currently registered with the relay")) {
             return FailurePresentation(
@@ -40,26 +37,16 @@ extension HomeTab {
             )
         }
 
-        // Matched on the word the sentence itself uses, which is the shape all of this file has:
-        // the session hands over a sentence and the screen decides what to call it. The one
-        // sentence this looks for is `Failure.pinMismatch`'s, and it is the *only* thing that
-        // produces it. The connect path used to raise the same alarm for any failure on a paired
-        // Mac, which is why this check has a second, now dead spelling removed from it.
+        // Matched on the word the sentence uses: `Failure.pinMismatch`'s sentence is the only thing that produces it.
         if normalized.contains("pinned") {
             return FailurePresentation(title: String(localized: "Mac identity changed"), message: detail, isRelayFailure: false)
         }
 
-        // The relay found a Mac, and it is not the one whose ID was dialled: the wrong screen
-        // was scanned, or the ID was typed wrong in a way that still spelled a real Mac. The
-        // sentence from the session already names both IDs, so it stands on its own.
         if normalized.contains(String(localized: "a different mac answered")) {
             return FailurePresentation(title: String(localized: "Wrong Mac"), message: detail, isRelayFailure: false)
         }
 
-        // The relay refuses a pair whose versions differ before either end spends a handshake on
-        // it, and it says so with both numbers — so the side that needs updating is worked out
-        // here rather than assumed. It used to say "update the Mac" whatever had happened, which
-        // is wrong half the time and sends the user to the one device that cannot help them.
+        // The relay refuses a pair whose versions differ and states both numbers, so which side needs updating is worked out here, not assumed.
         if normalized.contains(String(localized: "host speaks v")) {
             let host = Self.version(in: normalized, after: String(localized: "host speaks v"))
             let client = Self.version(in: normalized, after: String(localized: "client speaks v"))
@@ -122,18 +109,9 @@ extension HomeTab {
         .cardSurface()
     }
 
-    /// The Connect tab's one card, in the order the screen is read: what is here now, what to do
-    /// when it is not here, and last the Macs already known.
-    ///
-    /// The stored ones go last rather than in the middle. They are the answer to "where is my
-    /// Mac", which is the question asked *after* the two above have not produced it — and a list
-    /// that grows with every Mac ever paired should push nothing below it as it grows.
     var connectionsSection: some View {
         VStack(spacing: 0) {
-            // The three sections of the one card are what the first-run tips are drawn around,
-            // each on its own: what is on this network, the way in for a Mac that is not, and what
-            // has been paired with before. Anchored after the padding rather than before it, so the
-            // highlight rings the block the eye sees rather than the text inside it.
+            // Anchored after the padding so the highlight rings the block the eye sees, not the text inside.
             nearbyCardContent
                 .padding(16)
                 .tourAnchor(.connectNearby)
@@ -187,30 +165,16 @@ extension HomeTab {
                 .accessibilityLabel("Search again")
             }
 
-            // The rows, and under them what the browser is saying. The line is drawn in both states
-            // rather than once inside each of them: as a pair of branches it was a different view
-            // either side of the first Mac arriving, and the two sentences cross-faded through each
-            // other in the same place.
+            // The line is drawn in both states rather than inside each: as branches it was a different view either side of the first Mac arriving, and the sentences cross-faded.
             if !model.hosts.isEmpty {
                 VStack(spacing: 8) {
                     ForEach(model.hosts) { host in
-                        // **A Mac this device has never paired with is a pairing, and a pairing
-                        // past the first is `extraMacs`.** A Mac already in the trusted list is
-                        // not: that is a reconnect, and it stays free on every plan along with
-                        // every other thing about connecting to a Mac you own. The two are
-                        // told apart by the pin store, which is what decides whether the tap
-                        // below is about to write a second pairing or to resume an existing one.
+                        // A Mac never paired with is a pairing (past the first it is `extraMacs`); one already in the trusted list is a reconnect and stays free on every plan. The pin store tells them apart.
                         let isNewPairing = !model.pairedHostIDs.contains(host.id)
-                        // And compatible, so the badge never stands on a row that could not have
-                        // connected anyway: a Mac running an older protocol shows UPDATE and stays
-                        // untappable, because "buy Relay" is not the answer to it.
+                        // Also compatible: a Mac on an older protocol shows UPDATE and stays untappable, since buying a plan is not the answer.
                         let locked = isNewPairing && !canPairAnotherMac && isCompatible(host)
 
-                        // The row is the control, so the locked form is the row itself with the
-                        // plan's name over its trailing edge. It keeps its name, its ID and its
-                        // tile: on this list the tile and the name are how a user finds the Mac
-                        // they are trying to reach, and a row that had been replaced by a badge
-                        // would be a Mac that had disappeared from a list of Macs.
+                        // The locked form is the row itself with the plan's name over its trailing edge, keeping its name, ID and tile: a row replaced by a badge would be a Mac that vanished from the list.
                         PlanLocked(
                             capability: .extraMacs,
                             title: model.displayName(forHostID: host.id) ?? host.name,
@@ -226,8 +190,6 @@ extension HomeTab {
                             .buttonStyle(.plain)
                             .disabled(model.isBusy || !isCompatible(host))
                         }
-                        // A Mac that turned up on this network is given the moment it takes to be
-                        // seen turning up, rather than snapping into a list somebody is reading.
                         .transition(Self.hostArrival)
                     }
                 }
@@ -238,43 +200,21 @@ extension HomeTab {
                 .foregroundStyle(model.hosts.isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
                 .padding(.vertical, model.hosts.isEmpty ? 4 : 0)
         }
-        // On the container rather than on each row: a Mac arriving moves the rows around it, and a
-        // transition cannot move a neighbour.
+        // On the container, not each row: a transition cannot move a neighbour.
         .animation(reduceMotion ? nil : Motion.settle, value: model.hosts)
     }
 
-    /// How a Mac arrives in the Nearby list.
-    ///
-    /// A fade and eight points of rise, and the rise is the whole of it. This list is fed by
-    /// discovery, so a row is a Mac that turned up rather than one that was placed, and a full
-    /// slide from the row's own height, which is what `.move` gives, would read as a list being
-    /// rearranged rather than as a name appearing in it.
+    /// A fade and eight points of rise: `.move` would read as a list being rearranged rather than a name appearing.
     private static let hostArrival = AnyTransition.modifier(
         active: HostArrival(progress: 0),
         identity: HostArrival(progress: 1)
     )
 
-    /// The way in for a Mac that discovery cannot produce and never will.
-    ///
-    /// Its own section rather than another row under Nearby, because the two are mutually
-    /// exclusive answers: Nearby is where the Mac is on this network, and this is for when it
-    /// is not on any network this phone can see. It sits between Nearby and the stored Macs
-    /// for the same reason: it is the second thing to try, and the Macs already paired are the
-    /// answer once both of those have not produced one.
     var remotePairingEntry: some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionLabel(String(localized: "Another network"), systemImage: "globe")
 
-            // **The second way to pair a Mac, and it counts the same.** The pin store is the
-            // one list of paired Macs, so a Mac paired by an ID typed from another network is
-            // on it exactly like one picked out of Nearby, which is why the limit is asked
-            // here as well. The limit is what is locked, not the row: the first Mac is free on
-            // every plan, so ``canPairAnotherMac`` is the question and the map alone would take
-            // away the free one.
-            //
-            // The row itself is the control, so the locked form is this row dimmed with the plan's
-            // name over its trailing edge, and the tap opens the plans rather than a sheet that
-            // would be refused at the end of it.
+            // The second way to pair counts the same: the pin store is the one list of paired Macs. What is locked is the limit (``canPairAnotherMac``), not the row, since the first Mac is free. Tapping opens the plans.
             PlanLocked(
                 capability: .extraMacs,
                 title: "Pair with a Mac elsewhere",
@@ -289,10 +229,6 @@ extension HomeTab {
                         IconTile(symbol: "number")
 
                         VStack(alignment: .leading, spacing: 3) {
-                            // Two short lines rather than three long ones. The old title said the
-                            // whole thing — "a Mac that is not on your network" — and the sentence
-                            // under it said it again with the device ID in it, which made a section
-                            // about one button the tallest thing on the screen.
                             Text("Pair with a Mac elsewhere")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(ColorPalette.ink)
@@ -306,21 +242,7 @@ extension HomeTab {
                                 .multilineTextAlignment(.leading)
                         }
 
-                        // The spacer stays and the chevron that followed it does not: the row still
-                        // has to reach the far edge for its tap target, and the pairing sheet it
-                        // opens is something you come back from rather than somewhere the row
-                        // leads.
-                        //
-                        // **It was also meant to be the room the badge lands in, and a spacer
-                        // cannot be that.** A spacer keeps a minimum and gives the rest away, so
-                        // the sentence beside it — which wants every point it can get — took the
-                        // badge's width first and the mark came down on its last line. What holds
-                        // the room instead is a hidden copy of the badge itself, because the width
-                        // of RELAY in a capsule is the font's business and a number standing in
-                        // for it is a second copy of that answer. The row still reaches the edge
-                        // of its card: what the room narrows is the sentence, not the surface, and
-                        // the mark is drawn over this copy by ``PlanLocked`` rather than in its
-                        // place.
+                        // The spacer keeps the row's tap target to the card edge. Room for the badge is held by a hidden copy of the badge itself, since a spacer gives its space away to the sentence and the mark would land on the last line. ``PlanLocked`` draws the mark over this copy.
                         if canPairAnotherMac {
                             Spacer(minLength: 8)
                         } else {
@@ -378,14 +300,7 @@ extension HomeTab {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                // **This card is read before anything in the app can work, which is why the link
-                // belongs on it.** The Mac app is a download rather than an App Store install, so
-                // somebody who has just installed this half has no way from inside it to find the
-                // other one: Nearby is empty because no Mac is listening, and the paragraph above
-                // names "Peering on the Mac" without saying where that comes from.
-                // Drawn the way the app draws its other secondary actions, rather than as tinted
-                // text: there is no accent hue in this app except for "this is on", and a link
-                // coloured with it would be borrowing a state to mean "tap me". See ``ColorPalette``.
+                // The Mac app is a download, so someone who has just installed this half has no other way to find it. Drawn like the app's other secondary actions: the only accent hue is "this is on", and a link in it would borrow a state to mean tap me. See ``ColorPalette``.
                 Link(destination: PeeringSite.download) {
                     Label("Get Peering for Mac", systemImage: "arrow.down.circle")
                         .font(.subheadline.weight(.medium))
@@ -439,16 +354,7 @@ extension HomeTab {
 
     // MARK: Tips
 
-    /// What this screen owes, which is nothing until it has finished arriving.
-    ///
-    /// **The gate is the entrance, and it is not politeness.** The cards a step is drawn around
-    /// travel into place over half a second after the screen appears, and the frames a tour reads
-    /// are frames of the real views: a ring measured off a card that is still on its way is a ring
-    /// around where the card used to be. `sectionsVisible` is that journey being over, so the tips
-    /// wait for the screen to be the screen before they describe it.
-    ///
-    /// An array rather than a flag, because a screen with more than one tour to its name (see
-    /// ``SSHTerminalScreen``) has to say which of them come first, and "which" is the order.
+    /// Tips wait for the screen to finish arriving: the frames a tour reads are those of the real views, and a ring measured off a card still in motion rings where the card used to be. An array because a screen with several tours (see ``SSHTerminalScreen``) orders them.
     var dueConnectTours: [Tour] {
         guard !hasSeenTourConnect, sectionsVisible else { return [] }
         return [.connect]
@@ -458,10 +364,7 @@ extension HomeTab {
 
 // MARK: - Supporting types
 
-/// One row's arrival in the Nearby list, as a transition: transparent, and eight points below
-/// where it lands.
 private struct HostArrival: ViewModifier {
-    /// 0 before the Mac has been found, 1 once it has arrived.
     let progress: CGFloat
 
     func body(content: Content) -> some View {

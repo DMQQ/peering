@@ -2,16 +2,7 @@ import Foundation
 import RemoteCore
 
 /// One folder's contents, for the two browsers this Mac serves.
-///
-/// The terminal panel's browser and the folder a chat starts in ask the same question and must get
-/// the same answer: which entries, in which order, and which of them opens as a folder. Two
-/// implementations would be two answers, drifting from the first tweak.
 enum DirectoryListing {
-    /// How many entries one listing carries.
-    ///
-    /// The listing crosses the same connection as a shell's output, and a directory like
-    /// `/usr/bin` is several thousand rows the user will scroll past. The answer says it was cut,
-    /// so the client can say so too.
     static let maximumEntries = 2_000
 
     enum Outcome {
@@ -58,9 +49,6 @@ enum DirectoryListing {
     }
 
     /// One row, or nothing for an entry that could not be described.
-    ///
-    /// Dropped rather than fatal: a file deleted between the listing and the look is a missing row,
-    /// not a folder that failed to open.
     private static func entry(for url: URL) -> RemoteDirectoryEntry? {
         guard let values = try? url.resourceValues(forKeys: entryKeys) else { return nil }
 
@@ -76,8 +64,6 @@ enum DirectoryListing {
             }
         }
 
-        // One look for the mode bits and the size, the pair `ls -l` prints a row of. A folder
-        // included: the number beside one is the bytes its own entry takes.
         let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
 
         return RemoteDirectoryEntry(
@@ -90,10 +76,6 @@ enum DirectoryListing {
         )
     }
 
-    /// The mode bits in the form `ls -l` prints them, type character and all.
-    ///
-    /// The one field here with no resource-value key of its own, so it comes from the same call
-    /// ``entry(for:)`` takes the size from, which is why the attributes arrive rather than a path.
     private static func modeString(
         from attributes: [FileAttributeKey: Any]?,
         isDirectory: Bool,

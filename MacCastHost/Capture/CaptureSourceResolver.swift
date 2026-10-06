@@ -7,208 +7,104 @@ import os
 
 private let resolverLog = Logger(subsystem: "pl.dmq.peering.host", category: "capture")
 
-/// Answers the three questions the rest of the pipeline has about capture sources: what can
-/// be captured, how to configure a stream for one of them, and where that content sits on
-/// screen so client coordinates can be mapped into it.
-///
-/// The seam exists because nothing in the host can be tested on a machine without Screen
-/// Recording permission, so the pipeline can be driven by a fake catalogue in tests.
-/// A filter for a capture source, and the region of it worth streaming.
-///
-/// They are only correct as a pair: the rectangle is in the filter's coordinate space, so
-/// taking one without the other crops the wrong part of the wrong thing, and does it silently.
+/// A filter for a capture source and the region of it worth streaming. Only correct as a pair: the rectangle is in the filter's coordinate space, so taking one without the other crops the wrong part silently.
 struct CaptureFilterPlan {
     let filter: SCContentFilter
 
-    /// What to stream, or `nil` for all of it.
-    ///
-    /// In points in the display's logical coordinate system, the space
-    /// `SCStreamConfiguration.sourceRect` documents. `nil` is right for a source whose content
-    /// is already exactly itself: a whole display, or a `desktopIndependentWindow` filter.
+    /// In points in the display's logical space (what `SCStreamConfiguration.sourceRect` documents). `nil` for a whole display or a `desktopIndependentWindow` filter.
     let sourceRect: CGRect?
 }
 
 protocol CaptureSourceResolver: Sendable {
-    /// Everything capturable right now, freshly enumerated if anything has changed.
     func catalog() async throws -> CaptureCatalog
 
-    /// A content filter for one source, and how much of it to stream. Requires a prior
-    /// ``catalog()`` call, see ``ScreenCaptureSourceResolver``.
+    /// Requires a prior ``catalog()`` call.
     func makeFilter(for source: CaptureSource) throws -> CaptureFilterPlan
 
-    /// Where the source's content sits on screen, for mapping client input.
     func inputTransform(for source: CaptureSource) -> InputTransform
 
-    /// Moves the Mac to the desktop an application is on, when it is on one that is not showing.
-    /// Called before a capture starts, since an application's capture is built from its windows
-    /// that are on screen. A window needs no move to be streamed.
+    /// Moves to the desktop an application is on when it is not showing, since an application's capture is built from on-screen windows. A window needs no move.
     func bringOnScreen(_ source: CaptureSource) async
 
-    /// Re-photographs the desktop showing on each display, ahead of the age check in
-    /// ``ScreenCaptureSourceResolver/captureActiveSpacePreview(force:)``, for a client that is
-    /// about to show the pictures.
+    /// Re-photographs the desktop showing on each display, ahead of the age check.
     func refreshSpacePreviews() async
 
-    /// Photographs each running application, for a client that is about to draw them.
-    ///
-    /// Asked for by ``RemoteCommand/refreshSourceThumbnails``. Unlike the previews above there
-    /// is no schedule behind this and no age check: a grid of thumbnails is the only thing that
-    /// draws one, and the client is the only end that knows one is on screen.
+    /// Asked for by ``RemoteCommand/refreshSourceThumbnails``. No schedule or age check: only the client knows a grid is on screen.
     func refreshSourceThumbnails() async
 
-    /// One pass of the watch loop: re-photographs the sources and pushes the catalogue only when a
-    /// picture changed. Re-enumerates windows only when `reenumerate` is set, since that costs far
-    /// more than the screenshots.
+    /// One pass of the watch loop: pushes the catalogue only when a picture changed. Re-enumerating windows costs far more than the screenshots, so only when `reenumerate`.
     func refreshChangedSourceThumbnails(reenumerate: Bool) async
 
-    /// One pass of the same loop for the desktop showing on each display, pushing only on change.
     func refreshChangedSpacePreviews() async
 
-    /// The list may be out of date, and the next ``catalog()`` should enumerate again.
-    ///
-    /// No notification covers a window closing, so the capture noticing is the only way to find
-    /// out. It also forgets which sources have been proved uncapturable, because a launch, a
-    /// quit and a change of screen are all the machine changing under that answer. See
-    /// ``markUncapturable(_:)``.
+    /// No notification covers a window closing, so a capture noticing is the only way to find out. Also forgets uncapturable marks, since a launch, quit or screen change changes that answer. See ``markUncapturable(_:)``.
     func invalidate()
 
-    /// ``invalidate()``, but only when a window has moved or resized since the snapshot.
     func invalidateIfWindowsMoved()
 
-    /// A source this Mac has tried to capture and cannot, so the catalogue stops offering it.
-    ///
-    /// ScreenCaptureKit will list a window it will not render: its descriptor is as ordinary as
-    /// any other, and a stream built for it starts and then delivers nothing. Nothing the
-    /// enumeration says separates that window from a capturable one, so the evidence is a
-    /// capture that produced no frame at all. See ``ScreenCaptureSourceResolver/uncapturable``.
+    /// ScreenCaptureKit lists windows it will not render; only a capture that produced no frame separates them. See ``ScreenCaptureSourceResolver/uncapturable``.
     func markUncapturable(_ source: CaptureSource)
 
-    /// A still of one source, at most `maxWidth` pixels across.
-    ///
-    /// A screenshot rather than a copy of a frame from the stream: those arrive on the queue the
-    /// whole capture depends on, so reaching into it for a thumbnail would put this window's
-    /// refresh rate in front of the phone's. `SCScreenshotManager` asks the window server for
-    /// one picture instead, off that path entirely.
+    /// A screenshot, not a stream frame: reaching into the capture queue for a thumbnail would put this window's refresh in front of the phone's.
     func snapshot(of source: CaptureSource, maxWidth: Int) async -> CGImage?
 }
 
-/// The real resolver, backed by `SCShareableContent`.
-///
-/// A lock-guarded class rather than an actor: `SCShareableContent`, `SCContentFilter` and
-/// `SCDisplay` are Objective-C types whose Swift overlay carries no `Sendable` annotations, so
-/// handing them across an actor boundary is not something the compiler can check, and an actor
-/// would force every call site into an `await` that buys no safety. The lock plus
-/// `@unchecked Sendable` states the real invariant: this object serialises access to state that
-/// is not safe to touch concurrently.
-///
-/// The catalogue is live, so rather than poll, this listens for the notifications that can
-/// change the answer and marks the snapshot stale.
+/// A lock-guarded class rather than an actor: the ScreenCaptureKit types carry no `Sendable` annotations, so an actor boundary buys no checked safety and forces `await` everywhere.
+/// Listens for the notifications that change the catalogue and marks the snapshot stale, rather than polling.
 final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Sendable {
     private let lock = NSLock()
 
-    /// The last enumeration, kept because ``makeFilter(for:)`` has to be synchronous and
-    /// needs the very same `SCWindow`/`SCDisplay` instances the catalogue was built from.
+    /// Kept because ``makeFilter(for:)`` is synchronous and needs the same `SCWindow`/`SCDisplay` instances the catalogue used.
     private var snapshot: SCShareableContent?
     private var installedApplicationsCache: [InstalledApplicationDescriptor]?
     private var isStale = true
 
-    /// The window server's window numbers when ``snapshot`` was taken. See
-    /// ``invalidateIfWindowsOpenedOrClosed()``. Under ``lock``.
+    /// Window numbers when ``snapshot`` was taken. Under ``lock``.
     private var windowIDsAtSnapshot: Set<CGWindowID>?
 
-    /// The windows the last catalogue found open on a desktop, showing or not. Under ``lock``.
     private var openOnSomeDesktop: Set<CGWindowID> = []
 
-    /// When an enumeration with no window in it was first seen. See ``serve(_:)``.
-    ///
-    /// Nil whenever the last reading found a window, which is almost always. Under ``lock``.
+    /// When an enumeration with no window in it was first seen. See ``serve(_:)``. Under ``lock``.
     private var firstWindowlessReadAt: Date?
 
-    /// How long readings with no window in them have to persist before one is believed.
-    ///
-    /// Several times the length of the Space change that produces them, and short enough that a Mac
-    /// that really has nothing open is reported while the user is still looking at what they closed.
+    /// Several times the length of the Space change that produces windowless readings.
     private static let windowlessReadGrace: TimeInterval = 6
     private var observers: [NSObjectProtocol] = []
 
-    /// What each desktop looked like the last time the host was on it. Keyed by Space ID, so a
-    /// desktop keeps its picture when the ones around it are reordered or removed.
     private let spacePreviews = SpacePreviewCache()
 
-    /// What each running application looked like when a client last asked. Keyed by
-    /// ``CaptureSource/stableID``, so an application keeps its picture across the catalogue
-    /// rebuilds that every other launch and quit causes.
-    ///
-    /// Nothing refreshes these on a schedule; they are taken when a client asks.
+    /// Keyed by ``CaptureSource/stableID`` so an application keeps its picture across catalogue rebuilds.
     private let sourceThumbnails = SourceThumbnailCache()
 
-    /// Which Space each display was last seen showing.
-    ///
-    /// `NSWorkspace.activeSpaceDidChangeNotification` says only that a Space changed, so without
-    /// this there is no way to tell a switch on the second screen from one on the first, and the
-    /// only safe answer would be to photograph every display on every switch. Under ``lock``.
+    /// `activeSpaceDidChangeNotification` does not say which display changed; without this every display would be photographed on every switch. Under ``lock``.
     private var lastActiveSpace: [UInt32: Int32] = [:]
 
-    /// When each display's currently-active Space was last photographed.
-    ///
-    /// Windows are opened, moved and closed on the desktop being photographed constantly, and
-    /// none of that announces itself, so a preview taken on arrival goes on describing a desktop
-    /// that has changed underneath it. This is what lets ``captureActiveSpacePreview()`` re-shoot
-    /// a desktop nobody has left. Under ``lock``.
+    /// Window changes on a showing desktop announce nothing, so this lets ``captureActiveSpacePreview()`` re-shoot a desktop nobody has left. Under ``lock``.
     private var lastPreviewAt: [UInt32: DispatchTime] = [:]
 
-    /// When each display was first seen on its current Space. Under ``lock``.
-    ///
-    /// The window server reports the new Space ID as soon as a switch starts, so an ID check
-    /// cannot tell a finished desktop from one still sliding in. Only the time since arrival can.
+    /// The window server reports the new Space ID as soon as a switch starts, so only time since arrival tells a finished desktop from one still sliding in. Under ``lock``.
     private var spaceArrivedAt: [UInt32: DispatchTime] = [:]
 
-    /// Bumped whenever a Space switch is seen starting. Under ``lock``.
-    ///
-    /// The Space ID moves late in a switch, so a shot taken as one begins still reads as the desktop
-    /// being left, and was filed over that desktop's good picture. A shot is filed only if this
-    /// has not moved between the shutter and ``postShutterHold`` later.
+    /// Bumped when a Space switch starts. The Space ID moves late, so a shot taken as a switch begins shows the desktop being left; it is filed only if this has not moved ``postShutterHold`` later. Under ``lock``.
     private var spaceChangeGeneration = 0
 
-    /// Looks for a Space change that no notification announced. See ``spacePollInterval``.
     private var spacePoll: Task<Void, Never>?
 
-    /// How often to look for a Space change that nothing told us about.
-    ///
-    /// A switch on a second display can pass with no notification posted at all, so the
-    /// notification is only the fast path and this is the one that is always right. Reading the
-    /// Space lists is a couple of window-server calls and a screenshot only happens when
-    /// something really changed, so the steady-state cost is the timer and nothing else.
+    /// A switch on a second display can pass with no notification, so the notification is only the fast path and this poll is the one that is always right.
     private static let spacePollInterval: Duration = .seconds(2)
 
-    /// How long a preview of a desktop nobody has left stays good enough.
-    ///
-    /// Twelve seconds: long enough that a desktop being worked on is not photographed every
-    /// couple of seconds, short enough that the picture in the desktops panel is recognisably of
-    /// now. The cost is one screenshot per display per interval.
+    /// Long enough that a desktop being worked on is not photographed every couple of seconds, short enough to look current.
     private static let spacePreviewMaxAgeNanoseconds: UInt64 = 12 * 1_000_000_000
 
-    /// Fired when the catalogue is known to be out of date: after an app launches or quits, or a
-    /// display is added, removed or reconfigured. The host re-reads ``catalog()`` and pushes the
-    /// result; pushing from inside the notification would be pushing from an unrelated thread.
-    ///
-    /// **The flag is whether the push has to go out now.** A catalogue push is coalesced against a
-    /// three-second interval, which is right for a burst of window events and wrong for a picture
-    /// somebody is waiting to see: the preview is the last thing a desktop tile needs before it
-    /// stops being a grey outline, and holding it for the rest of that interval is the difference
-    /// between a grid that fills in as you watch and one that looks stuck. See ``previewLanded()``.
+    /// Fired when the catalogue is out of date; the host re-reads ``catalog()`` and pushes, since pushing from inside the notification would be an unrelated thread.
+    /// The flag is whether the push must go out now: pushes coalesce to three seconds, which would leave a waiting preview as a grey outline. See ``previewLanded()``.
     private let onInvalidate: (@Sendable (Bool) -> Void)?
 
-    /// - Parameter onInvalidate: called off the main thread whenever the source list may
-    ///   have changed, with whether the push has to go out at once. Optional so a one-shot probe
-    ///   can ignore it.
     init(onInvalidate: (@Sendable (Bool) -> Void)? = nil) {
         self.onInvalidate = onInvalidate
         registerObservers()
 
-        // Photographed here rather than on the first catalogue: a desktop can only be captured
-        // while it is on the display, and the catalogue is built on the client's schedule, so a
-        // desktop visited before the client connected would otherwise have no picture.
+        // A desktop can only be photographed while it is on the display, so one visited before the client connected would otherwise have no picture.
         Task { [weak self] in await self?.captureActiveSpacePreview() }
 
         let poll = Task { [weak self] in
@@ -235,14 +131,10 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     func catalog() async throws -> CaptureCatalog {
         let content = try await shareableContent()
-        // A source a capture has proved it cannot have is not offered at all: leaving it in gives
-        // the phone a tile to draw and a window to open, and opening it does nothing. See
-        // ``uncapturable`` for why the mark has a life rather than standing until something else
-        // invalidates the list.
+        // Sources a capture proved uncapturable are not offered. See ``uncapturable``.
         let offTheList = lock.withLock { uncapturable }
         let now = Date()
-        // Windows on other desktops are listed too. Asked live rather than read from the
-        // snapshot, whose on-screen flags describe whichever desktop was showing when it was taken.
+        // Asked live: the snapshot's on-screen flags describe whichever desktop was showing when it was taken.
         let candidates = content.windows.filter { $0.windowLayer == 0 }.map(\.windowID)
         let elsewhere = await MainActor.run { windowsOrderedInOnSpaces(candidates) }
         lock.withLock { openOnSomeDesktop = elsewhere }
@@ -257,18 +149,13 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
         // Space info must be read on the main thread (CGS connection is thread-local).
         let spaceDisplays: [ManagedDisplay] = await MainActor.run { readDisplaySpaces() }
-        // One display knows only its own Spaces, so the union of all of them decides which
-        // pictures are worth keeping. Skipped when the read came back empty: an empty union is
-        // indistinguishable from a failed read, and acting on it would throw away every picture
-        // on the machine.
+        // Skipped on an empty read: it is indistinguishable from a failed read and would discard every picture.
         if !spaceDisplays.isEmpty {
             spacePreviews.keep(only: Set(spaceDisplays.flatMap(\.ids)))
         }
         let spaceInfo = spaceDisplays.isEmpty ? nil : SpaceInfo(
             displays: spaceDisplays.map { display in
-                // The desktops only. A fullscreen application's Space is left out of the count
-                // and the previews, so the client is offered only places it can be sent. See
-                // ``ManagedSpace``.
+                // Desktops only: a fullscreen app's Space is not somewhere the client can be sent. See ``ManagedSpace``.
                 SpaceDisplay(
                     displayID: display.displayID,
                     count: display.desktopIDs.count,
@@ -278,9 +165,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             }
         )
 
-        // Said out loud when it happens: the cap is applied with `prefix` inside the catalogue,
-        // so a machine over the limit loses the tail of an alphabetical list with no sign
-        // anywhere, which reads as the picker being broken rather than as a bound being reached.
+        // Logged because `prefix` silently truncates the list, which reads as a broken picker.
         let offered = installed.filter { !runningBundleIDs.contains($0.bundleIdentifier) }
         if offered.count > CaptureCatalog.maximumInstalledApplicationCount {
             resolverLog.notice("""
@@ -289,16 +174,9 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 """)
         }
 
-        // The displays and the windows, each with the picture the client last asked for. A row
-        // with no picture carries none and the client draws its own outline, which is the honest
-        // state both before anything has been taken and for a window the host could not
-        // photograph.
-        //
-        // Applications carry none deliberately: their rows are icons on the client, which is what
-        // an application's identity is.
+        // A row with no picture lets the client draw its own outline. Applications carry none: their rows are icons.
         let pictured = descriptors.filter { $0.kind == .display || $0.kind == .window }
-        // Pruned against what this build offers, so a picture outlives neither a display that was
-        // unplugged nor a window that was closed. See ``SourceThumbnailCache/keep(only:)``.
+        // Pruned so a picture outlives neither an unplugged display nor a closed window.
         sourceThumbnails.keep(only: Set(pictured.map(\.id)))
 
         let withPictures = pictured.map {
@@ -314,19 +192,13 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         )
     }
 
-    /// The snapshot, re-enumerated only when something has invalidated it.
-    ///
-    /// Two callers racing the first enumeration both enumerate: a duplicated round trip, not a
-    /// correctness problem, and guarding it would mean holding a lock across an `await`.
+    /// Two callers racing the first enumeration both enumerate: a duplicated round trip, cheaper than holding a lock across an `await`.
     private func shareableContent() async throws -> SCShareableContent {
         if let cached = lock.withLock({ isStale ? nil : snapshot }) { return cached }
 
         let fresh: SCShareableContent
         do {
-            // Desktop windows are excluded: capturing "the desktop" behind every window is not
-            // something a user ever asks for, and it makes the window list enormous. The
-            // enumeration stays this wide, and which windows may be offered to the phone is
-            // decided in one place, in ``isUserFacingWindow(_:)``.
+            // Desktop windows are excluded: they make the list enormous. Which windows reach the phone is decided in ``isUserFacingWindow(_:)``.
             fresh = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
         } catch {
             throw CaptureError.from(error)
@@ -337,21 +209,8 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         return content
     }
 
-    /// Takes a reading as this Mac's windows, or serves the last one instead.
-    ///
-    /// **A reading with no window in it is not this Mac.** Every row the phone can be offered is
-    /// built from a window: a window's row is the window, and an application's is the union of the
-    /// windows it owns, so one reading with no window on any display is a picker with nothing in it,
-    /// whichever way ScreenCaptureKit arrived at it. It arrives at it for a beat around a Space
-    /// change, which is exactly when the phone is looking at the picker and asking for pictures, and
-    /// believing the reading empties that picker for as long as the reading stays cached.
-    ///
-    /// So a first reading like this is not cached and the last good one is served in its place: the
-    /// next caller looks again, and a Mac that really does have nothing open is believed once
-    /// windowless readings ``windowlessReadGrace`` apart agree.
-    ///
-    /// Returns what to serve and, when there is something worth saying, the line to say about it.
-    /// Under ``lock``, called with it held.
+    /// A reading with no window in it is not this Mac: every row is built from a window, and ScreenCaptureKit returns such readings for a beat around a Space change, which would empty the picker while cached.
+    /// So a first such reading is not cached and the last good one is served; windowless readings ``windowlessReadGrace`` apart must agree before a Mac with nothing open is believed. Under ``lock``.
     private func serve(_ fresh: SCShareableContent) -> (SCShareableContent, String?) {
         guard Self.foundNoWindow(fresh) else {
             firstWindowlessReadAt = nil
@@ -376,8 +235,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 """)
         }
 
-        // Left out of date, so the next caller reads the window server instead of being handed
-        // this reading straight back.
+        // Left stale so the next caller re-reads instead of getting this reading back.
         isStale = true
         let serving = snapshot ?? fresh
         let note = isFirstOfEpisode
@@ -386,26 +244,16 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         return (serving, note)
     }
 
-    /// Whether an enumeration came back with nothing the phone could be shown.
-    ///
-    /// Asked of the windows rather than of `applications`: an application with no window on a
-    /// display has no row either, so the windows alone answer the question.
     private static func foundNoWindow(_ content: SCShareableContent) -> Bool {
         !content.windows.contains { isUserFacingWindow($0) }
     }
 
-    /// Marks the enumeration out of date without announcing it.
-    ///
-    /// ``invalidate()``'s first half, for a caller that is about to read ``shareableContent()``
-    /// itself: the notification is what makes the host push a new catalogue, and a push that
-    /// went out while this call was still working would arrive behind the one this call produces.
+    /// ``invalidate()`` without the notification: a push going out while this caller is still working would arrive behind its result.
     private func markStale() {
         lock.withLock { isStale = true }
     }
 
-    /// Invalidates only if a window has moved or been resized since the snapshot was taken, read
-    /// from the window server, which answers in a millisecond where a new snapshot costs seconds.
-    /// A window captured with a stale frame puts every tap and scroll in the wrong place.
+    /// Reads the window server, which answers in a millisecond where a new snapshot costs seconds. A stale frame puts every tap and scroll in the wrong place.
     func invalidateIfWindowsMoved() {
         guard let content = lock.withLock({ isStale ? nil : snapshot }) else { return }
         guard let live = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
@@ -427,10 +275,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         if moved { invalidate() }
     }
 
-    /// Invalidates when a window has opened or closed since the snapshot. Nothing announces
-    /// either, so without this the phone's list kept a closed window and missed a new one until
-    /// the panel was reopened. Compared against the window server's own list at snapshot time
-    /// rather than against ScreenCaptureKit's, which leaves out windows the window server lists.
+    /// Nothing announces a window opening or closing. Compared against the window server's list, since ScreenCaptureKit's leaves out windows it lists.
     private func invalidateIfWindowsOpenedOrClosed() {
         guard let then = lock.withLock({ isStale ? nil : windowIDsAtSnapshot }) else { return }
         guard Self.liveWindowIDs() != then else { return }
@@ -453,8 +298,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         })
     }
 
-    /// Polls for a launched application's first on-screen window for up to ten seconds, and
-    /// pushes a fresh list without the usual interval the moment it has one.
+    /// Polls up to ten seconds for a launched application's first window, then pushes at once.
     private func relistWhenFirstWindowOpens(processID: pid_t) async {
         for _ in 0..<40 {
             try? await Task.sleep(for: .milliseconds(250))
@@ -479,8 +323,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         let changed = lock.withLock { () -> Bool in
             let wasCurrent = !isStale
             isStale = true
-            // A window that would not render may render now, and this is one of the few moments
-            // that can be true. See ``uncapturable``.
+            // A window that would not render may render now. See ``uncapturable``.
             uncapturable = [:]
             return wasCurrent
         }
@@ -489,37 +332,14 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         onInvalidate?(false)
     }
 
-    /// Sources a capture has proved this Mac cannot capture, and when it proved it.
-    ///
-    /// ScreenCaptureKit lists windows it will not render, and nothing in the enumeration
-    /// separates one from a window that works: its descriptor is as ordinary as any other, and a
-    /// stream built for it starts and then says nothing. The only evidence there is is a capture
-    /// that produced no frame at all, and this is where a mosaic's report of one goes.
-    ///
-    /// **Dated, and the date is the whole of the fix for an app that kept disappearing.** A mark
-    /// used to stand until something invalidated the list, and `invalidate()` runs on an app
-    /// launching or quitting, a display changing or a window resizing. So a window that failed
-    /// *once* for a passing reason was gone from the phone for the rest of the session: measured
-    /// with Terminal and Zed, whose windows failed while the display under them was mid-Space
-    /// switch, and neither came back until something unrelated was launched. A mark now expires
-    /// after ``uncapturableGrace``, so the source is offered again and tried again. One that is
-    /// genuinely unrenderable fails again and is re-marked for another interval; one that failed
-    /// for a moment returns on its own.
-    ///
-    /// Emptied outright by ``invalidate()``, which is a launch, a quit, a change of screen or a
-    /// window changing size: all of them the machine changing under the answer. Under ``lock``.
+    /// Sources a capture proved this Mac cannot capture, and when. Only a capture that produced no frame at all is evidence.
+    /// Dated so a mark expires after ``uncapturableGrace``: marks used to stand until invalidation, so a window that failed once mid-Space switch (Terminal, Zed) vanished from the phone for the session. Emptied by ``invalidate()``. Under ``lock``.
     private var uncapturable: [CaptureSource: Date] = [:]
 
-    /// How long a source stays off the list after a capture of it produced nothing.
-    ///
-    /// A minute: long enough that a window failing for a passing reason is not offered on the very
-    /// next rebuild, short enough that somebody looking for the app they left open finds it again
-    /// without relaunching anything.
     private static let uncapturableGrace: TimeInterval = 60
 
     func markUncapturable(_ source: CaptureSource) {
-        // Many applications stop drawing a window on a desktop that is not showing, so it can give
-        // no frame. That is where it is, not what it is, and it is not taken off the list for it.
+        // Many apps stop drawing windows on a desktop that is not showing; that is where it is, not what it is.
         if case .window(let id) = source,
            lock.withLock({ openOnSomeDesktop.contains(id) }),
            !Self.isOnScreen(windowID: id) {
@@ -537,8 +357,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             \(source.stableID, privacy: .public) produced no picture when it was asked for one; \
             it is off the list for \(Int(Self.uncapturableGrace), privacy: .public)s
             """)
-        // Announced rather than suppressed, unlike ``invalidate()``: the list really has changed,
-        // and this is the push that takes the tile out of the phone's arrangement.
+        // Announced, unlike ``invalidate()``: this push takes the tile out of the phone's arrangement.
         onInvalidate?(false)
     }
 
@@ -546,11 +365,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         let workspace = NSWorkspace.shared.notificationCenter
         let center = NotificationCenter.default
 
-        // Launch and terminate, not activate: switching to an already-running application
-        // changes which windows are in front but adds nothing to capture. A window opened or
-        // closed by a running application is covered by no notification, which is why the
-        // windows in the catalogue carry the dimensions they had when it was built and why
-        // ``makeFilter(for:)`` re-checks that the window still exists.
+        // Launch and terminate, not activate: switching apps adds nothing to capture. Window opens and closes have no notification, hence ``makeFilter(for:)`` re-checks the window.
         let names: [(NotificationCenter, Notification.Name)] = [
             (workspace, NSWorkspace.didLaunchApplicationNotification),
             (workspace, NSWorkspace.didTerminateApplicationNotification),
@@ -564,8 +379,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             observers.append(observer)
         }
 
-        // An application is listed only once it has a window, and at launch it has none yet. No
-        // notification says when its first window opens, so the window server is asked.
+        // An app has no window at launch and no notification says when its first opens, so the window server is polled.
         let launchObserver = workspace.addObserver(
             forName: NSWorkspace.didLaunchApplicationNotification,
             object: nil,
@@ -579,10 +393,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         }
         observers.append(launchObserver)
 
-        // A Space change is deliberately not one of the names above: nothing about what can be
-        // captured changed, so invalidating would cost a full re-enumeration of the shareable
-        // content on every switch and buy nothing. What changed is which desktop is on the
-        // display, and that is worth a photograph.
+        // Not above: a Space change alters nothing capturable, so invalidating would cost a full re-enumeration per switch.
         let spaceObserver = workspace.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil,
@@ -596,55 +407,19 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     // MARK: - Space previews
 
-    /// How long a Space switch is given to finish on screen before that desktop is photographed.
-    ///
-    /// The notification arrives as the switch begins and the desktops then slide across the
-    /// display. A shot taken during the slide is half of one desktop and half of the other, which
-    /// the client would draw as a tile for the arriving Space.
+    /// The notification arrives as the switch begins; a shot taken mid-slide is half of each desktop.
     private static let spaceSwitchSettle: Duration = .milliseconds(900)
 
-    /// How long a shot is held before filing, to see whether a switch was starting under it.
     private static let postShutterHold: Duration = .milliseconds(700)
 
-    /// How old the current desktop's picture may get while a client has the picker open.
     private static let watchedPreviewMaxAgeNanoseconds: UInt64 = 3 * 1_000_000_000
 
-    /// Photographs the desktops that have just come to the front, so the client's picker has a
-    /// tile for each.
-    ///
-    /// Driven by a Space changing rather than by anything a client asks for: a desktop in front
-    /// is the only one ScreenCaptureKit can photograph, the rest being by definition on no
-    /// display.
-    ///
-    /// The notification does not say which display changed, so this compares against the Space
-    /// each display was last seen showing and photographs only the ones that differ. At startup
-    /// that is every display, which puts a picture on the current desktop of each screen before
-    /// the user has switched anything; afterwards it is one display, so one screenshot per switch
-    /// however many screens the Mac has.
-    ///
-    /// Not called from ``catalog()``: a screenshot is a round trip through the window server and
-    /// the catalogue is on the critical path of a client connecting. Everything here is
-    /// best-effort, and a failure only costs a tile.
+    /// Photographs desktops that just came to the front, the only ones ScreenCaptureKit can photograph. Compares against the Space each display was last seen showing, so a switch costs one screenshot.
+    /// Not called from ``catalog()``: a screenshot is a window-server round trip and the catalogue is on the connect path. Best-effort; a failure only costs a tile.
     func refreshSpacePreviews() async {
         await captureActiveSpacePreview(force: true)
     }
 
-    /// Photographs every display and window the catalogue is offering, and files what it gets.
-    ///
-    /// Displays and windows, not applications: a picture is drawn for the two kinds of source
-    /// that are a place and a plain icon for the two that are an identity.
-    ///
-    /// The same enumeration the catalogue is built from, so the pictures are of exactly the rows
-    /// the client is looking at, including the filter that matters here: a window ScreenCaptureKit
-    /// will not offer is not photographed.
-    ///
-    /// Concurrent and bounded, because every one of these is a round trip through the window
-    /// server: all at once would put simultaneous captures on the hardware the live stream is
-    /// already encoding on.
-    ///
-    /// A failure leaves the last picture alone rather than clearing it, since a nil here is also
-    /// a capture that was refused or timed out, and the closed-window case is covered anyway by
-    /// the prune in ``catalog()``.
     func refreshChangedSpacePreviews() async {
         await captureActiveSpacePreview(maxAge: Self.watchedPreviewMaxAgeNanoseconds, settle: false)
     }
@@ -658,12 +433,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     }
 
     private func photographSources(reenumerate: Bool, pushOnlyOnChange: Bool) async {
-        // A fresh enumeration first, because this arrives when a client opens the picker, the one
-        // place a stale list is visible as a fault. Window opens and closes inside a running
-        // application post no notification at all, so a window made since the last push is
-        // missing from the list the client is drawing and no amount of pushing fixes that from
-        // the Mac's side. Re-reading costs one enumeration on an action the user has just taken
-        // by hand, and it is what makes the picker show what is on the Mac now.
+        // Fresh enumeration first: window opens and closes post no notification, and this runs when the user opens the picker, where a stale list shows as a fault.
         if reenumerate { markStale() }
         guard let content = try? await shareableContent() else {
             resolverLog.notice("could not re-read the capture catalogue, so the picker is showing the last one")
@@ -682,9 +452,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             var next = 0
             var stored = 0
 
-            // Adds one more capture, or none when they have all been added. Called once for
-            // each slot and then once per completion, which is what keeps the number in flight
-            // at the limit without a semaphore.
+            // Called once per slot and once per completion, keeping the number in flight at the limit without a semaphore.
             func addNext() {
                 guard next < sources.count else { return }
                 let source = sources[next]
@@ -713,21 +481,13 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             source thumbnails: \(landed, privacy: .public) of \
             \(sources.count, privacy: .public) changed
             """)
-        // The same signal a Space preview uses, and for the same reason: this is a change to the
-        // catalogue that no notification about the source list covers. See ``previewLanded()``.
+        // Same signal as a Space preview. See ``previewLanded()``.
         previewLanded()
     }
 
-    /// How many application screenshots may be in flight at once.
-    ///
-    /// Four, which photographs a typical Mac's worth of them in one round trip's time and is few
-    /// enough that a large one cannot crowd out the live stream.
     private static let thumbnailConcurrency = 4
 
     func snapshot(of source: CaptureSource, maxWidth: Int) async -> CGImage? {
-        // The same transform input is mapped through, which is the one thing here that already
-        // knows how big a source is: a display's pixel dimensions, a window's frame times its
-        // backing scale, an application's union of windows.
         let pixels = inputTransform(for: source).pixelSize
         guard pixels.width > 0, pixels.height > 0, maxWidth > 0 else { return nil }
 
@@ -736,9 +496,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         do {
             plan = try makeFilter(for: source)
         } catch {
-            // Said out loud, because nothing else does: a still that could not be taken is
-            // indistinguishable from one that was never asked for, and the two have entirely
-            // different causes, a capture problem against the ordinary state of the picker.
+            // Logged: a missing still is otherwise indistinguishable from one never asked for.
             resolverLog.notice("""
                 snapshot of \(source.stableID, privacy: .public) has no filter: \
                 \(error.localizedDescription, privacy: .public)
@@ -751,8 +509,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         configuration.height = Int((pixels.height * scale).rounded())
         configuration.backgroundColor = CGColor.black
         configuration.showsCursor = true
-        // The same crop the stream uses, or a multi-window application would show its windows
-        // sitting in the middle of a black frame here and nowhere else.
+        // Same crop as the stream, or a multi-window app sits in the middle of a black frame.
         if let sourceRect = plan.sourceRect {
             configuration.sourceRect = sourceRect
         }
@@ -777,19 +534,12 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         }
     }
 
-    /// Photographs the Space showing on each display, where that is worth doing.
-    ///
-    /// - Parameter force: ignore the age check and shoot anyway. For a client that has just
-    ///   asked, because it is about to put the pictures in front of someone.
-    /// - Parameter settle: wait out a Space switch animation first. Only a caller that knows no
-    ///   switch is under way may skip it; the check after the shutter still guards the filing.
+    /// - Parameter force: ignore the age check; for a client about to show the pictures.
+    /// - Parameter settle: wait out a Space switch animation. Only a caller that knows none is under way may skip it.
     func captureActiveSpacePreview(
         force: Bool = false, maxAge: UInt64 = spacePreviewMaxAgeNanoseconds, settle: Bool = true
     ) async {
-        // Which displays want a new picture is decided before the settle, so a second
-        // notification arriving during it does not get this call acting on a display it was never
-        // about. Recorded here rather than after the captures, so one arriving mid-flight does
-        // not queue the same display up twice.
+        // Decided before the settle so a notification during it does not make this call act on a display it was never about; recorded here so one arriving mid-flight does not queue a display twice.
         let before: [ManagedDisplay] = await MainActor.run { readDisplaySpaces() }
         let (changed, settledAt) = lock.withLock { () -> ([UInt32], DispatchTime) in
             let now = DispatchTime.now()
@@ -803,16 +553,13 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                     spaceChangeGeneration += 1
                 }
 
-                // Aged out as well as arrived at: the desktop the user has been sitting on is the
-                // one a client is most likely to be shown a picture of, and it is also the one
-                // that goes most stale, since nothing announces a window opening on it.
+                // Aged out too: the desktop the user sits on goes most stale, since nothing announces a window opening on it.
                 let age = lastPreviewAt[display.displayID].map {
                     now.uptimeNanoseconds - $0.uptimeNanoseconds
                 } ?? .max
 
                 if force || arrived || age >= maxAge {
-                    // Recorded at the decision rather than after the capture, so a capture that
-                    // fails does not re-arm this to due on the next two-second tick.
+                    // Recorded at the decision, so a failed capture does not re-arm this on the next tick.
                     lastPreviewAt[display.displayID] = now
                     due.append(display.displayID)
                     if let at = spaceArrivedAt[display.displayID], at > latestArrival {
@@ -824,9 +571,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         }
         guard !changed.isEmpty else { return }
 
-        // Waited out from the arrival, not from this call, and whatever `settle` says: the
-        // one-second picker watch was the first to see a switch often enough that skipping the
-        // wait there photographed desktops mid-slide.
+        // Waited out from the arrival, whatever `settle` says: the picker watch sees switches often enough that skipping the wait photographed desktops mid-slide.
         let settleNanoseconds = UInt64(Self.spaceSwitchSettle.components.seconds) * 1_000_000_000
             + UInt64(Self.spaceSwitchSettle.components.attoseconds / 1_000_000_000)
         let elapsed = DispatchTime.now().uptimeNanoseconds - settledAt.uptimeNanoseconds
@@ -835,28 +580,20 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             try? await Task.sleep(for: settle ? Self.spaceSwitchSettle : .nanoseconds(remaining))
         }
 
-        // Read again after the settle, because a picture taken now is of whatever is on screen
-        // now, and the read above can name a desktop the user has already left. Filing under that
-        // one would put one desktop's picture under another desktop's name, which is the mistake
-        // the ID-keyed cache exists to prevent.
+        // Read again after the settle: the earlier read can name a desktop the user has left, and filing under it would put one desktop's picture under another's name.
         let settled: [ManagedDisplay] = await MainActor.run { readDisplaySpaces() }
-        // A display that moved on during the wait is left to the call that saw it arrive, which
-        // waits for that desktop to settle. Shooting it here caught it mid-slide.
+        // A display that moved on during the wait is left to the call that saw it arrive; shooting it here caught it mid-slide.
         let targets = settled.filter { display in
             changed.contains(display.displayID)
                 && before.first { $0.displayID == display.displayID }?.activeID == display.activeID
         }
         guard !targets.isEmpty else { return }
 
-        // Built from the cached enumeration rather than a fresh one: a Space switch does not
-        // change which display a screenshot is taken of.
         let content: SCShareableContent
         do {
             content = try await shareableContent()
         } catch {
-            // Reported as itself and not as a missing display: this enumeration is where a host
-            // without Screen Recording permission fails, and a log line blaming the hardware
-            // sends the next reader looking at the wrong thing.
+            // Reported as itself: this is where a host without Screen Recording fails, and blaming the hardware would mislead.
             resolverLog.notice("""
                 space previews not captured: \(error.localizedDescription, privacy: .public)
                 """)
@@ -880,14 +617,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             ) else { continue }
             try? await Task.sleep(for: Self.postShutterHold)
 
-            // Read after the shutter, which the read above is not the last word on: everything
-            // in between, the enumeration and the capture itself, is time the person has to
-            // switch again, and this is the only read that can say whether the picture is of the
-            // desktop it is about to be filed under.
-            //
-            // Discarded rather than re-filed when they disagree: which of the two desktops the
-            // picture caught is not a question a screenshot can be asked, and a tile that keeps
-            // its older picture is a much smaller wrong than a tile showing a desktop it is not.
+            // Read after the shutter: the person can switch again during the enumeration and capture. Discarded rather than re-filed on disagreement, since a tile keeping an older picture is a smaller wrong than one showing the wrong desktop.
             let afterShutter: [ManagedDisplay] = await MainActor.run { readDisplaySpaces() }
             guard afterShutter.first(where: { $0.displayID == display.displayID })?.activeID
                     == display.activeID,
@@ -907,30 +637,16 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         previewLanded()
     }
 
-    /// A preview has been captured, which is a change to the catalogue that no notification
-    /// about the source list covers.
-    ///
-    /// It goes through `onInvalidate` because that is the established "the catalogue is out of
-    /// date, read it again" signal, but not through ``invalidate()``: that one suppresses the
-    /// call when the resolver is already stale, and a preview landing behind an unrelated launch
-    /// would then never be pushed.
-    ///
-    /// **At once, not on the interval.** This is the one invalidation with somebody waiting on it:
-    /// the phone asked for these pictures and is drawing outlines until they arrive.
+    /// A change to the catalogue that no source-list notification covers. Goes through `onInvalidate` but not ``invalidate()``, which suppresses the call when already stale and would drop a preview landing behind a launch.
+    /// At once, not on the interval: the phone is drawing outlines until these arrive.
     private func previewLanded() {
         onInvalidate?(true)
     }
 
-    /// The configuration a Space preview is photographed with.
-    ///
-    /// The height follows the display's own ratio instead of being fixed: `SCStreamConfiguration`
-    /// preserves the aspect ratio by default, so a height that does not match leaves the desktop
-    /// letterboxed inside its own thumbnail.
+    /// Height follows the display's ratio: `SCStreamConfiguration` preserves aspect ratio, so a mismatched height letterboxes the desktop.
     private static func previewConfiguration(for display: SCDisplay) -> SCStreamConfiguration {
         let width = SpacePreviewCache.pixelWidth
-        // Points rather than pixels: only the ratio of the sides is needed here and both
-        // accessors agree on it. A display that reports nothing at all gets a plausible shape,
-        // because a zero height is a configuration ScreenCaptureKit rejects, not a small preview.
+        // A zero height is rejected by ScreenCaptureKit, so a display reporting nothing gets a plausible shape.
         let ratio = display.width > 0 && display.height > 0
             ? Double(display.height) / Double(display.width)
             : 10.0 / 16.0
@@ -938,13 +654,9 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         let configuration = SCStreamConfiguration()
         configuration.width = width
         configuration.height = max(1, Int((Double(width) * ratio).rounded()))
-        // Nominal: the system composites at point resolution and scales to the size above. At
-        // .best it would composite a full 6K surface per desktop and throw nearly all of it away
-        // in the downscale, which is the entire cost of this call.
+        // Nominal: at .best a full 6K surface per desktop would be composited and nearly all discarded in the downscale.
         configuration.captureResolution = .nominal
-        // The live stream carries the cursor, because the client draws a pointer of its own
-        // against it. A desktop thumbnail is a picture of a desktop, where a stray pointer is
-        // one moment frozen for as long as the user stays on that Space.
+        // A desktop thumbnail with a pointer would show it frozen for as long as the user stays on that Space.
         configuration.showsCursor = false
         return configuration
     }
@@ -952,16 +664,11 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     // MARK: - Descriptors
 
-    /// - Parameter elsewhere: windows on a desktop that is not showing, listed as well as the
-    ///   ones on screen. See ``windowsOrderedInOnSpaces(_:)``.
     private static func descriptors(
         from content: SCShareableContent,
         elsewhere: Set<CGWindowID> = []
     ) -> [CaptureSourceDescriptor] {
-        // One icon encode per process for the whole catalogue, shared between an application's
-        // own row and the rows of every window it owns: without the sharing, an app with six
-        // windows open pays for the same PNG seven times on every rebuild, and the catalogue is
-        // rebuilt on every launch and quit.
+        // One icon encode per process, shared between an application's row and its windows' rows; the catalogue is rebuilt on every launch and quit.
         var icons = ApplicationIcons()
         let displayRows = displays(from: content)
         let applicationRows = applications(from: content, elsewhere: elsewhere, icons: &icons)
@@ -969,20 +676,11 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         return displayRows + applicationRows + windowRows
     }
 
-    /// The icons of the processes in one enumeration, encoded once each.
-    ///
-    /// Keyed by process rather than by bundle identifier, because that is the identity both
-    /// `SCRunningApplication` and `SCWindow.owningApplication` hand out.
-    ///
-    /// A plain struct rather than the lock-guarded cache the Space previews use: this is a local
-    /// of a single synchronous pass, so the lock would guard an audience of one.
+    /// Keyed by process, the identity `SCRunningApplication` and `SCWindow.owningApplication` hand out.
     private struct ApplicationIcons {
         private var byProcess: [pid_t: Data?] = [:]
 
-        /// The icon for one process, encoded on first ask.
-        ///
-        /// `nil` is a real answer, since a process may have no icon at all, so it is remembered
-        /// as one rather than looked for again on every window that process owns.
+        /// `nil` is remembered as an answer: a process may have no icon.
         mutating func icon(for processID: pid_t) -> Data? {
             if let cached = byProcess.index(forKey: processID) {
                 return byProcess[cached].value
@@ -993,10 +691,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         }
     }
 
-    /// An application's icon, preferring the running application's own.
-    ///
-    /// `NSRunningApplication.icon` can briefly be nil while an app is launching; the bundle icon
-    /// is available earlier and is the same artwork users recognize in Finder.
+    /// `NSRunningApplication.icon` can briefly be nil while an app launches; the bundle icon is available earlier.
     private static func applicationIcon(for processID: pid_t) -> Data? {
         guard let running = NSRunningApplication(processIdentifier: processID) else { return nil }
         if let data = iconPNGData(for: running) { return data }
@@ -1006,9 +701,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     private static func displays(from content: SCShareableContent) -> [CaptureSourceDescriptor] {
         content.displays.compactMap { display in
-            // `SCDisplay.width`/`height` are points, as the SDK header says, while the pixel
-            // dimensions are what the normalised to pixel mapping needs. Using points there would
-            // make the remote cursor drift further from the real one the further it is dragged.
+            // `SCDisplay.width`/`height` are points; the pixel mapping needs pixels, or the remote cursor drifts the further it is dragged.
             let pixelWidth = CGDisplayPixelsWide(display.displayID)
             let pixelHeight = CGDisplayPixelsHigh(display.displayID)
             guard pixelWidth > 0, pixelHeight > 0 else { return nil }
@@ -1019,12 +712,9 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 subtitle: "\(pixelWidth)×\(pixelHeight)",
                 source: .display(display.displayID),
                 pixelSize: CGSize(width: pixelWidth, height: pixelHeight),
-                // Only a display the phone asked for. Every virtual display is that now; this is
-                // what tells the client which rows it may rename and remove.
+                // Only a display the phone asked for; tells the client which rows it may rename and remove.
                 isManagedVirtualDisplay: VirtualDisplay.isPhoneManaged(display.displayID),
-                // The broader question: does this display exist only in software at all.
-                // `VirtualDisplay.name(for:)` is non-nil for exactly that, because this process
-                // names every display it makes — see the registry on ``VirtualDisplay``.
+                // Exists only in software at all; `VirtualDisplay.name(for:)` is non-nil for exactly those.
                 isVirtualDisplay: VirtualDisplay.name(for: display.displayID) != nil
             )
         }
@@ -1041,15 +731,9 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
         for application in content.applications {
             let running = NSRunningApplication(processIdentifier: application.processID)
-            // ScreenCaptureKit includes agents, menu extras, and system surfaces. Only a
-            // regular Dock application is meaningful in an app switcher.
+            // ScreenCaptureKit includes agents, menu extras and system surfaces.
             guard running?.activationPolicy == .regular else { continue }
-            // A short list of the system's own surfaces, by identifier, rather than a check on
-            // where a bundle lives: such a check excludes every Apple application, because
-            // Terminal is under `/System/Applications` and Safari is in the App cryptex, reached
-            // through a symlink in `/Applications` an enumerator will not follow. These three
-            // each report a regular activation policy on some macOS versions and own surfaces
-            // that are not windows a person means to capture.
+            // A list of identifiers, not a check on bundle location: that would exclude Terminal (`/System/Applications`) and Safari (App cryptex), and these three report a regular activation policy on some macOS versions.
             if let bundleIdentifier = running?.bundleIdentifier,
                Self.isSystemSurface(bundleIdentifier) {
                 continue
@@ -1074,11 +758,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
             result.append(CaptureSourceDescriptor(
                 kind: .application,
-                // Not `application.applicationName` directly: it is empty for some processes, a
-                // background agent or one that has not finished launching, and an unnamed row is
-                // a blank cell in the client's picker that the user cannot identify or tell from
-                // any other blank cell. The window case below refuses an empty title for the
-                // same reason.
+                // Not `application.applicationName` directly: it is empty for some processes, leaving an unidentifiable blank cell.
                 title: title,
                 subtitle: owned.count == 1 ? "1 window" : "\(owned.count) windows",
                 bundleIdentifier: bundleIdentifier,
@@ -1124,8 +804,6 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             let running = NSRunningApplication(processIdentifier: application.processID)
             guard running?.activationPolicy == .regular else { continue }
 
-            // A window with no title is usually a panel or a splash sheet. Naming it after
-            // its application is more use than an empty cell in the picker.
             let title = window.title.flatMap { $0.isEmpty ? nil : $0 } ?? application.applicationName
             let scale = backingScale(for: bounds)
 
@@ -1134,8 +812,6 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 title: title,
                 subtitle: application.applicationName,
                 bundleIdentifier: running?.bundleIdentifier,
-                // The owning application's icon: a window has no icon of its own, and the icon is
-                // what saves the user reading which application a picture belongs to.
                 iconPNGData: icons.icon(for: application.processID),
                 source: .window(window.windowID),
                 pixelSize: CGSize(width: bounds.width * scale, height: bounds.height * scale)
@@ -1152,24 +828,14 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         }
     }
 
-    /// A user-selectable top-level window rather than a menu, shadow, desktop surface, or
-    /// hidden bookkeeping surface an application keeps around for later.
-    ///
-    /// On screen, or in `elsewhere`: open on a desktop that is not showing, which still streams.
-    /// A window
-    /// the application has closed but not released, or a minimised one, is neither, and
-    /// ScreenCaptureKit lists both and renders neither.
+    /// On screen, or in `elsewhere` (open on a desktop that is not showing, which still streams). A closed-but-unreleased or minimised window is neither; ScreenCaptureKit lists both and renders neither.
     private static func isUserFacingWindow(_ window: SCWindow, elsewhere: Set<CGWindowID> = []) -> Bool {
         guard window.windowLayer == 0,
               window.isOnScreen || elsewhere.contains(window.windowID),
               window.frame.width >= 1,
               window.frame.height >= 1
         else { return false }
-        // **And by whose it is, which is the cause rather than the symptom.** The system's own
-        // surfaces report a regular activation policy on some macOS versions and own windows that
-        // look like any other; this is the same rule the application rows are filtered by, applied
-        // here as well, because a window is not told apart from an application's window by anything
-        // the enumeration says.
+        // By owner too: system surfaces report a regular activation policy and own windows that look ordinary, so the application rows' rule applies here as well.
         if let bundleIdentifier = NSRunningApplication(
             processIdentifier: window.owningApplication?.processID ?? 0
         )?.bundleIdentifier, isSystemSurface(bundleIdentifier) {
@@ -1178,25 +844,8 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         return !isNamelessSurface(window)
     }
 
-    /// Whether this is a window the system made for an application's own use rather than one a
-    /// person is looking at.
-    ///
-    /// **The net under the rule that catches the ones that are named after a service.** Most
-    /// nameless surfaces belong to a `<Name>UIService` process and are let go by
-    /// ``isSystemSurface(_:)``; this is for the same shape coming from somewhere else, which is a
-    /// surface a regular application made for itself and never titled.
-    ///
-    /// **The title is the only thing that identifies one, and the system's own word for "window" is
-    /// the only title nobody ever means.** Such a surface is listed with everything else, it is
-    /// photographed as a black rectangle, and a stream built for it either cannot be filtered or
-    /// says nothing at all: a row in the phone's picker that does nothing when it is pressed, for as
-    /// long as the two ends are connected. Traced from one: a Dictionary window titled "Window",
-    /// black in the picker, unpressable, and impossible to tell from a real window by any field
-    /// ``CaptureSourceDescriptor`` carries.
-    ///
-    /// **Matched as a set of words rather than by unit**, because a title is a string the system
-    /// localises: the same surface is "Fenêtre" on a French Mac. Only the standalone word counts, so
-    /// an application whose window is called "Window Manager" is left alone.
+    /// A net under ``isSystemSurface(_:)``: a regular application's untitled surface. Such a surface lists and photographs black and a stream for it says nothing, leaving an unpressable picker row (a Dictionary window titled "Window").
+    /// Matched as a set of localised words ("Fenêtre" on a French Mac); only the standalone word counts, so "Window Manager" is left alone.
     private static func isNamelessSurface(_ window: SCWindow) -> Bool {
         guard let title = window.title?.trimmingCharacters(in: .whitespacesAndNewlines) else {
             return false
@@ -1208,25 +857,12 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         "window", "fenêtre", "fenster", "ventana", "finestra", "venster", "okno", "ikkuna",
     ]
 
-    /// Whether this bundle identifier belongs to the system rather than to a person's application.
-    ///
-    /// **Two rules, because the surfaces come in two shapes.** A short list of identifiers, for the
-    /// ones this app has been caught by; and a name pattern, for a whole family nobody can
-    /// enumerate: `<Name>UIService` is how the system names the little processes behind a lookup
-    /// popover, a link preview and a share sheet, and they own windows with no name at all. Traced
-    /// from one with ``Tools/CaptureProbe``: `LinkedNotesUIService`, a 254×254 window titled
-    /// "Window" on layer 25, listed with every other window and indistinguishable from one a person
-    /// is looking at. On the phone it was a row under the application's own name that photographed
-    /// as a black rectangle and did nothing when it was pressed. See ``isNamelessSurface(_:)`` for
-    /// the belt to this pair of braces.
+    /// A short identifier list plus a name pattern: `<Name>UIService` processes (lookup popovers, share sheets) own untitled windows and cannot be enumerated. Traced with ``Tools/CaptureProbe`` from `LinkedNotesUIService`, a 254x254 "Window" on layer 25. See ``isNamelessSurface(_:)``.
     private static func isSystemSurface(_ bundleIdentifier: String) -> Bool {
         systemSurfaces.contains(bundleIdentifier) || bundleIdentifier.hasSuffix("UIService")
     }
 
-    /// The system's own surfaces: regular by activation policy, and not applications.
-    ///
-    /// See the note at the call site for why this is a list of identifiers rather than a check on
-    /// where a bundle lives.
+    /// Regular by activation policy, and not applications.
     private static let systemSurfaces: Set<String> = [
         "com.apple.controlcenter",
         "com.apple.wallpaper.agent",
@@ -1234,9 +870,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     ]
 
     private static func installedApplications() -> [InstalledApplicationDescriptor] {
-        // The system domain is where Apple's own applications are: Terminal and its neighbours
-        // are under `/System/Applications`, and Safari is in the App cryptex, which the system
-        // domain resolves to and a symlink in `/Applications` does not lead an enumerator to.
+        // The system domain is where Terminal (`/System/Applications`) and Safari (App cryptex) live; a symlink in `/Applications` does not lead an enumerator there.
         let roots = FileManager.default.urls(
             for: .applicationDirectory,
             in: [.localDomainMask, .userDomainMask, .systemDomainMask]
@@ -1282,12 +916,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         return iconPNGData(for: icon)
     }
 
-    /// Downsamples before PNG encoding. A bundle's original 1024-point icon would make a small
-    /// picker row need megabytes of control-channel data.
-    ///
-    /// 128 pixels: the picker's grid shows an icon at 74 points and a phone draws that at three
-    /// times the pixels, so the previous 48-pixel icon was stretched nearly five times over and
-    /// read as a blurred square rather than as the application's own artwork.
+    /// Downsamples before PNG encoding: a 1024-point icon would cost megabytes of control-channel data. 128 pixels, since the grid draws 74 points at three times the pixels and 48 read as a blurred square.
     private static func iconPNGData(for icon: NSImage) -> Data? {
         let dimension = 128
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
@@ -1314,11 +943,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         return data
     }
 
-    /// The bounding box of a set of windows, or `nil` if none has a usable frame.
-    ///
-    /// An empty or degenerate frame means a window that is minimised or fully off-screen.
-    /// Capturing one yields a stream of nothing, and its zero size would divide by zero in
-    /// the coordinate mapping.
+    /// A degenerate frame means minimised or off-screen; its zero size would divide by zero in the coordinate mapping.
     private static func unionFrame(of windows: [SCWindow]) -> CGRect? {
         let frames = windows.map(\.frame).filter { $0.width >= 1 && $0.height >= 1 }
         guard let first = frames.first else { return nil }
@@ -1331,13 +956,10 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         let windowID: CGWindowID
         switch source {
         case .window:
-            // Streamed from wherever it is: a window on a hidden desktop still delivers its
-            // picture. The Mac goes there on the first touch instead. See ``OffDesktopInputGate``.
+            // Streamed from wherever it is; the Mac goes there on the first touch. See ``OffDesktopInputGate``.
             return
         case .application(let pid):
-            // Read again whatever happens: an application's filter is built from which of its
-            // windows are on screen, and the snapshot's answer is from whichever desktop was
-            // showing when it was taken.
+            // An application's filter is built from its on-screen windows, and the snapshot's answer is from whichever desktop was showing when it was taken.
             guard !Self.hasOnScreenWindow(processID: pid),
                   let content = lock.withLock({ snapshot })
             else { markStale(); return }
@@ -1356,7 +978,6 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             markStale()
             return
         }
-        // An application's filter is built from which of its windows are on screen.
         try? await Task.sleep(for: Self.spaceSwitchSettle)
         markStale()
     }
@@ -1373,10 +994,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             guard let display = content.displays.first(where: { $0.displayID == id }) else {
                 throw CaptureError.sourceUnavailable("That display is no longer attached.")
             }
-            // Excluding rather than including windows: the empty exclusion list captures the
-            // Excluding rather than including windows: the empty exclusion list captures the
-            // whole display and the desktop and menu bar behind it, which is what "share my
-            // screen" means.
+            // Excluding rather than including: the empty exclusion list captures the whole display with desktop and menu bar.
             return CaptureFilterPlan(
                 filter: SCContentFilter(display: display, excludingWindows: []),
                 sourceRect: nil
@@ -1393,14 +1011,8 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 throw CaptureError.sourceUnavailable("That application has no windows on any display.")
             }
 
-            // A single window can be captured independently of the display it sits on, which
-            // produces a frame exactly the window size with no surrounding black space. With
-            // several windows a display-relative filter is the only option, and the
-            // configuration's sourceRect crops the output to their bounding box; otherwise the
-            // whole display is streamed with the non-app content blacked out, giving the iPhone a
-            // large black canvas with a small app somewhere inside it.
+            // A single window is captured independently of its display, giving exactly the window size. With several, a display filter is the only option and `sourceRect` crops to their bounding box; otherwise the iPhone gets a large black canvas.
             if owned.count == 1 {
-                // Already exactly the window, with no surround left to crop away.
                 return CaptureFilterPlan(
                     filter: SCContentFilter(desktopIndependentWindow: owned[0]),
                     sourceRect: nil
@@ -1425,39 +1037,24 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             guard let window = content.windows.first(where: { $0.windowID == id }) else {
                 throw CaptureError.sourceUnavailable("That window has been closed.")
             }
-            // Desktop-independent, so the window keeps being captured when it is covered by
-            // another window or dragged to a different display. A display filter that includes
-            // this one window would capture whatever is drawn on top of it.
+            // Desktop-independent so it keeps capturing when covered or dragged to another display; a display filter would capture whatever is drawn on top.
             return CaptureFilterPlan(
                 filter: SCContentFilter(desktopIndependentWindow: window),
                 sourceRect: nil
             )
 
         case .mosaic:
-            // Reachable only by mistake: a mosaic is captured as one filter per tile, and each
-            // of those comes through the cases above as the source it names. There is no filter
-            // for the canvas, because nothing on the Mac shows a canvas, so a sentence is better
-            // than the black picture the caller would otherwise get.
+            // Reachable only by mistake: a mosaic is captured as one filter per tile, and nothing on the Mac shows the canvas.
             throw CaptureError.sourceUnavailable(
                 "A mosaic is composited from its tiles rather than captured in one piece."
             )
         }
     }
 
-    /// A bounding box in global points, expressed in the display's own coordinate space.
-    ///
-    /// `SCWindow.frame` is in global display points, the space `CGEvent` posts into, where a
-    /// display left of the primary has a negative origin, while `SCStreamConfiguration.sourceRect`
-    /// is documented as being in the display's logical coordinate system, which starts at that
-    /// display's own top-left. Passing one where the other is wanted crops a plausible-looking
-    /// rectangle off the wrong part of the screen.
-    ///
-    /// Clamped to the display afterwards, because an app whose windows hang off the edge asks for
-    /// a rectangle partly outside it, and a crop the stream cannot honour fails rather than being
-    /// trimmed.
+    /// `SCWindow.frame` is in global points (negative origin left of the primary) while `sourceRect` is in the display's own space; passing one for the other crops the wrong part.
+    /// Clamped to the display: a crop partly outside it fails rather than being trimmed.
     private static func sourceRect(for union: CGRect, on display: SCDisplay) -> CGRect? {
-        // `display.frame` is points; `display.width`/`height` are pixels. Both sides of this
-        // intersection have to be points, or a Retina display halves the crop.
+        // Both sides are points (`display.frame`), or a Retina display halves the crop.
         let local = union.offsetBy(
             dx: -display.frame.origin.x,
             dy: -display.frame.origin.y
@@ -1466,7 +1063,6 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         return within.isNull || within.isEmpty ? nil : within
     }
 
-    /// The display a rect sits on, falling back to the first one enumerated.
     private static func hostingDisplay(for rect: CGRect?, in content: SCShareableContent) -> SCDisplay? {
         guard let rect else { return content.displays.first }
 
@@ -1481,15 +1077,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     // MARK: - Input mapping
 
-    /// Where the source's content is, in the global point space `CGEvent` posts into.
-    ///
-    /// The same mapping ``DisplayGeometry`` builds for displays, re-derived here because all three
-    /// kinds of source have to answer the question the same way.
-    ///
-    /// Built from catalogue-time geometry: a window dragged or resized moves without any
-    /// notification being posted, so this goes stale the moment the user touches it. The
-    /// authoritative answer arrives per frame, in the content rect `CaptureEngine` reports, and
-    /// the input layer is expected to prefer that.
+    /// Built from catalogue-time geometry, which goes stale when a window moves; the input layer should prefer the per-frame content rect from `CaptureEngine`.
     func inputTransform(for source: CaptureSource) -> InputTransform {
         guard let content = lock.withLock({ isStale ? nil : snapshot }) else { return .degenerate }
 
@@ -1516,11 +1104,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             return transform(for: window?.frame)
 
         case .mosaic:
-            // There is no point in a mosaic for a click to be at: the tile under it decides
-            // which machine coordinate it means, and a tile is chosen in the app rather than
-            // posted at the Mac. A degenerate transform is the honest answer, and the host
-            // refuses input outright while a mosaic is the source. See ``VideoCoordinator``'s
-            // input guard.
+            // A tap's tile decides the machine coordinate, and the host refuses input while a mosaic is the source. See ``VideoCoordinator``'s input guard.
             return .degenerate
         }
     }
@@ -1537,8 +1121,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     // MARK: - Screen geometry
 
-    /// The backing scale of the display a rect is on: 2.0 on a Retina panel, but also the
-    /// odd ratios a 4K display at a scaled resolution produces.
+    /// 2.0 on Retina, but also the odd ratios a scaled 4K display produces.
     private static func backingScale(for rect: CGRect) -> CGFloat {
         var ids = [CGDirectDisplayID](repeating: 0, count: 16)
         var count: UInt32 = 0
@@ -1549,12 +1132,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         return CGFloat(CGDisplayPixelsWide(ids[0])) / bounds.width
     }
 
-    /// The user-facing name of a display, e.g. "Built-in Retina Display".
-    ///
-    /// `NSScreen` is the only source of these names; CoreGraphics reports a model number, not a
-    /// name. A panel that has no `NSScreen`, including the virtual display the host made itself,
-    /// which AppKit never adopts, falls back to the name this process gave it and then to its
-    /// identifier. See ``VirtualDisplay/name(for:)``.
+    /// `NSScreen` is the only source of names (CoreGraphics gives a model number). The host's own virtual display has no `NSScreen`, so it falls back to ``VirtualDisplay/name(for:)``.
     private static func screenName(for displayID: CGDirectDisplayID) -> String? {
         let screen = NSScreen.screens.first { screen in
             let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
@@ -1565,10 +1143,6 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 }
 
 extension InputTransform {
-    /// What a source that has gone away maps to.
-    ///
-    /// Zero-sized rather than `nil` because ``InputTransform`` is not optional in
-    /// ``CaptureSourceResolver`` and a throwing accessor would force every caller to handle a
-    /// case that cannot happen: capture never starts for a source that is not in the catalogue.
+    /// Zero-sized rather than `nil`: capture never starts for a source not in the catalogue, so a throwing accessor would force callers to handle an impossible case.
     static let degenerate = InputTransform(origin: .zero, pixelSize: .zero, pointPixelScale: 1)
 }

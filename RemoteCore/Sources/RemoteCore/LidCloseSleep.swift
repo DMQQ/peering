@@ -1,47 +1,27 @@
 import Foundation
 
-/// Keeping a Mac running with its lid shut: the text that grants it, and the decisions around it.
-///
-/// macOS has no public call that keeps a Mac awake with the lid closed. `pmset -a disablesleep 1`
-/// is the only switch that does, it needs administrator rights, and it is a setting rather than an
-/// assertion: it outlives this process, a crash and a reboot.
+/// macOS has no public call that keeps a Mac awake with a closed lid; `pmset -a disablesleep 1` does it, needs admin, and outlives the process, a crash and a reboot.
 public enum LidCloseSleep {
-    /// The path of the command, written the way `sudoers` has to have it: absolute, because a bare
-    /// name in a sudoers rule means whatever is on the command search path, which a user can change.
+    /// Absolute, because a bare name in a sudoers rule means whatever is on the user's search path.
     public static let pmsetPath = "/usr/bin/pmset"
 
-    /// The one file this app ever has written as root.
-    ///
-    /// No dot in the name: `sudo` skips every file in an include directory whose name contains a
-    /// `.`, so a name with one would be a rule that looks right and does nothing.
+    /// No dot in the name: `sudo` skips files in an include directory whose name contains a `.`.
     public static let sudoersPath = "/etc/sudoers.d/peering-sleep"
 
-    /// The command that turns lid-close sleep prevention on or off.
-    ///
-    /// `disablesleep` is not a per-source setting, so the `-a` selects nothing, and the key does
-    /// not appear in `man pmset` at all even though the whole feature rests on it.
+    /// `disablesleep` is not per-source so `-a` selects nothing; the key is absent from `man pmset`.
     public static func command(disabled: Bool) -> String {
         "\(pmsetPath) -a disablesleep \(disabled ? "1" : "0")"
     }
 
-    /// The two commands a correct rule grants, and the whole of what it grants.
     public static var grantedCommands: [String] {
         [command(disabled: true), command(disabled: false)]
     }
 
     // MARK: - Who the rule is for
 
-    /// Whether a name can be written into a sudoers rule as a user.
-    ///
-    /// Deliberately narrower than the set of legal account names: a sudoers line is a small
-    /// language, where a comma separates commands, `(`, `)` and `:` delimit the run-as part, `!`
-    /// negates, `\` escapes, and `#` starts a comment. A name holding any of those either produces
-    /// a file `visudo` refuses, which breaks `sudo` for the whole machine, or parses as something
-    /// with more reach than one user name.
+    /// Narrower than legal account names: sudoers treats `,` `(` `)` `:` `!` `\` and `#` as syntax, and such a name breaks `sudo` machine-wide or parses as wider reach.
     public static func isValidUserName(_ name: String) -> Bool {
-        // `ALL` passes the character filter and is a sudoers keyword rather than a person:
-        // `ALL ALL=(root) NOPASSWD: ...` would grant those commands to every account on the machine.
-        // Rejected case-insensitively, because sudoers reads its keywords that way.
+        // `ALL` is a sudoers keyword (case-insensitive) and would grant the commands to every account.
         guard name.uppercased() != "ALL" else { return false }
 
         guard let first = name.first, first.isLetter || first.isNumber || first == "_" else {
@@ -53,10 +33,7 @@ public enum LidCloseSleep {
         }
     }
 
-    /// What can go wrong while composing the rule.
     public enum RuleError: Error, Equatable, LocalizedError {
-        /// The account name cannot be written into a sudoers rule. Carries the name so the message
-        /// can show it.
         case unusableUserName(String)
 
         public var errorDescription: String? {
@@ -69,11 +46,7 @@ public enum LidCloseSleep {
 
     // MARK: - The sudoers file
 
-    /// The exact contents of the drop-in.
-    ///
-    /// `NOPASSWD:` on commands that carry their arguments: `sudo` matches a rule's arguments as
-    /// well as its program, so this grants the two `pmset` commands and no other use of `pmset`.
-    /// The run-as is `root` rather than `ALL`, so the rule cannot be spent on another account.
+    /// `sudo` matches arguments as well as the program, so this grants only the two `pmset` commands. Run-as is `root`, not `ALL`.
     public static func sudoersFileText(user: String) throws -> String {
         guard isValidUserName(user) else { throw RuleError.unusableUserName(user) }
         return """
@@ -93,16 +66,8 @@ public enum LidCloseSleep {
 
     // MARK: - The scripts
 
-    /// The shell script the administrator prompt runs to install the rule.
-    ///
-    /// Every step is fatal, because a sudoers file with a syntax error breaks `sudo` for the whole
-    /// machine and the repair is a Recovery boot. So the text is written elsewhere first, checked
-    /// by `visudo`, then moved in by an atomic rename.
-    ///
-    /// The dot in the staging name is load-bearing: `sudo` ignores every file in an include
-    /// directory whose name contains a `.`, so a process killed before the rename leaves a file
-    /// `sudo` will not read. Staging in `/etc/sudoers.d` rather than `/tmp` keeps the rename on one
-    /// filesystem.
+    /// Every step is fatal: a sudoers syntax error breaks `sudo` machine-wide and the repair is a Recovery boot. So write elsewhere, check with `visudo`, then rename atomically.
+    /// The dot in the staging name is load-bearing: `sudo` ignores such files, so a kill before the rename leaves nothing it reads. Staging in `/etc/sudoers.d` keeps the rename on one filesystem.
     public static func installScript(user: String) throws -> String {
         let text = try sudoersFileText(user: user)
         return """
@@ -117,11 +82,7 @@ public enum LidCloseSleep {
         """
     }
 
-    /// The shell script the administrator prompt runs to take the rule away again.
-    ///
-    /// Sleep first, then the file: the rule is what lets this app turn the setting off later, so
-    /// removing it while `disablesleep` is still 1 would leave a Mac that will not sleep and
-    /// nothing left to undo it.
+    /// Sleep first, then the file: removing the rule while `disablesleep` is 1 would leave a Mac that will not sleep and nothing to undo it.
     public static func removeScript() -> String {
         """
         set -e
@@ -130,19 +91,12 @@ public enum LidCloseSleep {
         """
     }
 
-    /// An AppleScript that runs a shell script as the administrator.
-    ///
-    /// `do shell script ... with administrator privileges` is the only route to root that ships
-    /// with macOS, and it puts up the system's own authentication dialog. The prompt is passed
-    /// rather than left to the default, which does not say which changes are being made.
+    /// The prompt is passed explicitly because the default does not say which changes are being made.
     public static func administratorScript(shellScript: String, prompt: String) -> String {
         "do shell script \(appleScriptLiteral(shellScript)) with administrator privileges with prompt \(appleScriptLiteral(prompt))"
     }
 
-    /// A string written the way an AppleScript literal holds it.
-    ///
-    /// The shell script inside it holds backslashes of its own from ``quoted(_:)``, and getting
-    /// this wrong runs a different script as root.
+    /// The inner shell script holds backslashes from ``quoted(_:)``; getting this wrong runs a different script as root.
     public static func appleScriptLiteral(_ text: String) -> String {
         var escaped = ""
         for character in text {
@@ -158,31 +112,21 @@ public enum LidCloseSleep {
         return "\"\(escaped)\""
     }
 
-    /// A string written the way a shell reads it back as one word.
-    ///
-    /// The same rule the app's terminals use (see ``ShellPath/quoted(_:)``), repeated rather than
-    /// imported because this one is on the other side of a root prompt.
+    /// Same rule as ``ShellPath/quoted(_:)``, repeated because this one is on the other side of a root prompt.
     public static func quoted(_ text: String) -> String {
         "'" + text.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     // MARK: - Reading the machine
 
-    /// What `SleepDisabled` says in `pmset -g`.
     public enum SleepDisabledState: Equatable, Sendable {
-        /// `SleepDisabled 1`: this Mac will not sleep on a closed lid.
         case on
-        /// `SleepDisabled 0`: it will.
         case off
-        /// The line was absent or printed something this does not understand. A third answer rather
-        /// than a guess: reading a 1 as "off" would leave a Mac unable to sleep.
+        /// A third answer rather than a guess: reading an unparseable line as off would leave a Mac unable to sleep.
         case unknown
     }
 
-    /// Reads `SleepDisabled` out of `pmset -g`.
-    ///
-    /// Matched on the key, in the first column, because the output also carries lines like
-    /// `sleep 0 (sleep prevented by ...)`.
+    /// Matched on the key in the first column: the output also has lines like `sleep 0 (sleep prevented by ...)`.
     public static func sleepDisabledState(inPMSetOutput output: String) -> SleepDisabledState {
         for line in output.split(separator: "\n") {
             let fields = line.split(whereSeparator: \.isWhitespace)
@@ -196,12 +140,10 @@ public enum LidCloseSleep {
         return .unknown
     }
 
-    /// Which of the two commands `sudo -n -l` says may be run without a password.
     public struct Grants: Equatable, Sendable {
         public var disablesSleepOn: Bool
         public var disablesSleepOff: Bool
 
-        /// Whether the drop-in is in place and doing its job.
         public var coversBoth: Bool { disablesSleepOn && disablesSleepOff }
 
         public init(disablesSleepOn: Bool = false, disablesSleepOff: Bool = false) {
@@ -210,11 +152,7 @@ public enum LidCloseSleep {
         }
     }
 
-    /// Reads the two commands out of the listing `sudo -n -l` prints.
-    ///
-    /// Asked of `sudo` rather than of the disk: the file cannot be read without being root, and the
-    /// question is not "is there a file at that path" but "does `sudo` honour it". The listing wraps
-    /// long command lists between arguments, so lines that do not begin an entry are joined on.
+    /// Asked of `sudo`, not the disk: the file is unreadable without root and the question is whether `sudo` honours it. Wrapped listing lines are joined.
     public static func grants(inSudoListing listing: String) -> Grants {
         var granted = Grants()
         for entry in sudoEntries(in: listing) {
@@ -228,8 +166,7 @@ public enum LidCloseSleep {
         return granted
     }
 
-    /// The listing split into one string per rule, with each rule's wrapped lines joined. An entry
-    /// begins with a run-as specification in brackets; anything else is a continuation.
+    /// An entry begins with a bracketed run-as specification; anything else is a continuation.
     private static func sudoEntries(in listing: String) -> [String] {
         var entries: [String] = []
         for line in listing.split(separator: "\n") {
@@ -246,41 +183,21 @@ public enum LidCloseSleep {
 
     // MARK: - The repeating schedule
 
-    /// The weekdays a repeating schedule covers: every day, because what the user sets here is
-    /// hours rather than days.
     public static let scheduleWeekdays = "MTWRFSU"
 
-    /// The command that wakes this Mac at `hour` every day.
-    ///
-    /// **Firmware, not a helper.** macOS powers a sleeping Mac back on at a time written into its
-    /// own schedule, and that is the one route to being reachable that needs nothing on the network:
-    /// wake-on-LAN is a broadcast to a LAN, and a phone arriving over the relay is not on one. It is
-    /// the same `pmset` and the same one-time administrator prompt as everything else here, and it
-    /// is set once rather than held.
+    /// **Firmware, not a helper.** A scheduled power-on is the one route to being reachable that needs nothing on the network: wake-on-LAN is a LAN broadcast and a relayed phone is not on one.
     public static func wakeCommand(hour: Int) -> String {
         "\(pmsetPath) repeat wakeorpoweron \(scheduleWeekdays) \(hourString(hour))"
     }
 
-    /// The command that takes the repeating schedule away.
-    ///
-    /// `cancel` rather than an empty schedule: `pmset repeat` replaces the pair it is given, and
-    /// there is no argument that means "nothing".
+    /// `cancel`, because `pmset repeat` replaces the pair it is given and no argument means nothing.
     public static let cancelScheduleCommand = "\(pmsetPath) repeat cancel"
 
-    /// `HH:00:00`, which is the shape `pmset` takes a time in.
     public static func hourString(_ hour: Int) -> String {
         String(format: "%02d:00:00", max(0, min(23, hour)))
     }
 
-    /// The lines of `pmset -g sched` that are not one of the system's own alarms, trimmed.
-    ///
-    /// **Kept as lines, because the format is not worth parsing.** An ordinary Mac lists a handful
-    /// of one-off alarms belonging to Apple's daemons, and a repeating schedule sits among them,
-    /// and `pmset` prints `com.apple.` as the owner of the first kind. Filtering on that is enough
-    /// to show somebody what they are about to replace, and it makes no claim about a line it does
-    /// not recognise: anything that is not the system's is offered as written.
-    ///
-    /// The header line comes off with them, since it is not an event.
+    /// **Kept as lines, because the format is not worth parsing.** Filters out `com.apple.` owners; anything unrecognised is offered as written. The header line comes off too.
     public static func otherScheduledEvents(inSchedOutput output: String) -> [String] {
         output.split(separator: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -293,16 +210,7 @@ public enum LidCloseSleep {
 
     // MARK: - The system's own idle-sleep timer
 
-    /// The `sleep` setting out of `pmset -g`, in minutes, or `nil` when the line is not there.
-    ///
-    /// **`0` means never, and that is a setting rather than a reading.** Energy Saver's "Prevent
-    /// automatic sleeping when the display is off" writes it, and nothing in this app did. It
-    /// matters to every other part of this file, because a Mac told never to idle-sleep does not
-    /// sleep when the last assertion lets go: the schedule would run, report success, and change
-    /// nothing anybody could see.
-    ///
-    /// The parenthetical is ignored: `sleep 0 (sleep prevented by …)` names the assertions, and the
-    /// number before it is the setting either way.
+    /// **`0` means never, and that is a setting rather than a reading.** A Mac told never to idle-sleep does not sleep when the last assertion lets go, so the schedule would run and change nothing visible. The parenthetical is ignored: the number before it is the setting.
     public static func idleSleepMinutes(inPMSetOutput output: String) -> Int? {
         for line in output.split(separator: "\n") {
             let fields = line.split(whereSeparator: \.isWhitespace)
@@ -314,24 +222,16 @@ public enum LidCloseSleep {
 
     // MARK: - The battery
 
-    /// What `pmset -g batt` says about where the power is coming from.
     public enum BatteryState: Equatable, Sendable {
         case onBattery(percent: Int?)
         case onPower(percent: Int?)
-        /// Neither line was there, or neither said anything this understands.
         case unknown
     }
 
-    /// The level at which this feature gives up and lets the Mac sleep: the same threshold the only
-    /// other implementation of this on the machine uses.
+    /// The level at which this feature gives up and lets the Mac sleep.
     public static let batteryFloor = 10
 
-    /// Reads the power source and the charge out of `pmset -g batt`.
-    ///
-    /// The source and the percentage are read separately, because they fail separately: a desktop
-    /// Mac prints the source line and no battery line at all, which is a Mac on power with no
-    /// number rather than one whose state could not be determined. The percentage is the digits
-    /// immediately before a `%`.
+    /// Source and percentage are read separately because they fail separately: a desktop prints a source line and no battery line, which is power with no number, not an unknown state.
     public static func batteryState(inPMBattOutput output: String) -> BatteryState {
         let lines = output.split(separator: "\n", omittingEmptySubsequences: false)
 
@@ -361,11 +261,7 @@ public enum LidCloseSleep {
         }
     }
 
-    /// Whether the battery has fallen far enough that keeping the Mac up is the wrong trade.
-    ///
-    /// The one rail that fires while the machine is on its way down: sleep disabled means the Mac
-    /// runs at full draw until the battery is flat, and the Mac most likely to be in that state is
-    /// shut in a bag with nobody watching. Only on battery, with a number.
+    /// Fires while the machine is on its way down: with sleep disabled a Mac shut in a bag runs at full draw until flat. Only on battery, with a number.
     public static func batteryIsLow(_ state: BatteryState) -> Bool {
         guard case .onBattery(let percent) = state, let percent else { return false }
         return percent <= batteryFloor
@@ -373,33 +269,15 @@ public enum LidCloseSleep {
 
     // MARK: - What to do at launch
 
-    /// What a launch should do about a setting that outlives the process.
     public enum LaunchAction: Equatable, Sendable {
-        /// We turned it on, the switch is off now: turn the machine back on with it.
         case restore
-        /// The switch is on and the machine has lost the setting: turn it on again.
         case reapply
-        /// On, wanted, and ours. Nothing to do.
         case keep
-        /// On, and not ours. Leave it alone and say so.
         case leaveAlone
-        /// Nothing to do.
         case none
     }
 
-    /// What to do about `disablesleep` at launch, given what the machine says and what this app
-    /// remembers.
-    ///
-    /// A crash cannot run cleanup code, and `disablesleep` survives a crash, so the state a host
-    /// wakes up to is not necessarily the state it went to sleep with. A machine with sleep
-    /// disabled and no marker of ours is somebody else's doing, so it is reported rather than acted
-    /// on, and the marker is also what makes the quit-time restore safe.
-    /// Whether the marker should be dropped, given what the machine reads.
-    ///
-    /// The marker is a claim about a setting that may no longer be there: a crash or force quit
-    /// skips the paths that clear it, and a stale `true` would let the next launch read "on, and
-    /// ours" and the quit path turn somebody else's setting off. Not `.unknown`: "we could not
-    /// tell" is not "it is off".
+    /// A stale `true` marker would make the next launch read "on, and ours" and the quit path turn somebody else's setting off. Not `.unknown`: unknown is not off.
     public static func shouldForgetOwnership(systemState: SleepDisabledState) -> Bool {
         systemState == .off
     }
@@ -414,9 +292,7 @@ public enum LidCloseSleep {
             guard setByThisApp else { return .leaveAlone }
             return isPreferred ? .keep : .restore
         case .off:
-            // Regardless of the marker: a clean quit turns the machine back off while leaving the
-            // switch on, so without this, reopening the app would show a switch that is on and a
-            // Mac that sleeps on the next closed lid.
+            // Regardless of the marker: a clean quit turns the machine off while leaving the switch on, so reopening would otherwise show a switch on and a Mac that sleeps.
             return isPreferred ? .reapply : .none
         case .unknown:
             return .none

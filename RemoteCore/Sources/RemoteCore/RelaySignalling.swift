@@ -16,7 +16,6 @@ public enum RelaySignallingError: LocalizedError, Sendable, Equatable {
     }
 }
 
-/// One JSON-over-WebSocket signalling connection to `peeringd`.
 public final class RelaySignallingConnection: @unchecked Sendable {
     private let task: URLSessionWebSocketTask
 
@@ -47,16 +46,6 @@ public final class RelaySignallingConnection: @unchecked Sendable {
         task.cancel(with: .goingAway, reason: nil)
     }
 
-    /// Opens the short-lived phone-side signalling conversation and returns the allocated session.
-    ///
-    /// `entitlement` is what this device has bought and what it can prove: the relay takes the
-    /// allowance from a verifying receipt, or from the claimed plan when there is none, so an empty
-    /// entitlement is the free allowance.
-    ///
-    /// `clientProof` is this device signing for the ID it is announcing, which is what the relay
-    /// meters relay time against when present: the announced ID starts over on a reinstall and the
-    /// key it was signed with does not. See
-    /// ``RelayDeviceProof/makeClientProof(clientID:identity:now:)``.
     public static func requestSession(
         at url: URL,
         hostID: String,
@@ -84,28 +73,16 @@ public final class RelaySignallingConnection: @unchecked Sendable {
                 case .hostOffline(let id): throw RelaySignallingError.hostOffline(id)
                 case .error(let code, let message): throw RelaySignallingError.refused(code: code, message: message)
                 case .pong, .registered: continue
-                // Never sent unsolicited, and never in answer to a session request. Ignored rather
-                // than refused: this conversation ends the moment `sessionReady` arrives, so a
-                // message with more to say than this client asked for is no reason to lose it.
                 case .peerAddress, .hostPresence: continue
                 }
             }
         } onCancel: {
-            // `URLSessionWebSocketTask.receive()` waits on Foundation rather than on a Swift
-            // suspension point that cancellation resumes, so the socket is closed explicitly to
-            // wake that receive and run the defer above.
+            // `receive()` ignores cancellation, so the socket is closed explicitly to wake it.
             connection.cancel()
         }
     }
 
-    /// Asks the relay which of these Macs are registered right now.
-    ///
-    /// One connection for the whole list, since this is a poll. Answers are matched by the `hostId`
-    /// the relay echoes, not by the order they arrive in.
-    ///
-    /// A Mac that was asked about and never answered is absent from the result, which is the third
-    /// state and the reason this returns a dictionary rather than a set. Nothing is thrown when the
-    /// relay cannot be reached at all, since a phone that is offline has learned nothing.
+    /// A Mac that never answered is absent from the result (a dictionary, not a set, for that third state).
     /// - Returns: `(presence, reachable)` where `reachable` is `true` when at least one round-trip
     ///   completed, distinguishing "relay down" from "relay up but Mac not registered".
     public static func hostPresence(
@@ -126,10 +103,7 @@ public final class RelaySignallingConnection: @unchecked Sendable {
                     try await connection.send(.hostPresence(hostID: hostID))
                 }
 
-                // Bounded by the questions asked plus room for the `pong` or `registered` that can
-                // arrive alongside them, so a relay answering with something unexpected cannot spin
-                // here. An older relay does not know the message and answers with an error, which
-                // leaves the whole list unknown.
+                // Bounded so an unexpected relay reply cannot spin here; an older relay answers an error, leaving every Mac unknown.
                 var outstanding = Set(hostIDs)
                 for _ in 0..<(hostIDs.count * 2 + 4) where !outstanding.isEmpty {
                     try Task.checkCancellation()
@@ -154,14 +128,7 @@ public final class RelaySignallingConnection: @unchecked Sendable {
         }
     }
 
-    /// Asks the relay where the other end of this session is, until it answers or gives up.
-    ///
-    /// Being told the peer has not been heard from yet is an ordinary answer rather than a failure:
-    /// the first ask usually gets it, because the peer's bind datagram is still in flight. So this
-    /// asks again, and `nil` means only that the asking ran out, which both callers treat as "stay
-    /// on the relay".
-    ///
-    /// One connection for the whole conversation rather than one per ask.
+    /// `nil` means only that the asking ran out. A peer not yet heard from is the ordinary first answer, so it asks again.
     public static func discoverPeer(
         at url: URL,
         videoToken: Data,
@@ -175,8 +142,7 @@ public final class RelaySignallingConnection: @unchecked Sendable {
 
             for attempt in 0..<max(1, attempts) {
                 try Task.checkCancellation()
-                // Read before sleeping, so the first answer, which is often already waiting, is
-                // returned without a delay that exists only to space out retries.
+                // Read before sleeping so an already-waiting answer is not delayed.
                 switch try await connection.receive() {
                 case .peerAddress(let address): return address
                 case .error(let code, _) where code == "peerAddressUnknown":
@@ -185,8 +151,6 @@ public final class RelaySignallingConnection: @unchecked Sendable {
                 case .error(let code, let message):
                     throw RelaySignallingError.refused(code: code, message: message)
                 case .pong, .registered: continue
-                // A presence answer this conversation did not ask for. Ignored: a relay with more
-                // to say than this client asked is no reason to give up on the direct path.
                 case .hostPresence: continue
                 case .sessionReady, .hostOffline:
                     throw RelaySignallingError.unexpectedResponse

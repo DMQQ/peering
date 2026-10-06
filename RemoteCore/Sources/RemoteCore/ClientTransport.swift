@@ -5,21 +5,16 @@ import os
 
 private let transportLog = Logger(subsystem: "pl.dmq.peering", category: "client")
 
-/// Where a client keeps the hosts it has paired with.
+/// Where a client keeps the hosts it has paired with, keyed by the host's `serverID`.
 ///
-/// The same trust store as the host's ``PinStore``, except that on iOS the item is written
-/// `…ThisDeviceOnly`: a pin restored onto a different device would hand this device's trust to
-/// whoever restored the backup, so it is kept out of iCloud Keychain and encrypted backups.
-///
-/// Keys are the host's `serverID` (its Bonjour device ID), stable across networks and DHCP leases.
+/// On iOS the item is `…ThisDeviceOnly`: a pin restored onto a different device would hand this
+/// device's trust to whoever restored the backup.
 public final class ClientPinStore: @unchecked Sendable {
     private let lock = NSLock()
     private let service: String
     private let account: String
     private var pins: [String: Data]
 
-    /// The store the app uses. Tests and tooling make a separate instance, so a probe run cannot
-    /// disturb what the real client believes.
     public static let standard = ClientPinStore(service: "pl.dmq.peering.client.pins")
 
     public init(service: String, account: String = "paired-hosts") {
@@ -33,8 +28,6 @@ public final class ClientPinStore: @unchecked Sendable {
 
     public func pin(for hostID: String) -> Data? { lock.withLock { pins[hostID] } }
 
-    /// Whether any paired host matches this public key, for recognising a Mac whose ID changed
-    /// rather than silently treating it as a stranger.
     public func contains(publicKey: Data) -> Bool {
         lock.withLock { pins.values.contains { SPKI.matches($0, publicKey) } }
     }
@@ -74,8 +67,6 @@ public final class ClientPinStore: @unchecked Sendable {
         }
     }
 
-    /// `…ThisDeviceOnly` on iOS, per the reasoning in the type comment; macOS keeps its existing
-    /// item class, where the data-protection keychain behaves differently.
     private static var accessibility: CFString {
         #if os(iOS)
         return kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
@@ -149,20 +140,14 @@ public final class ClientPinStore: @unchecked Sendable {
 
 /// One framed TLS connection to a host, in either role.
 ///
-/// The client's counterpart to the host's `PeerConnection`, and the same shape on purpose: frames in
-/// through a callback, frames out through a queue, and a decoder that makes no assumption about how
-/// TCP splits them.
-///
-/// Deliberately not an actor: both connections run off the network, on their own queues, and the app
-/// target defaults to `MainActor` isolation, where a video frame arriving on the main thread is a
-/// stutter in the UI that is trying to draw it.
+/// Deliberately not an actor: the app target defaults to `MainActor` isolation, and a video frame
+/// arriving on the main thread is a stutter in the UI that is trying to draw it.
 public final class ClientConnection: @unchecked Sendable {
     public enum Failure: LocalizedError, Sendable, Equatable {
         case invalidPort(UInt16)
         case timedOut(TimeInterval)
         case cancelled
         case hostClosed
-        /// The host sent an `error` frame and then closed. Carries its explanation.
         case refused(String)
         case transport(String)
 
@@ -206,22 +191,17 @@ public final class ClientConnection: @unchecked Sendable {
         set { lock.withLock { _onFrame = newValue } }
     }
 
-    /// Invoked once, when the connection ends for any reason.
     public var onClose: (@Sendable (Failure) -> Void)? {
         get { lock.withLock { _onClose } }
         set { lock.withLock { _onClose = newValue } }
     }
 
-    /// The host's identity key as observed in its TLS certificate. `nil` until the handshake
-    /// completes; for a first pairing this is the value the SAS comparison authenticates.
     public var observedServerKey: Data? { lock.withLock { _observedServerKey } }
 
     public var negotiatedTLSVersion: String { lock.withLock { _tlsVersion } }
 
-    /// The address this connection was made to.
-    ///
-    /// Read back from the connection so the second socket goes to exactly the same place: a Bonjour
-    /// endpoint carries the interface the host was discovered on, which resolving it would lose.
+/// The address this connection was made to. A Bonjour endpoint carries the interface the host was
+/// discovered on, which resolving it would lose.
     public var currentEndpoint: NWEndpoint? { connection?.endpoint }
 
     public init(label: String) {
@@ -230,9 +210,6 @@ public final class ClientConnection: @unchecked Sendable {
 
     // MARK: - Connect
 
-    /// Connects to a host found over Bonjour.
-    ///
-    /// Preferred over host/port: the endpoint carries the interface the host was discovered on.
     public func connect(
         to endpoint: NWEndpoint,
         identity: SelfSignedIdentity,
@@ -256,8 +233,6 @@ public final class ClientConnection: @unchecked Sendable {
         try await start(NWConnection(to: endpoint, using: parameters), timeout: timeout)
     }
 
-    /// Connects to a literal address. The simulator path, and the fallback when Bonjour is
-    /// unavailable, which on iOS is the common case rather than the exotic one.
     public func connect(
         host: String,
         port: UInt16,
@@ -289,12 +264,8 @@ public final class ClientConnection: @unchecked Sendable {
     private func start(_ connection: NWConnection, timeout: TimeInterval) async throws {
         self.connection = connection
 
-        // The connect deadline, armed before the connection is started. Without it a host that
-        // accepts the socket and then never speaks parks the UI on "connecting" indefinitely.
-        //
-        // Armed here rather than after the handshake below completes: a host on the same machine
-        // reaches `.ready` while `connection.start` is still on the stack, so a timer created
-        // afterwards would fire `timeout` seconds into a healthy session.
+// The connect deadline is armed before the connection starts: a host on the same machine reaches
+// `.ready` while `connection.start` is still on the stack, so a later timer would fire into a healthy session.
         let handle = Task { [weak self] in
             try? await Task.sleep(for: .seconds(timeout))
             guard !Task.isCancelled else { return }
@@ -355,8 +326,6 @@ public final class ClientConnection: @unchecked Sendable {
         connection?.cancel()
     }
 
-    /// Disarms the connect deadline. Takes the task under the lock and clears the slot, so a
-    /// deadline can never be cancelled twice or left behind for the next connect attempt.
     private func cancelTimeout() {
         let handle = lock.withLock { () -> Task<Void, Never>? in
             let task = timeoutTask
@@ -368,16 +337,12 @@ public final class ClientConnection: @unchecked Sendable {
 
     // MARK: - Send
 
-    /// Sends one frame. Ordering is the transport's, and it is preserved: Network.framework
-    /// queues sends on the connection and writes them in the order they were handed over.
     public func send(_ frame: Frame) {
         guard let connection else { return }
         connection.send(content: FrameEncoder.encode(frame), completion: .contentProcessed { _ in })
     }
 
-    /// Encodes and sends a command on the control channel. A failure to encode is a programming
-    /// error, not a network condition, so it is logged rather than thrown: there is no useful
-    /// recovery a caller could perform mid-gesture.
+/// Encodes and sends a command. An encode failure is a programming error, so it is logged, not thrown.
     public func send(_ command: RemoteCommand) {
         do {
             send(Frame(kind: .command, payload: try MessageCodec.encode(command)))
@@ -494,8 +459,6 @@ public final class ClientConnection: @unchecked Sendable {
 
 /// Rate-limits and merges outgoing commands so a 120 Hz touch stream does not flood the link.
 ///
-/// The rules come from ``RemoteCommand/coalescing``:
-///
 /// - Absolute positions (`.mouseMove`) are superseded by a newer sample and replaced in place, the
 ///   original slot being kept so a coalesced move cannot jump ahead of an already-queued command.
 /// - Relative deltas (`.joystickMove`, `.scroll`) are summed, never dropped, or a fast flick would
@@ -506,7 +469,6 @@ public final class ClientConnection: @unchecked Sendable {
 /// nothing has been sent for a full interval goes out immediately, without which a single tap would
 /// wait up to 16 ms before its cursor move left.
 public final class CommandCoalescer: @unchecked Sendable {
-    /// The floor between two sends of *coalescable* commands, in seconds.
     public let interval: TimeInterval
 
     private let lock = NSLock()
@@ -529,14 +491,8 @@ public final class CommandCoalescer: @unchecked Sendable {
 
     deinit { timer?.cancel() }
 
-    /// Arms the trailing-edge timer, if there is anything for it to send.
-    ///
-    /// A timer with an empty queue is a wake-up that does nothing, sixty times a second for the whole
-    /// life of a session, and with several sessions open that is multiplied by the number of Macs.
-    /// ``enqueue(_:)`` arms it, ``flush()`` disarms it once the queue comes back empty, and this
-    /// refuses to arm an empty one.
-    ///
-    /// Idempotent, so it can be called on every reconnect and on every enqueue.
+/// Arms the trailing-edge timer, if there is anything for it to send. A timer with an empty queue
+/// is a pointless 60 Hz wake-up for the life of a session. Idempotent.
     public func start() {
         lock.lock()
         guard timer == nil else { lock.unlock(); return }
@@ -559,10 +515,6 @@ public final class CommandCoalescer: @unchecked Sendable {
         source?.cancel()
     }
 
-    /// Whether the trailing-edge timer is running.
-    ///
-    /// Exposed for the test holding ``start()``'s rule down, which is about a wake-up that does not
-    /// happen: an idle session that arms a timer every 16.6 ms looks exactly like one that does not.
     public var isArmed: Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -572,22 +524,16 @@ public final class CommandCoalescer: @unchecked Sendable {
     public func enqueue(_ command: RemoteCommand) {
         lock.lock()
         insert(command)
-        // The leading edge: send now if enough time has passed, or if this command may not
-        // be merged or delayed at all. Otherwise the timer will pick it up.
         let due = command.coalescing == .none || now() - lastFlush >= interval
         let batch = due ? drain() : []
         let waiting = !pending.isEmpty
         lock.unlock()
 
         for item in batch { sink(item) }
-        // Armed after the leading edge, so a command that went out immediately does not start a timer
-        // to look for something that is no longer there.
         if waiting { start() }
     }
 
-    /// Sends whatever is pending. Called by the timer, and by a caller that needs the queue drained
-    /// before some out-of-band action. Disarms the timer when the queue comes back empty, the other
-    /// half of the rule above: an idle session should not be waking the CPU at all.
+/// Sends whatever is pending. Disarms the timer when the queue comes back empty.
     public func flush() {
         lock.lock()
         let batch = drain()
@@ -637,8 +583,6 @@ public final class CommandCoalescer: @unchecked Sendable {
         TimeInterval(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
     }
 
-    /// Whether two commands occupy the same slot in the queue and may be merged.
-    ///
     /// Case-level, not value-level: two `.mouseMove`s collapse, but a `.mouseMove` and a
     /// `.joystickMove` are different channels of control and must not.
     private static func sameShape(_ lhs: RemoteCommand, _ rhs: RemoteCommand) -> Bool {

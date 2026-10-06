@@ -2,13 +2,7 @@ import RemoteCore
 import XCTest
 @testable import MacCastKit
 
-/// The picker's one grouping, and the cases that make it more than a sort.
-///
-/// Everything here is a catalogue the host could actually send, and the ones worth having are the
-/// mismatches: a window whose application is not offered, an application with no windows, a
-/// process with no bundle identifier to match on. Those are the shapes where a grouping drops
-/// something quietly, and a picker that has lost a window looks exactly like a Mac with fewer
-/// windows.
+/// The picker's grouping and the mismatches where it could drop a window quietly.
 final class SourceGroupingTests: XCTestCase {
     private func application(
         _ title: String, bundle: String?, pid: Int32 = 1
@@ -51,15 +45,11 @@ final class SourceGroupingTests: XCTestCase {
         XCTAssertEqual(groups.map(\.title), ["Safari", "Xcode"])
         XCTAssertEqual(groups[0].windows.map(\.title), ["Docs", "News"])
         XCTAssertEqual(groups[1].windows.map(\.title), ["ContentView.swift"])
-        // The group carries the application's own row, which is what makes its heading tappable
-        // as the whole application.
         XCTAssertEqual(groups[0].application?.source, .application(10))
     }
 
     func testAWindowWhoseApplicationIsNotOfferedIsStillShown() {
-        // The catalogue can produce this: the host filters its application list for surfaces it
-        // will not name, and its window list is filtered on different terms. A grouping that
-        // dropped the window would hide something the Mac is willing to capture.
+        // The host filters apps and windows on different terms; dropping the window would hide something capturable.
         let groups = SourceGrouping.applicationGroups(
             applications: [application("Safari", bundle: "com.apple.Safari", pid: 10)],
             windows: [
@@ -75,8 +65,7 @@ final class SourceGroupingTests: XCTestCase {
     }
 
     func testAnApplicationWithNoWindowsGetsNoSection() {
-        // It could not be captured anyway — the host refuses an application with no windows on
-        // any display — so a heading over an empty grid would be a row that cannot work.
+        // The host refuses an application with no windows, so an empty heading could not work.
         let groups = SourceGrouping.applicationGroups(
             applications: [
                 application("Safari", bundle: "com.apple.Safari", pid: 10),
@@ -89,8 +78,7 @@ final class SourceGroupingTests: XCTestCase {
     }
 
     func testAProcessWithNoBundleIdentifierIsMatchedByName() {
-        // Which is the fallback the host itself uses when it decides two rows are the same
-        // application, so the two ends group identically.
+        // The host's own fallback when it decides two rows are the same application.
         let groups = SourceGrouping.applicationGroups(
             applications: [application("Peering", bundle: nil, pid: 20)],
             windows: [window("Overlay", of: "Peering", bundle: nil, id: 7)]
@@ -102,8 +90,6 @@ final class SourceGroupingTests: XCTestCase {
     }
 
     func testAWindowWithNoOwnerAtAllStillLandsSomewhere() {
-        // Both fields the grouping matches on can be absent. The window is still offered by the
-        // catalogue, so it still gets a group; what it does not get is a name it was never given.
         let groups = SourceGrouping.applicationGroups(
             applications: [],
             windows: [
@@ -123,8 +109,7 @@ final class SourceGroupingTests: XCTestCase {
     }
 
     func testWindowsFromTwoApplicationsWithOneIdentifierDoNotMerge() {
-        // Matched on the bundle identifier, not on position or on arrival order: an application
-        // list that happens to be missing a row must not make the next one adopt its windows.
+        // Matched on bundle identifier, not position: a missing row must not make the next adopt its windows.
         let groups = SourceGrouping.applicationGroups(
             applications: [application("Second", bundle: "com.example.second", pid: 31)],
             windows: [

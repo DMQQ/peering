@@ -9,22 +9,14 @@ private let hostLog = Logger(subsystem: "pl.dmq.peering.host", category: "sessio
 // MARK: - Sessions
 
 extension HostModel {
-    /// A session that has begun and has not been written down as finished.
-    ///
-    /// Persisted as it goes, because a record written only at the end is lost whenever the end
-    /// never arrives: the host is quit, crashes, or is rebuilt while a phone is attached, which is
-    /// exactly the session someone would want to look up.
+    /// Persisted as it goes: a session whose end never arrives (quit, crash, rebuild) is the one worth looking up.
     struct OpenSession: Codable {
         var deviceName: String
         var started: Date
-        /// The streamer's byte count when this session began. The count is cumulative and never
-        /// reset, so a session's cost is the difference between a later read and this.
+        /// Cumulative and never reset, so the session cost is a later read minus this.
         var bytesAtStart: Int
-        /// The last moment this session was known to be alive. Becomes its end time if no end ever
-        /// arrives, which is the honest answer: it was alive then, and nothing since.
+        /// Becomes the end time if no end ever arrives.
         var lastSeen: Date
-        /// Bytes counted as of ``lastSeen``. Kept current as the session runs rather than derived at
-        /// the end, because a session that never ends has no end to derive it from.
         var bytes: Int
     }
 
@@ -86,11 +78,7 @@ extension HostModel {
         hostLog.notice("session opened for \(id, privacy: .public)")
     }
 
-    /// Keeps the in-flight sessions' figures current.
-    ///
-    /// Called from the screen watch, which already ticks every two seconds while anybody is
-    /// attached. Written every thirtieth tick rather than every one, since this is `UserDefaults`
-    /// and a figure half a minute stale is worth more than a write per tick.
+    /// Written every thirtieth screen-watch tick: UserDefaults writes cost more than half-minute staleness.
     func touchOpenSessions() {
         guard !openSessions.isEmpty, let sent = coordinator?.streamStatistics.bytesSent else { return }
         let now = Date()
@@ -102,19 +90,10 @@ extension HostModel {
         saveOpenSessions()
     }
 
-    /// Watches whether the screen being streamed can be seen at all, and says so when it cannot.
-    ///
-    /// The failure is silent by construction: a sleeping display still produces a healthy stream,
-    /// frames on time and at full rate, every one of them black, so from the phone it is
-    /// indistinguishable from a broken camera.
-    ///
-    /// Only ever about a display. An application or a window is drawn by the window server whether
-    /// or not a panel is lit, so a picture of one is real with every screen dark.
+    /// The failure is silent: a sleeping display still streams healthy black frames. Only about displays; an application or window renders regardless of panel power.
     func screenNotice() -> NoticePayload? {
         if Self.isScreenLocked {
-            // Said on a display too: locking there often sleeps it (the power button always does),
-            // and a black picture with no caption reads as a broken stream. The phone hides the
-            // caption once Unlock has put the keyboard up on that display.
+            // Said on a display too: locking often sleeps it, and a black picture with no caption reads as a broken stream.
             if case .display(let id)? = capturingSource {
                 return NoticePayload(message: "This Mac is locked.", symbol: "lock.fill", lockedDisplayID: id)
             }
@@ -126,10 +105,7 @@ extension HostModel {
         }
         guard case .display(let id)? = capturingSource else { return nil }
 
-        // Gone rather than dark: `online` separates the two. A sleeping display is still connected,
-        // while a lid shut with no external screen leaves nothing to have a picture of at all. Both
-        // arrive at the phone as black and they are not the same problem, since one is a tap away
-        // from fixed and the other needs a different source.
+        // Gone rather than dark: online separates a sleeping display (a tap away) from a shut lid with no external screen.
         if CGDisplayIsOnline(id) == 0 {
             return NoticePayload(
                 message: "That display is no longer connected. Choose another from Sources.",
@@ -145,36 +121,20 @@ extension HostModel {
         return nil
     }
 
-    /// Whether the login session is locked: the lock screen, or the screen saver with a password.
     static var isScreenLocked: Bool {
         guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
         return session["CGSSessionScreenIsLocked"] as? Bool ?? false
     }
 
-    /// Tells whoever is attached why there is no picture, when the reason is one they cannot see
-    /// from where they are.
-    ///
-    /// The fresh-install failure, and silent on both ends: with Screen Recording not yet allowed,
-    /// macOS refuses the stream before a frame exists, so the window goes on saying the Mac is
-    /// serving and the phone goes on saying it is opening the video channel. The phone cannot work
-    /// it out, since a Mac that cannot capture and one with nothing to show look identical from
-    /// there, so the host is the only place the sentence can come from.
-    ///
-    /// Only for failures with something to say to the far end; ``CaptureError/clientNotice`` decides
-    /// which those are. Announced once per problem, not once per attempt, and the record is
-    /// per-process on purpose: a grant cannot take effect without a relaunch.
+    /// The fresh-install failure: without Screen Recording macOS refuses the stream silently on both ends, so only the host can say why. Announced once per problem; the record is per-process because a grant needs a relaunch.
     func announceCaptureProblem(_ error: CaptureError) {
         guard let notice = error.clientNotice, let message = notice.message else { return }
         guard message != announcedCaptureProblem else { return }
         announcedCaptureProblem = message
         server?.broadcastNotice(notice)
-        // The Mac's own activity list gets the line that says the other device was told.
         record("Told the connected device why there is no picture.", level: .warning)
     }
 
-    /// Runs ``screenNotice()`` while anyone is attached.
-    ///
-    /// Nobody attached means nobody to tell.
     func startScreenWatch() {
         guard screenWatchTask == nil else { return }
         screenWatchTask = Task { [weak self] in
@@ -184,14 +144,12 @@ extension HostModel {
             while !Task.isCancelled {
                 guard let self else { return }
 
-                // Every thirtieth tick of two seconds, so an abandoned session still has a
-                // believable end time and size rather than a zero.
+                // Every thirtieth tick, so an abandoned session has a believable end time.
                 ticks += 1
                 if ticks % 30 == 0 { self.touchOpenSessions() }
 
                 let notice = self.screenNotice()
-                // Also when a phone joins, since a notice is only sent on a change and the one
-                // that just connected never heard the last.
+                // Also when a phone joins: notices are sent only on change.
                 let clients = self.connectedClients.count
                 if notice != announced || clients != announcedTo {
                     let wasSayingSomething = announced?.message != nil
@@ -201,7 +159,6 @@ extension HostModel {
                     if let message = notice?.message {
                         self.record("Screen not visible · \(message)", level: .warning)
                     } else if wasSayingSomething {
-                        // It said so when the screen went dark, so it owes the all-clear.
                         self.record("Screen visible again")
                     }
                 }
@@ -254,11 +211,7 @@ extension HostModel {
         }
     }
 
-    /// Lights a display that went dark while nobody was connected.
-    ///
-    /// The assertion above only keeps a lit display lit. A Mac that slept its display overnight and
-    /// is awake enough to answer the network stays dark when a phone connects, and the picture is
-    /// black or absent until somebody touches it, which is the one thing a phone cannot do.
+    /// The assertion only keeps a lit display lit; a display slept overnight stays dark when a phone connects.
     func wakeDisplayIfAsleep() {
         guard CGDisplayIsAsleep(CGMainDisplayID()) != 0 else { return }
         var assertionID: IOPMAssertionID = 0
@@ -276,13 +229,7 @@ extension HostModel {
         sleepAssertionID = 0
     }
 
-    /// Held while a chat session is working, released when the last one stops.
-    ///
-    /// A different assertion from the session one above, and a different type: that one is about
-    /// keeping a *display* lit so capture has something to encode, and this one is about the
-    /// machine not going to sleep under a CLI the user left running. Idle sleep is what is being
-    /// refused here, which is what `caffeinate -i` takes; the lid-close switch is the user's own
-    /// preference and stays out of it.
+    /// Idle sleep only (caffeinate -i): the lid-close switch is the user own preference.
     func setAgentActivity(_ active: Bool) {
         if active {
             guard agentSleepAssertionID == 0 else { return }

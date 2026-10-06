@@ -4,7 +4,7 @@ import PackageDescription
 // RemoteCore is shared by the macOS host and the iOS client, so it may only use
 // frameworks present on both: Foundation, Crypto, Security, Network and CoreGraphics.
 // Anything macOS-only (ScreenCaptureKit, VideoToolbox, AppKit) belongs in the host
-// target — this module is compiled for iOS too, where those frameworks do not exist.
+// target; this module is compiled for iOS too, where those frameworks do not exist.
 //
 // swift-certificates is the one external dependency, and it is shared rather than
 // host-only because both sides mint a self-signed identity and pin the peer's SPKI.
