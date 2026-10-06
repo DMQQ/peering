@@ -22,6 +22,7 @@ struct AgentChatScreen: View {
     @State var answering: AgentApproval?
     /// A chat whose history never arrived (an older Mac), so it shows as empty instead of loading for ever.
     @State private var gaveUpLoading: UUID?
+    @State private var mentionExpanded = false
     @State var typingModelFor: UUID?
     @State var modelText = ""
     @State var showsAttachPicker = false
@@ -166,6 +167,41 @@ struct AgentChatScreen: View {
     }
 
     /// What was four header buttons, down by the composer where the thumb is: this chat's model and permissions as chips that say their current value, and the rest behind a menu.
+    /// A mention is only offered where the Mac's folders can be read: the same door the attachments use.
+    private func mentionQuery(_ session: RemoteAgentSession) -> MentionQuery? {
+        guard model.browserID != nil, model.hostSupportsFileBrowser else { return nil }
+        return MentionQuery(draft: drafts[session.id] ?? "")
+    }
+
+    /// Nil unless the message is one word starting with a slash.
+    private func slashItems(_ session: RemoteAgentSession) -> [SlashSuggestion]? {
+        guard let typed = AgentSlash.query(drafts[session.id] ?? "") else { return nil }
+        return AgentSlash.suggestions(
+            for: typed,
+            agentID: session.agentID,
+            project: session.directory,
+            offersUsage: model.hostSupportsAgentUsage,
+            offersModel: offersModelPicker(session),
+            listing: { path in model.browserID.flatMap { model.directory(path, sessionID: $0) } }
+        )
+    }
+
+    private func runSlash(_ item: SlashSuggestion, in session: RemoteAgentSession) {
+        guard item.kind == .app else {
+            drafts[session.id] = "/" + item.name + " "
+            return
+        }
+        drafts[session.id] = ""
+        mentionExpanded = false
+        switch item.name {
+        case "usage": showsUsage = true
+        case "model":
+            modelText = session.model ?? ""
+            typingModelFor = session.id
+        default: beginRename(session)
+        }
+    }
+
     private func optionsBar(_ session: RemoteAgentSession) -> some View {
         HStack(spacing: 8) {
             if offersModelPicker(session) {
@@ -353,15 +389,69 @@ struct AgentChatScreen: View {
             }
         }
         .animation(Motion.settle, value: session.transcript.isEmpty)
+        .animation(Motion.settle, value: mentionQuery(session) != nil)
+        .animation(Motion.settle, value: slashItems(session) != nil)
+        .onChange(of: mentionQuery(session) == nil && slashItems(session) == nil) { _, none in
+            if none { mentionExpanded = false }
+        }
+        .onChange(of: AgentSlash.query(drafts[session.id] ?? "") != nil, initial: true) { _, active in
+            guard active, let id = model.browserID else { return }
+            for folder in AgentSlash.folders(project: session.directory, agentID: session.agentID) {
+                model.listDirectory(folder, sessionID: id)
+            }
+        }
+        .onChange(of: mentionQuery(session)?.folder(in: session.directory), initial: true) { _, folder in
+            guard let folder, let id = model.browserID else { return }
+            model.listDirectory(folder, sessionID: id)
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
+                if mentionExpanded, let items = slashItems(session) {
+                    AgentSlashList(items: items) { runSlash($0, in: session) }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 6)
+                        .transition(.scale(scale: 0.9, anchor: .bottom).combined(with: .opacity).combined(with: .offset(y: 24)))
+                }
+                if mentionExpanded, let query = mentionQuery(session), let id = model.browserID {
+                    let folder = query.folder(in: session.directory)
+                    AgentMentionHints(
+                        query: query,
+                        project: session.directory,
+                        directory: model.directory(folder, sessionID: id),
+                        isLoading: model.isLoadingDirectory(folder, sessionID: id),
+                        failure: model.browseFailure(folder, sessionID: id)
+                    ) { path, isFolder in
+                        drafts[session.id] = query.replacing(in: drafts[session.id] ?? "", with: path, isFolder: isFolder)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+                    // Grows out of the row of chips under it.
+                    .transition(.scale(scale: 0.9, anchor: .bottom).combined(with: .opacity).combined(with: .offset(y: 24)))
+                }
                 if attaching != nil || !(attached[session.id] ?? []).isEmpty {
                     AgentAttachmentTray(items: attached[session.id] ?? [], uploading: attaching) { id in
                         attached[session.id]?.removeAll { $0.id == id }
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                optionsBar(session)
+                if let query = mentionQuery(session), let id = model.browserID {
+                    let folder = query.folder(in: session.directory)
+                    AgentMentionChips(
+                        query: query,
+                        directory: model.directory(folder, sessionID: id),
+                        isLoading: model.isLoadingDirectory(folder, sessionID: id),
+                        expanded: $mentionExpanded
+                    ) { path, isFolder in
+                        drafts[session.id] = query.replacing(in: drafts[session.id] ?? "", with: path, isFolder: isFolder)
+                    }
+                    .transition(.blurReplace)
+                } else if let items = slashItems(session) {
+                    AgentSlashChips(items: items, expanded: $mentionExpanded) { runSlash($0, in: session) }
+                        .transition(.blurReplace)
+                } else {
+                    optionsBar(session)
+                        .transition(.blurReplace)
+                }
                 AgentComposer(
                     text: draft,
                     isFocused: $composerFocused,
@@ -419,8 +509,8 @@ struct AgentChatScreen: View {
             session: session,
             compact: composerFocused
         ) { text in
-            drafts[session.id] = text
-            composerFocused = true
+            stickToBottom = true
+            model.sendAgentPrompt(text, to: session.id)
         }
     }
 
@@ -473,6 +563,12 @@ struct AgentChatScreen: View {
     }
 
     private func send(_ session: RemoteAgentSession) {
+        // Typed out in full and sent: the app answers its own commands instead of handing them to the CLI.
+        if let typed = AgentSlash.query(drafts[session.id] ?? ""),
+           let item = slashItems(session)?.first(where: { $0.kind == .app && $0.name == typed }) {
+            runSlash(item, in: session)
+            return
+        }
         // The files go first as `@path`, the CLIs' own way to read one; the transcript turns them back into chips.
         let mentions = (attached[session.id] ?? []).filter { $0.failure == nil }.map { "@" + $0.path }
         let text = (mentions + [drafts[session.id] ?? ""]).filter { !$0.isEmpty }.joined(separator: " ")
