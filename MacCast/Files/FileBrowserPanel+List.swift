@@ -49,12 +49,10 @@ extension FileBrowserPanel {
         } else if isFiltering, let directory, !directory.entries.isEmpty {
             // Asked before the loading branch: a filter that matched nothing is an answer about the folder, not a wait.
             state(symbol: "magnifyingglass", message: emptyMessage(directory), detail: hiddenHint(directory))
-        } else if isLoading {
-            state(symbol: "folder", message: "Reading…", detail: slowReadHint)
+        } else if isLoading || directory == nil {
+            readingState
         } else if let directory {
             state(symbol: "folder", message: emptyMessage(directory))
-        } else {
-            state(symbol: "folder", message: "Reading…", detail: slowReadHint)
         }
     }
 
@@ -74,8 +72,14 @@ extension FileBrowserPanel {
             : String(localized: "\(hidden.count) hidden files match. Show hidden files to see them.")
     }
 
-    var slowReadHint: String? {
-        waitingLongEnough ? waitingHint : nil
+    /// "Reading…" first, and once it has taken a while, a calm word about why: usually the Mac is waiting on a one-time macOS question that only someone at the Mac can answer.
+    @ViewBuilder
+    var readingState: some View {
+        if waitingLongEnough, let waitingHint {
+            state(symbol: "desktopcomputer", message: String(localized: "Waiting for your Mac"), detail: waitingHint)
+        } else {
+            state(symbol: "folder", message: "Reading…")
+        }
     }
 
     func progressLine(_ text: String) -> some View {

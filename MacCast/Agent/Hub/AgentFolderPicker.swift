@@ -81,12 +81,17 @@ struct AgentFolderPicker: View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(spacing: 0) {
                 if awaiting, let note = model.agentPicker.waitingNote {
-                    Text(note)
-                        .font(.footnote)
-                        .foregroundStyle(.white.opacity(0.6))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "desktopcomputer")
+                            .foregroundStyle(.secondary)
+                        Text(note)
+                            .foregroundStyle(.white.opacity(0.7))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .font(.footnote)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                     Controls.divider
                 }
                 if picker.path == nil, picker.isLoading {

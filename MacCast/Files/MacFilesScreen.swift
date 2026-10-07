@@ -99,7 +99,7 @@ struct MacFilesScreen: View {
                     onToggleHidden: { showsHiddenFiles.toggle() },
                     showsBreadcrumbs: false,
                     // The Mac blocks inside the listing call while macOS shows a Files-and-Folders prompt, and nothing of that reaches this phone, so the wait says what it is probably waiting for.
-                    waitingHint: String(localized: "If your Mac is asking whether Peering may read this folder, answer it there."),
+                    waitingHint: String(localized: "Your Mac is probably asking whether Peering may open this folder. That is a normal macOS question, asked once per folder. Choose Allow on the Mac and the list appears here. Peering only reads folders you open from here."),
                     progress: model.downloadProgress(sessionID: id) ?? model.folderProgress(sessionID: id),
                     onOpen: { open($0, in: id) },
                     onNavigate: { push($0) },

@@ -42,7 +42,7 @@ extension TerminalScreen {
                     showsHidden: showsHiddenFiles,
                     onToggleHidden: { showsHiddenFiles.toggle() },
                     // The Mac blocks in the listing call while macOS shows a Files-and-Folders prompt and the phone is told nothing, so the wait guesses and says where the answer is.
-                    waitingHint: String(localized: "If your Mac is asking whether Peering may read this folder, answer it there."),
+                    waitingHint: String(localized: "Your Mac is probably asking whether Peering may open this folder. That is a normal macOS question, asked once per folder. Choose Allow on the Mac and the list appears here. Peering only reads folders you open from here."),
                     // Progress of a folder being sent, or what the last one came to.
                     progress: model.downloadProgress(sessionID: terminal.id) ?? model.folderProgress(sessionID: terminal.id),
                     onOpen: { open($0, in: terminal) },

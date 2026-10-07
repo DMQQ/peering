@@ -23,11 +23,9 @@ extension TerminalSessionManager {
         }
         let directory = URL(fileURLWithPath: path).standardizedFileURL
 
-        FolderAccessWatch.run(
-            slow: { sink(.browseFailure(sessionID: id, path: directory.path, message: FolderAccessWatch.listingMessage)) },
-            work: { DirectoryListing.entries(in: directory) }
-        ) { outcome in
-            switch outcome {
+        // No notice while it waits: the phone's own "Waiting for your Mac" state explains a slow read, and a failure sent here would be drawn as an error.
+        DispatchQueue.global(qos: .userInitiated).async {
+            switch DirectoryListing.entries(in: directory) {
             case .entries(let entries, let truncated):
                 sink(.directory(
                     sessionID: id,

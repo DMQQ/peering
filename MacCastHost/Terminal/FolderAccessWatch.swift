@@ -4,9 +4,9 @@ import Foundation
 enum FolderAccessWatch {
     static let slowAfter: TimeInterval = 2.5
 
-    static let listingMessage = "The Mac may be asking whether Peering can open this folder. Peering only reads folders you open from your phone, and shows them only to your paired devices. Allow it on the Mac and the list appears here."
-    static let chatMessage = "Waiting for the Mac to allow access to this folder. If it shows a permission dialog, allow it there: Peering and the agent only read what you ask them to, and nothing leaves your paired devices."
-    static let deniedMessage = "Peering cannot read this folder. If macOS blocked it, allow Peering under Privacy & Security, Files and Folders."
+    static let listingMessage = "Your Mac is probably asking whether Peering may open this folder. That is a normal macOS question, asked once per folder. Choose Allow on the Mac and the list appears here."
+    static let chatMessage = "Waiting for your Mac. macOS asks once per folder before an app may open it: choose Allow on the Mac. Peering and the agent only read what you ask them to."
+    static let deniedMessage = "Peering could not read this folder. If macOS blocked it, you can allow it in System Settings, Privacy & Security, Files and Folders."
 
     /// Runs `work` here and calls `slow` once if it has not finished by then. `slow` never runs after `work` has returned, so its message cannot arrive behind the answer.
     static func perform<Result>(slow: @escaping @Sendable () -> Void, work: () -> Result) -> Result {
