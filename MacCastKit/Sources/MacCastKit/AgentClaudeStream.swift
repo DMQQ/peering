@@ -287,6 +287,10 @@ public struct AgentClaudeStream {
             )
         }
 
+        if name == "ExitPlanMode" {
+            return AgentToolCall(id: id, name: name, title: "Plan", detail: input["plan"] as? String)
+        }
+
         if name == "TodoWrite", let todos = input["todos"] as? [[String: Any]] {
             let steps = todos.compactMap { todo -> AgentPlanStep? in
                 guard let text = todo["content"] as? String else { return nil }

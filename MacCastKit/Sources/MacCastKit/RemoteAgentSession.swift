@@ -13,6 +13,7 @@ public struct RemoteAgentSession: Identifiable, Equatable {
     public var model: String?
     public var permissionMode: AgentPermissionMode?
     public var permissionModes: [AgentPermissionMode]
+    public var modelChoices: [String]
     public var usage: AgentUsage?
     public var isLoaded = false
     public var failure: String?
@@ -27,6 +28,7 @@ public struct RemoteAgentSession: Identifiable, Equatable {
         model = info.model
         permissionMode = info.permissionMode
         permissionModes = info.permissionModes ?? []
+        modelChoices = info.modelChoices ?? []
         usage = info.usage
     }
 

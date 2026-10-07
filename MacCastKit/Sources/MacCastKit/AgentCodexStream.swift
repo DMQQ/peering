@@ -7,8 +7,9 @@ public struct AgentCodexStream {
     /// which is the one thing this side knows and the CLI does not repeat.
     private let directory: String
 
-    public init(directory: String) {
+    public init(directory: String, cliSessionID: String? = nil) {
         self.directory = directory
+        self.cliSessionID = cliSessionID
     }
 
     public private(set) var cliSessionID: String?

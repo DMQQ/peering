@@ -534,7 +534,7 @@ final class MacSession: Identifiable {
 
     var agentSessions: [RemoteAgentSession] = []
     /// Messages typed while a turn runs: the CLIs take one question at a time, so the rest wait here and go as each turn ends.
-    var agentQueues: [UUID: [String]] = [:]
+    var agentQueues: [UUID: AgentPromptQueue] = [:]
     /// The chat list's own copy, rebuilt at most a few times a second: see ``AgentCardDigest``.
     var agentCards: [AgentCardDigest] = []
     @ObservationIgnored var agentCardsTask: Task<Void, Never>?

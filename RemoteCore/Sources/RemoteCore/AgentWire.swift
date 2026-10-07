@@ -8,6 +8,8 @@ public enum AgentPermissionMode: String, Codable, Equatable, Sendable, CaseItera
     case manual
     /// Edits go through; anything riskier still asks, or is refused.
     case acceptEdits
+    /// Reads and reasons only, then proposes a plan to approve before anything changes.
+    case plan
     /// Nothing asks.
     case auto
 }
@@ -79,6 +81,8 @@ public struct AgentSessionInfo: Codable, Equatable, Sendable, Identifiable {
     /// predates the toggle, which is how the phone knows not to draw it.
     public let permissionMode: AgentPermissionMode?
     public let permissionModes: [AgentPermissionMode]?
+    /// Models the CLI offers, read from its own cache. Nil where the phone has to supply the list.
+    public let modelChoices: [String]?
     /// Nil from a Mac that predates usage reporting, or before a CLI has said anything.
     public let usage: AgentUsage?
     public let createdAt: Date
@@ -93,6 +97,7 @@ public struct AgentSessionInfo: Codable, Equatable, Sendable, Identifiable {
         model: String? = nil,
         permissionMode: AgentPermissionMode? = nil,
         permissionModes: [AgentPermissionMode]? = nil,
+        modelChoices: [String]? = nil,
         usage: AgentUsage? = nil,
         createdAt: Date
     ) {
@@ -105,6 +110,7 @@ public struct AgentSessionInfo: Codable, Equatable, Sendable, Identifiable {
         self.model = model
         self.permissionMode = permissionMode
         self.permissionModes = permissionModes
+        self.modelChoices = modelChoices
         self.usage = usage
         self.createdAt = createdAt
     }

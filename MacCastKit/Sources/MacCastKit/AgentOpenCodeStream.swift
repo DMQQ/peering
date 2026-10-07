@@ -5,8 +5,9 @@ import RemoteCore
 public struct AgentOpenCodeStream {
     private let directory: String
 
-    public init(directory: String) {
+    public init(directory: String, cliSessionID: String? = nil) {
         self.directory = directory
+        self.cliSessionID = cliSessionID
     }
 
     public private(set) var cliSessionID: String?
