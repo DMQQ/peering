@@ -26,7 +26,7 @@ extension MacSession {
                 summary: options.isEmpty ? approval.call.title : String(localized: "Asks a question"),
                 body: approval.reason ?? approval.call.detail,
                 needsYou: true,
-                chatID: sessionID,
+                target: .chat(sessionID),
                 options: options,
                 respond: { [weak self] decision in
                     self?.respondToAgentApproval(approval.id, decision: decision, in: sessionID)
@@ -39,7 +39,7 @@ extension MacSession {
                 summary: String(localized: "Finished"),
                 body: reply,
                 needsYou: false,
-                chatID: session.id
+                target: .chat(session.id)
             )
         case .failed:
             item = InAppBannerItem(
@@ -48,7 +48,7 @@ extension MacSession {
                 summary: String(localized: "The chat stopped with an error."),
                 body: session.failure,
                 needsYou: true,
-                chatID: session.id
+                target: .chat(session.id)
             )
         }
         InAppBanner.shared.post(item)

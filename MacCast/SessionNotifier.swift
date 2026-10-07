@@ -1,6 +1,7 @@
 import Foundation
 import MacCastKit
 import RemoteCore
+import SwiftUI
 import UIKit
 import UserNotifications
 import os
@@ -110,11 +111,36 @@ final class SessionNotifier {
         retract(SessionAwareness.Kind.allCases)
     }
 
+    private var isForeground: Bool { UIApplication.shared.applicationState == .active }
+
+    /// A phone in front gets the in-app card whatever the Mac pushes, because iOS presents no notification to an app that is open. In the background the Mac's own push is the one that arrives, and a local one would be the second.
+    func shouldAnnounceTerminal(hostPushesWhileConnected: Bool) -> Bool {
+        isForeground || !hostPushesWhileConnected || remoteToken == nil
+    }
+
     /// The in-app attention badge updates on every plan; the banner needs the plan, the app not frontmost, and permission.
     /// The Mac also sends this message over the relay and APNs to the registered token, which is what stays reliable while PiP keeps the channel connected but iOS suspends the process; this local route is the fallback with no token.
     /// `macName` is the second line: two Macs can both have a shell called `prod`, and this is read on a locked screen.
-    func terminalNeedsAttention(_ message: String, sessionID: UUID, macName: String? = nil) {
-        guard isOnPlan, UIApplication.shared.applicationState != .active else { return }
+    func terminalNeedsAttention(
+        _ message: String,
+        sessionID: UUID,
+        name: String? = nil,
+        macName: String? = nil,
+        opensTerminal: Bool = true
+    ) {
+        guard isOnPlan else { return }
+        guard !isForeground else {
+            InAppBanner.shared.post(InAppBannerItem(
+                symbol: "terminal.fill",
+                title: name ?? String(localized: "Terminal"),
+                summary: String(localized: "Needs you"),
+                body: message,
+                needsYou: true,
+                target: opensTerminal ? .terminal(sessionID) : nil,
+                openLabel: "Open terminal"
+            ))
+            return
+        }
         let content = UNMutableNotificationContent()
         content.title = String(localized: "Terminal needs you")
         content.body = macName.map { "\($0): \(message)" } ?? message
@@ -134,14 +160,27 @@ final class SessionNotifier {
         terminalNeedsAttention(
             String(localized: "Terminal \u{201C}\(name)\u{201D} is waiting for \(noun)."),
             sessionID: sessionID,
+            name: name,
             macName: macName
         )
     }
 
     /// A command that took a while has returned to the prompt. No `terminalStillWaiting` counterpart: nothing waits on an answer.
     /// Gated on `isOnPlan`; the local route is the fallback when no APNs token exists.
-    func terminalFinishedWork(_ message: String, sessionID: UUID, macName: String? = nil) {
-        guard isOnPlan, UIApplication.shared.applicationState != .active else { return }
+    func terminalFinishedWork(_ message: String, sessionID: UUID, name: String? = nil, macName: String? = nil) {
+        guard isOnPlan else { return }
+        guard !isForeground else {
+            InAppBanner.shared.post(InAppBannerItem(
+                symbol: "checkmark.circle.fill",
+                title: name ?? String(localized: "Terminal"),
+                summary: String(localized: "Finished"),
+                body: message,
+                needsYou: false,
+                target: .terminal(sessionID),
+                openLabel: "Open terminal"
+            ))
+            return
+        }
         let content = UNMutableNotificationContent()
         content.title = String(localized: "Terminal finished")
         content.body = macName.map { "\($0): \(message)" } ?? message

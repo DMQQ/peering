@@ -2,6 +2,12 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
+/// What a card is about, and so what a tap on it opens and what makes it redundant.
+enum InAppBannerTarget: Equatable {
+    case chat(UUID)
+    case terminal(UUID)
+}
+
 struct InAppBannerItem: Identifiable {
     let id = UUID()
     let symbol: String
@@ -10,7 +16,9 @@ struct InAppBannerItem: Identifiable {
     /// Shown in full once expanded: the command asked about, or the end of the reply.
     let body: String?
     let needsYou: Bool
-    let chatID: UUID?
+    /// Nil for news with nowhere to go, which gets no open button.
+    let target: InAppBannerTarget?
+    var openLabel: LocalizedStringKey = "Open chat"
     /// Labels of a question's answers; empty for an allow or deny ask.
     var options: [String] = []
     var respond: ((AgentApprovalDecision) -> Void)?
@@ -29,11 +37,11 @@ final class InAppBanner {
     /// Where the card is on screen, so the overlay window lets every other touch through.
     var cardFrame: CGRect = .zero
     /// Taken (set back to nil) by the screen that opens it.
-    var openChatRequest: UUID?
-    /// The chat the person is reading now: news about it is not news.
-    var chatOnScreen: UUID? {
+    var openRequest: InAppBannerTarget?
+    /// What the person is reading now: news about it is not news.
+    var onScreen: InAppBannerTarget? {
         didSet {
-            if let chatOnScreen, chatOnScreen == current?.chatID { dismiss() }
+            if let onScreen, onScreen == current?.target { dismiss() }
         }
     }
 
@@ -45,7 +53,7 @@ final class InAppBanner {
     private static let leave = Animation.spring(response: 0.38, dampingFraction: 0.9)
 
     func post(_ item: InAppBannerItem) {
-        guard item.chatID == nil || item.chatID != chatOnScreen else { return }
+        guard item.target == nil || item.target != onScreen else { return }
         expandTask?.cancel()
         isExpanded = false
         let windowWasUp = current != nil
@@ -89,11 +97,11 @@ final class InAppBanner {
 
     /// The question was answered somewhere else, so the card has nothing left to ask.
     func resolve(chatID: UUID) {
-        if current?.chatID == chatID, current?.asksApproval == true { dismiss() }
+        if current?.target == .chat(chatID), current?.asksApproval == true { dismiss() }
     }
 
     func open() {
-        openChatRequest = current?.chatID
+        openRequest = current?.target
         dismiss()
     }
 
@@ -179,8 +187,9 @@ struct InAppBannerView: View {
         .scaleEffect(drag > 0 ? 1 + min(drag, 80) / 1400 : 1, anchor: .top)
         .animation(InAppBanner.reshape, value: expanded)
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { banner.cardFrame = $0 }
+        // The card moves with the finger, so a local-space drag shrinks as it follows and the card oscillates.
         .simultaneousGesture(
-            DragGesture(minimumDistance: 8)
+            DragGesture(minimumDistance: 8, coordinateSpace: .global)
                 .onChanged { drag = $0.translation.height }
                 .onEnded { value in
                     let height = value.translation.height
@@ -252,7 +261,9 @@ struct InAppBannerView: View {
         } else {
             HStack(spacing: 10) {
                 pill("Dismiss", filled: false) { banner.dismiss() }
-                pill("Open chat", filled: true) { banner.open() }
+                if item.target != nil {
+                    pill(item.openLabel, filled: true) { banner.open() }
+                }
             }
         }
     }

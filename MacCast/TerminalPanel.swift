@@ -10,11 +10,30 @@ enum TerminalFlowStep: Hashable {
     case terminalFolder(String?)
 }
 
+/// Where the remote screen's navigation stack is: the hub is the first page, and everything the hub opens is a step above it.
+enum RemoteRoute: Hashable {
+    case hub
+    case step(TerminalFlowStep)
+}
+
+/// The hub of terminals and agent chats, and the pages it opens, as pages of the remote screen's own stack so the swipe back works on every one of them.
 struct TerminalPanel: View {
     @Environment(SessionModel.self) var model
-    @Environment(\.dismiss) var dismiss
 
-    @State var path: [TerminalFlowStep] = []
+    @Binding var route: [RemoteRoute]
+
+    var path: [TerminalFlowStep] {
+        get {
+            route.compactMap {
+                if case .step(let step) = $0 { step } else { nil }
+            }
+        }
+        nonmutating set { route = [.hub] + newValue.map(RemoteRoute.step) }
+    }
+
+    private var pathBinding: Binding<[TerminalFlowStep]> {
+        Binding(get: { path }, set: { path = $0 })
+    }
 
     /// The folder pages were only the way to the new session: back from it lands on the list, not on a folder.
     private func dropFolderPages() {
@@ -37,85 +56,81 @@ struct TerminalPanel: View {
     }
 
     private func takeBannerRequest() {
-        guard let id = InAppBanner.shared.openChatRequest else { return }
-        InAppBanner.shared.openChatRequest = nil
-        model.selectedAgentSessionID = id
-        path = [.chat(id)]
+        guard let target = InAppBanner.shared.openRequest else { return }
+        InAppBanner.shared.openRequest = nil
+        switch target {
+        case .chat(let id):
+            model.selectedAgentSessionID = id
+            path = [.chat(id)]
+        case .terminal(let id):
+            path = [.terminal(id)]
+        }
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
-            TerminalHubScreen(path: $path)
-                .onAppear { takeBannerRequest() }
-                .onChange(of: InAppBanner.shared.openChatRequest) { _, _ in takeBannerRequest() }
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
-                .toolbarBackground(.visible, for: .navigationBar)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button { dismiss() } label: {
-                            Image(systemName: "chevron.left")
-                                .fontWeight(.semibold)
-                        }
-                        .accessibilityLabel("Close")
-                    }
-                }
-                .navigationDestination(for: TerminalFlowStep.self) { step in
-                    switch step {
-                    case .terminal(let id):
-                        TerminalScreen(terminalID: id)
-                    case .chat(let id):
-                        AgentChatScreen(sessionID: id)
-                    case .folder(let agent, let directory):
-                        AgentFolderPicker(
-                            title: agent.name,
-                            agentID: agent.id,
-                            directory: directory,
-                            open: { openFolder($0) { .folder(agent, $0) } }
-                        ) { directory in
-                            // The picker stays up while the Mac opens the chat, so the way in is one push.
-                            model.startAgentChat(agentID: agent.id, directory: directory)
-                        }
-                    case .files(let directory):
-                        MacFilesScreen(path: directory) { openFolder($0) { .files($0) } }
-                    case .terminalFolder(let directory):
-                        AgentFolderPicker(
-                            title: String(localized: "New terminal"),
-                            agentID: "terminal",
-                            directory: directory,
-                            open: { openFolder($0) { .terminalFolder($0) } }
-                        ) { directory in
-                            AgentFolderHistory.record(directory: directory, agentID: "terminal", macName: model.hostName)
-                            model.createTerminal(inDirectory: directory)
-                        }
-                    }
-                }
-        }
-        .preferredColorScheme(.dark)
-        .onAppear {
-            model.refreshTerminals()
-            model.refreshAgents()
-            model.refreshAgentSessions()
-            // A shell or chat made while the cover was away was already opened by its maker; do not jump to it.
-            model.newTerminalID = nil
-            model.newAgentSessionID = nil
-        }
-        // **The Mac's answer moves the screen, never the tap.** A new terminal or chat has no id until the Mac says so; clear the note so it opens once.
-        .onChange(of: model.newTerminalID) { _, id in
-            guard let id else { return }
-            model.newTerminalID = nil
-            dropFolderPages()
-            path.append(.terminal(id))
-        }
-        .onChange(of: model.newAgentSessionID) { _, id in
-            guard let id else { return }
-            model.newAgentSessionID = nil
-            switch path.last {
-            case .folder, .terminalFolder:
+        TerminalHubScreen(path: pathBinding)
+            .onAppear { takeBannerRequest() }
+            .onChange(of: InAppBanner.shared.openRequest) { _, _ in takeBannerRequest() }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .preferredColorScheme(.dark)
+            .onAppear {
+                model.refreshTerminals()
+                model.refreshAgents()
+                model.refreshAgentSessions()
+                // A shell or chat made while the hub was away was already opened by its maker; do not jump to it.
+                model.newTerminalID = nil
+                model.newAgentSessionID = nil
+            }
+            // **The Mac's answer moves the screen, never the tap.** A new terminal or chat has no id until the Mac says so; clear the note so it opens once.
+            .onChange(of: model.newTerminalID) { _, id in
+                guard let id else { return }
+                model.newTerminalID = nil
                 dropFolderPages()
-                path.append(.chat(id))
-            default:
-                path = [.chat(id)]
+                path.append(.terminal(id))
+            }
+            .onChange(of: model.newAgentSessionID) { _, id in
+                guard let id else { return }
+                model.newAgentSessionID = nil
+                switch path.last {
+                case .folder, .terminalFolder:
+                    dropFolderPages()
+                    path.append(.chat(id))
+                default:
+                    path = [.chat(id)]
+                }
+            }
+    }
+
+    @ViewBuilder
+    func page(for step: TerminalFlowStep) -> some View {
+        switch step {
+        case .terminal(let id):
+            TerminalScreen(terminalID: id)
+        case .chat(let id):
+            AgentChatScreen(sessionID: id)
+        case .folder(let agent, let directory):
+            AgentFolderPicker(
+                title: agent.name,
+                agentID: agent.id,
+                directory: directory,
+                open: { openFolder($0) { .folder(agent, $0) } }
+            ) { directory in
+                // The picker stays up while the Mac opens the chat, so the way in is one push.
+                model.startAgentChat(agentID: agent.id, directory: directory)
+            }
+        case .files(let directory):
+            MacFilesScreen(path: directory) { openFolder($0) { .files($0) } }
+        case .terminalFolder(let directory):
+            AgentFolderPicker(
+                title: String(localized: "New terminal"),
+                agentID: "terminal",
+                directory: directory,
+                open: { openFolder($0) { .terminalFolder($0) } }
+            ) { directory in
+                AgentFolderHistory.record(directory: directory, agentID: "terminal", macName: model.hostName)
+                model.createTerminal(inDirectory: directory)
             }
         }
     }
@@ -349,10 +364,7 @@ private struct TerminalHubScreen: View {
                 }
                 .padding(.top, 20)
             } else if model.agentCards.isEmpty {
-                Text("Choose an agent below, then Chat with it or open it in a terminal.")
-                    .font(.footnote)
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 4)
+                AgentEmptyState()
                     .padding(.top, 20)
             }
         }
@@ -458,6 +470,7 @@ private struct TerminalHubScreen: View {
             VStack(alignment: .leading, spacing: 0) {
                 content()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 28)

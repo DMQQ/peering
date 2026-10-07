@@ -91,13 +91,13 @@ struct AgentChatScreen: View {
         .onAppear {
             model.selectedAgentSessionID = currentID
             model.ensureAgentHistory(currentID)
-            InAppBanner.shared.chatOnScreen = currentID
+            InAppBanner.shared.onScreen = .chat(currentID)
         }
-        .onDisappear { InAppBanner.shared.chatOnScreen = nil }
+        .onDisappear { InAppBanner.shared.onScreen = nil }
         .onChange(of: currentID) { _, id in
             model.selectedAgentSessionID = id
             model.ensureAgentHistory(id)
-            InAppBanner.shared.chatOnScreen = id
+            InAppBanner.shared.onScreen = .chat(id)
         }
         .onChange(of: session?.transcript.pendingApprovals.first?.id, initial: true) { _, id in
             guard let id else {

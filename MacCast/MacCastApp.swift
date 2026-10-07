@@ -142,13 +142,13 @@ struct MacCastApp: App {
                             model.reconnectToLastHost()
                         }
                     case "chat":
-                        // A chat lives on its Mac: that Mac is opened first, and the chat is asked for once its screen is up (see `InAppBanner.openChatRequest`).
+                        // A chat lives on its Mac: that Mac is opened first, and the chat is asked for once its screen is up (see `InAppBanner.openRequest`).
                         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
                         guard let chatID = items?.first(where: { $0.name == "id" })?.value.flatMap(UUID.init(uuidString:)) else { return }
                         if let hostID = items?.first(where: { $0.name == "host" })?.value {
                             model.openFromNotification(hostID: hostID, sourceID: nil)
                         }
-                        InAppBanner.shared.openChatRequest = chatID
+                        InAppBanner.shared.openRequest = .chat(chatID)
                     case "disconnect":
                         model.disconnect()
                     case "end-shells":

@@ -774,8 +774,13 @@ extension MacSession {
             // A Mac with this phone's APNs token pushes the alert even while the control channel
             // remains connected in Picture in Picture. Only make a local banner when there is no
             // token to push to, or the same event would normally appear twice.
-            if !hostPushesTerminalAlertsWhileConnected || model.notifier.remoteToken == nil {
-                model.notifier.terminalNeedsAttention(message, sessionID: id, macName: hostName)
+            if model.notifier.shouldAnnounceTerminal(hostPushesWhileConnected: hostPushesTerminalAlertsWhileConnected) {
+                model.notifier.terminalNeedsAttention(
+                    message,
+                    sessionID: id,
+                    name: terminals.first { $0.id == id }?.name,
+                    macName: hostName
+                )
             }
         case .commandFinished(let id, let command, let duration, _):
             let named = command.map { "\u{201C}\($0)\u{201D}" }
@@ -783,8 +788,13 @@ extension MacSession {
                 ?? String(localized: "Terminal")
             let message = String(localized: "\(named) finished\(TerminalCommandFinishDetector.durationSuffix(duration)).")
             append(note: message)
-            if !hostPushesTerminalAlertsWhileConnected || model.notifier.remoteToken == nil {
-                model.notifier.terminalFinishedWork(message, sessionID: id, macName: hostName)
+            if model.notifier.shouldAnnounceTerminal(hostPushesWhileConnected: hostPushesTerminalAlertsWhileConnected) {
+                model.notifier.terminalFinishedWork(
+                    message,
+                    sessionID: id,
+                    name: terminals.first { $0.id == id }?.name,
+                    macName: hostName
+                )
             }
         case .exited(let id, let status):
             if let index = terminals.firstIndex(where: { $0.id == id }) {

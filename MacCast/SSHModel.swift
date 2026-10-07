@@ -390,7 +390,9 @@ final class SSHModel {
                         let reason = attention == .password ? String(localized: "a password") : String(localized: "your response")
                         SessionNotifier.shared.terminalNeedsAttention(
                             String(localized: "SSH “\(terminal.title)” is waiting for \(reason)."),
-                            sessionID: terminal.id
+                            sessionID: terminal.id,
+                            name: terminal.title,
+                            opensTerminal: false
                         )
                     }
                 case .failed(let error):

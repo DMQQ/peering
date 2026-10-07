@@ -109,9 +109,14 @@ struct TerminalScreen: View {
                 dismiss()
             }
         )
-        .onAppear { model.selectTerminal(currentID) }
+        .onAppear {
+            model.selectTerminal(currentID)
+            InAppBanner.shared.onScreen = .terminal(currentID)
+        }
+        .onDisappear { InAppBanner.shared.onScreen = nil }
         .onChange(of: currentID) { _, id in
             model.selectTerminal(id)
+            InAppBanner.shared.onScreen = .terminal(id)
             guard isBrowsing,
                   model.terminals.first(where: { $0.id == id })?.isRunning == true else { return }
             model.listDirectory(model.browsingPath(for: id), sessionID: id)

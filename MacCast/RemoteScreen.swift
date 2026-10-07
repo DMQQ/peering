@@ -45,7 +45,12 @@ struct RemoteScreen: View {
     /// Unlike copy or paste, `⌘Q` can discard unsaved work, so the permanent button asks once
     /// before sending the chord.
     @State var confirmsQuitApplication = false
-    @State var showsTerminals = false
+    @State var route: [RemoteRoute] = []
+
+    var showsTerminals: Bool {
+        get { !route.isEmpty }
+        nonmutating set { route = newValue ? (route.isEmpty ? [.hub] : route) : [] }
+    }
 
     @State var speedBadge: String?
     @State var speedBadgeTask: Task<Void, Never>?
@@ -117,6 +122,19 @@ struct RemoteScreen: View {
     var deviceIsLandscape: Bool { DeviceScene.isLandscape }
 
     var body: some View {
+        NavigationStack(path: $route) {
+            screen
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: RemoteRoute.self) { route in
+                    switch route {
+                    case .hub: TerminalPanel(route: $route)
+                    case .step(let step): TerminalPanel(route: $route).page(for: step)
+                    }
+                }
+        }
+    }
+
+    private var screen: some View {
         // `Environment` gives the object but no projected value, so a local `@Bindable` is what the
         // keyboard view binds to.
         @Bindable var model = model
@@ -193,12 +211,6 @@ struct RemoteScreen: View {
                     .transition(.blurReplace(.downUp))
             }
         }
-        .fullScreenCover(isPresented: $showsTerminals) {
-            TerminalPanel()
-                // The locks inside this cover need a presenter inside it: a paywall asked for from
-                // here and presented from the root is a tap that does nothing.
-                .presentsPaywall(model)
-        }
         // A hidden panel reports nothing, so its last frame would go on blocking touches in a
         // region that no longer has anything in it.
         .onChange(of: model.phase, initial: true) { _, phase in
@@ -259,7 +271,7 @@ struct RemoteScreen: View {
                 withAnimation(Motion.settle) { showsKeyboardBar = false }
             }
         }
-        .onChange(of: InAppBanner.shared.openChatRequest, initial: true) { _, id in
+        .onChange(of: InAppBanner.shared.openRequest, initial: true) { _, id in
             if id != nil { showsTerminals = true }
         }
         .onChange(of: showsTerminals) { _, shown in
