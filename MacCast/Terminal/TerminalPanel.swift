@@ -56,14 +56,15 @@ struct TerminalPanel: View {
     }
 
     private func takeBannerRequest() {
-        guard let target = InAppBanner.shared.openRequest else { return }
-        InAppBanner.shared.openRequest = nil
+        guard let target = InAppBanner.shared.takeOpenRequest() else { return }
         switch target {
         case .chat(let id):
             model.selectedAgentSessionID = id
             path = [.chat(id)]
         case .terminal(let id):
             path = [.terminal(id)]
+        case .sshTerminal:
+            break
         }
     }
 
@@ -87,20 +88,25 @@ struct TerminalPanel: View {
             .onChange(of: model.newTerminalID) { _, id in
                 guard let id else { return }
                 model.newTerminalID = nil
+                guard pageIsHubOrPicker else { return }
                 dropFolderPages()
                 path.append(.terminal(id))
             }
             .onChange(of: model.newAgentSessionID) { _, id in
                 guard let id else { return }
                 model.newAgentSessionID = nil
-                switch path.last {
-                case .folder, .terminalFolder:
-                    dropFolderPages()
-                    path.append(.chat(id))
-                default:
-                    path = [.chat(id)]
-                }
+                guard pageIsHubOrPicker else { return }
+                dropFolderPages()
+                path.append(.chat(id))
             }
+    }
+
+    /// A chat or shell the Mac announces opens only from the list or the picker that asked for it, never over a page being read.
+    private var pageIsHubOrPicker: Bool {
+        switch path.last {
+        case nil, .folder, .terminalFolder: true
+        default: false
+        }
     }
 
     @ViewBuilder
@@ -595,95 +601,6 @@ private struct TerminalHubScreen: View {
                 start(agent, restarting: entry)
             }
         }
-    }
-
-    // MARK: - Rows
-
-    private func hubRow<Control: View>(
-        symbol: String,
-        title: String,
-        detail: String?,
-        detailTint: Color? = nil,
-        state: HubState? = nil,
-        @ViewBuilder control: () -> Control,
-        @ViewBuilder footer: () -> some View = { EmptyView() }
-    ) -> some View {
-        hubLayout(symbol: symbol, title: title, state: state) {
-            if let detail, !detail.isEmpty {
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(detailTint ?? .secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-        } control: {
-            control()
-        } footer: {
-            footer()
-        }
-    }
-
-    private func hubLayout<Control: View, Detail: View>(
-        symbol: String,
-        title: String,
-        state: HubState?,
-        @ViewBuilder detail: () -> Detail,
-        @ViewBuilder control: () -> Control,
-        @ViewBuilder footer: () -> some View = { EmptyView() }
-    ) -> some View {
-        VStack(spacing: 10) {
-        HStack(spacing: 12) {
-            IconTile(symbol: symbol)
-                .overlay(alignment: .bottomTrailing) { stateDot(state) }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(verbatim: title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(ColorPalette.ink)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                detail()
-            }
-            Spacer(minLength: 10)
-            control()
-        }
-        footer()
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .rowSurface()
-        .contentShape(Rectangle())
-    }
-
-    enum HubState {
-        case live
-        case pending
-        case failed
-    }
-
-    @ViewBuilder
-    private func stateDot(_ state: HubState?) -> some View {
-        if let state {
-            Circle()
-                .fill(tint(for: state))
-                .overlay(Circle().strokeBorder(ColorPalette.backdrop, lineWidth: 2))
-                .frame(width: 11, height: 11)
-                .offset(x: 2, y: 2)
-        }
-    }
-
-    private func tint(for state: HubState) -> Color {
-        switch state {
-        case .live: return .green
-        case .pending: return ColorPalette.caution
-        case .failed: return ColorPalette.danger
-        }
-    }
-
-    private var chevron: some View {
-        Image(systemName: "chevron.right")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.tertiary)
     }
 
     // MARK: - Renaming and ending

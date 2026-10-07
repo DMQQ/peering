@@ -95,3 +95,24 @@ import Testing
         #expect(buffer.truncatedAtFront)
     }
 }
+
+extension AgentTranscriptBufferTests {
+    private func ask(_ id: String) -> AgentStreamEvent.Payload {
+        .approvalRequested(approvalID: id, call: AgentToolCall(id: id, name: "Bash", title: "Bash"), reason: nil)
+    }
+
+    @Test func anAskWithoutAnAnswerIsUnresolved() {
+        var buffer = AgentTranscriptBuffer()
+        buffer.append(ask("a"))
+        buffer.append(ask("b"))
+        buffer.append(.approvalResolved(approvalID: "a", decision: .allow))
+        #expect(buffer.unresolvedApprovalIDs == ["b"])
+    }
+
+    @Test func aFinishedTurnClosesEveryAsk() {
+        var buffer = AgentTranscriptBuffer()
+        buffer.append(ask("a"))
+        buffer.append(.turnFinished(summary: AgentTurnSummary(ok: true)))
+        #expect(buffer.unresolvedApprovalIDs.isEmpty)
+    }
+}

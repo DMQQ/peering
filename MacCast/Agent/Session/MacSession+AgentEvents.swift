@@ -79,6 +79,8 @@ extension MacSession {
             }
             agentSessions[index].isLoaded = true
             agentHistoryRequested.insert(id)
+            // A turn can end while the phone is away, and the replay is the only news of it.
+            flushAgentQueue(id, state: agentSessions[index].transcript.state)
 
         case .directory(let path, let entries, _):
             agentPicker = AgentPickerState(

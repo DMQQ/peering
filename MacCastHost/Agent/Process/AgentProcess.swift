@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import os
 
 final class AgentProcess: @unchecked Sendable {
     struct Launch {
@@ -36,6 +37,8 @@ final class AgentProcess: @unchecked Sendable {
     private var buffers: [Stream: Data] = [:]
     private var dropping: Set<Stream> = []
     private(set) var isRunning = false
+    /// A process started with no stdin pipe has nothing to close, so stopping it is a signal straight away.
+    private var closesInputToStop = true
 
     /// Ceiling so a malformed stream cannot grow the buffer without bound.
     private static let maximumLineBytes = 16 * 1024 * 1024
@@ -48,6 +51,7 @@ final class AgentProcess: @unchecked Sendable {
         process.currentDirectoryURL = launch.directory
         process.environment = launch.environment
         process.standardInput = launch.input == .pipe ? stdinPipe : FileHandle.nullDevice
+        closesInputToStop = launch.input == .pipe
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
@@ -63,14 +67,21 @@ final class AgentProcess: @unchecked Sendable {
         watch(stdoutPipe, as: .stdout)
         watch(stderrPipe, as: .stderr)
 
-        try process.run()
+        // Before run: a child that dies at once has already cleared this by the time run returns.
         lock.withLock { isRunning = true }
+        do {
+            try process.run()
+        } catch {
+            lock.withLock { isRunning = false }
+            throw error
+        }
     }
 
     /// Closes stdin first (stream-json CLIs exit cleanly on EOF), then signals; `terminate()` reaches only the child, not grandchildren.
     func stop() {
-        try? stdinPipe.fileHandleForWriting.close()
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3) { [weak self] in
+        if closesInputToStop { try? stdinPipe.fileHandleForWriting.close() }
+        let grace: TimeInterval = closesInputToStop ? 3 : 0
+        DispatchQueue.global().asyncAfter(deadline: .now() + grace) { [weak self] in
             guard let self, self.lock.withLock({ self.isRunning }) else { return }
             self.process.terminate()
             DispatchQueue.global().asyncAfter(deadline: .now() + 5) { [weak self] in
@@ -89,7 +100,11 @@ final class AgentProcess: @unchecked Sendable {
         let data = Data(line.utf8) + [0x0A]
         writeQueue.async { [weak self] in
             guard let self else { return }
-            try? self.stdinPipe.fileHandleForWriting.write(contentsOf: data)
+            do {
+                try self.stdinPipe.fileHandleForWriting.write(contentsOf: data)
+            } catch {
+                agentLog.error("agent stdin write failed · \(String(describing: error), privacy: .public)")
+            }
         }
     }
 
@@ -151,7 +166,7 @@ final class AgentProcess: @unchecked Sendable {
             for stream in [Stream.stdout, .stderr] {
                 let handle = stream == .stdout ? stdoutPipe.fileHandleForReading : stderrPipe.fileHandleForReading
                 var buffer = buffers[stream] ?? Data()
-                buffer.append(handle.readDataToEndOfFile())
+                buffer.append(Self.takeWhatIsThere(from: handle))
                 while let newline = buffer.firstIndex(of: 0x0A) {
                     let line = buffer[buffer.startIndex..<newline]
                     buffer.removeSubrange(buffer.startIndex...newline)
@@ -166,6 +181,21 @@ final class AgentProcess: @unchecked Sendable {
         for (line, stream) in lines where !line.isEmpty {
             hand(line, from: stream)
         }
+    }
+
+    /// Not `readDataToEndOfFile`: a grandchild the CLI started can hold the pipe open after the CLI is gone, and waiting for its EOF would swallow the exit.
+    private static func takeWhatIsThere(from handle: FileHandle) -> Data {
+        let descriptor = handle.fileDescriptor
+        let flags = fcntl(descriptor, F_GETFL)
+        guard flags >= 0, fcntl(descriptor, F_SETFL, flags | O_NONBLOCK) >= 0 else { return Data() }
+        var collected = Data()
+        var chunk = [UInt8](repeating: 0, count: 64 * 1024)
+        while true {
+            let count = read(descriptor, &chunk, chunk.count)
+            guard count > 0 else { break }
+            collected.append(chunk, count: count)
+        }
+        return collected
     }
 
     private func hand(_ line: String, from stream: Stream) {

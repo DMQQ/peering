@@ -3,8 +3,6 @@ import MacCastKit
 import os
 import RemoteCore
 
-private let agentLog = Logger(subsystem: "pl.dmq.peering.host", category: "agent")
-
 /// The shared half of a CLI that runs one process per turn and resumes its thread by id (Codex, OpenCode).
 ///
 /// A subclass names its CLI, builds the arguments for a turn and turns its output lines into events.
@@ -84,7 +82,7 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
                 return
             }
             guard self.turnProcess == nil else {
-                self.onEvent?(.notice(text: "A turn is already running."))
+                self.pendingPrompts.append(text)
                 return
             }
 
@@ -180,6 +178,9 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
     private func turnEnded(_ status: Int32) {
         guard turnProcess != nil else { return }
         turnProcess = nil
+        defer {
+            if !pendingPrompts.isEmpty, binary != nil { prompt(pendingPrompts.removeFirst()) }
+        }
         turnProcessEnded()
         agentLog.notice("\(Self.command, privacy: .public) turn process ended · status \(status) · finished \(self.turnFinished) · stderr \(self.stderrTail.count) line(s)")
         guard !turnFinished else { return }

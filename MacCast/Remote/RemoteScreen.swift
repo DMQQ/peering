@@ -271,8 +271,8 @@ struct RemoteScreen: View {
                 withAnimation(Motion.settle) { showsKeyboardBar = false }
             }
         }
-        .onChange(of: InAppBanner.shared.openRequest, initial: true) { _, id in
-            if id != nil { showsTerminals = true }
+        .onChange(of: InAppBanner.shared.openRequest, initial: true) { _, _ in
+            if InAppBanner.shared.freshOpenRequest != nil { showsTerminals = true }
         }
         .onChange(of: showsTerminals) { _, shown in
             model.isPanelOpen = shown || openPanel != nil

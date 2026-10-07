@@ -126,7 +126,7 @@ final class SessionNotifier {
         sessionID: UUID,
         name: String? = nil,
         macName: String? = nil,
-        opensTerminal: Bool = true
+        isSSH: Bool = false
     ) {
         guard isOnPlan else { return }
         guard !isForeground else {
@@ -136,7 +136,7 @@ final class SessionNotifier {
                 summary: String(localized: "Needs you"),
                 body: message,
                 needsYou: true,
-                target: opensTerminal ? .terminal(sessionID) : nil,
+                target: isSSH ? .sshTerminal(sessionID) : .terminal(sessionID),
                 openLabel: "Open terminal"
             ))
             return

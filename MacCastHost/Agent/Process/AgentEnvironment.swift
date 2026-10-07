@@ -15,7 +15,8 @@ final class AgentEnvironment: @unchecked Sendable {
         }
         lock.unlock()
 
-        var environment = Self.parseEnvironment(Self.loginShellOutput(script: "/usr/bin/env -0")) ?? [:]
+        let probed = Self.parseEnvironment(Self.loginShellOutput(script: "/usr/bin/env -0"))
+        var environment = probed ?? [:]
         environment["HOME"] = environment["HOME"] ?? NSHomeDirectory()
         environment["USER"] = environment["USER"] ?? NSUserName()
         environment["LOGNAME"] = environment["LOGNAME"] ?? NSUserName()
@@ -26,9 +27,12 @@ final class AgentEnvironment: @unchecked Sendable {
         // Output is parsed, never shown, so the CLI must not draw a spinner.
         environment["NO_COLOR"] = "1"
 
-        lock.lock()
-        cachedVariables = environment
-        lock.unlock()
+        // A probe that timed out is retried by the next launch; caching its fallback would strip the user's PATH and keys until the host restarts.
+        if probed != nil {
+            lock.lock()
+            cachedVariables = environment
+            lock.unlock()
+        }
         return environment
     }
 

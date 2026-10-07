@@ -3,8 +3,6 @@ import MacCastKit
 import os
 import RemoteCore
 
-private let agentLog = Logger(subsystem: "pl.dmq.peering.host", category: "agent")
-
 /// Applying one adapter event to its session, and what follows from it: the owner's stream, a push, telemetry, the disk.
 extension AgentSessionManager {
     /// What one event did to a session, worked out under the lock and acted on after it.
@@ -95,7 +93,10 @@ extension AgentSessionManager {
             applied.persists = true
         case .sessionReady(_, let cliSessionID, let model, _):
             if let cliSessionID { session.cliSessionID = cliSessionID }
-            if let model { session.model = model }
+            if let model, model != session.model {
+                session.model = model
+                applied.correctedModel = model
+            }
             applied.persists = true
         case .textDelta, .notice, .toolStarted, .toolFinished:
             break
@@ -114,9 +115,10 @@ extension AgentSessionManager {
     }
 
     func persist(_ session: AgentSession) {
-        let record = lock.withLock { session.record }
-        persistQueue.async { [store] in
-            do { try store.save(record) } catch {
+        // Taken on the queue, so saves land in the order they ran, and skipped for a chat that was closed while this waited.
+        persistQueue.async { [weak self] in
+            guard let self, let record = self.lock.withLock({ self.sessions[session.id] == nil ? nil : session.record }) else { return }
+            do { try self.store.save(record) } catch {
                 agentLog.error("agent chat could not be saved · \(String(describing: error), privacy: .public)")
             }
         }

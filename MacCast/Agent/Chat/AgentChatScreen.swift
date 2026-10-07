@@ -93,7 +93,11 @@ struct AgentChatScreen: View {
             model.ensureAgentHistory(currentID)
             InAppBanner.shared.onScreen = .chat(currentID)
         }
-        .onDisappear { InAppBanner.shared.onScreen = nil }
+        .onDisappear { InAppBanner.shared.leave(.chat(currentID)) }
+        .onChange(of: InAppBanner.shared.openRequest) { _, target in
+            guard case .chat(let id) = target, id != currentID, model.agentSessions.contains(where: { $0.id == id }) else { return }
+            currentID = id
+        }
         .onChange(of: currentID) { _, id in
             model.selectedAgentSessionID = id
             model.ensureAgentHistory(id)

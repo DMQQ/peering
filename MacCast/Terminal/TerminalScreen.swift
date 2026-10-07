@@ -113,7 +113,11 @@ struct TerminalScreen: View {
             model.selectTerminal(currentID)
             InAppBanner.shared.onScreen = .terminal(currentID)
         }
-        .onDisappear { InAppBanner.shared.onScreen = nil }
+        .onDisappear { InAppBanner.shared.leave(.terminal(currentID)) }
+        .onChange(of: InAppBanner.shared.openRequest) { _, target in
+            guard case .terminal(let id) = target, id != currentID, model.terminals.contains(where: { $0.id == id }) else { return }
+            currentID = id
+        }
         .onChange(of: currentID) { _, id in
             model.selectTerminal(id)
             InAppBanner.shared.onScreen = .terminal(id)

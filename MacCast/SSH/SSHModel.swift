@@ -392,7 +392,7 @@ final class SSHModel {
                             String(localized: "SSH “\(terminal.title)” is waiting for \(reason)."),
                             sessionID: terminal.id,
                             name: terminal.title,
-                            opensTerminal: false
+                            isSSH: true
                         )
                     }
                 case .failed(let error):

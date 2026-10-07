@@ -24,6 +24,20 @@ public struct AgentTranscriptBuffer: Sendable {
         bytes = events.reduce(0) { $0 + Self.approximateBytes(of: $1.payload) }
     }
 
+    /// Asks the transcript raised and never closed.
+    public var unresolvedApprovalIDs: [String] {
+        var open: [String] = []
+        for event in events {
+            switch event.payload {
+            case .approvalRequested(let id, _, _): open.append(id)
+            case .approvalResolved(let id, _): open.removeAll { $0 == id }
+            case .turnFinished: open.removeAll()
+            default: break
+            }
+        }
+        return open
+    }
+
     /// A reply's final text replaces the deltas that built it, so they are dropped here and replay does not send the text twice.
     @discardableResult
     public mutating func append(_ payload: AgentStreamEvent.Payload, limit: Int = AgentLimits.maximumTranscriptBytes) -> AgentStreamEvent {

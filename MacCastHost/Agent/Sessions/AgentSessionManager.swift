@@ -3,14 +3,15 @@ import MacCastKit
 import os
 import RemoteCore
 
-private let agentLog = Logger(subsystem: "pl.dmq.peering.host", category: "agent")
-
 final class AgentSessionManager: @unchecked Sendable {
     typealias Sink = @Sendable (AgentEvent) -> Void
 
     static var chatAgents: [String: String] { AgentCatalogue.names }
 
-    private static let maximumSessionsPerClient = 4
+    /// Running CLIs per phone. Chats with no process (restored, ended) do not count against it.
+    private static let maximumLiveSessionsPerClient = 4
+    /// Chats kept per phone, running or not: the oldest one with no process gives way.
+    private static let maximumStoredSessionsPerClient = 20
     private static let replayChunkBytes = 64 * 1024
 
     let lock = NSLock()
@@ -31,7 +32,7 @@ final class AgentSessionManager: @unchecked Sendable {
 
     deinit {
         let active = lock.withLock { Array(sessions.values) }
-        for session in active { session.adapter.stop() }
+        for session in active { adapter(of: session).stop() }
     }
 
     private static func defaultStore() -> AgentSessionDiskStore {
@@ -49,7 +50,12 @@ final class AgentSessionManager: @unchecked Sendable {
                 let adapter = entry.make(URL(fileURLWithPath: record.directory), AgentResume(
                     cliSessionID: record.cliSessionID, model: record.model, permissionMode: record.permissionMode
                 ))
-                sessions[record.id] = AgentSession(restoring: record, adapter: adapter)
+                let session = AgentSession(restoring: record, adapter: adapter)
+                // An ask the old process was waiting on can never be answered now.
+                for approvalID in session.transcript.unresolvedApprovalIDs {
+                    session.transcript.append(.approvalResolved(approvalID: approvalID, decision: .deny))
+                }
+                sessions[record.id] = session
             }
         }
         if !records.isEmpty { agentLog.notice("agent chats restored · \(records.count)") }
@@ -88,33 +94,36 @@ final class AgentSessionManager: @unchecked Sendable {
                 return
             }
             guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            let adapter = ensureLive(session)
+            guard let adapter = ensureLive(session) else {
+                sink(.failed(sessionID: id, message: "That chat cannot be continued. Start a new one."))
+                return
+            }
             append(.userPrompt(text: text), to: session)
             adapter.prompt(text)
 
         case .setModel(let id, let model):
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
-            // Model changes are reported by the adapter via ``onModel`` once real, never on the strength of the ask alone.
-            ensureLive(session).setModel(model)
+            // Reported back through ``onModel`` by the adapter, and by the CLI's own answer where it gives one.
+            ensureLive(session)?.setModel(model)
 
         case .setPermissionMode(let id, let mode):
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
-            guard session.adapter.permissionModes.contains(mode) else {
+            guard adapter(of: session).permissionModes.contains(mode) else {
                 sink(.failed(sessionID: id, message: "This agent cannot run in that mode."))
                 return
             }
             // Reported through ``onPermissionMode`` once the CLI has taken it, as the model is.
-            ensureLive(session).setPermissionMode(mode)
+            ensureLive(session)?.setPermissionMode(mode)
 
         case .approval(let id, let approvalID, let decision):
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
             guard lock.withLock({ session.pendingApprovals.remove(approvalID) != nil }) else { return }
             append(.approvalResolved(approvalID: approvalID, decision: decision), to: session)
-            session.adapter.respond(approvalID: approvalID, decision: decision)
+            adapter(of: session).respond(approvalID: approvalID, decision: decision)
 
         case .interrupt(let id):
             guard let session = owned(id, by: clientID) else { return }
-            if lock.withLock({ session.adapterLive }) { session.adapter.interrupt() }
+            if lock.withLock({ session.adapterLive }) { adapter(of: session).interrupt() }
 
         case .close(let id):
             guard let session = owned(id, by: clientID) else { return }
@@ -171,16 +180,15 @@ final class AgentSessionManager: @unchecked Sendable {
         var failure: String?
         lock.withLock {
             var existing = sessions.values.filter { $0.ownerClientID == clientID }
-            // An ended chat is only history: it gives way before a new one is refused.
-            while existing.count >= Self.maximumSessionsPerClient,
-                  let oldest = existing.filter({ $0.state == .exited }).min(by: { $0.createdAt < $1.createdAt }) {
+            guard existing.filter(\.adapterLive).count < Self.maximumLiveSessionsPerClient else {
+                failure = "Chat session limit reached."
+                return
+            }
+            while existing.count >= Self.maximumStoredSessionsPerClient,
+                  let oldest = existing.filter({ !$0.adapterLive }).min(by: { $0.createdAt < $1.createdAt }) {
                 sessions[oldest.id] = nil
                 existing.removeAll { $0.id == oldest.id }
                 evicted.append(oldest)
-            }
-            guard existing.count < Self.maximumSessionsPerClient else {
-                failure = "Chat session limit reached."
-                return
             }
             let name = directory.lastPathComponent.isEmpty ? "/" : directory.lastPathComponent
             let session = AgentSession(
@@ -194,7 +202,7 @@ final class AgentSessionManager: @unchecked Sendable {
             created = session
         }
         for session in evicted {
-            store.remove(session.id)
+            forget(session.id)
             sink(.closed(sessionID: session.id))
         }
         if let failure {
@@ -208,99 +216,6 @@ final class AgentSessionManager: @unchecked Sendable {
         persist(created)
         agentLog.notice("agent chat created · \(agentID, privacy: .public) · \(directory.path, privacy: .public)")
         launch(adapter, for: created)
-    }
-
-    /// The adapter to talk to: a chat whose CLI is not running gets a new one that resumes where it left off.
-    @discardableResult
-    private func ensureLive(_ session: AgentSession) -> any AgentAdapter {
-        var revived: (any AgentAdapter)?
-        let current: any AgentAdapter = lock.withLock {
-            guard !session.adapterLive, let entry = AgentCatalogue.entry(for: session.agentID) else { return session.adapter }
-            let adapter = entry.make(URL(fileURLWithPath: session.directory), session.resume)
-            session.adapter = adapter
-            session.adapterLive = true
-            if session.state == .exited || session.state == .failed { session.state = .idle }
-            revived = adapter
-            return adapter
-        }
-        if let revived {
-            attach(revived, to: session)
-            launch(revived, for: session)
-            agentLog.notice("agent chat restarted · \(session.agentID, privacy: .public)")
-        }
-        return current
-    }
-
-    private func attach(_ adapter: any AgentAdapter, to session: AgentSession) {
-        adapter.onEvent = { [weak self, weak session] payload in
-            guard let self, let session else { return }
-            self.append(payload, to: session)
-        }
-        adapter.onUsage = { [weak self, weak session] usage in
-            guard let self, let session else { return }
-            self.change(session, \.usage, to: usage, announcing: .usageChanged(sessionID: session.id, usage: usage))
-        }
-        adapter.onPermissionMode = { [weak self, weak session] mode in
-            guard let self, let session else { return }
-            self.change(session, \.permissionMode, to: mode, announcing: .permissionModeChanged(sessionID: session.id, mode: mode))
-        }
-        adapter.onModel = { [weak self, weak session] model in
-            guard let self, let session else { return }
-            // Sent, not appended: the model is a session fact, not transcript, so it is neither indexed nor replayed.
-            self.change(session, \.model, to: model, announcing: .modelChanged(sessionID: session.id, model: model))
-        }
-    }
-
-    /// Sets a session fact, and tells the owner and the disk only if it differs from what was held.
-    private func change<Value: Equatable>(
-        _ session: AgentSession,
-        _ path: ReferenceWritableKeyPath<AgentSession, Value>,
-        to value: Value,
-        announcing event: AgentEvent
-    ) {
-        let (changed, sink): (Bool, Sink?) = lock.withLock {
-            guard session[keyPath: path] != value else { return (false, nil) }
-            session[keyPath: path] = value
-            return (true, sinks[session.ownerClientID])
-        }
-        guard changed else { return }
-        sink?(event)
-        persist(session)
-    }
-
-    /// Off the connection's queue: resolving the binary runs a login shell and that queue carries pings.
-    private func launch(_ adapter: any AgentAdapter, for session: AgentSession) {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self, weak session] in
-            let directory = session.map { URL(fileURLWithPath: $0.directory) }
-            var isDirectory: ObjCBool = false
-            if let directory,
-               !(FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory) && isDirectory.boolValue) {
-                self?.abandon(adapter, of: session, message: "There is no folder at \(directory.path) on this Mac.")
-                return
-            }
-            do {
-                try adapter.start()
-            } catch let failure as AgentLaunchFailure {
-                agentLog.error("agent chat could not start · \(failure.message, privacy: .public)")
-                self?.abandon(adapter, of: session, message: failure.message)
-            } catch {
-                agentLog.error("agent chat could not start · \(String(describing: error), privacy: .public)")
-                self?.abandon(adapter, of: session, message: "That agent could not be started.")
-            }
-        }
-    }
-
-    /// A start that failed leaves the chat not live, so sending to it tries again.
-    private func abandon(_ adapter: any AgentAdapter, of session: AgentSession?, message: String) {
-        guard let session else { return }
-        lock.withLock { if session.adapter === adapter { session.adapterLive = false } }
-        append(.failure(message: message), to: session)
-    }
-
-    private func remove(_ session: AgentSession) {
-        session.adapter.stop()
-        _ = lock.withLock { sessions.removeValue(forKey: session.id) }
-        store.remove(session.id)
     }
 
     private static func uniqueTitle(base: String, among sessions: [AgentSession]) -> String {

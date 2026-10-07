@@ -117,7 +117,11 @@ struct SSHTerminalScreen: View {
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .onAppear { inputFocused = true }
+        .onAppear {
+            inputFocused = true
+            InAppBanner.shared.onScreen = .sshTerminal(terminal.id)
+        }
+        .onDisappear { InAppBanner.shared.leave(.sshTerminal(terminal.id)) }
         .sheet(isPresented: $isShowingForwards) {
             SSHForwardsSheet(host: terminal.host, model: model)
         }

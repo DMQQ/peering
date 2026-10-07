@@ -6,6 +6,12 @@ import UIKit
 enum InAppBannerTarget: Equatable {
     case chat(UUID)
     case terminal(UUID)
+    /// An SSH shell lives in this phone, not on a Mac: it can quiet its own cards but has no page to open.
+    case sshTerminal(UUID)
+
+    var opensScreen: Bool {
+        if case .sshTerminal = self { false } else { true }
+    }
 }
 
 struct InAppBannerItem: Identifiable {
@@ -37,12 +43,31 @@ final class InAppBanner {
     /// Where the card is on screen, so the overlay window lets every other touch through.
     var cardFrame: CGRect = .zero
     /// Taken (set back to nil) by the screen that opens it.
-    var openRequest: InAppBannerTarget?
+    var openRequest: InAppBannerTarget? {
+        didSet { openRequestedAt = openRequest == nil ? nil : Date() }
+    }
+    private var openRequestedAt: Date?
     /// What the person is reading now: news about it is not news.
     var onScreen: InAppBannerTarget? {
         didSet {
             if let onScreen, onScreen == current?.target { dismiss() }
         }
+    }
+
+    /// A request nobody took (the connection it waited for never came up) must not open a screen minutes later.
+    var freshOpenRequest: InAppBannerTarget? {
+        guard let openRequestedAt, Date().timeIntervalSince(openRequestedAt) < 60 else { return nil }
+        return openRequest
+    }
+
+    func takeOpenRequest() -> InAppBannerTarget? {
+        defer { openRequest = nil }
+        return freshOpenRequest
+    }
+
+    /// Only the screen that set it may clear it: when one chat replaces another, the old one's disappearance can arrive after the new one's appearance.
+    func leave(_ target: InAppBannerTarget) {
+        if onScreen == target { onScreen = nil }
     }
 
     private var dismissTask: Task<Void, Never>?
@@ -101,7 +126,7 @@ final class InAppBanner {
     }
 
     func open() {
-        openRequest = current?.target
+        if current?.target?.opensScreen == true { openRequest = current?.target }
         dismiss()
     }
 
@@ -261,7 +286,7 @@ struct InAppBannerView: View {
         } else {
             HStack(spacing: 10) {
                 pill("Dismiss", filled: false) { banner.dismiss() }
-                if item.target != nil {
+                if item.target?.opensScreen == true {
                     pill(item.openLabel, filled: true) { banner.open() }
                 }
             }

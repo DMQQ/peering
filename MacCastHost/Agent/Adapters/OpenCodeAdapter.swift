@@ -2,7 +2,7 @@ import Foundation
 import MacCastKit
 import RemoteCore
 
-/// Run mode has no approval channel: without `--auto` a call needing one is rejected as a failed tool, the safe direction; `--auto` is deliberately not passed.
+/// Run mode has no approval channel: without `--auto` a call needing one is rejected as a failed tool, the safe direction; `--auto` is passed only in the mode that asks for it.
 final class OpenCodeAdapter: PerTurnAdapter, @unchecked Sendable {
     private var stream: AgentOpenCodeStream
     private var contextWindows: [String: Int] = [:]

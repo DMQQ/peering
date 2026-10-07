@@ -101,6 +101,10 @@ final class AgentSession: @unchecked Sendable {
         )
     }
 
+    var hasHistory: Bool {
+        transcript.events.contains { if case .userPrompt = $0.payload { true } else { false } }
+    }
+
     var isBusy: Bool {
         state == .working || state == .awaitingApproval
     }
