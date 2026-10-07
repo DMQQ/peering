@@ -118,7 +118,7 @@ pub const APP_BUNDLE_ID: &str = "pl.dmq.peering";
 /// The products this app sells, and the plan each one buys.
 ///
 /// **The product identifiers are the app's, repeated here.** `StoreManager.Tier.productID(for:)` in
-/// `MacCast/StoreManager.swift` holds the authority, and `Tier.plan` maps the same products to the
+/// `MacCast/Store/StoreManager.swift` holds the authority, and `Tier.plan` maps the same products to the
 /// same names. Edit one without the others and a paying subscriber is metered as free, which is the direction this table is allowed to fail in, and the reason an unknown
 /// product is the free allowance rather than a refusal.
 const PRODUCTS: &[(&str, Plan)] = &[

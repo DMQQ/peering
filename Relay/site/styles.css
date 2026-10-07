@@ -560,7 +560,7 @@ a { color: inherit; }
 
    Every number here is a fraction of the screen it surrounds rather than a number of points, so the
    two keep their proportions at any size and stay the same devices as the ones the app's own tour
-   draws. The bench is `PhoneStage` in MacCast/OnboardingView.swift: same bezel over screen, same
+   draws. The bench is `PhoneStage` in MacCast/Onboarding/OnboardingView.swift: same bezel over screen, same
    body and screen corners, same island, same two-colour body and same one-point rim. A frame that
    matched it in one place and not the other would be two claims about one product.
 

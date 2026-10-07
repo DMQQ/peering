@@ -10,7 +10,7 @@ marketing art, or reaching for a colour, font, radius or padding value. It exist
 next to the existing UI rather than beside it.
 
 The source files it documents are still the final word when the two disagree:
-`MacCast/Theme.swift` (client) and `MacCastHost/Theme.swift` (Mac host).
+`MacCast/Design/Theme.swift` (client) and `MacCastHost/Theme.swift` (Mac host).
 
 Two rules from it that are easy to break by accident:
 

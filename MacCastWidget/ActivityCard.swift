@@ -144,7 +144,7 @@ struct ActivityCard: View {
 
 /// A session's state, as the colour of the dot on its tile.
 ///
-/// The colours are copies of `ColorPalette`'s (`MacCast/Theme.swift`), which this target cannot link.
+/// The colours are copies of `ColorPalette`'s (`MacCast/Design/Theme.swift`), which this target cannot link.
 enum ActivityTone {
     case live
     case pending
