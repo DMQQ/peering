@@ -10,10 +10,10 @@
 //! plan's allowance for the window is gone. Paid keys and the two unlimited plans are charged the
 //! same way and are never ended by it: their usage is recorded, it just does not bound anything.
 //!
-//! **A day, not a month.** The window is deliberately short. An allowance of an hour a day is
+//! **A day, not a month.** The window is deliberately short. An allowance of half an hour a day is
 //! something a person can plan around — connect now, or wait until tomorrow — where a monthly
 //! pot is either unspent or gone, and the failure mode of "gone" is a paywall in front of
-//! someone who has only just worked out that the relay is the point. Thirty times an hour is
+//! someone who has only just worked out that the relay is the point. Thirty times half an hour is
 //! more time than the three hours a month it replaced, and it is spread the way the use is.
 //!
 //! **The counter is written down**, in an append-only log at `PEERINGD_USAGE_LOG`. It used to

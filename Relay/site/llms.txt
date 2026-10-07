@@ -29,7 +29,7 @@
 
 ## Pricing
 
-- Free: your own network, unmetered, forever. One Mac, one hour of relay time a day if you leave
+- Free: your own network, unmetered, forever. One Mac, 30 minutes of relay time a day if you leave
   your network. No sound, Picture in Picture, two-way file transfer, or clipboard history.
 - Relay ($1.99/month or $14.99/year): unlimited relay time, every Mac you own, sound, Picture in
   Picture, two-way files, clipboard history.

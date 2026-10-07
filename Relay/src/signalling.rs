@@ -859,7 +859,7 @@ mod tests {
         }
     }
 
-    /// The allowances the app states, which are the relay's defaults: one hour free and no limit
+    /// The allowances the app states, which are the relay's defaults: 30 minutes free and no limit
     /// on paid plans.
     fn default_settings() -> Settings {
         settings_with(Arc::new(QuotaTracker::new(
@@ -1196,10 +1196,10 @@ mod tests {
         .await
     }
 
-    /// One hour free means one hour: a client that has spent more than that is refused.
+    /// 30 minutes free means 30 minutes: a client that has spent more than that is refused.
     #[tokio::test]
     async fn a_spent_free_allowance_is_refused() {
-        let reply = connect_with(None, 60 * 60 + 1).await;
+        let reply = connect_with(None, 30 * 60 + 1).await;
         assert!(
             matches!(reply, Some(ServerMessage::Error { ref code, .. }) if code == "quotaExceeded"),
             "expected a quota refusal, got {reply:?}"
@@ -1234,7 +1234,7 @@ mod tests {
     #[tokio::test]
     async fn a_plan_the_relay_does_not_know_is_metered_as_free() {
         for claimed in ["enterprise", "unlimited", "pro max", ""] {
-            let reply = connect_with(Some(claimed), 60 * 60 + 1).await;
+            let reply = connect_with(Some(claimed), 30 * 60 + 1).await;
             assert!(
                 matches!(reply, Some(ServerMessage::Error { ref code, .. }) if code == "quotaExceeded"),
                 "{claimed:?} should have been metered as free, got {reply:?}"

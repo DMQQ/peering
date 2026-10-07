@@ -210,7 +210,7 @@ struct FAQView: View {
             items: [
                 QA(
                     question: String(localized: "What is free?"),
-                    answer: String(localized: "Connecting over your own network, with no limit and no time counted. The relay is the part that reaches a Mac on another network, and free includes one hour of it in each rolling 24 hours.")
+                    answer: String(localized: "Connecting over your own network, with no limit and no time counted. The relay is the part that reaches a Mac on another network, and free includes 30 minutes of it in each rolling 24 hours.")
                 ),
                 QA(
                     question: String(localized: "What happens when my relay time runs out?"),

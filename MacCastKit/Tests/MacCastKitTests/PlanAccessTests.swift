@@ -127,8 +127,8 @@ final class PlanAccessTests: XCTestCase {
 
     /// Pins the allowance number and its spelling against the relay's limit.
     func testThePlanAllowancesMatchTheProductPromise() {
-        XCTAssertEqual(RelayPlan.free.allowanceSeconds, 60 * 60)
-        XCTAssertEqual(RelayPlan.free.allowanceSpelling, "one hour")
+        XCTAssertEqual(RelayPlan.free.allowanceSeconds, 30 * 60)
+        XCTAssertEqual(RelayPlan.free.allowanceSpelling, "30 minutes")
 
         for plan in [RelayPlan.relay, .pro] {
             XCTAssertNil(plan.allowanceSeconds, "\(plan.name) should be unlimited")

@@ -11132,60 +11132,60 @@
         }
       }
     },
-    "Connecting over your own network, with no limit and no time counted. The relay is the part that reaches a Mac on another network, and free includes one hour of it in each rolling 24 hours." : {
+    "Connecting over your own network, with no limit and no time counted. The relay is the part that reaches a Mac on another network, and free includes 30 minutes of it in each rolling 24 hours." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Das Verbinden über dein eigenes Netzwerk, ohne Limit und ohne gezählte Zeit. Das Relay ist der Teil, der einen Mac in einem anderen Netzwerk erreicht, und kostenlos enthält eine Stunde davon pro gleitenden 24 Stunden."
+            "value" : "Das Verbinden über dein eigenes Netzwerk, ohne Limit und ohne gezählte Zeit. Das Relay ist der Teil, der einen Mac in einem anderen Netzwerk erreicht, und kostenlos enthält 30 Minuten davon pro gleitenden 24 Stunden."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Conectarse por tu propia red, sin límite y sin contar el tiempo. El relay es la parte que llega a un Mac en otra red, y lo gratis incluye una hora en cada periodo de 24 horas."
+            "value" : "Conectarse por tu propia red, sin límite y sin contar el tiempo. El relay es la parte que llega a un Mac en otra red, y lo gratis incluye 30 minutos en cada periodo de 24 horas."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se connecter sur votre propre réseau, sans limite et sans temps compté. Le relais est la partie qui atteint un Mac sur un autre réseau, et le gratuit en comprend une heure par période glissante de 24 heures."
+            "value" : "Se connecter sur votre propre réseau, sans limite et sans temps compté. Le relais est la partie qui atteint un Mac sur un autre réseau, et le gratuit en comprend 30 minutes par période glissante de 24 heures."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connettersi sulla tua rete, senza limite e senza tempo contato. Il relay è la parte che raggiunge un Mac su un'altra rete, e il gratis ne include un'ora in ogni 24 ore scorrevoli."
+            "value" : "Connettersi sulla tua rete, senza limite e senza tempo contato. Il relay è la parte che raggiunge un Mac su un'altra rete, e il gratis ne include 30 minuti in ogni 24 ore scorrevoli."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "自分のネットワークでの接続は、上限なし、時間のカウントなしです。リレーは別のネットワークにあるMacに届く部分で、無料プランには24時間ごと（ローリング）に1時間分が含まれます。"
+            "value" : "自分のネットワークでの接続は、上限なし、時間のカウントなしです。リレーは別のネットワークにあるMacに届く部分で、無料プランには24時間ごと（ローリング）に30分が含まれます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "내 네트워크에서의 연결은 제한도, 시간 계산도 없습니다. 릴레이는 다른 네트워크의 Mac에 닿는 부분이며, 무료에는 24시간마다(롤링) 1시간이 포함됩니다."
+            "value" : "내 네트워크에서의 연결은 제한도, 시간 계산도 없습니다. 릴레이는 다른 네트워크의 Mac에 닿는 부분이며, 무료에는 24시간마다(롤링) 30분이 포함됩니다."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Conectar pela sua própria rede, sem limite e sem tempo contado. O relay é a parte que alcança um Mac em outra rede, e o grátis inclui uma hora dele em cada 24 horas corridas."
+            "value" : "Conectar pela sua própria rede, sem limite e sem tempo contado. O relay é a parte que alcança um Mac em outra rede, e o grátis inclui 30 minutos dele em cada 24 horas corridas."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Подключение по вашей собственной сети, без лимита и без подсчёта времени. Релей это часть, которая достигает Mac в другой сети, и бесплатный тариф включает час релея в каждые скользящие 24 часа."
+            "value" : "Подключение по вашей собственной сети, без лимита и без подсчёта времени. Релей это часть, которая достигает Mac в другой сети, и бесплатный тариф включает 30 минут релея в каждые скользящие 24 часа."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通过你自己的网络连接，没有上限，也不计时。中继是到达其他网络上 Mac 的部分，免费版在每个滚动 24 小时内包含一小时。"
+            "value" : "通过你自己的网络连接，没有上限，也不计时。中继是到达其他网络上 Mac 的部分，免费版在每个滚动 24 小时内包含 30 分钟。"
           }
         }
       }
@@ -31767,61 +31767,61 @@
         }
       }
     },
-    "one hour" : {
+    "30 minutes" : {
       "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "eine Stunde"
+            "value" : "30 Minuten"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "una hora"
+            "value" : "30 minutos"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "une heure"
+            "value" : "30 minutes"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "un'ora"
+            "value" : "30 minuti"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1時間"
+            "value" : "30分"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "1시간"
+            "value" : "30분"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "uma hora"
+            "value" : "30 minutos"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "один час"
+            "value" : "30 минут"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一小时"
+            "value" : "30 分钟"
           }
         }
       }
