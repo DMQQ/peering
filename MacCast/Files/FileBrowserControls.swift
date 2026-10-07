@@ -57,7 +57,7 @@ struct FileBrowseBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color.black)
+        .background(ColorPalette.backdrop)
         .overlay(alignment: .top) { hairline }
         .disabled(!isEnabled)
     }

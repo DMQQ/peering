@@ -18,7 +18,7 @@ struct TerminalDeck: View {
 
     var body: some View {
         mainRow
-            .background(Color.black)
+            .background(ColorPalette.backdrop)
             .overlay(alignment: .top) { hairline }
             .disabled(!isEnabled)
             .sheet(isPresented: $showsAllKeys) {

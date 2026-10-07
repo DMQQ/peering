@@ -31,10 +31,10 @@ struct MacFilePreviewScreen: View {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .background(Color.black)
+        .background(ColorPalette.backdrop)
         .navigationTitle((path as NSString).lastPathComponent)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color.black, for: .navigationBar)
+        .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         // The scope first, as the folder page does: the Mac keeps one only for the connection that made it, so after a reconnect a read sent without it is never answered.
         // A read that has not finished after a few seconds is asked for again, up to twice, since a lost request looks exactly like a slow one.

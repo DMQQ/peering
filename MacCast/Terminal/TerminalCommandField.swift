@@ -119,7 +119,7 @@ struct TerminalCommandField: UIViewRepresentable {
                 }
                 if i < text.endIndex { i = text.index(after: i) }
                 out.addAttribute(.foregroundColor,
-                    value: UIColor(red: 0.97, green: 0.75, blue: 0.35, alpha: 0.90),
+                    value: UIColor(ColorPalette.caution),
                     range: NSRange(start..<i, in: text))
                 continue
             }

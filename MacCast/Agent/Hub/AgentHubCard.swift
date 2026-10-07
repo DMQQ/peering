@@ -297,7 +297,7 @@ private struct DockIconButton: View {
             }
             .foregroundStyle(.white)
             .frame(width: 58, height: 48)
-            .background(Capsule().fill(.white.opacity(0.12)))
+            .glassSurface(in: Capsule(), interactive: true)
             .contentShape(Capsule())
         }
         .buttonStyle(CardPress())

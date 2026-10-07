@@ -35,6 +35,11 @@ extension MacSession {
         loadAgentHistory(id, since: 0)
     }
 
+    /// The chats' cards show the last reply, which lives in the conversation: ask for every one that has not been read, not only the one that gets opened.
+    func ensureAgentPreviews() {
+        for session in agentSessions where !session.isLoaded { ensureAgentHistory(session.id) }
+    }
+
     func startAgentChat(agentID: String, directory: String?) {
         AgentFolderHistory.record(directory: directory, agentID: agentID, macName: model.hostName)
         #if DEBUG

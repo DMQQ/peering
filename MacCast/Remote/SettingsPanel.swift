@@ -118,7 +118,7 @@ struct SettingsPanel: View {
                             .font(.system(size: 8, weight: .semibold))
                             .foregroundStyle(note.localizedCaseInsensitiveContains("fail")
                                              || note.localizedCaseInsensitiveContains("ended")
-                                             ? Color.orange
+                                             ? ColorPalette.caution
                                              : ColorPalette.accent)
                             .frame(width: 14, height: 18)
                         Text(note)
@@ -190,7 +190,7 @@ struct SettingsPanel: View {
             HStack(spacing: 10) {
                 Image(systemName: hevcSupported ? "checkmark.seal.fill" : "xmark.seal")
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(hevcSupported ? Color.green : Color.orange)
+                    .foregroundStyle(hevcSupported ? ColorPalette.added : ColorPalette.caution)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(hevcSupported ? "HEVC supported" : "HEVC not supported")
                         .font(.subheadline.weight(.medium))

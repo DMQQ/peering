@@ -89,7 +89,11 @@ struct TerminalHubScreen: View {
             Button("Cancel", role: .cancel) { renaming = nil }
             Button("Save") { commitRename() }
         }
-        .onAppear { model.refreshAgents() }
+        .onAppear {
+            model.refreshAgents()
+            model.ensureAgentPreviews()
+        }
+        .onChange(of: model.agentCards.map(\.id)) { _, _ in model.ensureAgentPreviews() }
     }
 
 

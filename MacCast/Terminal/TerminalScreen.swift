@@ -65,13 +65,13 @@ struct TerminalScreen: View {
                 ended
             }
         }
-        .background(Color.black)
+        .background(ColorPalette.backdrop)
         // One flag shared with the SSH terminal, so the tips are not shown twice.
         .firstRunTours(dueTerminalTours) { $0.markSeen() }
         .navigationTitle(terminal?.name ?? String(localized: "Terminal"))
         .navigationBarTitleDisplayMode(.inline)
         // The header takes the terminal's colour; the system bar material looked like another app's chrome.
-        .toolbarBackground(Color.black, for: .navigationBar)
+        .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .principal) {

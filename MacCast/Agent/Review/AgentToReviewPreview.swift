@@ -9,18 +9,19 @@ extension AgentReviewQueue {
     }
 }
 
-/// The card's lower half: the first pending files as small mono rows, like the lines under a terminal's title bar.
+/// The card's screen: the first pending files as mono lines on the dark pane a terminal's output sits on.
 struct AgentToReviewPreview: View {
     let files: [AgentChangedFile]
     let more: Int
+    var note: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(files, id: \.path) { file in
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(Array(files.enumerated()), id: \.element.path) { offset, file in
                 HStack(spacing: 8) {
                     Text(verbatim: (file.path as NSString).lastPathComponent)
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(.system(size: 11.5, design: .monospaced))
+                        .foregroundStyle(.white.opacity(offset == 0 ? 0.85 : 0.5))
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 8)
@@ -29,13 +30,19 @@ struct AgentToReviewPreview: View {
             }
             if more > 0 {
                 Text("+\(more) more")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.35))
+            }
+            if let note {
+                Text(verbatim: note)
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.35))
             }
         }
+        .frame(maxWidth: .infinity, minHeight: 74, alignment: .topLeading)
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 11)
+        .background(.black.opacity(0.35))
     }
 }
 

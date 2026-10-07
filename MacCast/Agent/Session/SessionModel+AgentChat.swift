@@ -80,6 +80,8 @@ extension SessionModel {
 
     var hostSupportsAgentUsage: Bool { activeSession?.hostSupportsAgentUsage ?? false }
 
+    func ensureAgentPreviews() { activeSession?.ensureAgentPreviews() }
+
     func closeAgentSession(_ id: UUID) { activeSession?.closeAgentSession(id) }
 
     func closeAgentSessionIfUnused(_ id: UUID) { activeSession?.closeAgentSessionIfUnused(id) }

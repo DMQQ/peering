@@ -68,11 +68,13 @@ struct AgentToReviewCard: View {
     private func row(_ queue: AgentReviewQueue) -> some View {
         Button { showsList = true } label: {
             VStack(spacing: 0) {
-                header(queue)
-                if model.isAgentHostReachable, !queue.pendingPreview.isEmpty {
-                    Rectangle().fill(.white.opacity(0.08)).frame(height: 1)
-                    AgentToReviewPreview(files: queue.pendingPreview, more: queue.pendingFileCount - queue.pendingPreview.count)
-                }
+                titleBar(queue)
+                Rectangle().fill(.white.opacity(0.08)).frame(height: 1)
+                AgentToReviewPreview(
+                    files: model.isAgentHostReachable ? queue.pendingPreview : [],
+                    more: queue.pendingFileCount - queue.pendingPreview.count,
+                    note: screenNote(queue)
+                )
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -86,55 +88,42 @@ struct AgentToReviewCard: View {
         .accessibilityIdentifier("to-review-card")
     }
 
-    private func header(_ queue: AgentReviewQueue) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checklist")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(ColorPalette.ink)
-                .frame(width: 36, height: 36)
-                .background(
-                    LinearGradient(colors: [.white.opacity(0.18), .white.opacity(0.08)], startPoint: .top, endPoint: .bottom),
-                    in: RoundedRectangle(cornerRadius: 11, style: .continuous)
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(.white.opacity(0.14))
+    /// The same title bar as a terminal's window: three dots, the name with a line under it, and what is there to see on the right.
+    private func titleBar(_ queue: AgentReviewQueue) -> some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 5) {
+                ForEach(0..<3, id: \.self) { _ in
+                    Circle().fill(.white.opacity(0.16)).frame(width: 8, height: 8)
                 }
-            VStack(alignment: .leading, spacing: 2) {
-                Text("To review")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(ColorPalette.ink)
-                detail(queue)
             }
-            Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("To review")
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(ColorPalette.ink)
+                Text("^[\(queue.pendingFileCount) file](inflect: true) in ^[\(queue.pendingChatCount) chat](inflect: true)")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 6)
+            if model.isAgentHostReachable {
+                let stats = queue.pendingStats
+                DiffCounts(added: stats.added, removed: stats.removed, font: .system(size: 11, weight: .semibold, design: .monospaced))
+            }
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white.opacity(0.4))
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.white.opacity(0.3))
         }
-        .padding(12)
+        .padding(.horizontal, 14)
+        .frame(height: 46)
+        .background(.white.opacity(0.04))
     }
 
-    @ViewBuilder
-    private func detail(_ queue: AgentReviewQueue) -> some View {
-        if !model.isAgentHostReachable {
-            Text("Your Mac is not reachable, so this may be out of date")
-                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-        } else {
-            let stats = queue.pendingStats
-            let missing = queue.unansweredChatCount
-            VStack(alignment: .leading, spacing: 2) {
-                Text("^[\(queue.pendingFileCount) file](inflect: true) in ^[\(queue.pendingChatCount) chat](inflect: true)")
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                if stats.added > 0 || stats.removed > 0 || missing > 0 {
-                    HStack(spacing: 8) {
-                        DiffCounts(added: stats.added, removed: stats.removed)
-                        if missing > 0 {
-                            Text("\(missing) not checked yet").font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                    .lineLimit(1)
-                }
-            }
-        }
+    /// What the screen says when there are no files to list.
+    private func screenNote(_ queue: AgentReviewQueue) -> String? {
+        if !model.isAgentHostReachable { return String(localized: "Your Mac is not reachable, so this may be out of date") }
+        let missing = queue.unansweredChatCount
+        return missing > 0 ? String(localized: "\(missing) not checked yet") : nil
     }
 }
 

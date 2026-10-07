@@ -79,7 +79,7 @@ struct SSHTerminalScreen: View {
         .sheet(isPresented: $isEditingQuickCommands) {
             SSHQuickCommandsEditor(commands: quickCommands)
         }
-        .background(Color.black)
+        .background(ColorPalette.backdrop)
         // No tab bar: this is the Servers tab's root, and the bar would sit a few points under the line the cursor is on.
         .toolbar(.hidden, for: .tabBar)
         // Inline, not a two-line principal item: a taller principal view grows the navigation bar and pushes the tab strip down.
@@ -114,7 +114,7 @@ struct SSHTerminalScreen: View {
                     .accessibilityHint("Ends the shell on the server")
             }
         }
-        .toolbarBackground(Color.black, for: .navigationBar)
+        .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear {

@@ -33,7 +33,7 @@ struct FilePreviewPanel: View {
             content
         }
         .toolbar { if usesToolbars { toolbarContent } }
-        .toolbarBackground(Color.black, for: .bottomBar)
+        .toolbarBackground(ColorPalette.backdrop, for: .bottomBar)
         .toolbarBackground(.visible, for: .bottomBar)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(ColorPalette.backdrop)

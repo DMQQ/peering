@@ -31,12 +31,12 @@ struct MacFilesScreen: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .background(Color.black)
+        .background(ColorPalette.backdrop)
         .navigationTitle(shownPath.map { $0 == "/" ? "/" : ($0 as NSString).lastPathComponent } ?? String(localized: "Files"))
         .navigationBarTitleDisplayMode(.inline)
         .ancestorsMenu(of: shownPath) { push($0) }
         .folderBackButton(of: shownPath) { push($0) }
-        .toolbarBackground(Color.black, for: .navigationBar)
+        .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
