@@ -45,6 +45,21 @@ struct RemoteFileKindTests {
         #expect(RemoteFileKind.sniff(prefix: lying, path: "/Users/someone/Desktop/thing.png") == .text)
     }
 
+    @Test("a PDF is recognised by its header, even with stray bytes before it")
+    func recognisesPDF() {
+        let plain = Data("%PDF-1.7\n".utf8) + Data([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x00])
+        let padded = Data("\r\n\r\n".utf8) + plain
+        #expect(RemoteFileKind.sniff(prefix: plain, path: "/Users/someone/Desktop/thing") == .pdf)
+        #expect(RemoteFileKind.sniff(prefix: padded, path: "/Users/someone/Desktop/thing") == .pdf)
+        #expect(RemoteFileKind.pdf.isDrawn)
+    }
+
+    @Test("a text file that merely mentions PDF later on is still text")
+    func lateMentionIsText() {
+        let notes = Data((String(repeating: "x", count: 2000) + "\n%PDF-1.4\n").utf8)
+        #expect(RemoteFileKind.sniff(prefix: notes, path: "/Users/someone/notes.txt") == .text)
+    }
+
     @Test("SVG is found by its name and by its own opening tag")
     func recognisesSVG() {
         let document = Data("<?xml version=\"1.0\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\"/>".utf8)

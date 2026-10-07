@@ -98,7 +98,7 @@ extension TerminalSessionManager {
 
             guard let sniffed = RemoteFileKind.sniff(prefix: data, path: url.path) else {
                 return .failure(
-                    "That file is not text or a picture, so there is nothing to show here."
+                    "That file is not text, a picture or a PDF, so there is nothing to show here."
                 )
             }
             kind = sniffed
@@ -116,7 +116,7 @@ extension TerminalSessionManager {
             return .failure(DirectoryListing.message(for: error))
         }
 
-        if kind == .image { return .contents(data, kind: kind, totalBytes: totalBytes) }
+        if kind == .image || kind == .pdf { return .contents(data, kind: kind, totalBytes: totalBytes) }
 
         // It has to decode. Up to three bytes come off the end first, for the case where the read
         // stopped at the cap rather than the end of the file and the cut landed inside a character:

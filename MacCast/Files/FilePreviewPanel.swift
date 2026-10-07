@@ -196,23 +196,19 @@ struct FilePreviewPanel: View {
             // There is no first eight megabytes of a JPEG, so a picture cut at the cap is not drawn.
             if preview.isTruncated {
                 VStack(spacing: 10) {
-                    Image(systemName: "photo")
+                    Image(systemName: preview.kind == .pdf ? "doc" : "photo")
                         .font(.system(size: 22, weight: .light))
                         .foregroundStyle(.tertiary)
-                    Text(
-                        """
-                        This picture is \
-                        \(preview.totalBytes.formatted(.byteCount(style: .file))), which is more \
-                        than a preview can carry.
-                        """
-                    )
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Text(tooLargeMessage)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.horizontal, 32)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if preview.kind == .pdf {
+                RemotePDFView(data: preview.data, identity: preview.path)
             } else {
                 RemoteImageView(
                     data: preview.data,
@@ -223,6 +219,13 @@ struct FilePreviewPanel: View {
         } else {
             reader
         }
+    }
+
+    private var tooLargeMessage: String {
+        let size = preview.totalBytes.formatted(.byteCount(style: .file))
+        return preview.kind == .pdf
+            ? String(localized: "This PDF is \(size), which is more than a preview can carry.")
+            : String(localized: "This picture is \(size), which is more than a preview can carry.")
     }
 
     var reader: some View {

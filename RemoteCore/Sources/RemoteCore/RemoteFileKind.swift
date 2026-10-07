@@ -5,6 +5,7 @@ public enum RemoteFileKind: String, Codable, Equatable, Sendable {
     case text
     case image
     case svg
+    case pdf
 
     /// Whether the phone draws this rather than reads it; the size caps depend on it.
     public var isDrawn: Bool { self != .text }
@@ -17,6 +18,8 @@ extension RemoteFileKind {
     /// Which kind a file is, or nil if neither text nor a showable picture. Rasters are recognised by bytes, SVG only by name (at byte level it is XML, like a plist). Contents are asked first, so a `.png` holding text is text.
     public static func sniff(prefix: Data, path: String) -> RemoteFileKind? {
         if isRaster(prefix) { return .image }
+        // The spec lets a few stray bytes precede the header, so it is looked for in the first kilobyte rather than at offset zero.
+        if prefix.prefix(1024).range(of: Data("%PDF-".utf8)) != nil { return .pdf }
 
         // Answered here because the loop below cannot tell an empty file from one trimmed to nothing.
         if prefix.isEmpty { return .text }
