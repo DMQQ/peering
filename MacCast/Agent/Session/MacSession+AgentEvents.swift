@@ -91,8 +91,12 @@ extension MacSession {
                 failure: nil
             )
 
+        case .browseWaiting(_, let message):
+            agentPicker.waitingNote = message
+
         case .browseFailure(_, let message):
             agentPicker.isLoading = false
+            agentPicker.waitingNote = nil
             agentPicker.failure = message
 
         case .closed(let id):

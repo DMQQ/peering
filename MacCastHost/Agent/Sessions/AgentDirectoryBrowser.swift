@@ -11,7 +11,7 @@ enum AgentDirectoryBrowser {
         }
         let directory = URL(fileURLWithPath: path).standardizedFileURL
         FolderAccessWatch.run(
-            slow: { sink(.browseFailure(path: directory.path, message: FolderAccessWatch.listingMessage)) },
+            slow: { sink(.browseWaiting(path: directory.path, message: FolderAccessWatch.listingMessage)) },
             work: { DirectoryListing.entries(in: directory) }
         ) { outcome in
             switch outcome {

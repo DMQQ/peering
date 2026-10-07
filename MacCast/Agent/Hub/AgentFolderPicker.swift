@@ -80,6 +80,15 @@ struct AgentFolderPicker: View {
     private var list: some View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(spacing: 0) {
+                if awaiting, let note = model.agentPicker.waitingNote {
+                    Text(note)
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.6))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                    Controls.divider
+                }
                 if picker.path == nil, picker.isLoading {
                     Color.clear.frame(height: 1)
                 } else {

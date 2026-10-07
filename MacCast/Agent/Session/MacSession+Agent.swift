@@ -9,6 +9,8 @@ struct AgentPickerState {
     var entries: [RemoteDirectoryEntry] = []
     var isLoading = false
     var failure: String?
+    /// Why the Mac is slow to answer, while the request is still outstanding.
+    var waitingNote: String?
 }
 
 /// Agent chats mirror ``MacSession+Terminal``: reattached from a listing, replayed, owner-scoped on the Mac, forgotten when the session is gone. A listing carries no conversation, so history is asked lazily and each session remembers how far it has read.
@@ -116,6 +118,7 @@ extension MacSession {
 
     func browseAgentFolder(_ path: String?) {
         agentPicker.isLoading = true
+        agentPicker.waitingNote = nil
         agentPicker.failure = nil
         wire?.sendAgent(.browse(path: path))
     }

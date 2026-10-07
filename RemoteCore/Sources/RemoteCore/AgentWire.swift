@@ -313,6 +313,8 @@ public enum AgentEvent: Codable, Equatable, Sendable {
     case replay(sessionID: UUID, events: [AgentStreamEvent], isLast: Bool, truncatedAtFront: Bool)
     case directory(path: String, entries: [RemoteDirectoryEntry], truncated: Bool)
     case browseFailure(path: String, message: String)
+    /// The Mac has not answered a ``AgentRequest/browse(path:)`` yet, and says why: it may be waiting on a permission dialog only someone at the Mac can answer. The listing still follows as ``directory(path:entries:truncated:)`` once it is allowed.
+    case browseWaiting(path: String, message: String)
     case closed(sessionID: UUID)
     /// The model the session now runs, sent when the picker changes it and whenever the CLI
     /// itself announces one. `nil` is the CLI's default.
