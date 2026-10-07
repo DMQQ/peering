@@ -34,9 +34,13 @@ public struct AgentClaudeStream {
         }
 
         if let parent = json["parent_tool_use_id"] as? String, !parent.isEmpty {
-            return []
+            guard ["assistant", "user", "stream_event"].contains(type) else { return [] }
+            return route(type, json).map { .child(parentCallID: parent, event: $0) }
         }
+        return route(type, json)
+    }
 
+    private mutating func route(_ type: String, _ json: [String: Any]) -> [AgentStreamEvent.Payload] {
         switch type {
         case "system":
             return system(json)

@@ -5,6 +5,7 @@ import SwiftUI
 struct AgentToolCard: View {
     let tool: AgentToolItem
     let isExpanded: Bool
+    var subagentSteps: Int?
     let toggle: () -> Void
 
     var body: some View {
@@ -28,6 +29,11 @@ struct AgentToolCard: View {
                                 .font(.caption.monospaced())
                                 .foregroundStyle(.white.opacity(0.55))
                                 .lineLimit(isExpanded ? nil : 2)
+                        }
+                        if let steps = subagentSteps {
+                            Text("\(steps) steps, tap to open")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.45))
                         }
                     }
                     Spacer(minLength: 6)

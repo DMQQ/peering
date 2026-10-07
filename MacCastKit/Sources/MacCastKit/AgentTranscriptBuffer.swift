@@ -118,6 +118,8 @@ public struct AgentTranscriptBuffer: Sendable {
             return (call.detail ?? "").utf8.count + (call.diff ?? "").utf8.count
         case .toolFinished(_, _, let output, _):
             return (output ?? "").utf8.count
+        case .child(_, let event):
+            return approximateBytes(of: event)
         case .sessionReady, .turnStarted, .approvalRequested, .approvalResolved, .turnFinished, .sessionExited:
             return 64
         }

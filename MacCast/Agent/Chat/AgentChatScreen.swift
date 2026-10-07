@@ -20,6 +20,7 @@ struct AgentChatScreen: View {
     @State var renamingID: UUID?
     @State var renameText = ""
     @State var answering: AgentApproval?
+    @State var openedSubagent: AgentSubagentSelection?
     /// A chat whose history never arrived (an older Mac), so it shows as empty instead of loading for ever.
     @State private var gaveUpLoading: UUID?
     @State var typingModelFor: UUID?
@@ -189,7 +190,8 @@ struct AgentChatScreen: View {
                         stickToBottom = true
                         model.sendAgentPrompt(text, to: session.id)
                     },
-                    review: { answering = $0 }
+                    review: { answering = $0 },
+                    openSubagent: { openedSubagent = AgentSubagentSelection(id: $0) }
                 )
                 .transition(.opacity)
             }
@@ -284,6 +286,10 @@ struct AgentChatScreen: View {
             attaching = nil
             pending.failure = model.uploadFailure(sessionID: model.browserID ?? UUID())
             attached[currentID, default: []].append(pending)
+        }
+        .sheet(item: $openedSubagent) { selection in
+            AgentSubagentSheet(sessionID: currentID, selectedCallID: selection.id)
+                .presentationDragIndicator(.visible)
         }
         .sheet(item: $answering) { approval in
             AgentApprovalSheet(approval: approval) { decision in

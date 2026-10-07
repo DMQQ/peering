@@ -216,11 +216,17 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertNotNil(stream.takeApprovalInput(approvalID))
     }
 
-    func testSubagentTrafficIsIgnored() {        let subagentTool = #"""
+    func testSubagentTrafficIsFiledUnderItsParent() {
+        let subagentTool = #"""
         {"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"t","name":"Bash","input":{"command":"ls"}}]},"parent_tool_use_id":"toolu_parent","session_id":"s","uuid":"u6"}
         """#
         let subagentDelta = #"{"type":"stream_event","parent_tool_use_id":"toolu_parent","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"hi"}}}"#
-        XCTAssertEqual(payloads([subagentTool, subagentDelta]), [])
+        let result = payloads([subagentTool, subagentDelta])
+        XCTAssertEqual(result.count, 2)
+        for payload in result {
+            guard case .child(let parent, _) = payload else { return XCTFail("expected child, got \(payload)") }
+            XCTAssertEqual(parent, "toolu_parent")
+        }
     }
 
     func testLongOutputIsTruncated() {

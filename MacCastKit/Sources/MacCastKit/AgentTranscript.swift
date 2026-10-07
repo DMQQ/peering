@@ -53,6 +53,9 @@ public struct AgentTranscript: Equatable {
     /// Kept as it arrives: a card in a list reads it on every streamed event, and finding it by walking the whole conversation each time was most of that cost.
     public private(set) var latestPlan: [AgentPlanStep]?
 
+    /// What each sub-agent did, keyed by the id of the `Task` call that spawned it.
+    public private(set) var children: [String: AgentTranscript] = [:]
+
     private var openReplyID: UUID?
     /// An approximate total of the text held, kept so trimming does not walk the whole list on
     /// every token.
@@ -61,6 +64,11 @@ public struct AgentTranscript: Equatable {
     public init() {}
 
     public var isEmpty: Bool { items.isEmpty }
+
+    /// The Mac's turnStarted is a round trip away; the thinking row should not wait for it.
+    public mutating func markPromptSent() {
+        state = .working
+    }
 
     public mutating func reset() {
         self = AgentTranscript()
@@ -127,6 +135,7 @@ public struct AgentTranscript: Equatable {
                 return false
             }), case .tool(let id, var tool) = items[index] else { return }
             tool.state = ok ? .ok : .failed
+            children[callID]?.state = .idle
             tool.output = output
             tool.truncated = truncated
             items[index] = .tool(id: id, item: tool)
@@ -180,6 +189,11 @@ public struct AgentTranscript: Equatable {
 
         case .sessionExited:
             state = .exited
+
+        case .child(let parentCallID, let event):
+            children[parentCallID, default: AgentTranscript()].apply(event)
+            // A sub-agent has no turns of its own: it works until the call that spawned it finishes.
+            children[parentCallID]?.state = .working
         }
     }
 
@@ -216,6 +230,14 @@ public struct AgentTranscript: Equatable {
                 + (tool.call.detail ?? "").utf8.count
         case .summary:
             return 0
+        }
+    }
+
+    /// The sub-agents of this conversation in the order they were spawned, with the call each belongs to.
+    public var subagents: [(call: AgentToolCall, transcript: AgentTranscript)] {
+        items.compactMap { item in
+            guard case .tool(_, let tool) = item, let child = children[tool.call.id] else { return nil }
+            return (tool.call, child)
         }
     }
 }

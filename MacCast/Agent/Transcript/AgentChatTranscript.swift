@@ -12,10 +12,21 @@ struct AgentChatTranscript: View {
     let unqueue: (Int) -> Void
     let resend: (String) -> Void
     let review: (AgentApproval) -> Void
+    let openSubagent: (String) -> Void
 
     private func approval(for item: AgentTranscriptItem) -> AgentApproval? {
         guard case .tool(_, let tool) = item, case .awaitingApproval = tool.state else { return nil }
         return session.transcript.pendingApprovals.first { $0.call.id == tool.call.id }
+    }
+
+    private func subagent(for item: AgentTranscriptItem) -> AgentTranscript? {
+        guard case .tool(_, let tool) = item else { return nil }
+        return session.transcript.children[tool.call.id]
+    }
+
+    private func subagentOpener(for item: AgentTranscriptItem) -> (() -> Void)? {
+        guard case .tool(_, let tool) = item, subagent(for: item) != nil else { return nil }
+        return { openSubagent(tool.call.id) }
     }
 
     var body: some View {
@@ -35,7 +46,9 @@ struct AgentChatTranscript: View {
                             canSend: canSend,
                             resend: resend,
                             approval: approval(for: item),
-                            review: review
+                            review: review,
+                            openSubagent: subagentOpener(for: item),
+                            subagentSteps: subagent(for: item)?.items.count
                         )
                         .agentRowArrival()
                     }

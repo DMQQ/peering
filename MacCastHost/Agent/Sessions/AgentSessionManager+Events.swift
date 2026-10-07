@@ -98,7 +98,7 @@ extension AgentSessionManager {
                 applied.correctedModel = model
             }
             applied.persists = true
-        case .textDelta, .notice, .toolStarted, .toolFinished:
+        case .textDelta, .notice, .toolStarted, .toolFinished, .child:
             break
         }
 

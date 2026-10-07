@@ -10,6 +10,9 @@ struct AgentTranscriptRow: View {
     /// Set while this tool call is the question the agent is waiting on.
     var approval: AgentApproval?
     var review: (AgentApproval) -> Void = { _ in }
+    /// Set for a `Task` call whose sub-agent has done something to show: the card opens it instead of expanding.
+    var openSubagent: (() -> Void)?
+    var subagentSteps: Int?
 
     var body: some View {
         switch item {
@@ -58,9 +61,13 @@ struct AgentTranscriptRow: View {
                 .id(id)
 
         case .tool(let id, let tool):
-            AgentToolCard(tool: tool, isExpanded: expandedTools.contains(id)) {
+            AgentToolCard(tool: tool, isExpanded: expandedTools.contains(id), subagentSteps: subagentSteps) {
                 if let approval {
                     review(approval)
+                    return
+                }
+                if let openSubagent {
+                    openSubagent()
                     return
                 }
                 withAnimation(Motion.settle) {

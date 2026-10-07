@@ -40,7 +40,7 @@ extension MacSession {
         wire?.sendAgent(.start(agentID: agentID, directory: directory))
     }
 
-    /// The transcript's copy arrives from the Mac, so nothing is optimistic here.
+    /// The transcript's copy arrives from the Mac, so only the working state is shown ahead of it.
     func sendAgentPrompt(_ text: String, to id: UUID) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -53,6 +53,9 @@ extension MacSession {
         let submission = queue.submit(trimmed, sessionState: state)
         agentQueues[id] = queue.prompts.isEmpty ? nil : queue
         if submission == .send {
+            if let index = agentSessions.firstIndex(where: { $0.id == id }) {
+                agentSessions[index].transcript.markPromptSent()
+            }
             wire?.sendAgent(.prompt(sessionID: id, text: trimmed))
         }
     }

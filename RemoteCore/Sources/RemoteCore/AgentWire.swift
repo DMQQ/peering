@@ -252,7 +252,7 @@ public struct AgentStreamEvent: Codable, Equatable, Sendable {
         self.payload = payload
     }
 
-    public enum Payload: Codable, Equatable, Sendable {
+    public indirect enum Payload: Codable, Equatable, Sendable {
         /// The CLI is up. ``cliSessionID`` is the id to resume with after a restart, nil if none yet.
         case sessionReady(agentID: String, cliSessionID: String?, model: String?, directory: String)
         /// What the user said, from the CLI's own echo where it has one, so a replay rebuilds the conversation.
@@ -272,6 +272,8 @@ public struct AgentStreamEvent: Codable, Equatable, Sendable {
         case notice(text: String)
         case failure(message: String)
         case sessionExited(status: Int32)
+        /// Something a sub-agent did, filed under the `Task` call that spawned it.
+        case child(parentCallID: String, event: Payload)
     }
 }
 
