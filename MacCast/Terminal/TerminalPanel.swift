@@ -21,6 +21,8 @@ struct TerminalPanel: View {
     @Environment(SessionModel.self) var model
 
     @Binding var route: [RemoteRoute]
+    /// Nil for the hub itself. A page is built by a panel of its own, because its closures read the environment, which only a view in the hierarchy has.
+    var step: TerminalFlowStep?
 
     var path: [TerminalFlowStep] {
         get {
@@ -69,6 +71,14 @@ struct TerminalPanel: View {
     }
 
     var body: some View {
+        if let step {
+            page(for: step)
+        } else {
+            hub
+        }
+    }
+
+    private var hub: some View {
         TerminalHubScreen(path: pathBinding)
             .onAppear { takeBannerRequest() }
             .onChange(of: InAppBanner.shared.openRequest) { _, _ in takeBannerRequest() }

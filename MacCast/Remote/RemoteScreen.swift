@@ -128,7 +128,7 @@ struct RemoteScreen: View {
                 .navigationDestination(for: RemoteRoute.self) { route in
                     switch route {
                     case .hub: TerminalPanel(route: $route)
-                    case .step(let step): TerminalPanel(route: $route).page(for: step)
+                    case .step(let step): TerminalPanel(route: $route, step: step)
                     }
                 }
         }
