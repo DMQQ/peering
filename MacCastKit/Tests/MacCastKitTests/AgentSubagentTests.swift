@@ -57,3 +57,21 @@ struct AgentSubagentTests {
         #expect(decoded == payload)
     }
 }
+
+extension AgentSubagentTests {
+    @Test func onlyAWorkingSubagentIsRunning() {
+        var result = transcript([childText])
+        #expect(result.runningSubagents.map(\.call.id) == ["toolu_task"])
+        result.apply(.toolFinished(callID: "toolu_task", ok: true, output: nil, truncated: false))
+        #expect(result.runningSubagents.isEmpty)
+    }
+
+    @Test func aSubagentSaysWhatItIsDoing() {
+        let result = transcript([childTool])
+        #expect(result.runningSubagents.first?.transcript.activity == "Reading a.swift")
+    }
+
+    @Test func aSubagentRecordsWhenItStarted() {
+        #expect(transcript([childText]).children["toolu_task"]?.startedAt != nil)
+    }
+}

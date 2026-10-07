@@ -211,6 +211,12 @@ struct AgentChatScreen: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
+                if !session.transcript.runningSubagents.isEmpty {
+                    AgentSubagentStrip(running: session.transcript.runningSubagents) {
+                        openedSubagent = AgentSubagentSelection(id: $0)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
                 if attaching != nil || !(attached[session.id] ?? []).isEmpty {
                     AgentAttachmentTray(items: attached[session.id] ?? [], uploading: attaching) { id in
                         attached[session.id]?.removeAll { $0.id == id }
@@ -266,6 +272,7 @@ struct AgentChatScreen: View {
             }
             .background(ColorPalette.backdrop)
             .animation(Motion.settle, value: attaching == nil)
+            .animation(Motion.settle, value: session.transcript.runningSubagents.count)
         }
         .photosPicker(isPresented: $showsPhotoPicker, selection: $pickedPhoto, matching: .images)
         .onChange(of: pickedPhoto) { _, item in

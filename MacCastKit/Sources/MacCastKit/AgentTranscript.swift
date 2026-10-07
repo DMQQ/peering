@@ -56,12 +56,19 @@ public struct AgentTranscript: Equatable {
     /// What each sub-agent did, keyed by the id of the `Task` call that spawned it.
     public private(set) var children: [String: AgentTranscript] = [:]
 
+    /// When a sub-agent's first event arrived here, so a row can say how long it has been running. Replayed history gets the replay's time, which only matters while it is still running.
+    public private(set) var startedAt: Date?
+
     private var openReplyID: UUID?
     /// An approximate total of the text held, kept so trimming does not walk the whole list on
     /// every token.
     private var bytes = 0
 
     public init() {}
+
+    private init(startedAt: Date) {
+        self.startedAt = startedAt
+    }
 
     public var isEmpty: Bool { items.isEmpty }
 
@@ -191,7 +198,8 @@ public struct AgentTranscript: Equatable {
             state = .exited
 
         case .child(let parentCallID, let event):
-            children[parentCallID, default: AgentTranscript()].apply(event)
+            if children[parentCallID] == nil { children[parentCallID] = AgentTranscript(startedAt: Date()) }
+            children[parentCallID]?.apply(event)
             // A sub-agent has no turns of its own: it works until the call that spawned it finishes.
             children[parentCallID]?.state = .working
         }
@@ -231,6 +239,10 @@ public struct AgentTranscript: Equatable {
         case .summary:
             return 0
         }
+    }
+
+    public var runningSubagents: [(call: AgentToolCall, transcript: AgentTranscript)] {
+        subagents.filter { $0.transcript.state == .working }
     }
 
     /// The sub-agents of this conversation in the order they were spawned, with the call each belongs to.
