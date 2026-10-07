@@ -3,6 +3,8 @@ import SwiftUI
 /// The one bottom row of every folder browser: a search field with the hidden-files switch inside it, and whatever the screen acts with (Use, new, send) beside it.
 struct FolderBrowserBar<Leading: View, Actions: View>: View {
     let prompt: String
+    /// Where the browser is now, shown above the row so the folder about to be used is never a guess.
+    var location: String?
     @Binding var query: String
     @Binding var showsHidden: Bool
     var isLoading = false
@@ -12,6 +14,7 @@ struct FolderBrowserBar<Leading: View, Actions: View>: View {
 
     init(
         prompt: String,
+        location: String? = nil,
         query: Binding<String>,
         showsHidden: Binding<Bool>,
         isLoading: Bool = false,
@@ -20,6 +23,7 @@ struct FolderBrowserBar<Leading: View, Actions: View>: View {
         @ViewBuilder actions: () -> Actions
     ) {
         self.prompt = prompt
+        self.location = location
         _query = query
         _showsHidden = showsHidden
         self.isLoading = isLoading
@@ -29,6 +33,29 @@ struct FolderBrowserBar<Leading: View, Actions: View>: View {
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let location {
+                HStack(spacing: 6) {
+                    Image(systemName: "folder")
+                        .font(.system(size: 11, weight: .medium))
+                    Text(verbatim: location)
+                        .font(.system(size: 12, design: .monospaced))
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Current folder \(location)")
+            }
+            row
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+    }
+
+    private var row: some View {
         HStack(spacing: 8) {
             leading
             InputCapsule {
@@ -73,9 +100,6 @@ struct FolderBrowserBar<Leading: View, Actions: View>: View {
 
             actions
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
     }
 }
 
@@ -114,6 +138,7 @@ extension View {
 extension FolderBrowserBar where Leading == EmptyView {
     init(
         prompt: String,
+        location: String? = nil,
         query: Binding<String>,
         showsHidden: Binding<Bool>,
         isLoading: Bool = false,
@@ -122,6 +147,7 @@ extension FolderBrowserBar where Leading == EmptyView {
     ) {
         self.init(
             prompt: prompt,
+            location: location,
             query: query,
             showsHidden: showsHidden,
             isLoading: isLoading,

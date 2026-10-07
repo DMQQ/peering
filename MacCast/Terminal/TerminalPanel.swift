@@ -47,13 +47,26 @@ struct TerminalPanel: View {
         }
     }
 
-    /// One page per depth, so the swipe back is one level up. A folder already in the stack is returned to rather than stacked again.
+    /// One page per depth, so the swipe back is one level up. A folder already in the stack is returned to rather than stacked again, and the home folder counts: the first page names it as nil, and a ".." from its child names it by path.
     private func openFolder(_ target: String, _ step: (String) -> TerminalFlowStep) {
         let destination = step(target)
-        if let index = path.lastIndex(of: destination) {
+        let home = model.agentPicker.startPath
+        if let index = path.lastIndex(where: { Self.page($0, shows: destination, home: home) }) {
             path = Array(path[...index])
         } else {
             path.append(destination)
+        }
+    }
+
+    private static func page(_ page: TerminalFlowStep, shows destination: TerminalFlowStep, home: String?) -> Bool {
+        if page == destination { return true }
+        switch (page, destination) {
+        case (.folder(let agent, nil), .folder(let other, let folder?)):
+            return agent == other && folder == home
+        case (.terminalFolder(nil), .terminalFolder(let folder?)):
+            return folder == home
+        default:
+            return false
         }
     }
 
@@ -145,7 +158,7 @@ struct TerminalPanel: View {
                 directory: directory,
                 open: { openFolder($0) { .terminalFolder($0) } }
             ) { directory in
-                AgentFolderHistory.record(directory: directory, agentID: "terminal", macName: model.hostName)
+                AgentFolderHistory.record(directory: directory, agentID: AgentFolderHistory.terminalAgentID, macName: model.hostName)
                 model.createTerminal(inDirectory: directory)
             }
         }

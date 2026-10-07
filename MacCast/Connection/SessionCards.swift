@@ -319,7 +319,7 @@ private struct PulseDot: ViewModifier {
 /// Past launches, as one card grouped by day.
 struct HistoryCard: View {
     struct Entry: Identifiable {
-        let id: UUID
+        let id: String
         let symbol: String
         let title: String
         let detail: String

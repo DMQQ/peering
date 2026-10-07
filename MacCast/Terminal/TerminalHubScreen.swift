@@ -7,6 +7,8 @@ struct TerminalHubScreen: View {
     @Environment(SessionModel.self) var model
 
     @State var history = AgentHistory.load()
+    /// Bumped when the terminal history is cleared, so the section reads the store again.
+    @State var terminalHistoryRevision = 0
     @State var selectedAgentID: String?
     @State var pickerOpen = false
     @State var choosing: String?
@@ -47,6 +49,7 @@ struct TerminalHubScreen: View {
                         ?? String(localized: "Shells running on your Mac")
                 )
                 terminalsSection
+                terminalHistorySection
             }
         }
         .animation(.easeOut(duration: 0.12), value: tab)

@@ -26,6 +26,16 @@ public enum AgentFolderHistory {
         return entries.sorted { $0.date > $1.date }
     }
 
+    /// The folders new terminals were started in, which the terminals tab lists as its history.
+    public static let terminalAgentID = "terminal"
+
+    public static func clear(agentID: String, in defaults: UserDefaults = .standard) {
+        let kept = load(from: defaults).filter { $0.agentID != agentID }
+        if let data = try? JSONEncoder().encode(kept) {
+            defaults.set(data, forKey: key)
+        }
+    }
+
     /// The home folder is what starting with nothing means, so recording no choice as a recent would add a row that says nothing.
     public static func record(
         directory: String?,
@@ -52,5 +62,13 @@ public enum AgentFolderPath {
 
     public static func name(of path: String) -> String {
         path == "/" ? "/" : (path as NSString).lastPathComponent
+    }
+
+    /// The path as a person reads it: the Mac's home folder written as `~`, so a deep folder does not open with the user's account name.
+    public static func display(_ path: String, home: String?) -> String {
+        guard let home, !home.isEmpty, home != "/" else { return path }
+        if path == home { return "~" }
+        if path.hasPrefix(home + "/") { return "~" + path.dropFirst(home.count) }
+        return path
     }
 }

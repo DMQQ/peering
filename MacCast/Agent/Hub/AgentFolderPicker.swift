@@ -52,6 +52,7 @@ struct AgentFolderPicker: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             FolderBrowserBar(
                 prompt: String(localized: "Search in \(currentName)"),
+                location: picker.path.map { AgentFolderPath.display($0, home: model.agentPicker.startPath) },
                 query: $query,
                 showsHidden: $showsHiddenFolders,
                 isLoading: picker.isLoading,

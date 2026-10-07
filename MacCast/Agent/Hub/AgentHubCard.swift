@@ -142,16 +142,8 @@ struct TerminalDock<Gate: View>: View {
     var body: some View {
         HStack(spacing: 8) {
             if offersFiles {
-                Button(action: files) {
-                    Image(systemName: "folder")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 48, height: 48)
-                        .background(Circle().fill(.white.opacity(0.12)))
-                        .contentShape(Circle())
-                }
-                .buttonStyle(CardPress())
-                .accessibilityLabel("This Mac's files")
+                DockIconButton(symbol: "folder", title: "Files", action: files)
+                    .accessibilityLabel("This Mac's files")
             }
             gate(AnyView(
                 Button(action: newTerminal) {
@@ -199,16 +191,8 @@ struct AgentDock: View {
     var body: some View {
         HStack(spacing: 8) {
             if offersFiles {
-                Button(action: files) {
-                    Image(systemName: "folder")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 48, height: 48)
-                        .background(Circle().fill(.white.opacity(0.12)))
-                        .contentShape(Circle())
-                }
-                .buttonStyle(CardPress())
-                .accessibilityLabel("This Mac's files")
+                DockIconButton(symbol: "folder", title: "Files", action: files)
+                    .accessibilityLabel("This Mac's files")
                 .accessibilityIdentifier("files-row")
             }
             if agent == nil, agentCount > 0 {
@@ -227,16 +211,8 @@ struct AgentDock: View {
                     .accessibilityLabel(Text("Chat with \(agent.name)"))
                     .frame(maxWidth: .infinity)
                     .transition(.blurReplace)
-                    Button(action: terminal) {
-                        Image(systemName: "terminal")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 48, height: 48)
-                            .background(Circle().fill(.white.opacity(0.12)))
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(CardPress())
-                    .accessibilityLabel(Text("Start \(agent.name)"))
+                    DockIconButton(symbol: "terminal", title: "Terminal", action: terminal)
+                        .accessibilityLabel(Text("Start \(agent.name)"))
                     .transition(.blurReplace)
                 } else {
                     holdsToChoose(terminal) {
@@ -300,6 +276,31 @@ struct AgentDock: View {
         .background(Capsule().fill(ColorPalette.ink))
         .contentShape(Capsule())
         .animation(Motion.settle, value: id)
+    }
+}
+
+/// An icon with a word under it: a folder or a prompt glyph alone can mean several things to someone new.
+private struct DockIconButton: View {
+    let symbol: String
+    let title: LocalizedStringKey
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Image(systemName: symbol)
+                    .font(.system(size: 16, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 10, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(.white)
+            .frame(width: 58, height: 48)
+            .background(Capsule().fill(.white.opacity(0.12)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(CardPress())
     }
 }
 

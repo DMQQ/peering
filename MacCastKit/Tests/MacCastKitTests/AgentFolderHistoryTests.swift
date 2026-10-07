@@ -18,6 +18,14 @@ struct AgentFolderHistoryTests {
         #expect(AgentFolderHistory.load(from: store).map(\.path) == ["/b", "/a"])
     }
 
+    @Test func clearingOneKindLeavesTheOthers() {
+        let store = defaults()
+        AgentFolderHistory.record(directory: "/a", agentID: "claude", macName: "M", in: store)
+        AgentFolderHistory.record(directory: "/b", agentID: AgentFolderHistory.terminalAgentID, macName: "M", in: store)
+        AgentFolderHistory.clear(agentID: AgentFolderHistory.terminalAgentID, in: store)
+        #expect(AgentFolderHistory.load(from: store).map(\.path) == ["/a"])
+    }
+
     @Test func theSameFolderForTheSameAgentMovesUpInsteadOfRepeating() {
         let store = defaults()
         AgentFolderHistory.record(directory: "/a", agentID: "claude", macName: "M", at: Date(timeIntervalSince1970: 1), in: store)
@@ -68,8 +76,7 @@ struct AgentFolderPathTests {
     @Test func nameIsTheLastComponentAndTheRootIsASlash() {
         #expect(AgentFolderPath.name(of: "/Users/me/app") == "app")
         #expect(AgentFolderPath.name(of: "/") == "/")
-    }
-}
+    }}
 
 struct AgentTurnFormatTests {
     @Test func underAMinuteShowsTenths() {

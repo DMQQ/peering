@@ -167,13 +167,20 @@ final class AgentSessionManager: @unchecked Sendable {
             return
         }
         let directory = URL(fileURLWithPath: path).standardizedFileURL
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-            agentLog.error("agent chat directory missing · \(directory.path, privacy: .public)")
-            sink(.failed(sessionID: nil, message: "There is no folder at \(directory.path) on this Mac."))
-            return
+        // Off the connection's queue: looking inside a protected folder waits for the Mac's permission dialog, and that queue carries pings and every other request.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+                agentLog.error("agent chat directory missing · \(directory.path, privacy: .public)")
+                sink(.failed(sessionID: nil, message: "There is no folder at \(directory.path) on this Mac."))
+                return
+            }
+            self?.create(entry: entry, directory: directory, clientID: clientID, sink: sink)
         }
+    }
 
+    private func create(entry: AgentCatalogue.Entry, directory: URL, clientID: String, sink: @escaping Sink) {
+        let agentID = entry.id
         let adapter = entry.make(directory, nil)
         var created: AgentSession?
         var evicted: [AgentSession] = []
