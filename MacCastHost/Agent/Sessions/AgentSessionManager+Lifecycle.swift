@@ -80,6 +80,20 @@ extension AgentSessionManager {
                 self?.abandon(adapter, of: session, message: "There is no folder at \(directory.path) on this Mac.")
                 return
             }
+            if let directory {
+                // The CLI's first read of a protected folder would park on the Mac's permission dialog with the chat looking busy, so the dialog is raised and explained here.
+                let watched = session
+                let readable = FolderAccessWatch.perform(
+                    slow: { [weak self] in
+                        guard let self, let watched else { return }
+                        self.append(.notice(text: FolderAccessWatch.chatMessage), to: watched)
+                    },
+                    work: { (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) != nil }
+                )
+                if !readable, let session {
+                    self?.append(.notice(text: FolderAccessWatch.deniedMessage), to: session)
+                }
+            }
             do {
                 try adapter.start()
             } catch let failure as AgentLaunchFailure {

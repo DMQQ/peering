@@ -25,6 +25,16 @@
 	<array>
 		<string>_remotedesktop._tcp</string>
 	</array>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Peering accepts screen-sharing connections from devices you have paired with it.</string>
 	<key>SUAllowsAutomaticUpdates</key>

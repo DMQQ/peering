@@ -23,8 +23,11 @@ extension TerminalSessionManager {
         }
         let directory = URL(fileURLWithPath: path).standardizedFileURL
 
-        DispatchQueue.global(qos: .userInitiated).async {
-            switch DirectoryListing.entries(in: directory) {
+        FolderAccessWatch.run(
+            slow: { sink(.browseFailure(sessionID: id, path: directory.path, message: FolderAccessWatch.listingMessage)) },
+            work: { DirectoryListing.entries(in: directory) }
+        ) { outcome in
+            switch outcome {
             case .entries(let entries, let truncated):
                 sink(.directory(
                     sessionID: id,

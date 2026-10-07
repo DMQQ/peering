@@ -25,6 +25,201 @@
         }
       }
     },
+    "NSDesktopFolderUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering zeigt dir diesen Ordner auf deinem iPhone oder iPad. Es öffnet nur Ordner, die du selbst aufrufst, und zeigt sie nur deinen gekoppelten Geräten. Nichts wird anderswohin hochgeladen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering te muestra esta carpeta en tu iPhone o iPad. Solo abre las carpetas que tú abres y las muestra únicamente en tus dispositivos emparejados. No se sube nada a ningún otro sitio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering t'affiche ce dossier sur ton iPhone ou ton iPad. Il n'ouvre que les dossiers que tu ouvres toi-même et ne les montre qu'à tes appareils associés. Rien n'est envoyé ailleurs."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering ti mostra questa cartella sul tuo iPhone o iPad. Apre solo le cartelle che apri tu e le mostra soltanto ai tuoi dispositivi associati. Nulla viene caricato altrove."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering は、このフォルダを iPhone や iPad に表示します。あなたが開いたフォルダだけを読み取り、ペアリング済みのデバイスにのみ表示します。ほかの場所にアップロードされることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering은 이 폴더를 iPhone이나 iPad에 보여 줍니다. 직접 연 폴더만 읽고, 페어링한 기기에만 표시합니다. 다른 곳으로 업로드되는 것은 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Peering mostra esta pasta no seu iPhone ou iPad. Ele só abre as pastas que você abre e as exibe apenas nos seus dispositivos pareados. Nada é enviado para outro lugar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering показывает эту папку на твоём iPhone или iPad. Он открывает только те папки, которые открываешь ты, и показывает их лишь твоим связанным устройствам. Ничего не загружается в другие места."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering 会在你的 iPhone 或 iPad 上显示此文件夹。它只会读取你打开的文件夹,并且只显示给已配对的设备,不会上传到其他任何地方。"
+          }
+        }
+      }
+    },
+    "NSDocumentsFolderUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering zeigt dir diesen Ordner auf deinem iPhone oder iPad. Es öffnet nur Ordner, die du selbst aufrufst, und zeigt sie nur deinen gekoppelten Geräten. Nichts wird anderswohin hochgeladen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering te muestra esta carpeta en tu iPhone o iPad. Solo abre las carpetas que tú abres y las muestra únicamente en tus dispositivos emparejados. No se sube nada a ningún otro sitio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering t'affiche ce dossier sur ton iPhone ou ton iPad. Il n'ouvre que les dossiers que tu ouvres toi-même et ne les montre qu'à tes appareils associés. Rien n'est envoyé ailleurs."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering ti mostra questa cartella sul tuo iPhone o iPad. Apre solo le cartelle che apri tu e le mostra soltanto ai tuoi dispositivi associati. Nulla viene caricato altrove."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering は、このフォルダを iPhone や iPad に表示します。あなたが開いたフォルダだけを読み取り、ペアリング済みのデバイスにのみ表示します。ほかの場所にアップロードされることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering은 이 폴더를 iPhone이나 iPad에 보여 줍니다. 직접 연 폴더만 읽고, 페어링한 기기에만 표시합니다. 다른 곳으로 업로드되는 것은 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Peering mostra esta pasta no seu iPhone ou iPad. Ele só abre as pastas que você abre e as exibe apenas nos seus dispositivos pareados. Nada é enviado para outro lugar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering показывает эту папку на твоём iPhone или iPad. Он открывает только те папки, которые открываешь ты, и показывает их лишь твоим связанным устройствам. Ничего не загружается в другие места."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering 会在你的 iPhone 或 iPad 上显示此文件夹。它只会读取你打开的文件夹,并且只显示给已配对的设备,不会上传到其他任何地方。"
+          }
+        }
+      }
+    },
+    "NSDownloadsFolderUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering zeigt dir diesen Ordner auf deinem iPhone oder iPad. Es öffnet nur Ordner, die du selbst aufrufst, und zeigt sie nur deinen gekoppelten Geräten. Nichts wird anderswohin hochgeladen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering te muestra esta carpeta en tu iPhone o iPad. Solo abre las carpetas que tú abres y las muestra únicamente en tus dispositivos emparejados. No se sube nada a ningún otro sitio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering t'affiche ce dossier sur ton iPhone ou ton iPad. Il n'ouvre que les dossiers que tu ouvres toi-même et ne les montre qu'à tes appareils associés. Rien n'est envoyé ailleurs."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering ti mostra questa cartella sul tuo iPhone o iPad. Apre solo le cartelle che apri tu e le mostra soltanto ai tuoi dispositivi associati. Nulla viene caricato altrove."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering は、このフォルダを iPhone や iPad に表示します。あなたが開いたフォルダだけを読み取り、ペアリング済みのデバイスにのみ表示します。ほかの場所にアップロードされることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering은 이 폴더를 iPhone이나 iPad에 보여 줍니다. 직접 연 폴더만 읽고, 페어링한 기기에만 표시합니다. 다른 곳으로 업로드되는 것은 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Peering mostra esta pasta no seu iPhone ou iPad. Ele só abre as pastas que você abre e as exibe apenas nos seus dispositivos pareados. Nada é enviado para outro lugar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering показывает эту папку на твоём iPhone или iPad. Он открывает только те папки, которые открываешь ты, и показывает их лишь твоим связанным устройствам. Ничего не загружается в другие места."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering 会在你的 iPhone 或 iPad 上显示此文件夹。它只会读取你打开的文件夹,并且只显示给已配对的设备,不会上传到其他任何地方。"
+          }
+        }
+      }
+    },
     "NSLocalNetworkUsageDescription" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -86,6 +281,136 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Peering 接受来自已与其配对的设备的屏幕共享连接。"
+          }
+        }
+      }
+    },
+    "NSNetworkVolumesUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering zeigt dir diesen Ordner auf deinem iPhone oder iPad. Es öffnet nur Ordner, die du selbst aufrufst, und zeigt sie nur deinen gekoppelten Geräten. Nichts wird anderswohin hochgeladen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering te muestra esta carpeta en tu iPhone o iPad. Solo abre las carpetas que tú abres y las muestra únicamente en tus dispositivos emparejados. No se sube nada a ningún otro sitio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering t'affiche ce dossier sur ton iPhone ou ton iPad. Il n'ouvre que les dossiers que tu ouvres toi-même et ne les montre qu'à tes appareils associés. Rien n'est envoyé ailleurs."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering ti mostra questa cartella sul tuo iPhone o iPad. Apre solo le cartelle che apri tu e le mostra soltanto ai tuoi dispositivi associati. Nulla viene caricato altrove."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering は、このフォルダを iPhone や iPad に表示します。あなたが開いたフォルダだけを読み取り、ペアリング済みのデバイスにのみ表示します。ほかの場所にアップロードされることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering은 이 폴더를 iPhone이나 iPad에 보여 줍니다. 직접 연 폴더만 읽고, 페어링한 기기에만 표시합니다. 다른 곳으로 업로드되는 것은 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Peering mostra esta pasta no seu iPhone ou iPad. Ele só abre as pastas que você abre e as exibe apenas nos seus dispositivos pareados. Nada é enviado para outro lugar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering показывает эту папку на твоём iPhone или iPad. Он открывает только те папки, которые открываешь ты, и показывает их лишь твоим связанным устройствам. Ничего не загружается в другие места."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering 会在你的 iPhone 或 iPad 上显示此文件夹。它只会读取你打开的文件夹,并且只显示给已配对的设备,不会上传到其他任何地方。"
+          }
+        }
+      }
+    },
+    "NSRemovableVolumesUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering zeigt dir diesen Ordner auf deinem iPhone oder iPad. Es öffnet nur Ordner, die du selbst aufrufst, und zeigt sie nur deinen gekoppelten Geräten. Nichts wird anderswohin hochgeladen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering te muestra esta carpeta en tu iPhone o iPad. Solo abre las carpetas que tú abres y las muestra únicamente en tus dispositivos emparejados. No se sube nada a ningún otro sitio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering t'affiche ce dossier sur ton iPhone ou ton iPad. Il n'ouvre que les dossiers que tu ouvres toi-même et ne les montre qu'à tes appareils associés. Rien n'est envoyé ailleurs."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering ti mostra questa cartella sul tuo iPhone o iPad. Apre solo le cartelle che apri tu e le mostra soltanto ai tuoi dispositivi associati. Nulla viene caricato altrove."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering は、このフォルダを iPhone や iPad に表示します。あなたが開いたフォルダだけを読み取り、ペアリング済みのデバイスにのみ表示します。ほかの場所にアップロードされることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering은 이 폴더를 iPhone이나 iPad에 보여 줍니다. 직접 연 폴더만 읽고, 페어링한 기기에만 표시합니다. 다른 곳으로 업로드되는 것은 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Peering mostra esta pasta no seu iPhone ou iPad. Ele só abre as pastas que você abre e as exibe apenas nos seus dispositivos pareados. Nada é enviado para outro lugar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering показывает эту папку на твоём iPhone или iPad. Он открывает только те папки, которые открываешь ты, и показывает их лишь твоим связанным устройствам. Ничего не загружается в другие места."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering 会在你的 iPhone 或 iPad 上显示此文件夹。它只会读取你打开的文件夹,并且只显示给已配对的设备,不会上传到其他任何地方。"
           }
         }
       }
