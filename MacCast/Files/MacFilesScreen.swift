@@ -7,6 +7,8 @@ import SwiftUI
 struct MacFilesScreen: View {
     let path: String?
     let push: (String) -> Void
+    let close: () -> Void
+    let preview: (String) -> Void
 
     @Environment(SessionModel.self) var model
 
@@ -33,8 +35,14 @@ struct MacFilesScreen: View {
         .navigationTitle(shownPath.map { $0 == "/" ? "/" : ($0 as NSString).lastPathComponent } ?? String(localized: "Files"))
         .navigationBarTitleDisplayMode(.inline)
         .ancestorsMenu(of: shownPath) { push($0) }
+        .folderBackButton(of: shownPath) { push($0) }
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(String(localized: "Done"), action: close)
+            }
+        }
         .onAppear {
             guard let id = model.browserID else { return }
             // The scope first: the Mac keeps one only for the connection that made it, and the listing that follows travels after it on the same connection.
@@ -76,61 +84,48 @@ struct MacFilesScreen: View {
     @ViewBuilder
     private func content(_ id: UUID) -> some View {
         VStack(spacing: 0) {
-            if let preview = model.filePreview, preview.terminalID == id {
-                FilePreviewPanel(
-                    preview: preview,
-                    failure: model.browseFailure(preview.path, sessionID: id),
-                    isSaving: model.isWritingFile(sessionID: id),
-                    saveFailure: model.saveFailure(sessionID: id),
-                    onRevealPath: nil,
-                    onClose: { model.closePreview() },
-                    onSave: { model.saveFile($0, sessionID: id) }
-                    // Reading and editing stay free; the panel gates the share button (``PlanCapability/fileTransfer``).
-                )
-            } else {
-                FileBrowserPanel(
-                    path: model.browserPath,
-                    directory: model.directory(shownPath, sessionID: id),
-                    isLoading: model.isLoadingDirectory(shownPath, sessionID: id),
-                    failure: model.downloadFailure(sessionID: id)
-                        ?? model.uploadFailure(sessionID: id)
-                        ?? model.browseFailure(shownPath, sessionID: id),
-                    showsHidden: showsHiddenFiles,
-                    onToggleHidden: { showsHiddenFiles.toggle() },
-                    showsBreadcrumbs: false,
-                    // The Mac blocks inside the listing call while macOS shows a Files-and-Folders prompt, and nothing of that reaches this phone, so the wait says what it is probably waiting for.
-                    waitingHint: String(localized: "Your Mac is probably asking whether Peering may open this folder. That is a normal macOS question, asked once per folder. Choose Allow on the Mac and the list appears here. Peering only reads folders you open from here."),
-                    progress: model.downloadProgress(sessionID: id) ?? model.folderProgress(sessionID: id),
-                    onOpen: { open($0, in: id) },
-                    onNavigate: { push($0) },
-                    onRevealPath: nil,
-                    onReload: { model.listDirectory(shownPath, sessionID: id) },
-                    onUpload: { model.uploadFile($0, sessionID: id) },
-                    onUploadItems: { model.uploadItems($0, sessionID: id) },
-                    onDownload: { entry in
-                        let target = childPath(entry.name, of: shownPath)
-                        if entry.isDirectory {
-                            model.downloadFolder(target, sessionID: id)
-                        } else {
-                            model.downloadFile(target, sessionID: id)
-                        }
-                    },
-                    onUploadInto: { model.uploadItems($0, toFolder: $1, sessionID: id) },
-                    onRun: nil,
-                    deleteHint: String(localized: "It can be put back from the Trash on your Mac."),
-                    onCreate: canMake
-                        ? { model.createEntry($0, kind: $1, in: folder, sessionID: id) }
-                        : nil,
-                    onRename: canMake
-                        ? { model.renameEntry($0, to: $1, in: folder, sessionID: id) }
-                        : nil,
-                    onDelete: canMake
-                        ? { model.deleteEntry($0, in: folder, sessionID: id) }
-                        : nil,
-                    isChanging: model.isChangingFile(sessionID: id),
-                    changeFailure: model.changeFailure(sessionID: id)
-                )
-            }
+            FileBrowserPanel(
+                path: model.browserPath,
+                directory: model.directory(shownPath, sessionID: id),
+                isLoading: model.isLoadingDirectory(shownPath, sessionID: id),
+                failure: model.downloadFailure(sessionID: id)
+                    ?? model.uploadFailure(sessionID: id)
+                    ?? model.browseFailure(shownPath, sessionID: id),
+                showsHidden: showsHiddenFiles,
+                onToggleHidden: { showsHiddenFiles.toggle() },
+                showsBreadcrumbs: false,
+                // The Mac blocks inside the listing call while macOS shows a Files-and-Folders prompt, and nothing of that reaches this phone, so the wait says what it is probably waiting for.
+                waitingHint: String(localized: "Your Mac is probably asking whether Peering may open this folder. That is a normal macOS question, asked once per folder. Choose Allow on the Mac and the list appears here. Peering only reads folders you open from here."),
+                progress: model.downloadProgress(sessionID: id) ?? model.folderProgress(sessionID: id),
+                onOpen: { open($0, in: id) },
+                onNavigate: { push($0) },
+                onRevealPath: nil,
+                onReload: { model.listDirectory(shownPath, sessionID: id) },
+                onUpload: { model.uploadFile($0, sessionID: id) },
+                onUploadItems: { model.uploadItems($0, sessionID: id) },
+                onDownload: { entry in
+                    let target = childPath(entry.name, of: shownPath)
+                    if entry.isDirectory {
+                        model.downloadFolder(target, sessionID: id)
+                    } else {
+                        model.downloadFile(target, sessionID: id)
+                    }
+                },
+                onUploadInto: { model.uploadItems($0, toFolder: $1, sessionID: id) },
+                onRun: nil,
+                deleteHint: String(localized: "It can be put back from the Trash on your Mac."),
+                onCreate: canMake
+                    ? { model.createEntry($0, kind: $1, in: folder, sessionID: id) }
+                    : nil,
+                onRename: canMake
+                    ? { model.renameEntry($0, to: $1, in: folder, sessionID: id) }
+                    : nil,
+                onDelete: canMake
+                    ? { model.deleteEntry($0, in: folder, sessionID: id) }
+                    : nil,
+                isChanging: model.isChangingFile(sessionID: id),
+                changeFailure: model.changeFailure(sessionID: id)
+            )
         }
     }
 
@@ -143,7 +138,7 @@ struct MacFilesScreen: View {
         if entry.isDirectory {
             push(path)
         } else {
-            model.previewFile(path, sessionID: id)
+            preview(path)
         }
     }
 }

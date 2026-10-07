@@ -60,6 +60,7 @@ struct AgentFolderPicker: View {
             ) { useButton }
         }
         .ancestorsMenu(of: picker.path) { open($0) }
+        .folderBackButton(of: shown.path) { open($0) }
         .background(ColorPalette.backdrop)
         .navigationTitle(shown.path.map(AgentFolderPath.name(of:)) ?? title)
         .navigationBarTitleDisplayMode(.inline)

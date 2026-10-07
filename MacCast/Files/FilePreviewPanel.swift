@@ -15,7 +15,11 @@ struct FilePreviewPanel: View {
     var saveFailure: String?
 
     var onRevealPath: ((String) -> Void)?
-    var onClose: () -> Void
+    /// Absent when the page is pushed on a navigation stack, where the system back button closes it.
+    var onClose: (() -> Void)?
+    /// The header's controls move to the navigation bar and a bottom bar, for a page that has them.
+    var usesToolbars = false
+    var modified: Date?
     /// Absent only for a shell that has ended: a pencil would open an editor whose Save could never land.
     var onSave: ((String) -> Void)?
 
@@ -25,9 +29,12 @@ struct FilePreviewPanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            if !usesToolbars { header }
             content
         }
+        .toolbar { if usesToolbars { toolbarContent } }
+        .toolbarBackground(Color.black, for: .bottomBar)
+        .toolbarBackground(.visible, for: .bottomBar)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(ColorPalette.backdrop)
         // Prepared on arrival: the share sheet reads the file as it opens, so a URL that does not exist yet comes up empty.
@@ -50,15 +57,17 @@ struct FilePreviewPanel: View {
 
     var header: some View {
         HStack(spacing: 11) {
-            Button(action: onClose) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(ColorPalette.ink)
-                    .frame(width: 30, height: 30)
-                    .contentShape(Rectangle())
+            if let onClose {
+                Button(action: onClose) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(ColorPalette.ink)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Back to the folder")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Back to the folder")
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)

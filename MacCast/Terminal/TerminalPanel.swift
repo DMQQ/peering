@@ -8,6 +8,7 @@ enum TerminalFlowStep: Hashable {
     case folder(TerminalAgent, String?)
     case files(String?)
     case terminalFolder(String?)
+    case filePreview(String)
 }
 
 /// Where the remote screen's navigation stack is: the hub is the first page, and everything the hub opens is a step above it.
@@ -43,9 +44,33 @@ struct TerminalPanel: View {
         let home = model.agentPicker.startPath
         if let index = path.lastIndex(where: { Self.page($0, shows: destination, home: home) }) {
             path = Array(path[...index])
+        } else if let top = path.last, let shown = folder(of: top, home: home), Self.concreteFolder(of: destination, home: home).map({ Self.isAncestor($0, of: shown) }) == true {
+            // A parent nobody visited is slipped under the current page and the current page popped, so ".." reads as going back.
+            path.insert(destination, at: path.count - 1)
+            Task { @MainActor in path.removeLast() }
         } else {
             path.append(destination)
         }
+    }
+
+    /// A page that names no folder shows the one its model is on: the browser's for Files, the picker's for the others. Without that, the first page (and a page restored from the remembered folder) never looks like a child of anything.
+    private func folder(of page: TerminalFlowStep, home: String?) -> String? {
+        switch page {
+        case .files(let folder): folder ?? model.browserPath
+        case .folder(_, let folder), .terminalFolder(let folder): folder ?? model.agentPicker.path ?? home
+        case .terminal, .chat, .filePreview: nil
+        }
+    }
+
+    private static func concreteFolder(of page: TerminalFlowStep, home: String?) -> String? {
+        switch page {
+        case .folder(_, let folder), .files(let folder), .terminalFolder(let folder): folder ?? home
+        case .terminal, .chat, .filePreview: nil
+        }
+    }
+
+    private static func isAncestor(_ ancestor: String, of folder: String) -> Bool {
+        ancestor != folder && (ancestor == "/" || folder.hasPrefix(ancestor + "/"))
     }
 
     private static func page(_ page: TerminalFlowStep, shows destination: TerminalFlowStep, home: String?) -> Bool {
@@ -102,7 +127,9 @@ struct TerminalPanel: View {
                 model.startAgentChat(agentID: agent.id, directory: directory)
             }
         case .files(let directory):
-            MacFilesScreen(path: directory) { openFolder($0) { .files($0) } }
+            MacFilesScreen(path: directory, push: { openFolder($0) { .files($0) } }, close: { path = [] }, preview: { path.append(.filePreview($0)) })
+        case .filePreview(let file):
+            MacFilePreviewScreen(path: file)
         case .terminalFolder(let directory):
             AgentFolderPicker(
                 title: String(localized: "New terminal"),
