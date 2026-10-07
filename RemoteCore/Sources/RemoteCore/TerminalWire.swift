@@ -109,6 +109,10 @@ public enum TerminalRequest: Codable, Equatable, Sendable {
     case listDirectory(sessionID: UUID, path: String?)    /// A file's contents, for the browser's preview. Read-only, and bounded: see
     /// ``TerminalEvent/fileContents(sessionID:path:offset:totalBytes:data:isLast:)``.
     case readFile(sessionID: UUID, path: String)
+    /// One piece of a file for a download, from `offset`. Any size up to ``FileDownloadLimits/maximumBytes``; the answer is ``TerminalEvent/fileRange(sessionID:path:offset:totalBytes:data:)``.
+    case readRange(sessionID: UUID, path: String, offset: Int64)
+    /// Zips a folder on the Mac so it can be downloaded as one file; answered by ``TerminalEvent/archiveReady(sessionID:folder:archivePath:totalBytes:)``.
+    case archiveFolder(sessionID: UUID, path: String)
     /// The size is declared up front, so a Mac that will not take a file that large can say so
     /// cheaply, and the file is not replaced until ``writeChunk(sessionID:path:data:isLast:)`` says
     /// the last piece arrived.
@@ -157,6 +161,12 @@ public enum TerminalEvent: Codable, Equatable, Sendable {
         data: Data,
         isLast: Bool
     )
+    /// One piece of a download. `totalBytes` is the file's size, so the client knows how many more to ask for; pieces may arrive out of order, which is why each names its offset.
+    case fileRange(sessionID: UUID, path: String, offset: Int64, totalBytes: Int64, data: Data)
+    /// The folder is zipped at `archivePath`, ready to be read with ``TerminalRequest/readRange(sessionID:path:offset:)``. The Mac deletes it once the last piece has been read.
+    case archiveReady(sessionID: UUID, folder: String, archivePath: String, totalBytes: Int64)
+    /// A download or a zip that could not be made. `path` is the one the client asked about.
+    case transferFailure(sessionID: UUID, path: String, message: String)
     /// Not ``failed``, which lands on the terminal's tab instead.
     case browseFailure(sessionID: UUID, path: String, message: String)
     case wroteFile(sessionID: UUID, path: String, totalBytes: Int)

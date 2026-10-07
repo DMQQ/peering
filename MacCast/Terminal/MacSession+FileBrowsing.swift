@@ -83,7 +83,7 @@ extension MacSession {
     func uploadFile(_ url: URL, toFolder folder: String, sessionID id: UUID) {
 
         if Self.isDirectory(url) {
-            uploadFolder(url, sessionID: id)
+            uploadFolder(url, toFolder: folder, sessionID: id)
             return
         }
 
@@ -203,5 +203,8 @@ extension MacSession {
         // disabled for as long as the entry is here.
         changes.removeValue(forKey: id)
         changeFailures.removeValue(forKey: id)
+        cancelDownload(sessionID: id)
+        finishedDownloads.removeValue(forKey: id)
+        downloadFailures.removeValue(forKey: id)
     }
 }

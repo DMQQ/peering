@@ -21,6 +21,7 @@ struct MacFilesScreen: View {
         Group {
             if let id = model.browserID {
                 content(id)
+                    .downloadShareSheet(sessionID: id)
             } else {
                 Text("Not connected to a Mac.")
                     .font(.footnote)
@@ -91,20 +92,30 @@ struct MacFilesScreen: View {
                     path: model.browserPath,
                     directory: model.directory(shownPath, sessionID: id),
                     isLoading: model.isLoadingDirectory(shownPath, sessionID: id),
-                    failure: model.uploadFailure(sessionID: id)
+                    failure: model.downloadFailure(sessionID: id)
+                        ?? model.uploadFailure(sessionID: id)
                         ?? model.browseFailure(shownPath, sessionID: id),
                     showsHidden: showsHiddenFiles,
                     onToggleHidden: { showsHiddenFiles.toggle() },
                     showsBreadcrumbs: false,
                     // The Mac blocks inside the listing call while macOS shows a Files-and-Folders prompt, and nothing of that reaches this phone, so the wait says what it is probably waiting for.
                     waitingHint: String(localized: "If your Mac is asking whether Peering may read this folder, answer it there."),
-                    progress: model.folderProgress(sessionID: id),
+                    progress: model.downloadProgress(sessionID: id) ?? model.folderProgress(sessionID: id),
                     onOpen: { open($0, in: id) },
                     onNavigate: { push($0) },
                     onRevealPath: nil,
                     onReload: { model.listDirectory(shownPath, sessionID: id) },
                     onUpload: { model.uploadFile($0, sessionID: id) },
                     onUploadItems: { model.uploadItems($0, sessionID: id) },
+                    onDownload: { entry in
+                        let target = childPath(entry.name, of: shownPath)
+                        if entry.isDirectory {
+                            model.downloadFolder(target, sessionID: id)
+                        } else {
+                            model.downloadFile(target, sessionID: id)
+                        }
+                    },
+                    onUploadInto: { model.uploadItems($0, toFolder: $1, sessionID: id) },
                     onRun: nil,
                     deleteHint: String(localized: "It can be put back from the Trash on your Mac."),
                     onCreate: canMake

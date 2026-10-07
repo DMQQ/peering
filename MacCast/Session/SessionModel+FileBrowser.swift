@@ -116,4 +116,22 @@ extension SessionModel {
     func saveFailure(sessionID id: UUID) -> String? { activeSession?.saveFailure(sessionID: id) }
 
     func uploadFailure(sessionID id: UUID) -> String? { activeSession?.uploadFailure(sessionID: id) }
+
+    func uploadItems(_ urls: [URL], toFolder folder: String, sessionID id: UUID) {
+        activeSession?.uploadItems(urls, toFolder: folder, sessionID: id)
+    }
+
+    func downloadFile(_ path: String, sessionID id: UUID) { activeSession?.downloadFile(path, sessionID: id) }
+
+    func downloadFolder(_ path: String, sessionID id: UUID) { activeSession?.downloadFolder(path, sessionID: id) }
+
+    func cancelDownload(sessionID id: UUID) { activeSession?.cancelDownload(sessionID: id) }
+
+    func downloadProgress(sessionID id: UUID) -> String? { activeSession?.downloadProgress(sessionID: id) }
+
+    func downloadFailure(sessionID id: UUID) -> String? { activeSession?.downloadFailure(sessionID: id) }
+
+    func finishedDownload(sessionID id: UUID) -> URL? { activeSession?.finishedDownload(sessionID: id) }
+
+    func clearFinishedDownload(sessionID id: UUID) { activeSession?.clearFinishedDownload(sessionID: id) }
 }

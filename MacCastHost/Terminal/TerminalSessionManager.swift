@@ -163,6 +163,20 @@ final class TerminalSessionManager: @unchecked Sendable {
             }
             read(id: id, path: path, sink: sink)
 
+        case .readRange(let id, let path, let offset):
+            guard canBrowse(id, ownerClientID: clientID) else {
+                sink(.failed(sessionID: id, message: "That terminal is no longer running."))
+                return
+            }
+            readRange(id: id, path: path, offset: offset, sink: sink)
+
+        case .archiveFolder(let id, let path):
+            guard canBrowse(id, ownerClientID: clientID) else {
+                sink(.failed(sessionID: id, message: "That terminal is no longer running."))
+                return
+            }
+            archiveFolder(id: id, path: path, sink: sink)
+
         case .beginWrite(let id, let path, let totalBytes):
             guard canBrowse(id, ownerClientID: clientID) else {
                 sink(.failed(sessionID: id, message: "That terminal is no longer running."))

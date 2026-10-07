@@ -160,6 +160,22 @@ extension FileBrowserPanel {
             }
             .buttonStyle(.plain)
             .contextMenu {
+                if let onDownload {
+                    Button(entry.isDirectory ? "Download as zip" : "Download", systemImage: "arrow.down.circle") {
+                        transferring { onDownload(entry) }
+                    }
+                    .menuInk()
+                }
+                if entry.isDirectory, onUploadInto != nil {
+                    Button("Upload here", systemImage: "arrow.up.circle") {
+                        transferring {
+                            uploadTarget = childPath(entry.name, of: path)
+                            showsImporter = true
+                        }
+                    }
+                    .menuInk()
+                }
+
                 if onRename != nil {
                     Button("Rename", systemImage: "character.cursor.ibeam") {
                         nameDraft = entry.name
@@ -194,6 +210,15 @@ extension FileBrowserPanel {
                 .padding(.trailing, 12)
                 .accessibilityLabel("Run \(entry.name)")
             }
+        }
+    }
+
+    /// Moving files is a plan capability: a plan without it is shown the plans instead.
+    func transferring(_ action: () -> Void) {
+        if model.storeManager.access.includes(.fileTransfer) {
+            action()
+        } else {
+            model.paywallReason = .feature(.fileTransfer)
         }
     }
 

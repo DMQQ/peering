@@ -135,6 +135,15 @@ extension MacSession {
             pendingDirectories.remove(unresolved)
             browseFailures.removeValue(forKey: unresolved)
 
+        case .fileRange(let id, let path, let offset, let totalBytes, let data):
+            apply(fileRange: id, path: path, offset: offset, totalBytes: totalBytes, data: data)
+
+        case .archiveReady(let id, let folder, let archivePath, _):
+            apply(archiveReady: id, folder: folder, archivePath: archivePath)
+
+        case .transferFailure(let id, let path, let message):
+            apply(transferFailure: id, path: path, message: message)
+
         case .browseFailure(let id, let path, let message):
             let key = RemoteDirectoryKey(terminalID: id, path: path)
             pendingDirectories.remove(key)

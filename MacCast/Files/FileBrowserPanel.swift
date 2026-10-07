@@ -37,6 +37,12 @@ struct FileBrowserPanel: View {
     /// A second hook rather than a wider ``onUpload``: the Mac's browser can take a run of entries, the SFTP one a file at a time. Where it is nil the picker stays single-item rather than offering a selection whose extras would be dropped.
     var onUploadItems: (([URL]) -> Void)?
 
+    /// Long-press on a row: bring it to this phone, a folder as a zip. Absent where the caller cannot (an SFTP server, an ended shell).
+    var onDownload: ((RemoteDirectoryEntry) -> Void)?
+
+    /// Long-press on a folder: send items into that folder rather than the one being shown.
+    var onUploadInto: (([URL], String) -> Void)?
+
     /// Called only after the user has confirmed, and the confirmation lives here, in the one place both browsers go through, since a guard a caller can forget is not a guard.
     var onRun: ((RemoteDirectoryEntry) -> Void)?
 
@@ -57,6 +63,10 @@ struct FileBrowserPanel: View {
 
     /// The Mac blocks inside the listing call while macOS shows a Files-and-Folders prompt, so a permission question and a slow disk look the same. There is no API to detect the prompt, so this is a delayed guess.
     @State var waitingLongEnough = false
+
+    /// The folder a long-press chose for the next pick of files. Nil sends them to the folder on screen, as the header's button does.
+    @State var uploadTarget: String?
+    @Environment(SessionModel.self) var model
 
     /// Filtered locally: a round trip per letter would flicker behind the keyboard, and both browsers narrow the same way.
     @State var query = ""
@@ -137,7 +147,10 @@ struct FileBrowserPanel: View {
             allowsMultipleSelection: onUploadItems != nil
         ) { result in
             guard case .success(let urls) = result, !urls.isEmpty else { return }
-            if let onUploadItems {
+            if let target = uploadTarget, let onUploadInto {
+                uploadTarget = nil
+                onUploadInto(urls, target)
+            } else if let onUploadItems {
                 onUploadItems(urls)
             } else if let url = urls.first {
                 onUpload?(url)

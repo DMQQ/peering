@@ -11,8 +11,8 @@ extension MacSession {
     /// A recursive message of its own would be a second path to write, a second path to keep in
     /// step with the first, and a feature that does not work at all against a Mac that has not
     /// updated. Nothing on the Mac needs to know a folder is what it is being given.
-    func uploadFolder(_ url: URL, sessionID id: UUID) {
-        guard let folder = browsingPaths[id] else { return }
+    func uploadFolder(_ url: URL, toFolder target: String? = nil, sessionID id: UUID) {
+        guard let folder = target ?? browsingPaths[id] else { return }
 
         let name = url.lastPathComponent
         let root = folder.hasSuffix("/") ? folder + name : folder + "/" + name
@@ -52,11 +52,11 @@ extension MacSession {
     /// ordinary case, its feedback is the row appearing in the list, and routing it through the run
     /// machinery would put a progress line over the panel for something that is over before it can
     /// be read. Anything else, including a single folder, is a run.
-    func uploadItems(_ urls: [URL], sessionID id: UUID) {
-        guard let folder = browsingPaths[id], !urls.isEmpty else { return }
+    func uploadItems(_ urls: [URL], toFolder target: String? = nil, sessionID id: UUID) {
+        guard let folder = target ?? browsingPaths[id], !urls.isEmpty else { return }
 
         if urls.count == 1 {
-            uploadFile(urls[0], sessionID: id)
+            uploadFile(urls[0], toFolder: folder, sessionID: id)
             return
         }
 

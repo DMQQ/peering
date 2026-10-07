@@ -356,6 +356,11 @@ final class MacSession: Identifiable {
     /// A folder is a sequence of the existing operations; the protocol does not know about folders. One per shell, since the Mac answers an operation by naming the path it was given.
     var folderUploads: [UUID: FolderUpload] = [:]
 
+    /// One download at a time per browser: the file or zip being fetched, a finished one waiting to be handed to the share sheet, and why one failed.
+    var downloads: [UUID: FileDownload] = [:]
+    var finishedDownloads: [UUID: URL] = [:]
+    var downloadFailures: [UUID: String] = [:]
+
     /// One per terminal: the Mac answers a change by naming the path, so two operations through one shell would match one remembered request. The entry also disables the controls.
     var changes: [UUID: FileChange] = [:]
 

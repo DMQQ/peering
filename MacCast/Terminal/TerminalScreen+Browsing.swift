@@ -8,6 +8,10 @@ extension TerminalScreen {
 
     /// In place of the terminal, never over it: an overlay would leak taps to the log's keyboard-focus tap and lose the keyboard to terminal output re-asserting first responder. Swapping also keeps the PTY size, since the size reader lives on the log.
     func browsing(_ terminal: RemoteTerminal) -> some View {
+        browser(terminal).downloadShareSheet(sessionID: terminal.id)
+    }
+
+    private func browser(_ terminal: RemoteTerminal) -> some View {
         VStack(spacing: 0) {
             if let preview = model.filePreview, preview.terminalID == terminal.id {
                 FilePreviewPanel(
@@ -31,7 +35,8 @@ extension TerminalScreen {
                     // An ended shell is not a failed folder: the Mac refuses every browse request for one.
                     // A failed upload shares the slot, as on the SSH browser.
                     failure: terminal.isRunning
-                        ? (model.uploadFailure(sessionID: terminal.id)
+                        ? (model.downloadFailure(sessionID: terminal.id)
+                            ?? model.uploadFailure(sessionID: terminal.id)
                             ?? model.browseFailure(browsingPath, sessionID: terminal.id))
                         : String(localized: "This shell has ended. Open a new terminal to browse your Mac's files."),
                     showsHidden: showsHiddenFiles,
@@ -39,7 +44,7 @@ extension TerminalScreen {
                     // The Mac blocks in the listing call while macOS shows a Files-and-Folders prompt and the phone is told nothing, so the wait guesses and says where the answer is.
                     waitingHint: String(localized: "If your Mac is asking whether Peering may read this folder, answer it there."),
                     // Progress of a folder being sent, or what the last one came to.
-                    progress: model.folderProgress(sessionID: terminal.id),
+                    progress: model.downloadProgress(sessionID: terminal.id) ?? model.folderProgress(sessionID: terminal.id),
                     onOpen: { open($0, in: terminal) },
                     onNavigate: { navigate(to: $0, in: terminal) },
                     onRevealPath: { reveal($0, in: terminal) },
@@ -53,6 +58,19 @@ extension TerminalScreen {
                         : nil,
                     onUploadItems: terminal.isRunning
                         ? { model.uploadItems($0, sessionID: terminal.id) }
+                        : nil,
+                    onDownload: terminal.isRunning
+                        ? { entry in
+                            let target = childPath(entry.name, of: browsingPath)
+                            if entry.isDirectory {
+                                model.downloadFolder(target, sessionID: terminal.id)
+                            } else {
+                                model.downloadFile(target, sessionID: terminal.id)
+                            }
+                        }
+                        : nil,
+                    onUploadInto: terminal.isRunning
+                        ? { model.uploadItems($0, toFolder: $1, sessionID: terminal.id) }
                         : nil,
                     // Absent when the shell has ended: a run button types a command into it.
                     onRun: terminal.isRunning ? { run($0, in: terminal) } : nil,
