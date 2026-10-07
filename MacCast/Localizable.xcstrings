@@ -295,6 +295,9 @@
         }
       }
     },
+    "-%lld" : {
+
+    },
     ", current" : {
       "localizations" : {
         "de" : {
@@ -1409,6 +1412,9 @@
         }
       }
     },
+    "%@ does not report a limit." : {
+
+    },
     "%@ finished%@." : {
       "localizations" : {
         "de" : {
@@ -1583,6 +1589,9 @@
         }
       }
     },
+    "%@ left" : {
+
+    },
     "%@ left of today's relay time." : {
       "localizations" : {
         "de" : {
@@ -1695,6 +1704,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ 今天还剩。用完后，连接其他网络上的 Mac 会停止，直到额度恢复。任何付费套餐都会取消限制。"
+          }
+        }
+      }
+    },
+    "%@ of %@ tokens" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ of %2$@ tokens"
           }
         }
       }
@@ -1872,6 +1891,9 @@
           }
         }
       }
+    },
+    "%@ tokens" : {
+
     },
     "%@ until cancelled, whichever plan you choose. You can cancel any time in your App Store settings. Payment is taken from your Apple Account when you confirm." : {
       "localizations" : {
@@ -2572,6 +2594,16 @@
         }
       }
     },
+    "%lld in / %lld out" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld in / %2$lld out"
+          }
+        }
+      }
+    },
     "%lld Macs found" : {
       "localizations" : {
         "de" : {
@@ -2629,6 +2661,9 @@
           }
         }
       }
+    },
+    "%lld more, keep typing to narrow it" : {
+
     },
     "%lld of %lld" : {
       "localizations" : {
@@ -2746,6 +2781,19 @@
         }
       }
     },
+    "%lld open · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld open · %2$@"
+          }
+        }
+      }
+    },
+    "%lld open on your Mac" : {
+
+    },
     "%lld picked" : {
       "localizations" : {
         "de" : {
@@ -2862,6 +2910,9 @@
         }
       }
     },
+    "%lld waiting on you" : {
+
+    },
     "%lld windows" : {
       "localizations" : {
         "de" : {
@@ -2920,7 +2971,13 @@
         }
       }
     },
+    "%lld working" : {
+
+    },
     "%lld%%" : {
+
+    },
+    "•" : {
 
     },
     "`.ssh/id_ed25519` on the machine you made the key on. AirDrop it across, or move it with the file browser." : {
@@ -2982,6 +3039,9 @@
       }
     },
     "⇧ Shift" : {
+
+    },
+    "+%lld" : {
 
     },
     "⌃ Control" : {
@@ -4344,6 +4404,9 @@
         }
       }
     },
+    "A real shell on your Mac, driven from here. It keeps running when you disconnect." : {
+
+    },
     "A relative pointer for the small corrections a fingertip cannot make, and a notched wheel that scrolls the Mac a line at a time." : {
       "localizations" : {
         "de" : {
@@ -4983,7 +5046,10 @@
         }
       }
     },
-    "Aa" : {
+    "A tour of how it is laid out" : {
+
+    },
+    "A widget and a Live Activity show which chats are working and which are waiting on you." : {
 
     },
     "Add" : {
@@ -5277,6 +5343,7 @@
       }
     },
     "Add a quick command" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5740,7 +5807,14 @@
         }
       }
     },
+    "Agents in a terminal" : {
+
+    },
+    "Agents on the Lock Screen" : {
+
+    },
     "Agents you start will show up here." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -5855,6 +5929,9 @@
           }
         }
       }
+    },
+    "Allow" : {
+
     },
     "Allow relay connections" : {
       "localizations" : {
@@ -6033,6 +6110,9 @@
     "already active" : {
 
     },
+    "An agent as a conversation: its replies, the tools it runs and the files it touches drawn natively, with Allow and Deny buttons, or the answers themselves, where it asks." : {
+
+    },
     "An executable row carries a Run button, confirmed by its name and path. What it sends is a line typed into a shell you already have, so a script that prints something prints it where you can see it." : {
       "localizations" : {
         "de" : {
@@ -6206,6 +6286,9 @@
           }
         }
       }
+    },
+    "Answer from anywhere in the app" : {
+
     },
     "Any SSH server you add under Servers. Sign in with a password, kept in the Keychain if you ask for that, or with a key: make one here and copy the public half into the server's authorized_keys, or paste a private key you already have, passphrase and all. What this app can sign with is ed25519 and RSA. The first time you connect, the server's key fingerprint is shown for you to confirm. That server's files are reachable through the same browser as the Mac's." : {
       "localizations" : {
@@ -6620,6 +6703,9 @@
         }
       }
     },
+    "Ask again" : {
+
+    },
     "Ask for" : {
       "localizations" : {
         "de" : {
@@ -6797,8 +6883,19 @@
     "asked while %@" : {
 
     },
+    "Asks a question" : {
+
+    },
+    "Asks before it edits or runs anything" : {
+
+    },
+    "Attach a file" : {
+
+    },
+    "Attach photos and files" : {
+
+    },
     "Auto" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6913,6 +7010,9 @@
           }
         }
       }
+    },
+    "Auto accept" : {
+
     },
     "Auto quality changed to %lld Mbps" : {
       "localizations" : {
@@ -8079,6 +8179,9 @@
         }
       }
     },
+    "Built in" : {
+
+    },
     "built-in" : {
       "localizations" : {
         "de" : {
@@ -9065,6 +9168,24 @@
         }
       }
     },
+    "Changes" : {
+
+    },
+    "Chat" : {
+
+    },
+    "Chat options" : {
+
+    },
+    "Chat with %@" : {
+
+    },
+    "Chat with a coding agent on your Mac" : {
+
+    },
+    "Chat with your coding agents" : {
+
+    },
     "Checking…" : {
       "localizations" : {
         "de" : {
@@ -9239,6 +9360,21 @@
         }
       }
     },
+    "Choose an agent" : {
+
+    },
+    "Choose an agent below, then Chat with it or open it in a terminal." : {
+
+    },
+    "Choose the agent" : {
+
+    },
+    "Choose the model" : {
+
+    },
+    "Choose where it works" : {
+
+    },
     "Clear" : {
       "localizations" : {
         "de" : {
@@ -9298,6 +9434,7 @@
       }
     },
     "Clear history" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -9938,6 +10075,9 @@
         }
       }
     },
+    "Close chat" : {
+
+    },
     "Close panels after selecting" : {
       "localizations" : {
         "de" : {
@@ -10053,6 +10193,12 @@
           }
         }
       }
+    },
+    "Coding agents" : {
+
+    },
+    "Collapse" : {
+
     },
     "Command" : {
       "localizations" : {
@@ -10227,6 +10373,9 @@
           }
         }
       }
+    },
+    "Confirm" : {
+
     },
     "Connect" : {
       "localizations" : {
@@ -11565,6 +11714,9 @@
         }
       }
     },
+    "Context" : {
+
+    },
     "Continue with %@ · %@" : {
       "localizations" : {
         "de" : {
@@ -11915,6 +12067,9 @@
         }
       }
     },
+    "Copy %@" : {
+
+    },
     "Copy diagnostics" : {
       "localizations" : {
         "de" : {
@@ -11972,6 +12127,9 @@
           }
         }
       }
+    },
+    "Copy output" : {
+
     },
     "Copy public key" : {
       "localizations" : {
@@ -12205,6 +12363,9 @@
         }
       }
     },
+    "Cost" : {
+
+    },
     "Could not connect" : {
       "localizations" : {
         "de" : {
@@ -12378,6 +12539,9 @@
           }
         }
       }
+    },
+    "Custom…" : {
+
     },
     "Damian's MacBook Pro: `xcodebuild` completed successfully." : {
       "localizations" : {
@@ -12670,7 +12834,6 @@
       }
     },
     "Default" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -13368,6 +13531,12 @@
           }
         }
       }
+    },
+    "Denied" : {
+
+    },
+    "Deny" : {
+
     },
     "Desktop %lld" : {
       "localizations" : {
@@ -15931,6 +16100,9 @@
         }
       }
     },
+    "Edit" : {
+
+    },
     "Edit Command" : {
       "localizations" : {
         "de" : {
@@ -16106,6 +16278,7 @@
       }
     },
     "Edit quick commands" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -16394,6 +16567,9 @@
           }
         }
       }
+    },
+    "Edits go through, commands still ask" : {
+
     },
     "End" : {
       "localizations" : {
@@ -16803,6 +16979,9 @@
           }
         }
       }
+    },
+    "Ended" : {
+
     },
     "Ended %lld shells." : {
       "localizations" : {
@@ -17736,6 +17915,9 @@
         }
       }
     },
+    "Exited" : {
+
+    },
     "Exited with status %d" : {
       "localizations" : {
         "de" : {
@@ -17793,6 +17975,9 @@
           }
         }
       }
+    },
+    "Expand" : {
+
     },
     "F%lld" : {
 
@@ -17854,6 +18039,9 @@
           }
         }
       }
+    },
+    "Failed" : {
+
     },
     "Failed · %@" : {
       "localizations" : {
@@ -18378,6 +18566,7 @@
       }
     },
     "Filter these names" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -18492,6 +18681,9 @@
           }
         }
       }
+    },
+    "Finished" : {
+
     },
     "First connection" : {
       "localizations" : {
@@ -18725,6 +18917,9 @@
         }
       }
     },
+    "Fix the failing tests" : {
+
+    },
     "Float automatically" : {
       "localizations" : {
         "de" : {
@@ -18843,6 +19038,9 @@
           }
         }
       }
+    },
+    "Folder, through a link" : {
+
     },
     "For a Mac that discovery cannot reach: type or scan the device ID it shows." : {
       "extractionState" : "stale",
@@ -20187,6 +20385,9 @@
           }
         }
       }
+    },
+    "Hide details" : {
+
     },
     "Hide hidden files" : {
       "localizations" : {
@@ -21650,6 +21851,15 @@
     "in an unknown state" : {
 
     },
+    "In Peering" : {
+
+    },
+    "In this project" : {
+
+    },
+    "Input" : {
+
+    },
     "Insert" : {
       "localizations" : {
         "de" : {
@@ -22751,6 +22961,9 @@
           }
         }
       }
+    },
+    "Keep typing while the agent works. Each message waits in line, marked as queued, and goes when the turn ends." : {
+
     },
     "Key" : {
       "localizations" : {
@@ -24446,6 +24659,9 @@
         }
       }
     },
+    "Limit left" : {
+
+    },
     "Live Activity" : {
       "localizations" : {
         "de" : {
@@ -24619,6 +24835,9 @@
           }
         }
       }
+    },
+    "Loading the conversation" : {
+
     },
     "Local port" : {
       "localizations" : {
@@ -25316,6 +25535,9 @@
         }
       }
     },
+    "Looking…" : {
+
+    },
     "Low" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -25667,6 +25889,7 @@
       }
     },
     "Mac terminals" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -26366,6 +26589,12 @@
         }
       }
     },
+    "Mentions this file" : {
+
+    },
+    "Message" : {
+
+    },
     "Minimise window" : {
       "localizations" : {
         "de" : {
@@ -26481,6 +26710,15 @@
           }
         }
       }
+    },
+    "Model" : {
+
+    },
+    "Model name" : {
+
+    },
+    "Model, %@" : {
+
     },
     "Modifiers" : {
       "localizations" : {
@@ -26714,6 +26952,9 @@
         }
       }
     },
+    "More keys and quick commands" : {
+
+    },
     "More options for %@" : {
       "localizations" : {
         "de" : {
@@ -26945,6 +27186,9 @@
           }
         }
       }
+    },
+    "Move the cursor" : {
+
     },
     "Moving files between the phone and the Mac" : {
       "extractionState" : "stale",
@@ -27585,6 +27829,9 @@
         }
       }
     },
+    "Never asks, and can reach outside the folder" : {
+
+    },
     "Never used" : {
       "localizations" : {
         "de" : {
@@ -27642,6 +27889,9 @@
           }
         }
       }
+    },
+    "New chat here" : {
+
     },
     "New Command" : {
       "localizations" : {
@@ -28571,6 +28821,9 @@
         }
       }
     },
+    "No folder here matches “%@”." : {
+
+    },
     "No hardware address is on file for that Mac, so there is nothing to send a wake packet to." : {
       "localizations" : {
         "de" : {
@@ -29103,6 +29356,7 @@
 
     },
     "No terminals" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -29159,6 +29413,9 @@
           }
         }
       }
+    },
+    "No terminals yet" : {
+
     },
     "No video stream" : {
       "localizations" : {
@@ -29623,6 +29880,9 @@
           }
         }
       }
+    },
+    "Not connected to a Mac." : {
+
     },
     "Not connected." : {
       "localizations" : {
@@ -30384,6 +30644,9 @@
         }
       }
     },
+    "Nothing here starts with “%@”." : {
+
+    },
     "Nothing in this folder matches “%@”." : {
       "localizations" : {
         "de" : {
@@ -30499,6 +30762,12 @@
           }
         }
       }
+    },
+    "Nothing matches" : {
+
+    },
+    "Nothing running" : {
+
     },
     "Nothing to copy" : {
       "localizations" : {
@@ -30674,6 +30943,9 @@
         }
       }
     },
+    "Nothing yet. This appears after the first reply." : {
+
+    },
     "Nothing. There is no analytics, no advertising, and no third-party tracking SDK in the app. The diagnostics you can copy from Settings are assembled on the device and only go anywhere if you send them yourself." : {
       "localizations" : {
         "de" : {
@@ -30847,6 +31119,9 @@
           }
         }
       }
+    },
+    "now" : {
+
     },
     "Observe" : {
       "localizations" : {
@@ -31137,6 +31412,9 @@
           }
         }
       }
+    },
+    "on %@" : {
+
     },
     "on its way out" : {
 
@@ -31838,6 +32116,9 @@
         }
       }
     },
+    "Online" : {
+
+    },
     "Online · tap to connect" : {
       "localizations" : {
         "de" : {
@@ -32127,6 +32408,12 @@
           }
         }
       }
+    },
+    "Open %@" : {
+
+    },
+    "Open a new one from Mac terminals." : {
+
     },
     "Open a shell" : {
       "localizations" : {
@@ -32476,6 +32763,9 @@
         }
       }
     },
+    "Open chat" : {
+
+    },
     "Open for text fields" : {
       "localizations" : {
         "de" : {
@@ -32707,6 +32997,9 @@
           }
         }
       }
+    },
+    "Open usage and limits" : {
+
     },
     "Opening %@. Peering needs your password." : {
       "localizations" : {
@@ -33173,6 +33466,9 @@
         }
       }
     },
+    "Opens this folder" : {
+
+    },
     "Optic ID" : {
       "localizations" : {
         "de" : {
@@ -33288,6 +33584,12 @@
           }
         }
       }
+    },
+    "Other agents" : {
+
+    },
+    "Output" : {
+
     },
     "P-256 · in Keychain" : {
       "localizations" : {
@@ -33467,6 +33769,9 @@
       }
     },
     "Page Up" : {
+
+    },
+    "Pages and ends" : {
 
     },
     "Pair" : {
@@ -35562,6 +35867,12 @@
         }
       }
     },
+    "Permissions, %@" : {
+
+    },
+    "Photo Library" : {
+
+    },
     "Pick a file from the phone and put it in the folder you are looking at, up to 2 GB." : {
       "localizations" : {
         "de" : {
@@ -35619,6 +35930,9 @@
           }
         }
       }
+    },
+    "Pick from your photos or the phone's files. They are sent into the project folder on the Mac and shown as attachments in the conversation." : {
+
     },
     "Pick several of the Mac's windows and see them together, arranged the way you want on this screen. Every tile is captured separately on the Mac, so the picture stays live rather than being a screenshot, and tapping one takes you into it." : {
       "localizations" : {
@@ -37886,6 +38200,34 @@
         }
       }
     },
+    "Queue" : {
+
+    },
+    "Queue a message…" : {
+
+    },
+    "Queue the next message" : {
+
+    },
+    "Queued, %lld of %lld, not started" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Queued, %1$lld of %2$lld, not started"
+          }
+        }
+      }
+    },
+    "Queued, not started yet" : {
+
+    },
+    "Queued, starts when this turn ends" : {
+
+    },
+    "Quick commands" : {
+
+    },
     "Quick Commands" : {
       "localizations" : {
         "de" : {
@@ -38350,6 +38692,9 @@
         }
       }
     },
+    "Read from cache" : {
+
+    },
     "Read key" : {
       "localizations" : {
         "de" : {
@@ -38408,6 +38753,9 @@
         }
       }
     },
+    "Read the diff and flag what looks wrong" : {
+
+    },
     "Reading…" : {
       "localizations" : {
         "de" : {
@@ -38465,6 +38813,9 @@
           }
         }
       }
+    },
+    "Ready" : {
+
     },
     "Real" : {
       "extractionState" : "stale",
@@ -39222,6 +39573,7 @@
       }
     },
     "Reload this folder" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -39743,6 +40095,9 @@
         }
       }
     },
+    "Remove from queue" : {
+
+    },
     "Rename" : {
       "localizations" : {
         "de" : {
@@ -39975,6 +40330,9 @@
         }
       }
     },
+    "Rename this chat" : {
+
+    },
     "Rename this Mac" : {
       "localizations" : {
         "de" : {
@@ -40090,6 +40448,9 @@
           }
         }
       }
+    },
+    "Renews %@" : {
+
     },
     "Renews automatically. Cancel any time in your App Store settings." : {
       "localizations" : {
@@ -40732,6 +41093,12 @@
         }
       }
     },
+    "Review" : {
+
+    },
+    "Review the latest changes" : {
+
+    },
     "Right" : {
       "localizations" : {
         "de" : {
@@ -41080,6 +41447,9 @@
         }
       }
     },
+    "Run them, find the cause, patch it" : {
+
+    },
     "Run this file?" : {
       "localizations" : {
         "de" : {
@@ -41196,6 +41566,9 @@
         }
       }
     },
+    "Running" : {
+
+    },
     "Running low on relay time" : {
       "localizations" : {
         "de" : {
@@ -41254,7 +41627,11 @@
         }
       }
     },
+    "Running…" : {
+
+    },
     "Runs on your Mac, not here. It keeps going when you disconnect." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -41311,6 +41688,9 @@
           }
         }
       }
+    },
+    "Runs on your Mac, not here. It keeps working when you disconnect." : {
+
     },
     "Save" : {
       "localizations" : {
@@ -42762,6 +43142,9 @@
         }
       }
     },
+    "Search in %@" : {
+
+    },
     "Search nearby" : {
       "localizations" : {
         "de" : {
@@ -42878,6 +43261,9 @@
         }
       }
     },
+    "Search this folder" : {
+
+    },
     "Securing the connection…" : {
       "localizations" : {
         "de" : {
@@ -42937,6 +43323,7 @@
       }
     },
     "Security" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -42990,6 +43377,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "安全性"
+          }
+        }
+      }
+    },
+    "Security and privacy" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicherheit und Datenschutz"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguridad y privacidad"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sécurité et confidentialité"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicurezza e privacy"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セキュリティとプライバシー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보안 및 개인정보 보호"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segurança e privacidade"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Безопасность и конфиденциальность"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全与隐私"
           }
         }
       }
@@ -43053,6 +43498,7 @@
       }
     },
     "security face id touch id biometric unlock lock passcode" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -43109,6 +43555,9 @@
           }
         }
       }
+    },
+    "security face id touch id biometric unlock lock passcode privacy analytics usage statistics anonymous" : {
+
     },
     "See everything at once" : {
       "localizations" : {
@@ -43864,6 +44313,9 @@
           }
         }
       }
+    },
+    "Sending to your Mac" : {
+
     },
     "Sends %@ to the Mac" : {
       "localizations" : {
@@ -45202,6 +45654,64 @@
         }
       }
     },
+    "Share anonymous usage statistics" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anonyme Nutzungsstatistik teilen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir estadísticas de uso anónimas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager des statistiques d'utilisation anonymes"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Condividi statistiche d'uso anonime"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匿名の利用統計を共有"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "익명 사용 통계 공유"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartilhar estatísticas de uso anônimas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Делиться анонимной статистикой использования"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享匿名使用统计"
+          }
+        }
+      }
+    },
     "Shell" : {
       "localizations" : {
         "de" : {
@@ -45260,6 +45770,9 @@
         }
       }
     },
+    "Shell and programs" : {
+
+    },
     "Shells on machines you added by hand." : {
       "localizations" : {
         "de" : {
@@ -45317,6 +45830,12 @@
           }
         }
       }
+    },
+    "Shells running on %@" : {
+
+    },
+    "Shells running on your Mac" : {
+
     },
     "Shortcut set" : {
       "localizations" : {
@@ -45549,6 +46068,9 @@
           }
         }
       }
+    },
+    "Show details" : {
+
     },
     "Show hidden files" : {
       "localizations" : {
@@ -46769,6 +47291,9 @@
         }
       }
     },
+    "Skill" : {
+
+    },
     "Skip" : {
       "localizations" : {
         "de" : {
@@ -47527,6 +48052,9 @@
         }
       }
     },
+    "Start a new one from Mac terminals." : {
+
+    },
     "Start an agent" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -47585,6 +48113,9 @@
           }
         }
       }
+    },
+    "Start Claude Code, Codex, OpenCode and the others installed on your Mac in a shell, from the Agents tab. Each one's own screen, on every plan." : {
+
     },
     "Start free. Go farther when you need." : {
       "localizations" : {
@@ -47760,6 +48291,9 @@
         }
       }
     },
+    "Start over with an empty context" : {
+
+    },
     "Start using Peering" : {
       "localizations" : {
         "de" : {
@@ -47877,6 +48411,9 @@
       }
     },
     "Started: %@" : {
+
+    },
+    "Starting" : {
 
     },
     "Starting login shell" : {
@@ -48049,6 +48586,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "状态"
+          }
+        }
+      }
+    },
+    "Step %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Step %1$lld of %2$lld"
           }
         }
       }
@@ -48227,6 +48774,9 @@
           }
         }
       }
+    },
+    "Stopped" : {
+
     },
     "Stopped: %@" : {
       "localizations" : {
@@ -48749,6 +49299,9 @@
           }
         }
       }
+    },
+    "Summarise the conversation to free up context" : {
+
     },
     "Suspend" : {
       "localizations" : {
@@ -49797,6 +50350,9 @@
         }
       }
     },
+    "Terminals" : {
+
+    },
     "Terminals and files" : {
       "localizations" : {
         "de" : {
@@ -50030,6 +50586,7 @@
       }
     },
     "Text copied in another app" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -50086,6 +50643,9 @@
           }
         }
       }
+    },
+    "Text from another app. Allow pasting in Settings > Peering to skip the prompt." : {
+
     },
     "Text moves only when you ask it to: pull the Mac's clipboard, push this phone's, or pick something you pulled earlier. Pulling, pushing and copying are free on every plan. The list of the 12 most recent pulls is the part Relay adds, and it keeps filling on a plan that cannot open it, so the day you subscribe the last twelve things are waiting. Nothing is copied in the background." : {
       "localizations" : {
@@ -50144,6 +50704,9 @@
           }
         }
       }
+    },
+    "Text size" : {
+
     },
     "That code does not match. Check the Mac and try again." : {
       "localizations" : {
@@ -50841,6 +51404,12 @@
         }
       }
     },
+    "The agent can read and change files in the folder you choose." : {
+
+    },
+    "The agent stops working on your Mac. The Mac and the rest of the chats are left alone." : {
+
+    },
     "The App Store could not be reached. You can choose a plan later in Settings." : {
       "localizations" : {
         "de" : {
@@ -51130,6 +51699,9 @@
           }
         }
       }
+    },
+    "The chat stopped with an error." : {
+
     },
     "The clipboard history" : {
       "localizations" : {
@@ -54912,6 +55484,9 @@
         }
       }
     },
+    "The start of this conversation is no longer on the Mac." : {
+
+    },
     "The two devices have to be able to reach each other once, and somebody has to be at the Mac. On the same network, choose the Mac from Nearby. If it is somewhere else, open Devices in Peering on the Mac, copy its device ID, and use Pair from another network on the iPhone. Either way the Mac shows six digits: enter them on the iPhone and continue only if they match. You pair once; after that the devices recognise each other and reconnect on their own." : {
       "localizations" : {
         "de" : {
@@ -54969,6 +55544,9 @@
           }
         }
       }
+    },
+    "The window size is not reported for this model." : {
+
     },
     "These open when a shell on this server does, and close when it ends. Each one listens on this iPhone only, so another app on the phone can reach a service the server can see." : {
       "localizations" : {
@@ -55143,6 +55721,18 @@
           }
         }
       }
+    },
+    "This chat" : {
+
+    },
+    "This chat has ended" : {
+
+    },
+    "This chat has ended." : {
+
+    },
+    "This chat has ended. Its conversation is above; start a new chat to keep going." : {
+
     },
     "This device" : {
       "localizations" : {
@@ -55724,6 +56314,9 @@
         }
       }
     },
+    "This folder has no folders inside it." : {
+
+    },
     "This folder is empty." : {
       "localizations" : {
         "de" : {
@@ -56130,6 +56723,9 @@
         }
       }
     },
+    "This Mac's files" : {
+
+    },
     "This phone can be reached" : {
       "localizations" : {
         "de" : {
@@ -56245,6 +56841,9 @@
           }
         }
       }
+    },
+    "This project" : {
+
     },
     "This server" : {
       "localizations" : {
@@ -56652,6 +57251,9 @@
         }
       }
     },
+    "This terminal has ended." : {
+
+    },
     "Those two did not match. Start again." : {
       "localizations" : {
         "de" : {
@@ -56826,6 +57428,9 @@
           }
         }
       }
+    },
+    "Today" : {
+
     },
     "Told when a shell is waiting" : {
       "localizations" : {
@@ -58976,6 +59581,9 @@
         }
       }
     },
+    "Up" : {
+
+    },
     "Up arrow" : {
       "localizations" : {
         "de" : {
@@ -59439,6 +60047,79 @@
           }
         }
       }
+    },
+    "Usage" : {
+
+    },
+    "Usage and limits" : {
+
+    },
+    "Usage statistics are anonymous counts of app opens and sessions, with the app version and your plan. Never your screen, files, keystrokes or Macs." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Nutzungsstatistik besteht aus anonymen Zählungen von App-Starts und Sitzungen, mit App-Version und Tarif. Nie dein Bildschirm, deine Dateien, Tastenanschläge oder Macs."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las estadísticas de uso son recuentos anónimos de aperturas de la app y sesiones, con la versión de la app y tu plan. Nunca tu pantalla, archivos, pulsaciones de teclas ni Macs."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les statistiques d'utilisation sont des comptages anonymes des ouvertures de l'app et des sessions, avec la version de l'app et votre formule. Jamais votre écran, vos fichiers, vos frappes ni vos Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le statistiche d'uso sono conteggi anonimi di aperture dell'app e sessioni, con la versione dell'app e il tuo piano. Mai il tuo schermo, i file, i tasti premuti o i Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利用統計は、アプリの起動回数とセッション数の匿名の集計で、アプリのバージョンとプランが含まれます。画面、ファイル、キー入力、Macが送られることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 통계는 앱 실행 및 세션 횟수를 익명으로 집계한 것으로, 앱 버전과 플랜이 포함됩니다. 화면, 파일, 키 입력, Mac은 절대 전송되지 않습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As estatísticas de uso são contagens anônimas de aberturas do app e sessões, com a versão do app e o seu plano. Nunca a sua tela, arquivos, teclas digitadas ou Macs."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Статистика использования это анонимные подсчёты запусков приложения и сеансов с версией приложения и вашим тарифом. Никогда не ваш экран, файлы, нажатия клавиш или Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用统计是对应用打开次数和会话次数的匿名计数，包含应用版本和你的方案。绝不包含你的屏幕、文件、按键或 Mac。"
+          }
+        }
+      }
+    },
+    "Use" : {
+
+    },
+    "Use the home folder" : {
+
+    },
+    "Use this folder" : {
+
     },
     "User" : {
       "localizations" : {
@@ -60196,6 +60877,9 @@
         }
       }
     },
+    "Waiting on you" : {
+
+    },
     "Wake a sleeping Mac" : {
       "localizations" : {
         "de" : {
@@ -60486,6 +61170,12 @@
         }
       }
     },
+    "Walk the Mac's folders one page at a time, with the recent ones on top, and start the agent or a plain shell in the one you pick." : {
+
+    },
+    "Wants to run on your Mac" : {
+
+    },
     "Wednesday, September 24" : {
 
     },
@@ -60662,6 +61352,9 @@
           }
         }
       }
+    },
+    "What are we working on?" : {
+
     },
     "What can't Peering do yet?" : {
       "localizations" : {
@@ -60952,6 +61645,9 @@
           }
         }
       }
+    },
+    "What does this project do?" : {
+
     },
     "What happens if my phone changes network?" : {
       "localizations" : {
@@ -61475,6 +62171,9 @@
         }
       }
     },
+    "Whatever this Mac's agent accepts, exactly as you would type it there." : {
+
+    },
     "When a shell opens" : {
       "localizations" : {
         "de" : {
@@ -61532,6 +62231,9 @@
           }
         }
       }
+    },
+    "When an agent finishes or needs you, a banner drops from the top of whatever you are looking at. Open it to read more, or answer it right there." : {
+
     },
     "When the networks allow it, the picture takes a path the two devices find for themselves, and only the control connection goes through the relay." : {
       "localizations" : {
@@ -62171,6 +62873,15 @@
           }
         }
       }
+    },
+    "Work here again" : {
+
+    },
+    "Working" : {
+
+    },
+    "Works freely inside the folder, nothing outside it" : {
+
     },
     "Wrap long lines" : {
       "localizations" : {
@@ -62925,6 +63636,9 @@
           }
         }
       }
+    },
+    "Yesterday" : {
+
     },
     "You are on %@." : {
       "localizations" : {
@@ -64146,6 +64860,9 @@
         }
       }
     },
+    "Yours" : {
+
+    },
     "Zero bytes" : {
       "localizations" : {
         "de" : {
@@ -64316,180 +65033,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "缩放窗口"
-          }
-        }
-      }
-    },
-    "Security and privacy" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sicherheit und Datenschutz"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Seguridad y privacidad"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sécurité et confidentialité"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sicurezza e privacy"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "セキュリティとプライバシー"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "보안 및 개인정보 보호"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Segurança e privacidade"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Безопасность и конфиденциальность"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "安全与隐私"
-          }
-        }
-      }
-    },
-    "Share anonymous usage statistics" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Anonyme Nutzungsstatistik teilen"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Compartir estadísticas de uso anónimas"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Partager des statistiques d'utilisation anonymes"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Condividi statistiche d'uso anonime"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "匿名の利用統計を共有"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "익명 사용 통계 공유"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Compartilhar estatísticas de uso anônimas"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Делиться анонимной статистикой использования"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共享匿名使用统计"
-          }
-        }
-      }
-    },
-    "Usage statistics are anonymous counts of app opens and sessions, with the app version and your plan. Never your screen, files, keystrokes or Macs." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Nutzungsstatistik besteht aus anonymen Zählungen von App-Starts und Sitzungen, mit App-Version und Tarif. Nie dein Bildschirm, deine Dateien, Tastenanschläge oder Macs."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Las estadísticas de uso son recuentos anónimos de aperturas de la app y sesiones, con la versión de la app y tu plan. Nunca tu pantalla, archivos, pulsaciones de teclas ni Macs."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les statistiques d'utilisation sont des comptages anonymes des ouvertures de l'app et des sessions, avec la version de l'app et votre formule. Jamais votre écran, vos fichiers, vos frappes ni vos Mac."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le statistiche d'uso sono conteggi anonimi di aperture dell'app e sessioni, con la versione dell'app e il tuo piano. Mai il tuo schermo, i file, i tasti premuti o i Mac."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "利用統計は、アプリの起動回数とセッション数の匿名の集計で、アプリのバージョンとプランが含まれます。画面、ファイル、キー入力、Macが送られることはありません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "사용 통계는 앱 실행 및 세션 횟수를 익명으로 집계한 것으로, 앱 버전과 플랜이 포함됩니다. 화면, 파일, 키 입력, Mac은 절대 전송되지 않습니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "As estatísticas de uso são contagens anônimas de aberturas do app e sessões, com a versão do app e o seu plano. Nunca a sua tela, arquivos, teclas digitadas ou Macs."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Статистика использования это анонимные подсчёты запусков приложения и сеансов с версией приложения и вашим тарифом. Никогда не ваш экран, файлы, нажатия клавиш или Mac."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用统计是对应用打开次数和会话次数的匿名计数，包含应用版本和你的方案。绝不包含你的屏幕、文件、按键或 Mac。"
           }
         }
       }

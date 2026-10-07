@@ -53,7 +53,7 @@ public struct RemoteTerminal: Identifiable, Equatable {
         infos.map { info in
             var terminal = RemoteTerminal(info)
             if info.columns == nil || info.rows == nil,
-               let known = previous.first { $0.id == info.id } {
+               let known = previous.first(where: { $0.id == info.id }) {
                 terminal.columns = known.columns
                 terminal.rows = known.rows
             }

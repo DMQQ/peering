@@ -105,6 +105,7 @@ struct SessionCard<Subtitle: View>: View {
                     .transition(.opacity)
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay {
