@@ -132,6 +132,20 @@ struct RemoteScreen: View {
                     }
                 }
         }
+        // **The Mac's answer moves the screen, never the tap.** A new shell or chat has no id until the Mac says so; the note is cleared so it opens once.
+        .onChange(of: model.newTerminalID) { _, id in
+            guard let id else { return }
+            model.newTerminalID = nil
+            openCreated(.terminal(id))
+        }
+        .onChange(of: model.newAgentSessionID) { _, id in
+            guard let id else { return }
+            model.newAgentSessionID = nil
+            openCreated(.chat(id))
+        }
+        .onChange(of: InAppBanner.shared.openRequest, initial: true) { _, _ in
+            openFromBanner()
+        }
     }
 
     private var screen: some View {
@@ -270,9 +284,6 @@ struct RemoteScreen: View {
                 model.showKeyboard = false
                 withAnimation(Motion.settle) { showsKeyboardBar = false }
             }
-        }
-        .onChange(of: InAppBanner.shared.openRequest, initial: true) { _, _ in
-            if InAppBanner.shared.freshOpenRequest != nil { showsTerminals = true }
         }
         .onChange(of: showsTerminals) { _, shown in
             model.isPanelOpen = shown || openPanel != nil

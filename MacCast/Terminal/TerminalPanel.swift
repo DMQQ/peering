@@ -37,16 +37,6 @@ struct TerminalPanel: View {
         Binding(get: { path }, set: { path = $0 })
     }
 
-    /// The folder pages were only the way to the new session: back from it lands on the list, not on a folder.
-    private func dropFolderPages() {
-        path.removeAll {
-            switch $0 {
-            case .folder, .terminalFolder, .files: true
-            default: false
-            }
-        }
-    }
-
     /// One page per depth, so the swipe back is one level up. A folder already in the stack is returned to rather than stacked again, and the home folder counts: the first page names it as nil, and a ".." from its child names it by path.
     private func openFolder(_ target: String, _ step: (String) -> TerminalFlowStep) {
         let destination = step(target)
@@ -70,19 +60,6 @@ struct TerminalPanel: View {
         }
     }
 
-    private func takeBannerRequest() {
-        guard let target = InAppBanner.shared.takeOpenRequest() else { return }
-        switch target {
-        case .chat(let id):
-            model.selectedAgentSessionID = id
-            path = [.chat(id)]
-        case .terminal(let id):
-            path = [.terminal(id)]
-        case .sshTerminal:
-            break
-        }
-    }
-
     var body: some View {
         if let step {
             page(for: step)
@@ -93,8 +70,6 @@ struct TerminalPanel: View {
 
     private var hub: some View {
         TerminalHubScreen(path: pathBinding)
-            .onAppear { takeBannerRequest() }
-            .onChange(of: InAppBanner.shared.openRequest) { _, _ in takeBannerRequest() }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
@@ -107,29 +82,6 @@ struct TerminalPanel: View {
                 model.newTerminalID = nil
                 model.newAgentSessionID = nil
             }
-            // **The Mac's answer moves the screen, never the tap.** A new terminal or chat has no id until the Mac says so; clear the note so it opens once.
-            .onChange(of: model.newTerminalID) { _, id in
-                guard let id else { return }
-                model.newTerminalID = nil
-                guard pageIsHubOrPicker else { return }
-                dropFolderPages()
-                path.append(.terminal(id))
-            }
-            .onChange(of: model.newAgentSessionID) { _, id in
-                guard let id else { return }
-                model.newAgentSessionID = nil
-                guard pageIsHubOrPicker else { return }
-                dropFolderPages()
-                path.append(.chat(id))
-            }
-    }
-
-    /// A chat or shell the Mac announces opens only from the list or the picker that asked for it, never over a page being read.
-    private var pageIsHubOrPicker: Bool {
-        switch path.last {
-        case nil, .folder, .terminalFolder: true
-        default: false
-        }
     }
 
     @ViewBuilder
