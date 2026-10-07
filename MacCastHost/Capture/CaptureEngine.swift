@@ -193,6 +193,7 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         do {
             try await stream.startCapture()
         } catch {
+            Analytics.failed(error, in: .capture)
             lock.withLock { self.stream = nil }
             throw CaptureError.from(error)
         }

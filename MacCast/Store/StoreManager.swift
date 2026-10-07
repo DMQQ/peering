@@ -171,6 +171,7 @@ final class StoreManager {
                 return .cancelled
             }
         } catch {
+            Analytics.failed(error, in: .purchase)
             purchaseError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             storeLog.error("purchase failed: \(error, privacy: .public)")
             return .failed
@@ -189,6 +190,7 @@ final class StoreManager {
             await refreshEntitlement()
             return activeTier != nil
         } catch {
+            Analytics.failed(error, in: .purchase)
             purchaseError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             return false
         }
@@ -335,6 +337,7 @@ final class StoreManager {
             // An empty answer is not a slow one. The store has spoken.
             productsUnavailable = products.isEmpty
         } catch {
+            Analytics.failed(error, in: .purchase)
             storeLog.error("product fetch failed: \(error, privacy: .public)")
             productsUnavailable = true
         }

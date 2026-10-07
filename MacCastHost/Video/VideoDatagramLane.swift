@@ -208,6 +208,7 @@ final class VideoDatagramLane: @unchecked Sendable {
             videoLog.notice("the client is reachable directly at \(host, privacy: .public):\(port, privacy: .public)")
             _ = record(.open(peer: "\(host):\(port)"))
         } catch {
+            Analytics.failed(error, in: .network)
             videoLog.error("the client's direct address could not be used: \(error.localizedDescription, privacy: .public)")
             _ = record(.addressUnusable(peer: "\(host):\(port)"))
         }

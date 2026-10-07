@@ -283,6 +283,7 @@ final class SessionModel {
         do {
             identity = try SelfSignedIdentity.loadOrCreate(role: .client, commonName: device.name)
         } catch {
+            Analytics.failed(error, in: .security)
             identityFailure = (error as? LocalizedError)?.errorDescription ?? "\(error)"
             modelLog.error("could not load the client identity: \(String(describing: error), privacy: .public)")
         }

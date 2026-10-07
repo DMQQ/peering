@@ -68,6 +68,7 @@ extension VideoCoordinator {
                 and \(catalog.spaceInfo?.previews.count ?? 0, privacy: .public) preview(s)
                 """)
         } catch {
+            Analytics.failed(error, in: .capture)
             coordinatorLog.notice("""
                 could not read the capture catalogue: \(error.localizedDescription, privacy: .public)
                 """)

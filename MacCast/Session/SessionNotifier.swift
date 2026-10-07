@@ -49,6 +49,7 @@ final class SessionNotifier {
                     UIApplication.shared.registerForRemoteNotifications()
                 }
             } catch {
+                Analytics.failed(error, in: .notification)
                 notifierLog.error("could not ask for notification permission: \(String(describing: error), privacy: .public)")
             }
         }
@@ -211,6 +212,7 @@ final class SessionNotifier {
                     UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
                 )
             } catch {
+                Analytics.failed(error, in: .notification)
                 notifierLog.error("could not post \(identifier, privacy: .public): \(String(describing: error), privacy: .public)")
             }
         }

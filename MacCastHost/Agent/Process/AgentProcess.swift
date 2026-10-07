@@ -103,6 +103,7 @@ final class AgentProcess: @unchecked Sendable {
             do {
                 try self.stdinPipe.fileHandleForWriting.write(contentsOf: data)
             } catch {
+                Analytics.failed(error, in: .agent)
                 agentLog.error("agent stdin write failed · \(String(describing: error), privacy: .public)")
             }
         }

@@ -176,6 +176,7 @@ final class HostServer: @unchecked Sendable {
         do {
             listener = try NWListener(using: parameters, on: endpoint)
         } catch {
+            Analytics.failed(error, in: .network)
             throw Failure.listenerFailed(error.localizedDescription)
         }
 
@@ -451,6 +452,7 @@ final class HostServer: @unchecked Sendable {
                 ))
                 bridge.start()
             } catch {
+                Analytics.failed(error, in: .network)
                 self.emit(.failed("Could not open the relay control tunnel: \(error.localizedDescription)"))
             }
         }

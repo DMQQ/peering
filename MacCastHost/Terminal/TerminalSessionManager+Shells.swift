@@ -58,6 +58,7 @@ extension TerminalSessionManager {
             sink(.created(session.info))
             terminalLog.notice("started terminal \(name, privacy: .public) \(id.uuidString, privacy: .public)")
         } catch {
+            Analytics.failed(error, in: .terminal)
             _ = lock.withLock { sessions.removeValue(forKey: id) }
             master.readabilityHandler = nil
             try? master.close()

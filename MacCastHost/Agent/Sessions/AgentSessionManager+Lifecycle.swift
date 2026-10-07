@@ -100,6 +100,7 @@ extension AgentSessionManager {
                 agentLog.error("agent chat could not start · \(failure.message, privacy: .public)")
                 self?.abandon(adapter, of: session, message: failure.message)
             } catch {
+                Analytics.failed(error, in: .agent)
                 agentLog.error("agent chat could not start · \(String(describing: error), privacy: .public)")
                 self?.abandon(adapter, of: session, message: "That agent could not be started.")
             }

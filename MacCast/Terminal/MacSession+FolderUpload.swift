@@ -26,6 +26,7 @@ extension MacSession {
             do {
                 entries = try await Self.entries(for: url, in: folder)
             } catch {
+                Analytics.failed(error, in: .fileTransfer)
                 uploadFailures[id] = error.localizedDescription
                 return
             }
@@ -250,6 +251,7 @@ extension MacSession {
                 await Task.yield()
             }
         } catch {
+            Analytics.failed(error, in: .fileTransfer)
             writes.removeValue(forKey: id)
             uploadFailures[id] = error.localizedDescription
         }

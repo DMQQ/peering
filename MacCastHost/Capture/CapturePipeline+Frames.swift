@@ -48,6 +48,7 @@ extension CapturePipeline {
             do {
                 encoder = try rebuildEncoder(for: size, replacing: current, source: source)
             } catch {
+                Analytics.failed(error, in: .capture)
                 report(error as? CaptureError ?? .encodingFailed("\(error)"))
                 return
             }

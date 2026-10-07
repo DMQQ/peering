@@ -64,6 +64,7 @@ extension SSHModel {
                     reportedTruncation: contents.isTruncated
                 )
             } catch {
+                Analytics.failed(error, in: .ssh)
                 guard filePreview?.terminalID == id, filePreview?.path == path else { return }
                 // The same dictionary a refused folder goes in: the panel asks for a failure by path, so the preview panel needs nothing added.
                 browseFailures[RemoteDirectoryKey(terminalID: id, path: path)] = Self.browseMessage(error)
@@ -103,6 +104,7 @@ extension SSHModel {
                     reportedTruncation: written.isTruncated
                 )
             } catch {
+                Analytics.failed(error, in: .ssh)
                 guard filePreview?.terminalID == id, filePreview?.path == path else { return }
                 saveFailure = Self.browseMessage(error)
             }
@@ -155,6 +157,7 @@ extension SSHModel {
                     // The folder on screen is out of date by one file, and asking again is cheaper than patching an entry.
                     listDirectory(folder, sessionID: id)
                 } catch {
+                    Analytics.failed(error, in: .ssh)
                     uploadFailure = Self.browseMessage(error)
                 }
             }
@@ -193,6 +196,7 @@ extension SSHModel {
             do {
                 _ = try await terminal.session.change(operation)
             } catch {
+                Analytics.failed(error, in: .ssh)
                 // The shell has gone, so nobody is left to tell or re-list.
                 guard terminals.contains(where: { $0.id == id }) else { return }
                 changeFailure = Self.browseMessage(error)

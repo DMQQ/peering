@@ -101,6 +101,18 @@ enum Analytics {
         send("feature_used", ["feature": feature.rawValue])
     }
 
+    enum Area: String {
+        case connection, pairing, purchase, fileTransfer, fileBrowser, ssh, audio, notification, agentChat, liveActivity, security, preview
+    }
+
+    /// Handled errors go to Error Tracking as the domain and code only: a message can carry a path, a Mac's name or an address.
+    static func failed(_ error: Error, in area: Area) {
+        guard isEnabled, PostHogConfiguration.isConfigured else { return }
+        let nsError = error as NSError
+        let scrubbed = NSError(domain: nsError.domain, code: nsError.code)
+        PostHogSDK.shared.captureException(scrubbed, properties: ["area": area.rawValue, "$process_person_profile": false])
+    }
+
     static func settingChanged(_ name: String, to value: String) {
         send("setting_changed", ["setting": name, "value": value])
     }

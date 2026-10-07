@@ -61,6 +61,7 @@ enum LidCloseSleepControl {
         do {
             script = try LidCloseSleep.installScript(user: user)
         } catch {
+            Analytics.failed(error, in: .sleepPrevention)
             return .failed((error as? LocalizedError)?.errorDescription ?? "\(error)")
         }
         return await runAsAdministrator(

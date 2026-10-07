@@ -212,6 +212,7 @@ final class SessionActivity {
                 pushType: nil
             )
         } catch {
+            Analytics.failed(error, in: .liveActivity)
             activityLog.error("could not start the Live Activity: \(String(describing: error), privacy: .public)")
         }
     }

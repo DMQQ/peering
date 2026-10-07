@@ -147,6 +147,7 @@ final class Permissions {
         do {
             try process.run()
         } catch {
+            Analytics.failed(error, in: .permission)
             hostLog.error("could not arrange a relaunch: \(String(describing: error), privacy: .public)")
             return
         }

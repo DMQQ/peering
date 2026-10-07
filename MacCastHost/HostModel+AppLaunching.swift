@@ -386,6 +386,7 @@ extension HostModel {
                     }
                 }
             }
+            if let lastError { Analytics.failed(lastError, in: .appLaunching) }
             let message = (lastError as? LocalizedError)?.errorDescription
                 ?? lastError.map(String.init(describing:))
                 ?? "The application did not expose a capturable window."

@@ -55,6 +55,18 @@ enum Analytics {
         send("host_start_failed", [:])
     }
 
+    enum Area: String {
+        case capture, display, network, relay, terminal, fileTransfer, agent, sleepPrevention, permission, launchAtLogin, appLaunching, update
+    }
+
+    /// Handled errors go to Error Tracking as the domain and code only: a message can carry a path, a window title or an address.
+    static func failed(_ error: Error, in area: Area) {
+        guard isEnabled, PostHogConfiguration.isConfigured else { return }
+        let nsError = error as NSError
+        let scrubbed = NSError(domain: nsError.domain, code: nsError.code)
+        PostHogSDK.shared.captureException(scrubbed, properties: ["area": area.rawValue, "$process_person_profile": false])
+    }
+
     private static func send(_ event: String, _ properties: [String: String]) {
         guard isEnabled, PostHogConfiguration.isConfigured else { return }
         var props: [String: Any] = properties

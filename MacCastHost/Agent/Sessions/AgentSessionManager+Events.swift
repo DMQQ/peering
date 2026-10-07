@@ -119,6 +119,7 @@ extension AgentSessionManager {
         persistQueue.async { [weak self] in
             guard let self, let record = self.lock.withLock({ self.sessions[session.id] == nil ? nil : session.record }) else { return }
             do { try self.store.save(record) } catch {
+                Analytics.failed(error, in: .agent)
                 agentLog.error("agent chat could not be saved · \(String(describing: error), privacy: .public)")
             }
         }

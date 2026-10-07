@@ -63,6 +63,7 @@ final class PeerConnection: @unchecked Sendable {
                 do {
                     frames = try appendAndDrain(data)
                 } catch {
+                    Analytics.failed(error, in: .network)
                     // A framing error leaves the byte stream unusable: the next frame boundary
                     // is unknown, so there is no way to resynchronise.
                     finish(error)

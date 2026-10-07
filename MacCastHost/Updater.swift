@@ -52,6 +52,12 @@ final class Updater {
             Task { @MainActor in self.onFound?(version) }
         }
 
+        func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
+            // Sparkle reports "already up to date" through this too, and that is not a failure.
+            if (error as NSError).code == Int(SUError.noUpdateError.rawValue) { return }
+            Analytics.failed(error, in: .update)
+        }
+
         func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
             Task { @MainActor in self.onFound?(nil) }
         }

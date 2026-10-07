@@ -59,6 +59,7 @@ final class AgentChatActivity {
                 pushType: nil
             )
         } catch {
+            Analytics.failed(error, in: .liveActivity)
             activityLog.error("could not start agent Live Activity: \(String(describing: error), privacy: .public)")
         }
     }

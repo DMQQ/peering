@@ -13,6 +13,7 @@ extension HostSession {
         do {
             try route(frame)
         } catch {
+            Analytics.failed(error, in: .network)
             fail(error)
         }
     }

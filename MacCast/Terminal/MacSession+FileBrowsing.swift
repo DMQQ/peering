@@ -104,6 +104,7 @@ extension MacSession {
                     try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
                 }.value
             } catch {
+                Analytics.failed(error, in: .fileTransfer)
                 writes.removeValue(forKey: id)
                 uploadFailures[id] = error.localizedDescription
                 return

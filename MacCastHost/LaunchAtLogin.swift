@@ -78,6 +78,7 @@ struct LaunchAtLoginRow: View {
         do {
             try LaunchAtLogin.set(wanted)
         } catch {
+            Analytics.failed(error, in: .launchAtLogin)
             failure = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
         isEnabled = LaunchAtLogin.isEnabled

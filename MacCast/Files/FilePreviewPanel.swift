@@ -271,6 +271,7 @@ struct FilePreviewPanel: View {
             try preview.data.write(to: url, options: .atomic)
             return url
         } catch {
+            Analytics.failed(error, in: .preview)
             panelLog.error("could not write a copy of \(name, privacy: .public) to hand to Files: \(error.localizedDescription, privacy: .public)")
             return nil
         }

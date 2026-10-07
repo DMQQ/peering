@@ -66,6 +66,7 @@ extension CapturePipeline {
         do {
             try await compositor.replan(plan)
         } catch {
+            Analytics.failed(error, in: .capture)
             pipelineLog.error("""
                 a mosaic could not be rearranged, so it is being rebuilt: \
                 \(String(describing: error), privacy: .public)

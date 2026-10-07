@@ -71,6 +71,7 @@ final class TerminalActivity {
                 pushType: nil
             )
         } catch {
+            Analytics.failed(error, in: .liveActivity)
             activityLog.error("could not start terminal Live Activity: \(String(describing: error), privacy: .public)")
         }
     }

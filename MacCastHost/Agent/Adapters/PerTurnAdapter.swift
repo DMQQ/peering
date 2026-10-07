@@ -121,6 +121,7 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
                 self.turnProcess = process
                 agentLog.notice("\(command, privacy: .public) turn spawned · \(arguments.prefix(3).joined(separator: " "), privacy: .public)…")
             } catch {
+                Analytics.failed(error, in: .agent)
                 agentLog.error("\(command, privacy: .public) could not start: \(String(describing: error), privacy: .public)")
                 self.onEvent?(.failure(message: "\(Self.displayName) could not be started."))
                 self.onEvent?(.turnFinished(summary: AgentTurnSummary(ok: false)))

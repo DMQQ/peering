@@ -93,6 +93,7 @@ final class RelayHostRegistration: @unchecked Sendable {
                         source: item.source
                     ))
                 } catch {
+                    Analytics.failed(error, in: .relay)
                     relayLog.error("the relay did not take a notification for \(item.token, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     // Back to the front, in order, so the next registration sends these before
                     // anything that was queued behind them.
@@ -195,6 +196,7 @@ final class RelayHostRegistration: @unchecked Sendable {
                     }
                 }
             } catch {
+                Analytics.failed(error, in: .relay)
                 connection.cancel()
                 guard !Task.isCancelled else { break }
                 onStatus("Relay unavailable: \(error.localizedDescription)")

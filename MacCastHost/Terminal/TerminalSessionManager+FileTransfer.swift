@@ -184,6 +184,7 @@ extension TerminalSessionManager {
                 try Data().write(to: pending.staging)
                 pending.handle = try FileHandle(forWritingTo: pending.staging)
             } catch {
+                Analytics.failed(error, in: .fileTransfer)
                 pending.failure = FileReplacement.message(for: error)
                 try? FileManager.default.removeItem(at: pending.staging)
                 return
@@ -193,6 +194,7 @@ extension TerminalSessionManager {
         do {
             try pending.handle?.write(contentsOf: piece)
         } catch {
+            Analytics.failed(error, in: .fileTransfer)
             pending.failure = FileReplacement.message(for: error)
         }
     }

@@ -36,6 +36,7 @@ final class RemoteAudioPlayer: @unchecked Sendable {
             try engine.start()
             playerNode.play()
         } catch {
+            Analytics.failed(error, in: .audio)
             audioLog.error("could not start the audio engine: \(error.localizedDescription, privacy: .public)")
             return nil
         }

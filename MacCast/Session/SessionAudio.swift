@@ -25,6 +25,7 @@ final class SessionAudio {
             try session.setActive(true)
             isActive = true
         } catch {
+            Analytics.failed(error, in: .audio)
             // Logged and carried on: a session whose audio will not activate has no sound, it does not fail.
             audioLog.error("could not take the audio session: \(String(describing: error), privacy: .public)")
         }
