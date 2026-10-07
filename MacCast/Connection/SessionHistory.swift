@@ -50,7 +50,7 @@ extension SessionModel {
                 .reduce(0) { $0 + $1.activeSessionBytes }
     }
 
-    /// Read off the visible twenty records: hidden quota bookkeeping must not enlarge a statistic the list cannot show. A session still up has no record yet.
+    /// Read off the visible twenty-five records: hidden quota bookkeeping must not enlarge a statistic the list cannot show. A session still up has no record yet.
     var directPathSummary: DirectPathSummary? {
         DirectPathSummary(over: Array(sessionHistory.prefix(SessionHistoryStore.visibleLimit)))
     }

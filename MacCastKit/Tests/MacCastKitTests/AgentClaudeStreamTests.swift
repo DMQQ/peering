@@ -211,9 +211,33 @@ final class AgentClaudeStreamTests: XCTestCase {
         XCTAssertEqual(call.name, "AskUserQuestion")
         XCTAssertEqual(call.title, "Colour")
         XCTAssertEqual(call.detail, "Which colour do you prefer?")
-        XCTAssertEqual(call.options?.map(\.label), ["Red", "Blue"])
-        XCTAssertEqual(call.options?.first?.detail, "You prefer red.")
+        XCTAssertEqual(call.questions?.count, 1)
+        XCTAssertEqual(call.questions?.first?.options.map(\.label), ["Red", "Blue"])
+        XCTAssertEqual(call.questions?.first?.options.first?.detail, "You prefer red.")
         XCTAssertNotNil(stream.takeApprovalInput(approvalID))
+    }
+
+    func testAgentLaunchResultIsNotShownToTheUser() {
+        let line = #"""
+        {"type":"user","message":{"role":"user","content":[{"tool_use_id":"t1","type":"tool_result","content":[{"type":"text","text":"Async agent launched successfully. (This tool result is internal metadata)\nagentId: a31e (internal ID - do not mention to user.)"}]}]},"parent_tool_use_id":null,"session_id":"s"}
+        """#
+        guard case .toolFinished(_, let ok, let output, _) = payloads([line])[0] else {
+            return XCTFail("expected toolFinished")
+        }
+        XCTAssertTrue(ok)
+        XCTAssertNil(output)
+    }
+
+    func testSeveralQuestionsAreAllCarried() {
+        let ask = #"""
+        {"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"AskUserQuestion","input":{"questions":[{"question":"Colour?","header":"Colour","options":[{"label":"Red"}]},{"question":"Size?","header":"Size","options":[{"label":"Small"},{"label":"Large"}]},{"question":"Shape?","header":"Shape","options":[{"label":"Round"}]}]},"tool_use_id":"t"}}
+        """#
+        var stream = AgentClaudeStream()
+        guard case .approvalRequested(_, let call, _) = stream.receive(line: ask)[0] else {
+            return XCTFail("expected approvalRequested")
+        }
+        XCTAssertEqual(call.questions?.map(\.question), ["Colour?", "Size?", "Shape?"])
+        XCTAssertEqual(call.questions?[1].options.map(\.label), ["Small", "Large"])
     }
 
     func testSubagentTrafficIsFiledUnderItsParent() {

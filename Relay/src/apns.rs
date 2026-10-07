@@ -71,6 +71,15 @@ pub struct ApnsClient {
 pub struct PushRoute<'a> {
     pub host_id: &'a str,
     pub source: Option<&'a str>,
+    pub action: Option<PushAction<'a>>,
+}
+
+/// What an agent approval needs on the phone to be answered from the notification itself.
+#[derive(Clone, Copy, Debug)]
+pub struct PushAction<'a> {
+    pub category: &'a str,
+    pub session_id: &'a str,
+    pub approval_id: &'a str,
 }
 
 /// The APNs body. Compact JSON built by hand: the shape never varies.
@@ -82,15 +91,27 @@ fn payload(
     body: &str,
     route: Option<PushRoute<'_>>,
 ) -> Result<String, serde_json::Error> {
+    let category = match route.and_then(|route| route.action) {
+        Some(action) => format!(r#","category":{}"#, serde_json::to_string(action.category)?),
+        None => String::new(),
+    };
     let mut payload = format!(
-        r#"{{"aps":{{"alert":{{"title":{},"body":{}}},"sound":"default"}}"#,
+        r#"{{"aps":{{"alert":{{"title":{},"body":{}}},"sound":"default"{}}}"#,
         serde_json::to_string(title)?,
         serde_json::to_string(body)?,
+        category,
     );
     if let Some(route) = route {
         payload.push_str(&format!(r#","hostId":{}"#, serde_json::to_string(route.host_id)?));
         if let Some(source) = route.source {
             payload.push_str(&format!(r#","source":{}"#, serde_json::to_string(source)?));
+        }
+        if let Some(action) = route.action {
+            payload.push_str(&format!(
+                r#","agentSessionId":{},"agentApprovalId":{}"#,
+                serde_json::to_string(action.session_id)?,
+                serde_json::to_string(action.approval_id)?,
+            ));
         }
     }
     payload.push('}');
@@ -343,7 +364,7 @@ mod tests {
 
     #[test]
     fn payload_carries_the_route_beside_aps() {
-        let route = PushRoute { host_id: "MAC-1", source: Some("window:42") };
+        let route = PushRoute { host_id: "MAC-1", source: Some("window:42"), action: None };
         let json = parsed(&payload("T", "B", Some(route)).unwrap());
         assert_eq!(json["aps"]["sound"], "default");
         assert_eq!(json["hostId"], "MAC-1");
@@ -352,9 +373,35 @@ mod tests {
 
     #[test]
     fn payload_with_a_host_and_no_source_names_only_the_host() {
-        let route = PushRoute { host_id: "MAC-1", source: None };
+        let route = PushRoute { host_id: "MAC-1", source: None, action: None };
         let json = parsed(&payload("T", "B", Some(route)).unwrap());
         assert_eq!(json["hostId"], "MAC-1");
         assert!(json.get("source").is_none());
+    }
+
+    #[test]
+    fn payload_carries_an_approval_category_and_its_ids() {
+        let route = PushRoute {
+            host_id: "MAC-1",
+            source: None,
+            action: Some(PushAction {
+                category: "peering.agent.approval.tool",
+                session_id: "S-1",
+                approval_id: "A-1",
+            }),
+        };
+        let json = parsed(&payload("T", "B", Some(route)).unwrap());
+        assert_eq!(json["aps"]["category"], "peering.agent.approval.tool");
+        assert_eq!(json["aps"]["sound"], "default");
+        assert_eq!(json["agentSessionId"], "S-1");
+        assert_eq!(json["agentApprovalId"], "A-1");
+    }
+
+    #[test]
+    fn payload_without_an_action_has_no_category() {
+        let route = PushRoute { host_id: "MAC-1", source: None, action: None };
+        let json = parsed(&payload("T", "B", Some(route)).unwrap());
+        assert!(json["aps"].get("category").is_none());
+        assert!(json.get("agentApprovalId").is_none());
     }
 }

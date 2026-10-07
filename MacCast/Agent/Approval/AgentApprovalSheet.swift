@@ -8,16 +8,22 @@ struct AgentApprovalSheet: View {
 
     private var call: AgentToolCall { approval.call }
 
-    private var options: [AgentToolOption] { call.options ?? [] }
+    private var questions: [AgentQuestion] { call.questions ?? [] }
+
+    private var current: AgentQuestion? { questions.indices.contains(step) ? questions[step] : nil }
+
+    private var options: [AgentToolOption] { current?.options ?? [] }
 
     @State private var height: CGFloat = 340
+    @State private var step = 0
+    @State private var picked: [String] = []
 
     var body: some View {
         // Measured inside a scroll view: measured in a plain stack the content was squeezed to the sheet's own height first, so a long question could never make the sheet taller and was cut off. The scroll view proposes no height, and still scrolls if the ask outgrows the screen.
         ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             header
-            if let detail = approval.reason ?? call.detail, !detail.isEmpty {
+            if let detail = current?.question ?? call.detail ?? approval.reason, !detail.isEmpty {
                 Text(detail)
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.85))
@@ -25,6 +31,14 @@ struct AgentApprovalSheet: View {
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .accessibilityIdentifier("approval.command")
+            }
+            if let why = reasonUnderCommand {
+                Text(why)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.55))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("approval.reason")
             }
             if options.isEmpty {
                 HStack(spacing: 10) {
@@ -33,9 +47,10 @@ struct AgentApprovalSheet: View {
                 }
             } else {
                 VStack(spacing: 8) {
-                    ForEach(Array(options.enumerated()), id: \.element.label) { _, option in
+                    ForEach(options, id: \.label) { option in
                         optionRow(option)
                     }
+                    if step > 0 { backButton }
                 }
             }
         }
@@ -56,15 +71,56 @@ struct AgentApprovalSheet: View {
                 .frame(width: 30, height: 30)
                 .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                Text(verbatim: call.title)
+                Text(verbatim: current?.header ?? call.title)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                Text(options.isEmpty ? "Wants to run on your Mac" : "Asks a question")
+                Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 4)
+        }
+    }
+
+    /// The CLI's reason for asking, shown only when the block above is the command and not the reason itself.
+    private var reasonUnderCommand: String? {
+        guard current == nil, call.detail?.isEmpty == false, let reason = approval.reason, !reason.isEmpty else { return nil }
+        return reason
+    }
+
+    private var subtitle: LocalizedStringKey {
+        if options.isEmpty { return "Wants to run on your Mac" }
+        if questions.count > 1 { return "Question \(step + 1) of \(questions.count)" }
+        return "Asks a question"
+    }
+
+    private var backButton: some View {
+        Button {
+            withAnimation(.snappy) {
+                step -= 1
+                picked.removeLast()
+            }
+        } label: {
+            Text("Back")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.white.opacity(0.6))
+                .frame(maxWidth: .infinity)
+                .frame(height: 40)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("approval.back")
+    }
+
+    private func choose(_ label: String) {
+        let answers = picked + [label]
+        if answers.count == questions.count {
+            answer(.choose(answers))
+        } else {
+            withAnimation(.snappy) {
+                picked = answers
+                step += 1
+            }
         }
     }
 
@@ -90,7 +146,7 @@ struct AgentApprovalSheet: View {
 
     private func optionRow(_ option: AgentToolOption) -> some View {
         Button {
-            answer(.choose(option.label))
+            choose(option.label)
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -105,7 +161,7 @@ struct AgentApprovalSheet: View {
                     }
                 }
                 Spacer(minLength: 6)
-                Image(systemName: "chevron.right")
+                Image(systemName: step == questions.count - 1 ? "checkmark" : "chevron.right")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.tertiary)
             }
@@ -118,5 +174,6 @@ struct AgentApprovalSheet: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("approval.option.\(option.label)")
     }
 }

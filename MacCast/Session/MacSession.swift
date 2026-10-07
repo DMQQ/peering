@@ -309,6 +309,13 @@ final class MacSession: Identifiable {
 
     var newAgentSessionID: UUID?
     var agentPicker = AgentPickerState()
+    /// What git said about each chat's folder, and the chats still waiting for that answer.
+    var agentChanges: [UUID: AgentChangesReport] = [:]
+    var agentChangesLoading: Set<UUID> = []
+    var agentChangesAskedAt: [UUID: Date] = [:]
+    /// A commit or push the Mac has not answered yet, and the last answer, per chat.
+    var agentGitBusy: [UUID: AgentGitOperation] = [:]
+    var agentGitResults: [UUID: AgentGitResult] = [:]
 
     /// A PTY gives a byte stream with no marker for where one command's output starts, so the only link is that it arrived right after one.
     var lastSentCommand: String?

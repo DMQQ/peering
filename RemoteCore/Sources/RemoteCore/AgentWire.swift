@@ -130,11 +130,11 @@ public enum AgentSessionState: String, Codable, Equatable, Sendable {
 
 /// The user's verdict on one approval prompt.
 ///
-/// `choose` answers question-style asks (Claude's `AskUserQuestion`): it travels back as an allow whose `updatedInput` holds the answer.
+/// `choose` answers question-style asks (Claude's `AskUserQuestion`): one chosen label per question, in the order asked. It travels back as an allow whose `updatedInput` holds the answers.
 public enum AgentApprovalDecision: Codable, Equatable, Sendable {
     case allow
     case deny
-    case choose(String)
+    case choose([String])
 }
 
 public struct AgentToolOption: Codable, Equatable, Sendable {
@@ -144,6 +144,19 @@ public struct AgentToolOption: Codable, Equatable, Sendable {
     public init(label: String, detail: String? = nil) {
         self.label = label
         self.detail = detail
+    }
+}
+
+/// One question of an `AskUserQuestion` ask, with the choices offered for it.
+public struct AgentQuestion: Codable, Equatable, Sendable {
+    public let header: String?
+    public let question: String
+    public let options: [AgentToolOption]
+
+    public init(header: String? = nil, question: String, options: [AgentToolOption]) {
+        self.header = header
+        self.question = question
+        self.options = options
     }
 }
 
@@ -186,7 +199,8 @@ public struct AgentToolCall: Codable, Equatable, Sendable {
     public let detail: String?
     public let filePath: String?
     public let diff: String?
-    public let options: [AgentToolOption]?
+    /// Set on a question ask: every question, in the order the agent asked them.
+    public let questions: [AgentQuestion]?
     /// Set on a to-do tool: the whole plan as it stands after this call.
     public let plan: [AgentPlanStep]?
 
@@ -197,7 +211,7 @@ public struct AgentToolCall: Codable, Equatable, Sendable {
         detail: String? = nil,
         filePath: String? = nil,
         diff: String? = nil,
-        options: [AgentToolOption]? = nil,
+        questions: [AgentQuestion]? = nil,
         plan: [AgentPlanStep]? = nil
     ) {
         self.plan = plan
@@ -207,7 +221,7 @@ public struct AgentToolCall: Codable, Equatable, Sendable {
         self.detail = detail
         self.filePath = filePath
         self.diff = diff
-        self.options = options
+        self.questions = questions
     }
 }
 
@@ -304,6 +318,12 @@ public enum AgentRequest: Codable, Equatable, Sendable {
     case close(sessionID: UUID)
     /// One folder's contents for the chat picker; needs no shell, unlike ``TerminalRequest/listDirectory(sessionID:path:)``.
     case browse(path: String?)
+    /// The session's folder as git sees it, answered with ``AgentEvent/changes(sessionID:report:)``.
+    case changes(sessionID: UUID)
+    /// Commit exactly ``paths`` (relative to the session's folder) with ``message``. Answered with ``AgentEvent/gitResult(sessionID:result:)`` and a fresh ``AgentEvent/changes(sessionID:report:)``.
+    case commit(sessionID: UUID, paths: [String], message: String)
+    /// Push the current branch to its own upstream and nothing else; the Mac refuses a detached HEAD or a branch with no upstream.
+    case push(sessionID: UUID)
 }
 
 public enum AgentEvent: Codable, Equatable, Sendable {
@@ -317,6 +337,8 @@ public enum AgentEvent: Codable, Equatable, Sendable {
     case browseFailure(path: String, message: String)
     /// The Mac has not answered a ``AgentRequest/browse(path:)`` yet, and says why: it may be waiting on a permission dialog only someone at the Mac can answer. The listing still follows as ``directory(path:entries:truncated:)`` once it is allowed.
     case browseWaiting(path: String, message: String)
+    case changes(sessionID: UUID, report: AgentChangesReport)
+    case gitResult(sessionID: UUID, result: AgentGitResult)
     case closed(sessionID: UUID)
     /// The model the session now runs, sent when the picker changes it and whenever the CLI
     /// itself announces one. `nil` is the CLI's default.

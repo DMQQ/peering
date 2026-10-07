@@ -435,28 +435,28 @@ final class SessionRecordTests: XCTestCase {
 
     // MARK: - Recent history
 
-    func testRecentHistoryKeepsTwentySessions() {
-        XCTAssertEqual(SessionHistoryStore.visibleLimit, 20)
+    func testRecentHistoryKeepsTwentyFiveSessions() {
+        XCTAssertEqual(SessionHistoryStore.visibleLimit, 25)
     }
 
-    func testOldRecentHistoryIsPrunedToTheVisibleTwenty() {
+    func testOldRecentHistoryIsPrunedToTheVisibleTwentyFive() {
         let now = Date(timeIntervalSince1970: 86_400 * 20_000 + 3_600)
         let old = now.addingTimeInterval(-RelayAllowance.windowLength * 2)
-        let records = (0..<25).map { offset in
+        let records = (0..<30).map { offset in
             record(path: .lan, startedAt: old.addingTimeInterval(Double(offset)), duration: 1)
         }
 
-        XCTAssertEqual(SessionHistoryStore.kept(records, at: now).count, 20)
+        XCTAssertEqual(SessionHistoryStore.kept(records, at: now).count, 25)
     }
 
     func testHiddenSessionsInTheCurrentRelayWindowAreKeptForTheMeter() {
         let now = Date(timeIntervalSince1970: 86_400 * 20_000 + 3_600)
-        let records = (0..<25).map { offset in
+        let records = (0..<30).map { offset in
             record(path: .relay, startedAt: now.addingTimeInterval(Double(-offset - 10)), duration: 1)
         }
 
-        XCTAssertEqual(SessionHistoryStore.kept(records, at: now).count, 25)
-        XCTAssertEqual(SessionHistorySummary(records: records).sessionCount, 20)
+        XCTAssertEqual(SessionHistoryStore.kept(records, at: now).count, 30)
+        XCTAssertEqual(SessionHistorySummary(records: records).sessionCount, 25)
     }
 
     func testRecentHistorySummaryAddsConnectedTimeAndVideoBytes() {

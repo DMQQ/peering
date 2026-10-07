@@ -109,6 +109,7 @@ final class SessionNotifier {
 
     /// Called when the app returns to the front: a banner behind the screen describes a moment that has passed.
     func retractAll() {
+        AgentApprovalNotifier.shared.retractAll()
         retract(SessionAwareness.Kind.allCases)
     }
 

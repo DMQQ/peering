@@ -136,31 +136,13 @@ extension FileBrowserPanel {
                 searchFocused = false
                 onOpen(entry)
             } label: {
-                HStack(spacing: 11) {
-                    Controls.icon(entry.isDirectory ? "folder" : "doc.text")
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(entry.name)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(ColorPalette.ink)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        // One line only: a wrapping second line gives rows of two heights.
-                        detail(for: entry)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-
-                    Spacer(minLength: 10)
-
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(.leading, 16)
-                .padding(.trailing, offersRun ? 2 : 16)
-                .padding(.vertical, 8)
-                .contentShape(Rectangle())
+                FileEntryRow(
+                    symbol: entry.isDirectory ? "folder" : "doc.text",
+                    name: entry.name,
+                    secondary: detail(for: entry),
+                    chevron: .right,
+                    trailingInset: offersRun ? 2 : 16
+                )
             }
             .buttonStyle(.plain)
             .contextMenu {

@@ -11,9 +11,10 @@ enum AgentSeed {
 
     private static let id = UUID(uuidString: "5EED0000-0000-4000-8000-000000000001")!
 
-    static func owns(_ candidate: UUID) -> Bool { candidate == id }
+    static func owns(_ candidate: UUID) -> Bool { candidate == id || candidate.uuidString.hasPrefix("5EED0000-0000-4000-8000-") }
 
     static func sessions() -> [RemoteAgentSession] {
+        if let scenario = AgentSeedScenario.requested { return scenarioSessions(scenario) }
         let info = AgentSessionInfo(
             id: id,
             agentID: "claude",

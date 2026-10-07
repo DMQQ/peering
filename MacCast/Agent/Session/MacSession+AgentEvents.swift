@@ -99,6 +99,14 @@ extension MacSession {
             agentPicker.waitingNote = nil
             agentPicker.failure = message
 
+        case .changes(let id, let report):
+            agentChanges[id] = report
+            agentChangesLoading.remove(id)
+
+        case .gitResult(let id, let result):
+            agentGitBusy[id] = nil
+            agentGitResults[id] = result
+
         case .closed(let id):
             agentSessions.removeAll { $0.id == id }
             if selectedAgentSessionID == id {
@@ -109,6 +117,7 @@ extension MacSession {
             #if DEBUG
             if let id, AgentSeed.owns(id) { return }
             #endif
+            if let id { clearPendingChangesWork(of: id, because: message) }
             if let id, let index = agentSessions.firstIndex(where: { $0.id == id }) {
                 agentSessions[index].failure = message
             } else {

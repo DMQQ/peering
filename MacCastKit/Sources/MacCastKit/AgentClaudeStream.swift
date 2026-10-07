@@ -148,6 +148,11 @@ public struct AgentClaudeStream {
         for block in blocks where block["type"] as? String == "tool_result" {
             guard let callID = block["tool_use_id"] as? String else { continue }
             let output = Self.text(of: block["content"])
+            // The Agent tool's launch result is instructions for the model (an agent ID, "do not mention to user", a transcript path), not something to read.
+            if output.hasPrefix("Async agent launched successfully") {
+                payloads.append(.toolFinished(callID: callID, ok: block["is_error"] as? Bool != true, output: nil, truncated: false))
+                continue
+            }
             let (kept, truncated) = AgentLimits.trimmed(output, to: AgentLimits.maximumToolOutputBytes)
             payloads.append(
                 .toolFinished(
@@ -263,31 +268,21 @@ public struct AgentClaudeStream {
         input: [String: Any],
         displayName: String? = nil
     ) -> AgentToolCall {
-        if name == "AskUserQuestion", let questions = input["questions"] as? [[String: Any]] {
-            let first = questions.first
-            let question = first?["question"] as? String
-            var options: [AgentToolOption] = []
-            for option in (first?["options"] as? [[String: Any]] ?? []) {
-                guard let label = option["label"] as? String else { continue }
-                options.append(AgentToolOption(label: label, detail: option["description"] as? String))
-            }
-            let detail: String?
-            if questions.count > 1 {
-                // Several questions in one ask cannot be answered by one tap, so the card says so
-                // rather than offering a choice that would answer only the first.
-                detail = [
-                    question,
-                    "This ask holds \(questions.count) questions; answer them in the terminal.",
-                ].compactMap { $0 }.joined(separator: "\n\n")
-            } else {
-                detail = question
+        if name == "AskUserQuestion", let asked = input["questions"] as? [[String: Any]] {
+            let questions = asked.compactMap { entry -> AgentQuestion? in
+                guard let question = entry["question"] as? String else { return nil }
+                let options = (entry["options"] as? [[String: Any]] ?? []).compactMap { option -> AgentToolOption? in
+                    guard let label = option["label"] as? String else { return nil }
+                    return AgentToolOption(label: label, detail: option["description"] as? String)
+                }
+                return AgentQuestion(header: entry["header"] as? String, question: question, options: options)
             }
             return AgentToolCall(
                 id: id,
                 name: name,
-                title: (first?["header"] as? String) ?? "Question",
-                detail: detail,
-                options: options.isEmpty ? nil : options
+                title: questions.first?.header ?? "Question",
+                detail: questions.first?.question,
+                questions: questions.isEmpty ? nil : questions
             )
         }
 

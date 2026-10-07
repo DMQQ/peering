@@ -18,6 +18,7 @@ final class RelayHostRegistration: @unchecked Sendable {
         let title: String
         let body: String
         let source: String?
+        let action: RelayPushAction?
     }
 
     /// How many notifications may wait for the relay.
@@ -50,12 +51,12 @@ final class RelayHostRegistration: @unchecked Sendable {
         lock.unlock()
     }
 
-    func notifyDevice(token: String, title: String, body: String, source: String? = nil) {
+    func notifyDevice(token: String, title: String, body: String, source: String? = nil, action: RelayPushAction? = nil) {
         var overflowed = 0
         var heldForRelay = false
 
         let batch = lock.withLock { () -> (RelaySignallingConnection, [PendingNotification])? in
-            pending.append(PendingNotification(token: token, title: title, body: body, source: source))
+            pending.append(PendingNotification(token: token, title: title, body: body, source: source, action: action))
             if pending.count > Self.maximumPending {
                 overflowed = pending.count - Self.maximumPending
                 pending.removeFirst(overflowed)
@@ -90,7 +91,8 @@ final class RelayHostRegistration: @unchecked Sendable {
                         token: item.token,
                         title: item.title,
                         body: item.body,
-                        source: item.source
+                        source: item.source,
+                        action: item.action
                     ))
                 } catch {
                     Analytics.failed(error, in: .relay)

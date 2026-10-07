@@ -37,6 +37,9 @@ extension MacSession {
 
     func startAgentChat(agentID: String, directory: String?) {
         AgentFolderHistory.record(directory: directory, agentID: agentID, macName: model.hostName)
+        #if DEBUG
+        if AgentSeed.wantsFakeMac { return startSeededChat(directory: directory) }
+        #endif
         wire?.sendAgent(.start(agentID: agentID, directory: directory))
     }
 
@@ -98,6 +101,9 @@ extension MacSession {
     }
 
     func respondToAgentApproval(_ approvalID: String, decision: AgentApprovalDecision, in id: UUID) {
+        #if DEBUG
+        if AgentSeed.wantsFakeMac { return answerSeededApproval(approvalID, decision: decision, in: id) }
+        #endif
         wire?.sendAgent(.approval(sessionID: id, approvalID: approvalID, decision: decision))
     }
 
@@ -117,6 +123,14 @@ extension MacSession {
 
     func closeAgentSession(_ id: UUID) {
         wire?.sendAgent(.close(sessionID: id))
+    }
+
+    /// A chat left before anything was said is closed rather than listed: nothing happened in it.
+    func closeAgentSessionIfUnused(_ id: UUID) {
+        guard let session = agentSessions.first(where: { $0.id == id }),
+              session.isLoaded, session.transcript.isEmpty, agentQueues[id] == nil
+        else { return }
+        closeAgentSession(id)
     }
 
     func browseAgentFolder(_ path: String?) {

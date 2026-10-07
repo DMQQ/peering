@@ -60,6 +60,7 @@ extension ClientSession {
         let videoWatch = stopVideoWatchLocked()
         lock.unlock()
 
+        previewRequests.failAll(.disconnected)
         videoWatch?.cancel()
         videoConnect?.cancel()
         videoReconnect?.cancel()

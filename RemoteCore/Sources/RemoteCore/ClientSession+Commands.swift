@@ -70,6 +70,9 @@ extension ClientSession {
                 clientSessionLog.error("could not decode a terminal event, so it is being dropped")
             }
 
+        case .previewEvent:
+            handlePreviewEvent(frame)
+
         case .agentEvent:
             if let event = try? MessageCodec.decode(AgentEvent.self, from: frame.payload) {
                 emit(.agent(event))

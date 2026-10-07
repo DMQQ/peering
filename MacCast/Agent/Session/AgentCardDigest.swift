@@ -12,6 +12,7 @@ struct AgentCardDigest: Identifiable, Equatable {
     let preview: String?
     let activity: String?
     let plan: AgentPlanProgress?
+    let createdAt: Date
 
     var isLive: Bool { state != .exited && state != .failed }
 
@@ -20,6 +21,7 @@ struct AgentCardDigest: Identifiable, Equatable {
         agentID = session.agentID
         title = session.title
         directory = session.directory
+        createdAt = session.createdAt
         state = session.state
         activity = session.transcript.activity
         plan = session.transcript.planProgress

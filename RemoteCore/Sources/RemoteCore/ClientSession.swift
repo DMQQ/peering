@@ -43,6 +43,8 @@ public final class ClientSession: @unchecked Sendable {
     // MARK: - State, all under `lock`
 
     let lock = NSLock()
+    /// Has its own lock.
+    let previewRequests = PreviewRequestTable()
     var _phase: Phase = .idle
     var _failureReason: FailureReason?
     var control: ClientConnection?

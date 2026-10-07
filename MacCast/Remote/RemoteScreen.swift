@@ -35,6 +35,7 @@ struct RemoteScreen: View {
     @State var showsKeyboardBar = false
     @Namespace var floatingSurface
     @State var statusBarExpanded = true
+    @State var openedStatusBarForReadySession = false
     @State var collapsedBarWidth: CGFloat = 0
     @State var dockExpanded = false
     @State var applicationDockIsUp = false
@@ -260,8 +261,14 @@ struct RemoteScreen: View {
         }
         // Here rather than on the pill: the pill is built in each orientation's own layout, so a
         // task on it restarted on every rotation and opened the pill again.
+        // A task restarts every time the screen reappears, so coming back from the terminals stack opened the pill again: it is remembered that this ready session already did.
         .task(id: model.phase) {
-            guard model.phase == .ready else { return }
+            guard model.phase == .ready else {
+                openedStatusBarForReadySession = false
+                return
+            }
+            guard !openedStatusBarForReadySession else { return }
+            openedStatusBarForReadySession = true
             expandStatusBar()
         }
         .onChange(of: openPanel) { previous, panel in

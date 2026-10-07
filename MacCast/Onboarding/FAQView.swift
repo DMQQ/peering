@@ -176,7 +176,7 @@ struct FAQView: View {
                 ),
                 QA(
                     question: String(localized: "How does clipboard sharing work?"),
-                    answer: String(localized: "Text moves only when you ask it to: pull the Mac's clipboard, push this phone's, or pick something you pulled earlier. Pulling, pushing and copying are free on every plan. The list of the 12 most recent pulls is the part Relay adds, and it keeps filling on a plan that cannot open it, so the day you subscribe the last twelve things are waiting. Nothing is copied in the background.")
+                    answer: String(localized: "Text moves only when you ask it to: pull the Mac's clipboard, push this phone's, or pick something you pulled earlier. Pulling, pushing and copying are free on every plan. The list of the 25 most recent pulls is the part Relay adds, and it keeps filling on a plan that cannot open it, so the day you subscribe the last twelve things are waiting. Nothing is copied in the background.")
                 ),
                 QA(
                     question: String(localized: "Can I transfer files?"),

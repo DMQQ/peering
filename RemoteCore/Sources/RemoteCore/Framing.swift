@@ -65,6 +65,12 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     /// Agent session listings, stream events and replays from the host. JSON-encoded ``AgentEvent``.
     /// Sent only to a client that declared ``ClientHello/supportsAgentChat``.
     case agentEvent = 0x1F
+
+    /// The phone's web preview asking the Mac to fetch from its own loopback. JSON-encoded ``PreviewProxyCommand``.
+    case previewRequest = 0x20
+
+    /// The answer, in pieces. JSON-encoded ``PreviewProxyEvent``.
+    case previewEvent = 0x21
 }
 
 public enum FramingError: Error, LocalizedError, Equatable, Sendable {

@@ -75,7 +75,7 @@ struct AgentWireTests {
             .prompt(sessionID: id, text: "Fix the failing test on line 42"),
             .approval(sessionID: id, approvalID: "req_011C", decision: .allow),
             .approval(sessionID: id, approvalID: "req_011C", decision: .deny),
-            .approval(sessionID: id, approvalID: "req_011D", decision: .choose("Blue")),
+            .approval(sessionID: id, approvalID: "req_011D", decision: .choose(["Blue", "Small"])),
             .interrupt(sessionID: id),
             .setModel(sessionID: id, model: "sonnet"),
             .setModel(sessionID: id, model: nil),
@@ -178,9 +178,12 @@ struct AgentWireTests {
                     name: "AskUserQuestion",
                     title: "Colour",
                     detail: "Which colour do you prefer?",
-                    options: [
-                        AgentToolOption(label: "Red", detail: "You prefer red."),
-                        AgentToolOption(label: "Blue"),
+                    questions: [
+                        AgentQuestion(header: "Colour", question: "Which colour do you prefer?", options: [
+                            AgentToolOption(label: "Red", detail: "You prefer red."),
+                            AgentToolOption(label: "Blue"),
+                        ]),
+                        AgentQuestion(question: "Which size?", options: [AgentToolOption(label: "Small")]),
                     ]
                 ),
                 reason: nil

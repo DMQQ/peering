@@ -2,12 +2,17 @@ import Foundation
 import MacCastKit
 import RemoteCore
 import SwiftUI
+import UIKit
 
 extension MacSession {
     func announceAgentChange(at index: Int, from before: AgentSessionState) {
         let session = agentSessions[index]
         if before == .awaitingApproval, session.transcript.state != before, session.isLoaded {
             InAppBanner.shared.resolve(chatID: session.id)
+        }
+        if before == .awaitingApproval {
+            let pending = Set(session.transcript.pendingApprovals.map(\.id))
+            AgentApprovalNotifier.shared.retain(pending: pending, in: session.id)
         }
         guard let announcement = AgentAnnouncement.of(
             from: before,
@@ -18,17 +23,21 @@ extension MacSession {
         let item: InAppBannerItem
         switch announcement {
         case .approval(let approval):
-            let options = approval.call.options?.map(\.label) ?? []
+            let questions = approval.call.questions ?? []
+            // Cards in the banner answer one question; a longer ask is opened in the chat.
+            let options = questions.count == 1 ? questions[0].options.map(\.label) : []
+            let asksSeveral = questions.count > 1
             let sessionID = session.id
+            announceApprovalOnLockScreen(approval, in: session)
             item = InAppBannerItem(
-                symbol: options.isEmpty ? "hand.raised.fill" : "questionmark.bubble.fill",
+                symbol: options.isEmpty && !asksSeveral ? "hand.raised.fill" : "questionmark.bubble.fill",
                 title: session.title,
-                summary: options.isEmpty ? approval.call.title : String(localized: "Asks a question"),
-                body: approval.reason ?? approval.call.detail,
+                summary: options.isEmpty && !asksSeveral ? approval.call.title : String(localized: "Asks a question"),
+                body: AgentApprovalBody.text(command: approval.call.detail, reason: approval.reason),
                 needsYou: true,
                 target: .chat(sessionID),
                 options: options,
-                respond: { [weak self] decision in
+                respond: asksSeveral ? nil : { [weak self] decision in
                     self?.respondToAgentApproval(approval.id, decision: decision, in: sessionID)
                 }
             )
@@ -86,5 +95,15 @@ extension MacSession {
             )
         }
         AgentWidgetPublisher.shared.update(hostKey: hostID ?? hostName ?? id.uuidString, chats: chats)
+    }
+}
+
+extension MacSession {
+    /// Only without a push token: the Mac's push carries the same buttons, and a local copy beside it would be two banners for one question.
+    private func announceApprovalOnLockScreen(_ approval: AgentApproval, in session: RemoteAgentSession) {
+        guard UIApplication.shared.applicationState != .active, SessionNotifier.shared.remoteToken == nil else { return }
+        let notification = AgentApprovalNotification(approval: approval, sessionID: session.id)
+        let (title, hostID, hostName) = (session.title, self.hostID, self.hostName)
+        Task { await AgentApprovalNotifier.shared.post(notification, sessionTitle: title, hostID: hostID, hostName: hostName) }
     }
 }

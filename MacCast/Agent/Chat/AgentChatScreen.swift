@@ -33,6 +33,8 @@ struct AgentChatScreen: View {
     @State var stickToBottom = true
     @FocusState var composerFocused: Bool
     @State var showsUsage = false
+    @State var showsPreview = false
+    @State var showsChanges = false
 
     var session: RemoteAgentSession? {
         model.agentSessions.first { $0.id == currentID }
@@ -56,6 +58,12 @@ struct AgentChatScreen: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .sheet(isPresented: $showsUsage) {
             AgentUsageSheet(sessionID: currentID)
+        }
+        .sheet(isPresented: $showsPreview) {
+            AgentPreviewSheet()
+        }
+        .sheet(isPresented: $showsChanges) {
+            AgentChangesScreen(sessionID: currentID)
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -92,9 +100,16 @@ struct AgentChatScreen: View {
         .onAppear {
             model.selectedAgentSessionID = currentID
             model.ensureAgentHistory(currentID)
+            model.prefetchAgentChanges(currentID)
             InAppBanner.shared.onScreen = .chat(currentID)
         }
-        .onDisappear { InAppBanner.shared.leave(.chat(currentID)) }
+        .onChange(of: session?.transcript.state) { old, new in
+            if new == .idle, old == .working { model.prefetchAgentChanges(currentID) }
+        }
+        .onDisappear {
+            InAppBanner.shared.leave(.chat(currentID))
+            model.closeAgentSessionIfUnused(currentID)
+        }
         .onChange(of: InAppBanner.shared.openRequest) { _, target in
             guard case .chat(let id) = target, id != currentID, model.agentSessions.contains(where: { $0.id == id }) else { return }
             currentID = id
@@ -102,6 +117,7 @@ struct AgentChatScreen: View {
         .onChange(of: currentID) { _, id in
             model.selectedAgentSessionID = id
             model.ensureAgentHistory(id)
+            model.prefetchAgentChanges(id)
             InAppBanner.shared.onScreen = .chat(id)
         }
         .onChange(of: session?.transcript.pendingApprovals.first?.id, initial: true) { _, id in

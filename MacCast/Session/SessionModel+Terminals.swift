@@ -8,7 +8,7 @@ import WidgetKit
 import os
 
 extension SessionModel {
-    static let terminalHistoryLimit = 30
+    static let terminalHistoryLimit = 25
 
     /// De-duplicated so a repeated command moves to the top, and capped: this is a convenience, the Mac's own shell keeps the history.
     func rememberTerminalCommand(_ text: String) {

@@ -82,7 +82,35 @@ final class SessionLog: @unchecked Sendable {
     private let lock = NSLock()
     private var events: [ClientSession.Event] = []
 
-    func record(_ event: ClientSession.Event) { lock.withLock { events.append(event) } }
+    private var failureWaiters: [CheckedContinuation<String, Never>] = []
+
+    func record(_ event: ClientSession.Event) {
+        let (waiters, message): ([CheckedContinuation<String, Never>], String?) = lock.withLock {
+            events.append(event)
+            guard let message = failureLocked else { return ([], nil) }
+            defer { failureWaiters = [] }
+            return (failureWaiters, message)
+        }
+        // Resumed after the lock is released: a continuation must not run while the log is held.
+        if let message { waiters.forEach { $0.resume(returning: message) } }
+    }
+
+    /// The failure, waiting for it if the session has not emitted it yet: `connect` can return before the event is delivered when the machine is busy.
+    func awaitFailure() async -> String {
+        await withCheckedContinuation { waiter in
+            let known: String? = lock.withLock {
+                if let message = failureLocked { return message }
+                failureWaiters.append(waiter)
+                return nil
+            }
+            if let known { waiter.resume(returning: known) }
+        }
+    }
+
+    private var failureLocked: String? {
+        for case .phase(.failed(let message)) in events.reversed() { return message }
+        return nil
+    }
 
     var phases: [ClientSession.Phase] {
         lock.withLock {
@@ -468,7 +496,7 @@ struct ClientPairingTests {
     /// on that basis that the Mac's identity was the problem, and told the user to break a working
     /// pairing over a sleeping Mac. A test that dialled an address would have had no pin in force
     /// and would have passed against the bug.
-    @Test func aMacThatIsNotThereIsNotAnIdentityFailure() async throws {
+    @Test(.timeLimit(.minutes(1))) func aMacThatIsNotThereIsNotAnIdentityFailure() async throws {
         let pins = TestPins()
         defer { pins.destroy() }
 
@@ -498,7 +526,7 @@ struct ClientPairingTests {
 
             await session.connect(to: .discovered(host), timeout: 5)
 
-            let emitted = try #require(log.failure, "the session never failed")
+            let emitted = await log.awaitFailure()
             let reported = try #require(failurePhase(session), "the session's phase is not a failure")
 
             for message in [emitted, reported] {

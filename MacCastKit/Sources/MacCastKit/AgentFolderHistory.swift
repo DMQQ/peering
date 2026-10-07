@@ -3,7 +3,7 @@ import Foundation
 /// The folders chats were last started in, per agent, newest first.
 public enum AgentFolderHistory {
     public static let key = "Peering.agentFolders"
-    public static let limit = 20
+    public static let limit = 25
 
     public struct Entry: Codable, Equatable, Sendable {
         public let agentID: String

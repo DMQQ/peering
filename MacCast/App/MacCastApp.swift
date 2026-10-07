@@ -61,6 +61,7 @@ struct MacCastApp: App {
         // First, before any view exists: the crash file must exist before the crash and the last run's report must be filed before this run's can overwrite it. A handler installed later would miss a crash on launch.
         CrashLog.install(subject: "phone")
         UNUserNotificationCenter.current().delegate = NotificationRouter.shared
+        AgentApprovalNotifier.shared.registerCategories()
     }
 
     var body: some Scene {

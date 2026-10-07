@@ -29,6 +29,9 @@ struct SessionCard<Subtitle: View>: View {
     /// What it is doing this second, while a turn runs.
     var activity: String?
     var plan: AgentPlanProgress?
+    /// When it began, and whether it is still running: a live one also shows how long it has been.
+    var startedAt: Date?
+    var isRunning = false
     @ViewBuilder var subtitle: () -> Subtitle
 
     @State private var arrived: Bool
@@ -43,6 +46,8 @@ struct SessionCard<Subtitle: View>: View {
         preview: String? = nil,
         activity: String? = nil,
         plan: AgentPlanProgress? = nil,
+        startedAt: Date? = nil,
+        isRunning: Bool = false,
         @ViewBuilder subtitle: @escaping () -> Subtitle
     ) {
         self.symbol = symbol
@@ -53,8 +58,26 @@ struct SessionCard<Subtitle: View>: View {
         self.preview = preview
         self.activity = activity
         self.plan = plan
+        self.startedAt = startedAt
+        self.isRunning = isRunning
         self.subtitle = subtitle
         _arrived = State(initialValue: ArrivalMemory.seen.contains(Self.key(symbol, title)))
+    }
+
+    private func startedLine(_ date: Date) -> some View {
+        TimelineView(.periodic(from: .now, by: 60)) { _ in
+            HStack(spacing: 6) {
+                Image(systemName: "clock").font(.system(size: 10, weight: .medium))
+                Text("Started \(date.formatted(Calendar.current.isDateInToday(date) ? .dateTime.hour().minute() : .dateTime.month().day().hour().minute()))")
+                if isRunning {
+                    Text(verbatim: "·")
+                    Text(verbatim: TerminalWindowCard.age(of: date)).monospacedDigit()
+                }
+            }
+            .font(.system(size: 11.5))
+            .foregroundStyle(.white.opacity(0.5))
+            .lineLimit(1)
+        }
     }
 
     private static func key(_ symbol: String, _ title: String) -> String { "session|\(symbol)|\(title)" }

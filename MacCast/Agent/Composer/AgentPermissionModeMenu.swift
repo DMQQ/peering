@@ -63,6 +63,8 @@ struct AgentPermissionModeMenu: View {
             String(localized: "Works freely inside the folder, nothing outside it")
         case (.plan, _):
             String(localized: "Looks and plans first, changes nothing until you approve")
+        case (.auto, "claude"):
+            String(localized: "A reviewer model checks each action before it runs")
         case (.auto, _):
             String(localized: "Never asks, and can reach outside the folder")
         }

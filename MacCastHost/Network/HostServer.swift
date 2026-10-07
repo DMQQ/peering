@@ -25,6 +25,7 @@ final class HostServer: @unchecked Sendable {
     private var activeRelayBridges: [RelayTunnel] = []
     private let terminalManager = TerminalSessionManager()
     private let agentManager = AgentSessionManager()
+    private let previewProxy = PreviewProxyService()
 
     /// A relay session's local end, and the allocation the relay gave it.
     private struct RelayTunnel {
@@ -50,6 +51,14 @@ final class HostServer: @unchecked Sendable {
     var onPushNeeded: (@Sendable (String, String, String) -> Void)? {
         get { callbackLock.withLock { _onPushNeeded } }
         set { callbackLock.withLock { _onPushNeeded = newValue } }
+    }
+
+    private var _onAgentPushNeeded: (@Sendable (String, String, String, RelayPushAction?) -> Void)?
+
+    /// Called when an agent chat needs the person while the phone may be suspended; the action, when present, lets the notification answer.
+    var onAgentPushNeeded: (@Sendable (String, String, String, RelayPushAction?) -> Void)? {
+        get { callbackLock.withLock { _onAgentPushNeeded } }
+        set { callbackLock.withLock { _onAgentPushNeeded = newValue } }
     }
 
     private var _onAgentActivity: (@Sendable (Bool) -> Void)?
@@ -154,8 +163,8 @@ final class HostServer: @unchecked Sendable {
         terminalManager.onPushNeeded = { [weak self] token, title, message in
             self?.onPushNeeded?(token, title, message)
         }
-        agentManager.onPushNeeded = { [weak self] token, title, message in
-            self?.onPushNeeded?(token, title, message)
+        agentManager.onPushNeeded = { [weak self] token, title, message, action in
+            self?.onAgentPushNeeded?(token, title, message, action)
         }
         agentManager.onActivityChanged = { [weak self] active in
             self?.onAgentActivity?(active)
@@ -359,6 +368,10 @@ final class HostServer: @unchecked Sendable {
             guard let self, let session else { return }
             self.agentManager.handle(clientID: session.clientID, request: request, sink: sink)
         }
+        session.onPreviewRequest = { [weak self, weak session] command, sink in
+            guard let self, let session else { return }
+            self.previewProxy.handle(clientID: session.clientID, command: command, sink: sink)
+        }
         // Only a session that arrived through the relay has anywhere to send datagrams, and the
         // allocation that says where came in with it. A direct session gets the same silence as a
         // client that is not being served: it has its own video connection.
@@ -410,6 +423,7 @@ final class HostServer: @unchecked Sendable {
             if !controlSessions.contains(where: { $0.isAuthorized && $0.clientID == session.clientID }) {
                 self.terminalManager.disconnect(clientID: session.clientID)
                 self.agentManager.disconnect(clientID: session.clientID)
+                self.previewProxy.disconnect(clientID: session.clientID)
             }
             // And the streams it authorized end with it: a video connection that outlived its
             // control session would keep delivering the screen to a client the host believes is

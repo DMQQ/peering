@@ -47,17 +47,17 @@ struct AgentFolderHistoryTests {
         #expect(AgentFolderHistory.load(from: store).isEmpty)
     }
 
-    @Test func keepsTheTwentyNewest() {
+    @Test func keepsTheTwentyFiveNewest() {
         let store = defaults()
-        for number in 0..<25 {
+        for number in 0..<30 {
             AgentFolderHistory.record(
                 directory: "/f\(number)", agentID: "claude", macName: nil,
                 at: Date(timeIntervalSince1970: TimeInterval(number)), in: store
             )
         }
         let kept = AgentFolderHistory.load(from: store)
-        #expect(kept.count == 20)
-        #expect(kept.first?.path == "/f24")
+        #expect(kept.count == 25)
+        #expect(kept.first?.path == "/f29")
         #expect(kept.last?.path == "/f5")
     }
 }

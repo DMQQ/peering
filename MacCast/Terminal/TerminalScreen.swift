@@ -74,6 +74,20 @@ struct TerminalScreen: View {
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(terminal?.name ?? String(localized: "Terminal"))
+                    .font(.headline)
+                    .lineLimit(1)
+                    .contentShape(Rectangle())
+                    .onLongPressGesture {
+                        guard let terminal else { return }
+                        beginRename(terminal)
+                    }
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityAction(named: Text("Rename")) {
+                        if let terminal { beginRename(terminal) }
+                    }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 if let terminal, terminal.isRunning || isBrowsing {
                     TerminalModeButton(isBrowsing: isBrowsing, carriesOwnSurface: false) { toggleBrowsing(terminal) }

@@ -82,7 +82,7 @@ extension SessionModel {
     }
 
     static let clipboardHistoryKey = "Peering.clipboardHistory"
-    static let clipboardHistoryLimit = 12
+    static let clipboardHistoryLimit = 25
 
     static func loadClipboardHistory() -> [ClipboardEntry] {
         guard let data = UserDefaults.standard.data(forKey: clipboardHistoryKey) else { return [] }

@@ -205,7 +205,7 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "clock.arrow.circlepath",
                 title: String(localized: "Clipboard history"),
-                detail: String(localized: "The last twelve things that crossed between the two machines, waiting to be pasted again. Copying and pasting themselves are on every plan."),
+                detail: String(localized: "The last twenty-five things that crossed between the two machines, waiting to be pasted again. Copying and pasting themselves are on every plan."),
                 capability: .clipboardHistory
             ),
             PlanFeature(

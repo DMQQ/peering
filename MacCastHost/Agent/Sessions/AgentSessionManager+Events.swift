@@ -9,7 +9,7 @@ extension AgentSessionManager {
     struct Applied {
         var event: AgentStreamEvent
         var sink: Sink?
-        var push: (title: String, body: String)?
+        var push: (title: String, body: String, action: RelayPushAction?)?
         var correctedModel: String?
         var emission: AgentTurnTelemetry.Emission?
         var activityChanged: Bool?
@@ -29,7 +29,7 @@ extension AgentSessionManager {
             applied.sink?(.modelChanged(sessionID: session.id, model: corrected))
         }
         if let push = applied.push, let token {
-            onPushNeeded?(token, push.title, push.body)
+            onPushNeeded?(token, push.title, push.body, push.action)
         }
         if let active = applied.activityChanged {
             onActivityChanged?(active)
@@ -59,7 +59,12 @@ extension AgentSessionManager {
             session.state = .awaitingApproval
             // Reaches the user even with the socket open: the phone may be suspended behind Picture in Picture.
             if token != nil {
-                applied.push = AgentNotificationText.approval(agentName: name, reason: reason, detail: call.detail)
+                let text = AgentNotificationText.approval(agentName: name, reason: reason, detail: call.detail)
+                applied.push = (text.title, text.body, RelayPushAction(
+                    category: AgentApprovalNotification.pushCategory(for: call),
+                    sessionID: session.id.uuidString,
+                    approvalID: approvalID
+                ))
             }
         case .approvalResolved(let approvalID, _):
             session.pendingApprovals.remove(approvalID)
@@ -80,9 +85,10 @@ extension AgentSessionManager {
                 applied.correctedModel = model
             }
             if sinks[session.ownerClientID] == nil, token != nil {
-                applied.push = AgentNotificationText.finished(
+                let text = AgentNotificationText.finished(
                     agentName: name, ok: summary.ok, stopped: summary.stopped, lastReply: session.lastReply
                 )
+                applied.push = (text.title, text.body, nil)
             }
         case .failure:
             session.state = .failed

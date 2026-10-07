@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The switch between a shell and the machine's folders, pinned at the end of the tab strip. A bare glyph in the input row read as one more terminal key, and in the navigation bar beside the back button it read as a breadcrumb. The strip is drawn in both modes, and a chip matches the deck's buttons.
-/// The label names where the button goes ("Files" from the shell, "Shell" from the folders).
+/// The glyph names where the button goes (a folder from the shell, a terminal from the folders).
 struct TerminalModeButton: View {
     let isBrowsing: Bool
     /// False in a navigation bar, which already draws a surface behind it: two stacked glasses make a double edge.
@@ -11,16 +11,10 @@ struct TerminalModeButton: View {
     var body: some View {
         // Sized to the tab strip (26 points, against the deck's 40): a taller chip would push the tabs off their seam.
         Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: isBrowsing ? "terminal" : "folder")
-                    .font(.system(size: 11, weight: .semibold))
-                Text(isBrowsing ? "Shell" : "Files")
-                    .font(.system(size: 12, weight: .medium))
-            }
-            .foregroundStyle(isBrowsing ? ColorPalette.accent : ColorPalette.ink)
-            .lineLimit(1)
-            .padding(.horizontal, carriesOwnSurface ? 10 : 0)
-            .frame(height: 26)
+            Image(systemName: isBrowsing ? "terminal" : "folder")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(isBrowsing ? ColorPalette.accent : ColorPalette.ink)
+                .frame(width: carriesOwnSurface ? 30 : nil, height: 26)
             .modifier(ModeButtonSurface(carriesOwnSurface: carriesOwnSurface))
         }
         .buttonStyle(RailButtonStyle(scale: 0.88))

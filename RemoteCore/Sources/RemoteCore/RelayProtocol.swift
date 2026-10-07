@@ -43,7 +43,8 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
     case ping
     /// Only a registered Mac may send this.
     /// `source` is the terminal window the notification is about; omitted when nil.
-    case notifyDevice(token: String, title: String, body: String, source: String? = nil)
+    /// `action` makes the notification answerable from the Lock Screen: the category names its buttons and the ids say what they answer.
+    case notifyDevice(token: String, title: String, body: String, source: String? = nil, action: RelayPushAction? = nil)
 
     private enum CodingKeys: String, CodingKey {
         case type, name, protocolVersion, apiKey, plan, jwsRepresentation
@@ -55,7 +56,9 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
         case hostID = "hostId"
         case clientID = "clientId"
         case videoToken
-        case token, title, body, source
+        case token, title, body, source, category
+        case sessionID = "sessionId"
+        case approvalID = "approvalId"
     }
 
 
@@ -102,18 +105,34 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encode(Self.hex(videoToken), forKey: .videoToken)
         case .ping:
             try container.encode("ping", forKey: .type)
-        case .notifyDevice(let token, let title, let body, let source):
+        case .notifyDevice(let token, let title, let body, let source, let action):
             try container.encode("notifyDevice", forKey: .type)
             try container.encode(token, forKey: .deviceToken)
             try container.encode(title, forKey: .title)
             try container.encode(body, forKey: .body)
             try container.encodeIfPresent(source, forKey: .source)
+            try container.encodeIfPresent(action?.category, forKey: .category)
+            try container.encodeIfPresent(action?.sessionID, forKey: .sessionID)
+            try container.encodeIfPresent(action?.approvalID, forKey: .approvalID)
         }
     }
 
     /// `%02x` keeps leading zeros; the relay's `unhex` refuses a short token.
     private static func hex(_ bytes: Data) -> String {
         bytes.map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+/// The part of a push that lets the phone answer an agent's approval request from the notification.
+public struct RelayPushAction: Sendable, Equatable {
+    public let category: String
+    public let sessionID: String
+    public let approvalID: String
+
+    public init(category: String, sessionID: String, approvalID: String) {
+        self.category = category
+        self.sessionID = sessionID
+        self.approvalID = approvalID
     }
 }
 

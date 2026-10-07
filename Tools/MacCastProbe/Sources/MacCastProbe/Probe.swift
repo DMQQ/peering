@@ -1402,7 +1402,7 @@ struct Probe {
         switch decision {
         case .allow: return "allow"
         case .deny: return "deny"
-        case .choose(let option): return "choose(\(option))"
+        case .choose(let options): return "choose(\(options.joined(separator: ", ")))"
         }
     }
 
@@ -1605,6 +1605,8 @@ struct Probe {
                     log("ready · cli session \(cliSession?.prefix(8) ?? "?") · model \(model ?? "?") · \(directory)")
                 case .turnStarted:
                     log("turn started")
+                case .child:
+                    break
                 case .textDelta:
                     break
                 case .textFinal(let text):

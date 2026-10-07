@@ -2,9 +2,11 @@ import MacCastKit
 import RemoteCore
 import SwiftUI
 
-/// No red and green: the +/- prefix carries the meaning, as everywhere in the palette.
+/// Added and removed lines are tinted green and red; the +/- prefix still carries the meaning without colour.
 struct AgentDiffBlock: View {
     private let reading: AgentDiffLines
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     init(diff: String) {
         reading = AgentDiffLines(diff)
@@ -40,16 +42,7 @@ struct AgentDiffBlock: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: 8)
-            if reading.added > 0 {
-                Text("+\(reading.added)")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.85))
-            }
-            if reading.removed > 0 {
-                Text("-\(reading.removed)")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.45))
-            }
+            DiffCounts(added: reading.added, removed: reading.removed)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -59,7 +52,7 @@ struct AgentDiffBlock: View {
         HStack(alignment: .top, spacing: 8) {
             Text(marker(line.kind))
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(line.kind == .context ? .white.opacity(0.3) : .white.opacity(0.75))
+                .foregroundStyle(tone(line.kind).accent ?? .white.opacity(0.3))
                 .frame(width: 9, alignment: .leading)
             Text(line.text)
                 .font(.system(size: 12, design: .monospaced))
@@ -70,7 +63,15 @@ struct AgentDiffBlock: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 1.5)
-        .background(line.kind == .added ? Color.white.opacity(0.06) : .clear)
+        .background(tone(line.kind).tint(emphasised: contrast == .increased || reduceTransparency))
+    }
+
+    private func tone(_ kind: AgentDiffLines.Kind) -> DiffTone {
+        switch kind {
+        case .added: .added
+        case .removed: .removed
+        case .context: .neutral
+        }
     }
 
     private func marker(_ kind: AgentDiffLines.Kind) -> String {
@@ -84,7 +85,7 @@ struct AgentDiffBlock: View {
     private func textColour(_ kind: AgentDiffLines.Kind) -> Color {
         switch kind {
         case .added: return .white.opacity(0.95)
-        case .removed: return .white.opacity(0.45)
+        case .removed: return .white.opacity(0.8)
         case .context: return .white.opacity(0.7)
         }
     }

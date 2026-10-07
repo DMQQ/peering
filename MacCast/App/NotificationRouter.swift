@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import UIKit
 import UserNotifications
@@ -13,11 +14,37 @@ nonisolated final class NotificationRouter: NSObject, UNUserNotificationCenterDe
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let info = response.notification.request.content.userInfo
+        if let reference = AgentApprovalNotification.Reference(userInfo: info) {
+            let actionID = response.actionIdentifier
+            // The system's handler may be called from any thread, exactly once.
+            nonisolated(unsafe) let finish = completionHandler
+            Task { @MainActor in
+                await Self.handleApproval(reference, actionID: actionID)
+                finish()
+            }
+            return
+        }
         if let hostID = info["hostId"] as? String {
             let source = info["source"] as? String
             Task { @MainActor in NotificationRoute.open(hostID: hostID, sourceID: source) }
         }
         completionHandler()
+    }
+}
+
+extension NotificationRouter {
+    /// A button answers; a tap on the body, or Open, shows the chat. The handler is called only once the answer has left the phone or failed, since iOS may suspend the process the moment it returns.
+    @MainActor
+    fileprivate static func handleApproval(_ reference: AgentApprovalNotification.Reference, actionID: String) async {
+        if let decision = AgentApprovalNotification.decision(forActionIdentifier: actionID, answers: reference.answers) {
+            await AgentApprovalResponder.answer(decision, to: reference)
+            return
+        }
+        guard actionID != UNNotificationDismissActionIdentifier else { return }
+        InAppBanner.shared.openRequest = .chat(reference.sessionID)
+        if let hostID = reference.hostID {
+            NotificationRoute.open(hostID: hostID, sourceID: nil)
+        }
     }
 }
 

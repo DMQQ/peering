@@ -51,6 +51,15 @@ extension HostSession {
                 self?.sendAgentEvent(event)
             }
 
+        case .previewRequest:
+            guard frame.payload.count <= PreviewProxyLimits.maxRequestFrameBytes else {
+                throw SessionError.malformedPayload(.previewRequest, SessionError.protocolMismatch(client: 0, host: 0))
+            }
+            let command = try decode(PreviewProxyCommand.self, from: frame, as: .previewRequest)
+            onPreviewRequest?(command) { [weak self] event in
+                self?.sendPreviewEvent(event)
+            }
+
         case .videoTransport:
             guard frame.payload.count <= Self.maxControlPayload else {
                 throw SessionError.malformedPayload(.videoTransport, SessionError.protocolMismatch(client: 0, host: 0))
@@ -84,6 +93,11 @@ extension HostSession {
         if case .permissionModeChanged = event, clientSupportsAgentPermissionModes != true { return }
         if case .usageChanged = event, clientSupportsAgentUsage != true { return }
         send(.agentEvent, event)
+    }
+
+    func sendPreviewEvent(_ event: PreviewProxyEvent) {
+        guard isAuthorized else { return }
+        send(.previewEvent, event)
     }
 
     func sendClipboard(_ payload: ClipboardPayload) {

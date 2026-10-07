@@ -33,10 +33,13 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     /// it.
     case virtualDisplays
 
+    /// A fourth agent chat open at the same time. Three are free; see ``AgentChatLimit``.
+    case moreAgents
+
     public var minimumPlan: RelayPlan {
         switch self {
         case .extraMacs, .macSound, .pictureInPicture, .fileTransfer, .clipboardHistory,
-             .terminalAlerts:
+             .terminalAlerts, .moreAgents:
             return .relay
         case .concurrentSessions:
             // The second Mac costs and the first must not, which is why the gate is asked against
@@ -64,6 +67,7 @@ public enum PlanCapability: String, CaseIterable, Sendable {
         case .shellTabs: return String(localized: "Several shells at once")
         case .macros: return String(localized: "Macros, snippets and quick commands")
         case .highBitrate: return String(localized: "The sharpest picture")
+        case .moreAgents: return String(localized: "More than three agents at once")
         }
     }
 }

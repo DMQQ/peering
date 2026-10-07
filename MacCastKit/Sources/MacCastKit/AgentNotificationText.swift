@@ -3,7 +3,7 @@ import Foundation
 /// The words of the pushes an agent chat sends when the phone is away.
 public enum AgentNotificationText {
     public static func approval(agentName: String, reason: String?, detail: String?) -> (title: String, body: String) {
-        ("\(agentName) asks", reason ?? detail ?? "Needs your approval.")
+        ("\(agentName) asks", AgentApprovalNotification.truncated(AgentApprovalBody.text(command: detail, reason: reason) ?? "").nonEmpty ?? "Needs your approval.")
     }
 
     public static func finished(
@@ -19,4 +19,8 @@ public enum AgentNotificationText {
         }
         return ("\(agentName) \(outcome)", ok ? "The turn finished." : (stopped ? "The turn was stopped." : "The turn failed."))
     }
+}
+
+private extension String {
+    var nonEmpty: String? { isEmpty ? nil : self }
 }

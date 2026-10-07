@@ -22,9 +22,9 @@ extension AgentChatScreen {
                             model.setAgentModel(name, in: session.id)
                         } label: {
                             if AgentModelName.isCurrent(name, current: session.model) {
-                                Label(name, systemImage: "checkmark")
+                                Label(AgentModelName.short(name), systemImage: "checkmark")
                             } else {
-                                Text(name)
+                                Text(AgentModelName.short(name))
                             }
                         }
                     }
@@ -37,6 +37,7 @@ extension AgentChatScreen {
                     optionChip(shortModel(session), symbol: "cpu")
                 }
                 .accessibilityLabel(Text("Model, \(shortModel(session))"))
+                .accessibilityIdentifier("chat.modelMenu")
             }
             if model.hostSupportsAgentPermissionModes, session.permissionModes.count > 1 {
                 let current = session.permissionMode ?? session.permissionModes.first ?? .manual
@@ -61,6 +62,12 @@ extension AgentChatScreen {
                     Button { showsUsage = true } label: {
                         Label("Usage and limits", systemImage: "gauge.with.dots.needle.33percent")
                     }
+                }
+                Button { showsChanges = true } label: {
+                    Label("Changes", systemImage: "doc.badge.gearshape")
+                }
+                Button { showsPreview = true } label: {
+                    Label("Web preview", systemImage: "safari")
                 }
                 Button("Rename", systemImage: "character.cursor.ibeam") { beginRename(session) }
                 Divider()

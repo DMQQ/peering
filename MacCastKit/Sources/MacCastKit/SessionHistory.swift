@@ -269,7 +269,7 @@ public enum RelayTime {
 
 public enum SessionHistoryStore {
     private static let key = "Peering.sessionHistory"
-    public static let visibleLimit = 20
+    public static let visibleLimit = 25
 
     public static func load() -> [ClientSessionRecord] {
         guard let data = UserDefaults.standard.data(forKey: key) else { return [] }
@@ -286,7 +286,7 @@ public enum SessionHistoryStore {
         UserDefaults.standard.set(data, forKey: key)
     }
 
-    /// The twenty visible records, plus any extra records the current relay allowance still needs.
+    /// The twenty-five visible records, plus any extra records the current relay allowance still needs.
     /// A burst of short sessions must not make the meter forget minutes the relay is still billing.
     public static func kept(_ records: [ClientSessionRecord], at moment: Date = Date()) -> [ClientSessionRecord] {
         let windowStart = RelayAllowance.windowStart(windowNumber: RelayAllowance.windowNumber(at: moment))
@@ -295,7 +295,7 @@ public enum SessionHistoryStore {
     }
 }
 
-/// The twenty-first newer session removes the oldest record and its time and bytes, so these are not lifetime totals.
+/// The twenty-sixth newer session removes the oldest record and its time and bytes, so these are not lifetime totals.
 public struct SessionHistorySummary: Equatable, Sendable {
     public let sessionCount: Int
     public let connectedSeconds: TimeInterval

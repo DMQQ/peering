@@ -291,6 +291,9 @@ final class SessionModel {
         renderer.onFirstFrame = { [weak self] in
             self?.frameArrived += 1
         }
+        #if DEBUG
+        installSeededMac()
+        #endif
     }
 
     /// A hero transition's cue to drop its frozen snapshot: the renderer runs off the main actor and is not observable, so a plain read cannot say the picture is decoded.

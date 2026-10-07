@@ -9,7 +9,7 @@ final class ClaudeCodeAdapter: AgentAdapter, @unchecked Sendable {
     var onPermissionMode: (@Sendable (AgentPermissionMode) -> Void)?
     var onUsage: (@Sendable (AgentUsage) -> Void)?
 
-    let permissionModes: [AgentPermissionMode] = [.manual, .acceptEdits, .plan]
+    let permissionModes: [AgentPermissionMode] = [.manual, .acceptEdits, .plan, .auto]
     let defaultPermissionMode: AgentPermissionMode = .manual
 
     private let directory: URL
@@ -98,12 +98,15 @@ final class ClaudeCodeAdapter: AgentAdapter, @unchecked Sendable {
                 body = ["behavior": "allow", "updatedInput": input]
             case .deny:
                 body = ["behavior": "deny", "message": "Denied from Peering."]
-            case .choose(let label):
+            case .choose(let labels):
                 // A question ask is answered by an allow whose input carries the answers keyed by question text (verified on Claude Code 2.1.289); otherwise the question comes back.
                 var updated = input
-                if let questions = input["questions"] as? [[String: Any]],
-                   let question = questions.first?["question"] as? String {
-                    updated["answers"] = [question: label]
+                if let questions = input["questions"] as? [[String: Any]] {
+                    var answers: [String: String] = [:]
+                    for (entry, label) in zip(questions, labels) {
+                        if let question = entry["question"] as? String { answers[question] = label }
+                    }
+                    updated["answers"] = answers
                 }
                 body = ["behavior": "allow", "updatedInput": updated]
             }

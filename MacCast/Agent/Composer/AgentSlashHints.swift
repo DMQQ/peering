@@ -46,6 +46,7 @@ struct AgentSlashList: View {
                     Text("Nothing matches")
                         .font(.footnote)
                         .foregroundStyle(.white.opacity(0.5))
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
                 }
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in

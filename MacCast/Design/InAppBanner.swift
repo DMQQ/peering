@@ -280,7 +280,7 @@ struct InAppBannerView: View {
         } else if item.asksApproval {
             VStack(spacing: 8) {
                 ForEach(item.options, id: \.self) { label in
-                    pill(LocalizedStringKey(label), filled: false) { banner.answer(.choose(label)) }
+                    pill(LocalizedStringKey(label), filled: false) { banner.answer(.choose([label])) }
                 }
             }
         } else {

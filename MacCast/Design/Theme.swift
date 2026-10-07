@@ -100,6 +100,8 @@ enum ColorPalette {
 
     static let danger = Color(red: 0.98, green: 0.45, blue: 0.40)
     static let caution = Color(red: 0.97, green: 0.75, blue: 0.35)
+    /// Added lines in a diff, the one green outside latency. Removed lines reuse ``danger``.
+    static let added = Color(red: 0.36, green: 0.82, blue: 0.51)
     static let surface = Color.white.opacity(0.07)
     /// Near-black rather than black: pure #000 next to a video's blacks makes the picture look inset.
     static let backdrop = Color(red: 0.04, green: 0.04, blue: 0.045)

@@ -41,6 +41,10 @@ extension SessionModel {
     func refreshAgentSessions() { activeSession?.refreshAgentSessions() }
 
     func startAgentChat(agentID: String, directory: String?) {
+        guard AgentChatLimit.allowsAnother(openChats: agentCards.filter(\.isLive).count, access: storeManager.access) else {
+            paywallReason = .feature(.moreAgents)
+            return
+        }
         Analytics.featureUsed(.agentChatStarted)
         activeSession?.startAgentChat(agentID: agentID, directory: directory)
     }
@@ -77,6 +81,8 @@ extension SessionModel {
     var hostSupportsAgentUsage: Bool { activeSession?.hostSupportsAgentUsage ?? false }
 
     func closeAgentSession(_ id: UUID) { activeSession?.closeAgentSession(id) }
+
+    func closeAgentSessionIfUnused(_ id: UUID) { activeSession?.closeAgentSessionIfUnused(id) }
 
     func browseAgentFolder(_ path: String?) { activeSession?.browseAgentFolder(path) }
 }

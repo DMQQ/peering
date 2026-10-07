@@ -322,4 +322,31 @@ struct RelayProtocolTests {
 
         #expect(decoded == .error(code: "peerAddressUnknown", message: "not yet"))
     }
+
+    @Test("a push for an approval names its category and what it answers")
+    func notifyDeviceWithAnAction() throws {
+        let message = RelayClientMessage.notifyDevice(
+            token: "ab",
+            title: "T",
+            body: "B",
+            action: RelayPushAction(category: "peering.agent.approval.tool", sessionID: "S", approvalID: "A")
+        )
+
+        let encoded = String(decoding: try RelayMessageCodec.encode(message), as: UTF8.self)
+
+        #expect(encoded.contains(#""category":"peering.agent.approval.tool""#))
+        #expect(encoded.contains(#""sessionId":"S""#))
+        #expect(encoded.contains(#""approvalId":"A""#))
+    }
+
+    @Test("a push without an action is the message it always was")
+    func notifyDeviceWithoutAnAction() throws {
+        let encoded = String(
+            decoding: try RelayMessageCodec.encode(RelayClientMessage.notifyDevice(token: "ab", title: "T", body: "B")),
+            as: UTF8.self
+        )
+
+        #expect(!encoded.contains("category"))
+        #expect(!encoded.contains("approvalId"))
+    }
 }

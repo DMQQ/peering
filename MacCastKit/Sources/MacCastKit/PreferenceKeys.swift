@@ -19,7 +19,7 @@ public enum PreferenceKeys {
     public static let keyboardMode = "Peering.keyboardMode"
     /// Settings is unreachable while connected, so this is a preference and never a command; see ``SessionModel/applyInitialQuality()``.
     public static let streamQuality = "Peering.streamQuality"
-    /// A flag rather than `sessionHistory.count == 1`: the history prunes to twenty records.
+    /// A flag rather than `sessionHistory.count == 1`: the history prunes to twenty-five records.
     public static let offeredAfterFirstSession = "Peering.offeredAfterFirstSession"
     /// The relay's day bucket (epoch seconds divided into days, see `Relay/src/quota.rs`), not a moment.
     public static let lowRelayOfferWindow = "Peering.lowRelayOfferWindow"

@@ -58,6 +58,7 @@ struct AgentFolderPicker: View {
                 isLoading: picker.isLoading,
                 searchFocused: $searchFocused
             ) { useButton }
+            .reviewBottomBackdrop()
         }
         .ancestorsMenu(of: picker.path) { open($0) }
         .folderBackButton(of: shown.path) { open($0) }
@@ -156,28 +157,12 @@ struct AgentFolderPicker: View {
             guard let path = picker.path else { return }
             open((path == "/" ? "" : path) + "/" + entry.name)
         } label: {
-            HStack(spacing: 11) {
-                Controls.icon(entry.isSymlink ? "folder.badge.questionmark" : "folder")
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.name)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(ColorPalette.ink)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Text(entry.isSymlink ? "Folder, through a link" : "Folder")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 10)
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.leading, 16)
-            .padding(.trailing, 16)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
+            FileEntryRow(
+                symbol: entry.isSymlink ? "folder.badge.questionmark" : "folder",
+                name: entry.name,
+                secondary: Text(entry.isSymlink ? "Folder, through a link" : "Folder").font(.caption),
+                chevron: .right
+            )
         }
         .buttonStyle(.plain)
     }

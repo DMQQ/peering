@@ -87,10 +87,10 @@ extension TerminalScreen {
                         ? { model.deleteEntry($0, in: folder, sessionID: terminal.id) }
                         : nil,
                     isChanging: model.isChangingFile(sessionID: terminal.id),
-                    changeFailure: model.changeFailure(sessionID: terminal.id)
+                    changeFailure: model.changeFailure(sessionID: terminal.id),
+                    aboveSearch: AnyView(browseControls(terminal))
                 )
             }
-            browseControls(terminal)
         }
     }
 

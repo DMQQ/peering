@@ -9,6 +9,7 @@ import Testing
         #expect(AgentPermissionMode.plan.claudeCLIName == "plan")
         #expect(AgentPermissionMode.acceptEdits.claudeCLIName == "acceptEdits")
         #expect(AgentPermissionMode.manual.claudeCLIName == "default")
+        #expect(AgentPermissionMode.auto.claudeCLIName == "auto")
     }
 
     @Test func theProposedPlanIsTheCardsBody() {

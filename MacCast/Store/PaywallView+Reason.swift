@@ -88,7 +88,7 @@ extension PaywallView {
             case .pictureInPicture:
                 return String(localized: "The Mac's screen floats over your other apps, and iOS floats it by itself when you leave.")
             case .clipboardHistory:
-                return String(localized: "The last twelve things that crossed between the two, still there when you think of them. Copying and pasting are on every plan.")
+                return String(localized: "The last twenty-five things that crossed between the two, still there when you think of them. Copying and pasting are on every plan.")
             case .mosaic:
                 return String(localized: "Pick several of the Mac's windows and see them together, arranged the way you want on this screen. Every tile is captured separately on the Mac, so the picture stays live rather than being a screenshot, and tapping one takes you into it.")
             case .virtualDisplays:
@@ -97,6 +97,8 @@ extension PaywallView {
                 return String(localized: "A banner when a shell on the Mac or on one of your servers stops and waits for you, on this device while it is open and through the Mac when it is not. The terminal and its own attention mark are on every plan.")
             case .fileTransfer:
                 return String(localized: "Takes what you are looking at off a machine and hands it to Files or the share sheet, and puts a file from the phone into the folder you are looking at, up to 2 GB.")
+            case .moreAgents:
+                return String(localized: "Three agent chats can be open at once on every plan. A fourth needs Relay. Closing a chat makes room for another.")
             case .shellTabs:
                 return String(localized: "One shell at a time is free, on your Mac and on any server. This is naming tabs and keeping several open.")
             case .macros:

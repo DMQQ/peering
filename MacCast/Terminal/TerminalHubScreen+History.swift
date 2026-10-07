@@ -17,7 +17,7 @@ extension TerminalHubScreen {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
                 }
-                HistoryCard(entries: history.prefix(20).map(historyEntry))
+                HistoryCard(entries: history.prefix(SessionModel.terminalHistoryLimit).map(historyEntry))
             }
             .padding(.top, 20)
         }
@@ -63,7 +63,7 @@ extension TerminalHubScreen {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
                 }
-                HistoryCard(entries: folders.prefix(20).map(terminalEntry))
+                HistoryCard(entries: folders.prefix(AgentFolderHistory.limit).map(terminalEntry))
             }
             .padding(.top, 20)
         }

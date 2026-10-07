@@ -43,7 +43,9 @@ extension TerminalHubScreen {
                 folder: folder.isEmpty ? nil : folder,
                 preview: session.preview,
                 activity: session.activity,
-                plan: session.plan
+                plan: session.plan,
+                startedAt: session.createdAt,
+                isRunning: session.isLive
             ) {
                 // The title usually starts with the agent's name already: saying it twice wrapped the row.
                 if !session.title.localizedCaseInsensitiveContains(agent?.name ?? session.agentID) {

@@ -22,7 +22,7 @@ final class AgentSessionManager: @unchecked Sendable {
     let store: AgentSessionDiskStore
     let persistQueue = DispatchQueue(label: "pl.dmq.peering.host.agent.persist", qos: .utility)
 
-    var onPushNeeded: (@Sendable (String, String, String) -> Void)?
+    var onPushNeeded: (@Sendable (String, String, String, RelayPushAction?) -> Void)?
     var onActivityChanged: (@Sendable (Bool) -> Void)?
 
     init(store: AgentSessionDiskStore = AgentSessionManager.defaultStore()) {
@@ -132,6 +132,18 @@ final class AgentSessionManager: @unchecked Sendable {
 
         case .browse(let path):
             AgentDirectoryBrowser.list(requested: path, sink: sink)
+
+        case .changes(let id):
+            guard let session = owned(id, by: clientID, reporting: sink) else { return }
+            AgentChangesReader.read(directory: session.directory, sessionID: id, sink: sink)
+
+        case .commit(let id, let paths, let message):
+            guard let session = owned(id, by: clientID, reporting: sink) else { return }
+            AgentGitActions.commit(directory: session.directory, sessionID: id, paths: paths, message: message, sink: sink)
+
+        case .push(let id):
+            guard let session = owned(id, by: clientID, reporting: sink) else { return }
+            AgentGitActions.push(directory: session.directory, sessionID: id, sink: sink)
         }
     }
 

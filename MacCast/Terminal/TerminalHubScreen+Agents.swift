@@ -198,7 +198,9 @@ extension TerminalHubScreen {
     }
 
     private func lastUsedLine(_ agent: TerminalAgent) -> String {
-        guard let date = AgentHistory.lastUsed(agent, in: history) else {
+        // A chat is recorded by its folder, a terminal launch by its own history: either one is a use.
+        let chatDate = AgentFolderHistory.load().first { $0.agentID == agent.id }?.date
+        guard let date = [AgentHistory.lastUsed(agent, in: history), chatDate].compactMap({ $0 }).max() else {
             return String(localized: "Never used")
         }
         return String(localized: "Last used \(date.formatted(.relative(presentation: .named)))")

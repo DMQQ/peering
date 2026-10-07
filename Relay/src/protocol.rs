@@ -167,6 +167,16 @@ pub enum ClientMessage {
         /// Absent from Macs that predate it.
         #[serde(default)]
         source: Option<String>,
+        /// The notification category the phone registered, so the system shows its buttons.
+        /// Absent from Macs that predate it.
+        #[serde(default)]
+        category: Option<String>,
+        /// Which agent chat the notification asks about, for a button pressed with the app closed.
+        #[serde(default)]
+        session_id: Option<String>,
+        /// Which approval request within that chat.
+        #[serde(default)]
+        approval_id: Option<String>,
     },
 }
 

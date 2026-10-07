@@ -287,6 +287,9 @@ extension HostModel {
             server.onPushNeeded = { [weak registration] token, title, message in
                 registration?.notifyDevice(token: token, title: title, body: message)
             }
+            server.onAgentPushNeeded = { [weak registration] token, title, message, action in
+                registration?.notifyDevice(token: token, title: title, body: message, action: action)
+            }
             server.onAgentActivity = { [weak self] active in
                 Task { @MainActor [weak self] in self?.setAgentActivity(active) }
             }

@@ -83,6 +83,7 @@ final class HostSession: @unchecked Sendable {
     /// Terminal requests are routed only after this session reaches the authenticated state.
     var onTerminalRequest: (@Sendable (TerminalRequest, @escaping @Sendable (TerminalEvent) -> Void) -> Void)?
     var onAgentRequest: (@Sendable (AgentRequest, @escaping @Sendable (AgentEvent) -> Void) -> Void)?
+    var onPreviewRequest: (@Sendable (PreviewProxyCommand, @escaping @Sendable (PreviewProxyEvent) -> Void) -> Void)?
 
     var state: State = .awaitingRole
     var clientID = ""

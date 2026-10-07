@@ -61,6 +61,9 @@ struct FileBrowserPanel: View {
     /// Above the list rather than replacing it, unlike ``failure``: the folder is fine and the row to retry is still on screen.
     var changeFailure: String? = nil
 
+    /// A strip kept above the search field, so the field stays the bottom-most thing as on every other screen.
+    var aboveSearch: AnyView?
+
     /// The Mac blocks inside the listing call while macOS shows a Files-and-Folders prompt, so a permission question and a slow disk look the same. There is no API to detect the prompt, so this is a delayed guess.
     @State var waitingLongEnough = false
 
@@ -137,6 +140,7 @@ struct FileBrowserPanel: View {
                 } message: {
                     Text(deleteMessage)
                 }
+            aboveSearch
             bottomBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

@@ -31,7 +31,10 @@ use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
-use crate::apns::{ApnsClient, PushRoute};
+use crate::apns::{ApnsClient, PushAction, PushRoute};
+
+/// The only categories a Mac may name: the ones the phone registers for an agent approval.
+const AGENT_APPROVAL_CATEGORY_PREFIX: &str = "peering.agent.approval.";
 use crate::protocol::{hex, unhex, ClientMessage, ServerMessage};
 use crate::quota::{Plan, QuotaTracker};
 use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
@@ -789,6 +792,9 @@ async fn dispatch(
             title,
             body,
             source,
+            category,
+            session_id,
+            approval_id,
         } => {
             // Only registered Macs may ask for pushes. An unregistered connection asking for one
             // has no client to push to and no session to trace it back to.
@@ -803,6 +809,9 @@ async fn dispatch(
                 || title.len() > 256
                 || body.len() > 512
                 || source.as_ref().is_some_and(|s| s.len() > 128)
+                || category.as_ref().is_some_and(|s| s.len() > 128)
+                || session_id.as_ref().is_some_and(|s| s.len() > 128)
+                || approval_id.as_ref().is_some_and(|s| s.len() > 256)
             {
                 return Some(ServerMessage::error("invalid", "field too long"));
             }
@@ -810,7 +819,17 @@ async fn dispatch(
                 tokio::spawn(async move {
                     // The Mac's ID is the relay's own record of who asked, not something the Mac
                     // says about itself, so a tap can only ever open the Mac that sent it.
-                    let route = PushRoute { host_id: &host_id, source: source.as_deref() };
+                    // An action needs all three parts, and a category only the app registered: anything
+                    // else is dropped rather than forwarded under the phone's name.
+                    let action = match (category.as_deref(), session_id.as_deref(), approval_id.as_deref()) {
+                        (Some(category), Some(session_id), Some(approval_id))
+                            if category.starts_with(AGENT_APPROVAL_CATEGORY_PREFIX) =>
+                        {
+                            Some(PushAction { category, session_id, approval_id })
+                        }
+                        _ => None,
+                    };
+                    let route = PushRoute { host_id: &host_id, source: source.as_deref(), action };
                     if let Err(e) = apns.send(&device_token, &title, &body, Some(route)).await {
                         warn!(error = %e, "APNs notification failed");
                     }

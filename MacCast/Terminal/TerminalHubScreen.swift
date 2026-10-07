@@ -38,6 +38,7 @@ struct TerminalHubScreen: View {
                         ? String(localized: "\(model.agentCards.filter(\.isLive).count) open on your Mac")
                         : String(localized: "Chat with a coding agent on your Mac")
                 )
+                AgentToReviewCard()
                 chatsSection
                 agentsNotice
                 historySection
@@ -64,6 +65,7 @@ struct TerminalHubScreen: View {
                 Group {
                     if tab == .agents { agentDock } else { terminalDock }
                 }
+                .reviewBottomBackdrop()
             }
         }
         .animation(Motion.settle, value: dockIsShown)

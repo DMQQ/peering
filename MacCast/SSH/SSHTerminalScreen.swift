@@ -341,10 +341,10 @@ struct SSHTerminalScreen: View {
                         ? { model.deleteEntry($0, in: folder, sessionID: terminal.id) }
                         : nil,
                     isChanging: model.isChangingFile,
-                    changeFailure: model.changeFailure
+                    changeFailure: model.changeFailure,
+                    aboveSearch: AnyView(browseControls)
                 )
             }
-            browseControls
         }
     }
 
