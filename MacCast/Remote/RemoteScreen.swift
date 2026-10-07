@@ -280,7 +280,8 @@ struct RemoteScreen: View {
             if shown { model.showKeyboard = false }
         }
         .onDisappear {
-            model.isPanelOpen = false
+            // Covered by the hub is not gone: the hub counts as an open panel until it is popped.
+            model.isPanelOpen = showsTerminals
             if openPanel == .sources { stopWatchingSourcePictures() }
         }
         .onChange(of: model.showKeyboard, initial: true) { _, shown in
