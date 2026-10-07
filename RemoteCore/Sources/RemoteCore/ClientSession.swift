@@ -44,6 +44,7 @@ public final class ClientSession: @unchecked Sendable {
 
     let lock = NSLock()
     var _phase: Phase = .idle
+    var _failureReason: FailureReason?
     var control: ClientConnection?
     var video: ClientConnection?
     var videoConnectTask: Task<Void, Never>?
@@ -185,6 +186,8 @@ public final class ClientSession: @unchecked Sendable {
     // MARK: - Observable state
 
     public var phase: Phase { lock.withLock { _phase } }
+    /// Set with ``Phase/failed(_:)`` and cleared when a new connection begins.
+    public var failureReason: FailureReason? { lock.withLock { _failureReason } }
     public var serverHello: ServerHello? { lock.withLock { _serverHello } }
     public var catalog: CaptureCatalog? { lock.withLock { _catalog } }
     public var serverKey: Data? { lock.withLock { _serverKey } }
@@ -274,7 +277,7 @@ public final class ClientSession: @unchecked Sendable {
                case .refused(let code, _) = e, code == "quotaExceeded" {
                 emit(.relayQuotaExceeded)
             }
-            fail(Failure.describe(error))
+            fail(Failure.describe(error), reason: FailureReason(error))
             return
         }
 
@@ -399,7 +402,7 @@ public final class ClientSession: @unchecked Sendable {
             }
             guard silent else { return }
             clientSessionLog.error("no answer within \(grace, privacy: .public)s of being asked; failing the session")
-            self.fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.")
+            self.fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsive)
         }
     }
 

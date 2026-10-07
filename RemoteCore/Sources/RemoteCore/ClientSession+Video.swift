@@ -21,7 +21,7 @@ extension ClientSession {
             // A session left up without its picture sat on "Stream paused" for good after a network
             // switch. Failing it hands the Mac to the session ladder, which redials on the new path.
             clientSessionLog.error("the video channel did not come back; failing the session")
-            fail("The video channel did not come back.")
+            fail("The video channel did not come back.", reason: .videoLost)
             return
         }
         let task = Task { [weak self] in

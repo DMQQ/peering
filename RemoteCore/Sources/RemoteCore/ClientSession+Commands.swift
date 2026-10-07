@@ -48,7 +48,7 @@ extension ClientSession {
         case .error:
             let payload = try? MessageCodec.decode(ErrorPayload.self, from: frame.payload)
             if payload?.code == ErrorPayload.hostStoppedCode { emit(.hostStopped) }
-            fail(payload?.message ?? "The Mac reported an error.")
+            fail(payload?.message ?? "The Mac reported an error.", reason: .hostReportedError)
 
         case .clipboardContent:
             handleClipboardContent(frame)

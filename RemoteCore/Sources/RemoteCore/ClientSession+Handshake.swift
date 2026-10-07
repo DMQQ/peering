@@ -28,26 +28,26 @@ extension ClientSession {
 
     func handleServerHello(_ frame: Frame) {
         guard frame.kind == .serverHello else {
-            fail(Failure.unexpected(frame.kind, expected: "serverHello").errorDescription ?? "")
+            fail(Failure.unexpected(frame.kind, expected: "serverHello"))
             return
         }
         guard let hello = try? MessageCodec.decode(ServerHello.self, from: frame.payload) else {
-            fail("The Mac's hello could not be read.")
+            fail("The Mac's hello could not be read.", reason: .handshake)
             return
         }
         guard hello.protocolVersion == ProtocolInfo.version else {
-            fail(Failure.protocolMismatch(client: ProtocolInfo.version, host: hello.protocolVersion).errorDescription ?? "")
+            fail(Failure.protocolMismatch(client: ProtocolInfo.version, host: hello.protocolVersion))
             return
         }
         guard let serverKey = lock.withLock({ _serverKey }) else {
-            fail(Failure.noServerKey.errorDescription ?? "")
+            fail(Failure.noServerKey)
             return
         }
 
         // Before the pin and before the pairing: is this the Mac that was dialled? Checked here
         // rather than at the relay, which routes by ID but answers for whatever holds it.
         if let dialled = lock.withLock({ pairingHostID }), hello.serverID != dialled {
-            fail(Failure.hostIDMismatch(dialled: dialled, answered: hello.serverID).errorDescription ?? "")
+            fail(Failure.hostIDMismatch(dialled: dialled, answered: hello.serverID))
             return
         }
 
@@ -57,7 +57,7 @@ extension ClientSession {
         // The pin is checked after the handshake because until `serverHello` there is no knowing which Mac this is. Nothing an impostor could use has been sent yet.
         if let stored = pins.pin(for: hello.serverID) {
             guard SPKI.matches(stored, serverKey) else {
-                fail(Failure.pinMismatch(hostID: hello.serverID).errorDescription ?? "")
+                fail(Failure.pinMismatch(hostID: hello.serverID))
                 return
             }
             emit(.note("The Mac's key matches the pin stored for it."))
@@ -86,7 +86,7 @@ extension ClientSession {
     func beginPairing() {
         let ephemeral = P256.KeyAgreement.PrivateKey()
         guard let nonce = try? Self.randomBytes(32) else {
-            fail("This device could not obtain secure random bytes.")
+            fail("This device could not obtain secure random bytes.", reason: .handshake)
             return
         }
         lock.withLock {
@@ -104,14 +104,14 @@ extension ClientSession {
 
     func handleServerCommit(_ frame: Frame) {
         guard frame.kind == .pairCommit else {
-            fail(Failure.unexpected(frame.kind, expected: "pairCommit").errorDescription ?? "")
+            fail(Failure.unexpected(frame.kind, expected: "pairCommit"))
             return
         }
         guard let commit = try? MessageCodec.decode(PairingCommit.self, from: frame.payload),
               let ephemeral = lock.withLock({ self.ephemeral }),
               let nonce = lock.withLock({ self.nonce })
         else {
-            fail("The Mac's pairing commitment could not be read.")
+            fail("The Mac's pairing commitment could not be read.", reason: .handshake)
             return
         }
 
@@ -130,11 +130,11 @@ extension ClientSession {
 
     func handleServerReveal(_ frame: Frame) {
         guard frame.kind == .pairReveal else {
-            fail(Failure.unexpected(frame.kind, expected: "pairReveal").errorDescription ?? "")
+            fail(Failure.unexpected(frame.kind, expected: "pairReveal"))
             return
         }
         guard let reveal = try? MessageCodec.decode(PairingReveal.self, from: frame.payload) else {
-            fail("The Mac's pairing reveal could not be read.")
+            fail("The Mac's pairing reveal could not be read.", reason: .handshake)
             return
         }
 
@@ -149,7 +149,7 @@ extension ClientSession {
         lock.unlock()
 
         guard let ephemeral, let nonce, let commitment, let hello, let serverKey else {
-            fail("The pairing exchange lost its state.")
+            fail("The pairing exchange lost its state.", reason: .handshake)
             return
         }
 
@@ -158,7 +158,7 @@ extension ClientSession {
             ephemeralPublicKey: reveal.ephemeralPublicKey,
             nonce: reveal.nonce
         ) else {
-            fail(Failure.commitmentMismatch.errorDescription ?? "")
+            fail(Failure.commitmentMismatch)
             return
         }
 
@@ -186,15 +186,15 @@ extension ClientSession {
 
     func handlePairResult(_ frame: Frame) {
         guard frame.kind == .pairResult else {
-            fail(Failure.unexpected(frame.kind, expected: "pairResult").errorDescription ?? "")
+            fail(Failure.unexpected(frame.kind, expected: "pairResult"))
             return
         }
         guard let result = try? MessageCodec.decode(PairResult.self, from: frame.payload) else {
-            fail("The Mac's pairing result could not be read.")
+            fail("The Mac's pairing result could not be read.", reason: .handshake)
             return
         }
         guard result.accepted else {
-            fail(result.reason ?? "The Mac refused the pairing.")
+            fail(result.reason ?? "The Mac refused the pairing.", reason: .pairingRefused)
             return
         }
 
@@ -206,7 +206,7 @@ extension ClientSession {
         lock.unlock()
 
         if let hello, let serverKey, !pins.record(hostID: hello.serverID, publicKey: serverKey) {
-            fail("The pairing succeeded but this device could not save it. Check that the Keychain is available.")
+            fail("The pairing succeeded but this device could not save it. Check that the Keychain is available.", reason: .pairingNotSaved)
             return
         }
 

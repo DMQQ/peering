@@ -21,10 +21,14 @@ extension ClientSession {
         // close. Reporting the close as well would replace a sentence the user can act on
         // with "connection reset".
         guard !wasFailed else { return }
-        fail(failure.errorDescription ?? "The connection ended.")
+        fail(failure.errorDescription ?? "The connection ended.", reason: FailureReason(failure))
     }
 
-    func fail(_ message: String) {
+    func fail(_ failure: Failure) {
+        fail(failure.errorDescription ?? "", reason: failure.reason)
+    }
+
+    func fail(_ message: String, reason: FailureReason) {
         lock.lock()
         // The first failure is the one that counts: a connection that fails is reported twice (the transport's close handler and the `catch` in `connect`), and this guard keeps the property and event stream from holding two sentences.
         guard state != .failed else {
@@ -34,6 +38,7 @@ extension ClientSession {
         connectGeneration &+= 1
         state = .failed
         _phase = .failed(message)
+        _failureReason = reason
         let video = self.video
         let videoConnect = self.videoConnectTask
         let videoReconnect = self.videoReconnectTask

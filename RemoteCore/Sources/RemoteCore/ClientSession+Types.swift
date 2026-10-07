@@ -143,6 +143,32 @@ extension ClientSession {
         }
     }
 
+    /// Why a session failed, from a closed set: ``Phase/failed(_:)`` carries a sentence that can name a Mac or an address, which analytics must never see.
+    public enum FailureReason: String, Sendable, Equatable, CaseIterable {
+        case busy, protocolMismatch, pinMismatch, noPinOnFile, hostIDMismatch, identity
+        case handshake, pairingRefused, pairingNotSaved
+        case timedOut, hostClosed, refused, transport, relay
+        case hostReportedError, unresponsive, videoLost, other
+
+        init(_ error: Error) {
+            switch error {
+            case let failure as Failure: self = failure.reason
+            case let failure as ClientConnection.Failure: self = FailureReason(failure)
+            case is RelaySignallingError: self = .relay
+            default: self = .other
+            }
+        }
+
+        init(_ failure: ClientConnection.Failure) {
+            switch failure {
+            case .timedOut: self = .timedOut
+            case .hostClosed: self = .hostClosed
+            case .refused: self = .refused
+            case .invalidPort, .cancelled, .transport: self = .transport
+            }
+        }
+    }
+
     public enum Failure: LocalizedError, Sendable {
         case busy
         case protocolMismatch(client: UInt16, host: UInt16)
@@ -160,6 +186,18 @@ extension ClientSession {
         /// What to say about a network error: for an `NWError`, `localizedDescription` is `Network.NWError error 60`, not a sentence. The table is ``NetworkFailureText``.
         static func describe(_ error: Error) -> String {
             NetworkFailureText.describe(error)
+        }
+
+        var reason: FailureReason {
+            switch self {
+            case .busy: return .busy
+            case .protocolMismatch: return .protocolMismatch
+            case .pinMismatch: return .pinMismatch
+            case .noPinOnFile: return .noPinOnFile
+            case .hostIDMismatch: return .hostIDMismatch
+            case .identity: return .identity
+            case .commitmentMismatch, .noServerKey, .unexpected: return .handshake
+            }
         }
 
         public var errorDescription: String? {

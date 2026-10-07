@@ -73,8 +73,8 @@ enum Analytics {
     }
 
     /// `afterReady` tells a drop mid-session from a connection that never came up.
-    static func connectFailed(afterReady: Bool) {
-        send("connect_failed", ["after_ready": String(afterReady)])
+    static func connectFailed(afterReady: Bool, reason: String) {
+        send("connect_failed", ["after_ready": String(afterReady), "reason": reason])
     }
 
     static func paywallShown(reason: String) {
@@ -102,7 +102,7 @@ enum Analytics {
     }
 
     enum Area: String {
-        case connection, pairing, purchase, fileTransfer, fileBrowser, ssh, audio, notification, agentChat, liveActivity, security, preview
+        case purchase, fileTransfer, ssh, audio, notification, liveActivity, security, preview
     }
 
     /// Handled errors go to Error Tracking as the domain and code only: a message can carry a path, a Mac's name or an address.

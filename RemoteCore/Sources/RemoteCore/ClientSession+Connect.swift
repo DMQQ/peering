@@ -70,6 +70,7 @@ extension ClientSession {
             connectGeneration &+= 1
             state = .idle
             _phase = .connecting
+            _failureReason = nil
             return connectGeneration
         default:
             return nil

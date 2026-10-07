@@ -566,6 +566,7 @@ struct ClientPairingTests {
             let message = try #require(log.failure)
             #expect(message == ClientSession.Failure.pinMismatch(hostID: hostID).errorDescription)
             #expect(failurePhase(session) == message)
+            #expect(session.failureReason == .pinMismatch)
             #expect(message.contains("not the Mac you paired with"))
             #expect(message.contains("pinned"))
             #expect(message.contains("pair again"))

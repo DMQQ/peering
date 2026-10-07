@@ -60,7 +60,7 @@ extension MacSession {
                 pendingSourceReassertion = true
             }
             if case .failed(let message) = phase {
-                Analytics.connectFailed(afterReady: hasBeenReady)
+                Analytics.connectFailed(afterReady: hasBeenReady, reason: wire?.failureReason?.rawValue ?? "unknown")
                 videoStatus = String(localized: "Stopped: \(message)")
             }
             if phase == .disconnected {
