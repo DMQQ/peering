@@ -6,7 +6,7 @@ import SwiftUI
 import UIKit
 import os
 
-private let sessionLog = Logger(subsystem: "pl.dmq.peering", category: "session")
+let sessionLog = Logger(subsystem: "pl.dmq.peering", category: "session")
 
 /// ``model`` is `unowned`: ownership runs the other way and is total.
 @Observable
@@ -140,17 +140,6 @@ final class MacSession: Identifiable {
     /// Not `phase.holdsSession` alone: a dropped Mac being retried is still open. `hasBeenReady` stops a dial that failed before its handshake, which arms the same ladder, from counting as an open Mac and spending the free plan's allowance.
     var isLive: Bool { phase.holdsSession || (hasBeenReady && isReconnecting) }
 
-    /// Neither the phase nor ``isLive`` can tell a drop from a first connection, or one just landed from a ladder that has run out; `hasGivenUpResuming` is that distinction. The rule lives in ``SessionResume``, where it can be tested.
-    var isResumingAfterDrop: Bool {
-        SessionResume.isUnderWay(
-            hasBeenReady: hasBeenReady,
-            userEndedDeliberately: userEndedDeliberately,
-            hasGivenUpResuming: hasGivenUpResuming,
-            isReconnecting: isReconnecting,
-            phase: phase
-        )
-    }
-
     /// Set when the retry ladder runs out; cleared when a session is up again.
     var hasGivenUpResuming = false
 
@@ -158,12 +147,6 @@ final class MacSession: Identifiable {
 
     /// The one resume a session cannot recognise on its own: a cold launch has no object to carry `hasBeenReady` from (iOS killed the process), so the intent arrives with the dial and is put here by ``SessionModel/connect(to:replacing:)``.
     var isComingBack = false
-
-    /// `.ready` is excluded by name because every other flag stays true through it. The user's word ends it: `isComingBack` is cleared only where a ladder runs out, so a Quit tapped mid-resume left the screen saying it was reconnecting with nothing to press to leave.
-    var isBeingPutBack: Bool {
-        guard phase != .ready, !userEndedDeliberately else { return false }
-        return isResumingAfterDrop || isComingBack
-    }
 
     var isReconnecting = false
 
@@ -173,150 +156,6 @@ final class MacSession: Identifiable {
 
     /// Carried across a dial like ``hasBeenReady`` and ``reconnectAttempt``, since each rung builds a new object. See ``SessionModel/reconnectWindow``.
     var reconnectingSince: Date?
-
-    private var hasReconnectWindowPassed: Bool {
-        guard let began = reconnectingSince else { return false }
-        return Date().timeIntervalSince(began) >= SessionModel.reconnectWindow
-    }
-
-    /// The `wire == nil` guard stops the retry and the browser both starting an attempt, since the wire is assigned synchronously in ``SessionModel/connect(to:)``.
-    func resumeIfNeeded() {
-        CrashLog.note("resume check · \(hostID ?? "unknown") · phase \(phase) · attempt \(reconnectAttempt)")
-        guard wire == nil, !phase.holdsSession else {
-            if phase.holdsSession { stopReconnecting() }
-            return
-        }
-        // Only a Mac that was actually connected: an attempt that failed at the handshake has ended, and the failure card is for that.
-        guard hasBeenReady || isReconnecting else { return }
-        guard UserDefaults.standard.bool(forKey: SessionModel.resumeKey) else {
-            // Nothing will put this Mac back, so clear the claim: otherwise `isReconnecting` stays set with no task behind it and the Mac holds a session slot and tab for the rest of the launch.
-            stopReconnecting()
-            return
-        }
-        guard let hostID else {
-            // No handshake means no Mac to dial (a mistyped first pairing ID), so nothing to retry.
-            stopReconnecting()
-            return
-        }
-
-        if let host = model.hosts.first(where: { $0.id == hostID }) {
-            stopReconnecting()
-            model.isResuming = true
-            model.reconnect(self, to: .discovered(host))
-        } else if let remembered = model.rememberedLANHost(hostID) {
-            // Every rung tries the LAN, racing the relay: Bonjour not listing the Mac is the expected state of a resume (the Mac withdraws while a phone is connected), so the last good address is dialled first and the relay joins a moment later. See ``DialRace``.
-            stopReconnecting()
-            model.isResuming = true
-            let relay = model.allowsRelay && model.pins.hostIDs.contains(hostID)
-                ? model.relayTarget(hostID: hostID, name: hostName ?? String(localized: "A Mac"))
-                : nil
-            model.reconnect(
-                self,
-                to: .discovered(remembered),
-                timeout: SessionModel.rememberedPathTimeout,
-                racingRelay: relay
-            )
-        } else if model.allowsRelay, model.pins.hostIDs.contains(hostID) {
-            stopReconnecting()
-            model.isResuming = true
-            model.reconnect(self, to: model.relayTarget(hostID: hostID, name: hostName ?? String(localized: "A Mac")))
-        } else {
-            // The LAN-only case: the Mac is paired and not here yet. Stopping at the first attempt that found nothing would end a resume that has not failed.
-            scheduleReconnect()
-        }
-    }
-
-    /// The wait is a wall clock and the app is not running for most of it, so a phone put away mid-resume comes back with part of a rung spent. Called as the app comes to the front.
-    /// Only where the Mac can be dialled from where it stands: otherwise cutting the wait short would spend the rung rather than skip it.
-    func resumeWithoutWaiting() {
-        guard reconnectTask != nil, let hostID else { return }
-        let visible = model.hosts.contains { $0.id == hostID }
-        // A remembered address counts as dialable: a phone coming to the front has stale Bonjour results.
-        let remembered = model.rememberedLANHost(hostID) != nil
-        let byRelay = model.allowsRelay && model.pins.hostIDs.contains(hostID)
-        guard visible || remembered || byRelay else { return }
-        stopReconnecting()
-        resumeIfNeeded()
-    }
-
-    /// A resume gets the shorter ladder, chosen here because it must match the counter: `reconnectAttempt` indexes into whichever ladder is used.
-    func scheduleReconnect() {
-        guard reconnectTask == nil else { return }
-        // A Mac already given up on is not dialled again: the window can end an episode before the counter runs out, and the failures from the attempt it cut would start the ladder over.
-        guard !hasGivenUpResuming else { return }
-        // Not `isResumingAfterDrop`, which reads `isReconnecting`, only set below: at the moment of a drop it is false and the drop would get the slow ladder.
-        let resuming = hasBeenReady && !userEndedDeliberately
-        let delays = resuming
-            ? SessionModel.resumeReconnectDelays
-            : SessionModel.reconnectDelays
-        // The clock starts at the first rung and is carried across every dial, so it measures the episode, not the attempt.
-        if hasBeenReady, reconnectingSince == nil { reconnectingSince = Date() }
-        guard reconnectAttempt < delays.count, !hasReconnectWindowPassed else {
-            giveUpOnReconnecting()
-            return
-        }
-        let delay = delays[reconnectAttempt]
-        reconnectAttempt += 1
-        isReconnecting = true
-        reconnectTask = Task { [weak self] in
-            try? await Task.sleep(for: delay)
-            guard let self, !Task.isCancelled else { return }
-            self.reconnectTask = nil
-            self.resumeIfNeeded()
-        }
-
-        // The phone's network may have moved unnoticed (nothing was being put back) and a relay socket can hang for the whole silence watchdog. Asked here because this is the only place a wait begins, deferred a turn because the answer can dial. Only for a Mac being put back.
-        if isResumingAfterDrop {
-            Task { @MainActor [model] in model.considerNetworkChange() }
-        }
-    }
-
-    /// See ``SessionModel/stopReconnecting()`` for why the counter is not cleared here.
-    func stopReconnecting() {
-        reconnectTask?.cancel()
-        reconnectTask = nil
-        isReconnecting = false
-    }
-
-    /// Called from the poll this session runs while being put back, the one thing still ticking when a dial has stopped answering: every other end is reached by a failure arriving, and a Mac that never answers sends none.
-    func giveUpAfterReconnectWindow() {
-        guard hasReconnectWindowPassed else { return }
-        sessionLog.error("no answer from the Mac in \(Int(SessionModel.reconnectWindow))s, giving up")
-        giveUpOnReconnecting()
-    }
-
-    /// One end for both ways a ladder finishes: out of rungs, or out of time.
-    private func giveUpOnReconnecting() {
-        stopReconnecting()
-        reconnectingSince = nil
-        // A restoration that never got its answer ends like one that failed: the persisted request goes, so the next launch does not open this again.
-        if !hasBeenReady, isComingBack {
-            UserDefaults.standard.set(false, forKey: SessionModel.resumeKey)
-        }
-        // And the flag a cold launch set: nothing will dial this Mac again this launch, so the header would describe an attempt that no longer exists.
-        isComingBack = false
-        // Running out is when the app stops behaving like a session coming back: this flag turns the remote screen over to the picker. The banner is not re-posted because `SessionAwareness` refuses a repeat of the phase it is in.
-        hasGivenUpResuming = true
-        gaveUpAt = Date()
-        // A dial still in flight is ended here; it reports `.disconnected`, which the guard at the top of ``scheduleReconnect()`` stops from arming another rung.
-        connectTask?.cancel()
-        connectTask = nil
-        dialRace?.cancel()
-        wire?.disconnect()
-        wire = nil
-        // The app started the attempt just cut, so the flag goes with it: left set, the user's next dial of any Mac would read as ours.
-        model.clearResumingIfNothingIsUnderWay()
-        // The screen is about to leave and no replacement stream will reuse its display, so this releases the attachment that non-deliberate teardown kept for the retry. A background Mac shares the active Mac's renderer and must not detach it.
-        if isActive { renderer.detach() }
-        // The Live Activity must be told directly: a ladder running out changes no phase, so `sessionMoved` never runs and the card would stay on Reconnecting. Only for the Mac on screen.
-        if isActive {
-            SessionActivity.shared.sessionDropped(
-                hostName: hostName ?? String(localized: "the Mac"),
-                startedAt: nil,
-                path: Self.activityPath(connectionPath)
-            )
-        }
-    }
 
     // MARK: - Asking this Mac for the picture, and for silence
 
@@ -368,41 +207,7 @@ final class MacSession: Identifiable {
     /// Set whenever the session reaches `.ready`, including a reconnect: the fresh capture pipeline remembers nothing, and the Mac gives a new client about a second to say what it wants before defaulting to a display of its own (`VideoCoordinator.firstAskGrace`), so a mosaic not re-asked is replaced by a plain desktop. Consumed by the next catalogue. See ``MacSession/apply(_:)``.
     var pendingSourceReassertion = false
 
-    var mosaicLayout: MosaicLayout? {
-        MosaicGrid.layout(
-            choices: mosaicChoices,
-            viewport: mosaicViewport,
-            tileAspect: mosaicTileAspect
-        )
-    }
-
     var mosaicTileAspect: Double { tileAspect(for: mosaicChoices) }
-
-    /// The ask is built before ``mosaicChoices`` holds it, so shaping must be a function of the choices being asked for: read from the session, the same arrangement came out a different shape depending on which door asked (a restore used the fallback aspect). The median ignores one odd window; sources the catalogue cannot describe are left out.
-    func tileAspect(for choices: [MosaicChoice]) -> Double {
-        let aspects = choices
-            .compactMap { catalog?.descriptor(for: $0.source)?.pixelSize }
-            .filter { $0.width > 0 && $0.height > 0 }
-            .map { Double($0.width / $0.height) }
-            .sorted()
-        guard !aspects.isEmpty else { return MosaicGrid.windowAspect }
-        // Clamped: a 40-pixel strip of a window is capturable but a bad thing to build a grid from.
-        return min(max(aspects[aspects.count / 2], 0.5), 3.0)
-    }
-
-    /// The shape comes from the interface and the pixels from the screen: `bounds` does not change when the phone turns, only which number is the width, and iOS takes about two seconds to say so. Read from the window scene, not `UIScreen.main`.
-    var mosaicViewport: CGSize {
-        guard let scene = DeviceScene.window else {
-            return CGSize(width: 1280, height: 720)
-        }
-        let bounds = scene.screen.bounds
-        let scale = scene.screen.scale
-        let longer = max(bounds.width, bounds.height) * scale
-        let shorter = min(bounds.width, bounds.height) * scale
-        return DeviceScene.isLandscape
-            ? CGSize(width: longer, height: shorter)
-            : CGSize(width: shorter, height: longer)
-    }
 
     /// Recorded when the Mac answers, not when the app asks: it takes a second or two to build the new tiles, and everything drawn over the picture must agree with it. See ``MacSession/apply(video:)``.
     var pictureMosaicLayout: MosaicLayout?
@@ -485,48 +290,6 @@ final class MacSession: Identifiable {
     /// So an unchanged list is not re-sent on every keystroke a shell prints.
     var publishedWork: [SessionActivityAttributes.ContentState.Work]?
 
-    /// Capped: a Lock Screen has room for a few lines and the card's own line says how many Macs are open.
-    func workItems() -> [SessionActivityAttributes.ContentState.Work] {
-        var work: [SessionActivityAttributes.ContentState.Work] = []
-        for session in agentSessions {
-            let folder = session.directory.split(separator: "/").last.map(String.init)
-            switch session.state {
-            case .awaitingApproval:
-                work.append(.init(name: session.title, symbol: "questionmark.bubble", state: .waiting, detail: folder))
-            case .working:
-                work.append(.init(
-                    name: session.title,
-                    symbol: TerminalAgent.all.first { $0.id == session.agentID }?.symbol ?? "sparkles",
-                    state: .live,
-                    detail: folder
-                ))
-            case .failed:
-                work.append(.init(name: session.title, symbol: "exclamationmark.triangle", state: .failed, detail: folder))
-            case .idle, .exited:
-                break
-            }
-        }
-        for terminal in terminals where terminal.isRunning {
-            if terminal.attention != nil {
-                work.append(.init(name: terminal.name, symbol: "lock", state: .waiting))
-            } else if terminal.failure != nil {
-                work.append(.init(name: terminal.name, symbol: "exclamationmark.triangle", state: .failed))
-            } else {
-                work.append(.init(name: terminal.name, symbol: "terminal", state: .live))
-            }
-        }
-        return Array(work.sorted { $0.state.isWaiting && !$1.state.isWaiting }.prefix(4))
-    }
-
-    /// Called from every terminal and agent event rather than the screens: the card matters when nobody is looking at the app.
-    func publishWork() {
-        guard model.activeSessionID == id else { return }
-        let work = workItems()
-        guard work != publishedWork else { return }
-        publishedWork = work
-        SessionActivity.shared.workChanged(work)
-    }
-
     /// A terminal has no id until the Mac answers, so nothing can move to it at the tap. Left here for the panel to take, and nil otherwise: a terminal arriving for another reason must not be dragged in front.
     var newTerminalID: UUID?
 
@@ -599,37 +362,6 @@ final class MacSession: Identifiable {
     /// Not in ``uploadFailures`` or ``browseFailures``: a browse failure replaces the list with a full-panel state, which a failed rename must not do; this one is drawn above the list.
     var changeFailures: [UUID: String] = [:]
 
-    // MARK: - The picture's on/off switch
-
-    /// Touches nothing else: the control channel, shells, clipboard and the keep-awake assertion all survive. Silent for a Mac that cannot take it.
-    func setPicturePaused(_ paused: Bool) {
-        guard PicturePause.mayAsk(hostDeclared: hostSupportsVideoPause) else { return }
-        guard phase.holdsSession, paused != picturePaused else { return }
-        picturePaused = paused
-        send(.setVideoEnabled(!paused))
-
-        if paused {
-            pictureResumedAt = nil
-            pictureResumeBaselineFrames = nil
-        } else {
-            // Taken before the frame arrives, the only moment it can be: the renderer's total when the ask went out is what the first frame back is measured from.
-            pictureResumedAt = Date()
-            pictureResumeBaselineFrames = renderer.currentSnapshot.framesEnqueued
-            lastResumeMilliseconds = nil
-        }
-    }
-
-    /// Called from the poll, not the event path, because the frame that answers may not touch the main actor. A count that moved in either direction counts: backwards is the renderer's total resetting.
-    func measureResumeIfNeeded(_ snapshot: VideoRenderer.Snapshot) {
-        guard let resumedAt = pictureResumedAt, let baseline = pictureResumeBaselineFrames else { return }
-        guard snapshot.framesEnqueued != baseline else { return }
-
-        pictureResumedAt = nil
-        pictureResumeBaselineFrames = nil
-        let milliseconds = Date().timeIntervalSince(resumedAt) * 1000
-        lastResumeMilliseconds = milliseconds
-        append(note: String(localized: "Picture back \(Int(milliseconds.rounded())) ms after asking for it"))
-    }
 
     // MARK: - Sending
 
@@ -642,130 +374,6 @@ final class MacSession: Identifiable {
 
     var isAutomaticQuality: Bool { model.streamQuality == .auto }
 
-    var autoQualityPath: AutoQualityPolicy.Path {
-        switch connectionPath {
-        case .lan: return .lan
-        case .relay: return .relay
-        case .direct, nil: return .direct
-        }
-    }
-
-    /// Uncapped on the direct path for every plan: two devices on one network spend nobody's bandwidth. A relayed session is the operator's link, and ``PlanCapability/highBitrate`` buys 20 Mbps there instead of 8.
-    var videoCeiling: AutoQualityPolicy.Tier {
-        guard autoQualityPath == .relay else { return .high }
-        return model.storeManager.access.includes(.highBitrate) ? .high : .medium
-    }
-
-    /// Turning manual on lands on the level picked last or the policy's current rate, so the picture does not jump.
-    func setAutomaticQuality(_ automatic: Bool) {
-        setStreamQuality(automatic ? .auto : (model.lastManualQuality ?? StreamQuality(autoQualityPolicy.tier)))
-    }
-
-    /// The save makes the Settings row and this one the same setting.
-    func setStreamQuality(_ quality: StreamQuality) {
-        // The one rung a plan can be short of, only while bytes are carried. Asking opens the plans rather than being quietly capped, since a silently soft picture reads as broken. High on a direct session is not gated: see ``videoCeiling``.
-        if quality == .high, videoCeiling == .medium {
-            model.paywallReason = .feature(.highBitrate)
-            return
-        }
-        model.rememberQualityChoice(quality)
-        if let bitrateKbps = quality.bitrateKbps {
-            send(.setStreamQuality(fps: 0, bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps)))
-        } else {
-            autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath, ceiling: videoCeiling)
-            lastAutoDroppedFrames = renderer.currentSnapshot.framesDropped
-            send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
-        }
-    }
-
-    /// Every arrival, not only an automatic one: the Mac clears `requestedBitrateKbps` when the video peer closes and falls back to its top rate, so an unsent manual level leaves the phone reading Low while watching 20 Mbps. The stored token is read, not ``SessionModel/streamQuality``, which Settings can leave stale.
-    func applyInitialQuality() {
-        let quality = SessionModel.storedQuality
-        model.streamQuality = quality
-
-        autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath, ceiling: videoCeiling)
-        lastAutoDroppedFrames = 0
-
-        if let bitrateKbps = quality.bitrateKbps {
-            model.lastManualQuality = quality
-            send(.setStreamQuality(fps: 0, bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps)))
-        } else {
-            send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
-        }
-    }
-
-    func updateAutoQuality(from snapshot: VideoRenderer.Snapshot) {
-        guard model.streamQuality == .auto, let latencyMilliseconds else {
-            lastAutoDroppedFrames = snapshot.framesDropped
-            return
-        }
-
-        // On the control channel the host holds the rate down on purpose, so asking for more would break its ceiling: see ``VideoCoordinator/effectiveBitrateKbps``. This end stops driving the number but still measures.
-        guard videoTransport == .primary else {
-            lastAutoDroppedFrames = snapshot.framesDropped
-            return
-        }
-
-        let newDrops = snapshot.framesDropped >= lastAutoDroppedFrames
-            ? snapshot.framesDropped - lastAutoDroppedFrames
-            : 0
-        lastAutoDroppedFrames = snapshot.framesDropped
-
-        guard let tier = autoQualityPolicy.observe(
-            latencyMilliseconds: latencyMilliseconds,
-            newDroppedFrames: newDrops
-        ) else { return }
-        send(.setStreamQuality(fps: 0, bitrateKbps: tier.bitrateKbps))
-        append(note: String(localized: "Auto quality changed to \(tier.bitrateKbps / 1_000) Mbps"))
-    }
-
-    // MARK: - The captured picture
-
-    var activeSourceTitle: String? {
-        // A mosaic is named before the catalogue is asked, since the catalogue has no row for it, and from the ask as well as the answer, so the pill names it as soon as it is asked for.
-        if isAskingForMosaic, let layout = mosaicLayout {
-            return String(localized: "\(layout.tiles.count) windows")
-        }
-        guard let activeSourceID,
-              let descriptor = catalog?.all.first(where: { $0.id == activeSourceID })
-        else { return nil }
-        return descriptor.title
-    }
-
-    /// Answered from what the picture is rather than what was asked, so a mosaic the Mac refuses to build does not leave the arrangement unreachable; the ask counts too, so it is not offered while the canvas is being built.
-    var canReturnToMosaic: Bool {
-        mosaicLayout != nil && !isShowingMosaic && !isAskingForMosaic
-    }
-
-    /// The picture on screen, not the one being asked for: everything drawn over the picture is measured against this. ``picture`` first, the catalogue second. See ``capturePointSize``.
-    var capturePixelSize: CGSize? {
-        if let picture, picture.pixelSize.width > 0, picture.pixelSize.height > 0 {
-            return picture.pixelSize
-        }
-        if let activeSourceID,
-           let descriptor = catalog?.all.first(where: { $0.id == activeSourceID }),
-           descriptor.pixelSize.width > 0, descriptor.pixelSize.height > 0 {
-            return descriptor.pixelSize
-        }
-        if let first = catalog?.displays.first { return first.pixelSize }
-        return nil
-    }
-
-    /// Halves the pixel size, assuming a 2x backing store: the protocol carries pixels, not the point-to-pixel scale. It only scales a relative nudge, so a wrong factor changes cursor speed, not where it lands.
-    var capturePointSize: CGSize {
-        guard let pixels = capturePixelSize else { return CGSize(width: 1512, height: 982) }
-        return CGSize(width: pixels.width / 2, height: pixels.height / 2)
-    }
-
-    /// The catalogue is the only thing that says what a source is, so it decides whether one can change size on its own; a source with no entry is unknown. See ``PictureIdentity/change(to:)``.
-    func pictureIdentity(of config: VideoStreamConfig) -> PictureIdentity {
-        PictureIdentity.forStream(
-            config,
-            catalog: catalog,
-            // The arrangement as well as its name: a mosaic has no catalogue row.
-            source: askedMosaicLayout.map { CaptureSource.mosaic($0) }
-        )
-    }
 
     // MARK: - Notes
 
