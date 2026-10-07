@@ -11,6 +11,15 @@ private func comment(_ path: String, _ text: String = "fix this") -> AgentReview
 private func target(_ chat: UUID, _ path: String) -> AgentReviewTarget { AgentReviewTarget(chatID: chat, path: path) }
 
 struct AgentReviewRejectionTests {
+    @Test func theReasonRidesInThePromptAndABlankOneDoesNot() {
+        let chat = UUID()
+        let chosen: Set = [target(chat, "a.swift")]
+        let with = AgentReviewRejection(chats: [(chat, "A", [])], selection: chosen, reason: "  wrong layout  ")
+        let without = AgentReviewRejection(chats: [(chat, "A", [])], selection: chosen, reason: "   ")
+        #expect(with.items[0].prompt.contains("Why: wrong layout\n"))
+        #expect(!without.items[0].prompt.contains("Why:"))
+    }
+
     @Test func anEmptySelectionProducesNothing() {
         let chat = UUID()
         let rejection = AgentReviewRejection(chats: [(chat, "A", [comment("a")])], selection: [])

@@ -4,7 +4,7 @@ import SwiftUI
 
 extension AgentReviewScreen {
     var rejection: AgentReviewRejection {
-        inbox.rejection(for: model.agentCards.filter(\.isLive), selection: selection)
+        inbox.rejection(for: model.agentCards.filter(\.isLive), selection: selection, reason: rejectionReason)
     }
 
     func isSelected(_ target: AgentReviewTarget) -> Bool { selection.contains(target) }
@@ -57,6 +57,7 @@ extension AgentReviewScreen {
             let review = inbox.review(for: item.chatID)
             review.comments.removeAll { item.commentIDs.contains($0.id) }
         }
+        rejectionReason = ""
         clearSelection()
     }
 }

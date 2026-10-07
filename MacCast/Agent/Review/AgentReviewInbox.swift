@@ -60,8 +60,8 @@ final class AgentReviewInbox {
         AgentReviewSendPlan(chats: chats.map { ($0.id, $0.title, review(for: $0.id).comments) })
     }
 
-    func rejection(for chats: [AgentCardDigest], selection: Set<AgentReviewTarget>) -> AgentReviewRejection {
-        AgentReviewRejection(chats: chats.map { ($0.id, $0.title, review(for: $0.id).comments) }, selection: selection)
+    func rejection(for chats: [AgentCardDigest], selection: Set<AgentReviewTarget>, reason: String = "") -> AgentReviewRejection {
+        AgentReviewRejection(chats: chats.map { ($0.id, $0.title, review(for: $0.id).comments) }, selection: selection, reason: reason)
     }
 
     private func save() {

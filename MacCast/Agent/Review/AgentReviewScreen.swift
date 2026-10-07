@@ -10,6 +10,7 @@ struct AgentReviewScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var confirmsSendAll = false
     @State var confirmsReject = false
+    @State var rejectionReason = ""
     @State var selection: Set<AgentReviewTarget> = []
     @State private var search = ""
     @State var showsFilters = false
@@ -76,11 +77,10 @@ struct AgentReviewScreen: View {
         } message: {
             Text(verbatim: plan.summary)
         }
-        .confirmationDialog("Send these files back to fix?", isPresented: $confirmsReject, titleVisibility: .visible) {
-            Button("Send back ^[\(rejection.fileCount) file](inflect: true)") { rejectSelected() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(verbatim: rejection.summary)
+        .sheet(isPresented: $confirmsReject) {
+            AgentReviewRejectSheet(
+                reason: $rejectionReason, fileCount: rejection.fileCount, summary: rejection.summary
+            ) { rejectSelected() }
         }
         .onChange(of: current.selectableTargets) { selection = current.retaining(selection) }
         .onAppear { refreshAll() }

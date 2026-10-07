@@ -17,11 +17,16 @@ public struct AgentReviewRejection: Equatable {
     /// The most the list of paths may take, so the comments keep the rest of the host's limit.
     static let maximumFileListBytes = 16 * 1024
 
+    /// Keeps a pasted essay from crowding the file list out of the host's prompt limit.
+    static let maximumReasonCharacters = 2000
+
     public let items: [Item]
 
     public init(
-        chats: [(id: UUID, title: String, comments: [AgentReviewComment])], selection: Set<AgentReviewTarget>
+        chats: [(id: UUID, title: String, comments: [AgentReviewComment])], selection: Set<AgentReviewTarget>,
+        reason: String = ""
     ) {
+        let reason = reason.trimmingCharacters(in: .whitespacesAndNewlines)
         items = chats.compactMap { chat in
             let paths = selection.filter { $0.chatID == chat.id }.map(\.path)
                 .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
@@ -30,7 +35,7 @@ public struct AgentReviewRejection: Equatable {
             let comments = chat.comments.filter { chosen.contains($0.path) }
             return Item(
                 chatID: chat.id, title: chat.title, paths: paths, commentIDs: comments.map(\.id),
-                prompt: Self.prompt(paths: paths, comments: comments)
+                prompt: Self.prompt(paths: paths, comments: comments, reason: reason)
             )
         }
     }
@@ -43,8 +48,10 @@ public struct AgentReviewRejection: Equatable {
             .joined(separator: "\n")
     }
 
-    private static func prompt(paths: [String], comments: [AgentReviewComment]) -> String {
-        var text = String(localized: "These files were sent back in review. Please fix them.") + "\n\n" + String(localized: "Files:")
+    private static func prompt(paths: [String], comments: [AgentReviewComment], reason: String) -> String {
+        var text = String(localized: "These files were sent back in review. Please fix them.")
+        if !reason.isEmpty { text += "\n\n" + String(localized: "Why:") + " " + String(reason.prefix(maximumReasonCharacters)) }
+        text += "\n\n" + String(localized: "Files:")
         var left = 0
         for path in paths {
             let line = "\n- " + path
