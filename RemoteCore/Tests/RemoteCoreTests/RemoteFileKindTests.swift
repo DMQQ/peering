@@ -45,6 +45,15 @@ struct RemoteFileKindTests {
         #expect(RemoteFileKind.sniff(prefix: lying, path: "/Users/someone/Desktop/thing.png") == .text)
     }
 
+    @Test("an MP4 and a QuickTime movie are video, not a refused binary")
+    func recognisesVideo() {
+        let mp4 = Data([0, 0, 0, 0x20]) + Data("ftypisom".utf8) + Data(repeating: 0, count: 20)
+        let movie = Data([0, 0, 0, 0x14]) + Data("ftypqt  ".utf8) + Data(repeating: 0, count: 20)
+        #expect(RemoteFileKind.sniff(prefix: mp4, path: "/x/clip.mp4") == .video)
+        #expect(RemoteFileKind.sniff(prefix: movie, path: "/x/clip.mov") == .video)
+        #expect(RemoteFileKind.video.isDrawn)
+    }
+
     @Test("a PDF is recognised by its header, even with stray bytes before it")
     func recognisesPDF() {
         let plain = Data("%PDF-1.7\n".utf8) + Data([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x00])

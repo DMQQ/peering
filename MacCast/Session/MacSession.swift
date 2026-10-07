@@ -366,6 +366,7 @@ final class MacSession: Identifiable {
     /// One download at a time per browser: the file or zip being fetched, a finished one waiting to be handed to the share sheet, and why one failed.
     var downloads: [UUID: FileDownload] = [:]
     var finishedDownloads: [UUID: URL] = [:]
+    var finishedVideos: [UUID: (path: String, url: URL)] = [:]
     var downloadFailures: [UUID: String] = [:]
 
     /// One per terminal: the Mac answers a change by naming the path, so two operations through one shell would match one remembered request. The entry also disables the controls.

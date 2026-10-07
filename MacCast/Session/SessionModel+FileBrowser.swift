@@ -121,7 +121,11 @@ extension SessionModel {
         activeSession?.uploadItems(urls, toFolder: folder, sessionID: id)
     }
 
-    func downloadFile(_ path: String, sessionID id: UUID) { activeSession?.downloadFile(path, sessionID: id) }
+    func downloadFile(_ path: String, sessionID id: UUID, playsInline: Bool = false) {
+        activeSession?.downloadFile(path, sessionID: id, playsInline: playsInline)
+    }
+
+    func finishedVideo(_ path: String, sessionID id: UUID) -> URL? { activeSession?.finishedVideo(path, sessionID: id) }
 
     func downloadFolder(_ path: String, sessionID id: UUID) { activeSession?.downloadFolder(path, sessionID: id) }
 

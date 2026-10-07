@@ -8,6 +8,8 @@ struct FileDownload {
     /// What the user chose, which is where the answer's path is matched against.
     let sourcePath: String
     let isFolder: Bool
+    /// Played in the preview rather than offered to the share sheet.
+    var playsInline = false
     /// The file being read: the source itself, or the zip once the Mac has made it.
     var readPath: String?
     var window = FileDownloadWindow()
@@ -18,8 +20,8 @@ struct FileDownload {
 extension MacSession {
     // MARK: - Downloading
 
-    func downloadFile(_ path: String, sessionID id: UUID) {
-        begin(FileDownload(name: Self.fileName(of: path), sourcePath: path, isFolder: false, readPath: path, destination: Self.destination(named: Self.fileName(of: path))), sessionID: id)
+    func downloadFile(_ path: String, sessionID id: UUID, playsInline: Bool = false) {
+        begin(FileDownload(name: Self.fileName(of: path), sourcePath: path, isFolder: false, playsInline: playsInline, readPath: path, destination: Self.destination(named: Self.fileName(of: path))), sessionID: id)
     }
 
     func downloadFolder(_ path: String, sessionID id: UUID) {
@@ -47,6 +49,12 @@ extension MacSession {
     func downloadFailure(sessionID id: UUID) -> String? { downloadFailures[id] }
 
     func finishedDownload(sessionID id: UUID) -> URL? { finishedDownloads[id] }
+
+    /// The local copy of `path`, once a video download for it has finished.
+    func finishedVideo(_ path: String, sessionID id: UUID) -> URL? {
+        guard let video = finishedVideos[id], video.path == path else { return nil }
+        return video.url
+    }
 
     /// Forgets the finished file without deleting it: the share sheet may still be copying it when it closes. Old downloads are swept when the next one starts.
     func clearFinishedDownload(sessionID id: UUID) {
@@ -76,7 +84,11 @@ extension MacSession {
             downloads.removeValue(forKey: id)
             if download.window.isComplete {
                 downloadFailures.removeValue(forKey: id)
-                finishedDownloads[id] = download.destination
+                if download.playsInline {
+                    finishedVideos[id] = (download.sourcePath, download.destination)
+                } else {
+                    finishedDownloads[id] = download.destination
+                }
             } else {
                 fail(download, message: String(localized: "The Mac sent less of the file than it said it had."), sessionID: id)
             }
@@ -106,6 +118,7 @@ extension MacSession {
     private func begin(_ download: FileDownload, sessionID id: UUID) {
         cancelDownload(sessionID: id)
         clearFinishedDownload(sessionID: id)
+        finishedVideos.removeValue(forKey: id)
         downloadFailures.removeValue(forKey: id)
         Self.removeOldDownloads()
         var started = download

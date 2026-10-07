@@ -98,12 +98,13 @@ extension TerminalSessionManager {
 
             guard let sniffed = RemoteFileKind.sniff(prefix: data, path: url.path) else {
                 return .failure(
-                    "That file is not text, a picture or a PDF, so there is nothing to show here."
+                    "That file is not text, a picture, a video or a PDF, so there is nothing to show here."
                 )
             }
             kind = sniffed
 
-            let limit = min(
+            // A video's header is all the preview carries; the phone fetches the rest by range, to disk.
+            let limit = kind == .video ? data.count : min(
                 totalBytes,
                 kind.isDrawn ? Self.maximumImagePreviewBytes : Self.maximumPreviewBytes
             )
@@ -116,7 +117,7 @@ extension TerminalSessionManager {
             return .failure(DirectoryListing.message(for: error))
         }
 
-        if kind == .image || kind == .pdf { return .contents(data, kind: kind, totalBytes: totalBytes) }
+        if kind == .image || kind == .pdf || kind == .video { return .contents(data, kind: kind, totalBytes: totalBytes) }
 
         // It has to decode. Up to three bytes come off the end first, for the case where the read
         // stopped at the cap rather than the end of the file and the cut landed inside a character:

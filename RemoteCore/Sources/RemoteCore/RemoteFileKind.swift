@@ -6,6 +6,7 @@ public enum RemoteFileKind: String, Codable, Equatable, Sendable {
     case image
     case svg
     case pdf
+    case video
 
     /// Whether the phone draws this rather than reads it; the size caps depend on it.
     public var isDrawn: Bool { self != .text }
@@ -20,6 +21,7 @@ extension RemoteFileKind {
         if isRaster(prefix) { return .image }
         // The spec lets a few stray bytes precede the header, so it is looked for in the first kilobyte rather than at offset zero.
         if prefix.prefix(1024).range(of: Data("%PDF-".utf8)) != nil { return .pdf }
+        if isVideo(prefix) { return .video }
 
         // Answered here because the loop below cannot tell an empty file from one trimmed to nothing.
         if prefix.isEmpty { return .text }
@@ -39,6 +41,13 @@ extension RemoteFileKind {
         if beginning.prefix(512).contains("<svg") { return .svg }
 
         return .text
+    }
+
+    /// MP4 and QuickTime: an `ftyp` box (any brand that is not a still picture, those are caught as rasters first) or a movie that opens straight on `moov`, `mdat` or `wide`. Contains NUL bytes, so without this it would be refused as binary.
+    private static func isVideo(_ prefix: Data) -> Bool {
+        guard prefix.count >= 12 else { return false }
+        let box = prefix.dropFirst(4).prefix(4)
+        return ["ftyp", "moov", "mdat", "wide"].contains { box.elementsEqual(Array($0.utf8)) }
     }
 
     /// The formats ImageIO decodes on both platforms.

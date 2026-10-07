@@ -83,35 +83,29 @@ struct RemoteImageView: View {
 private struct ZoomingImageView: UIViewRepresentable {
     let image: UIImage
 
-    func makeUIView(context: Context) -> UIScrollView {
-        let scroll = UIScrollView()
+    func makeUIView(context: Context) -> FittingScrollView {
+        let scroll = FittingScrollView()
         scroll.backgroundColor = .clear
         scroll.delegate = context.coordinator
         scroll.minimumZoomScale = 1
         scroll.maximumZoomScale = 8
         scroll.showsVerticalScrollIndicator = false
         scroll.showsHorizontalScrollIndicator = false
+        scroll.contentInsetAdjustmentBehavior = .never
 
         let view = UIImageView(image: image)
         view.contentMode = .scaleAspectFit
-        view.clipsToBounds = true
-        view.translatesAutoresizingMaskIntoConstraints = false
         scroll.addSubview(view)
-        // Pinned to the *frame* guide rather than the content guide: at rest the picture is exactly
-        // the size of the viewport and the scroll view has nothing to scroll, which is what makes
-        // the zoom scale mean what it says. Constraints rather than a frame because the viewport is
-        // not known when this is built, and UIKit re-applies them when it is.
-        NSLayoutConstraint.activate([
-            view.leadingAnchor.constraint(equalTo: scroll.frameLayoutGuide.leadingAnchor),
-            view.trailingAnchor.constraint(equalTo: scroll.frameLayoutGuide.trailingAnchor),
-            view.topAnchor.constraint(equalTo: scroll.frameLayoutGuide.topAnchor),
-            view.bottomAnchor.constraint(equalTo: scroll.frameLayoutGuide.bottomAnchor),
-        ])
+        scroll.imageView = view
         context.coordinator.imageView = view
+
+        let doubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.doubleTapped(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        scroll.addGestureRecognizer(doubleTap)
         return scroll
     }
 
-    func updateUIView(_ scroll: UIScrollView, context: Context) {
+    func updateUIView(_ scroll: FittingScrollView, context: Context) {
         guard let view = context.coordinator.imageView else { return }
         if view.image !== image { view.image = image }
     }
@@ -120,7 +114,34 @@ private struct ZoomingImageView: UIViewRepresentable {
 
     final class Coordinator: NSObject, UIScrollViewDelegate {
         weak var imageView: UIImageView?
+
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
+
+        @objc func doubleTapped(_ gesture: UITapGestureRecognizer) {
+            guard let scroll = gesture.view as? UIScrollView, let imageView else { return }
+            if scroll.zoomScale > 1 {
+                scroll.setZoomScale(1, animated: true)
+                return
+            }
+            let target: CGFloat = 3
+            let point = gesture.location(in: imageView)
+            let size = CGSize(width: scroll.bounds.width / target, height: scroll.bounds.height / target)
+            scroll.zoom(to: CGRect(x: point.x - size.width / 2, y: point.y - size.height / 2, width: size.width, height: size.height), animated: true)
+        }
+    }
+}
+
+/// **Sized by hand, not by constraints.** A zoomable view whose content is laid out by Auto Layout has a content size UIKit never learns, and the zoom then anchors at the top left instead of the pinch. At rest the picture fills the viewport (aspect-fit does the letterboxing); zoomed, the frame is UIKit's to scale, so only the rest state is set here.
+private final class FittingScrollView: UIScrollView {
+    weak var imageView: UIImageView?
+    private var laidOutSize = CGSize.zero
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard let imageView, bounds.size != laidOutSize, zoomScale == 1 else { return }
+        laidOutSize = bounds.size
+        imageView.frame = CGRect(origin: .zero, size: bounds.size)
+        contentSize = bounds.size
     }
 }
 

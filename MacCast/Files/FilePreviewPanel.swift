@@ -192,6 +192,8 @@ struct FilePreviewPanel: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if preview.kind == .video {
+            RemoteVideoView(path: preview.path, sessionID: preview.terminalID, totalBytes: preview.totalBytes)
         } else if preview.kind.isDrawn {
             // There is no first eight megabytes of a JPEG, so a picture cut at the cap is not drawn.
             if preview.isTruncated {
@@ -223,9 +225,10 @@ struct FilePreviewPanel: View {
 
     private var tooLargeMessage: String {
         let size = preview.totalBytes.formatted(.byteCount(style: .file))
-        return preview.kind == .pdf
-            ? String(localized: "This PDF is \(size), which is more than a preview can carry.")
-            : String(localized: "This picture is \(size), which is more than a preview can carry.")
+        switch preview.kind {
+        case .pdf: return String(localized: "This PDF is \(size), which is more than a preview can carry.")
+        default: return String(localized: "This picture is \(size), which is more than a preview can carry.")
+        }
     }
 
     var reader: some View {
