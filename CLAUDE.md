@@ -2,7 +2,7 @@
 
 ## Design system
 
-[DESIGN.md](DESIGN.md) is the authority on the visual language: colour, type, surfaces, spacing,
+[wiki/DESIGN.md](wiki/DESIGN.md) is the authority on the visual language: colour, type, surfaces, spacing,
 motion, and the phone frame used in the tour and on the marketing site.
 
 **Read it before** writing or changing any SwiftUI view, building App Store screenshots or

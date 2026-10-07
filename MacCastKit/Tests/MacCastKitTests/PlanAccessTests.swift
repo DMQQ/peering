@@ -6,7 +6,7 @@
 import XCTest
 @testable import MacCastKit
 
-/// The plan map is also stated in the paywall, PLANS-AND-FEATURES.md and the site; this second copy fails a build when they drift.
+/// The plan map is also stated in the paywall, wiki/PLANS-AND-FEATURES.md and the site; this second copy fails a build when they drift.
 /// A plan not yet read locks nothing (the no-flash rule).
 final class PlanAccessTests: XCTestCase {
 

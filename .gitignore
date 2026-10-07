@@ -67,3 +67,6 @@ codex-session-*.md
 # Design-tool scratch state, written beside whatever it was pointed at.
 .impeccable/
 .env
+
+# Working notes, plans, copy drafts and session dumps. Local only.
+wiki/
