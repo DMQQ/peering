@@ -34,7 +34,8 @@ extension VideoDatagramSocket {
         guard !stopped else { return }
         var buffer = [UInt8](repeating: 0, count: VideoDatagram.maxDatagramSize)
 
-        while true {
+        // Checked per datagram: a callback below may cancel the socket mid-burst.
+        while !stopped {
             var from = sockaddr_storage()
             var fromLength = socklen_t(MemoryLayout<sockaddr_storage>.size)
 
@@ -148,9 +149,15 @@ extension VideoDatagramSocket {
         let waiting = held
         held.removeAll()
         heldCount = 0
-        readSource?.cancel()
-        readSource = nil
-        close(fd)
+        if let source = readSource {
+            // libdispatch aborts on a descriptor closed under a live source (EV_VANISHED), and the number is reused by the next socket while the source still holds it. The handler captures the number, not self: deinit reaches here.
+            let descriptor = fd
+            source.setCancelHandler { close(descriptor) }
+            source.cancel()
+            readSource = nil
+        } else {
+            close(fd)
+        }
         for entry in waiting { entry.completion?(nil) }
     }
 
@@ -179,6 +186,11 @@ extension VideoDatagramSocket {
         to destination: Destination,
         completion: (@Sendable (Error?) -> Void)?
     ) {
+        // The descriptor outlives `stopped` until the cancel handler runs, but nothing should be sent on it.
+        guard !stopped else {
+            completion?(nil)
+            return
+        }
         var address = destination == .peer ? (peerAddress ?? relayAddress) : relayAddress
         let peerIsSet = peerAddress != nil
         let length = destination == .peer && peerIsSet ? peerLength : relayLength

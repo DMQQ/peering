@@ -166,6 +166,34 @@ struct VideoDatagramSocketTests {
         #expect(canBindLoopback(port: port), "deinitialization closes an owned descriptor")
     }
 
+    @Test("cancelling a started socket releases its port once the read source is cancelled")
+    func startedSocketReleasesPortAfterCancel() async throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let (socket, _) = try makeSocket(relayingTo: relay)
+        let port = socket.localPort
+        socket.start()
+        socket.cancel()
+
+        #expect(await waitUntil { canBindLoopback(port: port) }, "the cancel handler closes the descriptor")
+    }
+
+    @Test("a send after cancelling is dropped without touching the closed descriptor")
+    func sendAfterCancelReportsNoFailure() async throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let (socket, _) = try makeSocket(relayingTo: relay)
+        let failures = Collected()
+        socket.onFailure = { _ in failures.add(Data(), .relay) }
+        socket.start()
+        socket.cancel()
+
+        await withCheckedContinuation { continuation in
+            socket.send([Self.token + Data([1])]) { _ in continuation.resume() }
+        }
+        #expect(failures.count == 0)
+    }
+
     /// The bind tells the relay where this end is, so it must go before any held frame.
     @Test("the socket binds before it sends anything else")
     func bindsFirst() async throws {

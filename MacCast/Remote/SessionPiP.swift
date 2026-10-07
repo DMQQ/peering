@@ -218,31 +218,32 @@ extension SessionPiP: AVPictureInPictureControllerDelegate {
 }
 
 extension SessionPiP: AVPictureInPictureSampleBufferPlaybackDelegate {
+    // nonisolated: AVKit may call these from its own queue, and a MainActor method called off the main actor traps. None of them touches state.
     /// Live content, infinite duration. Returning `kCMTimeRangeInvalid` for no content was tried and iOS renders it as a loading spinner over a frozen picture. Transport controls stay; `requiresLinearPlayback` removes some, see ``SessionPiP``.
-    func pictureInPictureControllerTimeRangeForPlayback(
+    nonisolated func pictureInPictureControllerTimeRangeForPlayback(
         _ controller: AVPictureInPictureController
     ) -> CMTimeRange {
         CMTimeRange(start: .negativeInfinity, duration: .positiveInfinity)
     }
 
     /// Never paused: holding frames back is a dropped frame, not a pause.
-    func pictureInPictureControllerIsPlaybackPaused(
+    nonisolated func pictureInPictureControllerIsPlaybackPaused(
         _ controller: AVPictureInPictureController
     ) -> Bool {
         false
     }
 
-    func pictureInPictureController(
+    nonisolated func pictureInPictureController(
         _ controller: AVPictureInPictureController,
         setPlaying playing: Bool
     ) {}
 
-    func pictureInPictureController(
+    nonisolated func pictureInPictureController(
         _ controller: AVPictureInPictureController,
         didTransitionToRenderSize newRenderSize: CMVideoDimensions
     ) {}
 
-    func pictureInPictureController(
+    nonisolated func pictureInPictureController(
         _ controller: AVPictureInPictureController,
         skipByInterval skipInterval: CMTime,
         completion completionHandler: @escaping () -> Void

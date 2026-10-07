@@ -39,7 +39,13 @@ public final class ClientConnection: @unchecked Sendable {
     private let queue: DispatchQueue
     private let lock = NSLock()
 
-    private var connection: NWConnection?
+    private var _connection: NWConnection?
+
+    /// Read on whichever thread asks (a foreground check, a send) while the network queue clears it in `finish`, so every access takes the lock: an unguarded class reference torn between the two is a use after free.
+    private var connection: NWConnection? {
+        get { lock.withLock { _connection } }
+        set { lock.withLock { _connection = newValue } }
+    }
     private var decoder = FrameDecoder()
     private var readyContinuation: CheckedContinuation<Void, any Error>?
     private var closedReason: Failure?
@@ -176,6 +182,8 @@ public final class ClientConnection: @unchecked Sendable {
                         self.cancelTimeout()
                         self.resumeReady(.failure(failure))
                         self.finish(failure)
+                        // `finish` drops the reference, so without this the waiting connection is never cancelled and outlives its session.
+                        connection.cancel()
                     default:
                         break
                     }
@@ -287,7 +295,7 @@ public final class ClientConnection: @unchecked Sendable {
         // alive. In particular, a callback is allowed to mention its owning session.
         _onFrame = nil
         _onClose = nil
-        connection = nil
+        _connection = nil
         lock.unlock()
 
         pending?.resume(throwing: failure)

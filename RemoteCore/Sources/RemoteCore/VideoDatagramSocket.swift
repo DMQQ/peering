@@ -178,9 +178,9 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     }
 
     public func cancel() {
-        // Resource release is part of cancellation's contract, so it happens before returning, and
-        // synchronously: a BSD descriptor is not managed by ARC, so letting deallocation release the
-        // socket leaks it for the life of the process.
+        // Resource release is part of cancellation's contract: a BSD descriptor is not managed by
+        // ARC, so letting deallocation release the socket leaks it for the life of the process. A
+        // started socket closes it in the read source's cancel handler, right after this on the queue.
         onQueue { stopOnQueue() }
     }
 
