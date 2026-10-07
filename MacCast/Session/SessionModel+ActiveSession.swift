@@ -184,4 +184,95 @@ extension SessionModel {
         set { activeSession?.videoPoll = newValue }
     }
 
+    // MARK: - Clipboard
+    var hostClipboard: ClipboardPayload? {
+        get { activeSession?.hostClipboard }
+        set { activeSession?.hostClipboard = newValue }
+    }
+
+    var clipboardPulling: Bool {
+        get { activeSession?.clipboardPulling ?? false }
+        set { activeSession?.clipboardPulling = newValue }
+    }
+
+    // MARK: - Audio
+
+    /// One Mac's sound at a time.
+    var audioPlayer: RemoteAudioPlayer? {
+        get { activeSession?.audioPlayer }
+        set { activeSession?.audioPlayer = newValue }
+    }
+
+    /// The audio arrives over a connection the user already has, so a free user would still hear it unless the player is told.
+    var playsHostAudio: Bool {
+        !hostAudioMuted && storeManager.access.includes(.macSound)
+    }
+
+    // MARK: - Terminals
+
+    var terminals: [RemoteTerminal] {
+        get { activeSession?.terminals ?? [] }
+        set { activeSession?.terminals = newValue }
+    }
+
+    var selectedTerminalID: UUID? {
+        get { activeSession?.selectedTerminalID }
+        set { activeSession?.selectedTerminalID = newValue }
+    }
+
+    // MARK: - File browsing
+
+    var directories: [RemoteDirectoryKey: RemoteDirectory] {
+        get { activeSession?.directories ?? [:] }
+        set { activeSession?.directories = newValue }
+    }
+
+    var browsingPaths: [UUID: String] {
+        get { activeSession?.browsingPaths ?? [:] }
+        set { activeSession?.browsingPaths = newValue }
+    }
+
+    var pendingDirectories: Set<RemoteDirectoryKey> {
+        get { activeSession?.pendingDirectories ?? [] }
+        set { activeSession?.pendingDirectories = newValue }
+    }
+
+    var browseFailures: [RemoteDirectoryKey: String] {
+        get { activeSession?.browseFailures ?? [:] }
+        set { activeSession?.browseFailures = newValue }
+    }
+
+    var filePreview: RemoteFilePreview? {
+        get { activeSession?.filePreview }
+        set { activeSession?.filePreview = newValue }
+    }
+
+    var pendingRun: String? {
+        get { activeSession?.pendingRun }
+        set { activeSession?.pendingRun = newValue }
+    }
+
+    var writes: [UUID: FileWrite] {
+        get { activeSession?.writes ?? [:] }
+        set { activeSession?.writes = newValue }
+    }
+
+    var saveFailures: [UUID: String] {
+        get { activeSession?.saveFailures ?? [:] }
+        set { activeSession?.saveFailures = newValue }
+    }
+    var uploadFailures: [UUID: String] {
+        get { activeSession?.uploadFailures ?? [:] }
+        set { activeSession?.uploadFailures = newValue }
+    }
+
+    var changes: [UUID: FileChange] {
+        get { activeSession?.changes ?? [:] }
+        set { activeSession?.changes = newValue }
+    }
+
+    var changeFailures: [UUID: String] {
+        get { activeSession?.changeFailures ?? [:] }
+        set { activeSession?.changeFailures = newValue }
+    }
 }

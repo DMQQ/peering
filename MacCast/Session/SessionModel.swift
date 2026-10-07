@@ -130,17 +130,6 @@ final class SessionModel {
     /// Seeded from the stored preference so Automatic to Manual returns to the last saved level; nil when the stored value is automatic.
     var lastManualQuality: StreamQuality? = .storedManualLevel()
 
-    // MARK: - Clipboard
-    var hostClipboard: ClipboardPayload? {
-        get { activeSession?.hostClipboard }
-        set { activeSession?.hostClipboard = newValue }
-    }
-
-    var clipboardPulling: Bool {
-        get { activeSession?.clipboardPulling ?? false }
-        set { activeSession?.clipboardPulling = newValue }
-    }
-
     // MARK: - Wake-on-LAN
     var hostMACAddresses: [String: [String]] = {
         guard let data = UserDefaults.standard.data(forKey: "hostMACAddresses"),
@@ -150,14 +139,6 @@ final class SessionModel {
         return decoded
     }()
 
-    // MARK: - Audio
-
-    /// One Mac's sound at a time.
-    var audioPlayer: RemoteAudioPlayer? {
-        get { activeSession?.audioPlayer }
-        set { activeSession?.audioPlayer = newValue }
-    }
-
     /// The channel also carries system sounds the Mac makes in response to this phone's input, so a chord that leads nowhere is heard a round trip late.
     var hostAudioMuted = UserDefaults.standard.object(forKey: PreferenceKeys.hostAudioMuted) as? Bool ?? false {
         didSet {
@@ -165,79 +146,6 @@ final class SessionModel {
             // Every Mac, not the one on screen: one behind it would keep playing unnoticed.
             for session in sessions { session.refreshAudioMuteState() }
         }
-    }
-
-    /// The audio arrives over a connection the user already has, so a free user would still hear it unless the player is told.
-    var playsHostAudio: Bool {
-        !hostAudioMuted && storeManager.access.includes(.macSound)
-    }
-
-    // MARK: - Terminals
-
-    var terminals: [RemoteTerminal] {
-        get { activeSession?.terminals ?? [] }
-        set { activeSession?.terminals = newValue }
-    }
-
-    var selectedTerminalID: UUID? {
-        get { activeSession?.selectedTerminalID }
-        set { activeSession?.selectedTerminalID = newValue }
-    }
-
-    // MARK: - File browsing
-
-    var directories: [RemoteDirectoryKey: RemoteDirectory] {
-        get { activeSession?.directories ?? [:] }
-        set { activeSession?.directories = newValue }
-    }
-
-    var browsingPaths: [UUID: String] {
-        get { activeSession?.browsingPaths ?? [:] }
-        set { activeSession?.browsingPaths = newValue }
-    }
-
-    var pendingDirectories: Set<RemoteDirectoryKey> {
-        get { activeSession?.pendingDirectories ?? [] }
-        set { activeSession?.pendingDirectories = newValue }
-    }
-
-    var browseFailures: [RemoteDirectoryKey: String] {
-        get { activeSession?.browseFailures ?? [:] }
-        set { activeSession?.browseFailures = newValue }
-    }
-
-    var filePreview: RemoteFilePreview? {
-        get { activeSession?.filePreview }
-        set { activeSession?.filePreview = newValue }
-    }
-
-    var pendingRun: String? {
-        get { activeSession?.pendingRun }
-        set { activeSession?.pendingRun = newValue }
-    }
-
-    var writes: [UUID: FileWrite] {
-        get { activeSession?.writes ?? [:] }
-        set { activeSession?.writes = newValue }
-    }
-
-    var saveFailures: [UUID: String] {
-        get { activeSession?.saveFailures ?? [:] }
-        set { activeSession?.saveFailures = newValue }
-    }
-    var uploadFailures: [UUID: String] {
-        get { activeSession?.uploadFailures ?? [:] }
-        set { activeSession?.uploadFailures = newValue }
-    }
-
-    var changes: [UUID: FileChange] {
-        get { activeSession?.changes ?? [:] }
-        set { activeSession?.changes = newValue }
-    }
-
-    var changeFailures: [UUID: String] {
-        get { activeSession?.changeFailures ?? [:] }
-        set { activeSession?.changeFailures = newValue }
     }
 
     /// The pin store knows only the ID, and the handshake is the only moment the client is told both.
@@ -313,21 +221,6 @@ final class SessionModel {
     /// A keyboard the Mac asked for must not close a panel the user opened: switching desktops from the sources panel moves focus into the new desktop's text field.
     var isPanelOpen = false
 
-    func textFocusChanged(_ focus: TextFocus) {
-        let enabled = UserDefaults.standard.object(forKey: PreferenceKeys.opensKeyboardForTextFields) as? Bool ?? true
-        typedDraft = ""
-        pendingField = nil
-        fieldCaret = nil
-        guard enabled, !isObserving, !isShowingMosaic, !isPanelOpen else { return }
-        if focus.isEditable {
-            guard !showKeyboard else { return }
-            showKeyboard = true
-            keyboardOpenedByFocus = true
-        } else if keyboardOpenedByFocus {
-            showKeyboard = false
-        }
-    }
-
     /// The bar's own record, emptied by Return, a newline as text, and the keyboard going away. Anything that sends characters must go through `handleTypedText(_:)` and `handleBackspace()`, or this shows a character the Mac has lost.
     var typedPreview = ""
 
@@ -340,32 +233,7 @@ final class SessionModel {
     var fieldCaret: NormalizedPoint?
     /// When the phone's field last changed by typing: the Mac's report of a line still being typed is older than the line, and applying it would delete the last characters.
     var lastLocalEdit = Date.distantPast
-    private var pendingField: FieldState?
-
-    func fieldStateChanged(_ state: FieldState) {
-        fieldCaret = state.caret
-        guard state.text != nil else { return }
-        pendingField = state
-        applyPendingFieldWhenQuiet()
-    }
-
-    private func applyPendingFieldWhenQuiet() {
-        guard let state = pendingField, let text = state.text else { return }
-        let wait = Self.fieldSettleTime - Date().timeIntervalSince(lastLocalEdit)
-        if wait > 0 {
-            Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .seconds(wait))
-                self?.applyPendingFieldWhenQuiet()
-            }
-            return
-        }
-        pendingField = nil
-        typedDraft = text
-        draftSelection = NSRange(location: state.selectionLocation, length: state.selectionLength)
-        fieldSerial += 1
-    }
-
-    private static let fieldSettleTime: TimeInterval = 0.8
+    var pendingField: FieldState?
 
     // MARK: - Purchase
 
@@ -439,36 +307,7 @@ final class SessionModel {
     // MARK: - Push token
 
     /// Held here because reading it is an `await` on the system.
-    private(set) var notificationsAuthorized = false
-
-    /// Read through the notifier rather than copied, as it is written from an app-delegate callback.
-    var pushRegistration: String? {
-        if notifier.remoteToken != nil { return String(localized: "Yes") }
-        return notifier.remoteTokenFailure
-    }
-
-    func refreshNotificationAuthorization() async {
-        notificationsAuthorized = await notifier.refreshAuthorization()
-    }
-
-    /// This is the gate for the push half, here rather than at the Mac, which sends to a token and knows nothing else: a phone that never hands one over cannot be reached on any plan.
-    /// An empty registration is sent rather than skipped: it forgets the token the Mac was given while the plan included it, which a lapsed subscription needs.
-    /// Nothing is sent while the entitlement has not been read, so a subscriber is not stripped at launch.
-    func sendPushToken() {
-        guard let plan = storeManager.access.plan else { return }
-
-        guard plan.includes(.terminalAlerts) else {
-            for session in sessions where session.phase == .ready {
-                session.wire?.sendTerminal(.registerPushToken(Data()))
-            }
-            return
-        }
-
-        guard let token = SessionNotifier.shared.remoteToken else { return }
-        for session in sessions where session.phase == .ready {
-            session.wire?.sendTerminal(.registerPushToken(token))
-        }
-    }
+    var notificationsAuthorized = false
 
     // MARK: - Clipboard history
 
@@ -482,22 +321,6 @@ final class SessionModel {
     var knownPhoneClipboard: (changeCount: Int, text: String)?
 
     // MARK: - Wake-on-LAN
-
-    /// A magic packet is an unacknowledged UDP broadcast, so silence would look like a row that did nothing; the sentence carries the limit that it does not leave the network.
-    func wakeHost(id: String) {
-        Analytics.featureUsed(.wakeOnLAN)
-        let addresses = hostMACAddresses[id] ?? []
-        let sent = addresses.filter { WakeOnLAN.send(to: $0) }.count
-        guard sent > 0 else {
-            append(note: addresses.isEmpty
-                ? String(localized: "No hardware address is on file for that Mac, so there is nothing to send a wake packet to.")
-                : String(localized: "That Mac's stored hardware address could not be read, so no wake packet was sent."))
-            return
-        }
-        append(note: sent == 1
-            ? String(localized: "Wake packet sent to 1 hardware address. It can only reach a Mac on this network.")
-            : String(localized: "Wake packet sent to \(sent) hardware addresses. It can only reach a Mac on this network."))
-    }
 
     var pendingHostID: String?
 
