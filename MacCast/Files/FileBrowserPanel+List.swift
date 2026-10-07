@@ -160,6 +160,13 @@ extension FileBrowserPanel {
                         }
                     }
                     .menuInk()
+                    Button("Upload photos here", systemImage: "photo.on.rectangle") {
+                        transferring {
+                            uploadTarget = childPath(entry.name, of: path)
+                            showsPhotos = true
+                        }
+                    }
+                    .menuInk()
                 }
 
                 if onRename != nil {
@@ -233,7 +240,7 @@ extension FileBrowserPanel {
     }
 
     var parent: String? {
-        guard let path, path.hasPrefix("/") else { return nil }
+        guard let path, path.hasPrefix("/"), path != floor else { return nil }
         let up = (path as NSString).deletingLastPathComponent
         return up == path ? nil : up
     }

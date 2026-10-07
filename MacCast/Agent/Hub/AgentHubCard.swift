@@ -1,3 +1,4 @@
+import MacCastKit
 import SwiftUI
 
 struct AgentCardStatus: Equatable {
@@ -132,105 +133,71 @@ struct AgentHubCard: View {
     }
 }
 
-/// The terminals tab's bar: files, and a new shell.
-struct TerminalDock<Gate: View>: View {
-    let offersFiles: Bool
-    let files: () -> Void
-    @ViewBuilder let gate: (_ button: AnyView) -> Gate
-    let newTerminal: () -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            if offersFiles {
-                DockIconButton(symbol: "folder", title: "Files", action: files)
-                    .accessibilityLabel("This Mac's files")
-            }
-            gate(AnyView(
-                Button(action: newTerminal) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(ColorPalette.ink)
-                            .frame(width: 32, height: 32)
-                            .background(ColorPalette.onInk, in: Circle())
-                        Text("New terminal")
-                            .font(.system(size: 15.5, weight: .semibold))
-                    }
-                    .foregroundStyle(ColorPalette.onInk)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(Capsule().fill(ColorPalette.ink))
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(CardPress())
-                .accessibilityLabel("New terminal")
-            ))
-            .frame(maxWidth: .infinity)
-        }
-        .padding(7)
-        .dockSurface()
-        .shadow(color: .black.opacity(0.4), radius: 16, y: 6)
-        .padding(.horizontal, 16)
-        .padding(.bottom, 6)
-    }
-}
-
-/// The floating bar at the bottom: files always, and Chat and Terminal for the selected agent.
-struct AgentDock: View {
+/// The floating bar at the bottom, one view for both tabs so a switch changes the pill's words and mark and the buttons around it come and go, instead of one bar replacing another.
+/// Agents: Chat (or Open) for the selected agent, and CLI. Terminals: Files, and a new shell.
+struct HubDock: View {
+    let tab: HubTab
     let agent: TerminalAgent?
     let agentCount: Int
     let openPicker: () -> Void
     let canChat: Bool
-    let offersFiles: Bool
-    let files: () -> Void
     let chat: () -> Void
     let terminal: () -> Void
+    let offersFiles: Bool
+    let files: () -> Void
+    let canOpenAnotherShell: Bool
+    let newTerminal: () -> Void
 
     @State private var held = false
 
     var body: some View {
         HStack(spacing: 8) {
-            if offersFiles {
+            if tab == .terminals, offersFiles {
                 DockIconButton(symbol: "folder", title: "Files", action: files)
                     .accessibilityLabel("This Mac's files")
-                .accessibilityIdentifier("files-row")
+                    .transition(.blurReplace)
             }
-            if agent == nil, agentCount > 0 {
-                Button(action: openPicker) {
-                    primary("Choose an agent", symbol: "sparkles", id: "none")
-                }
-                .buttonStyle(CardPress())
+            main
                 .frame(maxWidth: .infinity)
-                .transition(.blurReplace)
-            }
-            if let agent {
-                if canChat {
-                    holdsToChoose(chat) {
-                        primary("Chat with \(agent.name)", symbol: agent.symbol, id: agent.id)
-                    }
-                    .accessibilityLabel(Text("Chat with \(agent.name)"))
-                    .frame(maxWidth: .infinity)
-                    .transition(.blurReplace)
-                    DockIconButton(symbol: "terminal", title: "Terminal", action: terminal)
-                        .accessibilityLabel(Text("Start \(agent.name)"))
-                    .transition(.blurReplace)
-                } else {
-                    holdsToChoose(terminal) {
-                        primary("Open \(agent.name)", symbol: agent.symbol, id: agent.id)
-                    }
+            if tab == .agents, canChat, let agent {
+                DockIconButton(symbol: "terminal", title: "CLI", action: terminal)
                     .accessibilityLabel(Text("Start \(agent.name)"))
-                    .frame(maxWidth: .infinity)
                     .transition(.blurReplace)
-                }
             }
         }
-        .padding(7)
-        .dockSurface()
-        .shadow(color: .black.opacity(0.4), radius: 16, y: 6)
         .padding(.horizontal, 16)
+        .padding(.top, 8)
         .padding(.bottom, 6)
+        .animation(Motion.settle, value: tab)
         .animation(Motion.settle, value: canChat)
-        .animation(Motion.settle, value: agent?.id == nil)
+    }
+
+    @ViewBuilder
+    private var main: some View {
+        if tab == .terminals {
+            PlanLocked(
+                capability: .shellTabs,
+                title: String(localized: "New terminal"),
+                diameter: 26,
+                isIncluded: canOpenAnotherShell
+            ) {
+                Button(action: newTerminal) {
+                    primary("New terminal", symbol: "plus", id: "terminal")
+                }
+                .buttonStyle(CardPress())
+                .accessibilityLabel("New terminal")
+            }
+        } else if let agent {
+            holdsToChoose(canChat ? chat : terminal) {
+                primary(canChat ? "Chat with \(agent.name)" : "Open \(agent.name)", symbol: agent.symbol, id: agent.id)
+            }
+            .accessibilityLabel(Text(canChat ? "Chat with \(agent.name)" : "Start \(agent.name)"))
+        } else if agentCount > 0 {
+            Button(action: openPicker) {
+                primary("Choose an agent", symbol: "sparkles", id: "none")
+            }
+            .buttonStyle(CardPress())
+        }
     }
 
     /// The choice of agent lives in the bar it steers, so the page above is not spent on a list that is used once.
@@ -253,7 +220,7 @@ struct AgentDock: View {
         .accessibilityAction(named: Text("Choose the agent")) { openPicker() }
     }
 
-    /// The agent's own mark sits in the button, so the bar reads as being about this agent and changes with the selection.
+    /// The mark sits in the button, so the bar reads as being about this agent (or the new shell) and changes with the selection.
     private func primary(_ title: LocalizedStringKey, symbol: String, id: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
@@ -310,13 +277,5 @@ private struct CardPress: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.95 : 1)
             .opacity(configuration.isPressed ? 0.9 : 1)
             .animation(.spring(response: 0.26, dampingFraction: 0.52), value: configuration.isPressed)
-    }
-}
-
-extension View {
-    /// A solid pill, not glass: glass re-samples what is behind it every frame, and behind this bar the page fades on each tab switch.
-    fileprivate func dockSurface() -> some View {
-        background(ColorPalette.backdrop.opacity(0.96), in: Capsule())
-            .overlay(Capsule().strokeBorder(.white.opacity(0.14)))
     }
 }

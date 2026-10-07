@@ -3,14 +3,16 @@ import SwiftUI
 enum HubTab: String {
     case agents
     case terminals
+    case files
 }
 
-/// Two tabs over the hub: the agents (chats, launchers, their history) apart from plain shells.
+/// Tabs over the hub: the agents (chats, launchers, their history), plain shells, and the Mac's folders.
 struct HubTabs: View {
     @Binding var selection: HubTab
     let terminalCount: Int
     let agentCount: Int
     let agentsBusy: Bool
+    let offersFiles: Bool
     /// For the navigation bar: shorter, titles only, and no margins of its own.
     var compact = false
 
@@ -20,6 +22,7 @@ struct HubTabs: View {
         HStack(spacing: 4) {
             tab(.agents, title: "Agents", symbol: "sparkles", count: agentCount, busy: agentsBusy)
             tab(.terminals, title: "Terminals", symbol: "terminal", count: terminalCount, busy: false)
+            if offersFiles { tab(.files, title: "Files", symbol: "folder", count: 0, busy: false) }
         }
         .padding(compact ? 3 : 4)
         .background(.white.opacity(0.06), in: Capsule())

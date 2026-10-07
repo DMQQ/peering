@@ -128,62 +128,63 @@ extension TerminalHubScreen {
             .padding(.bottom, 28)
         }
         .scrollBounceBehavior(.basedOnSize)
+        // Room for the dock, which floats over the pages instead of shrinking them.
+        .contentMargins(.bottom, which == .terminals || !model.availableAgents.isEmpty ? 70 : 0, for: .scrollContent)
         .opacity(tab == which ? 1 : 0)
         .environment(\.animationsPaused, tab != which)
         .allowsHitTesting(tab == which)
         .accessibilityHidden(tab != which)
     }
 
-    private var tabSwitcher: some View {
+    var tabSwitcher: some View {
         HubTabs(
             selection: $tab,
             terminalCount: model.terminalCards.count,
             agentCount: model.agentCards.filter(\.isLive).count,
             agentsBusy: model.agentCards.contains { $0.state == .working },
-            compact: true
+            offersFiles: model.hostSupportsFileBrowser
         )
-        .frame(width: 296)
     }
 
-    /// Trailing rather than centred: the bar is empty but for the close button, and a centred item is limited to what the larger side leaves.
-    /// Without the bar's own capsule behind it: that one adds its own padding round the item, so the gap beside the selected pill was wider than the one above it, and ours sat inside it as a second glass.
-    @ToolbarContentBuilder
-    var tabsItem: some ToolbarContent {
-        if #available(iOS 26.0, *) {
-            ToolbarItem(placement: .topBarTrailing) { tabSwitcher }
-                .sharedBackgroundVisibility(.hidden)
-        } else {
-            ToolbarItem(placement: .topBarTrailing) { tabSwitcher }
-        }
+    /// The folder browser draws and scrolls its own list, so it is not wrapped in the pages' scroll view.
+    var filesPage: some View {
+        MacFilesScreen(
+            path: nil,
+            embedded: true,
+            push: { path.append(.files($0)) },
+            close: {},
+            preview: { path.append(.filePreview($0)) }
+        )
+        // The tab switch animates layout, and a page built mid-switch lays its bottom bar out from the top and slides it down. Only the fade below may animate.
+        .transaction { $0.animation = nil }
+        .opacity(tab == .files ? 1 : 0)
+        .animation(tab == .files ? Self.tabFade : Self.tabFadeOut, value: tab)
+        .environment(\.animationsPaused, tab != .files)
+        .allowsHitTesting(tab == .files)
+        .accessibilityHidden(tab != .files)
     }
 
     var dockIsShown: Bool {
-        tab == .terminals || !model.availableAgents.isEmpty || model.hostSupportsFileBrowser
-    }
-
-    var terminalDock: some View {
-        TerminalDock(offersFiles: model.hostSupportsFileBrowser, files: { path.append(.files(nil)) }) { button in
-            PlanLocked(
-                capability: .shellTabs,
-                title: String(localized: "New terminal"),
-                diameter: 26,
-                isIncluded: model.canOpenAnotherShell
-            ) { button }
-        } newTerminal: {
-            path.append(.terminalFolder(nil))
+        switch tab {
+        case .agents: !model.availableAgents.isEmpty
+        case .terminals: true
+        case .files: false
         }
     }
 
-    var agentDock: some View {
-        AgentDock(
+    var dock: some View {
+        HubDock(
+            tab: tab,
             agent: selectedAgent,
             agentCount: model.availableAgents.count,
             openPicker: { withAnimation(Self.pickerSpring) { pickerOpen = true } },
             canChat: selectedAgent.map(chatCapable) ?? false,
-            offersFiles: model.hostSupportsFileBrowser,
-            files: { path.append(.files(nil)) },
             chat: { if let agent = selectedAgent { path.append(.folder(agent, nil)) } },
-            terminal: { if let agent = selectedAgent { start(agent) } }
+            terminal: { if let agent = selectedAgent { start(agent) } },
+            offersFiles: model.hostSupportsFileBrowser,
+            files: { tab = .files },
+            canOpenAnotherShell: model.canOpenAnotherShell,
+            newTerminal: { path.append(.terminalFolder(nil)) }
         )
     }
 

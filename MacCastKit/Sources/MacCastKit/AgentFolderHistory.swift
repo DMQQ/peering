@@ -54,6 +54,14 @@ public enum AgentFolderHistory {
 }
 
 public enum AgentFolderPath {
+    /// The `/Users/<name>` folder a path lies in, or nil for a path outside any user's folder. Browsers stop climbing there: nobody picks a working folder in `/` or `/Users`.
+    public static func userHome(containing path: String?) -> String? {
+        guard let path else { return nil }
+        let parts = path.split(separator: "/", omittingEmptySubsequences: true)
+        guard parts.count >= 2, parts[0] == "Users" else { return nil }
+        return "/Users/" + parts[1]
+    }
+
     public static func parent(of path: String?) -> String? {
         guard let path, path.count > 1 else { return nil }
         let parent = (path as NSString).deletingLastPathComponent

@@ -106,6 +106,8 @@ struct FolderBrowserBar<Leading: View, Actions: View>: View {
 /// The folders above this one as a menu on the navigation title, which is how Files does it: the path is a place to jump from, not a strip to read.
 struct AncestorsMenu: ViewModifier {
     let path: String?
+    /// The topmost folder the menu may offer, for a browser that must not climb out of the user's home.
+    var floor: String?
     let open: (String) -> Void
 
     func body(content: Content) -> some View {
@@ -125,13 +127,14 @@ struct AncestorsMenu: ViewModifier {
             result.append((String(component), walked))
         }
         result.append(("/", "/"))
-        return result.reversed()
+        guard let floor else { return result.reversed() }
+        return result.reversed().filter { $0.path == floor || $0.path.hasPrefix(floor + "/") }
     }
 }
 
 extension View {
-    func ancestorsMenu(of path: String?, open: @escaping (String) -> Void) -> some View {
-        modifier(AncestorsMenu(path: path, open: open))
+    func ancestorsMenu(of path: String?, floor: String? = nil, open: @escaping (String) -> Void) -> some View {
+        modifier(AncestorsMenu(path: path, floor: floor, open: open))
     }
 }
 

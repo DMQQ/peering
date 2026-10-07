@@ -45,9 +45,10 @@ struct TerminalPanel: View {
         if let index = path.lastIndex(where: { Self.page($0, shows: destination, home: home) }) {
             path = Array(path[...index])
         } else if let top = path.last, let shown = folder(of: top, home: home), Self.concreteFolder(of: destination, home: home).map({ Self.isAncestor($0, of: shown) }) == true {
-            // A parent nobody visited is slipped under the current page and the current page popped, so ".." reads as going back.
-            path.insert(destination, at: path.count - 1)
-            Task { @MainActor in path.removeLast() }
+            // A parent nobody visited takes the current page's place. Inserting under it and popping it on a later tick was two stack edits racing the navigation controller, which left it on the old page with the swipe back dead.
+            var replaced = path
+            replaced[replaced.count - 1] = destination
+            path = replaced
         } else {
             path.append(destination)
         }
@@ -87,7 +88,8 @@ struct TerminalPanel: View {
 
     var body: some View {
         if let step {
-            page(for: step)
+            // Keyed by the step: ".." replaces the top page, and without a new identity the picker keeps the listing it already loaded.
+            page(for: step).id(step)
         } else {
             hub
         }

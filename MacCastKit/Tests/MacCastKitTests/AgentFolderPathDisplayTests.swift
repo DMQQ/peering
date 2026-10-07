@@ -20,3 +20,17 @@ import Testing
         #expect(AgentFolderPath.display("/Users/me", home: "/") == "/Users/me")
     }
 }
+
+@Suite struct AgentFolderPathUserHomeTests {
+    @Test func aFolderInsideAUserFolderNamesIt() {
+        #expect(AgentFolderPath.userHome(containing: "/Users/me/Desktop/app") == "/Users/me")
+        #expect(AgentFolderPath.userHome(containing: "/Users/me") == "/Users/me")
+    }
+
+    @Test func thingsOutsideAUserFolderHaveNone() {
+        #expect(AgentFolderPath.userHome(containing: "/") == nil)
+        #expect(AgentFolderPath.userHome(containing: "/Users") == nil)
+        #expect(AgentFolderPath.userHome(containing: "/Volumes/Backup") == nil)
+        #expect(AgentFolderPath.userHome(containing: nil) == nil)
+    }
+}

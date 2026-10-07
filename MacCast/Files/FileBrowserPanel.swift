@@ -27,6 +27,8 @@ struct FileBrowserPanel: View {
 
     var onOpen: (RemoteDirectoryEntry) -> Void
     var onNavigate: (String) -> Void
+    /// The folder the browser may not climb out of; nil leaves it free, as on a server.
+    var floor: String?
     /// Optional: the hub's browser has no shell to put a path into.
     var onRevealPath: ((String) -> Void)?
     var onReload: () -> Void
@@ -74,6 +76,7 @@ struct FileBrowserPanel: View {
     /// Filtered locally: a round trip per letter would flicker behind the keyboard, and both browsers narrow the same way.
     @State var query = ""
     @State var showsImporter = false
+    @State var showsPhotos = false
 
     @State var pendingRun: RemoteDirectoryEntry?
 
@@ -86,6 +89,18 @@ struct FileBrowserPanel: View {
     @FocusState var searchFocused: Bool
 
     static let slowReadInterval: Duration = .milliseconds(2500)
+
+    /// Where picked files go: the folder a long-press chose, else the one on screen.
+    func deliverUpload(_ urls: [URL]) {
+        if let target = uploadTarget, let onUploadInto {
+            uploadTarget = nil
+            onUploadInto(urls, target)
+        } else if let onUploadItems {
+            onUploadItems(urls)
+        } else if let url = urls.first {
+            onUpload?(url)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -124,6 +139,14 @@ struct FileBrowserPanel: View {
             if let progress { progressLine(progress) }
             content
                 .refreshable { onReload() }
+                // Over the list rather than below it, so rows scroll under the field as on the other screens.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    VStack(spacing: 0) {
+                        aboveSearch
+                        bottomBar
+                    }
+                    .reviewBottomBackdrop()
+                }
                 .confirmationDialog(
                     deleteTitle,
                     isPresented: Binding(
@@ -140,8 +163,6 @@ struct FileBrowserPanel: View {
                 } message: {
                     Text(deleteMessage)
                 }
-            aboveSearch
-            bottomBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         // Only the thing being uploaded, not the whole Finder tree. Multi-select only where the caller can take more than one, so the app never silently discards a chosen file.
@@ -151,15 +172,9 @@ struct FileBrowserPanel: View {
             allowsMultipleSelection: onUploadItems != nil
         ) { result in
             guard case .success(let urls) = result, !urls.isEmpty else { return }
-            if let target = uploadTarget, let onUploadInto {
-                uploadTarget = nil
-                onUploadInto(urls, target)
-            } else if let onUploadItems {
-                onUploadItems(urls)
-            } else if let url = urls.first {
-                onUpload?(url)
-            }
+            deliverUpload(urls)
         }
+        .photoUploadPicker(isPresented: $showsPhotos) { deliverUpload($0) }
         // The drop (an iPad addition) is handled like the picker's result by the caller. Only where the caller can take several, else extra items would vanish.
         .dropDestination(for: URL.self) { urls, _ in
             guard let onUploadItems, !urls.isEmpty else { return false }

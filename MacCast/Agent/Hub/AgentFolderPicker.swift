@@ -60,8 +60,8 @@ struct AgentFolderPicker: View {
             ) { useButton }
             .reviewBottomBackdrop()
         }
-        .ancestorsMenu(of: picker.path) { open($0) }
-        .folderBackButton(of: shown.path) { open($0) }
+        .ancestorsMenu(of: picker.path, floor: picker.startPath) { open($0) }
+        .folderBackButton(of: shown.path, floor: picker.startPath) { open($0) }
         .background(ColorPalette.backdrop)
         .navigationTitle(shown.path.map(AgentFolderPath.name(of:)) ?? title)
         .navigationBarTitleDisplayMode(.inline)
@@ -109,6 +109,10 @@ struct AgentFolderPicker: View {
                             .padding(.vertical, 12)
                         Controls.divider
                     }
+                    if picker.path == picker.startPath, !recents.isEmpty {
+                        recentSection
+                        Controls.divider.padding(.top, 14)
+                    }
                     if let parent = parentPath {
                         upRow(parent)
                         Controls.divider
@@ -126,9 +130,6 @@ struct AgentFolderPicker: View {
                     ForEach(Array(folders.enumerated()), id: \.element.name) { index, entry in
                         if index > 0 { Controls.divider }
                         row(entry)
-                    }
-                    if picker.path == picker.startPath, !recents.isEmpty {
-                        recentSection
                     }
                     Text(verbatim: picker.path ?? "")
                         .font(.system(size: 11, design: .monospaced))
@@ -267,7 +268,8 @@ struct AgentFolderPicker: View {
     }
 
     private var parentPath: String? {
-        AgentFolderPath.parent(of: picker.path)
+        // Nothing above the user's home is offered: the root and /Users are not places anyone picks a working folder.
+        isAtHome ? nil : AgentFolderPath.parent(of: picker.path)
     }
 
     private var isAtHome: Bool {

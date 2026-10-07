@@ -78,7 +78,10 @@ extension FileBrowserPanel {
                     title: "Send a file or a folder here",
                     diameter: 48
                 ) {
-                    Button { uploadTarget = nil; showsImporter = true } label: {
+                    Menu {
+                        Button("Files", systemImage: "folder") { uploadTarget = nil; showsImporter = true }
+                        Button("Photos & Videos", systemImage: "photo.on.rectangle") { uploadTarget = nil; showsPhotos = true }
+                    } label: {
                         chrome("arrow.up.to.line")
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.9))

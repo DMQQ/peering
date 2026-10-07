@@ -11,6 +11,8 @@ struct TerminalHubScreen: View {
     @State var terminalHistoryRevision = 0
     @State var selectedAgentID: String?
     @State var pickerOpen = false
+    /// Files is built on first visit: it lists a folder on the Mac as soon as it appears.
+    @State var filesVisited = false
     @State var choosing: String?
     @State var tab: HubTab = HubTab(rawValue: UserDefaults.standard.string(forKey: "Peering.hubTab") ?? "") ?? .agents
     /// Both kinds behind one alert: two alerts on one screen means one does not present.
@@ -52,23 +54,23 @@ struct TerminalHubScreen: View {
                 terminalsSection
                 terminalHistorySection
             }
+            if filesVisited, model.hostSupportsFileBrowser { filesPage.transition(.identity) }
         }
-        .animation(.easeOut(duration: 0.12), value: tab)
-        .onChange(of: tab) { _, tab in
-            UserDefaults.standard.set(tab.rawValue, forKey: "Peering.hubTab")
-            Analytics.panelOpened(tab == .agents ? .agents : .terminals)
-        }
+        .animation(Self.tabFade, value: tab)
+        .onChange(of: tab) { _, tab in tabChanged(to: tab) }
+        .onAppear { restoreTab() }
         .scrollBounceBehavior(.basedOnSize)
-        .toolbar { tabsItem }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        .navigationTitle(model.hostName ?? String(localized: "Your Mac"))
+        .safeAreaInset(edge: .top, spacing: 0) { tabSwitcher.background(ColorPalette.backdrop) }
+        // An overlay and not a bottom inset: an inset resizes every page, including the hidden Files page, so each tab switch re-laid out its search row against the dock.
+        .overlay(alignment: .bottom) {
             if dockIsShown {
-                Group {
-                    if tab == .agents { agentDock } else { terminalDock }
-                }
-                .reviewBottomBackdrop()
+                dock
+                    .reviewBottomBackdrop()
+                    // Leaving Files, the Files bar goes first and this one fades in behind it, so the two are never on screen together. Going to Files it leaves at once.
+                    .transition(.asymmetric(insertion: .opacity.animation(Self.tabFade.delay(0.1)), removal: .identity))
             }
         }
-        .animation(Motion.settle, value: dockIsShown)
         .overlay { agentPicker }
         .onChange(of: tab) { _, _ in pickerOpen = false }
         .background(ColorPalette.backdrop)
@@ -98,7 +100,29 @@ struct TerminalHubScreen: View {
 
 
 
+    private func tabChanged(to tab: HubTab) {
+        UserDefaults.standard.set(tab.rawValue, forKey: "Peering.hubTab")
+        if tab == .files { filesVisited = true }
+        let panel: Analytics.Panel
+        switch tab {
+        case .agents: panel = .agents
+        case .terminals: panel = .terminals
+        case .files: panel = .files
+        }
+        Analytics.panelOpened(panel)
+    }
+
+    /// A remembered Files tab on a Mac that cannot browse falls back to Agents.
+    private func restoreTab() {
+        guard tab == .files else { return }
+        if model.hostSupportsFileBrowser { filesVisited = true } else { tab = .agents }
+    }
+
     // MARK: - Agents
+
+    /// One fade for the pages, the docks and the Files bar, so a tab change moves everything together.
+    static let tabFade = Animation.easeOut(duration: 0.12)
+    static let tabFadeOut = Animation.easeOut(duration: 0.08)
 
     static let pickerSpring = Animation.spring(response: 0.45, dampingFraction: 0.78)
 

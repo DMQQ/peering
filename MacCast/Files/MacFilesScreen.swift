@@ -6,6 +6,8 @@ import SwiftUI
 /// One page per folder, so the swipe back is one level up. The first page has no path of its own and opens where the Mac last left it.
 struct MacFilesScreen: View {
     let path: String?
+    /// Living inside the hub's Files tab, which owns the title, the back button and the way out.
+    var embedded = false
     let push: (String) -> Void
     let close: () -> Void
     let preview: (String) -> Void
@@ -18,6 +20,9 @@ struct MacFilesScreen: View {
     @State private var home: String?
 
     private var shownPath: String? { path ?? home }
+
+    /// Nothing above the user's own folder is offered.
+    private var floor: String? { AgentFolderPath.userHome(containing: shownPath ?? model.browserPath) }
 
     var body: some View {
         Group {
@@ -32,17 +37,7 @@ struct MacFilesScreen: View {
             }
         }
         .background(ColorPalette.backdrop)
-        .navigationTitle(shownPath.map { $0 == "/" ? "/" : ($0 as NSString).lastPathComponent } ?? String(localized: "Files"))
-        .navigationBarTitleDisplayMode(.inline)
-        .ancestorsMenu(of: shownPath) { push($0) }
-        .folderBackButton(of: shownPath) { push($0) }
-        .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(String(localized: "Done"), action: close)
-            }
-        }
+        .modifier(PushedFolderChrome(enabled: !embedded, path: shownPath, floor: floor, push: push, close: close))
         .onAppear {
             guard let id = model.browserID else { return }
             // The scope first: the Mac keeps one only for the connection that made it, and the listing that follows travels after it on the same connection.
@@ -99,6 +94,7 @@ struct MacFilesScreen: View {
                 progress: model.downloadProgress(sessionID: id) ?? model.folderProgress(sessionID: id),
                 onOpen: { open($0, in: id) },
                 onNavigate: { push($0) },
+                floor: floor,
                 onRevealPath: nil,
                 onReload: { model.listDirectory(shownPath, sessionID: id) },
                 onUpload: { model.uploadFile($0, sessionID: id) },
@@ -139,6 +135,34 @@ struct MacFilesScreen: View {
             push(path)
         } else {
             preview(path)
+        }
+    }
+}
+
+/// The title, parent-folder menu, back button and Done of a folder page pushed on the stack.
+private struct PushedFolderChrome: ViewModifier {
+    let enabled: Bool
+    let path: String?
+    let floor: String?
+    let push: (String) -> Void
+    let close: () -> Void
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .navigationTitle(path.map { $0 == "/" ? "/" : ($0 as NSString).lastPathComponent } ?? String(localized: "Files"))
+                .navigationBarTitleDisplayMode(.inline)
+                .ancestorsMenu(of: path, floor: floor) { push($0) }
+                .folderBackButton(of: path, floor: floor) { push($0) }
+                .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(String(localized: "Done"), action: close)
+                    }
+                }
+        } else {
+            content
         }
     }
 }

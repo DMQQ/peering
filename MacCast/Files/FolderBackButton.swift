@@ -4,6 +4,8 @@ import UIKit
 /// The back button of a folder page, named for the folder above. The system button shows only a chevron here, and hiding it drops the edge swipe, which ``EdgeSwipeBack`` puts back.
 struct FolderBackButton: ViewModifier {
     let path: String?
+    /// The page at this folder has no parent button: the system one leaves the browser.
+    var floor: String?
     let openParent: (String) -> Void
 
     func body(content: Content) -> some View {
@@ -31,7 +33,7 @@ struct FolderBackButton: ViewModifier {
     }
 
     private var parent: String? {
-        guard let path, path.hasPrefix("/"), path != "/" else { return nil }
+        guard let path, path.hasPrefix("/"), path != "/", path != floor else { return nil }
         let up = (path as NSString).deletingLastPathComponent
         return up.isEmpty ? "/" : up
     }
@@ -53,7 +55,7 @@ private struct EdgeSwipeBack: UIViewControllerRepresentable {
 }
 
 extension View {
-    func folderBackButton(of path: String?, openParent: @escaping (String) -> Void) -> some View {
-        modifier(FolderBackButton(path: path, openParent: openParent))
+    func folderBackButton(of path: String?, floor: String? = nil, openParent: @escaping (String) -> Void) -> some View {
+        modifier(FolderBackButton(path: path, floor: floor, openParent: openParent))
     }
 }
