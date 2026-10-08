@@ -568,6 +568,13 @@ fn resolve(root: &Path, path: &str) -> Option<PathBuf> {
         // `/privacy` reads better than `/privacy.html` in a store listing and in a legal link, and
         // one line here is cheaper than a redirect or a second set of files.
         file.set_extension("html");
+        // `/de` is a folder with an index, not a page called de.html.
+        if !file.is_file() {
+            let folder_index = file.with_extension("").join("index.html");
+            if folder_index.is_file() {
+                return Some(folder_index);
+            }
+        }
     }
 
     Some(file)
@@ -756,6 +763,19 @@ mod tests {
         assert_eq!(resolve(root, "/privacy").unwrap(), root.join("privacy.html"));
         assert_eq!(resolve(root, "/privacy/").unwrap(), root.join("privacy.html"));
         assert_eq!(resolve(root, "//privacy").unwrap(), root.join("privacy.html"));
+    }
+
+    #[test]
+    fn serves_a_folder_through_its_index() {
+        let root = std::env::temp_dir().join(format!("peeringd-folder-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("de")).unwrap();
+        std::fs::write(root.join("de/index.html"), "x").unwrap();
+        std::fs::write(root.join("privacy.html"), "x").unwrap();
+        assert_eq!(resolve(&root, "/de").unwrap(), root.join("de/index.html"));
+        assert_eq!(resolve(&root, "/de/").unwrap(), root.join("de/index.html"));
+        assert_eq!(resolve(&root, "/privacy").unwrap(), root.join("privacy.html"));
+        assert_eq!(resolve(&root, "/missing").unwrap(), root.join("missing.html"));
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]
