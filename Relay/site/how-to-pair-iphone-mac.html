@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How to Pair Your iPhone with Your Mac · Peering</title>
+<meta name="description" content="Step by step: grant the two permissions Peering needs, decide whether your Mac stays reachable while you're away, and pair your first iPhone.">
+<link rel="canonical" href="https://getpeering.app/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/how-to-pair-iphone-mac">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="en_GB">
+<meta property="og:url" content="https://getpeering.app/how-to-pair-iphone-mac">
+<meta property="og:title" content="How to Pair Your iPhone with Your Mac · Peering">
+<meta property="og:description" content="Step by step: permissions, the optional away-from-home switches, and pairing your first iPhone.">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Pair Your iPhone with Your Mac · Peering">
+<meta name="twitter:description" content="Step by step: permissions, the optional away-from-home switches, and pairing your first iPhone.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to pair your iPhone with your Mac using Peering",
+  "description": "Grant the two permissions Peering needs on the Mac, decide whether it stays reachable while you're away, then pair your iPhone.",
+  "step": [
+    {
+      "@type": "HowToStep",
+      "name": "Let Peering access your Mac",
+      "text": "Grant Accessibility, which turns gestures and keys from your iPhone into input on the Mac, and Screen Recording, which sends the Mac's picture to your iPhone. Both are required."
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Decide whether this Mac stays reachable while you're away",
+      "text": "Optional. Choose whether the Mac stays awake on its own, on a schedule, wakes itself daily, or keeps running with the lid closed. All four default off and can be changed later from Settings."
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Pair your first iPhone",
+      "text": "Open Peering on your iPhone. On the same network it finds the Mac by itself and shows a six-digit code to confirm. Off that network, enter the Mac's address by hand or scan its device ID."
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/" aria-label="Peering, home">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Pages">
+      <a href="/">Home</a>
+      <a href="/remote-desktop-for-mac">Remote desktop</a>
+      <a href="/access-your-mac-from-anywhere">From anywhere</a>
+      <a href="/download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>How to Pair Your iPhone with Your Mac</h1>
+    <p class="updated">One-time setup, three parts. After the first pairing, opening Peering on your iPhone is the only step left.</p>
+
+    <div class="card callout">
+      Install <a href="/download">Peering for Mac</a> first. It is the half that shares the
+      screen, and the one your iPhone connects to. The iPhone app finds it automatically once
+      both are on the same network.
+    </div>
+
+    <h2>1. Let Peering access your Mac</h2>
+    <p>
+      The Mac app opens straight to this screen the first time, and stays here until both
+      permissions are granted: a host that only pretends to work is worse than one that says
+      plainly what it is missing.
+    </p>
+    <ul>
+      <li>
+        <strong>Accessibility.</strong> Turns gestures and keys from your iPhone into input on
+        this Mac. Without it, you can see the Mac but cannot control it.
+      </li>
+      <li>
+        <strong>Screen Recording.</strong> Sends a live picture of this Mac to your iPhone.
+        Without it, your iPhone connects to a black screen.
+      </li>
+    </ul>
+    <p>
+      Accessibility takes effect immediately. Screen Recording is only read when the app starts,
+      so after allowing it in System Settings, Peering asks you to relaunch to pick it up. Both
+      buttons open the exact System Settings pane you need.
+    </p>
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-permissions.webp" width="1600" height="813" loading="lazy"
+        alt="Peering's Let Peering access this Mac screen, showing Accessibility and Screen Recording as required, each with an Allow button.">
+      <figcaption>What you'll see on the Mac the first time you open Peering.</figcaption>
+    </figure>
+
+    <h2>2. Decide whether this Mac stays reachable while you're away</h2>
+    <p>
+      Optional, and every switch here defaults off. This step exists because it used to be a
+      setting nobody found, tucked behind the menu bar icon; now it is asked once, plainly, before
+      you get to the part where you actually use the app.
+    </p>
+    <ul>
+      <li>
+        <strong>Keep Mac awake.</strong> No idle sleep, no display sleep, no extra permission
+        prompt. It does not survive the lid being shut, and is lifted automatically when Peering
+        quits.
+      </li>
+      <li>
+        <strong>Keep it awake only between certain hours.</strong> A schedule for the switch
+        above, instead of awake around the clock.
+      </li>
+      <li>
+        <strong>Wake it up every day.</strong> A daily wake time. Once a Mac has gone to sleep,
+        nothing else here can reach it again until something wakes it.
+      </li>
+      <li>
+        <strong>Keep running with the lid closed.</strong> The one that survives the lid shutting.
+        macOS only offers this through <code>pmset</code>, so it asks for your administrator
+        password once, and while it is on the Mac does not sleep at all.
+      </li>
+    </ul>
+    <p>
+      Skip this and every switch stays off. You can turn any of them on later from Settings, with
+      the same names and the same explanations.
+    </p>
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-away-switches.webp" width="1600" height="967" loading="lazy"
+        alt="Peering's Leaving this Mac at home screen, showing the Keep Mac awake, schedule, daily wake, and lid-closed switches, all off.">
+      <figcaption>The four away-from-home switches. All optional, all off to start.</figcaption>
+    </figure>
+
+    <h2>3. Pair your first iPhone</h2>
+    <p>
+      With both permissions granted, this Mac starts listening and shows three ways to reach it:
+    </p>
+    <ul>
+      <li>
+        <strong>On the same network.</strong> Open Peering on your iPhone. It finds this Mac by
+        itself, and both screens show the same six digits to confirm the first time.
+      </li>
+      <li>
+        <strong>By address.</strong> If discovery is blocked where you are, enter the Mac's
+        address and port, shown on screen, on your iPhone by hand.
+      </li>
+      <li>
+        <strong>From another network.</strong> Not on the same Wi-Fi yet? Scan the device-ID QR
+        code shown on the Mac from Peering on your iPhone, or type the ID in by hand.
+      </li>
+    </ul>
+    <p>
+      Confirming the six digits is what pairs the two devices: each one already generated its own
+      key, and the code is how you tell Peering that the device on the other end is the one in
+      front of you. Once confirmed, both remember the other's key, and every later connection is
+      a tap.
+    </p>
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-pair-iphone.webp" width="1600" height="813" loading="lazy"
+        alt="Peering's Pair your first iPhone screen, showing the three ways to connect and a QR code for pairing from another network.">
+      <figcaption>Waiting for a first connection: same network, by address, or from anywhere.</figcaption>
+    </figure>
+
+    <h2>What if my iPhone is on a different network?</h2>
+    <p>
+      The first pairing needs the two devices to share a network, or the "from another network"
+      QR code and device ID above. After that one confirmation, your iPhone and Mac find each
+      other from anywhere, which is what <a href="/access-your-mac-from-anywhere">reaching your
+      Mac from anywhere</a> covers.
+    </p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/download">Download Peering for Mac</a>
+    </div>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Guides, legal and support">
+      <a href="/how-to-pair-iphone-mac">Pairing guide</a>
+      <a href="/remote-desktop-for-mac">Remote desktop</a>
+      <a href="/access-your-mac-from-anywhere">From anywhere</a>
+      <a href="/keep-mac-awake-for-remote-access">Mac at home</a>
+      <a href="/coding-agent-notifications">Coding agents</a>
+      <a href="/remote-desktop-apps-compared">Compare apps</a>
+      <a href="/screens-alternative">Screens alternative</a>
+      <a href="/download">Download</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="mailto:support@getpeering.app">Support</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/how-to-pair-iphone-mac" hreflang="en" lang="en">English</a>
+      <a href="/de/how-to-pair-iphone-mac" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/how-to-pair-iphone-mac" hreflang="es" lang="es">Español</a>
+      <a href="/fr/how-to-pair-iphone-mac" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/how-to-pair-iphone-mac" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/how-to-pair-iphone-mac" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/how-to-pair-iphone-mac" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/how-to-pair-iphone-mac" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/how-to-pair-iphone-mac" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/how-to-pair-iphone-mac" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone and Mac are trademarks of Apple Inc.</p>
+  </div>
+</footer>
+
+</body>
+</html>

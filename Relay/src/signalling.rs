@@ -12,18 +12,30 @@
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+/// How many sessions one signalling connection may ask for. See `ConnectionState`.
+const MAX_SESSIONS_PER_CONNECTION: usize = 64;
+
+use crate::device_bindings::{Binding, DeviceBindings};
+use crate::device_proof;
 
 use futures_util::{SinkExt, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, Mutex, Semaphore};
+use tokio::time;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
-use crate::protocol::{hex, ClientMessage, ServerMessage};
+use crate::apns::{ApnsClient, PushAction, PushRoute};
+
+/// The only categories a Mac may name: the ones the phone registers for an agent approval.
+const AGENT_APPROVAL_CATEGORY_PREFIX: &str = "peering.agent.approval.";
+use crate::protocol::{hex, unhex, ClientMessage, ServerMessage};
 use crate::quota::{Plan, QuotaTracker};
 use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
 use crate::storekit::{ReceiptCache, StoreKitVerifier};
@@ -52,6 +64,17 @@ pub struct Settings {
     /// is what the client bought, and `quota` is what that buys them. Keeping the verification out
     /// of the counter is also what lets the counter be tested without a certificate in sight.
     pub receipts: Arc<StoreKitVerifier>,
+    /// How many sessions may exist at once. See `Config::max_sessions`.
+    pub max_sessions: usize,
+    /// How many sockets may be open on the listener at once. See `Config::max_connections`.
+    pub max_connections: usize,
+    /// How long a socket has to finish becoming a WebSocket, and how long it may then sit silent.
+    /// See `Config::handshake_timeout` and `Config::idle_timeout`.
+    pub handshake_timeout: Duration,
+    pub idle_timeout: Duration,
+    /// APNs client, when the relay has been given a key. `None` means push notifications are
+    /// not available; `NotifyDevice` messages from registered hosts are silently dropped.
+    pub apns: Option<Arc<ApnsClient>>,
 }
 
 /// What one signalling connection carries from message to message.
@@ -59,6 +82,14 @@ pub struct Settings {
 struct ConnectionState {
     /// The device ID this socket registered as, so the registration can be removed when it closes.
     registered_as: Option<String>,
+    /// How many sessions this one socket has asked for.
+    ///
+    /// **A ceiling on a socket as well as on the process.** The process-wide one bounds memory; this
+    /// one stops a single connection from spending all of it and leaving every other client refused
+    /// which turns the global ceiling into a denial of service of its own. Sixty-four is far past
+    /// any honest use: a client allocates one session per connect, and a client reconnecting sixty
+    /// times over one socket is a client in a loop.
+    sessions_asked_for: usize,
     /// The verdict on the receipts this client has sent, so a JWS is verified once per session
     /// rather than once per message. See `storekit::ReceiptCache`.
     receipts: ReceiptCache,
@@ -68,6 +99,18 @@ struct ConnectionState {
 #[derive(Clone, Default)]
 pub struct HostRegistry {
     inner: Arc<Mutex<HashMap<String, Host>>>,
+    /// Who each device id belongs to.
+    ///
+    /// **Here rather than threaded through as its own parameter**, and the reason is that it is a
+    /// property of this table rather than a second thing beside it: the rule it enforces is "only
+    /// the device that registered this id may register it again", which is a statement about the
+    /// entries below. It lives longer than any entry does, which is the whole point of it, and that
+    /// is the one way in which it is not like the table it sits in.
+    ///
+    /// Behind an `Arc` because this whole type is `Clone` and every clone must be looking at the
+    /// same bindings: a second copy that started empty would let a registration through on the
+    /// connection that happened to hold the fresh one.
+    bindings: Arc<DeviceBindings>,
 }
 
 struct Host {
@@ -90,7 +133,51 @@ impl HostRegistry {
         Self::default()
     }
 
-    async fn put(&self, device_id: &str, name: String, version: u16, tx: mpsc::Sender<ServerMessage>) {
+    /// The same registry, with device bindings that outlive the process.
+    ///
+    /// The failure is returned rather than logged here so that `main` can say at startup which of
+    /// the two it got, the way it does for the usage log.
+    pub fn with_bindings(path: Option<PathBuf>) -> (Self, Option<std::io::Error>) {
+        let (bindings, failure) = DeviceBindings::new(path);
+        (
+            Self {
+                bindings: Arc::new(bindings),
+                ..Self::default()
+            },
+            failure,
+        )
+    }
+
+    /// Registers a Mac, if it is entitled to the id it is claiming.
+    ///
+    /// **`proof` is the public key the registration proved control of, or `None` when it offered
+    /// no proof at all.** The check is in `DeviceBindings`, and the shape of it is what lets this
+    /// ship before every Mac in the field has updated: an id nobody has proved is registered by
+    /// anyone, exactly as before, and an id somebody has proved is registered only by that device.
+    async fn put(
+        &self,
+        device_id: &str,
+        name: String,
+        version: u16,
+        tx: mpsc::Sender<ServerMessage>,
+        proof: Option<&str>,
+    ) -> Result<(), &'static str> {
+        match self.bindings.check_and_bind(device_id, proof) {
+            Binding::Refused(reason) => return Err(reason),
+            // **Loud, because it is the one registration that cannot be judged here.** A device
+            // that re-minted its identity and somebody who has taken an ID they do not own are the
+            // same message with the same proof, and only a person reading this can tell them apart.
+            // The registration goes through either way: refusing it is what used to let a stranger
+            // take a Mac off the relay for good by arriving first.
+            Binding::Rebound => {
+                warn!(
+                    %device_id,
+                    "this device id was bound to a different key and is now bound to this one"
+                );
+            }
+            Binding::Bound | Binding::Matched => {}
+        }
+
         self.inner.lock().await.insert(
             device_id.to_string(),
             Host {
@@ -99,6 +186,7 @@ impl HostRegistry {
                 tx,
             },
         );
+        Ok(())
     }
 
     /// Removes a registration **only if this connection still owns it**.
@@ -139,7 +227,31 @@ pub async fn serve(
     settings: Settings,
     tls: Option<tokio_rustls::TlsAcceptor>,
 ) {
-    info!(addr = %listener.local_addr().map(|a| a.to_string()).unwrap_or_default(), "signalling listening");
+    info!(
+        addr = %listener.local_addr().map(|a| a.to_string()).unwrap_or_default(),
+        max_connections = settings.max_connections,
+        handshake_seconds = settings.handshake_timeout.as_secs(),
+        idle_seconds = settings.idle_timeout.as_secs(),
+        "signalling listening"
+    );
+
+    // **Two bounds on a socket that has not earned its keep yet.** Nothing in front of this listener
+    // authenticates anybody: an accepted socket is a task and a file descriptor handed to whoever
+    // asked, and before these existed a peer could take as many as it liked and hold each one for
+    // ever by saying nothing at all. The permits are the count and the timeouts are the duration,
+    // and both are needed: a count alone lets the same number of sockets be held indefinitely, and
+    // a duration alone has no ceiling to fail against under a flood.
+    //
+    // A connection that arrives with every permit taken is closed rather than queued. Queuing would
+    // turn a flood into a backlog of work for a relay that is already at its limit, and the clients
+    // that matter here retry: the Mac's registration reconnects on a backoff, and the app's
+    // signalling connections are opened per request.
+    // Clamped, because `Semaphore::new` panics above its own maximum and a panic at startup is a
+    // relay that will not run: an operator who writes an enormous number asking for no limit gets
+    // the largest number tokio will take instead of a process that dies explaining nothing.
+    let permits = Arc::new(Semaphore::new(
+        settings.max_connections.min(Semaphore::MAX_PERMITS),
+    ));
 
     loop {
         let (stream, peer) = match listener.accept().await {
@@ -148,6 +260,12 @@ pub async fn serve(
                 warn!(%error, "signalling listener could not accept");
                 continue;
             }
+        };
+
+        let Ok(permit) = Arc::clone(&permits).try_acquire_owned() else {
+            warn!(%peer, "refused a signalling connection: the listener is at its limit");
+            drop(stream);
+            continue;
         };
 
         // The address this client reached us on is the one it can reach us on again, which is why
@@ -166,17 +284,33 @@ pub async fn serve(
             Some(acceptor) => {
                 let acceptor = acceptor.clone();
                 tokio::spawn(async move {
-                    match acceptor.accept(stream).await {
-                        Ok(secured) => {
-                            handle(secured, peer, relay_host, registry, hosts, settings).await
+                    // The handshake is bounded like everything else here: a socket that opens a TLS
+                    // connection and never finishes it would otherwise hold its permit for ever.
+                    let secured = time::timeout(settings.handshake_timeout, acceptor.accept(stream))
+                        .await;
+                    // Each arm that only logs is braced, which is not decoration: a tracing macro
+                    // leaves a temporary alive to the end of the enclosing match, and this match
+                    // contains an `.await` in another arm, so the whole future stops being `Send`
+                    // and `tokio::spawn` refuses it.
+                    match secured {
+                        Ok(Ok(secured)) => {
+                            handle(secured, peer, relay_host, registry, hosts, settings).await;
                         }
-                        Err(error) => debug!(%peer, %error, "signalling TLS handshake failed"),
+                        Ok(Err(error)) => {
+                            debug!(%peer, %error, "signalling TLS handshake failed");
+                        }
+                        Err(_) => {
+                            debug!(%peer, "signalling TLS handshake timed out");
+                        }
                     }
+                    // Dropped with the permit, which is what returns it to the pool.
+                    drop(permit);
                 });
             }
             None => {
                 tokio::spawn(async move {
-                    handle(stream, peer, relay_host, registry, hosts, settings).await
+                    handle(stream, peer, relay_host, registry, hosts, settings).await;
+                    drop(permit);
                 });
             }
         }
@@ -200,10 +334,21 @@ async fn handle<S>(
     let mut config = WebSocketConfig::default();
     config.max_message_size = Some(64 * 1024);
     config.max_frame_size = Some(64 * 1024);
-    let ws = match tokio_tungstenite::accept_async_with_config(stream, Some(config)).await {
-        Ok(ws) => ws,
-        Err(error) => {
+    // Bounded, for the same reason the TLS handshake above is: this is a second place a peer can
+    // arrive and then say nothing, and without a deadline the connection it holds is held for ever.
+    let ws = match time::timeout(
+        settings.handshake_timeout,
+        tokio_tungstenite::accept_async_with_config(stream, Some(config)),
+    )
+    .await
+    {
+        Ok(Ok(ws)) => ws,
+        Ok(Err(error)) => {
             debug!(%peer, %error, "websocket handshake failed");
+            return;
+        }
+        Err(_) => {
+            debug!(%peer, "websocket handshake timed out");
             return;
         }
     };
@@ -216,9 +361,25 @@ async fn handle<S>(
     let (tx, mut rx) = mpsc::channel::<ServerMessage>(32);
     let mut state = ConnectionState::default();
 
+    // **The idle deadline, and why it is not the same as the handshake one.** A registered Mac
+    // holds this connection open for as long as it is running, and an app's signalling connections
+    // are opened per request, so "silent" is the normal state of the one that matters. What makes
+    // this safe is that the Mac says something anyway: it pings every 25 seconds, so a deadline
+    // three times that is a connection that has genuinely gone, not one that is merely quiet.
+    //
+    // Every frame resets it, in either direction: a peer that is reading replies while sending
+    // nothing is a peer that is still there.
+    let mut deadline = Box::pin(time::sleep(settings.idle_timeout));
+    let idle = settings.idle_timeout;
+
     loop {
         tokio::select! {
+            _ = &mut deadline => {
+                debug!(%peer, "signalling connection has been idle for too long");
+                break;
+            }
             incoming = source.next() => {
+                deadline.as_mut().reset(time::Instant::now() + idle);
                 match incoming {
                     Some(Ok(Message::Text(text))) => {
                         let reply = match serde_json::from_str::<ClientMessage>(&text) {
@@ -226,7 +387,7 @@ async fn handle<S>(
                                 dispatch(message, &tx, &registry, &hosts, &settings, &relay_host, &mut state).await
                             }
                             Err(error) => {
-                                debug!(%peer, %error, "unparseable signalling message");
+                                warn!(%peer, %error, "unparseable signalling message; likely a client on a different version");
                                 Some(ServerMessage::error("protocol", "unrecognised message"))
                             }
                         };
@@ -248,6 +409,7 @@ async fn handle<S>(
             }
 
             outgoing = rx.recv() => {
+                deadline.as_mut().reset(time::Instant::now() + idle);
                 let Some(message) = outgoing else { break };
                 let Ok(json) = serde_json::to_string(&message) else { continue };
                 if sink.send(Message::Text(json.into())).await.is_err() {
@@ -283,15 +445,69 @@ async fn dispatch(
             device_id,
             name,
             protocol_version,
+            public_key,
+            proof,
+            proof_time,
         } => {
             if device_id.len() > MAX_FIELD || name.len() > MAX_FIELD {
                 return Some(ServerMessage::error("invalid", "field too long"));
             }
-            hosts
-                .put(&device_id, name.clone(), protocol_version, self_tx.clone())
-                .await;
+
+            // **The proof, when there is one, is checked before anything is written.** Three
+            // fields or none: a registration carrying one of them is not a partial proof to be
+            // salvaged, it is a message this relay does not understand, and guessing at it is how
+            // a check becomes a hole.
+            let proved: Option<String> = match (&public_key, &proof, proof_time) {
+                (Some(key), Some(signature), Some(stamp)) => {
+                    let now = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                    if !device_proof::time_is_current(stamp, now) {
+                        warn!(%device_id, "a device registration was signed for a different time");
+                        return Some(ServerMessage::error(
+                            "proofStale",
+                            "that registration was signed for a time this relay will not accept",
+                        ));
+                    }
+                    let body = device_proof::payload(&device_id, stamp);
+                    if !device_proof::verifies(key, signature, body.as_bytes()) {
+                        warn!(%device_id, "a device registration did not prove the key it claimed");
+                        return Some(ServerMessage::error(
+                            "proofInvalid",
+                            "that registration does not prove it comes from the device it names",
+                        ));
+                    }
+                    Some(key.clone())
+                }
+                _ => None,
+            };
+
+            if let Err(reason) = hosts
+                .put(
+                    &device_id,
+                    name.clone(),
+                    protocol_version,
+                    self_tx.clone(),
+                    proved.as_deref(),
+                )
+                .await
+            {
+                // Loud, and at warn rather than debug: this is either a device that has lost its
+                // key, or somebody claiming an id they do not own, and both are worth seeing in
+                // the journal without turning a log level up to find them.
+                warn!(%device_id, reason, "refused a device registration");
+                return Some(ServerMessage::error("deviceRefused", reason));
+            }
+
             state.registered_as = Some(device_id.clone());
-            info!(%device_id, %name, protocol_version, "host registered");
+            info!(
+                %device_id,
+                %name,
+                protocol_version,
+                proved = proved.is_some(),
+                "host registered"
+            );
             Some(ServerMessage::Registered {
                 session_ttl_seconds: settings.session_ttl.as_secs(),
             })
@@ -304,6 +520,9 @@ async fn dispatch(
             api_key,
             plan,
             jws_representation,
+            public_key,
+            proof,
+            proof_time,
         } => {
             if host_id.len() > MAX_FIELD || client_id.len() > MAX_FIELD {
                 return Some(ServerMessage::error("invalid", "field too long"));
@@ -313,6 +532,48 @@ async fn dispatch(
                     return Some(ServerMessage::error("invalid", "field too long"));
                 }
             }
+
+            // **What the allowance hangs from.** The stated id when there is no proof, which is
+            // every build before this one and the fallback here; the key when there is one, which
+            // is what makes a reinstall cost the same as staying installed. Read the client
+            // payload rather than the host's: the two are signed with the same key and carry the
+            // same field names, so the version tag inside the signed string is the only thing
+            // keeping one from being presented as the other.
+            //
+            // A proof that does not verify is *not* a refusal, and that is deliberate: this is
+            // metering, and refusing to connect over it would turn a clock skew into an outage for
+            // somebody who has done nothing wrong. The client is metered by its stated id instead,
+            // which is exactly where it would have been without the fields at all. The line says
+            // which happened, because "why is this device's usage not where I expect it" is a
+            // question an operator asks.
+            let proved: Option<String> = match (&public_key, &proof, proof_time) {
+                (Some(key), Some(signature), Some(stamp)) => {
+                    let now = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                    if device_proof::time_is_current(stamp, now) {
+                        let body = device_proof::client_payload(&client_id, stamp);
+                        if device_proof::verifies(key, signature, body.as_bytes()) {
+                            Some(key.clone())
+                        } else {
+                            info!(%client_id, "a client proof did not verify; metered by id");
+                            None
+                        }
+                    } else {
+                        info!(%client_id, "a client proof was signed for a different time; metered by id");
+                        None
+                    }
+                }
+                (None, None, None) => None,
+                // Two fields of three. Not salvaged, and not worth a refusal: the client is
+                // metered by its id, which is what a build that sends none of them gets.
+                _ => {
+                    info!(%client_id, "a client proof was incomplete; metered by id");
+                    None
+                }
+            };
+            let metered_as = proved.as_deref().unwrap_or(&client_id);
 
             // The plan is resolved before anything is allocated, and the raw strings are dropped
             // here: what travels on is the resolved plan and how it was arrived at, so nothing
@@ -328,8 +589,11 @@ async fn dispatch(
             let plan = resolved.plan;
 
             // One line, and only when a receipt was sent and refused: it is the answer to "why is
-            // this client metered as free", and it is the evidence an operator collects with
-            // PEERINGD_TRUST_CLAIMED_PLANS=0 before turning the fallback off.
+            // this client metered as free", which is the question an operator asks when a paying
+            // client reports being cut off. The reason is the part that answers it, and one of
+            // them is worth knowing by sight before reading the rest: `not_a_real_purchase` is a
+            // TestFlight build's sandbox receipt, which this relay refuses by name whatever the
+            // switch says, because Apple gives those away for nothing.
             if let Some(rejected) = resolved.rejected {
                 info!(
                     %client_id,
@@ -343,7 +607,14 @@ async fn dispatch(
             // Check relay quota before allocating a session. Paid keys bypass the counter; a plan
             // with an allowance is blocked when its allowance for this window is exhausted, and
             // the two unlimited plans are not blocked at all.
-            let remaining = settings.quota.remaining(&client_id, api_key.as_deref(), plan);
+            //
+            // **This is not the whole of the enforcement**, and it cannot be: it answers the
+            // question once, for the instant the session is handed out, and what it hands out is a
+            // connection that can then stay open for days. `tcp_relay` charges the same counter
+            // while the splice runs and ends the session when the allowance is gone, which is what
+            // makes the number here a starting point rather than a promise. Both questions are
+            // asked of the same function, so they cannot disagree about what a plan is allowed.
+            let remaining = settings.quota.remaining(metered_as, api_key.as_deref(), plan);
             if remaining == Some(0) {
                 // Logged because it is the line an operator is asked about: "why was I cut off"
                 // is answered here, with the plan that was applied, whether Apple or the client
@@ -362,7 +633,7 @@ async fn dispatch(
             }
 
             let Some(host) = hosts.entry_for(&host_id).await else {
-                debug!(%host_id, "asked for a host that is not registered");
+                info!(%host_id, "asked for a host that is not registered");
                 return Some(ServerMessage::HostOffline { device_id: host_id });
             };
 
@@ -383,7 +654,41 @@ async fn dispatch(
             // is where a session used to be refused because the whole video range was in use, and
             // now the only thing allocation can run out of is memory. `allocate` opens the session's
             // routes in the shared table before it returns.
-            let allocated = registry.allocate(&host_id, &client_id).await;
+            //
+            // The account goes in with it. It is the same plan and key the check above used, in a
+            // shape that can travel: the splice that will be charged for this session starts in
+            // another module with nothing but a control token, so whose allowance to spend and
+            // which plan's number bounds it has to be part of what a session is.
+            // **The two ceilings, before anything is minted.** The per-socket one is checked first
+            // because it is the cheaper answer, and because a socket that has asked sixty-four
+            // times is not a client that should be told "try again shortly", it should be told to
+            // stop, which is what this refusal says.
+            if state.sessions_asked_for >= MAX_SESSIONS_PER_CONNECTION {
+                warn!(%client_id, "refused: one connection has asked for too many sessions");
+                return Some(ServerMessage::error(
+                    "tooManySessions",
+                    "this connection has asked for too many sessions; reconnect to try again",
+                ));
+            }
+            state.sessions_asked_for += 1;
+
+            let account = settings.quota.account(metered_as, api_key.as_deref(), plan);
+
+            // `None` is the relay at its ceiling. Said plainly rather than dressed up: a client
+            // that is told the relay is full can wait and try again, and one that is told nothing
+            // waits for a session that was never going to arrive.
+            let Some(allocated) = registry.allocate(&host_id, &client_id, account).await else {
+                // Read into a local first. An `.await` inside a tracing macro's field list leaves
+                // the macro's arguments alive across the await point, and the future stops being
+                // `Send`, which `tokio::spawn` refuses two call frames up with an error that names
+                // neither this line nor this cause.
+                let sessions = registry.len().await;
+                warn!(%client_id, sessions, "refused: the relay is at its session ceiling");
+                return Some(ServerMessage::error(
+                    "relayFull",
+                    "the relay is at capacity; try again in a minute",
+                ));
+            };
 
             // The name is here because it is the one thing that makes this log line useful to
             // whoever is running the relay: a device ID identifies a machine to a database, and a
@@ -396,6 +701,10 @@ async fn dispatch(
                 %host_id,
                 host_name = %host.name,
                 %client_id,
+                // Which of the two the time is charged to, and it is a field rather than a second
+                // id in the line because the two are usually the same string: an operator asking
+                // "why is this client's usage not where I expect it" needs to see that it is not.
+                metered_by = if proved.is_some() { "key" } else { "id" },
                 video_port = settings.video_port,
                 plan = plan.as_str(),
                 plan_trust = resolved.trust.as_str(),
@@ -425,12 +734,108 @@ async fn dispatch(
                 .await
                 .is_err()
             {
-                debug!(%host_id, "host push failed");
+                warn!(%host_id, "host went away while its session was being set up");
                 registry.release(&allocated.control_token).await;
                 return Some(ServerMessage::HostOffline { device_id: host_id });
             }
 
             Some(ready(allocated.video_tokens[CLIENT_SLOT]))
+        }
+
+        // One end asking where the other is, so the two can try a path between themselves.
+        //
+        // A pure read of a table the datagram path already fills, and deliberately not a wait: the
+        // answer is whatever the routing table knows at this instant, and "the peer has not spoken
+        // yet" is reported rather than parked on. Waiting would hold a task per session on a
+        // connection that may never need one, and the asker is about to send its own bind datagram
+        // — the address it wants is a few milliseconds behind the question, not a reason to keep
+        // the relay holding it.
+        //
+        // Nothing here decides whether the answer is *useful*. Whether the peer's NAT will accept a
+        // packet from a third party is not something this process can know, and the two ends settle
+        // it themselves by trying. This hands over an observation and no promise.
+        ClientMessage::RequestPeerAddress { video_token } => {
+            let Some(token) = unhex(&video_token) else {
+                return Some(ServerMessage::error(
+                    "invalid",
+                    "video token is not 16 bytes of hex",
+                ));
+            };
+
+            match registry.routes().peer_address(&token) {
+                Some(address) => Some(ServerMessage::PeerAddress {
+                    host: address.ip().to_string(),
+                    port: address.port(),
+                }),
+                None => Some(ServerMessage::error(
+                    "peerAddressUnknown",
+                    "the other end of this session has not sent a datagram yet",
+                )),
+            }
+        }
+
+        // The same lookup `ConnectToHost` does a few lines above, asked as a question rather than
+        // as the first half of opening a session. Deliberately without the version check that one
+        // does: a phone asking whether its Mac is up has not committed to a session yet, and a Mac
+        // that is present but speaks an older protocol is present.
+        //
+        // No rate limit, and the reason is that there is nothing here to limit: an answer is a
+        // hashmap lookup on a key the client has to already know, device ids are UUIDs, and a
+        // client that wanted to enumerate them would have to guess 128 bits per ask.
+        ClientMessage::HostPresence { host_id } => {
+            let online = hosts.entry_for(&host_id).await.is_some();
+            Some(ServerMessage::HostPresence { host_id, online })
+        }
+
+        ClientMessage::NotifyDevice {
+            device_token,
+            title,
+            body,
+            source,
+            category,
+            session_id,
+            approval_id,
+        } => {
+            // Only registered Macs may ask for pushes. An unregistered connection asking for one
+            // has no client to push to and no session to trace it back to.
+            let Some(host_id) = state.registered_as.clone() else {
+                return Some(ServerMessage::error(
+                    "unauthorized",
+                    "only registered hosts may request push notifications",
+                ));
+            };
+            // Refuse absurdly large fields before they reach the APNs payload builder.
+            if device_token.len() > 128
+                || title.len() > 256
+                || body.len() > 512
+                || source.as_ref().is_some_and(|s| s.len() > 128)
+                || category.as_ref().is_some_and(|s| s.len() > 128)
+                || session_id.as_ref().is_some_and(|s| s.len() > 128)
+                || approval_id.as_ref().is_some_and(|s| s.len() > 256)
+            {
+                return Some(ServerMessage::error("invalid", "field too long"));
+            }
+            if let Some(apns) = settings.apns.as_ref().map(Arc::clone) {
+                tokio::spawn(async move {
+                    // The Mac's ID is the relay's own record of who asked, not something the Mac
+                    // says about itself, so a tap can only ever open the Mac that sent it.
+                    // An action needs all three parts, and a category only the app registered: anything
+                    // else is dropped rather than forwarded under the phone's name.
+                    let action = match (category.as_deref(), session_id.as_deref(), approval_id.as_deref()) {
+                        (Some(category), Some(session_id), Some(approval_id))
+                            if category.starts_with(AGENT_APPROVAL_CATEGORY_PREFIX) =>
+                        {
+                            Some(PushAction { category, session_id, approval_id })
+                        }
+                        _ => None,
+                    };
+                    let route = PushRoute { host_id: &host_id, source: source.as_deref(), action };
+                    if let Err(e) = apns.send(&device_token, &title, &body, Some(route)).await {
+                        warn!(error = %e, "APNs notification failed");
+                    }
+                });
+            }
+            None
         }
 
         ClientMessage::Ping => Some(ServerMessage::Pong),
@@ -462,11 +867,19 @@ mod tests {
             // has Apple's signing key. The receipt path itself is exercised in `storekit`'s own
             // tests, where the chain is one the test can actually sign with.
             receipts: Arc::new(StoreKitVerifier::apple(true)),
+            // Open by default, because almost every test here is about something else and a
+            // ceiling that refuses sessions would show up as a mystery failure in all of them.
+            // The ceilings have their own tests, below.
+            max_sessions: usize::MAX,
+            max_connections: usize::MAX,
+            handshake_timeout: Duration::from_secs(10),
+            idle_timeout: Duration::from_secs(90),
+            apns: None,
         }
     }
 
-    /// The allowances the app states, which are the relay's defaults: half an hour free and three
-    /// hours on Relay. Two numbers rather than one, so a test that confuses the plans fails.
+    /// The allowances the app states, which are the relay's defaults: 30 minutes free and no limit
+    /// on paid plans.
     fn default_settings() -> Settings {
         settings_with(Arc::new(QuotaTracker::new(
             PlanAllowances::default(),
@@ -478,7 +891,10 @@ mod tests {
     async fn a_registered_host_can_be_looked_up() {
         let hosts = HostRegistry::new();
         let (tx, _rx) = channel();
-        hosts.put("mac", "Studio".into(), 3, tx).await;
+        hosts
+            .put("mac", "Studio".into(), 3, tx, None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
 
         let host = hosts.entry_for("mac").await.expect("should be found");
         assert_eq!(host.protocol_version, 3);
@@ -495,8 +911,14 @@ mod tests {
         let (old_tx, _old_rx) = channel();
         let (new_tx, _new_rx) = channel();
 
-        hosts.put("mac", "Studio".into(), 3, old_tx.clone()).await;
-        hosts.put("mac", "Studio".into(), 3, new_tx.clone()).await;
+        hosts
+            .put("mac", "Studio".into(), 3, old_tx.clone(), None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
+        hosts
+            .put("mac", "Studio".into(), 3, new_tx.clone(), None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
 
         hosts.remove_if_ours("mac", &old_tx).await;
         assert_eq!(
@@ -510,8 +932,100 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn presence_is_answered_from_the_registry() {
+        let registry = Arc::new(Registry::new(usize::MAX));
+        let hosts = HostRegistry::new();
+        let (host_tx, _host_rx) = channel();
+        hosts
+            .put("mac", "Studio".into(), 3, host_tx, None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
+
+        let settings = default_settings();
+
+        let answer = |host_id: &str, hosts: &HostRegistry, registry: &Arc<Registry>| {
+            let hosts = hosts.clone();
+            let registry = Arc::clone(registry);
+            let settings = settings.clone();
+            let (tx, _rx) = channel();
+            let host_id = host_id.to_string();
+            async move {
+                dispatch(
+                    ClientMessage::HostPresence { host_id: host_id.clone() },
+                    &tx,
+                    &registry,
+                    &hosts,
+                    &settings,
+                    "127.0.0.1",
+                    &mut ConnectionState::default(),
+                )
+                .await
+            }
+        };
+
+        assert_eq!(
+            answer("mac", &hosts, &registry).await,
+            Some(ServerMessage::HostPresence { host_id: "mac".into(), online: true })
+        );
+        assert_eq!(
+            answer("ghost", &hosts, &registry).await,
+            Some(ServerMessage::HostPresence { host_id: "ghost".into(), online: false }),
+            "an unregistered Mac is answered, not refused: the phone asked a question and no is an answer"
+        );
+
+        // And asking opens nothing. The whole point of a presence query over the app's old
+        // approach of simply trying to connect is that it does not cost a session.
+        assert_eq!(registry.len().await, 0, "presence must not allocate a session");
+    }
+
+    /// The answer follows the registration, so a Mac that has gone is reported gone.
+    #[tokio::test]
+    async fn a_mac_that_has_gone_is_reported_offline() {
+        let registry = Arc::new(Registry::new(usize::MAX));
+        let hosts = HostRegistry::new();
+        let (host_tx, _host_rx) = channel();
+        hosts
+            .put("mac", "Studio".into(), 3, host_tx.clone(), None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
+
+        let settings = default_settings();
+        let ask = |hosts: &HostRegistry, registry: &Arc<Registry>, settings: &Settings| {
+            let hosts = hosts.clone();
+            let registry = Arc::clone(registry);
+            let settings = settings.clone();
+            async move {
+                let (tx, _rx) = channel();
+                dispatch(
+                    ClientMessage::HostPresence { host_id: "mac".into() },
+                    &tx,
+                    &registry,
+                    &hosts,
+                    &settings,
+                    "127.0.0.1",
+                    &mut ConnectionState::default(),
+                )
+                .await
+            }
+        };
+
+        assert!(matches!(
+            ask(&hosts, &registry, &settings).await,
+            Some(ServerMessage::HostPresence { online: true, .. })
+        ));
+
+        // The Mac's socket dropping is what a laptop changing networks looks like from here.
+        hosts.remove_if_ours("mac", &host_tx).await;
+
+        assert_eq!(
+            ask(&hosts, &registry, &settings).await,
+            Some(ServerMessage::HostPresence { host_id: "mac".into(), online: false })
+        );
+    }
+
+    #[tokio::test]
     async fn asking_for_an_unknown_host_reports_it_offline() {
-        let registry = Arc::new(Registry::new());
+        let registry = Arc::new(Registry::new(usize::MAX));
         let hosts = HostRegistry::new();
         let settings = default_settings();
         let (tx, _rx) = channel();
@@ -525,6 +1039,9 @@ mod tests {
                 api_key: None,
                 plan: None,
                 jws_representation: None,
+                public_key: None,
+                proof: None,
+                proof_time: None,
             },
             &tx,
             &registry,
@@ -546,10 +1063,13 @@ mod tests {
 
     #[tokio::test]
     async fn a_version_mismatch_is_refused_before_any_session_exists() {
-        let registry = Arc::new(Registry::new());
+        let registry = Arc::new(Registry::new(usize::MAX));
         let hosts = HostRegistry::new();
         let (host_tx, _host_rx) = channel();
-        hosts.put("mac", "Studio".into(), 3, host_tx).await;
+        hosts
+            .put("mac", "Studio".into(), 3, host_tx, None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
 
         let settings = default_settings();
         let (tx, _rx) = channel();
@@ -563,6 +1083,9 @@ mod tests {
                 api_key: None,
                 plan: None,
                 jws_representation: None,
+                public_key: None,
+                proof: None,
+                proof_time: None,
             },
             &tx,
             &registry,
@@ -579,10 +1102,13 @@ mod tests {
 
     #[tokio::test]
     async fn connecting_reaches_the_mac_as_well_as_the_phone() {
-        let registry = Arc::new(Registry::new());
+        let registry = Arc::new(Registry::new(usize::MAX));
         let hosts = HostRegistry::new();
         let (host_tx, mut host_rx) = channel();
-        hosts.put("mac", "Studio".into(), 3, host_tx).await;
+        hosts
+            .put("mac", "Studio".into(), 3, host_tx, None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
 
         let settings = default_settings();
         let (tx, _rx) = channel();
@@ -596,6 +1122,9 @@ mod tests {
                 api_key: None,
                 plan: None,
                 jws_representation: None,
+                public_key: None,
+                proof: None,
+                proof_time: None,
             },
             &tx,
             &registry,
@@ -649,10 +1178,13 @@ mod tests {
     /// Sends one connect request against a Mac that is registered and a counter that is already
     /// spent, and reports what the phone was told.
     async fn connect_with(plan: Option<&str>, spent_seconds: u64) -> Option<ServerMessage> {
-        let registry = Arc::new(Registry::new());
+        let registry = Arc::new(Registry::new(usize::MAX));
         let hosts = HostRegistry::new();
         let (host_tx, _host_rx) = channel();
-        hosts.put("mac", "Studio".into(), 3, host_tx).await;
+        hosts
+            .put("mac", "Studio".into(), 3, host_tx, None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
 
         let quota = Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default()));
         // Recorded rather than configured away, so the test travels the same path a client does.
@@ -669,6 +1201,9 @@ mod tests {
                 api_key: None,
                 plan: plan.map(str::to_string),
                 jws_representation: None,
+                public_key: None,
+                proof: None,
+                proof_time: None,
             },
             &tx,
             &registry,
@@ -680,7 +1215,7 @@ mod tests {
         .await
     }
 
-    /// Half an hour free means half an hour: a client that has spent more than that is refused.
+    /// 30 minutes free means 30 minutes: a client that has spent more than that is refused.
     #[tokio::test]
     async fn a_spent_free_allowance_is_refused() {
         let reply = connect_with(None, 30 * 60 + 1).await;
@@ -690,14 +1225,14 @@ mod tests {
         );
     }
 
-    /// The same client, saying `relay`, is inside its much larger allowance — which is the whole
-    /// of what a subscription buys here.
+    /// The same client, saying `relay`, is not metered at all — which is the whole of what a
+    /// subscription buys here.
     #[tokio::test]
-    async fn a_relay_plan_is_still_connected_after_the_free_hour_is_spent() {
-        let reply = connect_with(Some("relay"), 30 * 60 + 1).await;
+    async fn a_relay_plan_is_not_metered() {
+        let reply = connect_with(Some("relay"), 100 * 3600).await;
         assert!(
             matches!(reply, Some(ServerMessage::SessionReady { .. })),
-            "Relay should have three hours, not half an hour: {reply:?}"
+            "Relay should be unlimited: {reply:?}"
         );
     }
 

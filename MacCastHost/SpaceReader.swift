@@ -1,3 +1,4 @@
+import ApplicationServices
 import ColorSync
 import CoreFoundation
 import CoreGraphics
@@ -10,32 +11,17 @@ private let spaceLog = Logger(subsystem: "pl.dmq.peering.host", category: "space
 
 // The window server's Space API lives in SkyLight.framework, a private framework with no public
 // SDK declarations, so every entry point here is resolved by name rather than linked.
-//
-// **The names are `SLS*`, not `CGS*`, and asking for the wrong spelling is the whole reason this
-// reader once returned nil on macOS 26.** SkyLight exports no `CGS*` symbol at all; CoreGraphics
-// re-exports a subset of the SkyLight functions under the older `CGS*` names as aliases, which is
-// why a probe that searched only the loaded images found `CGSCopyManagedDisplaySpaces` and not
-// `CGSGetWorkspaceList` and drew the wrong conclusion from it. The functions behind the names this
-// file used to call — `CGSGetWorkspaceList` and `CGSSetWorkspace` — genuinely have no successor
-// under either spelling: they belong to the pre-10.9 model of one global list of workspaces, which
-// was replaced by per-display Spaces. Everything below therefore asks for the `SLS` name first and
-// keeps the `CGS` spelling as a fallback for a macOS that moves them back.
-//
-// `dlopen` first, `dlsym` second. Searching `RTLD_DEFAULT` alone only finds an image that happens
-// to be loaded already, which makes "missing" and "not loaded yet" the same answer — the confusion
-// the names above were rescued from. An explicit handle is also what keeps this working in a
-// command-line probe, where AppKit has not dragged SkyLight in.
 
-private let skyLight: UnsafeMutableRawPointer? = dlopen(
+/// **`nonisolated(unsafe)`, and the promise being made here is a small one.**
+///
+/// `dlopen` hands back a pointer this file only ever reads, `let` binds it once, and `dlsym`
+/// against a handle is documented as thread-safe.
+private nonisolated(unsafe) let skyLight: UnsafeMutableRawPointer? = dlopen(
     "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight",
     RTLD_NOW
 )
 
 /// Resolves `name` inside SkyLight, then in everything else already loaded.
-///
-/// The second search is not redundant: the `CGS` aliases live in CoreGraphics' export table, so a
-/// spelling that SkyLight has dropped can still be answered by CoreGraphics. It is also the only
-/// thing that would survive SkyLight being folded into another framework.
 private func resolve(_ name: String) -> UnsafeMutableRawPointer? {
     if let handle = skyLight, let symbol = dlsym(handle, name) { return symbol }
     return dlsym(UnsafeMutableRawPointer(bitPattern: -2), name)
@@ -53,13 +39,6 @@ private typealias CopyManagedDisplaySpacesFunc = @convention(c) (Int32) -> Unman
 private typealias SetCurrentSpaceFunc = @convention(c) (Int32, CFString, UInt64) -> Int32
 
 /// The connection every call below shares.
-///
-/// **Main first, deliberately.** `SLSMainConnectionID` is the window server's main connection and
-/// answers with the same value on every thread; `SLSDefaultConnectionForThread` does not — called
-/// off the main thread it returns a *different* connection, which is why the entry points below
-/// stay pinned to the main queue rather than being relaxed once a connection getter was found.
-/// A list read with one connection and a switch issued with another is not a pairing worth
-/// discovering the hard way.
 private let cgsConnection: ConnectionFunc? = resolveFirst([
     "SLSMainConnectionID",
     "CGSMainConnectionID",
@@ -74,26 +53,12 @@ private let cgsCopyManagedDisplaySpaces: CopyManagedDisplaySpacesFunc? = resolve
     "CGSCopyManagedDisplaySpaces",
 ]).map { unsafeBitCast($0, to: CopyManagedDisplaySpacesFunc.self) }
 
-/// `SLSManagedDisplaySetCurrentSpace(cid, displayUUID, spaceID)`. This is what replaced
-/// `CGSSetWorkspace`, and it is not a rename: the old call switched a *global* workspace by index,
-/// while this one names the display whose Spaces are being reordered and the Space to reveal on it.
 private let cgsSetManagedDisplayCurrentSpace: SetCurrentSpaceFunc? = resolveFirst([
     "SLSManagedDisplaySetCurrentSpace",
     "CGSManagedDisplaySetCurrentSpace",
 ]).map { unsafeBitCast($0, to: SetCurrentSpaceFunc.self) }
 
 /// One display's entry in the window server's per-display Space lists.
-///
-/// Not private: the capture side builds a ``SpaceDisplay`` out of one, and the wire carries
-/// ``displayID`` rather than the UUID, which stays an implementation detail of this file.
-/// One Space, as the window server describes it.
-///
-/// The `type` field is the reason this type exists. `0` is a desktop the user made; `4` is a
-/// fullscreen application's own Space. Both are Spaces, both can be the one on screen, and they
-/// are **not** interchangeable: you switch to a desktop, whereas a fullscreen Space belongs to
-/// one application and is reachable by going back to that application. Handing the second to
-/// the client as though it were the first produced a tile that looked like a desktop, was
-/// sometimes marked current, and did something else entirely when tapped.
 struct ManagedSpace: Sendable, Equatable {
     let id: Int32
     let isFullscreen: Bool
@@ -104,18 +69,9 @@ struct ManagedSpace: Sendable, Equatable {
 }
 
 struct ManagedDisplay {
-    /// The `CGDirectDisplayID` this entry describes.
     let displayID: UInt32
-    /// The display's UUID, as a string. This is the key `SLSManagedDisplaySetCurrentSpace` wants,
-    /// and A-string-is-A-string: it is compared by value, not by instance.
     let identifier: String
     /// Every Space on this display, in order — desktops and fullscreen applications alike.
-    ///
-    /// The IDs are the point of this type existing at all. A Space's *number* is only its
-    /// current position in the list — adding or removing a desktop renumbers every Space after
-    /// it — so anything that remembers a Space has to remember its ID. A preview cache keyed by
-    /// number would hand the client one desktop's picture under another desktop's number, which
-    /// is a wrong answer that looks like a right one.
     let spaces: [ManagedSpace]
     let activeID: Int32
 
@@ -124,27 +80,16 @@ struct ManagedDisplay {
     /// The desktops, in order. What the client is offered and what it may switch to.
     var desktopIDs: [Int32] { spaces.filter { !$0.isFullscreen }.map(\.id) }
 
-    /// The 1-based position of the active Space **among the desktops**, or `nil` when this
-    /// display is showing a fullscreen application.
-    ///
-    /// `nil` rather than a fallback, unlike before. Falling back to the first desktop while a
-    /// fullscreen app is on screen would mark a desktop current that is not the one being
-    /// looked at — the same lie in the other direction.
     var current: Int? {
         desktopIDs.firstIndex(of: activeID).map { $0 + 1 }
     }
 
-    /// The fullscreen application being shown, when that is what is on this display.
     var fullscreen: ManagedSpace? {
         spaces.first { $0.isFullscreen && $0.id == activeID }
     }
 }
 
 /// Every display's UUID, by the `CGDirectDisplayID` it belongs to.
-///
-/// Built by hand because the mapping only exists in one direction: `CGDisplayCreateUUIDFromDisplayID`
-/// goes id → UUID, and the window server names displays the other way round. Only displays that
-/// are actually drawing are asked about — a sleeping display has no Spaces to name.
 private func displayIDsByIdentifier() -> [String: UInt32] {
     var count: UInt32 = 0
     var ids = [CGDirectDisplayID](repeating: 0, count: 16)
@@ -158,7 +103,6 @@ private func displayIDsByIdentifier() -> [String: UInt32] {
     return byIdentifier
 }
 
-/// The display ID behind a window server display UUID, or `nil` if no drawing display claims it.
 private func displayID(forIdentifier identifier: String, in byIdentifier: [String: UInt32]) -> UInt32? {
     if let id = byIdentifier[identifier] { return id }
     // A mirror set or a virtual display can carry a UUID that no `CGDirectDisplayID` reports.
@@ -171,18 +115,6 @@ private func displayID(forIdentifier identifier: String, in byIdentifier: [Strin
 }
 
 /// Every display's Spaces, **main display first**.
-///
-/// **Every display, and in this order.** Spaces are per-display and the window server reports one
-/// ordered list for each, so a reader that returned only one of them could describe at most one
-/// screen's desktops — which is what this used to do, always the main display, leaving a second
-/// screen's desktops invisible to the client even though the window server had them all along.
-/// Main first because callers that predate multiple displays read the first entry as "the"
-/// display, and that keeps meaning what it always did.
-///
-/// The active Space is read from each display's own `Current Space` entry rather than from
-/// `SLSGetActiveSpace`, which reports only whichever display the user is focused on. Reading it
-/// here keeps `activeID` inside `ids` by construction, which is what
-/// ``orderedSpacePreviews(ids:activeID:shots:)`` checks before it will emit a single preview.
 private func readDisplays() -> [ManagedDisplay] {
     guard let connection = cgsConnection, let copySpaces = cgsCopyManagedDisplaySpaces else {
         return []
@@ -190,7 +122,6 @@ private func readDisplays() -> [ManagedDisplay] {
     let cid = connection()
     guard cid > 0 else { return [] }
 
-    // `Copy` rule: the array is ours and ARC would not know to release it.
     guard let entries = copySpaces(cid)?.takeRetainedValue() as? [[String: Any]] else {
         return []
     }
@@ -203,13 +134,6 @@ private func readDisplays() -> [ManagedDisplay] {
         else { return nil }
 
         // Every Space the display reports, with the `type` kept rather than filtered on.
-        //
-        // The type is not discarded here for the reason it used to be dropped entirely: a
-        // fullscreen Space is the active one whenever a window is fullscreen, so a reader that
-        // only knew desktops would report an `activeID` it could not find — and an `activeID`
-        // outside the list costs the client *every* preview on that display, not one tile.
-        // Keeping it and *labelling* it means the list stays complete and the caller can still
-        // tell a place it may be sent from an application it may only return to.
         var seenSpaceIDs = Set<Int32>()
         let parsed = spaces.compactMap { space -> ManagedSpace? in
             guard let id = (space["id64"] as? NSNumber)?.int32Value else { return nil }
@@ -233,9 +157,6 @@ private func readDisplays() -> [ManagedDisplay] {
         return ManagedDisplay(displayID: displayID, identifier: identifier, spaces: parsed, activeID: activeID)
     }
 
-    // Mirrored and recently detached screens can briefly arrive as two entries that resolve to
-    // the same CGDirectDisplayID. SwiftUI keys display rows by that ID, so letting both through
-    // produces a duplicated row and unstable identity. Preserve the first complete entry.
     var seenDisplayIDs = Set<UInt32>()
     let unique = parsed.filter { seenDisplayIDs.insert($0.displayID).inserted }
 
@@ -245,36 +166,16 @@ private func readDisplays() -> [ManagedDisplay] {
 }
 
 /// Reads every display's Spaces from the window server.
-///
-/// Returns an empty array if the private API is unavailable — callers should treat that as
-/// "unknown" and hide the Space picker rather than show stale data.
-///
-/// **Must be called on the main thread.** Both connection getters above are thread-sensitive:
-/// the one this reader prefers is stable, but the fallbacks are not, and which one gets used is
-/// not something a caller can see. Pinning every entry point to the main queue makes the
-/// connection a given rather than a race.
 func readDisplaySpaces() -> [ManagedDisplay] {
     dispatchPrecondition(condition: .onQueue(.main))
     return readDisplays()
 }
 
 /// Switches to the adjacent Space in `direction`, wrapping at either end.
-///
-/// Acts on **the display the pointer is on**, not the main one: macOS' own ⌃←/⌃→ reorder the
-/// screen the user is looking at, and a relative switch that always moved the built-in display's
-/// desktops would be wrong every time attention was on a second screen.
-///
-/// Goes through the window server rather than posting ⌃←/⌃→, which is the difference between a
-/// switch that happens and one that is swallowed: Mission Control's shortcuts are matched by the
-/// window server, and synthetic key events posted at the HID tap do not reach that match.
-///
-/// Relative to the Space the display reports as current, so a switch that raced a user-driven one
-/// moves from where the user actually is rather than from where this process last looked.
 @discardableResult
 func switchSpaceRelative(direction: SpaceDirection) -> Bool {
     dispatchPrecondition(condition: .onQueue(.main))
     let displays = readDisplays()
-    // `readDisplays` puts the main display first, so the fallback here is the main display.
     guard let display = displays.first(where: { $0.displayID == DisplayGeometry.pointerDisplayID() })
         ?? displays.first
     else { return false }
@@ -294,27 +195,17 @@ func switchSpaceRelative(direction: SpaceDirection) -> Bool {
 }
 
 /// Switches directly to the 1-based Space at `index` **on `display`**.
-///
-/// The display is part of the request because Spaces are per-display: the same index 1 names a
-/// different desktop on each screen, so an index alone cannot say which one to reveal.
-///
-/// Returns whether the window server accepted the switch. Fails silently if the private API is
-/// unavailable, the display is gone, or the index is out of range — callers should not surface an
-/// error for a missing Space because the user might have removed it since the catalogue was sent.
 @discardableResult
-func switchToSpace(display: UInt32, index: Int) -> Bool {
+func switchToSpace(
+    display: UInt32,
+    index: Int,
+    report: (@Sendable (SpaceSwitchRoute) -> Void)? = nil
+) -> Bool {
     dispatchPrecondition(condition: .onQueue(.main))
     guard cgsSetManagedDisplayCurrentSpace != nil else { return false }
-    // A fresh read on every switch, for the same reason the reader is a read rather than a
-    // cached value: between the catalogue being sent and the user tapping a tile, a desktop can
-    // be added, removed or reordered, and an index resolved against the list the client was
-    // shown would then name a different desktop.
     guard let target = readDisplays().first(where: { $0.displayID == display }) else { return false }
 
     let zeroIndex = index - 1
-    // Against the desktops the client was shown, so index N means the Nth tile — which is what
-    // it looks like it means. Counting every Space instead would put a fullscreen application
-    // at some index, and the client has no tile for it to have been aiming at.
     let desktops = target.desktopIDs
     guard zeroIndex >= 0, zeroIndex < desktops.count else { return false }
 
@@ -328,16 +219,274 @@ func switchToSpace(display: UInt32, index: Int) -> Bool {
         on \(target.activeID, privacy: .public), going to \(destination, privacy: .public)
         """)
 
-    return performSwitch(display: target, spaceID: destination)
+    if destination == target.activeID { return true }
+
+    return performSwitch(display: target, spaceID: destination, report: report)
 }
 
-private func performSwitch(display: ManagedDisplay, spaceID: Int32) -> Bool {
+// MARK: - Windows on other desktops
+
+private typealias CopySpacesForWindowsFunc = @convention(c) (Int32, Int32, CFArray) -> Unmanaged<CFArray>?
+private typealias WindowQueryFunc = @convention(c) (Int32, CFArray, Int32) -> Unmanaged<CFTypeRef>?
+private typealias WindowQueryResultFunc = @convention(c) (CFTypeRef) -> Unmanaged<CFTypeRef>?
+private typealias IteratorAdvanceFunc = @convention(c) (CFTypeRef) -> Bool
+private typealias IteratorUInt32Func = @convention(c) (CFTypeRef) -> UInt32
+private typealias IteratorUInt64Func = @convention(c) (CFTypeRef) -> UInt64
+
+private let copySpacesForWindows = resolve("SLSCopySpacesForWindows")
+    .map { unsafeBitCast($0, to: CopySpacesForWindowsFunc.self) }
+private let queryWindows = resolve("SLSWindowQueryWindows")
+    .map { unsafeBitCast($0, to: WindowQueryFunc.self) }
+private let queryResultWindows = resolve("SLSWindowQueryResultCopyWindows")
+    .map { unsafeBitCast($0, to: WindowQueryResultFunc.self) }
+private let iteratorAdvance = resolve("SLSWindowIteratorAdvance")
+    .map { unsafeBitCast($0, to: IteratorAdvanceFunc.self) }
+private let iteratorWindowID = resolve("SLSWindowIteratorGetWindowID")
+    .map { unsafeBitCast($0, to: IteratorUInt32Func.self) }
+private let iteratorParentID = resolve("SLSWindowIteratorGetParentID")
+    .map { unsafeBitCast($0, to: IteratorUInt32Func.self) }
+private let iteratorTags = resolve("SLSWindowIteratorGetTags")
+    .map { unsafeBitCast($0, to: IteratorUInt64Func.self) }
+private let iteratorAttributes = resolve("SLSWindowIteratorGetAttributes")
+    .map { unsafeBitCast($0, to: IteratorUInt64Func.self) }
+
+private func spaceIDs(ofWindow windowID: CGWindowID, connection: Int32) -> [Int32] {
+    guard let copy = copySpacesForWindows,
+          let spaces = copy(connection, 7, [NSNumber(value: windowID)] as CFArray)?.takeRetainedValue()
+            as? [NSNumber]
+    else { return [] }
+    return spaces.map(\.int32Value)
+}
+
+/// Of `windowIDs`, the ones ordered in on a Space: open, on some desktop, whether or not that
+/// desktop is showing.
+func windowsOrderedInOnSpaces(_ windowIDs: [CGWindowID]) -> Set<CGWindowID> {
+    dispatchPrecondition(condition: .onQueue(.main))
+    guard !windowIDs.isEmpty,
+          let connection = cgsConnection?(), connection > 0,
+          let query = queryWindows, let results = queryResultWindows,
+          let advance = iteratorAdvance, let windowID = iteratorWindowID,
+          let parentID = iteratorParentID, let tags = iteratorTags, let attributes = iteratorAttributes,
+          let queried = query(connection, windowIDs.map { NSNumber(value: $0) } as CFArray, Int32(windowIDs.count))?
+            .takeRetainedValue(),
+          let iterator = results(queried)?.takeRetainedValue()
+    else { return [] }
+
+    var found = Set<CGWindowID>()
+    while advance(iterator) {
+        guard parentID(iterator) == 0 else { continue }
+        let tag = tags(iterator)
+        let orderedIn = attributes(iterator) & 0x2 != 0 || tag & 0x400000000000000 != 0
+        let isDocument = tag & 0x1 != 0 || (tag & 0x2 != 0 && tag & 0x80000000 != 0)
+        guard orderedIn, isDocument else { continue }
+        let id = windowID(iterator)
+        if !spaceIDs(ofWindow: id, connection: connection).isEmpty { found.insert(id) }
+    }
+    return found
+}
+
+@discardableResult
+func switchToSpace(holding windowID: CGWindowID) -> Bool {
+    dispatchPrecondition(condition: .onQueue(.main))
+    guard let connection = cgsConnection?(), connection > 0 else { return false }
+    let spaces = spaceIDs(ofWindow: windowID, connection: connection)
+    for display in readDisplays() {
+        guard let space = spaces.first(where: display.ids.contains) else { continue }
+        guard !spaces.contains(display.activeID) else { return false }
+        spaceLog.notice("window \(windowID, privacy: .public) is on space \(space, privacy: .public), going there")
+        return performSwitch(display: display, spaceID: space)
+    }
+    return false
+}
+
+// MARK: - Making the picture follow the switch
+
+/// `AXUIElementPostKeyboardEvent`, which is the only route by which a simulated ⌃←/⌃→ reaches
+/// the window server's symbolic hot key match.
+private typealias PostKeyboardEventFunc = @convention(c) (
+    AXUIElement?, CGCharCode, CGKeyCode, Bool
+) -> AXError
+
+private let postKeyboardEvent: PostKeyboardEventFunc? = {
+    guard let handle = dlopen(
+        "/System/Library/Frameworks/ApplicationServices.framework/Frameworks/HIServices.framework/HIServices",
+        RTLD_LAZY
+    ), let symbol = dlsym(handle, "AXUIElementPostKeyboardEvent") else { return nil }
+    return unsafeBitCast(symbol, to: PostKeyboardEventFunc.self)
+}()
+
+/// Whether a chord posted from here will be acted on.
+private var canPostSpaceChords: Bool {
+    postKeyboardEvent != nil && AXIsProcessTrusted()
+}
+
+private let chordControlKeyCode: CGKeyCode = 59
+private let chordLeftKeyCode: CGKeyCode = 123
+private let chordRightKeyCode: CGKeyCode = 124
+
+private let chordApproachDelay = DispatchTimeInterval.milliseconds(150)
+
+private let chordKeyGapMilliseconds = 25
+
+/// Posts ⌃←/⌃→, spread over the main queue.
+private func spaceCentre(of displayID: UInt32) -> CGPoint {
+    let bounds = CGDisplayBounds(displayID)
+    return CGPoint(x: bounds.midX, y: bounds.midY)
+}
+
+private func postSpaceChord(_ direction: SpaceDirection) {
+    let arrow = direction == .left ? chordLeftKeyCode : chordRightKeyCode
+    let events: [(key: CGKeyCode, down: Bool)] = [
+        (chordControlKeyCode, true),
+        (arrow, true),
+        (arrow, false),
+        (chordControlKeyCode, false),
+    ]
+    for (step, event) in events.enumerated() {
+        let deadline = DispatchTime.now() + .milliseconds(chordKeyGapMilliseconds * step)
+        DispatchQueue.main.asyncAfter(deadline: deadline) {
+            postKeyEvent(event.key, down: event.down)
+        }
+    }
+}
+
+/// One key event, posted system-wide through the Accessibility subsystem.
+private func postKeyEvent(_ key: CGKeyCode, down: Bool) {
+    guard let post = postKeyboardEvent else { return }
+    _ = post(AXUIElementCreateSystemWide(), 0, key, down)
+}
+
+/// The Space to jump to, and the way to step off it onto `spaceID`.
+private func chordApproach(
+    display: ManagedDisplay, spaceID: Int32
+) -> ChordApproach {
+    guard canPostSpaceChords else { return .unusable(.noPermission) }
+    guard display.displayID == DisplayGeometry.pointerDisplayID() else {
+        return .unusable(.pointerElsewhere)
+    }
+
+    let spaces = display.spaces
+    guard let index = spaces.firstIndex(where: { $0.id == spaceID }) else {
+        return .unusable(.noApproach)
+    }
+    if index > 0 { return .step(neighbour: spaces[index - 1].id, direction: .right) }
+    if index < spaces.count - 1 { return .step(neighbour: spaces[index + 1].id, direction: .left) }
+    return .unusable(.noApproach)
+}
+
+private enum ChordApproach {
+    case step(neighbour: Int32, direction: SpaceDirection)
+    case unusable(SpaceSwitchRoute.DirectReason)
+}
+
+/// The direct call on its own: instant, and correct only as the approach to a real transition.
+@discardableResult
+private func setCurrentSpace(display: ManagedDisplay, spaceID: Int32) -> Bool {
     guard let connection = cgsConnection, let setCurrent = cgsSetManagedDisplayCurrentSpace else {
         return false
     }
     let cid = connection()
     guard cid > 0 else { return false }
-    // 0 is `kCGErrorSuccess`. Reported rather than assumed: a refused switch is the difference
-    // between a tile that does nothing and a client that knows not to offer it.
     return setCurrent(cid, display.identifier as CFString, UInt64(spaceID)) == 0
+}
+
+/// How a switch reached the Space it was asked for.
+enum SpaceSwitchRoute: Sendable, Equatable {
+    case chord
+    case direct(DirectReason)
+    case refused
+
+    enum DirectReason: Sendable, Equatable {
+        case noPermission
+        case pointerElsewhere
+        case chordDidNotLand
+        case noApproach
+    }
+}
+
+/// Moves `display` onto `spaceID`, **and makes the picture follow it.**
+///
+/// **The direct call on its own is not enough.** Setting the current Space updates what the
+/// window server considers current without running the Dock's switch.
+private func performSwitch(
+    display: ManagedDisplay,
+    spaceID: Int32,
+    report: (@Sendable (SpaceSwitchRoute) -> Void)? = nil
+) -> Bool {
+    let approach: (neighbour: Int32, direction: SpaceDirection)
+    switch chordApproach(display: display, spaceID: spaceID) {
+    case .step(let neighbour, let direction):
+        approach = (neighbour, direction)
+    case .unusable(let reason):
+        // The stacked-desktop bug comes straight back the moment the chord route is
+        // unavailable, and it comes back *silently* — the switch still happens, only the
+        // picture stops following it. So say which half is missing. A second screen or a
+        // display with one Space is an ordinary reason to be here and says nothing.
+        if reason == .noPermission {
+            spaceLog.notice("""
+                no Space chords: symbol \(postKeyboardEvent != nil, privacy: .public), \
+                accessibility \(AXIsProcessTrusted(), privacy: .public). Switching directly, \
+                which can leave the old desktop composited on screen.
+                """)
+        }
+        guard setCurrentSpace(display: display, spaceID: spaceID) else {
+            report?(.refused)
+            return false
+        }
+        report?(.direct(reason))
+        return true
+    }
+    // A neighbour the window server refuses to make current leaves the chord stepping off the
+    // Space we are already on, which lands somewhere nobody asked for. The direct call is what
+    // there is to fall back to.
+    guard setCurrentSpace(display: display, spaceID: approach.neighbour) else {
+        guard setCurrentSpace(display: display, spaceID: spaceID) else {
+            report?(.refused)
+            return false
+        }
+        report?(.direct(.noApproach))
+        return true
+    }
+
+    let displayID = display.displayID
+
+    // **A chord acts on the display the pointer is on, and this Mac may have several.** Left
+    // wherever the user last had it, the chord moves the *other* screen's Space: the display
+    // being switched stays on the neighbour, the check below reads that as a chord that never
+    // landed, and the direct setter is used — which is the stacked picture this whole route
+    let pointerWas = CGEvent(source: nil)?.location
+    CGWarpMouseCursorPosition(spaceCentre(of: displayID))
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + chordApproachDelay) {
+        postSpaceChord(approach.direction)
+
+        if let pointerWas {
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(chordKeyGapMilliseconds * 6)) {
+                CGWarpMouseCursorPosition(pointerWas)
+            }
+        }
+
+        // A chord that was dropped — the permission withdrawn mid-session, a Space removed
+        // between the two reads — leaves the display sitting on the neighbour. Looked at once
+        // the slide would have finished, and only corrected if that is still where it is: if
+        // the Space has moved anywhere else then somebody else moved it, and putting it back
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(700)) {
+            guard let now = readDisplays().first(where: { $0.displayID == displayID }),
+                  now.activeID == approach.neighbour
+            else {
+                report?(.chord)
+                return
+            }
+            spaceLog.notice("""
+                chord to space \(spaceID, privacy: .public) did not land; still on \
+                \(approach.neighbour, privacy: .public), so setting it directly
+                """)
+            if setCurrentSpace(display: now, spaceID: spaceID) {
+                report?(.direct(.chordDidNotLand))
+            } else {
+                report?(.refused)
+            }
+        }
+    }
+    return true
 }

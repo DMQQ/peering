@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The app's privacy manifest.
+
+  **What is declared, and why each line is here.**
+
+  *No tracking.* There is no advertising SDK, no attribution and no third-party SDK in the bundle,
+  so `NSPrivacyTracking` is false and no tracking domain is listed. Anonymous usage counts go to
+  PostHog over plain HTTPS (`Analytics.swift`), declared below as Product Interaction and Device ID
+  for analytics, not linked to anybody and not used to track.
+
+  *User defaults, two reasons.* `CA92.1` covers the store the app keeps for itself: every
+  preference in `PreferenceKeys`, the session history, the macro list and the SSH hosts. `1C8F.1`
+  covers the App Group container, which exists for one reason and is described on the entitlement
+  itself: the home screen widget runs in its own container and cannot read the app's defaults, so
+  the Mac it opens is written to a store both targets can see.
+
+  *File timestamps, for the crash log.* `C617.1` covers reading the modification date of a file in
+  the app's own container. That is the whole of its use: a crash is written by a signal handler that
+  cannot ask the clock what time it is, because formatting a date inside one is not a safe thing to
+  do, so the file's own modification time is the crash time and it is read back on the next launch.
+  Nothing outside the app's own container is stat'd, and nothing about the timestamps leaves the
+  device, because the crash reports themselves do not.
+
+  *A device identifier, and this is the line worth arguing about.* The app sends the relay an
+  identifier it made for itself, kept in user defaults, and the relay writes it beside the seconds
+  that identifier has spent relayed, in an append-only file. That is data leaving the device and
+  outliving the request that carried it, which is Apple's definition of collection, so it is
+  declared rather than left out: `NSPrivacyCollectedDataTypeDeviceID`, not linked to anybody and
+  not used to track anything, for app functionality only.
+
+  It is a random UUID and not a device identifier in the sense the category usually means. It is
+  not the advertising identifier, it is not the vendor identifier, it exists nowhere outside this
+  app and the relay, and it identifies an installation rather than a person or a machine. Declaring
+  it is the conservative reading, and the conservative reading of this file is the right one: a
+  manifest is a statement to Apple, and understating one is the failure that costs.
+
+  *What is deliberately not declared.* Purchases. The app sends the relay the receipt Apple signed,
+  because that is how a subscriber is metered as a subscriber, and the relay verifies it against
+  Apple's root and keeps it for the life of the connection and nowhere else. It is never written to
+  a log, a database or a file. Data processed in memory to answer the request in front of it is not
+  collected.
+
+  **This file and the App Store Connect questionnaire have to agree, and only one of them is in
+  this repository.** If the answer typed into App Store Connect says "Data Not Collected" while
+  this says otherwise, that is a review finding. Both are downstream of the same decision.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeDeviceID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCrashData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

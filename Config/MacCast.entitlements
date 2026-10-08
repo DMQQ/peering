@@ -14,5 +14,11 @@
 	<array>
 		<string>group.pl.dmq.peering</string>
 	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:getpeering.app</string>
+	</array>
+	<key>aps-environment</key>
+	<string>production</string>
 </dict>
 </plist>

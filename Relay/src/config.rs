@@ -74,18 +74,21 @@ pub struct Config {
     /// way to grant one machine unlimited relay without a purchase.
     pub paid_keys: HashSet<String>,
     /// Whether a plan the client claims is believed when it sends no receipt, or one that does not
-    /// verify. `PEERINGD_TRUST_CLAIMED_PLANS`, true by default.
+    /// verify. `PEERINGD_TRUST_CLAIMED_PLANS`, **false by default**.
     ///
-    /// **True is a known hole, kept for the length of one transition.** The app shipped before the
-    /// relay could verify receipts, and a client that sends no proof is metered by what it says it
-    /// bought. Reading an unproven plan as free instead would be the safe answer to "did this
-    /// client pay" and the wrong answer to "should this deploy cut off every subscriber" — it would
-    /// take every existing one down to half an hour a day on the day it shipped. `storekit.rs`
-    /// carries the whole of that reasoning and the condition for closing it.
+    /// **Closed, because a claim is not evidence.** A client that sends `"plan":"pro"` and nothing
+    /// to back it up is metered as free, which is the only reading of an unproven plan that does
+    /// not hand out unlimited relay for a string. The app proves what it bought with the JWS
+    /// StoreKit hands it, so the receipt path is open to everyone who has actually bought
+    /// something, and an unproven claim is what is left when nobody did.
     ///
-    /// Setting it false is what an operator does to measure the drop before everyone gets it:
-    /// sessions then log `plan_trust="neither"` for clients that used to be `claimed`, and when
-    /// that count is nothing that matters, this field goes away along with the fallback.
+    /// **Setting it true is for beta testing, and it re-opens the whole hole.** A TestFlight
+    /// build's receipt is a sandbox one, which `storekit` refuses by name: Apple signs those, they
+    /// name the real products, and anyone with a developer account can mint one for nothing, so
+    /// they are not evidence that anybody paid. With this closed a tester is metered as free, half
+    /// an hour a day on a build that says it is on `pro`; an operator running a beta sets this true
+    /// so that the testers are metered by what they claim, and every other client gets its plan
+    /// from the same switch for as long as it is on.
     pub trust_claimed_plans: bool,
     /// Where the marketing site is served.
     ///
@@ -99,20 +102,93 @@ pub struct Config {
     /// this crate serve the copy in `site/` with no configuration at all. A directory that is not
     /// there is not an error: the relay says so and carries on without a site.
     pub web_root: PathBuf,
+    /// Where the relay-time counter is written down. `PEERINGD_USAGE_LOG`.
+    ///
+    /// **Unset is the default, and it is the safe default rather than the lazy one.** A default
+    /// path would have to be somewhere the service can write, and the unit this ships with grants
+    /// it no writable path at all, so the choice would be between a relay that starts and records
+    /// nothing and a relay that refuses to start. Neither is a good default. Set this to a file
+    /// inside a state directory the service owns, and startup will say whether it took; leave it
+    /// unset and startup will say, just as plainly, that a restart resets every counter.
+    pub usage_log: Option<PathBuf>,
+    /// Where the device-to-public-key bindings are written. `PEERINGD_DEVICE_BINDINGS`.
+    ///
+    /// **Unset means the relay forgets them on restart**, and that is a real weakening rather than
+    /// a neutral default: a binding is what lets a registration that cannot sign for a device ID be
+    /// refused, so a relay that forgets re-opens the window for every ID it had learned. It is not
+    /// an *opening* of the hole, because the memory-only behaviour is still strictly better than
+    /// having no binding at all for the length of a run. Set it, in the same state directory as the
+    /// usage log. See `device_bindings.rs`.
+    pub device_bindings: Option<PathBuf>,
+    /// How many sessions may exist at once, over the whole process.
+    /// `PEERINGD_MAX_SESSIONS`, 1000 by default.
+    ///
+    /// **A ceiling that exists to bound an attack, not to shape normal use.** A session is created
+    /// by anyone who can open a signalling connection and name a Mac: there is no cost to asking
+    /// and no authentication in front of it, so a loop that varies the client id creates a session
+    /// per message until the box runs out of memory. Every real session on a box with a shared
+    /// gigabit uplink costs about a megabit, so a thousand of them is already several times what
+    /// this machine could carry, and the number is here to make the failure a refusal rather than
+    /// an OOM kill. Raise it on a bigger link; the memory per session is small.
+    pub max_sessions: usize,
+    /// How many sockets may be open on the signalling listener at once.
+    /// `PEERINGD_MAX_CONNECTIONS`, 4096 by default.
+    ///
+    /// The other half of the same defence, and it has to be larger than the count of registered
+    /// Macs: a Mac holds its registration socket open for as long as it is running, so this is
+    /// "every Mac that could be online, plus everyone connecting right now". A connection beyond
+    /// it is closed immediately rather than queued, which is the behaviour that keeps an attack
+    /// from turning into a backlog of work.
+    pub max_connections: usize,
+    /// How long a socket may take to become a WebSocket, and how long it may then sit silent.
+    /// `PEERINGD_SIGNALLING_TIMEOUTS`, `10s,90s` by default.
+    ///
+    /// Two numbers because they answer two different questions. The first bounds a connection that
+    /// has not finished saying hello: without it, a socket that sends nothing holds a task and a
+    /// file descriptor for as long as it likes, at any stage of the TLS handshake. The second
+    /// bounds one that has said hello and then gone quiet, and it has to be comfortably longer than
+    /// the host's own keepalive: a registered Mac pings every 25 seconds, so 90 is three missed
+    /// pings rather than a hiccup.
+    pub handshake_timeout: Duration,
+    pub idle_timeout: Duration,
+    /// `PEERINGD_APNS_KEY_ID`: the 10-character key identifier from the APNs key.
+    pub apns_key_id: Option<String>,
+    /// `PEERINGD_APNS_TEAM_ID`: the 10-character Apple Developer team identifier.
+    pub apns_team_id: Option<String>,
+    /// `PEERINGD_APNS_BUNDLE_ID`: the app's bundle identifier, e.g. `pl.dmq.peering`.
+    pub apns_bundle_id: Option<String>,
+    /// `PEERINGD_APNS_KEY`: path to the `.p8` private key file downloaded from the Apple
+    /// Developer portal.
+    pub apns_key: Option<PathBuf>,
 }
 
+/// Sessions at once, unless `PEERINGD_MAX_SESSIONS` says otherwise. See the field for why 1000.
+const DEFAULT_MAX_SESSIONS: usize = 1000;
+/// Signalling sockets at once, unless `PEERINGD_MAX_CONNECTIONS` says otherwise.
+const DEFAULT_MAX_CONNECTIONS: usize = 4096;
+/// Seconds a socket has to finish saying hello, and to keep saying something. See the fields.
+const DEFAULT_HANDSHAKE_SECONDS: u64 = 10;
+const DEFAULT_IDLE_SECONDS: u64 = 90;
+
 /// Free relay minutes per client per window, unless `PEERINGD_FREE_MINUTES` says otherwise.
+///
+/// **Thirty minutes.** Free's promise is "your own network, for as long as you like": the direct
+/// path is unlimited on every plan. The relay allowance is there to answer "does this work when I
+/// am away", and it is deliberately short enough to run out in regular use, which is the
+/// difference between a sample and a subscription.
 const DEFAULT_FREE_MINUTES: u64 = 30;
 /// Relay-plan minutes per client per window, unless `PEERINGD_RELAY_MINUTES` says otherwise.
+///
+/// Not used in the quota check: the Relay plan is now unlimited (see `quota.rs`). Kept here so
+/// `PEERINGD_RELAY_MINUTES` does not become an unknown env var if an operator sets it.
 const DEFAULT_RELAY_MINUTES: u64 = 180;
 
 /// What each plan is allowed, in seconds per window.
 ///
-/// The two numbers here are the whole of the product's promise about relay time: half an hour a
-/// day free, three hours a day on the cheapest subscription, and no limit above that. They are
-/// configurable because an operator may want to be stingier or more generous than the app's copy
-/// says, and the app's copy is what has to keep up — `SessionHistory.swift` mirrors these numbers
-/// to draw its "free relay time" bar, or the bar lies.
+/// The number here is the free plan's promise: 30 minutes a day. Paid plans are unlimited and not
+/// metered at all (see `quota.rs`). Configurable because an operator may want a different free
+/// allowance, but the app's copy has to keep up — `SessionHistory.swift` mirrors this to draw its
+/// "free relay time" bar, or the bar lies.
 ///
 /// Zero is allowed and means what it says: `PEERINGD_FREE_MINUTES=0` blocks relay for free clients
 /// entirely rather than making it unlimited. There is deliberately no spelling for "unlimited"
@@ -227,11 +303,29 @@ impl Config {
                 ),
             },
             paid_keys,
-            trust_claimed_plans: boolean(&get, "PEERINGD_TRUST_CLAIMED_PLANS", true)?,
+            trust_claimed_plans: boolean(&get, "PEERINGD_TRUST_CLAIMED_PLANS", false)?,
             web_addr: address(&get, "PEERINGD_WEB_ADDR", "127.0.0.1:8080")?,
             web_root: get("PEERINGD_WEB_ROOT")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("site")),
+            usage_log: get("PEERINGD_USAGE_LOG").map(PathBuf::from),
+            device_bindings: get("PEERINGD_DEVICE_BINDINGS").map(PathBuf::from),
+            max_sessions: count(&get, "PEERINGD_MAX_SESSIONS", DEFAULT_MAX_SESSIONS)?,
+            max_connections: count(&get, "PEERINGD_MAX_CONNECTIONS", DEFAULT_MAX_CONNECTIONS)?,
+            handshake_timeout: Duration::from_secs(seconds(
+                &get,
+                "PEERINGD_HANDSHAKE_SECONDS",
+                DEFAULT_HANDSHAKE_SECONDS,
+            )?),
+            idle_timeout: Duration::from_secs(seconds(
+                &get,
+                "PEERINGD_IDLE_SECONDS",
+                DEFAULT_IDLE_SECONDS,
+            )?),
+            apns_key_id: get("PEERINGD_APNS_KEY_ID"),
+            apns_team_id: get("PEERINGD_APNS_TEAM_ID"),
+            apns_bundle_id: get("PEERINGD_APNS_BUNDLE_ID"),
+            apns_key: get("PEERINGD_APNS_KEY").map(PathBuf::from),
         })
     }
 }
@@ -282,6 +376,22 @@ fn seconds(get: Lookup<'_>, name: &'static str, default: u64) -> Result<u64, Con
         Some(raw) => raw
             .parse()
             .map_err(|_| ConfigError::BadDuration(name, raw.clone())),
+    }
+}
+
+/// A positive count, for the two ceilings.
+///
+/// **Zero is refused rather than accepted as "no limit".** A relay configured with no sessions and
+/// no connections looks healthy, listens, and answers nothing, which is the sort of outage that
+/// gets diagnosed by reading the code rather than the config. An operator who wants no limit has
+/// `usize::MAX` and can say so.
+fn count(get: Lookup<'_>, name: &'static str, default: usize) -> Result<usize, ConfigError> {
+    match get(name) {
+        None => Ok(default),
+        Some(raw) => match raw.trim().parse::<usize>() {
+            Ok(value) if value > 0 => Ok(value),
+            _ => Err(ConfigError::BadDuration(name, raw)),
+        },
     }
 }
 
@@ -372,8 +482,7 @@ mod tests {
         let config = configured(&[]).unwrap();
 
         assert_eq!(config.plans, PlanAllowances::default());
-        assert_eq!(config.plans.free_seconds, Some(30 * 60), "free is half an hour a day");
-        assert_eq!(config.plans.relay_seconds, Some(180 * 60), "Relay is three hours a day");
+        assert_eq!(config.plans.free_seconds, Some(30 * 60), "free is 30 minutes a day");
     }
 
     #[test]
@@ -398,25 +507,32 @@ mod tests {
         ));
     }
 
-    /// The fallback is on unless someone says otherwise, because that is the behaviour the app
-    /// that shipped already relies on: a subscriber's client sends a plan and no proof, and reading
-    /// that as free is the outcome this default exists to avoid.
+    /// The switch is closed unless an operator opens it, which is what this default is: an
+    /// unproven claim buys the free allowance, and a string a client writes is not enough to buy
+    /// anything else. Opening it is a beta-testing decision, so it takes a line in the environment
+    /// file rather than being the state a relay falls into.
     #[test]
-    fn claims_are_trusted_unless_the_operator_says_not_to() {
-        assert!(configured(&[]).unwrap().trust_claimed_plans);
+    fn claims_are_metered_as_free_unless_the_operator_opts_in() {
+        assert!(
+            !configured(&[]).unwrap().trust_claimed_plans,
+            "an unproven plan must not be believed by default"
+        );
 
         for off in ["0", "false", "off", "no", "FALSE", " 0 "] {
             let config = configured(&[("PEERINGD_TRUST_CLAIMED_PLANS", off)]).unwrap();
             assert!(
                 !config.trust_claimed_plans,
-                "{off:?} should turn the fallback off"
+                "{off:?} should leave the switch closed"
             );
         }
 
         for on in ["1", "true", "on", "yes"] {
-            assert!(configured(&[("PEERINGD_TRUST_CLAIMED_PLANS", on)])
-                .unwrap()
-                .trust_claimed_plans);
+            assert!(
+                configured(&[("PEERINGD_TRUST_CLAIMED_PLANS", on)])
+                    .unwrap()
+                    .trust_claimed_plans,
+                "{on:?} should open the switch"
+            );
         }
     }
 

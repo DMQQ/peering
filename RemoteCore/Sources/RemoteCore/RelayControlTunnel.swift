@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import os
 
 public enum RelayTunnelError: LocalizedError, Sendable, Equatable {
     case invalidPort(UInt16)
@@ -16,26 +17,16 @@ public enum RelayTunnelError: LocalizedError, Sendable, Equatable {
 }
 
 /// TCP parameters for every socket on the relay path, with Nagle disabled.
-///
-/// `NWParameters.tcp` — the static factory — has no way to express `noDelay`, which is how the
-/// relay path came to buffer every small write while the direct path had already stopped doing so.
-/// It costs at least as much here as it did there: the same coalesced 60 Hz command stream crosses
-/// these sockets, and Nagle holds a partial segment until the previous one is acknowledged, so on a
-/// path whose RTT is tens of milliseconds each buffered write waits out a round trip before the next
-/// cursor position leaves. The direct path measured 40 ms for exactly this.
-///
-/// Every socket below goes through here rather than reaching for `.tcp`.
+/// `NWParameters.tcp` cannot express `noDelay`, and Nagle delays each buffered write of the 60 Hz command stream by a round trip. Every relay socket goes through here.
+private let videoTunnelLog = Logger(subsystem: "pl.dmq.peering", category: "relay-tunnel")
+
 private func relayTCPParameters() -> NWParameters {
     let tcp = NWProtocolTCP.Options()
     tcp.noDelay = true
     return NWParameters(tls: nil, tcp: tcp)
 }
 
-/// Presents a loopback TCP endpoint backed by a routed socket to `peeringd`.
-///
-/// The existing client TLS transport connects to the loopback endpoint and still owns the TLS
-/// handshake end to end. The proxy writes the relay's 16-byte routing token first, then copies the
-/// opaque TLS bytes. This avoids teaching the security state machine anything about rendezvous.
+/// Writes the relay's 16-byte routing token first, then copies opaque TLS bytes, so TLS still owns the handshake end to end.
 public final class RelayControlProxy: @unchecked Sendable {
     private let queue = DispatchQueue(label: "pl.dmq.peering.relay.client-tunnel")
     private let session: RelaySession
@@ -94,6 +85,7 @@ public final class RelayControlProxy: @unchecked Sendable {
                     self.splice = splice
                     splice.start()
                 } catch {
+                    videoTunnelLog.error("could not route the relay's control connection, so it is being dropped: \(error.localizedDescription, privacy: .public)")
                     local.cancel()
                 }
             }
@@ -112,7 +104,7 @@ public final class RelayControlProxy: @unchecked Sendable {
 }
 
 /// Copies a relay socket to a local TCP endpoint. The host points this at its existing TLS
-/// listener, which preserves the crucial server role even though its internet socket is outbound.
+/// listener, which preserves the server role even though its internet socket is outbound.
 public final class RelayControlBridge: @unchecked Sendable {
     private let splice: RelayByteSplice
 
@@ -162,8 +154,7 @@ private final class OneShotContinuation<Value: Sendable>: @unchecked Sendable {
     }
 }
 
-/// Backpressured, bidirectional byte copying. All state lives on `queue`.
-private final class RelayByteSplice: @unchecked Sendable {
+final class RelayByteSplice: @unchecked Sendable {
     private let local: NWConnection
     private let relay: NWConnection
     private let token: Data
@@ -174,6 +165,7 @@ private final class RelayByteSplice: @unchecked Sendable {
     private var tokenSent = false
     private var pumping = false
     private var stopped = false
+    private var legs: [Leg] = []
 
     init(
         local: NWConnection,
@@ -214,18 +206,35 @@ private final class RelayByteSplice: @unchecked Sendable {
             advance()
         case .failed, .cancelled:
             stop()
+        case .waiting(let error):
+            // Not a failure: a relay leg with nowhere to go is a phone mid-handover, and the session's silence watchdog ends one that does not recover. Logged because waiting and fine look identical above this layer.
+            videoTunnelLog.notice("the relay leg is waiting: \(String(describing: error), privacy: .public)")
         default:
             break
         }
     }
+
+    private struct Leg {
+        let source: NWConnection
+        let destination: NWConnection
+        var inFlightBytes = 0
+        var reading = false
+    }
+
+    /// Two of the largest read buffers: a splice reading as fast as it can turns a slow receiver into an out-of-memory sender.
+    private static let maxInFlightBytes = 512 * 1024
+    private static let readSize = 256 * 1024
 
     private func advance() {
         guard !stopped, localReady, relayReady else { return }
         guard !tokenSent else {
             guard !pumping else { return }
             pumping = true
-            pump(from: local, to: relay)
-            pump(from: relay, to: local)
+            legs = [
+                Leg(source: local, destination: relay),
+                Leg(source: relay, destination: local),
+            ]
+            for index in legs.indices { pump(index) }
             return
         }
         tokenSent = true
@@ -235,23 +244,33 @@ private final class RelayByteSplice: @unchecked Sendable {
         })
     }
 
-    private func pump(from source: NWConnection, to destination: NWConnection) {
-        source.receive(minimumIncompleteLength: 1, maximumLength: 256 * 1024) {
+    /// The read is re-armed here, not in the send's completion, so a direction does not carry one buffer at a time. A send completion restarts a read stopped by a full window.
+    private func pump(_ index: Int) {
+        guard !stopped, legs.indices.contains(index) else { return }
+        legs[index].reading = true
+        let leg = legs[index]
+        leg.source.receive(minimumIncompleteLength: 1, maximumLength: Self.readSize) {
             [weak self] data, _, isComplete, error in
             guard let self, !self.stopped else { return }
+            self.legs[index].reading = false
+
             if let data, !data.isEmpty {
-                destination.send(content: data, completion: .contentProcessed { [weak self] sendError in
+                self.legs[index].inFlightBytes += data.count
+                leg.destination.send(content: data, completion: .contentProcessed { [weak self] sendError in
                     guard let self else { return }
-                    if sendError == nil, !isComplete, error == nil {
-                        self.pump(from: source, to: destination)
-                    } else {
-                        self.stop()
-                    }
+                    self.legs[index].inFlightBytes -= data.count
+                    if sendError != nil { self.stop(); return }
+                    // Only a direction stopped by a full window reaches here: one still reading has a read outstanding and must not get a second.
+                    if !self.legs[index].reading { self.pump(index) }
                 })
+                if self.legs[index].inFlightBytes < Self.maxInFlightBytes {
+                    self.pump(index)
+                }
                 return
             }
+
             if isComplete || error != nil { self.stop(); return }
-            self.pump(from: source, to: destination)
+            self.pump(index)
         }
     }
 

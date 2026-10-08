@@ -2,84 +2,60 @@ import AppKit
 import RemoteCore
 import SwiftUI
 
-/// How a phone gets here, and the two permissions that let it.
-///
-/// An extension on the window rather than a type of its own — the state is the
-/// window's, and the window is easier to read in pieces than as one file of
-/// fifteen hundred lines.
 extension HostStatusView {
-    /// How a phone gets here — shown only while nothing is attached.
-    ///
-    /// The rest of this pane answers questions about a device that is already connected: what it
-    /// is looking at, when it arrived, what it has been doing. Open the window on an idle Mac and
-    /// every one of those is an answer to a question nobody has asked yet, which is what made
-    /// this screen read as a single empty panel. This is the question to answer for a Mac that
-    /// nobody has reached yet, and the only part of this pane that has anything to say then.
-    ///
-    /// It sits under the picture rather than above it. Instructions at the top of a window push
-    /// the actual subject down out of sight, and this is a window whose subject arrives on its
-    /// own — but the panel still reads second, which is where someone who is stuck will look.
-    ///
-    /// Withdrawn as soon as something connects, because then the answers below are the ones
-    /// being looked for.
     @ViewBuilder
     var connectSection: some View {
         if model.connectedClients.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 sectionHeading(
-                    "Connect",
+                    String(localized: "Connect"),
                     detail: model.status.isListening
-                        ? "This Mac is available on your network."
-                        : "Press Start to make this Mac available."
+                        ? String(localized: "This Mac is available on your network.")
+                        : String(localized: "Press Start to make this Mac available.")
                 )
 
-                VStack(spacing: 0) {
+                HStack(alignment: .top, spacing: 12) {
                     connectRow(
                         symbol: "wifi",
-                        title: "On the same network",
-                        detail: "Open Peering on your iPhone. It finds this Mac by itself, and shows a code to confirm the first time."
+                        title: String(localized: "On the same network"),
+                        detail: String(localized: "Open Peering on your iPhone. It finds this Mac by itself, and shows a code to confirm the first time.")
                     )
-                    Divider().padding(.leading, 44)
                     connectRow(
                         symbol: "number",
-                        title: "By address",
-                        detail: "If discovery is blocked where you are, enter this Mac's address and port \(model.boundPort) by hand."
+                        title: String(localized: "By address"),
+                        detail: String(localized: "If discovery is blocked where you are, enter this Mac's address and port \(String(model.boundPort)) by hand.")
                     )
-                    Divider().padding(.leading, 44)
                     connectRow(
-                        symbol: "globe",
-                        title: "From anywhere",
-                        detail: "Once paired, this Mac stays reachable through the relay on any network. A first pairing can go that way too: use the device ID in Devices."
+                        symbol: "qrcode",
+                        title: String(localized: "From anywhere"),
+                        detail: String(localized: "Scan the code in the sidebar with Peering. Once paired, this Mac stays reachable through the relay on any network.")
                     )
                 }
-                .hostPanel()
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
     func connectRow(symbol: String, title: String, detail: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Image(systemName: symbol)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(HostPalette.muted)
-                .frame(width: 26, height: 26)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(HostPalette.ink)
+                .frame(width: 32, height: 32)
+                .background(HostPalette.raised, in: Circle())
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            Text(detail)
+                .hostCaption()
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(
+            RoundedRectangle(cornerRadius: HostPalette.panelRadius, style: .continuous)
+                .strokeBorder(HostPalette.litEdge, lineWidth: 1)
+        )
     }
-
-    // MARK: - Pairing
 
     @ViewBuilder
     var pairingSection: some View {
@@ -89,14 +65,10 @@ extension HostStatusView {
                     Label("Pair a new iPhone", systemImage: "iphone.and.arrow.forward")
                         .font(.title3.weight(.semibold))
 
-                    // Two sentences, because the two pairings ask for different things. On the
-                    // network the phone can read the code itself, and the person here is the
-                    // one confirming. Over the relay there is somebody else at the other end,
-                    // and the only way the digits cross is that this person reads them out —
-                    // so the card says which of the two situations it is looking at.
+                    // Two sentences: on the network the phone reads the code and this person confirms; over the relay this person reads the digits out.
                     Text(pairing.isRemote
                          ? "This iPhone reached this Mac over the relay, so it is not on this network. Read the six digits out to whoever is holding it: they enter them on the iPhone, and the pairing only goes through if they match."
-                         : "Scan this code with Peering, or enter the six digits on \(pairing.clientName).")
+                         : String(localized: "Scan this code with Peering, or enter the six digits on \(pairing.clientName)."))
                         .font(.callout)
                         .foregroundStyle(HostPalette.muted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -136,8 +108,8 @@ extension HostStatusView {
                     Text(outcome.accepted ? "Device paired" : "Pairing cancelled")
                         .font(.headline)
                     Text(outcome.accepted
-                         ? "\(outcome.clientName) can now reconnect automatically."
-                         : "\(outcome.clientName) was not added to trusted devices.")
+                         ? String(localized: "\(outcome.clientName) can now reconnect automatically.")
+                         : String(localized: "\(outcome.clientName) was not added to trusted devices."))
                         .font(.caption)
                         .foregroundStyle(HostPalette.muted)
                 }
@@ -150,12 +122,12 @@ extension HostStatusView {
 
     var permissionsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionHeading("Mac access", detail: "Peering needs both permissions to stream and control this Mac.")
+            sectionHeading(String(localized: "Mac access"), detail: String(localized: "Peering needs both permissions to stream and control this Mac."))
 
             VStack(spacing: 0) {
                 permissionRow(
-                    title: "Accessibility",
-                    detail: "Clicks and keyboard input",
+                    title: String(localized: "Accessibility"),
+                    detail: String(localized: "Clicks and keyboard input"),
                     icon: "cursorarrow.click.2",
                     granted: model.permissions.accessibilityGranted,
                     request: model.permissions.requestAccessibility,
@@ -163,8 +135,8 @@ extension HostStatusView {
                 )
                 Divider().padding(.leading, 42)
                 permissionRow(
-                    title: "Screen Recording",
-                    detail: "Live picture on your iPhone",
+                    title: String(localized: "Screen Recording"),
+                    detail: String(localized: "Live picture on your iPhone"),
                     icon: "rectangle.dashed.badge.record",
                     granted: model.permissions.screenRecordingGranted,
                     request: model.permissions.requestScreenRecording,
@@ -173,12 +145,21 @@ extension HostStatusView {
             }
             .hostPanel()
 
+            // Screen Recording is read once at process start, so a grant made while open needs a relaunch; Accessibility is re-read on every check.
             HStack(spacing: 8) {
                 Button("Check again") { model.refreshPermissions() }
                     .controlSize(.small)
-                Text("Restart Peering after changing a permission.")
+                if !model.permissions.screenRecordingGranted {
+                    Button("Relaunch Peering") { model.permissions.relaunch() }
+                        .controlSize(.small)
+                        .buttonStyle(.borderedProminent)
+                }
+                Text(model.permissions.screenRecordingGranted
+                     ? "Accessibility is picked up straight away. Screen Recording needs a relaunch."
+                     : "Screen Recording is only read when the app starts, so it needs a relaunch to take effect.")
                     .font(.caption)
                     .foregroundStyle(HostPalette.faint)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

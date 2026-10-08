@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Как связать iPhone с Mac · Peering</title>
+<meta name="description" content="Пошагово: выдайте два разрешения, которые нужны Peering, решите, будет ли Mac оставаться доступным, пока вас нет, и свяжите первый iPhone.">
+<link rel="canonical" href="https://getpeering.app/ru/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/how-to-pair-iphone-mac">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:url" content="https://getpeering.app/ru/how-to-pair-iphone-mac">
+<meta property="og:title" content="Как связать iPhone с Mac · Peering">
+<meta property="og:description" content="Пошагово: разрешения, необязательные переключатели для отсутствия дома и связывание первого iPhone.">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Как связать iPhone с Mac · Peering">
+<meta name="twitter:description" content="Пошагово: разрешения, необязательные переключатели для отсутствия дома и связывание первого iPhone.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Как связать iPhone с Mac с помощью Peering",
+  "description": "Выдайте два разрешения, которые Peering нужны на Mac, решите, будет ли он оставаться доступным, пока вас нет, затем свяжите iPhone.",
+  "step": [
+    {
+      "@type": "HowToStep",
+      "name": "Дайте Peering доступ к Mac",
+      "text": "Разрешите «Универсальный доступ», который превращает жесты и клавиши с iPhone во ввод на Mac, и «Запись экрана», которая отправляет картинку Mac на iPhone. Нужны оба разрешения."
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Решите, будет ли этот Mac оставаться доступным, пока вас нет",
+      "text": "Необязательно. Выберите, будет ли Mac не засыпать сам, по расписанию, просыпаться каждый день или продолжать работать с закрытой крышкой. По умолчанию все четыре выключены, и позже их можно изменить в настройках."
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Свяжите первый iPhone",
+      "text": "Откройте Peering на iPhone. В той же сети он сам находит Mac и показывает шестизначный код для подтверждения. Вне этой сети введите адрес Mac вручную или отсканируйте его ID устройства."
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ru/" aria-label="Peering, главная">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Страницы">
+      <a href="/ru/">Главная</a>
+      <a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол</a>
+      <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>
+      <a href="/ru/download">Скачать</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>Как связать iPhone с Mac</h1>
+    <p class="updated">Единоразовая настройка из трёх частей. После первого связывания останется один шаг: открыть Peering на iPhone.</p>
+
+    <div class="card callout">
+      Сначала установите <a href="/ru/download">Peering для Mac</a>. Это та половина, которая делится
+      экраном и к которой подключается iPhone. Приложение на iPhone находит её автоматически, как
+      только оба устройства оказываются в одной сети.
+    </div>
+
+    <h2>1. Дайте Peering доступ к Mac</h2>
+    <p>
+      Приложение на Mac в первый раз открывается сразу на этом экране и остаётся на нём, пока не
+      будут выданы оба разрешения: хост, который лишь делает вид, что работает, хуже того, который
+      прямо говорит, чего ему не хватает.
+    </p>
+    <ul>
+      <li>
+        <strong>Универсальный доступ.</strong> Превращает жесты и клавиши с iPhone во ввод на этом
+        Mac. Без него вы видите Mac, но не можете им управлять.
+      </li>
+      <li>
+        <strong>Запись экрана.</strong> Отправляет на iPhone живую картинку этого Mac. Без неё
+        iPhone подключается к чёрному экрану.
+      </li>
+    </ul>
+    <p>
+      «Универсальный доступ» вступает в силу сразу. «Запись экрана» считывается только при запуске
+      приложения, поэтому после того, как вы разрешили её в Системных настройках, Peering просит
+      перезапуститься, чтобы её подхватить. Обе кнопки открывают именно ту панель Системных
+      настроек, которая нужна.
+    </p>
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-permissions.webp" width="1600" height="813" loading="lazy"
+        alt="Экран Peering «Дайте Peering доступ к этому Mac»: «Универсальный доступ» и «Запись экрана» отмечены как обязательные, у каждого есть кнопка «Разрешить».">
+      <figcaption>Что вы увидите на Mac при первом открытии Peering.</figcaption>
+    </figure>
+
+    <h2>2. Решите, будет ли этот Mac оставаться доступным, пока вас нет</h2>
+    <p>
+      Необязательно, и все переключатели здесь по умолчанию выключены. Этот шаг существует потому,
+      что раньше это была настройка, которую никто не находил, спрятанная за значком в строке меню;
+      теперь о ней спрашивают один раз, прямо, до того как вы дойдёте до части, где приложением
+      действительно пользуются.
+    </p>
+    <ul>
+      <li>
+        <strong>Не давать Mac засыпать.</strong> Ни сна по бездействию, ни сна дисплея, ни
+        дополнительного запроса разрешения. Не переживает закрытие крышки и снимается автоматически,
+        когда Peering завершается.
+      </li>
+      <li>
+        <strong>Не давать засыпать только в определённые часы.</strong> Расписание для
+        переключателя выше вместо бодрствования круглые сутки.
+      </li>
+      <li>
+        <strong>Будить каждый день.</strong> Ежедневное время пробуждения. Когда Mac уснул, ничто
+        другое здесь не сможет до него достучаться, пока что-то его не разбудит.
+      </li>
+      <li>
+        <strong>Продолжать работать с закрытой крышкой.</strong> Единственный, который переживает
+        закрытие крышки. macOS даёт такую возможность только через <code>pmset</code>, поэтому один
+        раз запрашивается пароль администратора, и пока он включён, Mac не спит вообще.
+      </li>
+    </ul>
+    <p>
+      Пропустите этот шаг, и все переключатели останутся выключенными. Любой из них можно включить
+      позже в настройках, с теми же названиями и теми же пояснениями.
+    </p>
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-away-switches.webp" width="1600" height="967" loading="lazy"
+        alt="Экран Peering «Оставить этот Mac дома»: переключатели «Не давать Mac засыпать», расписание, ежедневное пробуждение и «Продолжать работать с закрытой крышкой», все выключены.">
+      <figcaption>Четыре переключателя для отсутствия дома. Все необязательные, в начале все выключены.</figcaption>
+    </figure>
+
+    <h2>3. Свяжите первый iPhone</h2>
+    <p>
+      Когда выданы оба разрешения, этот Mac начинает слушать и показывает три способа до него
+      добраться:
+    </p>
+    <ul>
+      <li>
+        <strong>В той же сети.</strong> Откройте Peering на iPhone. Он сам находит этот Mac, и в
+        первый раз оба экрана показывают одни и те же шесть цифр для подтверждения.
+      </li>
+      <li>
+        <strong>По адресу.</strong> Если там, где вы находитесь, поиск заблокирован, введите на
+        iPhone вручную адрес и порт Mac, показанные на экране.
+      </li>
+      <li>
+        <strong>Из другой сети.</strong> Ещё не в той же сети Wi-Fi? Отсканируйте в Peering на iPhone
+        QR-код с ID устройства, показанный на Mac, или введите ID вручную.
+      </li>
+    </ul>
+    <p>
+      Именно подтверждение шести цифр связывает два устройства: каждое уже создало свой ключ, а код
+      нужен, чтобы вы сообщили Peering, что устройство на другом конце то самое, что у вас перед
+      глазами. После подтверждения оба запоминают ключ другого, и каждое следующее подключение
+      делается одним касанием.
+    </p>
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-pair-iphone.webp" width="1600" height="813" loading="lazy"
+        alt="Экран Peering «Свяжите первый iPhone»: три способа подключения и QR-код для связывания из другой сети.">
+      <figcaption>Ожидание первого подключения: та же сеть, по адресу или откуда угодно.</figcaption>
+    </figure>
+
+    <h2>Что, если iPhone в другой сети?</h2>
+    <p>
+      Для первого связывания устройства должны быть в одной сети либо нужен QR-код «из другой сети»
+      и ID устройства, о которых сказано выше. После этого единственного подтверждения iPhone и Mac
+      находят друг друга откуда угодно, об этом рассказывает страница
+      <a href="/ru/access-your-mac-from-anywhere">доступ к Mac откуда угодно</a>.
+    </p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ru/download">Скачать Peering для Mac</a>
+    </div>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Руководства, правовая информация и поддержка">
+      <a href="/ru/how-to-pair-iphone-mac">Руководство по связыванию</a>
+      <a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол</a>
+      <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>
+      <a href="/ru/keep-mac-awake-for-remote-access">Mac дома</a>
+      <a href="/ru/coding-agent-notifications">Агенты для кода</a>
+      <a href="/ru/remote-desktop-apps-compared">Сравнение приложений</a>
+      <a href="/ru/screens-alternative">Альтернатива Screens</a>
+      <a href="/ru/download">Скачать</a>
+      <a href="/ru/privacy">Конфиденциальность</a>
+      <a href="/ru/terms">Условия</a>
+      <a href="mailto:support@getpeering.app">Поддержка</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/how-to-pair-iphone-mac" hreflang="en" lang="en">English</a>
+      <a href="/de/how-to-pair-iphone-mac" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/how-to-pair-iphone-mac" hreflang="es" lang="es">Español</a>
+      <a href="/fr/how-to-pair-iphone-mac" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/how-to-pair-iphone-mac" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/how-to-pair-iphone-mac" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/how-to-pair-iphone-mac" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/how-to-pair-iphone-mac" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/how-to-pair-iphone-mac" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/how-to-pair-iphone-mac" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone и Mac являются товарными знаками Apple Inc.</p>
+  </div>
+</footer>
+
+</body>
+</html>

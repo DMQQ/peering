@@ -378,6 +378,26 @@ These are the ones that cost real time. Each was hit at least once.
     which reads like an attack, not like a local signing problem. The fix is
     `--reset --id <new-id> --accept`.
 
+30. **The secrets moved to the data protection keychain.** `RemoteCore/SecretStore.swift` is the
+    one place that says which keychain an item belongs to, and every `SecItem*` call plus
+    `SecKeyCreateRandomKey` in this repository goes through it. It was the login keychain, whose
+    items carry an access control list naming the *certificate* they were created under, so signing
+    the same app with a different certificate made every item a stranger: macOS asked for the
+    keychain password once per item, on every launch, and `Always Allow` was the only cure and only
+    one item at a time. An item in the data protection keychain belongs to an access *group*
+    instead, the group is the app's `application-identifier`, and that comes from the team rather
+    than from the certificate. Development and Developer ID builds of this app are signed by
+    different certificates and carry the same identifier, so the prompts are gone and stay gone.
+
+    Two things to know before touching it. It is a **different keychain**, so nothing already
+    stored moves: the host mints a new identity on the first launch and every paired phone pairs
+    again, once. And the function **asks whether the process is entitled** rather than assuming,
+    because `Tools/MacCastProbe` is this same code linked into a SwiftPM executable that is signed
+    with no entitlements at all. A process that cannot claim a group gets the login keychain, which
+    is where the probe has always been and what its pinned signing identity is arranged around. If
+    a future binary of ours mysteriously cannot see its own items, check which branch it took
+    before checking anything else.
+
 ---
 
 ## 6. Current status (as of 2026-09-14)

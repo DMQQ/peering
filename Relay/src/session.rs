@@ -28,6 +28,8 @@ use rand::Rng;
 use tokio::net::TcpStream;
 use tokio::sync::{oneshot, Mutex};
 
+use crate::quota::Account;
+
 /// A 128-bit addressing hint. See the module comment for what it is and is not.
 pub type Token = [u8; 16];
 
@@ -55,6 +57,16 @@ pub enum Join {
 #[derive(Default)]
 struct ControlPairing {
     waiting: Option<oneshot::Sender<TcpStream>>,
+    /// Whether both halves have ever been present.
+    ///
+    /// **A control token is meant to be presented once by each side, and this is what makes that
+    /// true.** The waiting slot empties again as soon as a pair has been joined, so without this a
+    /// third connection presenting the same token became a fresh waiter and a fourth was spliced to
+    /// it: whoever learned a token could sit in the middle of a live session, lock the real end out
+    /// of its own splice, and have a second splice charged to the account the token belongs to.
+    /// Reading the traffic was never possible, which is why this is about availability and
+    /// accounting rather than about the session's contents.
+    paired: bool,
 }
 
 /// Slot 0. The phone.
@@ -234,6 +246,62 @@ impl VideoRoutes {
         }
     }
 
+    /// Where one end's *peer* was last seen, if it has been seen at all.
+    ///
+    /// The same lookup [`route`](Self::route) does, minus the binding, and read-only: this answers a
+    /// question that arrived over signalling rather than a datagram, so there is no sender to bind
+    /// and nothing to forward. The lookup is by token rather than by session because a token is what
+    /// tells the relay *which* of the two slots is asking — the address that comes back is the
+    /// other one.
+    ///
+    /// `None` covers both "no session holds this token" and "the peer has not spoken yet", and the
+    /// two are deliberately one answer: to the only question the caller has — is there anywhere to
+    /// point this end — they are the same fact, and a distinct error for each would invite the
+    /// client to treat one as retryable and the other as fatal when both are simply early.
+    /// Where the *other* end of this session is, spoken in a way the asker can use.
+    ///
+    /// **The spelling is the whole of this function, and getting it wrong made the direct path
+    /// impossible for everybody.** This socket is bound on `[::]`, so a datagram from a client on
+    /// IPv4 arrives with a v4-mapped source address and renders as `::ffff:203.0.113.7`. The asker
+    /// has an `AF_INET` socket, because that is what resolving the relay over IPv4 gives it, and
+    /// `getaddrinfo` with `AF_INET` and `AI_NUMERICHOST` **refuses a v4-mapped literal outright**:
+    ///
+    /// ```text
+    /// ::ffff:203.0.113.7   AF_INET   -> fails
+    /// 203.0.113.7          AF_INET   -> works
+    /// 203.0.113.7          AF_INET6  -> fails
+    /// 2001:db8::1          AF_INET6  -> works
+    /// ```
+    ///
+    /// Neither end could resolve what this handed it, both call sites discard the error, and so
+    /// neither ever sent a probe and neither ever said so. Every session stayed on the relay and
+    /// the whole feature was inert, which looked exactly like two NATs that would not cooperate.
+    ///
+    /// So the mapping is folded away for a v4 asker, and a peer in the *other* family is not
+    /// offered at all: an address the asker's socket cannot parse is worse than no answer, because
+    /// the answer is what the asker retries on and "no address yet" is at least honest.
+    pub fn peer_address(&self, token: &Token) -> Option<SocketAddr> {
+        let inner = lock(&self.inner);
+        let route = inner.routes.get(token)?;
+        let peer = fold(inner.routes.get(&route.peer)?.addr?);
+
+        // The asker's own address is what says which spelling it can parse, and on the very first
+        // ask it is often not known yet: the client asks before it has sent anything, because the
+        // answer is what tells it where to send. That is ordinary and the caller asks again; what
+        // it gets in the meantime is the peer folded, which is still better than the raw form,
+        // because the raw form is what nothing could parse.
+        let Some(mine) = route.addr.map(fold) else { return Some(peer) };
+
+        match (mine, peer) {
+            (SocketAddr::V4(_), SocketAddr::V4(_)) | (SocketAddr::V6(_), SocketAddr::V6(_)) => {
+                Some(peer)
+            }
+            // One end on IPv4 and the other on IPv6, with no common address family: there is no
+            // path between them to find, and saying nothing is the accurate answer.
+            _ => None,
+        }
+    }
+
     /// Drops sessions that have heard nothing from either end for `idle_ttl`, returning how many
     /// went.
     ///
@@ -297,6 +365,21 @@ impl Table {
 /// and addresses — cannot be left inconsistent by a panic: every mutation is one insert, one remove
 /// or a field assignment. Recovering beats propagating, which would now take the video of every
 /// session down at once over one session's bookkeeping.
+/// A peer's address as the family it actually is, with the v4-mapping folded away.
+///
+/// `SocketAddr::is_ipv4` answers `false` for a v4-mapped address, because it is an `Ipv6Addr` with
+/// an IPv4 address inside it, which is exactly the trap this whole bug was made of. Everything
+/// here works on the folded form so that "is this end on IPv4" means what it says.
+fn fold(address: SocketAddr) -> SocketAddr {
+    match address {
+        SocketAddr::V4(_) => address,
+        SocketAddr::V6(v6) => match v6.ip().to_ipv4_mapped() {
+            Some(v4) => SocketAddr::new(std::net::IpAddr::V4(v4), v6.port()),
+            None => address,
+        },
+    }
+}
+
 fn lock(inner: &StdMutex<Table>) -> MutexGuard<'_, Table> {
     inner.lock().unwrap_or_else(PoisonError::into_inner)
 }
@@ -312,6 +395,13 @@ pub struct Allocated {
 struct Session {
     host_id: String,
     client_id: String,
+    /// Who this session's relay time is charged to, and on what terms.
+    ///
+    /// **Here for the same reason `client_id` is**: the splice runs in `tcp_relay`, which by then
+    /// holds a control token and two sockets and nothing else, so what it needs to meter the
+    /// connection has to travel with the session and be handed over when the token is. See
+    /// `quota::Account`.
+    account: Account,
     /// Kept so the session's routes can be retired when it ends. The table itself is the only place
     /// that knows where the ends are; this is the key to it.
     video_tokens: [Token; 2],
@@ -319,9 +409,23 @@ struct Session {
     last_activity: Instant,
 }
 
-#[derive(Default)]
 struct Inner {
     sessions: HashMap<Token, Session>,
+    /// See `Settings::max_sessions`. Carried here rather than passed to every `allocate` so that the
+    /// ceiling cannot be forgotten by one caller and not another.
+    max_sessions: usize,
+}
+
+/// The default is "no ceiling", which is what every test that is not about the ceiling wants. It is
+/// deliberately not what the binary uses: `Registry::new` takes the number, and `main` takes it from
+/// the environment.
+impl Default for Inner {
+    fn default() -> Self {
+        Self {
+            sessions: HashMap::new(),
+            max_sessions: usize::MAX,
+        }
+    }
 }
 
 pub struct Registry {
@@ -340,14 +444,22 @@ pub struct Registry {
 
 impl Default for Registry {
     fn default() -> Self {
-        Self::new()
+        Self::new(usize::MAX)
     }
 }
 
 impl Registry {
-    pub fn new() -> Self {
+    /// A registry that will not hand out more than `max_sessions` at once.
+    ///
+    /// The number is a parameter rather than a constant because it belongs to the deployment rather
+    /// than to this module: the binary passes `PEERINGD_MAX_SESSIONS`, and a test that does not
+    /// care passes `usize::MAX`. See `Settings::max_sessions` for why there is a ceiling at all.
+    pub fn new(max_sessions: usize) -> Self {
         Self {
-            inner: Mutex::new(Inner::default()),
+            inner: Mutex::new(Inner {
+                max_sessions,
+                ..Inner::default()
+            }),
             routes: Arc::new(VideoRoutes::new()),
         }
     }
@@ -366,7 +478,20 @@ impl Registry {
     ///
     /// Dropping the old session drops its rendezvous channel, which is how the connection still
     /// waiting in it learns to give up.
-    pub async fn allocate(&self, host_id: &str, client_id: &str) -> Allocated {
+    ///
+    /// `account` is what the session will be metered on, resolved by the caller from the plan
+    /// `storekit` decided: this module knows nothing about plans or money, and takes what it is
+    /// given. It is dropped with a superseded session, and a splice that is already running holds a
+    /// copy of it, which is why replacing a session does not stop the one it replaced from being
+    /// charged for as long as it lasts.
+    /// **`None` means the relay is at its ceiling**, and the caller has to say so rather than
+    /// pretend a session exists. See `Settings::max_sessions` for what that ceiling is for.
+    pub async fn allocate(
+        &self,
+        host_id: &str,
+        client_id: &str,
+        account: Account,
+    ) -> Option<Allocated> {
         let control_token = new_token();
         let video_tokens = [new_token(), new_token()];
 
@@ -382,11 +507,20 @@ impl Registry {
             }
             !superseded
         });
+
+        // **After the retain, not before it.** A phone reconnecting to a Mac it already has a
+        // session with is not asking for a new one, and refusing it because the relay happens to be
+        // full would strand the one session it does not need a second of.
+        if inner.sessions.len() >= inner.max_sessions {
+            return None;
+        }
+
         inner.sessions.insert(
             control_token,
             Session {
                 host_id: host_id.to_string(),
                 client_id: client_id.to_string(),
+                account,
                 video_tokens,
                 control: ControlPairing::default(),
                 last_activity: Instant::now(),
@@ -402,10 +536,10 @@ impl Registry {
             self.routes.close(tokens);
         }
 
-        Allocated {
+        Some(Allocated {
             control_token,
             video_tokens,
-        }
+        })
     }
 
     /// Presents a control token, and either waits for the peer or hands this stream over to
@@ -413,6 +547,14 @@ impl Registry {
     pub async fn join_control(&self, token: &Token, mine: TcpStream) -> Option<Join> {
         let mut inner = self.inner.lock().await;
         let session = inner.sessions.get_mut(token)?;
+
+        // A token that has already been presented by both ends is spent. `None` rather than a
+        // refusal of some kind, because a caller cannot tell a probe from an owner and a caller
+        // that learns nothing is the right answer to both: the connection is closed without a
+        // reply, which is what the caller does with `None` already.
+        if session.control.paired {
+            return None;
+        }
         session.last_activity = Instant::now();
 
         // `mine` is moved into the channel in one arm and kept in the other. That is the whole
@@ -421,6 +563,7 @@ impl Registry {
         let waiting = session.control.waiting.take();
         Some(match waiting {
             Some(peer) => {
+                session.control.paired = true;
                 let _ = peer.send(mine);
                 Join::HandedOver
             }
@@ -443,6 +586,27 @@ impl Registry {
         let retired = inner.sessions.remove(token).map(|session| session.video_tokens);
         if let Some(tokens) = retired {
             self.routes.close(&tokens);
+        }
+    }
+
+    /// Says that a session's own splice is still running.
+    ///
+    /// **The clock this replaces was the bug.** Activity used to be refreshed only by
+    /// ``join_control``, which happens once, when both ends present their token and the splice
+    /// starts. Nothing refreshed it afterwards, so a session that was working perfectly was
+    /// indistinguishable from an abandoned one for the sweep's purposes: at the TTL, which is five
+    /// minutes by default and thirty seconds of sweep apart, the session was retired and its video
+    /// routes closed. The picture stopped while the control connection carried on, because the
+    /// splice holds its two streams directly rather than through the registry. A relayed session
+    /// therefore lost its video five minutes in, every time, and nothing in the log said why.
+    ///
+    /// Called from the splice's own meter tick, which is the only thing that knows the session is
+    /// still doing work. A session nobody ever joined is not touched by anything and is still
+    /// swept, which is what the sweep is for.
+    pub async fn touch(&self, token: &Token) {
+        let mut inner = self.inner.lock().await;
+        if let Some(session) = inner.sessions.get_mut(token) {
+            session.last_activity = Instant::now();
         }
     }
 
@@ -485,15 +649,20 @@ impl Registry {
             .map(|session| session.video_tokens[CLIENT_SLOT])
     }
 
-    /// The client ID for a control token. Used by the TCP relay to attribute session time to the
-    /// right client after the splice finishes.
-    pub async fn client_id_for_token(&self, token: &Token) -> Option<String> {
+    /// What a control token's session is metered on, for the TCP relay to charge as it splices.
+    ///
+    /// **A copy rather than a borrow**, and the reason is the sweep: a session can leave this table
+    /// while its splice is still running, and a meter that had reached back into the registry for
+    /// its terms would find them gone and stop charging. What the splice needs is settled when the
+    /// session is allocated, so this hands over a clone of exactly that and nothing later can
+    /// change it.
+    pub async fn account_for_token(&self, token: &Token) -> Option<Account> {
         self.inner
             .lock()
             .await
             .sessions
             .get(token)
-            .map(|session| session.client_id.clone())
+            .map(|session| session.account.clone())
     }
 }
 
@@ -502,16 +671,207 @@ mod tests {
     use super::*;
     use std::net::Ipv4Addr;
 
+    use crate::config::PlanAllowances;
+    use crate::quota::{Plan, QuotaTracker};
+
     const CLIENT: Token = [1u8; 16];
     const HOST: Token = [2u8; 16];
+
+    /// A free client's account, with the tracker behind it handed back as well.
+    ///
+    /// The tests in this module are about the registry rather than about money, so what the account
+    /// says is never read: what matters is that a session has one to carry and to hand to a splice.
+    /// The tracker comes back beside it so that a test which wants to know what was charged can
+    /// look, and so that the `Arc` in the account is plainly not the only handle to it.
+    fn client_account() -> (Arc<QuotaTracker>, Account) {
+        let tracker = Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default()));
+        let account = tracker.account("phone", None, Plan::Free);
+        (tracker, account)
+    }
 
     fn addr(last: u8, port: u16) -> SocketAddr {
         SocketAddr::from((Ipv4Addr::new(127, 0, 0, last), port))
     }
 
+    /// **The ceiling, and the attack it is for.** Nothing authenticates a session request: anyone
+    /// who can open a signalling connection can invent a client id and ask for a session, so
+    /// without this a loop that varies the id creates a session per message until the box runs out
+    /// of memory, and every session it creates outlives the socket that asked for it.
+    #[tokio::test]
+    async fn the_registry_refuses_past_its_ceiling() {
+        let registry = Registry::new(2);
+        let (_quota, account) = client_account();
+
+        assert!(registry.allocate("mac", "phone-one", account.clone()).await.is_some());
+        assert!(registry.allocate("mac", "phone-two", account.clone()).await.is_some());
+        assert!(
+            registry.allocate("mac", "phone-three", account).await.is_none(),
+            "the third session is refused rather than allocated"
+        );
+        assert_eq!(registry.len().await, 2, "and nothing was inserted");
+    }
+
+    /// **A reconnect at the ceiling is not a new session.** A phone asking for a Mac it already has
+    /// a session with is replacing that session, not adding one, and refusing it would strand the
+    /// one client that is doing exactly the right thing while the relay is busy.
+    #[tokio::test]
+    async fn a_reconnect_at_the_ceiling_replaces_its_own_session() {
+        let registry = Registry::new(1);
+        let (_quota, account) = client_account();
+
+        let first = registry.allocate("mac", "phone", account.clone()).await;
+        assert!(first.is_some());
+        let first_token = first.expect("just checked").control_token;
+
+        let second = registry.allocate("mac", "phone", account.clone()).await;
+        assert!(second.is_some(), "the same pair again is a replacement, not a new session");
+        assert!(
+            registry.video_token_for(&first_token).await.is_none(),
+            "and the session it replaced is gone"
+        );
+
+        assert!(
+            registry.allocate("mac", "someone-else", account).await.is_none(),
+            "while a different pair is still refused"
+        );
+    }
+
+    /// What `recv_from` on a dual-stack socket reports for a client that is on IPv4: an IPv6
+    /// address with the IPv4 one inside it. This is the shape the bug was made of, so the tests
+    /// have to be able to produce it.
+    fn mapped(a: u8, b: u8, c: u8, d: u8, port: u16) -> SocketAddr {
+        SocketAddr::new(
+            std::net::IpAddr::V6(Ipv4Addr::new(a, b, c, d).to_ipv6_mapped()),
+            port,
+        )
+    }
+
     /// A token for session `n`, so a test with many sessions can name them without listing them.
     fn token(n: u8) -> Token {
         [n; 16]
+    }
+
+    /// The bug that made the direct path impossible for everybody.
+    ///
+    /// This socket is bound on `[::]`, so a client on IPv4 is seen as `::ffff:a.b.c.d`. That string
+    /// resolves under `AF_INET6` and **fails under `AF_INET`**, which is the family the client's
+    /// socket actually has. So both ends were handed an address neither could parse, both discarded
+    /// the error, and neither ever sent a probe. Every session stayed on the relay, which on screen
+    /// is indistinguishable from two NATs that will not cooperate.
+    #[test]
+    fn an_ipv4_peer_is_given_as_ipv4_and_not_as_a_mapped_ipv6_address() {
+        let routes = VideoRoutes::new();
+        routes.open(&[CLIENT, HOST]);
+
+        // What `recv_from` on a dual-stack socket hands back for an IPv4 client.
+        routes.route(&CLIENT, mapped(203, 0, 113, 7, 4000));
+        routes.route(&HOST, mapped(198, 51, 100, 9, 5000));
+
+        assert_eq!(
+            routes.peer_address(&HOST),
+            Some(SocketAddr::from((Ipv4Addr::new(203, 0, 113, 7), 4000))),
+            "the asker is on IPv4, so the answer has to be a plain IPv4 address"
+        );
+        assert!(routes.peer_address(&HOST).unwrap().is_ipv4());
+
+        // And the same in the other direction, because both ends ask.
+        assert_eq!(
+            routes.peer_address(&CLIENT),
+            Some(SocketAddr::from((Ipv4Addr::new(198, 51, 100, 9), 5000)))
+        );
+    }
+
+    /// And when the two ends are in different families there is nothing to hand over, because an
+    /// address the asker's socket cannot parse is worse than no answer: the asker retries on an
+    /// answer, and "not yet" is at least true.
+    #[test]
+    fn ends_in_different_families_are_not_introduced() {
+        let routes = VideoRoutes::new();
+        routes.open(&[CLIENT, HOST]);
+
+        routes.route(&CLIENT, mapped(203, 0, 113, 7, 4000));
+        routes.route(&HOST, SocketAddr::from(([0x2a00, 0x1450, 0x4001, 0, 0, 0, 0, 1], 5000)));
+
+        assert_eq!(routes.peer_address(&HOST), None);
+        assert_eq!(routes.peer_address(&CLIENT), None);
+    }
+
+    /// A genuine IPv6 peer is offered as IPv6, unfolded, to an asker that is on IPv6.
+    #[test]
+    fn two_ipv6_ends_are_introduced_as_ipv6() {
+        let routes = VideoRoutes::new();
+        routes.open(&[CLIENT, HOST]);
+
+        let client = SocketAddr::from(([0x2a00, 0x1450, 0x4001, 0, 0, 0, 0, 2], 4000));
+        let host = SocketAddr::from(([0x2a00, 0x1450, 0x4001, 0, 0, 0, 0, 1], 5000));
+        routes.route(&CLIENT, client);
+        routes.route(&HOST, host);
+
+        assert_eq!(routes.peer_address(&HOST), Some(client));
+        assert_eq!(routes.peer_address(&CLIENT), Some(host));
+    }
+
+    /// The introduction the relay can now give: where one end's peer was last seen.
+    ///
+    /// "Unknown" is the ordinary state of a session whose second end has not started yet, and it is
+    /// the state a client asks in — it asks *before* it has sent anything, because the answer is
+    /// what tells it where to send. So the `None` here is the expected first answer rather than a
+    /// failure, and the tests below are about which end learns what once the datagrams arrive.
+    #[test]
+    fn a_peer_address_appears_once_the_other_end_has_been_heard() {
+        let routes = VideoRoutes::new();
+        routes.open(&[CLIENT, HOST]);
+
+        assert_eq!(routes.peer_address(&CLIENT), None, "nobody has spoken yet");
+        assert_eq!(routes.peer_address(&HOST), None);
+
+        routes.route(&CLIENT, addr(1, 4000));
+
+        assert_eq!(
+            routes.peer_address(&HOST),
+            Some(addr(1, 4000)),
+            "the end that has not spoken can be told where the one that has, is"
+        );
+        assert_eq!(
+            routes.peer_address(&CLIENT),
+            None,
+            "and the end that spoke is told nothing, because its peer has not been heard"
+        );
+
+        routes.route(&HOST, addr(2, 5000));
+        assert_eq!(routes.peer_address(&CLIENT), Some(addr(2, 5000)));
+        assert_eq!(routes.peer_address(&HOST), Some(addr(1, 4000)));
+    }
+
+    /// A carrier NAT that moves a mapping mid-session is the thing the binding exists for, and the
+    /// answer has to move with it: an end told an address that stopped working would try the direct
+    /// path, fail, and fall back — which is survivable but is exactly the latency this is for.
+    #[test]
+    fn a_peer_address_follows_a_rebind() {
+        let routes = VideoRoutes::new();
+        routes.open(&[CLIENT, HOST]);
+        routes.route(&CLIENT, addr(1, 4000));
+        routes.route(&HOST, addr(2, 5000));
+
+        routes.route(&HOST, addr(3, 6000));
+
+        assert_eq!(routes.peer_address(&CLIENT), Some(addr(3, 6000)));
+    }
+
+    /// Nothing is learned by asking with a token the table does not hold, and asking must not be a
+    /// way to put anything *into* the table either — the write path is `route`, and it needs a
+    /// datagram.
+    #[test]
+    fn an_unknown_token_has_no_peer_address() {
+        let routes = VideoRoutes::new();
+        assert_eq!(routes.peer_address(&token(9)), None);
+
+        routes.open(&[CLIENT, HOST]);
+        assert_eq!(
+            routes.peer_address(&token(9)),
+            None,
+            "and stays unknown once a session exists"
+        );
     }
 
     fn routes() -> VideoRoutes {
@@ -732,9 +1092,10 @@ mod tests {
 
     #[tokio::test]
     async fn allocate_hands_out_distinct_tokens() {
-        let registry = Registry::new();
-        let a = registry.allocate("mac", "phone").await;
-        let b = registry.allocate("mac", "other-phone").await;
+        let registry = Registry::new(usize::MAX);
+        let (_quota, account) = client_account();
+        let a = registry.allocate("mac", "phone", account.clone()).await.expect("room for a session");
+        let b = registry.allocate("mac", "other-phone", account).await.expect("room for a session");
 
         assert_ne!(a.control_token, b.control_token);
         assert_ne!(a.video_tokens, b.video_tokens);
@@ -746,9 +1107,10 @@ mod tests {
 
     #[tokio::test]
     async fn reallocating_for_the_same_pair_supersedes_the_old_session() {
-        let registry = Registry::new();
-        let first = registry.allocate("mac", "phone").await;
-        let second = registry.allocate("mac", "phone").await;
+        let registry = Registry::new(usize::MAX);
+        let (_quota, account) = client_account();
+        let first = registry.allocate("mac", "phone", account.clone()).await.expect("room for a session");
+        let second = registry.allocate("mac", "phone", account).await.expect("room for a session");
 
         assert_eq!(registry.len().await, 1, "one phone, one Mac, one session");
         assert!(registry.video_token_for(&first.control_token).await.is_none());
@@ -770,8 +1132,9 @@ mod tests {
 
     #[tokio::test]
     async fn a_released_session_leaves_nothing_routable_behind() {
-        let registry = Registry::new();
-        let allocated = registry.allocate("mac", "phone").await;
+        let registry = Registry::new(usize::MAX);
+        let (_quota, account) = client_account();
+        let allocated = registry.allocate("mac", "phone", account).await.expect("room for a session");
         let [client, host] = allocated.video_tokens;
 
         registry.release(&allocated.control_token).await;
@@ -785,8 +1148,9 @@ mod tests {
     async fn the_sweep_retires_the_video_routes_of_what_it_sweeps() {
         // The path that ends the sessions nobody asked to end: a phone that crashed, a Mac that was
         // unplugged. What it must not leave behind is a token that still forwards.
-        let registry = Registry::new();
-        let allocated = registry.allocate("mac", "phone").await;
+        let registry = Registry::new(usize::MAX);
+        let (_quota, account) = client_account();
+        let allocated = registry.allocate("mac", "phone", account).await.expect("room for a session");
         let [client, host] = allocated.video_tokens;
         assert_eq!(registry.routes().len(), 1);
 
@@ -797,10 +1161,47 @@ mod tests {
         assert!(registry.routes().is_empty());
     }
 
+    /// **The regression, at the size it actually happened.** A session whose splice is running is
+    /// not an abandoned session, however long it has been open: the sweep used to judge it by a
+    /// clock only `join_control` ever wound, so every relayed session lost its video at the TTL
+    /// while its control connection kept carrying.
+    #[tokio::test]
+    async fn a_running_splice_is_not_swept_however_long_it_has_been_open() {
+        let registry = Registry::new(usize::MAX);
+        let (_quota, account) = client_account();
+        let allocated = registry.allocate("mac", "phone", account).await.expect("room for a session");
+        let [client, _host] = allocated.video_tokens;
+
+        // A TTL far shorter than a real one, so that a session which has been running for longer
+        // than the TTL can be tested in a test's own lifetime. What matters is the relation, not
+        // the number: every sweep below is told the session is older than this.
+        let ttl = Duration::from_millis(60);
+
+        // Each round waits past the TTL with nothing happening but the splice's own tick, which is
+        // what a session being used looks like from the registry's side.
+        for round in 0..3 {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            registry.touch(&allocated.control_token).await;
+            assert_eq!(registry.sweep(ttl).await, 0, "round {}: a live splice was swept", round);
+        }
+
+        // And the routes it was holding are still there, which is the part a user notices: the
+        // picture stopping while the control connection carries on is what the sweep cost.
+        assert_ne!(registry.routes().route(&client, addr(1, 5000)), Routed::Dropped);
+        assert_eq!(registry.routes().len(), 1);
+
+        // The contrast, without which the loop above would pass on a TTL that could never sweep
+        // anything: left alone, this same session goes, and takes its routes with it.
+        tokio::time::sleep(Duration::from_millis(80)).await;
+        assert_eq!(registry.sweep(ttl).await, 1);
+        assert!(registry.routes().is_empty());
+    }
+
     #[tokio::test]
     async fn the_first_connection_waits_and_the_second_hands_itself_over() {
-        let registry = Registry::new();
-        let allocated = registry.allocate("mac", "phone").await;
+        let registry = Registry::new(usize::MAX);
+        let (_quota, account) = client_account();
+        let allocated = registry.allocate("mac", "phone", account).await.expect("room for a session");
         let token = allocated.control_token;
 
         // Stand-ins for the two live sockets; the pairing logic only moves them around.
@@ -824,9 +1225,50 @@ mod tests {
         assert!(peer.await.is_ok(), "the peer's stream should arrive");
     }
 
+    /// **The token is spent once both ends have used it.** It used to be reusable for the whole
+    /// life of the session, because the waiting slot empties as soon as a pair is joined and
+    /// nothing else recorded that it had been: a third presentation became a fresh waiter and a
+    /// fourth was spliced to it. Whoever learned a token could therefore stand in for a real end
+    /// and have a second splice charged to that session's account.
+    #[tokio::test]
+    async fn a_token_that_has_been_used_by_both_ends_joins_nothing_more() {
+        let registry = Registry::new(usize::MAX);
+        let (_quota, account) = client_account();
+        let allocated = registry.allocate("mac", "phone", account).await.expect("room for a session");
+        let token = allocated.control_token;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let first = registry
+            .join_control(&token, TcpStream::connect(addr).await.unwrap())
+            .await
+            .expect("the first presentation is the one that waits");
+        assert!(matches!(
+            registry
+                .join_control(&token, TcpStream::connect(addr).await.unwrap())
+                .await,
+            Some(Join::HandedOver)
+        ));
+
+        assert!(
+            registry
+                .join_control(&token, TcpStream::connect(addr).await.unwrap())
+                .await
+                .is_none(),
+            "a third presentation is refused rather than becoming a new waiter"
+        );
+
+        // And the session is otherwise unharmed: the pair that arrived first still has both halves.
+        let Join::Waiting { mine, peer } = first else {
+            panic!("the first connection should be the one waiting");
+        };
+        assert!(mine.peer_addr().is_ok());
+        assert!(peer.await.is_ok());
+    }
+
     #[tokio::test]
     async fn a_token_that_was_never_issued_joins_nothing() {
-        let registry = Registry::new();
+        let registry = Registry::new(usize::MAX);
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let socket = TcpStream::connect(listener.local_addr().unwrap()).await.unwrap();
 
@@ -835,8 +1277,9 @@ mod tests {
 
     #[tokio::test]
     async fn releasing_a_session_makes_its_token_useless() {
-        let registry = Registry::new();
-        let allocated = registry.allocate("mac", "phone").await;
+        let registry = Registry::new(usize::MAX);
+        let (_quota, account) = client_account();
+        let allocated = registry.allocate("mac", "phone", account).await.expect("room for a session");
         registry.release(&allocated.control_token).await;
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -849,8 +1292,9 @@ mod tests {
 
     #[tokio::test]
     async fn the_sweep_takes_abandoned_sessions_and_leaves_busy_ones() {
-        let registry = Registry::new();
-        registry.allocate("mac", "phone").await;
+        let registry = Registry::new(usize::MAX);
+        let (_quota, account) = client_account();
+        registry.allocate("mac", "phone", account).await.expect("room for a session");
 
         assert_eq!(registry.sweep(Duration::from_secs(300)).await, 0);
         assert_eq!(registry.sweep(Duration::ZERO).await, 1);

@@ -1,32 +1,19 @@
 import Foundation
 import Network
 
-/// A host found by browsing Bonjour.
-///
-/// The advertised name is a *hint*: it is what the host called itself when it registered,
-/// and it is not authenticated in any way. Nothing security-relevant may be decided from
-/// these values — the device ID is only used to recognise a machine in a list, and the
-/// real identification happens in the TLS handshake and the pin check.
+/// The advertised name is an unauthenticated hint: nothing security-relevant may be decided from these values. Identification happens in the TLS handshake and pin check.
 public struct DiscoveredHost: Sendable, Identifiable {
-    /// The host's persistent device ID, from its TXT record. Stable across networks,
-    /// DHCP leases, and renames — which is exactly why it is the identity and the
-    /// advertised address is not.
+    /// The host's persistent device ID from its TXT record; stable across networks and renames, so it is the identity.
     public let id: String
 
-    /// The human-readable name the host advertised.
     public let name: String
 
-    /// Connect to this directly rather than resolving to a host and port. A Bonjour
-    /// endpoint carries the interface it was discovered on, so connecting through it
-    /// uses the path that actually works — resolving to an address first would discard
-    /// that and can pick the wrong interface on a machine with several.
+    /// Connect to this directly: a Bonjour endpoint carries its discovery interface, whereas resolving to an address first can pick the wrong one.
     public let endpoint: NWEndpoint
 
-    /// The protocol version from the TXT record, if the host published one. Lets the
-    /// client grey out an incompatible host instead of failing after a connect attempt.
+    /// From the TXT record; lets the client grey out an incompatible host.
     public let protocolVersion: UInt16?
 
-    /// Whether the host reported being reachable on more than one interface.
     public let interfaceCount: Int
 
     public init(
@@ -43,13 +30,7 @@ public struct DiscoveredHost: Sendable, Identifiable {
         self.interfaceCount = interfaceCount
     }
 
-    /// Equality covers everything the device picker renders, and deliberately **excludes
-    /// the endpoint**.
-    ///
-    /// ``HostBrowser`` uses this to decide whether a browse update is worth re-emitting.
-    /// A host being renamed or republished at a different protocol version changes what the
-    /// user sees, so it must compare unequal. A host reappearing on a different interface
-    /// does not — the row is identical, and re-emitting would repaint the list for nothing.
+    /// Excludes the endpoint: ``HostBrowser`` re-emits only when a rename or protocol version changes, not a new interface alone.
     public static func == (lhs: DiscoveredHost, rhs: DiscoveredHost) -> Bool {
         lhs.id == rhs.id
             && lhs.name == rhs.name
@@ -68,16 +49,7 @@ extension DiscoveredHost: Hashable {
 }
 
 extension DiscoveredHost {
-    /// Collapses entries that describe the same host, and orders them for display.
-    ///
-    /// A Mac reachable over both Wi-Fi and Ethernet is discovered once per interface. Both
-    /// entries are the same machine and connecting through either works, so they are merged
-    /// — otherwise the picker lists one Mac several times and the choice between them is a
-    /// coin flip the user has no way to reason about. The interface count is kept so a
-    /// multi-homed host can be shown as such.
-    ///
-    /// The survivor is the first entry seen for an ID. They are interchangeable, so this is
-    /// a stable choice rather than a preference for any particular interface.
+    /// Merges the per-interface entries of one machine (Wi-Fi and Ethernet), keeping the interface count, and orders for display.
     public static func collapse(_ hosts: [DiscoveredHost]) -> [DiscoveredHost] {
         var order: [String] = []
         var byID: [String: DiscoveredHost] = [:]
@@ -102,19 +74,26 @@ extension DiscoveredHost {
         }
         .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
     }
+
+    /// Builds a host from a browse result, or nil if it is not a MacCast host. `_remotedesktop._tcp` is Apple's Screen Sharing type, so other Macs appear too; the device ID (required, since the pin and handshake key on it) tells them apart.
+    static func decode(endpoint: NWEndpoint, txt: NWTXTRecord?) -> DiscoveredHost? {
+        // An empty `id=` is malformed, and all of them would collapse to one host.
+        guard let id = txt?[ProtocolInfo.TXTRecordKey.deviceID], !id.isEmpty else { return nil }
+
+        return DiscoveredHost(
+            id: id,
+            name: txt?[ProtocolInfo.TXTRecordKey.deviceName] ?? endpoint.debugDescription,
+            endpoint: endpoint,
+            protocolVersion: txt?[ProtocolInfo.TXTRecordKey.protocolVersion].flatMap(UInt16.init),
+            interfaceCount: 1
+        )
+    }
 }
 
-/// Browses for MacCast hosts on the local network.
-///
-/// Reports the **complete current list** on every change rather than found/lost deltas.
-/// `NWBrowser` already hands over the full result set, so a delta API would mean doing the
-/// diffing twice — once here and again in whatever view binds to it — and getting it wrong
-/// in one of those places is how a picker ends up showing a Mac that went to sleep an hour
-/// ago. Rebuilding from the full set cannot drift.
+/// Reports the complete current list on every change rather than deltas: `NWBrowser` already gives the full set, and diffing twice is how a stale Mac lingers.
 public final class HostBrowser: @unchecked Sendable {
     public enum Event: Sendable {
         case started
-        /// The complete list, sorted by name, with each host appearing once.
         case updated([DiscoveredHost])
         case failed(String)
     }
@@ -126,27 +105,15 @@ public final class HostBrowser: @unchecked Sendable {
     private var browser: NWBrowser?
     private var current: [DiscoveredHost] = []
 
-    /// Whether a browser is wanted right now.
-    ///
-    /// Distinguishes a browse that died from one that was put away: only the first is worth
-    /// replacing, and after ``stop()`` a restart would resurrect something the caller finished
-    /// with — a probe that has printed its answer, or an app being torn down.
+    /// Distinguishes a browse that died from one put away, so ``stop()`` is not undone by a restart.
     private var isRunning = false
 
-    /// How many restarts have been scheduled back to back, reset by a browser reaching `.ready`.
     private var restartAttempt = 0
 
-    /// Bumped by a deliberate stop, so a restart already in flight can tell it has been called
-    /// off. Compared rather than cancelled, because what is pending is a closure on this queue
-    /// and not a task.
+    /// Bumped by a deliberate stop so an in-flight restart (a closure, not a task) can tell it was called off.
     private var restartGeneration = 0
 
-    /// How long to wait before replacing a browser that failed.
-    ///
-    /// Short at first: the common failure is the daemon dropping us during a network change and
-    /// is over before the first retry runs, so waiting longer only delays a list the user is
-    /// looking at. Capped so a device with Wi-Fi switched off settles into a retry every half
-    /// minute instead of spinning.
+    /// Short at first (the usual failure is the daemon dropping us on a network change), capped so Wi-Fi off settles into a retry every half minute.
     private static let restartDelays: [TimeInterval] = [1, 2, 5, 10, 20, 30]
 
     public var onEvent: (@Sendable (Event) -> Void)? {
@@ -163,15 +130,11 @@ public final class HostBrowser: @unchecked Sendable {
             guard self.browser == nil else { return }
 
             let parameters = NWParameters()
-            // Peer-to-peer would add AWDL, discovering Macs that are nearby but on no shared
-            // network. This app requires both ends on the same Wi-Fi by design, so enabling
-            // it would only cost battery to surface hosts that cannot be connected to.
+            // Peer-to-peer would add AWDL and surface Macs on no shared network.
             parameters.includePeerToPeer = false
 
-            // `bonjourWithTXTRecord`, not `bonjour`. With the plain case the result metadata
-            // is `.none` and the device ID never arrives, which degrades silently: the list
-            // still populates, so it looks like it works, but every host falls back to an
-            // unstable identifier and pinning has nothing consistent to key on.
+            // `bonjourWithTXTRecord`, not `bonjour`: with the plain case the result metadata is
+            // `.none` and the device ID never arrives, so pinning has nothing consistent to key on.
             let descriptor = NWBrowser.Descriptor.bonjourWithTXTRecord(
                 type: ProtocolInfo.bonjourServiceType,
                 domain: nil
@@ -185,7 +148,8 @@ public final class HostBrowser: @unchecked Sendable {
                     self.restartAttempt = 0
                     self.emit(.started)
                 case .failed(let error):
-                    self.emit(.failed(error.localizedDescription))
+                    // An `NWError`'s own `localizedDescription` is `Network.NWError error 60`, not a sentence.
+                    self.emit(.failed(NetworkFailureText.describe(error)))
                     self.replaceFailedBrowser()
                 case .cancelled:
                     self.emit(.updated([]))
@@ -212,12 +176,9 @@ public final class HostBrowser: @unchecked Sendable {
         }
     }
 
-    /// Tears the current browser down. Must run on ``queue``.
     private func teardown() {
-        // Nil both handlers before cancelling. The NWBrowser fires .cancelled
-        // asynchronously on this queue *after* cancel() returns. If a new browser
-        // has already been started by then, the stateUpdateHandler would emit
-        // .updated([]) and wipe the new browser's live results.
+        // Nil both handlers before cancelling: .cancelled fires asynchronously on this queue after
+        // cancel() returns, and a handler still pointing here would wipe a new browser's results.
         browser?.stateUpdateHandler = nil
         browser?.browseResultsChangedHandler = nil
         browser?.cancel()
@@ -225,14 +186,7 @@ public final class HostBrowser: @unchecked Sendable {
         current = []
     }
 
-    /// Replaces a browser that died, because a browse that failed is not a network that has been
-    /// proven wrong.
-    ///
-    /// `DefunctConnection` is the daemon saying it dropped us — after a Wi-Fi change, a daemon
-    /// restart, or a spell in the background — and the only cure for it is a new browser. This
-    /// used to tear the browser down and leave it, so from the first hiccup the picker read
-    /// "Browsing failed" until someone found the refresh button. That button is not on the
-    /// in-session screen at all, which made a transient daemon error look permanent.
+    /// `DefunctConnection` is the daemon dropping us (Wi-Fi change, daemon restart, backgrounding); only a new browser cures it.
     private func replaceFailedBrowser() {
         teardown()
         guard isRunning else { return }
@@ -249,25 +203,13 @@ public final class HostBrowser: @unchecked Sendable {
     // MARK: - Result handling
 
     private func rebuild(from results: Set<NWBrowser.Result>) {
-        let hosts = DiscoveredHost.collapse(results.map { result in
+        let hosts = DiscoveredHost.collapse(results.compactMap { result in
             let txt: NWTXTRecord? = {
                 if case .bonjour(let record) = result.metadata { return record }
                 return nil
             }()
 
-            // Fall back to the endpoint when the TXT record is absent or incomplete, so a
-            // host is never hidden just because it published less than expected. The
-            // endpoint description is ugly, but it is a real, connectable identity.
-            let id = txt?[ProtocolInfo.TXTRecordKey.deviceID]
-                ?? "endpoint:\(result.endpoint.debugDescription)"
-
-            return DiscoveredHost(
-                id: id,
-                name: txt?[ProtocolInfo.TXTRecordKey.deviceName] ?? result.endpoint.debugDescription,
-                endpoint: result.endpoint,
-                protocolVersion: txt?[ProtocolInfo.TXTRecordKey.protocolVersion].flatMap(UInt16.init),
-                interfaceCount: 1
-            )
+            return DiscoveredHost.decode(endpoint: result.endpoint, txt: txt)
         })
 
         guard hosts != current else { return }

@@ -38,7 +38,10 @@ struct VideoReceiveTests {
         Frame(
             kind: .videoConfig,
             payload: try MessageCodec.encode(
-                VideoStreamConfig(codec: codec, pixelWidth: width, pixelHeight: height, parameterSets: sets)
+                VideoStreamConfig(
+                    sourceID: "display:1", codec: codec, pixelWidth: width,
+                    pixelHeight: height, parameterSets: sets
+                )
             )
         )
     }

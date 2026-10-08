@@ -44,6 +44,172 @@ struct HandshakeTests {
         #expect(hello.macAddresses == nil)
     }
 
+    @Test("serverHello carries the video pause capability")
+    func serverHelloCarriesTheVideoPauseCapability() throws {
+        let hello = ServerHello(
+            serverID: "server-1",
+            hostName: "Damian's MacBook Pro",
+            protocolVersion: ProtocolInfo.version,
+            alreadyPaired: true,
+            macAddresses: ["aa:bb:cc:dd:ee:ff"],
+            supportsVideoPause: true
+        )
+        let decoded = try MessageCodec.decode(
+            ServerHello.self,
+            from: try MessageCodec.encode(hello)
+        )
+
+        #expect(decoded.supportsVideoPause == true)
+        #expect(decoded == hello)
+    }
+
+    @Test("a serverHello with no capability reads as a refusal")
+    func serverHelloWithoutTheCapability() throws {
+        let data = Data(#"{"serverID":"server-1","hostName":"Mac","protocolVersion":16,"alreadyPaired":true}"#.utf8)
+        let hello = try MessageCodec.decode(ServerHello.self, from: data)
+
+        #expect(hello.supportsVideoPause == nil)
+    }
+
+    @Test("virtual display management is additive and survives the wire")
+    func virtualDisplayManagementCapability() throws {
+        let older = Data(
+            #"{"serverID":"server-1","hostName":"Mac","protocolVersion":16,"alreadyPaired":true}"#.utf8
+        )
+        #expect(try MessageCodec.decode(ServerHello.self, from: older).supportsVirtualDisplayManagement == nil)
+
+        let hello = ServerHello(
+            serverID: "server-1",
+            hostName: "Damian's MacBook Pro",
+            protocolVersion: ProtocolInfo.version,
+            alreadyPaired: true,
+            supportsVirtualDisplayManagement: true
+        )
+        let decoded = try MessageCodec.decode(
+            ServerHello.self,
+            from: try MessageCodec.encode(hello)
+        )
+
+        #expect(decoded.supportsVirtualDisplayManagement == true)
+        #expect(decoded == hello)
+    }
+
+    @Test("connected terminal push delivery is additive and survives the wire")
+    func connectedTerminalPushCapability() throws {
+        let older = Data(
+            #"{"serverID":"server-1","hostName":"Mac","protocolVersion":20,"alreadyPaired":true}"#.utf8
+        )
+        #expect(
+            try MessageCodec.decode(ServerHello.self, from: older)
+                .pushesTerminalAlertsWhileConnected == nil
+        )
+
+        let hello = ServerHello(
+            serverID: "server-1",
+            hostName: "Damian's MacBook Pro",
+            protocolVersion: ProtocolInfo.version,
+            alreadyPaired: true,
+            pushesTerminalAlertsWhileConnected: true
+        )
+        let decoded = try MessageCodec.decode(
+            ServerHello.self,
+            from: try MessageCodec.encode(hello)
+        )
+
+        #expect(decoded.pushesTerminalAlertsWhileConnected == true)
+        #expect(decoded == hello)
+    }
+
+    @Test("the agents a Mac can chat with are additive and survive the wire")
+    func agentChatAgentsCapability() throws {
+        let older = Data(
+            #"{"serverID":"server-1","hostName":"Mac","protocolVersion":20,"alreadyPaired":true}"#.utf8
+        )
+        #expect(try MessageCodec.decode(ServerHello.self, from: older).agentChatAgents == nil)
+
+        let hello = ServerHello(
+            serverID: "server-1",
+            hostName: "Mac",
+            protocolVersion: 20,
+            alreadyPaired: true,
+            agentChatAgents: ["claude", "codex", "opencode"]
+        )
+        let decoded = try MessageCodec.decode(ServerHello.self, from: try MessageCodec.encode(hello))
+        #expect(decoded.agentChatAgents == ["claude", "codex", "opencode"])
+    }
+
+    @Test("agent chat is additive on both sides and survives the wire")
+    func agentChatCapability() throws {
+        let olderServer = Data(
+            #"{"serverID":"server-1","hostName":"Mac","protocolVersion":20,"alreadyPaired":true}"#.utf8
+        )
+        #expect(
+            try MessageCodec.decode(ServerHello.self, from: olderServer)
+                .supportsAgentChat == nil
+        )
+        #expect(
+            try MessageCodec.decode(ServerHello.self, from: olderServer)
+                .supportsFileBrowser == nil
+        )
+        #expect(
+            try MessageCodec.decode(ServerHello.self, from: olderServer)
+                .supportsAgentModelPicker == nil
+        )
+
+        let server = ServerHello(
+            serverID: "server-1",
+            hostName: "Damian's MacBook Pro",
+            protocolVersion: ProtocolInfo.version,
+            alreadyPaired: true,
+            supportsAgentList: true,
+            supportsAgentChat: true,
+            supportsFileBrowser: true,
+            supportsAgentModelPicker: true
+        )
+        let decodedServer = try MessageCodec.decode(
+            ServerHello.self,
+            from: try MessageCodec.encode(server)
+        )
+        #expect(decodedServer.supportsAgentChat == true)
+        #expect(decodedServer == server)
+
+        // The client's own declaration, which is what restrains the Mac's stream: a phone too old
+        // to read an agent event must be answered with nothing rather than a frame it cannot decode.
+        let olderClient = Data(
+            #"{"clientID":"c-1","clientName":"iPhone","protocolVersion":20,"wantsPairing":false}"#.utf8
+        )
+        #expect(
+            try MessageCodec.decode(ClientHello.self, from: olderClient)
+                .supportsAgentChat == nil
+        )
+
+        let client = ClientHello(
+            clientID: "c-1",
+            clientName: "iPhone",
+            protocolVersion: ProtocolInfo.version,
+            wantsPairing: false,
+            supportsAgentChat: true
+        )
+        let decodedClient = try MessageCodec.decode(
+            ClientHello.self,
+            from: try MessageCodec.encode(client)
+        )
+        #expect(decodedClient.supportsAgentChat == true)
+        #expect(decodedClient == client)
+    }
+
+    @Test("a serverHello with a field this build does not know still decodes")
+    func unknownServerHelloField() throws {
+        let data = Data(#"""
+            {"serverID":"server-1","hostName":"Mac","protocolVersion":16,"alreadyPaired":true,
+             "supportsWhateverComesNext":true}
+            """#.utf8)
+        let hello = try MessageCodec.decode(ServerHello.self, from: data)
+
+        #expect(hello.serverID == "server-1")
+        #expect(hello.alreadyPaired)
+    }
+
     @Test("serverHello carries no public key")
     func serverHelloHasNoKeyField() throws {
         let hello = ServerHello(
@@ -57,11 +223,7 @@ struct HandshakeTests {
             try JSONSerialization.jsonObject(with: data) as? [String: Any]
         )
 
-        // A tripwire, not a formality. The host's public key must reach the client through
-        // the TLS certificate, which the client verifies against its pin. If the key were
-        // ever added here, the client would instead be trusting a value the peer simply
-        // asserted, and pinning would be decorative. Adding a field should fail this test
-        // so that possibility has to be considered deliberately.
+        // A tripwire: the host key must reach the client via the TLS certificate. Adding a field here would make pinning decorative, so it must be a deliberate decision.
         #expect(Set(object.keys) == ["serverID", "hostName", "protocolVersion", "alreadyPaired"])
     }
 
@@ -97,8 +259,6 @@ struct HandshakeTests {
 
     @Test("a pairResult without a reason round-trips")
     func pairResultWithoutReason() throws {
-        // The success case omits `reason`, so the optional has to survive a round trip as
-        // nil rather than arriving as an empty string the caller has to special-case.
         let result = PairResult(accepted: true)
         let decoded = try MessageCodec.decode(
             PairResult.self,
@@ -119,8 +279,6 @@ struct HandshakeTests {
 
     @Test("a payload that is valid JSON of the wrong shape is rejected")
     func wrongShapeIsRejected() {
-        // Decoding must fail loudly rather than silently producing a default value: a
-        // half-understood handshake message is exactly the case that should stop a session.
         let notAHello = Data(#"{"unexpected": true}"#.utf8)
         #expect(throws: (any Error).self) {
             try MessageCodec.decode(ClientHello.self, from: notAHello)
@@ -130,7 +288,6 @@ struct HandshakeTests {
 
 @Suite("Device identity")
 struct DeviceIdentityTests {
-    /// A throwaway defaults domain, so tests never touch the real device identity.
     private func scratchDefaults() -> UserDefaults {
         let name = "pl.dmq.maccast.tests.\(UUID().uuidString)"
         return UserDefaults(suiteName: name)!
@@ -166,8 +323,6 @@ struct DeviceIdentityTests {
 
     @Test("two fresh stores get different IDs")
     func idsAreNotShared() {
-        // The ID identifies one device, so two devices must not collide — and the only way
-        // that happens is if something is accidentally reading shared storage.
         let a = DeviceIdentity.loadOrCreate(defaultName: "a", from: scratchDefaults())
         let b = DeviceIdentity.loadOrCreate(defaultName: "b", from: scratchDefaults())
         #expect(a.id != b.id)

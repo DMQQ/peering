@@ -1,0 +1,123 @@
+import Foundation
+import Testing
+
+@testable import RemoteCore
+
+@Suite("Remote file sniffing")
+struct RemoteFileKindTests {
+    /// Magic number plus enough bytes to be past every offset the table reads, so bounds are exercised.
+    private func head(_ bytes: [UInt8]) -> Data {
+        Data(bytes + Array(repeating: 0x00, count: max(0, 16 - bytes.count)))
+    }
+
+    @Test("every raster format is recognised by its own bytes")
+    func recognisesRasters() {
+        let cases: [(String, Data)] = [
+            ("PNG", head([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])),
+            ("JPEG", head([0xFF, 0xD8, 0xFF, 0xE0])),
+            ("GIF", Data("GIF89a".utf8)),
+            ("TIFF little-endian", head([0x49, 0x49, 0x2A, 0x00])),
+            ("TIFF big-endian", head([0x4D, 0x4D, 0x00, 0x2A])),
+            ("BMP", Data("BM".utf8) + Data(repeating: 0, count: 14)),
+            ("WebP", Data("RIFF".utf8) + Data([0x00, 0x00, 0x00, 0x00]) + Data("WEBP".utf8)),
+            ("HEIC", Data([0x00, 0x00, 0x00, 0x18]) + Data("ftypheic".utf8) + Data(repeating: 0, count: 4)),
+            ("AVIF", Data([0x00, 0x00, 0x00, 0x18]) + Data("ftypavif".utf8) + Data(repeating: 0, count: 4)),
+        ]
+
+        for (name, bytes) in cases {
+            #expect(
+                RemoteFileKind.sniff(prefix: bytes, path: "/Users/someone/Desktop/thing") == .image,
+                "\(name) was not recognised"
+            )
+        }
+    }
+
+    @Test("a RIFF that is not WebP is not a picture")
+    func riffIsNotEnough() {
+        let wav = Data("RIFF".utf8) + Data([0x00, 0x00, 0x00, 0x00]) + Data("WAVE".utf8)
+        #expect(RemoteFileKind.sniff(prefix: wav, path: "/Users/someone/Desktop/thing.wav") == nil)
+    }
+
+    @Test("contents decide before the name does")
+    func contentsWin() {
+        // The name is a claim and the bytes are the fact, so bytes are asked first.
+        let lying = Data("this is not a picture\n".utf8)
+        #expect(RemoteFileKind.sniff(prefix: lying, path: "/Users/someone/Desktop/thing.png") == .text)
+    }
+
+    @Test("an MP4 and a QuickTime movie are video, not a refused binary")
+    func recognisesVideo() {
+        let mp4 = Data([0, 0, 0, 0x20]) + Data("ftypisom".utf8) + Data(repeating: 0, count: 20)
+        let movie = Data([0, 0, 0, 0x14]) + Data("ftypqt  ".utf8) + Data(repeating: 0, count: 20)
+        #expect(RemoteFileKind.sniff(prefix: mp4, path: "/x/clip.mp4") == .video)
+        #expect(RemoteFileKind.sniff(prefix: movie, path: "/x/clip.mov") == .video)
+        #expect(RemoteFileKind.video.isDrawn)
+    }
+
+    @Test("a PDF is recognised by its header, even with stray bytes before it")
+    func recognisesPDF() {
+        let plain = Data("%PDF-1.7\n".utf8) + Data([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x00])
+        let padded = Data("\r\n\r\n".utf8) + plain
+        #expect(RemoteFileKind.sniff(prefix: plain, path: "/Users/someone/Desktop/thing") == .pdf)
+        #expect(RemoteFileKind.sniff(prefix: padded, path: "/Users/someone/Desktop/thing") == .pdf)
+        #expect(RemoteFileKind.pdf.isDrawn)
+    }
+
+    @Test("a text file that merely mentions PDF later on is still text")
+    func lateMentionIsText() {
+        let notes = Data((String(repeating: "x", count: 2000) + "\n%PDF-1.4\n").utf8)
+        #expect(RemoteFileKind.sniff(prefix: notes, path: "/Users/someone/notes.txt") == .text)
+    }
+
+    @Test("SVG is found by its name and by its own opening tag")
+    func recognisesSVG() {
+        let document = Data("<?xml version=\"1.0\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\"/>".utf8)
+        #expect(RemoteFileKind.sniff(prefix: document, path: "/Users/someone/Desktop/logo.svg") == .svg)
+        #expect(RemoteFileKind.sniff(prefix: document, path: "/Users/someone/Desktop/logo") == .svg)
+    }
+
+    @Test("text is what is left after the two pictures")
+    func recognisesText() {
+        let script = Data("#!/bin/sh\ncd -- /tmp && ./deploy.sh\n".utf8)
+        #expect(RemoteFileKind.sniff(prefix: script, path: "/Users/someone/Desktop/deploy.sh") == .text)
+        // A plist is XML too, which is why XML alone is not the SVG test.
+        let plist = Data("<?xml version=\"1.0\"?>\n<plist><dict/></plist>".utf8)
+        #expect(RemoteFileKind.sniff(prefix: plist, path: "/Users/someone/Desktop/thing.plist") == .text)
+    }
+
+    @Test("a NUL near the start is still the end of the answer")
+    func refusesBinary() {
+        let database = Data([0x53, 0x51, 0x4C, 0x69, 0x74, 0x65, 0x20, 0x66, 0x00, 0x01, 0x02])
+        #expect(RemoteFileKind.sniff(prefix: database, path: "/Users/someone/Desktop/thing.db") == nil)
+    }
+
+    @Test("a prefix too short to hold a signature is judged on what is there")
+    func shortPrefixesAreSafe() {
+        for bytes in [Data(), Data([0x89]), Data([0x00, 0x00, 0x00, 0x18])] {
+            _ = RemoteFileKind.sniff(prefix: bytes, path: "/Users/someone/Desktop/thing")
+        }
+        #expect(RemoteFileKind.sniff(prefix: Data([0x89, 0x50, 0x4E]), path: "/x") == nil)
+    }
+
+    @Test("a slice of a file sniffs the same as the whole head")
+    func slicedPrefixesAreSafe() {
+        // `Data.prefix` keeps the parent's indices, which breaks a sniffer that subscripts with integers.
+        let whole = Data(repeating: 0x41, count: 64) + Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        #expect(RemoteFileKind.sniff(prefix: whole.dropFirst(64), path: "/x") == .image)
+        #expect(RemoteFileKind.sniff(prefix: whole.prefix(16), path: "/x") == .text)
+    }
+
+    @Test("a header that stops mid-character is not called binary")
+    func trimsAPartialCharacter() {
+        // The probe window can land inside a UTF-8 scalar; that must not make a text file binary.
+        let truncated = Data("hello ☃".utf8).dropLast()
+        #expect(RemoteFileKind.sniff(prefix: truncated, path: "/Users/someone/Desktop/notes.txt") == .text)
+    }
+
+    @Test("only text is read rather than drawn")
+    func drawnIsNotText() {
+        #expect(RemoteFileKind.text.isDrawn == false)
+        #expect(RemoteFileKind.image.isDrawn)
+        #expect(RemoteFileKind.svg.isDrawn)
+    }
+}

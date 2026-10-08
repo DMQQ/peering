@@ -3,8 +3,6 @@ import Testing
 
 @testable import SSHCore
 
-/// A `UserDefaults` of its own, so a test never writes into the real app's preferences and never
-/// has to tidy up after itself.
 private func scratchDefaults() -> UserDefaults {
     UserDefaults(suiteName: "peering.ssh.tests.\(UUID().uuidString)")!
 }
@@ -109,8 +107,7 @@ struct SSHCredentialStoreTests {
 
     @Test("a backend that refuses the write is reported, not swallowed")
     func failedWriteIsReported() {
-        // The whole reason `save` returns a Bool: the caller has to be able to tell the user their
-        // password was *not* kept, rather than showing a tick and asking for it again next time.
+        // Why `save` returns a Bool: the caller must be able to say the password was not kept.
         let store = SSHCredentialStore(backend: RefusingBackend())
         #expect(store.save(.password("hunter2"), for: UUID()) == false)
     }
@@ -119,6 +116,32 @@ struct SSHCredentialStoreTests {
     func removingNothingSucceeds() {
         let store = SSHCredentialStore(backend: InMemorySecretBackend())
         #expect(store.remove(for: UUID()))
+    }
+
+    @Test("a key is stored, read back whole, and replaced by a password")
+    func keyRoundTrip() throws {
+        let store = SSHCredentialStore(backend: InMemorySecretBackend())
+        let id = UUID()
+        let pair = try SSHKeyPair.imported(KeyFixture.plainPrivate, passphrase: nil)
+
+        #expect(store.save(.key(pair), for: id))
+        #expect(store.credential(for: id) == .key(pair))
+
+        store.save(.password("hunter2"), for: id)
+        #expect(store.credential(for: id) == .password("hunter2"))
+        #expect(store.all().count == 1)
+    }
+
+    @Test("a password saved by the previous build still reads back")
+    func passwordFromAv1Build() throws {
+        // The exact bytes the version before keys wrote, by hand rather than the current encoder: round-tripping through this build says nothing about a blob from another, and failing here loses every saved password.
+        let backend = InMemorySecretBackend()
+        let id = UUID()
+        let blob = Data(#"{"\#(id.uuidString)":{"password":{"_0":"hunter2"}}}"#.utf8)
+        #expect(backend.write(blob, service: SSHCredentialStore.service, account: "credentials"))
+
+        let store = SSHCredentialStore(backend: backend)
+        #expect(store.credential(for: id) == .password("hunter2"))
     }
 }
 
@@ -149,9 +172,7 @@ struct SSHKnownHostsTests {
 
     @Test("a different key for a known host is a change, not a first sight")
     func changed() {
-        // The distinction the whole feature rests on. Treated as "unknown", a changed key would
-        // bring up the same friendly first-connect prompt a genuine new host does, and the user
-        // would accept it — which is precisely the attack the check exists to catch.
+        // Treated as "unknown", a changed key would raise the friendly first-connect prompt and the user would accept it, which is the attack.
         let hosts = SSHKnownHosts(backend: InMemorySecretBackend())
         hosts.record(endpoint: Self.endpoint, algorithm: "ssh-ed25519", publicKey: Self.keyA)
 

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Claude Codeがあなたを必要としたら、iPhoneで通知 · Peering</title>
+<meta name="description" content="MacでClaude CodeやCodex、長時間のビルドを走らせたままにできます。シェルが許可の確認、パスワード、はい・いいえの入力で止まると、iPhoneが知らせてくれて、そのまま返答できます。">
+<link rel="canonical" href="https://getpeering.app/ja/coding-agent-notifications">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/coding-agent-notifications">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/coding-agent-notifications">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/coding-agent-notifications">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/coding-agent-notifications">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/coding-agent-notifications">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/coding-agent-notifications">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/coding-agent-notifications">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/coding-agent-notifications">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/coding-agent-notifications">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/coding-agent-notifications">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/coding-agent-notifications">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://getpeering.app/ja/coding-agent-notifications">
+<meta property="og:title" content="Claude Codeがあなたを必要としたら、iPhoneで通知 · Peering">
+<meta property="og:description" content="Mac上のコーディングエージェントが許可を求めて止まると、iPhoneが知らせます。返答はどこからでもできます。">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Claude Codeがあなたを必要としたら、iPhoneで通知 · Peering">
+<meta name="twitter:description" content="Mac上のコーディングエージェントが許可を求めて止まると、iPhoneが知らせます。返答はどこからでもできます。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "inLanguage": "ja",
+  "headline": "Claude Codeがあなたを必要としたら、iPhoneで通知",
+  "description": "MacでClaude CodeやCodex、長時間のビルドを走らせたままにできます。シェルが許可の確認、パスワード、はい・いいえの入力で止まると、iPhoneが知らせてくれて、そのまま返答できます。",
+  "url": "https://getpeering.app/ja/coding-agent-notifications",
+  "mainEntityOfPage": "https://getpeering.app/ja/coding-agent-notifications",
+  "datePublished": "2026-09-27",
+  "dateModified": "2026-09-27",
+  "image": "https://getpeering.app/assets/og.png",
+  "author": {
+    "@type": "Person",
+    "name": "Damian Derlecki"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/pears.png"
+    }
+  },
+  "about": {
+    "@type": "SoftwareApplication",
+    "name": "Peering",
+    "url": "https://getpeering.app/",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "iOS, macOS"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "ja",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Peeringはどんな入力待ちに気づきますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "sudoやSSH鍵のパスフレーズを含むパスワードの入力待ちと、はい・いいえの確認です。コーディングエージェントの許可リクエストは、この形をしています。Peering自身のシェルでは、5秒以上かかったコマンドが終わったときにも知らせます。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "ターミナルやiTermでも動きますか？ それともPeering自身のシェルだけですか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "どちらでも動きます。Peeringは、自身が開くシェルに加えて、Mac上のターミナルとiTermのウインドウも監視します。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "iPhoneアプリを開いておく必要はありますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "いいえ。Macがリレー経由でバナーを送るので、アプリを閉じていても、iPhoneがロックされていても届きます。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "どのプランで使えますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "ターミナル自体は、どのプランでも無料です。シェルが待っていることの通知にはRelayが必要で、月額$1.99または年額$14.99からです。"
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ja/" aria-label="Peering、ホーム">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="ページ">
+      <a href="/ja/">ホーム</a>
+      <a href="/ja/how-to-pair-iphone-mac">ペアリングガイド</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/download">ダウンロード</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>Claude Codeがあなたを必要としたら、iPhoneで通知</h1>
+    <p class="updated">エージェントを起動して席を離れ、本当に必要になったときだけ戻ってくる。</p>
+
+    <div class="card callout">
+      <strong>ひとことで言うと。</strong> PeeringはMac上のシェルを監視します。シェルが何かを求めて止まると
+      （コーディングエージェントの許可リクエスト、sudoのパスワード、はい・いいえの確認）、
+      iPhoneに質問の内容つきのバナーが表示されます。タップすればそのシェルが開き、すぐに答えられます。
+    </div>
+
+    <h2>エージェントを放っておくときの問題</h2>
+    <p>
+      Claude CodeやCodexなどは、あなたが別の場所にいるときこそ本領を発揮します。ところが、
+      コマンドを実行してよいかを尋ねて止まり、待ち続けます。何も知らせてはくれません。
+      1時間後に戻ってみると、あなたが離れて2分後に質問が出ていて、それからずっと止まったままだった、ということになります。
+    </p>
+    <p>
+      ビルドが終わったとき、<code>git push</code>が鍵のパスフレーズを待っているとき、
+      マイグレーションが確認を求めているときも同じです。マシンはあなたを待っているのに、それに気づけません。
+    </p>
+
+    <h2>Peeringの対応</h2>
+    <p>
+      Macアプリはシェルの出力を読み、2種類の質問を見分けます。パスワードの入力待ちと、
+      はい・いいえの確認です。どちらかが現れると、MacはPeeringのリレーを通じてiPhoneに通知を送ります。
+      通知にはプロンプトの文面が引用されているので、どのエージェントが何について尋ねているのかが分かります。
+    </p>
+    <ul>
+      <li><strong>ターミナルとiTerm</strong>のウインドウでも、Peering自身のシェルでも動くので、エージェントの起動方法を変える必要はありません。</li>
+      <li>ほかの通知と同じように、<strong>アプリを閉じていても</strong>、iPhoneがロックされていても届きます。</li>
+      <li>通知は<strong>プロンプトごとに1回</strong>です。答えると再び待機状態に戻るので、返答を待っている質問が数秒おきに鳴ることはありません。</li>
+      <li>Peering自身のシェルでは、<strong>5秒以上</strong>かかったコマンドが終わったときにも知らせます。</li>
+    </ul>
+
+    <h2>iPhoneから答える</h2>
+    <p>
+      バナーをタップすると、Peeringが尋ねたシェルまたはウインドウに移動します。Peering自身のシェルは全画面で開き、
+      iPhone向けに作られたキー列が付いています。Escape、Control、Tab、矢印キー、単語単位の移動です。
+      <code>y</code>と入力することも、パスワードマネージャのパスワードをペーストすることも、
+      エージェントが適用しようとしている差分を先に読むこともできます。デスクトップ全体を見たいときは、
+      同じアプリでMacの画面に切り替えられます。
+    </p>
+
+    <h2>設計からプライベート</h2>
+    <p>
+      セッションを運ぶリレーは、その中身を読めません。iPhoneとMacがそれぞれ自分の鍵を持ち、
+      セッションに関する情報はサーバーに保存されません。アカウントを作る必要もありません。
+      リレーが見られるもの、見られないものは、<a href="/ja/privacy">プライバシーポリシー</a>に正確に書かれています。
+    </p>
+
+    <h2>料金</h2>
+    <p>
+      ターミナル、サーバーへのSSH、ファイルブラウザは、どのプランでも無料です。シェルが待っていることの通知は
+      Relayに含まれ、月額$1.99または年額$14.99です。Relayでは、別のネットワークからMacにつなぐときの
+      1日1時間の制限もなくなります。
+    </p>
+
+    <h2>よくある質問</h2>
+    <h3>Peeringはどんな入力待ちに気づきますか？</h3>
+    <p>sudoやSSH鍵のパスフレーズを含むパスワードの入力待ちと、はい・いいえの確認です。コーディングエージェントの許可リクエストは、この形をしています。Peering自身のシェルでは、5秒以上かかったコマンドが終わったときにも知らせます。</p>
+    <h3>ターミナルやiTermでも動きますか？ それともPeering自身のシェルだけですか？</h3>
+    <p>どちらでも動きます。Peeringは、自身が開くシェルに加えて、Mac上のターミナルとiTermのウインドウも監視します。</p>
+    <h3>iPhoneアプリを開いておく必要はありますか？</h3>
+    <p>いいえ。Macがリレー経由でバナーを送るので、アプリを閉じていても、iPhoneがロックされていても届きます。</p>
+    <h3>どのプランで使えますか？</h3>
+    <p>ターミナル自体は、どのプランでも無料です。シェルが待っていることの通知にはRelayが必要で、月額$1.99または年額$14.99からです。</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ja/download">Mac版Peeringをダウンロード</a>
+      <a class="btn btn-quiet" href="/ja/how-to-pair-iphone-mac">ペアリングガイドを読む</a>
+    </div>
+
+    <div class="related">
+      <h2>あわせて読む</h2>
+      <ul>
+      <li><a href="/ja/remote-desktop-for-mac">iPhoneから使うMacのリモートデスクトップ</a></li>
+      <li><a href="/ja/keep-mac-awake-for-remote-access">外出中もMacに到達できるようにしておく</a></li>
+      <li><a href="/ja/access-your-mac-from-anywhere">どこからでもMacにアクセス</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="ガイド、法務、サポート">
+      <a href="/ja/how-to-pair-iphone-mac">ペアリングガイド</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/keep-mac-awake-for-remote-access">自宅のMac</a>
+      <a href="/ja/coding-agent-notifications">コーディングエージェント</a>
+      <a href="/ja/remote-desktop-apps-compared">アプリ比較</a>
+      <a href="/ja/screens-alternative">Screensの代替</a>
+      <a href="/ja/download">ダウンロード</a>
+      <a href="/ja/privacy">プライバシー</a>
+      <a href="/ja/terms">利用規約</a>
+      <a href="mailto:support@getpeering.app">サポート</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/coding-agent-notifications" hreflang="en" lang="en">English</a>
+      <a href="/de/coding-agent-notifications" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/coding-agent-notifications" hreflang="es" lang="es">Español</a>
+      <a href="/fr/coding-agent-notifications" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/coding-agent-notifications" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/coding-agent-notifications" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/coding-agent-notifications" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/coding-agent-notifications" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/coding-agent-notifications" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/coding-agent-notifications" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple、iPhone、MacはApple Inc.の商標です。Claude CodeはAnthropicの商標です。PeeringはAnthropicおよびOpenAIとは提携していません。</p>
+  </div>
+</footer>
+
+</body>
+</html>

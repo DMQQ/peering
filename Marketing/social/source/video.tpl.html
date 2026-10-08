@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Peering video</title>
+<style>
+@font-face { font-family: "NY"; src: url("file:///System/Library/Fonts/NewYork.ttf"); font-weight: 100 1000; }
+@font-face { font-family: "SF"; src: url("file:///System/Library/Fonts/SFNS.ttf"); font-weight: 100 1000; }
+@font-face { font-family: "SFMono"; src: url("file:///System/Library/Fonts/SFNSMono.ttf"); font-weight: 100 1000; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html,body{background:#0a0a0b;overflow:hidden;width:1080px;height:1350px}
+body{font-family:"SF",sans-serif;color:#fff;-webkit-font-smoothing:antialiased;position:relative}
+#bg{position:absolute;left:-80px;top:-80px;width:1240px;height:1510px;background:url(video_assets/bg.png)}
+.slide{position:absolute;left:0;top:0;width:1080px;height:1350px;display:none;overflow:hidden}
+.hd{position:absolute;left:80px;right:50px;top:100px;font-family:"NY",serif;font-weight:800;line-height:1.04;letter-spacing:-3.2px;color:#fff;z-index:5}
+.hd em{font-style:normal;font-size:1.07em}
+.hd.c{left:0;right:0;text-align:center}
+.w{display:inline-block;will-change:transform,opacity}
+.ci,.blk{will-change:transform,opacity}
+.fade{position:absolute;left:0;right:0;bottom:0;height:430px;background:linear-gradient(rgba(10,10,11,0),rgba(10,10,11,.97));z-index:3}
+.card{border-radius:36px;position:absolute;z-index:4}
+.card::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;background:linear-gradient(rgba(255,255,255,.28),rgba(255,255,255,.06));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.term{font-family:"SFMono",monospace;font-size:32px;line-height:1.6;color:rgba(255,255,255,.88)}
+.term .p{color:rgba(255,255,255,.46)}.term .ok{color:#5cd98c}.term .warn{color:#f7b54c}
+.cursor{display:inline-block;width:15px;height:32px;background:rgba(255,255,255,.85);vertical-align:-6px}
+</style></head><body><div id="bg"></div>
+<!--SLIDES-->
+<script>
+const SCENES=[[0,2.6],[2.6,5.2],[5.2,7.6],[7.6,10.8],[10.8,13.4],[13.4,17]];
+const FADE=0.28;
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const eo=x=>1-Math.pow(1-clamp(x),3);
+const eio=x=>{x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
+const back=(x,c=1.5)=>{x=clamp(x);const c3=c+1;return 1+c3*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
+function wrap(node){
+  [...node.childNodes].forEach(n=>{
+    if(n.nodeType===3){
+      const f=document.createDocumentFragment();
+      n.textContent.split(/(\s+)/).forEach(p=>{
+        if(!p)return;
+        if(/^\s+$/.test(p)){f.appendChild(document.createTextNode(' '));return}
+        const s=document.createElement('span');s.className='w';s.textContent=p;f.appendChild(s);
+      });
+      n.replaceWith(f);
+    } else if(n.nodeName!=='BR') wrap(n);
+  });
+}
+document.querySelectorAll('[data-split]').forEach(wrap);
+const $=id=>document.getElementById(id);
+const S=SCENES.map((r,i)=>{
+  const el=$('s'+(i+1));
+  return {el,start:r[0],end:r[1],words:[...el.querySelectorAll('.w')],blks:[...el.querySelectorAll('.blk')],ph:el.querySelector('.ph'),chips:[...el.querySelectorAll('.ci')]};
+});
+window.seek=function(t){
+  $('bg').style.transform=`translate3d(${Math.sin(t*.7)*40}px,${Math.cos(t*.5)*25}px,0)`;
+  S.forEach((sc,i)=>{
+    const u=t-sc.start, out=t-sc.end;
+    const vis=u>=0&&out<FADE;
+    sc.el.style.display=vis?'block':'none';
+    sc.el.style.zIndex=i;
+    if(!vis)return;
+    const leave=eio(out/FADE);
+    const enter=i===0?1:eo(u/FADE);
+    sc.el.style.opacity=(1-leave)*(i===0?1:clamp(u/(FADE*.6)));
+    sc.el.style.transform=`scale(${(1.05-.05*enter)*(1-.05*leave)})`;
+    sc.words.forEach((w,j)=>{
+      const d=.05+j*.06;
+      const k=back((u-d)/.42,1.3);
+      w.style.opacity=clamp((u-d)/.18);
+      w.style.transform=`translate3d(0,${(1-k)*55}px,0) scale(${.88+.12*k})`;
+      w.style.filter=u-d<.3?`blur(${(1-clamp((u-d)/.3))*6}px)`:'none';
+    });
+    const base=.05+sc.words.length*.06;
+    sc.blks.forEach((b,j)=>{
+      const k=eo((u-base-.1)/.5);
+      b.style.opacity=k;b.style.transform=`translate3d(0,${(1-k)*50}px,0)`;
+    });
+    if(sc.ph){
+      const v=clamp((u-.25)/.85);
+      const k=back(v,1.1), e=eo(v);
+      const rot=parseFloat(sc.ph.dataset.rot||0);
+      sc.ph.style.opacity=clamp(v*2.2);
+      sc.ph.style.transform=`translate3d(0,${(1-k)*620+Math.sin(t*1.6)*5*e}px,0)`;
+      sc.ph.firstElementChild.style.transform=`rotateX(${(1-e)*28}deg) rotateY(${Math.sin(t*1.3)*2*e}deg) rotateZ(${rot}deg)`;
+    }
+    sc.chips.forEach(c=>{
+      const d=parseFloat(c.dataset.d||0), ph=parseFloat(c.dataset.ph||0);
+      const k=back((u-d)/.55,2.2);
+      const fl=Math.sin(t*1.4+ph)*7*clamp(u-d);
+      c.style.opacity=clamp((u-d)/.18);
+      c.style.transform=`translate3d(0,${(1-k)*80+fl}px,0) scale(${.7+.3*k})`;
+    });
+  });
+  const u2=t-S[1].start;
+  if(u2>=0){
+    const kr=clamp((u2-1.4)/.55), ring=$('ring');
+    ring.style.opacity=kr>0&&kr<1?1-kr:0;
+    ring.style.transform=`scale(${.4+1.6*eo(kr)})`;
+  }
+  const u4=t-S[3].start;
+  if(u4>=0){
+    const cmd='sudo npm i -g typescript';
+    $('cmd').textContent=cmd.slice(0,Math.floor(clamp((u4-.9)/.8)*cmd.length));
+    $('pw').style.visibility=u4>1.8?'visible':'hidden';
+    $('dots').textContent='•'.repeat(Math.floor(clamp((u4-2.3)/.6)*8));
+    $('cur').style.visibility=(u4>1.8&&u4<2.95&&Math.floor(t*3)%2===0)?'visible':'hidden';
+    $('okline').style.visibility=u4>3.0?'visible':'hidden';
+  }
+  const u6=t-S[5].start;
+  if(u6>=0){
+    const p=$('pears');const k=back(u6/.6,2.2);p.style.opacity=clamp(u6/.15);p.style.transform=`scale(${.4+.6*k}) rotate(${(1-k)*-25}deg)`;
+    const b=$('btn');const kb=back((u6-1.5)/.5,2.4);b.style.opacity=clamp((u6-1.5)/.12);
+    b.style.transform=`scale(${.8+.2*kb+.02*Math.sin(t*5)*clamp(u6-2.1)})`;
+    b.style.boxShadow=`0 0 ${30+20*Math.sin(t*4)}px rgba(255,255,255,${clamp(u6-2)*.25})`;
+  }
+};
+window.TOTAL=17;
+Promise.all([document.fonts.ready,...[...document.images].map(i=>i.decode().catch(()=>{}))]).then(()=>{seek(0);window.ready=true});
+</script></body></html>

@@ -21,33 +21,42 @@
 //!
 //! **Everything else is the free plan.** Absent, malformed, oversized, expired, revoked, a chain
 //! that does not reach the pinned root, a certificate that is not Apple's, a product this app does
-//! not sell: every one of those ends at the free allowance rather than at a refusal, because a
-//! client that cannot prove what it bought is exactly the client the free allowance is for.
+//! not sell, a sandbox purchase: every one of those ends at the free allowance rather than at a
+//! refusal, because a client that cannot prove what it bought is exactly the client the free
+//! allowance is for.
 //!
-//! The one outcome that must be impossible is an unproven client being metered as unlimited, and
-//! `tests/storekit.rs` is organised around it: every refusal is a test, and each one changes a
-//! single thing about a chain that would otherwise verify. What the fallback below then does with
-//! the same client is a different decision, and the tests that pin it are named for the hole they
-//! describe rather than for an outcome anybody wants.
+//! **A claimed plan buys nothing on its own, and that is the default.** A client that sends
+//! `"plan":"pro"` with no receipt is metered as a client that bought nothing, which is the answer
+//! to the money hole this module was written for: a patched app can still say `pro`, and all it
+//! gets for saying it is the free allowance. The claim is not thrown away, though: every session
+//! line says which path decided the plan, so a support question about a client that should be
+//! paying is answered by the log rather than by a guess. Three words carry the whole of it:
 //!
-//! **The claimed plan is still trusted, and that is a hole with a condition for closing.** A
-//! version of the app that shipped before this module existed sends a plan name and no receipt, and
-//! so does this app on the launch where `Transaction.currentEntitlements` has not answered yet.
-//! Reading the claim as free would not fail safe in the direction that matters: it would take every
-//! existing subscriber down to half an hour a day on the day this deployed, which is a worse
-//! outcome than the hole it closes, and it would do it to the people who paid. So the claim is kept
-//! as a fallback, and every session says in the log which path it took: `verified` (Apple signed
-//! the plan), `claimed` (no receipt, or one that did not verify, so the client's word decides), or
-//! `neither` (nothing to read, so free). `PEERINGD_TRUST_CLAIMED_PLANS=0` turns the fallback off for
-//! an operator who wants to see how many clients would drop before doing it for everyone, and that
-//! is the condition for removing it: deploy with the fallback, watch
-//! `plan_trust="claimed"`, and delete the fallback when no client that matters is on it.
+//! * `verified`: Apple signed the receipt, and the plan is the product it named.
+//! * `claimed`: nothing was proven and the operator has opened the switch below, so the client's
+//!   word decided.
+//! * `neither`: nothing was proven, so the free allowance.
 //!
-//! **It is also the way back**, which is worth knowing before shipping this: nothing here has been
-//! run against a receipt Apple actually signed, so if verification turns out to refuse them, the
-//! fallback is on by default and every one of those clients is metered by its claim, which is
-//! exactly the behaviour that shipped before this module existed. The way out of a verification
-//! that is too strict is `PEERINGD_TRUST_CLAIMED_PLANS=1` and a restart, not a new build.
+//! **`PEERINGD_TRUST_CLAIMED_PLANS=1` re-opens the hole, and it exists for beta testing.** A
+//! TestFlight build's receipt is a sandbox one, and this module refuses those by name
+//! (`not_a_real_purchase`): Apple signs them and they name the real products, but they are handed
+//! out for nothing to anyone with a developer account, so believing one would put the price of
+//! unlimited relay at an App Store Connect login. A tester who has bought the real thing is
+//! therefore metered as free on a beta build, the free allowance on a phone that says `pro`, and
+//! the switch is what an operator sets so that the people testing a build are metered by what they
+//! claim. Every other client gets its plan from the same switch while it is on, which is the trade,
+//! and startup says which state the relay is in.
+//!
+//! **The switch is also the way back**, which is worth knowing before shipping this: nothing here
+//! has been run against a receipt Apple actually signed, so if verification turns out to refuse
+//! them, opening the switch returns the relay to metering by the claim on the next restart, with no
+//! new build.
+//!
+//! The one outcome that must be impossible is an unproven client being metered as unlimited with
+//! the switch closed, and `tests/storekit.rs` is organised around it: every refusal is a test, and
+//! each one changes a single thing about a chain that would otherwise verify. What the fallback
+//! below then does with the same client is a different decision, and the tests that pin it are
+//! named for the hole they describe rather than for an outcome anybody wants.
 //!
 //! **The JWS is never logged.** It is a few kilobytes of base64 that identify a purchase, it
 //! arrives once per session, and a log is the wrong place for it. What is logged is the verdict:
@@ -64,7 +73,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
 use rustls_pki_types::{CertificateDer, SignatureVerificationAlgorithm, UnixTime};
 use serde::Deserialize;
-use tracing::debug;
+use tracing::warn;
 use webpki::{EndEntityCert, ExtendedKeyUsageValidator, KeyPurposeIdIter};
 use x509_cert::der::Decode as _;
 use x509_cert::der::asn1::ObjectIdentifier;
@@ -108,15 +117,15 @@ pub const APP_BUNDLE_ID: &str = "pl.dmq.peering";
 
 /// The products this app sells, and the plan each one buys.
 ///
-/// **The product identifiers are the app's, repeated here.** `StoreManager.monthlyID`, `plusID` and
-/// `yearID` in `MacCast/StoreManager.swift` hold the authority, and `Tier.plan` maps the same three
-/// products to the same three names. Edit one without the others and a paying subscriber is metered
-/// as free — which is the direction this table is allowed to fail in, and the reason an unknown
+/// **The product identifiers are the app's, repeated here.** `StoreManager.Tier.productID(for:)` in
+/// `MacCast/Store/StoreManager.swift` holds the authority, and `Tier.plan` maps the same products to the
+/// same names. Edit one without the others and a paying subscriber is metered as free, which is the direction this table is allowed to fail in, and the reason an unknown
 /// product is the free allowance rather than a refusal.
 const PRODUCTS: &[(&str, Plan)] = &[
-    ("pl.dmq.peering.relay.monthly", Plan::Relay),
-    ("pl.dmq.peering.relayplus.monthly", Plan::Plus),
-    ("pl.dmq.peering.relay.year", Plan::Pro),
+    ("pl.dmq.peering.iap.relay.monthly", Plan::Relay),
+    ("pl.dmq.peering.iap.relay.year", Plan::Relay),
+    ("pl.dmq.peering.iap.pro.monthly", Plan::Pro),
+    ("pl.dmq.peering.iap.pro.year", Plan::Pro),
 ];
 
 /// Apple's marker extension on a signing certificate, from the Apple WWDR Certificate Practice
@@ -225,7 +234,8 @@ impl Trust {
 ///
 /// The reason is carried rather than logged where it is found so that the session line, which is
 /// the line an operator reads, can say all of it at once. `None` means no receipt was sent at all,
-/// which is not a rejection: it is the shipped app, and it is what the fallback exists for.
+/// which is not a rejection: it is a client with nothing to prove, and it is what the free
+/// allowance is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Resolved {
     pub plan: Plan,
@@ -266,7 +276,8 @@ pub enum Rejection {
     /// Apple marked the transaction revoked.
     Revoked,
     /// A transaction Apple signed for testing rather than for buying: a sandbox purchase, or one of
-    /// Xcode's own.
+    /// Xcode's own. The one an operator meets first is a TestFlight build's, which is signed, names
+    /// the real product and is refused here all the same.
     NotARealPurchase,
     /// One session sent more distinct receipts than it is allowed to have verified.
     TooManyReceipts,
@@ -306,9 +317,8 @@ pub struct StoreKitVerifier {
     bundle_id: String,
     /// Whether a plan the client claims is believed when there is no verified receipt.
     ///
-    /// **True is the shipped behaviour and it is a hole.** See the module comment: the alternative
-    /// is every existing subscriber metered as free on deploy. False is what an operator sets to
-    /// measure the drop, and what gets deleted along with the fallback itself.
+    /// **False is the shipped behaviour**, and the only thing true buys is more relay time than
+    /// anyone can prove a right to: see the module comment for what it is for and what it costs.
     trust_claims: bool,
 }
 
@@ -328,8 +338,8 @@ impl StoreKitVerifier {
 
     /// Whether the claimed plan is believed when no receipt verified.
     ///
-    /// Read at startup, so that the warning about the hole is about the verifier that was actually
-    /// built rather than about the configuration it was built from.
+    /// Read at startup, so that what the operator is told about the hole is about the verifier that
+    /// was actually built rather than about the configuration it was built from.
     pub fn trusts_claims(&self) -> bool {
         self.trust_claims
     }
@@ -492,7 +502,8 @@ impl StoreKitVerifier {
     /// a receipt for `relay` is claiming something Apple does not agree with, and the same has to
     /// hold for a subscription that has since lapsed: the receipt still verifies and still names
     /// the product, and the expiry is inside the verdict. Where the claim is the only thing left,
-    /// the configured trust in it decides — see the module comment for why that is still on.
+    /// the switch decides: the free allowance, unless an operator has opened it, which the module
+    /// comment explains and the startup log states.
     pub fn resolve(&self, claimed: Plan, verified: Option<Result<Plan, Rejection>>) -> Resolved {
         match verified {
             Some(Ok(plan)) => Resolved {
@@ -501,13 +512,20 @@ impl StoreKitVerifier {
                 rejected: None,
             },
             Some(Err(reason)) => {
-                debug!(reason = reason.reason(), "receipt did not verify");
+                warn!(reason = reason.reason(), "receipt did not verify");
                 self.fallback(claimed, Some(reason))
             }
             None => self.fallback(claimed, None),
         }
     }
 
+    /// What an unproven client is metered by: the free allowance, or its own claim when the
+    /// operator has opened the switch that believes claims.
+    ///
+    /// A claim of `free` is not a claim at all, so it reads as `neither` either way: there was no
+    /// plan to believe, and a log line should not say there was. The rejection travels with the
+    /// answer in both directions, because "why is this client on the free plan" is answered by the
+    /// reason the receipt was refused as much as by the switch.
     fn fallback(&self, claimed: Plan, rejected: Option<Rejection>) -> Resolved {
         if self.trust_claims && claimed != Plan::Free {
             Resolved {

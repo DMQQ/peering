@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "app-picture-in-picture.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

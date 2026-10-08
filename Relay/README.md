@@ -4,8 +4,16 @@ The relay that lets a phone reach its Mac from outside the local network.
 
 Both ends sit behind NATs that will not admit unsolicited traffic, so both connect *outward* to
 this process. It introduces them, splices their control connections, and forwards their video
-datagrams. Neither end ever learns the other's address, because neither end needs to — both
-address the relay.
+datagrams.
+
+Both ends address the relay, and for most of this project's life neither learned the other's
+address at all — this process was the only thing that knew both, which is what lets a session open
+between two machines neither of which can be dialled. That is still how a session *starts*. Either
+end may now ask (`requestPeerAddress`) and be told where its peer was last seen, so the two can try
+a path between themselves and keep this one as the fallback. What comes back is an observation and
+no promise: whether a peer's NAT will admit a third party is not something the relay can know, and
+the two ends settle it by trying. **What this process can read does not change** — a direct path is
+sealed with the same key it was never told.
 
 ## What it does not do
 
@@ -29,7 +37,7 @@ giving the server a map of who is paired with whom. Silence is the better trade.
 ```sh
 cargo run                       # loopback: signalling on :8443, control on :9443
 cargo run --release             # same, optimised
-cargo test                      # the unit tests and 5 end-to-end socket tests
+cargo test                      # the unit tests and the end-to-end socket tests
 ```
 
 With no configuration it listens on all interfaces, binds one shared socket for every session's
@@ -45,30 +53,72 @@ video, and serves signalling in plaintext. That is exactly right for pointing bo
 | `PEERINGD_TLS_CERT` | — | Certificate for signalling. Both this and the key, or neither |
 | `PEERINGD_TLS_KEY` | — | Private key for signalling |
 | `PEERINGD_SESSION_TTL` | `300` | Seconds a session survives without activity |
+| `PEERINGD_MAX_SESSIONS` | `1000` | Sessions that may exist at once. A session costs a kilobyte of bookkeeping before its splice exists (see Cost), and asking for one is unauthenticated, so this is what turns "someone loops `ConnectToHost`" from an OOM kill into a refusal. Zero is refused as a value: a relay that answers nothing looks healthy, and that is an outage nobody diagnoses from the config |
+| `PEERINGD_MAX_CONNECTIONS` | `4096` | Sockets that may be open on the signalling listener at once. Has to be larger than the number of registered Macs, since each holds its registration socket open for as long as it runs. A connection beyond it is closed rather than queued |
+| `PEERINGD_HANDSHAKE_SECONDS` | `10` | How long a socket has to finish becoming a WebSocket, counting the TLS handshake. Without it a peer that opens a connection and says nothing holds a task and a file descriptor indefinitely |
+| `PEERINGD_IDLE_SECONDS` | `90` | How long an established signalling connection may sit silent. Comfortably longer than the Mac's 25-second keepalive on purpose: a registered Mac is idle between pings and must not be dropped for it |
 | `PEERINGD_FREE_MINUTES` | `30` | Relay minutes per device in each rolling 24-hour window for a client on the free plan. The app draws its "free relay time" bar from its own copy of this number and its own copy of the window arithmetic (`RelayPlan.allowanceSeconds`, `SessionModel.relayPeriodStart`) — change the relay and those together, or the bar lies |
-| `PEERINGD_RELAY_MINUTES` | `180` | The same, for a client claiming the Relay plan. `0` turns a plan off rather than making it unlimited; Relay Plus and Pro are not metered and have no setting |
+| `PEERINGD_RELAY_MINUTES` | `180` | Legacy compatibility setting. Paid plans are unlimited and the quota check does not use this value. |
 | `PEERINGD_PAID_KEYS` | — | Comma-separated API keys that bypass the quota entirely. See the note under "Plans" below |
-| `PEERINGD_TRUST_CLAIMED_PLANS` | `1` | Whether a client's own statement of its plan is believed when no verifiable receipt arrives. `1` while shipped apps cannot send one; set it to `0` once the logs say nobody needs it. See "Plans" below |
+| `PEERINGD_TRUST_CLAIMED_PLANS` | `0` | Whether a client's own statement of its plan is believed when no verifiable receipt arrives. **Closed by default**, because a claim is not evidence. `1` is for beta testing, where a TestFlight build's receipt is a sandbox one and is refused by name, so a tester is metered by what they claim instead. See "Plans" below |
 | `PEERINGD_WEB_ADDR` | `127.0.0.1:8080` | Where the site is served. **Loopback by default** — see below |
 | `PEERINGD_WEB_ROOT` | `site` | Directory the site is read from. Relative paths resolve against the working directory |
+| `PEERINGD_USAGE_LOG` | `/var/lib/peeringd/usage.log` in the shipped unit, unset otherwise | File the relay-time counter is written to. See "Relay time is remembered" below |
+
+### Relay time is remembered
+
+The counter used to live in a `HashMap` for the lifetime of the process, which made `Restart=always`
+an unlimited relay: a crash loop, a deploy, or an operator typing `systemctl restart` handed every
+client the full allowance back. That is bandwidth rather than money, but bandwidth is what the relay
+sells, so it is now written down.
+
+`PEERINGD_USAGE_LOG` names the file. The shipped unit sets it to `/var/lib/peeringd/usage.log` and
+declares `StateDirectory=peeringd`, which is what makes that directory exist, own it as the service
+user, and keep it writable under `ProtectSystem=strict`. A value in `/etc/peeringd.env`
+overrides the unit's default.
+
+It is an append-only log rather than a database, and the shape of the data is what decides that: one
+line per **charge**, at most one line per client per day, and a question that is only ever "how many
+seconds has this client spent in this window". A charge is a stretch of a session rather than a
+whole one (see "A session pays as it runs" below), so a long session writes a line every fifteen
+seconds while it is open. Each line is a JSON object
+(`{"c":"<device id>","w":<window>,"s":<seconds>}`), which is why a device id containing a pipe or a
+newline is stored and read back unchanged, and why a machine that dies mid-append costs one
+charge's seconds rather than the whole file. The file is rewritten compactly, through a temporary
+file and a rename, once it is both over four megabytes and at least twice what a rewrite would
+keep: the second half of that condition is what stops a file of distinct clients from being
+rewritten over and over, since a compaction that drops nothing is a compaction that happens again
+on the next charge.
+
+Three things it does not do, worth knowing before relying on it:
+
+- **A crashed machine can still lose the last charges.** Each record is `fsync`ed, so what has been
+  written is on the disk; a stretch that was still running when the kernel stopped is not, and since
+  a charge is taken every fifteen seconds, that is the most a crash can cost.
+- **Deleting the file resets everyone.** It is the only copy.
+- **Nothing migrates.** A window that has passed is dropped on the next start, which is correct,
+  because the allowance it counted against has passed too.
+
+If the file cannot be opened the relay starts anyway and says so loudly at startup, with the path
+and the reason. Not persisting usage costs relay time; refusing to start costs the service.
 
 ### Plans, and what the relay does not check
 
 Relay time is metered per rolling 24-hour window, and how much there is depends on the plan the
-client says it is on:
+client is metered on:
 
 | Plan | Wire name | Allowance |
 |---|---|---|
 | Free | `free` | 30 minutes a day |
-| Relay | `relay` | 3 hours a day |
+| Relay | `relay` | unlimited |
 | Relay Plus | `plus` | unlimited |
 | Pro | `pro` | unlimited |
 
-The client states its plan in `connectToHost` and the relay meters by it, and since 18 September it
-can also hand over a **receipt**: the JWS StoreKit gives the app for its transaction, sent in the
-same message as `jwsRepresentation`. When that verifies, the plan comes from the product named
-inside it and the claimed `plan` is ignored. `src/storekit.rs` is the whole of the verification —
-read its header before changing anything in it.
+The client states its plan in `connectToHost`, and what the relay meters by is the receipt that
+proves it. So beside `plan` the client can hand over a **receipt**: the JWS StoreKit gives the app
+for its transaction, sent in the same message as `jwsRepresentation`. When that verifies, the plan
+comes from the product named inside it and the claimed `plan` is ignored. `src/storekit.rs` is the
+whole of the verification; read its header before changing anything in it.
 
 **What is checked, in order:** the message is under 16 KB; three base64url segments; the header
 parses and says `alg: ES256` (nothing else, ever); the `x5c` chain is decoded as standard base64 and
@@ -82,15 +132,15 @@ actually signed it; the signature verifies over the literal text; and only then 
 
 | Product ID | Plan |
 |---|---|
-| `pl.dmq.peering.relay.monthly` | `relay` |
-| `pl.dmq.peering.relayplus.monthly` | `plus` |
-| `pl.dmq.peering.relay.year` | `pro` |
+| `pl.dmq.peering.iap.relay.monthly`, `pl.dmq.peering.iap.relay.year` | `relay` |
+| `pl.dmq.peering.iap.pro.monthly`, `pl.dmq.peering.iap.pro.year` | `pro` |
 
-**A verified receipt always wins, even downward** — a Relay subscriber who sends a Relay receipt is
+**A verified receipt always wins, even downward**: a Relay subscriber who sends a Relay receipt is
 metered as Relay whatever their `plan` field says. Anything refused or unreadable is logged with its
-reason and falls back to the claim, and a claim that is missing, unknown or malformed is the free
-allowance, never unlimited. Every session line carries `plan_trust="verified"`, `"claimed"` or
-`"neither"`, so which path was taken is visible in the log rather than taken on faith.
+reason and metered as free, unless the switch below has been turned on, in which case the claim
+decides; and a claim that is missing, unknown or malformed is the free allowance, never unlimited.
+Every session line carries `plan_trust="verified"`, `"claimed"` or `"neither"`, so which path was
+taken is visible in the log rather than taken on faith.
 
 What a false plan does not buy is access. The relay carries a TLS session belonging to the two ends
 and cannot read it or forge it, and a Mac is reached by passing its own pairing handshake — so
@@ -104,18 +154,35 @@ never do is find a paid plan in a string that is not exactly one of the four nam
 relay logs the plan it applied on every session it allocates, so this is checkable from the log
 rather than from a promise.
 
-**The claimed plan is still trusted when no receipt arrives, and that is a deliberate transition,
-not an oversight.** A shipped app cannot send a receipt it does not know how to collect, so
-verification-only would drop every existing subscriber to 30 minutes a day on the day this
-deployed. `PEERINGD_TRUST_CLAIMED_PLANS` (default `1`) is the switch; set it to `0` and an
-unverified client is metered as free regardless of what it claims.
+**A claimed plan buys nothing on its own, and that is the default.** It is what closes the hole the
+claim used to be: a patched app can still send `"plan":"pro"` with no receipt, and all it gets for
+saying so is the free allowance. The claim is not thrown away (the session line still records which
+path decided, as `plan_trust="verified"`, `"claimed"` or `"neither"`), but it decides nothing unless
+an operator has said it should.
 
-**Deleting the fallback is the end of the job, and the log says when.** Deploy, watch
-`plan_trust="claimed"` in the session lines, and when that drops to nothing but the old builds,
-set the variable to `0`. The hole it leaves open until then: a patched app can still say `pro` and
-relay for nothing, exactly as before this work. What a false plan does not buy is *access* — the
-relay carries a TLS session belonging to the two ends and cannot read or forge it, and a Mac is
-reached only by passing its own pairing handshake — so lying buys bandwidth and nothing else.
+**`PEERINGD_TRUST_CLAIMED_PLANS` (default `0`) is the switch, and it is for beta testing.** With it
+set to `1`, a client that sends no receipt, or one that does not verify, is metered by the plan it
+claims. The reason an operator sets it is TestFlight: a beta build's receipt is a **sandbox** one,
+and the relay refuses those by name (`not_a_real_purchase`) rather than treating them as proof,
+because Apple hands sandbox transactions out for nothing to anyone with a developer account. So a
+tester on a `pro` build is metered as free: 30 minutes a day on a build that says it is
+unlimited, until someone sets the variable and restarts. That is what a beta looks like from the
+relay's side rather than a fault in the receipt check, and it is worth knowing before reading a
+log, because a session line saying `receipt refused` with `reason=not_a_real_purchase` is Apple's
+test purchase being turned down on purpose. Set the variable back to `0` when the beta is over; for
+as long as it is on, the old hole is open, and any client can have any plan by asking for it.
+
+**It is also the rollback for verification itself.** No receipt Apple actually signed has been
+through this code yet, only ones minted by the tests, so the first production receipt is the first
+real test of it. If real receipts turn out to be refused, and a paying subscriber reports being
+metered as free, `PEERINGD_TRUST_CLAIMED_PLANS=1` and a restart is the way back to the behaviour
+that shipped before any of this: every client metered by the plan it claims. That is a bad state to
+stay in and a much better one to be in briefly than a fleet of subscribers incorrectly limited to
+the free plan's 30 minutes a day.
+
+**What a false plan does not buy is *access*.** The relay carries a TLS session belonging to the two
+ends and cannot read it or forge it, and a Mac is reached only by passing its own pairing
+handshake, so lying about a plan buys bandwidth and nothing else.
 
 One thing verification does **not** establish: that the receipt belongs to the device presenting
 it. Nothing binds the JWS to a phone, so a receipt is a bearer token and sharing one shares the
@@ -125,12 +192,13 @@ not that it stops them sharing one.
 
 **`PEERINGD_PAID_KEYS` is the one grant the relay holds rather than takes on trust**, which is why
 it is kept even though nothing mints a key anyone can put in it. The app generates its own UUID in
-the Keychain and sends that, so the set is empty in practice and every client is metered by its
-claimed plan — and a key that *is* in the set bypasses the meter whatever plan the client names.
-It is honest to call this a hook rather than a feature: nothing in the app displays that UUID, and
-nothing issues one, so filling the variable in today means reading the value out of the device by
-some other means. Giving a device unlimited relay is what the plan field does now, and this
-variable is what it would be replaced by if plans ever become verifiable.
+the Keychain and sends that, so the set is empty in practice: every client is metered by the plan
+its receipt proves, or by the free allowance when it has none, and a key that *is* in the set
+bypasses the meter whatever plan the client names. It is honest to call this a hook rather than a
+feature: nothing in the app displays that UUID, and nothing issues one, so filling the variable in
+today means reading the value out of the device by some other means. What a claimed plan used to do
+(a device given unlimited relay by asking for it) is what this variable does now, and a plan that
+becomes verifiable is what would replace it.
 
 **The video socket is one port, and it used to be one per session.** Sessions now share a socket
 and each datagram says which session it belongs to, so a host with a handful of forwarded UDP ports
@@ -152,6 +220,84 @@ that statement is the one to keep true.
 The relay reports the address a client reached it on as the address to connect back to, so a
 directly-addressed server needs no configuration for this. `RUST_LOG=debug` for per-connection
 detail; `info` shows registrations and session allocations.
+
+### A session pays as it runs
+
+The relay-time counter is charged while a control splice is open, once every fifteen seconds
+(`CHARGE_PERIOD` in `src/quota.rs`), and not only when the splice ends. The check made when a
+session is allocated is the other half of the same rule, and it is the half that is easy to mistake
+for the whole of it: it reads the counter at the instant it hands out a connection, and a connection
+that is already open does not pass that check again. Charging on a timer is what stops a client with
+a second of credit left from opening a splice and holding it open for as long as it likes, and the
+same charge is what makes a restart mid-session cost at most the last fifteen seconds rather than
+the whole session.
+
+When the plan's allowance for the window is gone, **the relay ends the session**: the control
+sockets are closed, the session's video routes are retired with it (so a Mac still sending frames is
+sending them to a token the relay no longer knows), and the meter writes what the last stretch cost.
+Several things follow from that which are worth knowing before reading a log or a bug report:
+
+- **The session ends as a dropped connection, not as a message.** Everything after the control
+  token is a TLS session belonging to the two ends and this process cannot write into it, so there
+  is nowhere to say "your allowance is spent". The app finds out the way it finds out about any
+  dropped control connection, and the reason arrives on the next attempt, when `connectToHost` is
+  answered with `{"type":"error","code":"quotaExceeded",…}`.
+- **The log line to grep for is `session ended: the plan's relay allowance for this window is
+  spent`**, at `info`. It is the only line that distinguishes a client that ran out of allowance
+  from one that hung up.
+- **The overshoot is one charge period, not one session.** A client whose allowance runs out
+  mid-period keeps relaying for the rest of that period, which is bounded by fifteen seconds.
+- **Paid keys, Relay Plus and Pro are charged the same way and never ended by it.** Their usage is
+  in the log like everyone else's; it just does not bound anything. Only a plan with an allowance
+  (`PEERINGD_FREE_MINUTES`, `PEERINGD_RELAY_MINUTES`) can run out.
+
+**Nothing tells the app in advance, either.** The app's "free relay time" bar is drawn from its own
+arithmetic rather than from the relay's counter, so a session that is about to be cut off is not
+visibly about to be cut off. Reaching for a countdown would mean the app asking the relay how much
+it has left, which is a question the relay has no message for today.
+
+### The free allowance follows the key, not the install
+
+The counter used to be keyed by the `clientId` the client sends, which is a UUID the app mints on
+first run and keeps in `UserDefaults` (`Peering.deviceID` in `DeviceIdentity.swift`). Reinstalling
+the app minted a new one, the relay saw a client it had never met, and the free allowance started
+over. **That is closed now.**
+
+`connectToHost` carries three optional fields beside the client id, the same three a Mac sends when
+it registers:
+
+```jsonc
+// phone → relay
+{"type":"connectToHost","hostId":"…","clientId":"…","protocolVersion":3,
+ "plan":"free","publicKey":"04…","proof":"3045…","proofTime":1760000000}
+```
+
+`proof` is a signature over `device_proof::client_payload`, which is a domain-separated string:
+
+```
+peeringd-client-registration-v1\n<clientId>\n<proofTime>
+```
+
+**The domain is separate from the host's on purpose.** Both are signed with the same P-256 key by
+the same device and both carry their three fields under the same names, so the version tag inside
+the signed string is the only thing keeping a client registration from being presentable as a host
+registration for the same id. `device_proof` has a test for exactly that.
+
+When the proof verifies, the relay meters the public key rather than the announced id, and the id
+becomes a name in a log line (the `metered_by` field on the `session allocated` line says which of
+the two it used). The key is in the Keychain and iOS keeps those through a reinstall, so the second
+install spends what the first one spent.
+
+Three things worth being plain about:
+
+- **A client that sends no proof is metered by its id**, exactly as before. The fields are optional
+  and their absence is not a refusal: refusing there would turn a clock skew into an outage for
+  somebody who has done nothing wrong.
+- **The proof is not authorization.** It decides an allowance. Whether a session may be driven is
+  decided by the pairing handshake and the pin, which this changes nothing about.
+- **Nothing migrates.** Usage already recorded against an id stays there; the first request a
+  client makes with a proof starts a counter under its key. A device that was mid-window when this
+  shipped gets the rest of that window twice, once under each, which is a few minutes.
 
 ### On a server
 
@@ -315,17 +461,82 @@ dependency of the `MacCastHost` target. Three things have to line up, and only t
 
 # Build a release. The version that matters is CFBundleVersion (sparkle:version in the feed) and it
 # must increase every time, or no installed copy will ever be offered this build.
+#
+# **Pass it on the command line, every release.** The project carries a date-stamped value as a
+# floor rather than as the answer: it is there so that a plain archive is at least newer than the
+# first release, which it was not: `MacCastHost` sat at CFBundleVersion 1 while the iPhone app was
+# stamped 202609161, and Sparkle compares numbers, so a second release built from the project as it
+# stood would have carried the number the installed copy already had and been offered to nobody.
+# Nothing about that fails loudly: the upload succeeds, the feed updates, and the update simply
+# never appears on any Mac.
+#
+# The number is YYYYMMDD and a revision digit, so today's first build is 202609200. Give both
+# settings the same value; the marketing version is what a person reads on the About pane.
+VERSION=$(date +%Y%m%d)0
 xcodebuild -project MacCast.xcodeproj -scheme MacCastHost -configuration Release \
+  MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION" \
+  -destination 'generic/platform=macOS' \
   -archivePath /tmp/Peering.xcarchive archive
+# Proof, before the upload rather than after it, that the bundle carries the number you meant. The
+# failure this catches is the quiet one: an archive built with no override, uploaded, and offered
+# to nobody.
+/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" \
+  /tmp/Peering.xcarchive/Products/Applications/Peering.app/Contents/Info.plist
+
+# The same kind of proof for the two properties an Intel Mac depends on, and for the same reason:
+# both fail silently. A thin archive builds and notarises exactly like a universal one, and the
+# only place it shows is on the machine that cannot open it. The destination above is what
+# produces both slices; that directory is now the only Mac release path, so a build that skips it
+# is checked here rather than trusted.
+#
+# The floor matters as much as the architecture, and the two have to move together. Xcode writes
+# `LSMinimumSystemVersion` from `MACOSX_DEPLOYMENT_TARGET`, and `generate_appcast` copies it into
+# the feed as `sparkle:minimumSystemVersion`. Lower the floor without going universal and the feed
+# starts offering macOS 15 to Intel Macs that cannot execute the binary, which turns a silent
+# exclusion into a broken update.
+ARCHIVE_APP=/tmp/Peering.xcarchive/Products/Applications/Peering.app
+lipo -archs "$ARCHIVE_APP/Contents/MacOS/Peering"                     # expect: x86_64 arm64
+lipo -archs "$ARCHIVE_APP/Contents/PlugIns/MacCastHostWidgetExtension.appex/Contents/MacOS/MacCastHostWidgetExtension"
+                                                                      # expect: x86_64 arm64
+xcrun vtool -show-build "$ARCHIVE_APP/Contents/MacOS/Peering" | grep minos   # expect: minos 15.0
 
 # Notarise before packaging, or every download is quarantined and the app is a dialog nobody
 # finishes. This step needs an Apple ID with an app-specific password and a team.
 xcrun notarytool submit /path/to/Peering.app --keychain-profile <profile> --wait
 xcrun stapler staple /path/to/Peering.app
 
-# Package and sign.
-hdiutil create -volname Peering -srcfolder /path/to/Peering.app -ov -format UDZO \
+# Package and sign. The source is the archived app from above, not a build product: the disk image
+# that shipped was arm64-only, and the archive it should have come from was not, so this line is
+# where that went wrong if it goes wrong again.
+#
+# The staging directory is not decoration. `-srcfolder` pointed straight at the app puts the app
+# alone at the root of the volume, and an image whose only item is the app gives nobody anything to
+# drag onto, so the one thing a person can do with it is double-click the app and run it from a
+# read-only disk. That is what the 202609221 image did. It leaves the app installed nowhere, which
+# is invisible until something depends on it being somewhere, and it points Screen Recording at a
+# path that is ejected the moment the image is put away.
+#
+# The alias to /Applications is the whole of the fix. It is the convention every other Mac disk
+# image uses, and it is what makes the window a decision rather than a dead end.
+DMG_STAGE="$(mktemp -d)"
+ditto "$ARCHIVE_APP" "$DMG_STAGE/Peering.app"
+ln -s /Applications "$DMG_STAGE/Applications"
+hdiutil create -volname Peering -srcfolder "$DMG_STAGE" -ov -format UDZO \
   /tmp/Peering-<version>.dmg
+rm -rf "$DMG_STAGE"
+
+# Both items, checked rather than trusted, because an image that lost the alias still builds and
+# still notarises.
+hdiutil attach -nobrowse -readonly -quiet -mountpoint /tmp/peering-layout /tmp/Peering-<version>.dmg
+[ -L /tmp/peering-layout/Applications ] || { echo "the image has no Applications alias" >&2; exit 1; }
+[ -d /tmp/peering-layout/Peering.app ]   || { echo "the image has no app in it" >&2; exit 1; }
+hdiutil detach /tmp/peering-layout -quiet
+
+# And the image is what actually ships, so this is the copy of the check that counts. `lipo` cannot
+# see inside a disk image, so mount it read-only and look at the app within.
+hdiutil attach -nobrowse -readonly -mountpoint /tmp/peering-verify "/tmp/Peering-<version>.dmg"
+lipo -archs /tmp/peering-verify/Peering.app/Contents/MacOS/Peering     # expect: x86_64 arm64
+hdiutil detach /tmp/peering-verify
 
 # The feed. `generate_appcast` reads a directory of disk images, signs each with the key from the
 # keychain, and writes appcast.xml beside them.
@@ -381,6 +592,25 @@ PEERINGD_PUBLIC_HOST=relay.getpeering.app
 
 Signalling still benefits from the orange cloud: the WebSocket rides HTTPS on 443, which is the one
 port nothing blocks.
+
+**The origin's `Cache-Control` is not the last word, and the disk image is where that shows.** The
+relay answers a DMG with `no-cache`, and that is what it should do, but `dmg` is on Cloudflare's
+default cache-by-extension list and the zone's Browser Cache TTL setting replaces the header on the
+way out. The edge serves `max-age=14400` regardless of what this repository asks for, and `xml` is
+not on that list, which is why the appcast is unaffected and the DMG is not.
+
+The consequence is specific and it is not a slow deploy: a person who downloaded the previous
+release within those four hours gets the old image back from their own browser, with no request
+reaching this box at all. On 22 September 2026 that handed a protocol-16 build to somebody who had
+just been told their Mac was too old, from the one page that was supposed to fix it, while every
+check run with `curl` passed, because `curl` has no browser cache.
+
+`deploy-site.sh` closes this the same way it closes it for the stylesheet: the download link is
+stamped with a hash of the image's contents, so a changed image is a changed URL and there is no
+stale key for a cache to answer with. Two things follow. **Do not remove that stamp**, and do not
+verify a release with a bare `curl` of the un-stamped path and call it done. Setting Browser Cache
+TTL to "Respect Existing Headers" in the Cloudflare dashboard would fix the general case as well,
+but the stamp is what holds if the setting is ever changed back.
 
 #### IPv6
 
@@ -489,21 +719,37 @@ it — every session shares it, so the firewall rule does not change as sessions
 
 #### Unit, and updating
 
-The unit is in the repository — `deploy/peeringd.service` — so what is running on a box can be
-diffed against what the code expects, rather than reconstructed from a snippet in a README.
+The unit is in the repository, at `deploy/peeringd.service`, so what is running on a box can be
+diffed against what the code expects rather than reconstructed from a snippet in a README. **The
+deploy script installs it**, with the binary, and that is the point: this file used to describe a
+machine that did not exist, and nobody found out until installing it took the relay down.
 
 ```sh
 # Once, on a new machine.
-sudo useradd --system --home /opt/peeringd --shell /usr/sbin/nologin peeringd
-sudo install -o peeringd -g peeringd -d /opt/peeringd /etc/peeringd
 sudo install -m 644 deploy/peeringd.service /etc/systemd/system/peeringd.service
+sudo install -m 600 /dev/null /etc/peeringd.env    # then fill it in from the table above
 sudo systemctl daemon-reload
 sudo systemctl enable --now peeringd
 ```
 
-`Environment=` lines go in `/etc/peeringd/peeringd.env`, which keeps the unit readable and the
-settings greppable. Binding 443 directly is what `AmbientCapabilities=CAP_NET_BIND_SERVICE` in the
-unit is for; shape B does not need it, since nginx owns that port.
+**Three things the instructions above used to say, and should not.** They are written down because
+each one was believed and acted on, and each one stops the service:
+
+- **No `useradd`.** The relay runs as root, and the unit says why. It terminates signalling TLS with
+  the Let's Encrypt certificate, whose key is mode 600 owned by root; a service user would need read
+  access to it, so the choice is between loosening the key and not dropping the privilege. There is
+  no `peeringd` user on any box this runs on.
+- **No `/opt/peeringd`.** There is no such directory, and the unit has no `WorkingDirectory=`. The
+  site root in the environment file is absolute, so nothing depends on the working directory.
+- **`/etc/peeringd.env`, not `/etc/peeringd/peeringd.env`.** A file, not a directory inside one.
+  `EnvironmentFile=` is not tolerant of a missing path: systemd refuses to start the unit and the
+  journal says `Failed to load environment files`. That is worth knowing before editing this line.
+
+`Environment=` lines go in that file, which keeps the unit readable and the settings greppable.
+There is no `AmbientCapabilities=` in the unit: it was there for a listener on 443, which these
+boxes do not have, because nginx owns 443 and proxies to the relay. A setting that is wrong about
+the machine is worse than no setting, and `CapabilityBoundingSet=` beside it would have taken every
+capability away from a process that was otherwise root.
 
 **`enable` is half the command, and it is the half that is easy to skip.** A unit that was
 `start`ed but never `enable`d runs until the machine reboots and then simply does not come back.
@@ -588,10 +834,11 @@ closes, and re-registers when it comes back — on a new address, under the same
 `clientId` is the phone's own device ID. The relay wants it only to recognise a reconnecting phone
 and supersede its previous session rather than accumulate one per attempt.
 
-`plan` is `free`, `relay`, `plus` or `pro`. It is what the meter is set by *unless*
-`jwsRepresentation` is present and verifies — see "Plans, and what the relay does not check" above
-for the check, the fallback, and what happens to everything unrecognised. `apiKey` is optional and
-rarely present: a key in the server's own list grants unlimited relay regardless of the plan.
+`plan` is `free`, `relay`, `plus` or `pro`. It is what the meter is set by only when
+`PEERINGD_TRUST_CLAIMED_PLANS` has been turned on, or when `jwsRepresentation` is present and
+verifies: see "Plans, and what the relay does not check" above for the receipt check, the switch,
+and what happens to everything unrecognised. `apiKey` is optional and rarely present: a key in the
+server's own list grants unlimited relay regardless of the plan.
 
 Both ends then receive a session. **This is the one message the two ends do not receive
 identically** — the `videoToken` differs, for the reason given under video below.
@@ -654,6 +901,22 @@ session, so the relay forwards ciphertext it cannot read and never sees a nonce 
 ## Cost
 
 Bandwidth is the only real cost, and at this scale it is small. Relayed 1080p video is roughly
-2.25 GB per hour at 5 Mbps, and a €5/month VPS typically includes tens of terabytes. The relay
-holds a UDP socket per live session, so `PEERINGD_SESSION_TTL` bounds the file descriptors that
-clients who walk away without disconnecting can leave behind.
+2.25 GB per hour at 5 Mbps, and a €5/month VPS typically includes tens of terabytes.
+
+**The hardware is not the constraint, and a capacity estimate should start from bandwidth.** There
+is one UDP socket for the whole process, not one per session — every session is demultiplexed by the
+sixteen-byte prefix — so video costs no file descriptors at all. What a session costs is two file
+descriptors for its control splice and about a megabyte of kernel socket buffers; what it costs in
+CPU is a `recv_from`, a table lookup and a `send_to` per datagram, with no crypto on this side
+because the payload is sealed. A session that walks away without disconnecting is still worth
+reaping, and `PEERINGD_SESSION_TTL` is what does it — but it bounds memory and sockets, not the
+thing that actually runs out first, which is the traffic allowance.
+
+**A session can be created by anyone, so there is a ceiling on them.** Asking is unauthenticated
+and costs the asker nothing: a loop over `ConnectToHost` with a different client id each time used
+to insert a session and two video routes per message, with nothing bounding the total and nothing
+releasing it when the socket closed, only the sweep and its five-minute TTL. `PEERINGD_MAX_SESSIONS`
+is the answer to that, and `PEERINGD_MAX_CONNECTIONS` bounds the sockets the requests arrive on. A
+thousand sessions is several times what a machine with a shared gigabit uplink could ever carry, so
+the number is a backstop rather than a limit anybody meets on purpose. Raise it on a bigger link:
+the cost per session is the two lines above.

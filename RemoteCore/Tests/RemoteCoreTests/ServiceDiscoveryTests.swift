@@ -23,8 +23,6 @@ struct ServiceDiscoveryTests {
 
     @Test("a host found on two interfaces is listed once")
     func collapsesDuplicateInterfaces() {
-        // The same Mac seen over Wi-Fi and Ethernet. Showing it twice would present the
-        // user with a choice that has no meaningful difference between its options.
         let collapsed = DiscoveredHost.collapse([
             host(id: "mac-1", name: "Damian's MacBook Pro"),
             host(id: "mac-1", name: "Damian's MacBook Pro"),
@@ -48,9 +46,7 @@ struct ServiceDiscoveryTests {
 
     @Test("sorts by name, and by ID when names tie")
     func sortsForDisplay() {
-        // Two Macs can genuinely share a name — a default "MacBook Pro" on two machines —
-        // so the ordering has to stay deterministic rather than depending on discovery
-        // order, or the list reshuffles itself under the user's finger.
+        // Two Macs can share a name, so the ordering must be deterministic or the list reshuffles under the user's finger.
         let collapsed = DiscoveredHost.collapse([
             host(id: "b", name: "MacBook Pro"),
             host(id: "a", name: "MacBook Pro"),
@@ -67,9 +63,6 @@ struct ServiceDiscoveryTests {
 
     @Test("the same host on a different endpoint is not a change")
     func endpointDoesNotAffectEquality() {
-        // The endpoint is where the host was found this time, not part of what the picker
-        // shows. Comparing it would make the browser re-emit an identical list on every
-        // re-discovery — a repaint the user can see on a busy network.
         let a = host(id: "mac-1", name: "Laptop", port: 51515)
         let b = host(id: "mac-1", name: "Laptop", port: 60000)
 
@@ -80,9 +73,6 @@ struct ServiceDiscoveryTests {
 
     @Test("a rename is a change, so the picker refreshes")
     func renameIsAChange() {
-        // The counterpart to the test above, and the reason equality is not simply the
-        // device ID: the browser suppresses updates that compare equal, so a host the user
-        // has renamed would keep showing its old name until something else changed.
         let a = host(id: "mac-1", name: "Old Name")
         let b = host(id: "mac-1", name: "New Name")
 
@@ -92,9 +82,7 @@ struct ServiceDiscoveryTests {
 
     @Test("equal hosts hash equally")
     func hashTracksEquality() {
-        // The contract that makes Set<DiscoveredHost> safe. Easy to break by adding a field
-        // to one of == or hash and not the other, and the failure is a host that randomly
-        // disappears from a Set rather than an outright error.
+        // Easy to break by adding a field to one of == or hash and not the other; the host then vanishes from a Set without an error.
         let a = host(id: "mac-1", name: "Laptop", version: 3)
         let b = host(id: "mac-1", name: "Laptop", version: 3)
 
@@ -114,19 +102,40 @@ struct ServiceDiscoveryTests {
 
     @Test("a host with no published version is kept, not dropped")
     func toleratesMissingVersion() {
-        // A host that publishes less than expected should still be listed and connectable.
-        // Hiding it would turn a cosmetic TXT-record omission into an unreachable device.
         let collapsed = DiscoveredHost.collapse([host(id: "mac-1", name: "Laptop", version: nil)])
 
         #expect(collapsed.count == 1)
         #expect(collapsed[0].protocolVersion == nil)
     }
 
+    private var endpoint: NWEndpoint {
+        .hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: ProtocolInfo.defaultPort)!)
+    }
+
+    @Test("a result with no device ID is not offered as a host")
+    func dropsResultsThatAreNotHosts() {
+        // `_remotedesktop._tcp` is Apple's Screen Sharing type, so Macs with no MacCast device ID show up and must be dropped.
+        #expect(DiscoveredHost.decode(endpoint: endpoint, txt: nil) == nil)
+        #expect(DiscoveredHost.decode(endpoint: endpoint, txt: NWTXTRecord(["name": "Someone's Mac"])) == nil)
+    }
+
+    @Test("a device ID that is present but empty is not an identity")
+    func dropsEmptyDeviceID() {
+        #expect(DiscoveredHost.decode(endpoint: endpoint, txt: NWTXTRecord(["id": ""])) == nil)
+    }
+
+    @Test("a host that publishes only an ID is still connectable")
+    func keepsHostWithMinimalTXTRecord() {
+        let host = DiscoveredHost.decode(endpoint: endpoint, txt: NWTXTRecord(["id": "mac-1"]))
+
+        #expect(host?.id == "mac-1")
+        #expect(host?.protocolVersion == nil)
+        #expect(host?.name.isEmpty == false)
+    }
+
     @Test("the Bonjour service type carries the protocol it advertises")
     func serviceTypeMatchesProtocol() {
-        // Bound into the advertised type, the Info.plist key, and the browser's descriptor.
-        // If these ever disagree the browse simply finds nothing, with no error to explain
-        // why — so the shared constant is the only thing keeping them together.
+        // If these disagree the browse finds nothing, with no error to explain why.
         #expect(ProtocolInfo.bonjourServiceType == "_remotedesktop._tcp")
     }
 }

@@ -9,6 +9,7 @@ use tokio_rustls::TlsAcceptor;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
+use peeringd::apns::ApnsClient;
 use peeringd::config::{Config, TlsFiles};
 use peeringd::quota::QuotaTracker;
 use peeringd::session::Registry;
@@ -25,8 +26,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let config = Config::from_env()?;
-    let registry = Arc::new(Registry::new());
-    let hosts = HostRegistry::new();
+    // The ceiling travels in rather than being a constant in the module, because it is a fact about
+    // the machine: see `Settings::max_sessions`.
+    let registry = Arc::new(Registry::new(config.max_sessions));
+    // Who each device id belongs to. A relay that does not write these down forgets them on
+    // restart, which re-opens the window for every id it had learned. See `device_bindings`.
+    let (hosts, binding_failure) = HostRegistry::with_bindings(config.device_bindings.clone());
+    match (&config.device_bindings, &binding_failure) {
+        (Some(path), None) => {
+            info!(path = %path.display(), "device bindings are persisted; a restart will not forget them")
+        }
+        (Some(path), Some(error)) => warn!(
+            path = %path.display(),
+            %error,
+            "the device binding store could not be opened; bindings are in memory and a restart will forget them"
+        ),
+        (None, _) => warn!(
+            "PEERINGD_DEVICE_BINDINGS is unset; bindings are in memory and a restart will forget which device proved which id"
+        ),
+    }
 
     let tls = match &config.tls {
         Some(files) => Some(acceptor(files)?),
@@ -39,7 +57,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The control relay is plain TCP on purpose, and it is worth being clear that this is not a gap
     // to be closed later: terminating TLS here would mean the relay could read the control channel,
     // and end-to-end confidentiality is the whole property being sold.
-    let quota = Arc::new(QuotaTracker::new(config.plans, config.paid_keys.clone()));
+    // The counter's home, which is a file when one was named and the process's own memory
+    // otherwise. Both are legal and the difference is said out loud below rather than left for an
+    // operator to discover by watching a restart hand everyone their allowance back.
+    let (quota, usage_log_failure) = QuotaTracker::with_usage_log(
+        config.plans,
+        config.paid_keys.clone(),
+        config.usage_log.clone(),
+    );
+    let quota = Arc::new(quota);
+
+    match (&config.usage_log, &usage_log_failure) {
+        (Some(path), None) => {
+            info!(path = %path.display(), "relay usage is persisted; a restart will not reset it")
+        }
+        (Some(path), Some(error)) => warn!(
+            path = %path.display(),
+            %error,
+            "the usage log could not be opened; usage is in memory and a restart will reset it"
+        ),
+        (None, _) => warn!(
+            "PEERINGD_USAGE_LOG is unset; usage is in memory and a restart gives every client a fresh allowance"
+        ),
+    }
 
     // The one thing here that is not about bandwidth: whether a plan is Apple's or the client's.
     // Built once, holds no state that outlives a session, and reaches nowhere — see `storekit`.
@@ -47,23 +87,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // The allowances are logged as minutes because that is how they are configured and how the
     // app's copy states them; seconds would be a conversion nobody asked for. `unlimited` is the
-    // top two plans and is not configurable — see `PlanAllowances`.
+    // top two plans and is not configurable: see `PlanAllowances`. Which plan a client ends up
+    // metered by is the block below, which is the more important of the two lines.
     info!(
         free_minutes = config.plans.free_seconds.map(|s| s / 60),
         relay_minutes = config.plans.relay_seconds.map(|s| s / 60),
-        "relay quota active; the plan comes from the receipt Apple signed, and from the plan the client claims when there is no receipt that verifies"
+        "relay quota active"
     );
 
     // Said at startup rather than only in a comment, because it is the state of the one known hole
     // in the relay and the line an operator should see before deciding it is fine. Read off the
-    // verifier rather than off the configuration, so the warning is about what was actually built.
+    // verifier rather than off the configuration, so both lines are about what was actually built.
+    //
+    // The closed branch names TestFlight, because that is the case an operator meets first and the
+    // one that looks like a bug: a tester's receipt is a real one that Apple signed and this relay
+    // refuses it all the same, so a beta build on `pro` is metered as free until someone sets the
+    // switch. Naming it here saves an operator the round of reading `storekit` to find that out.
     if receipts.trusts_claims() {
         warn!(
-            "a client with no verifiable receipt is metered by the plan it claims, which a patched app can lie about; set PEERINGD_TRUST_CLAIMED_PLANS=0 to meter every unproven plan as free"
+            "PEERINGD_TRUST_CLAIMED_PLANS is on: a client with no verifiable receipt is metered by the plan it claims, which any patched app can lie about. That setting is for beta testing, where a TestFlight build's receipt is a sandbox one and is refused by name; unset it for production"
         );
     } else {
         info!(
-            "claimed plans are not trusted: only a receipt that verifies against Apple's root buys more than the free allowance"
+            "claimed plans buy nothing: a plan is believed only when the receipt Apple signed for it verifies, and every client without one, a TestFlight build whose receipt is a sandbox one included, is metered as free"
         );
     }
 
@@ -107,7 +153,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry), Arc::clone(&quota)));
+    // No counter is handed to the control relay any more, and that is not an omission: what a
+    // splice is charged on travels with its session, put there by signalling where the plan was
+    // resolved. See `quota::Account`.
+    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry)));
 
     // Abandoned sessions are the normal residue of clients that crash or walk away, so this runs
     // forever rather than as a one-off. This is also what retires the video routes of a session
@@ -140,6 +189,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::spawn(web::serve(listener, Arc::new(root)));
     }
 
+    let apns = match (
+        config.apns_key_id.clone(),
+        config.apns_team_id.clone(),
+        config.apns_bundle_id.clone(),
+        config.apns_key.clone(),
+    ) {
+        (Some(key_id), Some(team_id), Some(bundle_id), Some(key_path)) => {
+            match ApnsClient::from_config(key_path, key_id, team_id, bundle_id) {
+                Ok(client) => {
+                    info!("APNs client ready");
+                    Some(Arc::new(client))
+                }
+                Err(e) => {
+                    warn!(error = %e, "APNs client failed to initialise; push notifications will not work");
+                    None
+                }
+            }
+        }
+        _ => None,
+    };
+
     let settings = Settings {
         host: config.public_host.clone(),
         // Falls back to the bound port, which is right whenever nothing is forwarded.
@@ -153,6 +223,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         session_ttl: config.session_ttl,
         quota,
         receipts,
+        max_sessions: config.max_sessions,
+        max_connections: config.max_connections,
+        handshake_timeout: config.handshake_timeout,
+        idle_timeout: config.idle_timeout,
+        apns,
     };
 
     tokio::select! {

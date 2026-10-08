@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Уведомления на iPhone, когда вы нужны Claude Code · Peering</title>
+<meta name="description" content="Оставьте Claude Code, Codex или долгую сборку работать на Mac. Когда оболочка останавливается на запросе разрешения, пароле или вопросе «да или нет», iPhone сообщает вам, и вы отвечаете прямо с него.">
+<link rel="canonical" href="https://getpeering.app/ru/coding-agent-notifications">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/coding-agent-notifications">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/coding-agent-notifications">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/coding-agent-notifications">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/coding-agent-notifications">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/coding-agent-notifications">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/coding-agent-notifications">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/coding-agent-notifications">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/coding-agent-notifications">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/coding-agent-notifications">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/coding-agent-notifications">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/coding-agent-notifications">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:url" content="https://getpeering.app/ru/coding-agent-notifications">
+<meta property="og:title" content="Уведомления на iPhone, когда вы нужны Claude Code · Peering">
+<meta property="og:description" content="Когда агент для кода на вашем Mac останавливается и просит разрешение, iPhone сообщает вам, и вы отвечаете, где бы ни находились.">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Уведомления на iPhone, когда вы нужны Claude Code · Peering">
+<meta name="twitter:description" content="Когда агент для кода на вашем Mac останавливается и просит разрешение, iPhone сообщает вам, и вы отвечаете, где бы ни находились.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Уведомления на iPhone, когда вы нужны Claude Code",
+  "description": "Оставьте Claude Code, Codex или долгую сборку работать на Mac. Когда оболочка останавливается на запросе разрешения, пароле или вопросе «да или нет», iPhone сообщает вам, и вы отвечаете прямо с него.",
+  "url": "https://getpeering.app/ru/coding-agent-notifications",
+  "mainEntityOfPage": "https://getpeering.app/ru/coding-agent-notifications",
+  "datePublished": "2026-09-27",
+  "dateModified": "2026-09-27",
+  "image": "https://getpeering.app/assets/og.png",
+  "author": {
+    "@type": "Person",
+    "name": "Damian Derlecki"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/pears.png"
+    }
+  },
+  "about": {
+    "@type": "SoftwareApplication",
+    "name": "Peering",
+    "url": "https://getpeering.app/",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "iOS, macOS"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Какие запросы замечает Peering?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Запросы пароля, в том числе sudo и парольных фраз SSH-ключей, и подтверждения «да или нет», в такой форме агент для кода обычно просит разрешение. В собственных shell Peering он также сообщает, когда завершилась команда, которая выполнялась пять секунд или дольше."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Работает ли это в Terminal и iTerm или только в собственном shell Peering?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "В обоих. Peering следит за окнами Terminal и iTerm на Mac, а также за shell, которые открывает сам."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Нужно ли держать приложение на iPhone открытым?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Нет. Mac отправляет баннер через релей, поэтому он приходит при закрытом приложении и заблокированном телефоне."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "На каком тарифе это доступно?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Сам терминал бесплатен на любом тарифе. Уведомления о том, что shell ждёт вас, входят в Relay: от $1.99 в месяц или $14.99 в год."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ru/" aria-label="Peering, главная">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Страницы">
+      <a href="/ru/">Главная</a>
+      <a href="/ru/how-to-pair-iphone-mac">Руководство по связыванию</a>
+      <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>
+      <a href="/ru/download">Скачать</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>Уведомления на iPhone, когда вы нужны Claude Code</h1>
+    <p class="updated">Запустите агента, займитесь своими делами и возвращайтесь только тогда, когда вы ему действительно нужны.</p>
+
+    <div class="card callout">
+      <strong>Коротко.</strong> Peering следит за shell на вашем Mac. Когда один из них
+      останавливается и о чём-то просит (запрос разрешения у агента для кода, пароль sudo, вопрос
+      «да или нет»), iPhone показывает баннер с самим вопросом. Коснитесь его, и вы окажетесь в этом
+      shell, готовые ответить.
+    </div>
+
+    <h2>В чём проблема, если оставить агента одного</h2>
+    <p>
+      Claude Code, Codex и другие лучше всего работают, пока вас нет рядом. Потом они останавливаются
+      и спрашивают, можно ли выполнить команду, и ждут. Ничто вас не предупреждает. Вы возвращаетесь
+      через час и обнаруживаете, что вопрос был задан через две минуты после вашего ухода и с тех
+      пор так и висит.
+    </p>
+    <p>
+      То же самое с завершившейся сборкой, с <code>git push</code>, который ждёт парольную фразу
+      ключа, или с миграцией, которая просит подтверждения. Машина готова к вам, просто вы об этом
+      не знаете.
+    </p>
+
+    <h2>Что с этим делает Peering</h2>
+    <p>
+      Приложение на Mac читает то, что печатают ваши shell, и распознаёт два вида вопросов: запрос
+      пароля и подтверждение «да или нет». Когда один из них появляется, Mac отправляет уведомление
+      на ваш iPhone через релей Peering, цитируя сам запрос, чтобы вы понимали, какой агент
+      спрашивает и о чём.
+    </p>
+    <ul>
+      <li>Это работает в окнах <strong>Terminal и iTerm</strong>, а также в собственных shell Peering, так что менять привычный способ запуска агента не нужно.</li>
+      <li>Уведомление приходит <strong>при закрытом приложении</strong> и заблокированном телефоне, как любое другое.</li>
+      <li>Оно приходит <strong>один раз на запрос</strong> и снова включается, когда вы ответили, так что вопрос, оставшийся без ответа, не вибрирует каждые несколько секунд.</li>
+      <li>В собственных shell Peering оно также сообщает, когда завершилась команда, которая выполнялась <strong>пять секунд или дольше</strong>.</li>
+    </ul>
+
+    <h2>Ответьте с телефона</h2>
+    <p>
+      Коснитесь баннера, и Peering откроет shell или окно, которое спросило. Собственные shell
+      открываются на весь экран, с рядом клавиш, сделанным для телефона: Escape, Control, Tab,
+      стрелки и перемещение по слову. Введите <code>y</code>, вставьте пароль из менеджера паролей
+      или сначала прочитайте diff, который агент хочет применить. Если хочется увидеть весь рабочий
+      стол, переключитесь на экран Mac в том же приложении.
+    </p>
+
+    <h2>Конфиденциальность заложена в основу</h2>
+    <p>
+      Релей, который несёт сеанс, не может его прочитать: у iPhone и Mac свой ключ, и ничего о
+      сеансе не хранится на сервере. Создавать учётную запись не нужно.
+      <a href="/ru/privacy">Политика конфиденциальности</a> точно описывает, что релей может и чего не
+      может видеть.
+    </p>
+
+    <h2>Сколько это стоит</h2>
+    <p>
+      Терминал, SSH к вашим серверам и файловый браузер бесплатны на любом тарифе. Уведомления о
+      том, что shell ждёт вас, входят в Relay, который стоит $1.99 в месяц или $14.99 в год и
+      заодно снимает ограничение в один час в день на доступ к Mac из другой сети.
+    </p>
+
+    <h2>Вопросы</h2>
+    <h3>Какие запросы замечает Peering?</h3>
+    <p>Запросы пароля, в том числе sudo и парольных фраз SSH-ключей, и подтверждения «да или нет», в такой форме агент для кода обычно просит разрешение. В собственных shell Peering он также сообщает, когда завершилась команда, которая выполнялась пять секунд или дольше.</p>
+    <h3>Работает ли это в Terminal и iTerm или только в собственном shell Peering?</h3>
+    <p>В обоих. Peering следит за окнами Terminal и iTerm на Mac, а также за shell, которые открывает сам.</p>
+    <h3>Нужно ли держать приложение на iPhone открытым?</h3>
+    <p>Нет. Mac отправляет баннер через релей, поэтому он приходит при закрытом приложении и заблокированном телефоне.</p>
+    <h3>На каком тарифе это доступно?</h3>
+    <p>Сам терминал бесплатен на любом тарифе. Уведомления о том, что shell ждёт вас, входят в Relay: от $1.99 в месяц или $14.99 в год.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ru/download">Скачать Peering для Mac</a>
+      <a class="btn btn-quiet" href="/ru/how-to-pair-iphone-mac">Читать руководство по связыванию</a>
+    </div>
+
+    <div class="related">
+      <h2>Читайте дальше</h2>
+      <ul>
+      <li><a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол для Mac, с вашего iPhone</a></li>
+      <li><a href="/ru/keep-mac-awake-for-remote-access">Как сохранить Mac доступным, пока вас нет</a></li>
+      <li><a href="/ru/access-your-mac-from-anywhere">Доступ к Mac откуда угодно</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Руководства, правовая информация и поддержка">
+      <a href="/ru/how-to-pair-iphone-mac">Руководство по связыванию</a>
+      <a href="/ru/remote-desktop-for-mac">Удалённый рабочий стол</a>
+      <a href="/ru/access-your-mac-from-anywhere">Откуда угодно</a>
+      <a href="/ru/keep-mac-awake-for-remote-access">Mac дома</a>
+      <a href="/ru/coding-agent-notifications">Агенты для кода</a>
+      <a href="/ru/remote-desktop-apps-compared">Сравнение приложений</a>
+      <a href="/ru/screens-alternative">Альтернатива Screens</a>
+      <a href="/ru/download">Скачать</a>
+      <a href="/ru/privacy">Конфиденциальность</a>
+      <a href="/ru/terms">Условия</a>
+      <a href="mailto:support@getpeering.app">Поддержка</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/coding-agent-notifications" hreflang="en" lang="en">English</a>
+      <a href="/de/coding-agent-notifications" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/coding-agent-notifications" hreflang="es" lang="es">Español</a>
+      <a href="/fr/coding-agent-notifications" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/coding-agent-notifications" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/coding-agent-notifications" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/coding-agent-notifications" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/coding-agent-notifications" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/coding-agent-notifications" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/coding-agent-notifications" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone и Mac являются товарными знаками Apple Inc. Claude Code is a trademark of Anthropic. Peering is not affiliated with Anthropic or OpenAI.</p>
+  </div>
+</footer>
+
+</body>
+</html>

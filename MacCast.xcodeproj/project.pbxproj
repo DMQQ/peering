@@ -7,12 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA00001000000000000000AA /* TerminalActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000AA /* TerminalActivityAttributes.swift */; };
+		AA00002000000000000000AA /* TerminalActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000AA /* TerminalActivityAttributes.swift */; };
+		AB00001000000000000000AA /* AgentWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000AA /* AgentWidgetSnapshot.swift */; };
+		AB00002000000000000000AA /* AgentWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000AA /* AgentWidgetSnapshot.swift */; };
+		C2B2281E306093ED008FB38C /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = E1A00002305B000100ABF943 /* Sparkle */; };
 		C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EC30574AB600ABF943 /* RemoteCore */; };
 		C2C039F030574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EE30574AB600ABF943 /* RemoteCore */; };
 		C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039ED30574AB600ABF943 /* RemoteCore */; };
-		D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FF02305B000100ABF943 /* SSHCore */; };
-		C2C039FD30574AB600ABF943 /* X509 in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039FC30574AB600ABF943 /* X509 */; };
-		C2C03A0030574AB600ABF943 /* SwiftASN1 in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039FF30574AB600ABF943 /* SwiftASN1 */; };
 		C2C03AF83058094A00ABF943 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF73058094900ABF943 /* WidgetKit.framework */; };
 		C2C03AFA3058094A00ABF943 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF93058094A00ABF943 /* SwiftUI.framework */; };
 		C2C03B093058094B00ABF943 /* MacCastWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C2C03AF53058094900ABF943 /* MacCastWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -20,7 +22,13 @@
 		C2C03B16305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */; };
 		D4A10001305B000100ABF943 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF73058094900ABF943 /* WidgetKit.framework */; };
 		D4A10002305B000100ABF943 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF93058094A00ABF943 /* SwiftUI.framework */; };
-		D4A10003305B000100ABF943 /* MacCastHostWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D4A10003305B000100ABF943 /* MacCastHostWidgetExtension.appex in Embed Host Widget Extension */ = {isa = PBXBuildFile; fileRef = D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FF02305B000100ABF943 /* SSHCore */; };
+		D4C0FFA4305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA2305B000100ABF943 /* MacCastKit */; };
+		D4C0FFA5305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA3305B000100ABF943 /* MacCastKit */; };
+		D4C0FFA6305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA7305B000100ABF943 /* MacCastKit */; };
+		F0A10001305B000100ABF943 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F0A10003305B000100ABF943 /* PostHog */; };
+		F0A10002305B000100ABF943 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F0A10004305B000100ABF943 /* PostHog */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,7 +80,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				D4A10003305B000100ABF943 /* MacCastHostWidgetExtension.appex in Embed Foundation Extensions */,
+				D4A10003305B000100ABF943 /* MacCastHostWidgetExtension.appex in Embed Host Widget Extension */,
 			);
 			name = "Embed Host Widget Extension";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -80,6 +88,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AA00000000000000000000AA /* TerminalActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalActivityAttributes.swift; sourceTree = "<group>"; };
+		AB00000000000000000000AA /* AgentWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWidgetSnapshot.swift; sourceTree = "<group>"; };
 		C2C039BF30574AB400ABF943 /* MacCast.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacCast.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2C039CE30574AB600ABF943 /* MacCastTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacCastTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2C039D830574AB600ABF943 /* MacCastUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacCastUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -154,6 +164,8 @@
 			files = (
 				C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */,
 				D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */,
+				D4C0FFA4305B000100ABF943 /* MacCastKit in Frameworks */,
+				F0A10001305B000100ABF943 /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,6 +174,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2C039F030574AB600ABF943 /* RemoteCore in Frameworks */,
+				D4C0FFA5305B000100ABF943 /* MacCastKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -176,8 +189,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C2B2281E306093ED008FB38C /* Sparkle in Frameworks */,
+				D4C0FFA6305B000100ABF943 /* MacCastKit in Frameworks */,
 				C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */,
-				E1A00003305B000100ABF943 /* Sparkle in Frameworks */,
+				F0A10002305B000100ABF943 /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -243,6 +258,8 @@
 			isa = PBXGroup;
 			children = (
 				C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */,
+				AA00000000000000000000AA /* TerminalActivityAttributes.swift */,
+				AB00000000000000000000AA /* AgentWidgetSnapshot.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -258,6 +275,7 @@
 				C2C039BC30574AB400ABF943 /* Frameworks */,
 				C2C039BD30574AB400ABF943 /* Resources */,
 				C2C03B0A3058094B00ABF943 /* Embed Foundation Extensions */,
+				F0A10006305B000100ABF943 /* Upload PostHog dSYMs */,
 			);
 			buildRules = (
 			);
@@ -271,6 +289,8 @@
 			packageProductDependencies = (
 				C2C039EC30574AB600ABF943 /* RemoteCore */,
 				D4C0FF02305B000100ABF943 /* SSHCore */,
+				D4C0FFA2305B000100ABF943 /* MacCastKit */,
+				F0A10003305B000100ABF943 /* PostHog */,
 			);
 			productName = MacCast;
 			productReference = C2C039BF30574AB400ABF943 /* MacCast.app */;
@@ -295,6 +315,7 @@
 			name = MacCastTests;
 			packageProductDependencies = (
 				C2C039EE30574AB600ABF943 /* RemoteCore */,
+				D4C0FFA3305B000100ABF943 /* MacCastKit */,
 			);
 			productName = MacCastTests;
 			productReference = C2C039CE30574AB600ABF943 /* MacCastTests.xctest */;
@@ -331,6 +352,7 @@
 				C2C039F630574AB600ABF943 /* Frameworks */,
 				C2C039F730574AB600ABF943 /* Resources */,
 				D4A10005305B000100ABF943 /* Embed Host Widget Extension */,
+				F0A10007305B000100ABF943 /* Upload PostHog dSYMs */,
 			);
 			buildRules = (
 			);
@@ -343,7 +365,9 @@
 			name = MacCastHost;
 			packageProductDependencies = (
 				C2C039ED30574AB600ABF943 /* RemoteCore */,
+				D4C0FFA7305B000100ABF943 /* MacCastKit */,
 				E1A00002305B000100ABF943 /* Sparkle */,
+				F0A10004305B000100ABF943 /* PostHog */,
 			);
 			productName = MacCastHost;
 			productReference = C2C039F330574AB600ABF943 /* Peering.app */;
@@ -431,15 +455,26 @@
 			knownRegions = (
 				en,
 				Base,
+				es,
+				fr,
+				de,
+				"pt-BR",
+				ja,
+				ko,
+				"zh-Hans",
+				ru,
+				it,
 			);
 			mainGroup = C2C039B630574AB400ABF943;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				C2C039EB30574AB600ABF943 /* XCLocalSwiftPackageReference "RemoteCore" */,
 				D4C0FF01305B000100ABF943 /* XCLocalSwiftPackageReference "SSHCore" */,
+				D4C0FFA1305B000100ABF943 /* XCLocalSwiftPackageReference "MacCastKit" */,
 				C2C039FB30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-certificates" */,
 				C2C039FE30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-asn1" */,
 				E1A00001305B000100ABF943 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				F0A10005305B000100ABF943 /* XCRemoteSwiftPackageReference "posthog-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C2C039C030574AB400ABF943 /* Products */;
@@ -501,12 +536,47 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		F0A10006305B000100ABF943 /* Upload PostHog dSYMs */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(DWARF_DSYM_FOLDER_PATH)/$(DWARF_DSYM_FILE_NAME)/Contents/Resources/DWARF/$(EXECUTABLE_NAME)",
+			);
+			name = "Upload PostHog dSYMs";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"$CONFIGURATION\" = \"Release\" ]; then\n  POSTHOG_INCLUDE_SOURCE=1 POSTHOG_CLI_DOTENV_FILE=\"${SRCROOT}/.env\" \"${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh\"\nfi\n";
+		};
+		F0A10007305B000100ABF943 /* Upload PostHog dSYMs */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(DWARF_DSYM_FOLDER_PATH)/$(DWARF_DSYM_FILE_NAME)/Contents/Resources/DWARF/$(EXECUTABLE_NAME)",
+			);
+			name = "Upload PostHog dSYMs";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"$CONFIGURATION\" = \"Release\" ]; then\n  POSTHOG_INCLUDE_SOURCE=1 POSTHOG_CLI_DOTENV_FILE=\"${SRCROOT}/.env\" \"${BUILD_DIR%/Build/*}/SourcePackages/checkouts/posthog-ios/build-tools/upload-symbols.sh\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		C2C039BB30574AB400ABF943 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				C2C03B16305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */,
+				AA00001000000000000000AA /* TerminalActivityAttributes.swift in Sources */,
+				AB00001000000000000000AA /* AgentWidgetSnapshot.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -536,6 +606,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2C03B15305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */,
+				AA00002000000000000000AA /* TerminalActivityAttributes.swift in Sources */,
+				AB00002000000000000000AA /* AgentWidgetSnapshot.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -625,7 +697,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -683,7 +755,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -697,10 +769,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/MacCast.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 202609161;
+				CURRENT_PROJECT_VERSION = 202610081;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -714,7 +787,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 202609161;
+				MARKETING_VERSION = 202610061;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -722,7 +795,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -731,10 +804,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/MacCast.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 202609161;
+				CURRENT_PROJECT_VERSION = 202610081;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -748,7 +823,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 202609161;
+				MARKETING_VERSION = 202610061;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -756,7 +831,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -769,7 +844,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -777,7 +852,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MacCast.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MacCast";
 			};
@@ -791,7 +866,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -799,7 +874,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MacCast.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MacCast";
 			};
@@ -819,7 +894,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = MacCast;
 			};
@@ -839,7 +914,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = MacCast;
 			};
@@ -849,20 +924,22 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/MacCastHost.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 202610081;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/MacCastHost-Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 202610081;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.host;
 				PRODUCT_NAME = Peering;
 				SDKROOT = macosx;
@@ -870,7 +947,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -878,20 +955,24 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/MacCastHost.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 202610081;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/MacCastHost-Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 202610081;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.host;
 				PRODUCT_NAME = Peering;
 				SDKROOT = macosx;
@@ -899,7 +980,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
@@ -910,7 +991,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = Config/MacCastWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 202609161;
+				CURRENT_PROJECT_VERSION = 202610081;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MacCastWidget/Info.plist;
@@ -921,7 +1002,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 202609161;
+				MARKETING_VERSION = 202610061;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -929,7 +1010,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -941,7 +1022,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = Config/MacCastWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 202609161;
+				CURRENT_PROJECT_VERSION = 202610081;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MacCastWidget/Info.plist;
@@ -952,7 +1033,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 202609161;
+				MARKETING_VERSION = 202610061;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -960,7 +1041,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -970,7 +1051,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Config/MacCastHostWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 202610081;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MacCastHostWidget/Info.plist;
@@ -980,8 +1061,8 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 202610081;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.host.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -989,7 +1070,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -998,8 +1079,9 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Config/MacCastHostWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 202610081;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
+				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MacCastHostWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Peering Host";
@@ -1008,8 +1090,8 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 202610081;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.host.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1017,7 +1099,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
@@ -1098,6 +1180,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = SSHCore;
 		};
+		D4C0FFA1305B000100ABF943 /* XCLocalSwiftPackageReference "MacCastKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MacCastKit;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -1125,6 +1211,14 @@
 				minimumVersion = 2.10.0;
 			};
 		};
+		F0A10005305B000100ABF943 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.59.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1144,20 +1238,32 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = SSHCore;
 		};
-		C2C039FC30574AB600ABF943 /* X509 */ = {
+		D4C0FFA2305B000100ABF943 /* MacCastKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C2C039FB30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-certificates" */;
-			productName = X509;
+			productName = MacCastKit;
+		};
+		D4C0FFA3305B000100ABF943 /* MacCastKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MacCastKit;
+		};
+		D4C0FFA7305B000100ABF943 /* MacCastKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MacCastKit;
 		};
 		E1A00002305B000100ABF943 /* Sparkle */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = E1A00001305B000100ABF943 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
 		};
-		C2C039FF30574AB600ABF943 /* SwiftASN1 */ = {
+		F0A10003305B000100ABF943 /* PostHog */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C2C039FE30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-asn1" */;
-			productName = SwiftASN1;
+			package = F0A10005305B000100ABF943 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
+		};
+		F0A10004305B000100ABF943 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F0A10005305B000100ABF943 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -5,16 +5,11 @@ import Testing
 
 @Suite("Video over the control channel")
 struct VideoChunkTests {
-    /// A payload with a byte pattern that changes everywhere, so a chunk assembled in the
-    /// wrong order or with a piece repeated cannot pass by being mostly zeros.
     private func payload(bytes: Int) -> Data {
         Data((0..<bytes).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ 7) })
     }
 
-    /// What the client does with a lane's frames: chunked ones are put back together, and
-    /// anything that was small enough to travel whole passes straight through. Only chunk
-    /// frames ever reach the reassembler — a whole frame is not a header, and reading one as
-    /// one would be a parse of the picture's own bytes.
+    /// Only chunk frames reach the reassembler; a whole frame is not a header.
     private func feed(_ frames: [Frame], into reassembler: inout VideoChunkReassembler) throws -> Frame? {
         var result: Frame?
         for frame in frames where frame.kind != .videoChunk {
@@ -44,8 +39,6 @@ struct VideoChunkTests {
         let original = payload(bytes: 200_000)
         let frames = VideoChunkEncoder.encode(kind: .videoFrame, payload: original, frameID: 7)
 
-        // 200 KB at 16 KB a piece, the last one short: the arithmetic is the point, because
-        // the number of pieces is what a keyframe costs the control channel in writes.
         #expect(frames.count == 13)
 
         var reassembler = VideoChunkReassembler()
@@ -80,8 +73,7 @@ struct VideoChunkTests {
         #expect(whole?.payload == original)
     }
 
-    /// The rule that keeps a lost chunk from wedging the picture: whatever was being
-    /// assembled is abandoned the moment a piece of a newer frame arrives.
+    /// A newer frame's piece abandons whatever was being assembled, so a lost chunk cannot wedge the picture.
     @Test("a lost chunk costs one picture and not the next one")
     func lostChunkDoesNotWedgeTheStream() throws {
         var reassembler = VideoChunkReassembler()
@@ -155,8 +147,6 @@ struct VideoChunkTests {
         }
     }
 
-    /// The memory guard, exercised for real: a frame that claims to be larger than this module
-    /// will ever hold is abandoned, and the session is still able to receive the next one.
     @Test("a frame too large to hold is abandoned, and the next one is not")
     func oversizedFrameIsAbandoned() throws {
         var reassembler = VideoChunkReassembler()
@@ -174,7 +164,6 @@ struct VideoChunkTests {
 
 @Suite("The video transport fallback decision")
 struct VideoFallbackPolicyTests {
-    /// A session that is up, receiving, and on a path a network can block.
     private func healthyPicture(at now: TimeInterval) -> TimeInterval { now - 0.1 }
 
     @Test("a silent session on an answering control channel asks for the fallback")
@@ -191,8 +180,6 @@ struct VideoFallbackPolicyTests {
         #expect(policy.isFallback)
     }
 
-    /// The session-start probe, which sends nothing: the window is measured from the moment
-    /// the session became ready, so the first seconds of every session are the test.
     @Test("the first seconds of a session are the probe")
     func sessionStartIsTheProbe() {
         var policy = VideoFallbackPolicy()
@@ -229,8 +216,7 @@ struct VideoFallbackPolicyTests {
         #expect(!policy.isFallback)
     }
 
-    /// Moving video onto a channel that is itself failing would take the picture off the one
-    /// lane that was still working.
+    /// Moving video onto a failing channel would take it off the lane that still works.
     @Test("a control channel that has gone quiet is left alone")
     func unhealthyControlChannelIsNotUsed() {
         var policy = VideoFallbackPolicy()
@@ -261,9 +247,7 @@ struct VideoFallbackPolicyTests {
         #expect(!policy.isFallback)
     }
 
-    /// A request is not an instruction, and the host can decline it — so one that produced no
-    /// picture is repeated. Not on every tick of the watchdog, though: the interval is what
-    /// keeps a working session quiet and a stuck one from being a flood.
+    /// A request can be declined by the host, so one that produced no picture is repeated, but not on every watchdog tick.
     @Test("a request that produced no picture is repeated, at an interval")
     func requestsAreRepeatedAtAnInterval() {
         var policy = VideoFallbackPolicy()
@@ -290,9 +274,6 @@ struct VideoFallbackPolicyTests {
         #expect(policy.advance(now: now, lastPictureAt: picture, lastControlReplyAt: now, applies: true) == .none)
     }
 
-    /// A picture arriving on the preferred transport is recorded twice over by the caller, and
-    /// both records matter: the count is what the return is decided on, and the timestamp is
-    /// what stops the client asking for a fallback it already has.
     private func pictureArrived(_ policy: inout VideoFallbackPolicy, at now: TimeInterval) -> TimeInterval {
         policy.notePrimaryPicture()
         return now
@@ -314,8 +295,6 @@ struct VideoFallbackPolicyTests {
         #expect(!policy.isFallback)
     }
 
-    /// A single datagram crossing a path that is otherwise losing everything is luck, not
-    /// recovery — and the host only puts keyframes on that lane, so one picture is cheap.
     @Test("one picture is not enough, and neither is two too early")
     func returningWaitsForTheHold() {
         var policy = VideoFallbackPolicy()
@@ -331,9 +310,7 @@ struct VideoFallbackPolicyTests {
         #expect(policy.advance(now: now, lastPictureAt: pictureAt, lastControlReplyAt: now, applies: true) == .usePrimaryTransport)
     }
 
-    /// Pictures on the preferred transport are the ordinary case when video is already on it,
-    /// and counting them would let a session that has just fallen back return on its first
-    /// frame regardless of whether the lane works.
+    /// Pictures on the preferred transport must not count, or a session that just fell back would return on its first frame.
     @Test("pictures counted before the fallback are not evidence")
     func picturesBeforeTheFallbackDoNotCount() {
         var policy = VideoFallbackPolicy()
@@ -347,8 +324,6 @@ struct VideoFallbackPolicyTests {
         now += VideoFallbackPolicy.minFallbackHold + 0.1
         let decision = policy.advance(now: now, lastPictureAt: 0, lastControlReplyAt: now, applies: true)
 
-        // Three pictures arrived before video moved, and none of them says anything about the
-        // lane now: this session is still waiting for the first one to cross.
         #expect(decision != .usePrimaryTransport)
         #expect(policy.isFallback)
     }
@@ -364,8 +339,6 @@ struct VideoFallbackPolicyTests {
 
         #expect(!policy.isFallback)
 
-        // A session that has just started has no history to return on, so the first thing it
-        // can be told is to fall back, not to come back.
         now += VideoFallbackPolicy.minFallbackHold + 1
         #expect(policy.advance(now: now, lastPictureAt: 0, lastControlReplyAt: now, applies: true) == .useControlChannel)
     }

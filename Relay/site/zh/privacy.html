@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>隐私政策 · Peering</title>
+<meta name="description" content="Peering 保留什么，中继处理什么，以及两者都无法看到什么。">
+<link rel="canonical" href="https://getpeering.app/zh/privacy">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/privacy">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/privacy">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/privacy">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/privacy">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/privacy">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/privacy">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/privacy">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/privacy">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/privacy">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/privacy">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/privacy">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:url" content="https://getpeering.app/zh/privacy">
+<meta property="og:title" content="隐私政策 · Peering">
+<meta property="og:description" content="Peering 保留什么，中继处理什么，以及两者都无法看到什么。">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="隐私政策 · Peering">
+<meta name="twitter:description" content="Peering 保留什么，中继处理什么，以及两者都无法看到什么。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/zh/" aria-label="Peering，首页">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="页面">
+      <a href="/zh/">首页</a>
+      <a href="/zh/terms">条款</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>隐私政策</h1>
+    <p class="updated">最后更新：2026 年 10 月 6 日</p>
+    <p>这是为方便阅读而提供的译文。如与英文原文（<a href="https://getpeering.app/privacy">https://getpeering.app/privacy</a>）有出入，以英文版本为准。</p>
+
+    <div class="card callout">
+      <strong>简而言之。</strong>Peering 没有账户、广告或第三方跟踪 SDK。它会发送匿名的使用次数统计，
+      你可以在“设置”中将其关闭。你的屏幕、音频、
+      按键、指针输入和剪贴板都在你自己的两台设备之间，通过一条加密连接传输；
+      而你不在家时承载这条连接的中继，在设计上就无法读取其中任何内容。
+    </div>
+
+    <h2>1. 本政策出自谁</h2>
+    <p>
+      Peering 是一款 iPhone 应用，连接到你自己 Mac 上的配套应用。本政策涵盖这两个应用，
+      以及让它们能通过互联网互相连接的中继服务器。关于这里的任何内容，包括任何与你的数据有关的请求，
+      请写信至 <a href="mailto:support@getpeering.app">support@getpeering.app</a>。
+    </p>
+
+    <h2>2. 保留在你设备上的内容</h2>
+    <p>
+      应用无需账户即可使用，所以除了你手中的硬件之外，任何地方都没有关于你的档案。
+      以下是应用所保留内容的完整清单，全部都存放在你的 iPhone 或 Mac 上：
+    </p>
+    <ul>
+      <li>
+        <strong>你的设备身份。</strong>每台设备在你第一次打开应用时生成自己的密钥，
+        并把私钥保存在该设备的钥匙串中。私钥绝不会离开设备。
+      </li>
+      <li>
+        <strong>已配对的 Mac。</strong>你已配对的 Mac 的名称、配对信息和上次连接时间，
+        以便列出它们并重新连接。
+      </li>
+      <li>
+        <strong>终端提醒的推送令牌。</strong>在包含“Shell 停下来等你时通知你”功能的套餐中，
+        你的 Mac 会保留你的 iPhone 的 Apple 推送令牌，以便之后发送该提醒。
+        如果套餐不再包含该功能、Mac 忘记了那台 iPhone，或者你把应用从 Mac 上移除，令牌会被自动丢弃。
+      </li>
+      <li>
+        <strong>会话历史记录。</strong>最近 30 次会话：开始时间、持续时长、所用的连接路径，以及时长。
+        用于显示你自己的使用情况，包括当前 24 小时周期内还剩多少中继时间。
+      </li>
+      <li>
+        <strong>剪贴板项目。</strong>你从 Mac 拉取的最近 12 条文本会保留在 iPhone 上，直到你清除它们。
+      </li>
+      <li>
+        <strong>崩溃和诊断报告。</strong>如果任一应用崩溃，或者系统通过 Apple 的 MetricKit
+        报告了卡死、看门狗终止或资源异常，每类最近的 10 条会保留在该设备上，直到你清除它们或删除应用。
+        这些内容都不会自行发送到任何地方：在决定是否把它附在发给我们的消息中之前，你会看到完整的文本。
+      </li>
+      <li>
+        <strong>你的设置。</strong>偏好设置，例如是否允许中继连接、
+        打开应用时是否需要 Face ID，以及你的 Mac 的名称。
+      </li>
+    </ul>
+    <p>
+      删除应用会移除以上全部内容，但有一个例外，值得明说而不是留待你自己发现：
+      删除应用本身时，iOS 会保留该应用的钥匙串项目。你的钥匙串项目中存放着你的设备身份，
+      以及你要求记住的任何 SSH 密码。当你在应用中移除它们，或者抹掉设备时，它们才会消失。
+    </p>
+    <p>
+      应用不会把上面列出的内容上传给我们。Peering 没有账户。中继所处理的有限技术信息，将在下一节说明。
+    </p>
+
+    <h2>3. 中继处理的内容</h2>
+    <p>
+      当你的两台设备处于不同网络时，它们都会主动连接到一台中继服务器，由它把双方介绍给彼此，并在两者之间复制字节。
+      画面也常常走的是两台设备自行打开的路径，中继并不参与其中，但正是它告诉双方对方在哪里，
+      而且无论走哪条路径，会话的其余部分都由它承载。为完成这项工作，它会处理：
+    </p>
+    <ul>
+      <li>你的 Mac 的设备 ID 及其名称；</li>
+      <li>你的 iPhone 的设备 ID；</li>
+      <li>你的应用所使用的协议版本；</li>
+      <li>使用付费套餐时，有效 App Store 购买的凭证。它用于验证该次连接的套餐，之后不会保留；</li>
+      <li>用于识别设备并应用其中继额度的假名化身份验证信息；</li>
+      <li>该次连接所用的套餐；</li>
+      <li>每台设备在当前 24 小时周期内已使用的中继秒数；</li>
+      <li>用于识别付费中继访问的随机标识符；</li>
+      <li>每台设备的 IP 地址（任何服务器都必然会看到），它会把这个地址交给另一台设备，
+        好让它们尝试不经中继而互相连接；</li>
+      <li>你的 iPhone 的 Apple 推送令牌，仅在 Mac 请求中继唤醒一台无法直接连上的手机时才会用到。
+        它只用于这一次请求，直接传给 Apple，不会被存储。</li>
+    </ul>
+    <p>
+      <strong>中继无法读取它所承载的内容。</strong>你的设备对连接进行端到端加密，
+      并且不会把密钥交给中继。这涵盖视频、音频、按键、指针输入和剪贴板文本。
+    </p>
+    <p>
+      <strong>中继保留什么。</strong>没有用户账户或档案。中继只保留提供和保护服务所需的技术记录：
+    </p>
+    <ul>
+      <li>
+        与设备标识符关联的中继使用量，以便应用当前的额度；
+      </li>
+      <li>
+        用于在之后的连接中识别 Mac 所需的设备验证记录；以及
+      </li>
+      <li>
+        用于安全和故障排查的有限连接日志，包括设备 ID、Mac 名称和所应用的套餐。
+      </li>
+    </ul>
+    <p>
+      这些记录不包含你的屏幕、音频、输入、剪贴板或其他会话内容。
+    </p>
+
+    <h2>匿名使用统计</h2>
+    <p>
+      iPhone 应用会统计自身的使用情况，这样我们就能知道是否有人在使用它，以及哪些版本和连接路径重要。
+      它默认开启，你可以在“设置”的“安全与隐私”中将其关闭，关闭后不会发送任何内容。
+    </p>
+    <ul>
+      <li>发送的内容：事件名称（应用已打开、会话已开始）、连接路径
+        （本地网络、直连或中继）、你的套餐、应用版本、iOS 主版本号，以及首次启动时生成的一个随机标识符。</li>
+      <li>该标识符不是你的 Apple 账户，不是广告标识符或供应商标识符，也不是中继所用的标识符。
+        它无法与其中任何一个关联起来。</li>
+      <li>绝不发送的内容：你的屏幕、音频、按键、剪贴板、文件、命令、
+        任何 Mac 的名称或地址，以及购买详情。</li>
+      <li>事件发送到位于欧盟的 PostHog 服务器，不会建立个人档案，发送方的 IP 地址也会被丢弃。</li>
+    </ul>
+
+    <h2>4. 我们绝不会做的事</h2>
+    <ul>
+      <li>我们不会向任何人出售、出租或共享你的数据。</li>
+      <li>我们不会在应用中运行广告或归因 SDK，除非你选择把崩溃日志附在发给我们的消息中，
+        否则任何崩溃日志都不会离开你的设备。</li>
+      <li>我们不会建立你的档案，也没有可以关联档案的账户。</li>
+      <li>我们不会读取、存储或检查经过中继的内容。</li>
+      <li>我们不会把你的 Mac 的屏幕、声音或输入发送到你自己的 iPhone 以外的任何地方。</li>
+    </ul>
+
+    <h2>5. 购买</h2>
+    <p>
+      每个付费套餐都是订阅，全部由 Apple 通过 App Store 完全负责处理。
+      Apple 处理付款，并告知应用某项权益是否有效；我们从不会看到你的姓名、银行卡或账单地址。
+      Apple 对这些信息的处理，适用 <a href="https://www.apple.com/legal/privacy/">Apple 隐私政策</a>。
+    </p>
+    <p>
+      当付费套餐处于有效状态时，应用会发送 App Store 购买凭证，以便中继应用该套餐。
+      该凭证只用于该次连接，之后不会保留。如果无法验证，则改用免费额度。
+    </p>
+    <p>
+      应用还会为付费访问发送一个随机的中继访问标识符。它与你的 Apple 账户或个人身份无关。
+    </p>
+
+    <h2>6. 本网站</h2>
+    <p>
+      本网站是少量静态文件。它不设置自己的 Cookie，不运行分析，也没有注册、评论或联系表单。
+      它通过 Cloudflare 提供服务，Cloudflare 会处理你的 IP 地址等连接数据，
+      以便送达页面并保护网站免受滥用。
+    </p>
+
+    <h2>7. 你的权利</h2>
+    <p>
+      欧盟和英国的隐私法律赋予你查看、更正、导出或删除所持有的关于你的个人数据的权利，
+      赋予你反对其处理的权利，以及向你所在国家的数据保护机构投诉的权利。由于 Peering 没有账户，
+      也没有用户数据库，实际上我们几乎没有什么可处理的：第 2 节所述的数据在你的设备上，由你掌控，
+      删除应用即可将其移除，但其中提到的钥匙串项目除外。中继保留的内容在第 3 节中说明。
+      其中没有任何内容直接指向你本人。请写信至
+      <a href="mailto:support@getpeering.app">support@getpeering.app</a>，我们会在 30 天内回复。
+    </p>
+
+    <h2>8. 儿童</h2>
+    <p>
+      Peering 不面向儿童，也不适用于 13 岁以下的人，
+      或者低于其所在国家允许个人同意使用在线服务的最低年龄的人。
+    </p>
+
+    <h2>9. 变更</h2>
+    <p>
+      如果本政策发生重要变更，顶部的日期会随之更新，新版本会在生效之前发布在这里。
+      变更之后继续使用应用，即表示你接受新版本。
+    </p>
+
+    <h2>10. 联系方式</h2>
+    <p>
+      关于隐私的问题、请求以及其他任何事项：
+      <a href="mailto:support@getpeering.app">support@getpeering.app</a>。
+    </p>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="指南、法律与支持">
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/keep-mac-awake-for-remote-access">留在家里的 Mac</a>
+      <a href="/zh/coding-agent-notifications">编程智能体</a>
+      <a href="/zh/remote-desktop-apps-compared">应用对比</a>
+      <a href="/zh/screens-alternative">Screens 替代方案</a>
+      <a href="/zh/download">下载</a>
+      <a href="/zh/privacy">隐私</a>
+      <a href="/zh/terms">条款</a>
+      <a href="mailto:support@getpeering.app">支持</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/privacy" hreflang="en" lang="en">English</a>
+      <a href="/de/privacy" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/privacy" hreflang="es" lang="es">Español</a>
+      <a href="/fr/privacy" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/privacy" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/privacy" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/privacy" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/privacy" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/privacy" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/privacy" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki。Apple、iPhone 和 Mac 是 Apple Inc. 的商标。</p>
+  </div>
+</footer>
+
+</body>
+</html>

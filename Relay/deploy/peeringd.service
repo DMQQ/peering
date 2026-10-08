@@ -6,6 +6,14 @@
 # sign was the site answering 502, found by hand, hours later. A process started from a shell
 # dies with the shell; a unit with `Restart=always` gets up again in two seconds and, more to the
 # point, can be *asked* whether it is up.
+#
+# **This file describes the machine it runs on, and that is a correction.** Until it was installed
+# by the deploy script it had never been installed here at all, and the copy in the repository had
+# drifted from the one actually running in four ways, each of which stops the service outright: a
+# `User=` that does not exist on the box, an `ExecStart=` and a `WorkingDirectory=` under `/opt`
+# that were never created, and an `EnvironmentFile=` in a directory nobody made. Installing it took
+# the relay down. What follows is what the box actually runs, and the deploy script ships it, so
+# the two cannot drift again.
 
 [Unit]
 Description=Peering relay (peeringd)
@@ -16,34 +24,50 @@ Wants=network-online.target
 [Service]
 Type=simple
 
-# A user of its own. The relay has no reason to be root: it reads a site directory and a
-# certificate, keeps its counters in memory, and writes nothing at all.
-User=peeringd
-Group=peeringd
-WorkingDirectory=/opt/peeringd
+# **Root, and it is not laziness.** The signalling listener terminates TLS with the Let's Encrypt
+# certificate, and `privkey.pem` is mode 600 owned by root. A dedicated service user would have to
+# be given read access to it, which means either loosening the key or an ACL, and neither is worth
+# doing to drop a privilege that a service reading every byte of two devices' traffic does not much
+# benefit from. What actually limits this process is the hardening below, which is about what it can
+# reach rather than who it is.
+#
+# There is deliberately no `WorkingDirectory=`. The path the repository named was never created, and
+# nothing here depends on the working directory: the site root in the environment file is absolute.
 
-# Every setting the relay takes, in one root-owned file — so the unit file can stay in version
-# control without carrying a certificate path or an API key. See the environment table in the
-# README for what goes in it.
-EnvironmentFile=/etc/peeringd/peeringd.env
+# The relay-time counter's home. systemd creates it, and under `ProtectSystem=strict` below it is
+# the one path that stays writable, which is why this is a `StateDirectory` rather than a directory
+# an install step has to create and get the ownership of right. See "Relay time is remembered" in
+# the README.
+StateDirectory=peeringd
 
-ExecStart=/opt/peeringd/peeringd
+# Where the counter goes, spelled from the state directory above so that moving the state directory
+# moves this too. **Before the `EnvironmentFile` rather than after it**, and the order is the whole
+# of the decision: systemd applies these in the order they appear, so a value in the operator's file
+# wins over this line, where the other way round the file would be quietly overruled by a default.
+Environment=PEERINGD_USAGE_LOG=%S/peeringd/usage.log
+# And who each device id belongs to. A relay that forgets these on restart will register an
+# unproved claim for an id it had already seen proved, which is the window this closes.
+Environment=PEERINGD_DEVICE_BINDINGS=%S/peeringd/devices.jsonl
+
+# Every setting the relay takes, in one root-owned file, so this unit can stay in version control
+# without carrying a certificate path or an API key. See the environment table in the README.
+#
+# **`/etc/peeringd.env`, not `/etc/peeringd/peeringd.env`.** The README used to describe a directory
+# and an install step to create it; the step was never run and the file has been at this path since
+# the first deploy. The path in this file is the path that exists.
+EnvironmentFile=/etc/peeringd.env
+
+ExecStart=/usr/local/bin/peeringd
 
 # The whole reason this file exists. `Restart=always` rather than `on-failure`, because a clean
-# exit is also an outage — a signal, an operator's mistake, a panic that unwound tidily.
+# exit is also an outage: a signal, an operator's mistake, a panic that unwound tidily.
 Restart=always
 RestartSec=2
 
-# The README suggests binding 443 when it is free, since it is the one port that guest and
-# corporate networks never block. That is below 1024, which a non-root process cannot bind
-# without this — and with it, it can bind nothing else.
-AmbientCapabilities=CAP_NET_BIND_SERVICE
-CapabilityBoundingSet=CAP_NET_BIND_SERVICE
-
 # The relay's design principle is that it should be too stupid to break the property it exists to
-# provide — it copies bytes it cannot read. These settings are the same idea applied from the
-# outside: if it cannot write anywhere, spawn anything, or see the rest of the machine, then a
-# bug in it has very little to work with.
+# provide: it copies bytes it cannot read. These settings are the same idea applied from the
+# outside, so that a bug in it has very little to work with. None of them names a user, so none of
+# them needs the service to stop being root.
 NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true
@@ -59,10 +83,12 @@ LockPersonality=true
 MemoryDenyWriteExecute=true
 SystemCallArchitectures=native
 
-# The site is read-only, and so is everything else; nothing here is a writable path because the
-# relay has no state to write. The certificate directory has to be readable, which it is under
-# `ProtectSystem=strict` — that makes the filesystem read-only, it does not hide it.
-ReadOnlyPaths=/opt/peeringd /etc/peeringd /etc/letsencrypt
+# There is no `AmbientCapabilities=` here, and there was in the version this replaced: it granted
+# `CAP_NET_BIND_SERVICE` for a listener on port 443, which this box does not have. nginx holds 443
+# and proxies to the relay on 8443 and 8080, and `CapabilityBoundingSet=` would have taken away
+# every other capability from a process that was otherwise root. A setting that is wrong about the
+# machine is worse than no setting.
+ReadOnlyPaths=/etc/peeringd.env /etc/letsencrypt /srv/peering/site
 
 # Logs go to the journal, where `journalctl -u peeringd` finds them and where a restart is
 # visible as its own line.

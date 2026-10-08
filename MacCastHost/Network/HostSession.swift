@@ -3,22 +3,18 @@ import Foundation
 import Network
 import RemoteCore
 import Security
+import os
 
-/// Drives one connection from its first frame to a usable session.
-///
-/// All state is mutated on the server's serial queue, which is also the connection's
-/// queue, so no locking is needed here. That is a deliberate simplification: a session is
-/// a state machine, and state machines are much easier to keep correct when they cannot
-/// be touched from two threads at once.
+/// The session's own log, file-private like every other one in the host. See ``AGENTS.md`` on
+/// `/usr/bin/log`: zsh's builtin shadows it and the queries silently return nothing.
+let hostSessionLog = Logger(subsystem: "pl.dmq.peering.host", category: "session")
+
 final class HostSession: @unchecked Sendable {
     /// The largest payload we will accept on the control channel. Commands and catalogs are
     /// small; anything approaching this is a bug or an attack.
-    ///
-    /// Shared rather than repeated, because it is the number the video fallback cuts its
-    /// chunks to fit under — see ``ProtocolInfo/maxControlPayload``.
-    private static let maxControlPayload = ProtocolInfo.maxControlPayload
+    static let maxControlPayload = ProtocolInfo.maxControlPayload
 
-    private enum State {
+    enum State {
         case awaitingRole
         case awaitingHello
         case awaitingClientCommit
@@ -60,92 +56,70 @@ final class HostSession: @unchecked Sendable {
         }
     }
 
-    private let connection: PeerConnection
-    private let identity: SelfSignedIdentity
-    private let device: DeviceIdentity
-    private let pins: PinStore
-    private let emit: @Sendable (HostEvent) -> Void
+    let connection: PeerConnection
+    let identity: SelfSignedIdentity
+    let device: DeviceIdentity
+    let pins: PinStore
+    let emit: @Sendable (HostEvent) -> Void
 
     /// Whether this connection arrived through the relay rather than from this network.
-    ///
-    /// The session's own behaviour does not depend on it — TLS and the handshake are the same
-    /// either way, which is the whole point of the design — but the *user's* does. A pairing
-    /// prompt on a relayed connection is asking someone at this Mac to compare digits with a
-    /// person who is not in the room, and the card cannot say that unless it is told.
-    private let arrivedThroughRelay: Bool
+    let arrivedThroughRelay: Bool
 
-    /// Invoked once the session is authenticated and may carry commands.
     var onCommand: (@Sendable (RemoteCommand) -> Void)?
-    /// Invoked with the video connection once a client opens one.
     var onVideoConnection: (@Sendable (PeerConnection) -> Void)?
     /// Used by relayed sessions that temporarily carry video on the control stream. Invoked only
     /// after the same pin/SAS authorization required by a normal video connection.
     var onAuthorized: (@Sendable (PeerConnection) -> Void)?
     /// Called when an authorized client asks for video to move between transports.
-    ///
-    /// Routed from the session rather than decided here because a session knows only its own
-    /// connection, while the answer needs the video pipeline and the peer that is being served.
-    /// Given to the server, which has both.
     var onVideoTransportRequest: (@Sendable (VideoTransportRequest) -> Void)?
     /// Called when an authorized client asks for the secret that seals video datagrams.
-    ///
-    /// Answers with the secret, or `nil` for a refusal — and the refusal is silence rather
-    /// than an error, because there is nothing for the client to do about it: a Mac that does
-    /// not answer is a Mac still sending the picture down the stream this session already
-    /// has. The server holds the relay's allocation and the pipeline, which are the two
-    /// things this needs and the two things a session does not have.
     var onVideoKeyRequest: (@Sendable () -> Data?)?
+
+    var onVideoEnabled: (@Sendable (Bool) -> Void)?
+
     /// Called when the client requests the clipboard. Return `nil` to send nothing.
-    var onRequestClipboard: (@Sendable () -> String?)?
-    /// Called when the client pushes its clipboard to the host.
-    var onReceiveClipboard: (@Sendable (String) -> Void)?
+    var onRequestClipboard: (@Sendable () -> ClipboardPayload?)?
+    var onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
     /// Terminal requests are routed only after this session reaches the authenticated state.
     var onTerminalRequest: (@Sendable (TerminalRequest, @escaping @Sendable (TerminalEvent) -> Void) -> Void)?
+    var onAgentRequest: (@Sendable (AgentRequest, @escaping @Sendable (AgentEvent) -> Void) -> Void)?
+    var onPreviewRequest: (@Sendable (PreviewProxyCommand, @escaping @Sendable (PreviewProxyEvent) -> Void) -> Void)?
 
-    private var state: State = .awaitingRole
-    private(set) var clientID = ""
-    private var clientName = "Unknown device"
-    /// Readable so the server can match a video connection to the control session that
-    /// authorizes it. Both are on the same serial queue, so no lock is needed.
-    private(set) var peerPublicKey: Data?
+    var state: State = .awaitingRole
+    var clientID = ""
+    var clientName = "Unknown device"
+    var peerPublicKey: Data?
     /// Whether `.clientConnected` has been emitted, so a disconnect is only ever reported
     /// for a connection the UI was told about in the first place.
-    private var announced = false
+    var announced = false
+
+    /// Pieces of one oversized payload from the client, put back as they arrive.
+    var clipboardChunks = ClipboardTransfer.reassembler()
+    var clipboardFrameID: UInt32 = 0
+    var clientSupportsClipboardImages: Bool?
+    var clientSupportsTextFocus: Bool?
+    var clientSupportsFieldState: Bool?
+    var clientSupportsAgentChat: Bool?
+    var clientSupportsAgentPermissionModes: Bool?
+    var clientSupportsAgentUsage: Bool?
 
     /// When the last frame arrived from this client, and what stops a session outliving its peer.
-    ///
-    /// The client pings once a second — see `ClientSession.startPinging` — so silence here is
-    /// evidence rather than an inference. It exists because TCP does not reliably report that a
-    /// peer is gone: a phone whose app is killed while the network has already moved on sends no
-    /// FIN, and the host then holds a session that is still authorized, still suppresses the
-    /// Bonjour advertisement, and is still shown as connected, indefinitely. That is not
-    /// hypothetical — it is what a Mac left invisible on its own network for eighteen minutes
-    /// with a session the phone had long forgotten looked like.
-    ///
-    /// Written in ``handle(_:)`` and read by the server's reaper, both on the server's serial
-    /// queue — the same reason ``state`` needs no lock.
-    private var lastHeard = DispatchTime.now()
+    var lastHeard = DispatchTime.now()
 
     /// Seconds since anything arrived from this client.
     var silence: TimeInterval {
         Double(DispatchTime.now().uptimeNanoseconds - lastHeard.uptimeNanoseconds) / 1_000_000_000
     }
 
-    /// Set when *we* end this session, so its close is not reported as a failure.
-    ///
-    /// The two are indistinguishable at the socket: a client that vanished and a session the
-    /// host just closed both produce a cancelled connection. Without this, reaping a device that
-    /// simply went quiet reports "Connection ended: Operation canceled" against its name — an
-    /// error message about nothing, shown under a device the user only wanted to stop seeing.
-    private var closedByHost = false
+    var closedByHost = false
 
-    // Pairing ephemerals. Generated per attempt, never persisted — they exist only to
-    // contribute entropy the other side cannot predict.
-    private var localEphemeral: P256.KeyAgreement.PrivateKey?
-    private var localNonce: Data?
-    private var remoteCommitment: Data?
-    private var remoteEphemeralPublicKey: Data?
-    private var remoteNonce: Data?
+    // Pairing ephemerals. Generated per attempt, never persisted: they exist only to contribute
+    // entropy the other side cannot predict.
+    var localEphemeral: P256.KeyAgreement.PrivateKey?
+    var localNonce: Data?
+    var remoteCommitment: Data?
+    var remoteEphemeralPublicKey: Data?
+    var remoteNonce: Data?
 
     init(
         connection: PeerConnection,
@@ -170,17 +144,15 @@ final class HostSession: @unchecked Sendable {
         connection.onClose = { [weak self] error in
             guard let self else { return }
 
-            // Runs on the same serial queue as `handle`, so `state` is safe to read here.
-            // A close that follows our own `fail` carries no new information — the real
-            // explanation was already emitted, and the cancellation error it produces
-            // ("Operation canceled") would read in the UI as a second, unrelated problem.
+            // Runs on the same serial queue as `handle`, so `state` is safe to read here. A close
+            // that follows our own `fail` carries no new information, and the "Operation canceled"
+            // it produces would read in the UI as a second, unrelated problem.
             if let error, state != .failed, !closedByHost {
                 emit(.failed("Connection ended: \(error.localizedDescription)"))
             }
 
-            // Only for a connection that was actually announced. Otherwise a client that
-            // fails during TLS or before its hello produces "Unknown device disconnected",
-            // naming a device the user never saw arrive.
+            // Only for a connection that was announced, or a client failing during TLS or before
+            // its hello produces "Unknown device disconnected" for a device never seen to arrive.
             if announced {
                 emit(.clientDisconnected(clientID: clientID, clientName: clientName))
             }
@@ -195,374 +167,11 @@ final class HostSession: @unchecked Sendable {
         connection.cancel()
     }
 
-    /// Called once, on the server queue, when this session's connection is gone.
-    ///
-    /// The server needs this to drop the session from its list. Without it a finished
-    /// session stays in the list — and since ``isAuthorized`` stays `true` on a dead
-    /// object, that stale entry would go on authorizing video connections for a client
-    /// that disconnected long ago.
-    var onEnded: (@Sendable () -> Void)?
-
-    /// Whether this session has completed authorization: either the client presented a key
-    /// matching its stored pin, or the user confirmed a first-time SAS pairing.
-    ///
-    /// `state == .ready` is exactly that condition — every path that reaches `.ready` has
-    /// passed one of those two checks, and no other path reaches it.
-    var isAuthorized: Bool {
-        if case .ready = state { return true }
-        return false
-    }
-
-    // MARK: - Messages to the client
-
-    /// The last catalogue this session sent, so an identical one is not sent twice.
-    ///
-    /// **Per session, not per host, and that is the whole point of it living here.** An
-    /// unchanged list should not rebuild a picker the user may be looking at, so repeat
-    /// pushes are suppressed — but the suppression has to be relative to *what this client
-    /// has already been told*. Kept host-wide it degrades into "send once per host lifetime",
-    /// and every client that connects afterwards is served nothing at all: the picker comes
-    /// up empty and neither side has an error to show for it.
-    private var lastSentCatalog: CaptureCatalog?
-
-    /// Pushes the capture catalogue, for a client that is in a position to render it.
-    ///
-    /// Does nothing before the session is authorized, and that is a disclosure rule rather
-    /// than a protocol one: the catalogue lists every open application and window on this
-    /// Mac by title, so a peer that has not finished the handshake — or that failed it —
-    /// must not be handed it. There is no error to report either, because a session that
-    /// cannot receive this has already been told why it is not being served.
-    func sendCatalog(_ catalog: CaptureCatalog) {
-        guard isAuthorized else { return }
-        guard catalog != lastSentCatalog else { return }
-        lastSentCatalog = catalog
-        send(MessageKind.catalog, catalog)
-    }
-
-    // MARK: - Message handling
-
-    private func handle(_ frame: Frame) {
-        // Stamped before anything is done with it, and for every frame rather than only pings:
-        // a client that is sending video requests but has stopped answering pings is no more
-        // present than one that has stopped entirely, and liveness is "anything at all arrived".
-        lastHeard = DispatchTime.now()
-        do {
-            try route(frame)
-        } catch {
-            fail(error)
-        }
-    }
-
-    private func route(_ frame: Frame) throws {
-        switch state {
-        case .awaitingRole:
-            try handleRole(frame)
-        case .awaitingHello:
-            try handleClientHello(frame)
-        case .awaitingClientCommit:
-            try handleClientCommit(frame)
-        case .awaitingClientReveal:
-            try handleClientReveal(frame)
-        case .awaitingConfirmation:
-            try handlePairConfirm(frame)
-        case .ready:
-            try handleCommand(frame)
-        case .failed:
-            break
-        }
-    }
-
-    private func handleRole(_ frame: Frame) throws {
-        guard frame.kind == .connectionRole else {
-            throw SessionError.unexpectedFirstFrame(frame.kind)
-        }
-        guard let role = frame.payload.first.flatMap(ConnectionRole.init(rawValue:)) else {
-            throw SessionError.unexpectedFirstFrame(frame.kind)
-        }
-
-        switch role {
-        case .control:
-            state = .awaitingHello
-        case .video:
-            // A video connection is opened *after* the control connection is authenticated,
-            // but it is a separate socket and carries no handshake of its own. It is
-            // accepted here and handed to the video pipeline, which verifies that an
-            // authenticated control session exists for the same peer key.
-            state = .failed
-            onVideoConnection?(connection)
-        }
-    }
-
-    private func handleClientHello(_ frame: Frame) throws {
-        guard frame.kind == .clientHello else { throw SessionError.unexpectedMessage(frame.kind) }
-        guard frame.payload.count <= Self.maxControlPayload else {
-            throw SessionError.malformedPayload(.clientHello, SessionError.protocolMismatch(client: 0, host: 0))
-        }
-        let hello = try decode(ClientHello.self, from: frame, as: .clientHello)
-
-        guard hello.protocolVersion == ProtocolInfo.version else {
-            throw SessionError.protocolMismatch(client: hello.protocolVersion, host: ProtocolInfo.version)
-        }
-
-        guard hello.clientID.utf8.count <= 256, hello.clientName.utf8.count <= 256 else {
-            throw SessionError.malformedPayload(.clientHello, SessionError.protocolMismatch(client: 0, host: 0))
-        }
-
-        // The peer's key comes from the TLS certificate, never from the message. A client
-        // that could simply declare its own public key would make pinning pointless.
-        guard let presentedKey = connection.peerPublicKey else { throw SessionError.noPeerCertificate }
-
-        clientID = hello.clientID
-        clientName = hello.clientName
-        peerPublicKey = presentedKey
-
-        let existingPin = pins.pin(for: clientID)
-        if let existingPin, !SPKI.matches(existingPin, presentedKey) {
-            // Someone is claiming a device ID we already trust, with a key we do not.
-            throw SessionError.clientKeyMismatch(clientID: clientID)
-        }
-
-        // Announced only after the key check: a client that fails it must not appear in the
-        // session list, because the disconnect that follows would name a device the UI
-        // never showed arriving.
-        announced = true
-        emit(.clientConnected(
-            clientID: clientID,
-            clientName: clientName,
-            detail: "\(connection.negotiatedTLSVersion) · \(presentedKey.count)-byte key"
-        ))
-
-        let alreadyPaired = existingPin != nil
-        send(.serverHello, ServerHello(
-            serverID: device.id,
-            hostName: device.name,
-            protocolVersion: ProtocolInfo.version,
-            alreadyPaired: alreadyPaired,
-            // Hardware addresses are useful only to trusted clients for Wake-on-LAN. The
-            // server hello precedes first-pairing confirmation, so exposing them there would
-            // let any device on the LAN collect them without being accepted.
-            macAddresses: alreadyPaired ? NetworkInterfaceInfo.hardwareMACAddresses() : nil
-        ))
-
-        if alreadyPaired {
-            state = .ready
-            onAuthorized?(connection)
-            return
-        }
-        try beginPairing()
-    }
-
-    // MARK: - Pairing
-
-    /// Starts the commitment exchange. See ``PairingSAS`` for why the commitment exists:
-    /// without it, an active attacker can grind a keypair until its own contribution
-    /// reproduces the digits this host is about to put on screen.
-    private func beginPairing() throws {
-        let ephemeral = P256.KeyAgreement.PrivateKey()
-        let nonce = try Self.randomBytes(32)
-
-        localEphemeral = ephemeral
-        localNonce = nonce
-
-        let commitment = PairingSAS.commitment(
-            ephemeralPublicKey: ephemeral.publicKey.x963Representation,
-            nonce: nonce
-        )
-        send(.pairCommit, PairingCommit(commitment: commitment))
-        state = .awaitingClientCommit
-    }
-
-    private func handleClientCommit(_ frame: Frame) throws {
-        guard frame.kind == .pairCommit else { throw SessionError.unexpectedMessage(frame.kind) }
-        guard frame.payload.count <= Self.maxControlPayload else {
-            throw SessionError.malformedPayload(.pairCommit, SessionError.protocolMismatch(client: 0, host: 0))
-        }
-        let commit = try decode(PairingCommit.self, from: frame, as: .pairCommit)
-        remoteCommitment = commit.commitment
-
-        // Only now, having committed to our own value, do we reveal it.
-        guard let ephemeral = localEphemeral, let nonce = localNonce else {
-            throw SessionError.unexpectedMessage(frame.kind)
-        }
-        send(.pairReveal, PairingReveal(
-            ephemeralPublicKey: ephemeral.publicKey.x963Representation,
-            nonce: nonce
-        ))
-        state = .awaitingClientReveal
-    }
-
-    private func handleClientReveal(_ frame: Frame) throws {
-        guard frame.kind == .pairReveal else { throw SessionError.unexpectedMessage(frame.kind) }
-        guard frame.payload.count <= Self.maxControlPayload else {
-            throw SessionError.malformedPayload(.pairReveal, SessionError.protocolMismatch(client: 0, host: 0))
-        }
-        let reveal = try decode(PairingReveal.self, from: frame, as: .pairReveal)
-
-        guard let commitment = remoteCommitment,
-              PairingSAS.verify(
-                  commitment: commitment,
-                  ephemeralPublicKey: reveal.ephemeralPublicKey,
-                  nonce: reveal.nonce
-              )
-        else {
-            throw SessionError.commitmentMismatch
-        }
-
-        remoteEphemeralPublicKey = reveal.ephemeralPublicKey
-        remoteNonce = reveal.nonce
-
-        let transcript = PairingTranscript(
-            protocolVersion: ProtocolInfo.version,
-            clientID: clientID,
-            serverID: device.id,
-            clientEphemeralPublicKey: reveal.ephemeralPublicKey,
-            serverEphemeralPublicKey: localEphemeral?.publicKey.x963Representation ?? Data(),
-            clientNonce: reveal.nonce,
-            serverNonce: localNonce ?? Data(),
-            serverIdentityPublicKey: identity.publicKeyBytes
-        )
-
-        emit(.pairingCode(
-            code: PairingSAS.code(for: transcript),
-            clientName: clientName,
-            isRemote: arrivedThroughRelay
-        ))
-        state = .awaitingConfirmation
-    }
-
-    private func handlePairConfirm(_ frame: Frame) throws {
-        guard frame.kind == .pairConfirm else { throw SessionError.unexpectedMessage(frame.kind) }
-        guard frame.payload.count <= Self.maxControlPayload else {
-            throw SessionError.malformedPayload(.pairConfirm, SessionError.protocolMismatch(client: 0, host: 0))
-        }
-        let confirm = try decode(PairConfirm.self, from: frame, as: .pairConfirm)
-
-        guard confirm.accepted, let peerPublicKey else {
-            send(.pairResult, PairResult(accepted: false, reason: "The codes did not match."))
-            emit(.pairingCompleted(clientName: clientName, accepted: false))
-            state = .failed
-            connection.cancel()
-            return
-        }
-
-        guard pins.record(peerID: clientID, publicKey: peerPublicKey) else {
-            // Reporting success here would tell the user they are paired while the next
-            // connection silently fails, so the write result is checked rather than assumed.
-            send(.pairResult, PairResult(accepted: false, reason: "Could not save the pairing."))
-            emit(.pairingCompleted(clientName: clientName, accepted: false))
-            state = .failed
-            connection.cancel()
-            return
-        }
-
-        send(.pairResult, PairResult(accepted: true))
-        emit(.pairingCompleted(clientName: clientName, accepted: true))
-        state = .ready
-        onAuthorized?(connection)
-    }
-
-    // MARK: - Authenticated commands
-
-    private func handleCommand(_ frame: Frame) throws {
-        switch frame.kind {
-        case .command:
-            guard frame.payload.count <= Self.maxControlPayload else {
-                throw SessionError.malformedPayload(.command, SessionError.protocolMismatch(client: 0, host: 0))
-            }
-            let command = try decode(RemoteCommand.self, from: frame, as: .command)
-            switch command {
-            case .requestClipboard:
-                if let text = onRequestClipboard?() {
-                    send(MessageKind.clipboardContent, ClipboardPayload(text: text))
-                }
-            case .pushClipboard(let text):
-                onReceiveClipboard?(text)
-            default:
-                onCommand?(command)
-            }
-
-        case .ping:
-            connection.send(Frame(kind: .pong))
-
-        case .terminalRequest:
-            guard frame.payload.count <= Self.maxControlPayload else {
-                throw SessionError.malformedPayload(.terminalRequest, SessionError.protocolMismatch(client: 0, host: 0))
-            }
-            let request = try decode(TerminalRequest.self, from: frame, as: .terminalRequest)
-            onTerminalRequest?(request) { [weak self] event in
-                self?.sendTerminalEvent(event)
-            }
-
-        case .videoTransport:
-            guard frame.payload.count <= Self.maxControlPayload else {
-                throw SessionError.malformedPayload(.videoTransport, SessionError.protocolMismatch(client: 0, host: 0))
-            }
-            let request = try decode(VideoTransportRequest.self, from: frame, as: .videoTransport)
-            onVideoTransportRequest?(request)
-
-        case .videoKeyRequest:
-            // A question with no payload. What it asks — may this session send video over the
-            // relay's datagram path — is answered from the server's own state, so there is
-            // nothing here to read and nothing to refuse for being malformed.
-            guard frame.payload.count <= Self.maxControlPayload else {
-                throw SessionError.malformedPayload(.videoKeyRequest, SessionError.protocolMismatch(client: 0, host: 0))
-            }
-            guard let secret = onVideoKeyRequest?() else { return }
-            send(MessageKind.videoKey, VideoKeyGrant(secret: secret))
-
-        default:
-            throw SessionError.unexpectedMessage(frame.kind)
-        }
-    }
-
-    /// Proactively pushes updated clipboard content to the client without a request.
-    func sendClipboard(_ text: String) {
-        guard isAuthorized else { return }
-        send(MessageKind.clipboardContent, ClipboardPayload(text: text))
-    }
-
-    func sendTerminalEvent(_ event: TerminalEvent) {
-        guard isAuthorized else { return }
-        send(.terminalEvent, event)
-    }
-
-    // MARK: - Helpers
-
-    private func decode<T: Decodable>(_ type: T.Type, from frame: Frame, as kind: MessageKind) throws -> T {
-        do {
-            return try MessageCodec.decode(type, from: frame.payload)
-        } catch {
-            throw SessionError.malformedPayload(kind, error)
-        }
-    }
-
-    /// Tells the client what stands between it and the picture, or clears what was said.
-    ///
-    /// Advisory, so it never fails the session: the control channel is healthy and so is the
-    /// video channel. This is a caption for the frames, not a complaint about them.
-    func sendNotice(_ payload: NoticePayload) {
-        send(MessageKind.notice, payload)
-    }
-
-    private func send<T: Encodable>(_ kind: MessageKind, _ value: T) {
-        guard let payload = try? MessageCodec.encode(value) else {
-            fail(SessionError.malformedPayload(kind, SessionError.randomFailure))
-            return
-        }
-        connection.send(Frame(kind: kind, payload: payload))
-    }
-
-    private func fail(_ error: any Error) {
-        guard state != .failed else { return }
-        state = .failed
-        let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-        emit(.failed(message))
-
-        // Cancel only once the explanation has actually been handed to the transport.
-        // Cancelling immediately after `send` discards the queued frame, and the peer sees
-        // a bare disconnect with no reason — which is exactly the case where a user most
-        // needs to know why their device was turned away.
-        guard let payload = try? MessageCodec.encode(ErrorPayload(code: "session", message: message)) else {
+    /// Tells the client hosting stopped, then closes, so it does not mistake this for a drop.
+    func endBecauseHostStopped() {
+        closedByHost = true
+        let notice = ErrorPayload(code: ErrorPayload.hostStoppedCode, message: "Hosting stopped on this Mac.")
+        guard let payload = try? MessageCodec.encode(notice) else {
             connection.cancel()
             return
         }
@@ -571,11 +180,31 @@ final class HostSession: @unchecked Sendable {
         }
     }
 
-    private static func randomBytes(_ count: Int) throws -> Data {
-        var bytes = [UInt8](repeating: 0, count: count)
-        guard SecRandomCopyBytes(kSecRandomDefault, count, &bytes) == errSecSuccess else {
-            throw SessionError.randomFailure
-        }
-        return Data(bytes)
+    /// Called once, on the server queue, when this session's connection is gone.
+    var onEnded: (@Sendable () -> Void)?
+
+    var isAuthorized: Bool {
+        if case .ready = state { return true }
+        return false
     }
+
+    /// Whether this connection asked for the video role and was handed to the video pipeline.
+    var isVideoConnection = false
+
+    // MARK: - Messages to the client
+
+    var lastSentCatalog: CaptureCatalog?
+
+    /// Pushes the capture catalogue, for a client that is in a position to render it.
+    func sendCatalog(_ catalog: CaptureCatalog) {
+        guard isAuthorized else { return }
+        guard catalog != lastSentCatalog else { return }
+        lastSentCatalog = catalog
+        send(MessageKind.catalog, catalog)
+    }
+
+
+
+
+
 }

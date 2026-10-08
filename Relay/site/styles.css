@@ -30,6 +30,11 @@
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
   --step: clamp(64px, 9vw, 112px);
+
+  /* The bar's height, named once because the hero has to subtract it: the bar is sticky and takes
+     its own place in the flow at the top of the page, so a section asking for a full viewport and
+     starting below the bar is a section that is one bar too tall. */
+  --bar: 64px;
 }
 
 * { box-sizing: border-box; }
@@ -39,26 +44,43 @@ html {
   /* The sticky bar is 64px; without this every in-page link lands with its heading underneath it. */
   scroll-padding-top: 88px;
   -webkit-text-size-adjust: 100%;
+  /* Both declarations, in this order, and the pair is the point. `hidden` is the floor: it is
+     understood by every engine ever shipped, so a browser that has never heard of `clip` still gets
+     a document that cannot be dragged sideways. `clip` overrides it wherever it is understood,
+     because `hidden` can make the element a scroll container and a scroll container is what takes
+     `position: sticky` off the bar and off the table headers.
+
+     This is insurance and not the fix. The page's horizontal scroll came from the `position: fixed`
+     backdrop that used to live on `body::before`, which is gone; see the note on `body`. Nothing
+     overflows now. This is here so that nothing quietly starts to, on a device I cannot test. */
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
   margin: 0;
-  background: var(--backdrop);
   color: var(--ink);
   font-family: var(--text);
   font-size: 17px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
-}
+  /* The app's backdrop: the near-black, and one soft light from the top so the top of the page has
+     a centre rather than being uniformly dark.
 
-/* The app's backdrop: the near-black, and one soft light from the top so the top of the page has
-   a centre rather than being uniformly dark. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(60% 42% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%);
+     Painted on the body itself, and it used to be a `body::before` at `position: fixed; inset: 0`.
+     That box was the page's horizontal scroll. A fixed box is measured against the visual viewport
+     on a phone rather than the layout viewport, and those two are not the same width once a browser
+     has a scrollbar, a notch, or a pinch in play, so the box came out wider than the screen and the
+     document took its width from it. An `overflow-x: clip` on the root was added to contain it and
+     did not, on the one device that mattered, because a fixed box is not reliably part of what a
+     root clip contains.
+
+     `background-attachment: fixed` puts the light in the same place with no box at all: background
+     paint is not scrollable overflow, so there is nothing left to be too wide. */
+  background-color: var(--backdrop);
+  background-image: radial-gradient(60% 42% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 .wrap {
@@ -82,16 +104,17 @@ a { color: inherit; }
 
 .skip {
   position: absolute;
-  left: -9999px;
-}
-.skip:focus {
+  top: -100px;
   left: 16px;
-  top: 16px;
   z-index: 20;
   padding: 10px 16px;
   background: var(--ink);
   color: #000;
   border-radius: 999px;
+  transition: top 0.12s ease;
+}
+.skip:focus {
+  top: 16px;
 }
 
 :focus-visible {
@@ -124,26 +147,145 @@ a { color: inherit; }
   pointer-events: none;
 }
 
+/* The shine that goes round a card's edge while it is hovered: one bright wedge on a turning conic
+   gradient, drawn in the same 1px band as the hairline above, so what it travels along is the
+   card's own border rather than a second ring drawn inside it.
+
+   `@property` is what makes it turn. An unregistered custom property is a string to the engine,
+   and a gradient rebuilt from a string each frame is not interpolated: the wedge would sit still
+   at whichever angle the animation left it at. Registered as an angle, it animates like any other
+   numeric value. An engine without `@property` gets no shine at all, because `var(--shine)` with
+   nothing behind it invalidates the whole background, and a missing decoration is the right
+   failure for a decoration. */
+@property --shine {
+  syntax: "<angle>";
+  /* **Inherited, unlike `--spin` below, and it has to be.** Where the turn begins is the place on
+     the edge the pointer crossed, and only the script knows it: the script can set a property on
+     the card but not on the card's `::after`, which is the element the gradient is painted on. So
+     the angle is set on the card and inherited down to the pseudo-element. Nothing else in the
+     document reads it, and the cards are never nested inside each other. */
+  inherits: true;
+  initial-value: 0deg;
+}
+
+/* How far the current turn has got, which is the only part of the angle an animation drives. It is
+   a second property rather than the first one because a keyframe cannot add to a custom property
+   without `var()` inside the keyframe: `to { --shine: calc(var(--shine) + 1turn) }` is a keyframe
+   that has to resolve a variable, and the engines that support `@property` do not all support that.
+   Added at the point of use instead, so the keyframe holds nothing but a number. */
+@property --spin {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  /* Tuned to be a sheen rather than a beacon: dim over the last four tenths of the turn, brightest
+     at the leading edge, and nothing at all behind it. **The same white the hairline above is
+     drawn in, and no hue of its own**, because a card is not a control and a border that changed
+     colour under the pointer would read as a selection. It is the hairline's own material, lit. */
+  background: conic-gradient(
+    from calc(var(--shine) + var(--spin)),
+    transparent 0turn,
+    transparent 0.45turn,
+    rgba(255, 255, 255, 0.10) 0.68turn,
+    rgba(255, 255, 255, 0.30) 0.86turn,
+    rgba(255, 255, 255, 0.62) 0.96turn,
+    rgba(255, 255, 255, 0.85) 0.995turn,
+    transparent 1turn
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+  pointer-events: none;
+}
+
+.card:hover::after {
+  opacity: 1;
+}
+
+/* Lit, as `:hover` is, and for one turn longer than the pointer is. The script raises this when
+   the pointer leaves with a sweep still in flight, so the light finishes the circuit it started
+   instead of being cut off mid-edge, which is what an effect looks like when it is a hover state
+   rather than a thing happening.
+
+   It is a second selector rather than a replacement for the one above, so a card that is only ever
+   tapped on a touch screen keeps the behaviour it had: `:hover` is what lights it there, and
+   nothing here has to know how long a tap lasts. */
+.card.is-lit::after {
+  opacity: 1;
+}
+
+/* The turn itself. Raised and lowered by the script rather than by `:hover`, because it has to
+   outlive the hover: see the note above and the script's own. */
+.card.is-shining::after {
+  animation: card-shine 2.6s linear infinite;
+}
+
+@keyframes card-shine {
+  to { --spin: 1turn; }
+}
+
+/* A card is not an offer and the shine is not information, so a reader who has asked for less
+   movement keeps the card they had, holding the wedge still near the top rather than leaving a
+   gap where a border used to be. */
+@media (prefers-reduced-motion: reduce) {
+  .card:hover::after,
+  .card.is-lit::after,
+  .card.is-shining::after { animation: none; opacity: 0.5; }
+}
+
 /* ---------- Bar ---------- */
 
 .bar {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgba(10, 10, 12, 0.72);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.2s ease;
+  height: var(--bar);
+  padding: 10px 16px 0;
+  pointer-events: none;
 }
 
-.bar.scrolled { border-bottom-color: rgba(255, 255, 255, 0.08); }
-
 .bar-inner {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 24px;
-  height: 64px;
+  height: calc(var(--bar) - 10px);
+  padding: 0 8px 0 20px;
+  border-radius: 999px;
+  background: rgba(16, 16, 19, 0.35);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  pointer-events: auto;
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.bar-inner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.04));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.bar.scrolled .bar-inner {
+  background: rgba(16, 16, 19, 0.82);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
 .brand {
@@ -162,18 +304,23 @@ a { color: inherit; }
 
 .nav {
   display: flex;
-  gap: 26px;
+  gap: 2px;
   margin-left: auto;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .nav a {
   text-decoration: none;
   color: var(--ink-55);
-  transition: color 0.16s ease;
+  padding: 7px 13px;
+  border-radius: 999px;
+  transition: color 0.16s ease, background-color 0.16s ease;
 }
 
-.nav a:hover, .nav a[aria-current="true"] { color: var(--ink); }
+.nav a:hover, .nav a[aria-current="true"] {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.07);
+}
 
 .bar-cta { flex: none; }
 
@@ -242,52 +389,114 @@ a { color: inherit; }
 
 /* ---------- Hero ---------- */
 
+/* One screen, with everything on it. The padding is measured in height rather than in width here
+   because what the section has to fit is a height, and 8vw of padding on a wide, short window is
+   what was pushing the devices off the bottom of it.
+
+   At least a screen here, and exactly a screen on a wide one, where the rule below makes the
+   height definite. It has to be definite there because the devices are sized against it and a
+   minimum leaves the grid row indefinite, which is a thing container units resolve to zero
+   against. On a phone it is a minimum instead: fitting a heading, a paragraph and two buttons
+   into one small screen leaves the devices as a thumbnail, and a phone is a page you are meant
+   to scroll anyway. */
 .hero {
   position: relative;
-  padding: clamp(48px, 8vw, 96px) 0 var(--step);
+  min-height: calc(100vh - var(--bar));
+  min-height: calc(100svh - var(--bar));
+  display: grid;
+  padding: clamp(28px, 4.5vh, 64px) 0;
   overflow: hidden;
 }
 
 .glow { position: absolute; inset: 0; pointer-events: none; }
 
-.hero-grid {
+/* The copy is centred and the devices sit under it. They used to be two columns, which is a better
+   shape for one device and an impossible one for two: a Mac and a phone side by side need more width
+   than half a 1080-point page, and the half they would not fit in is the half the screenshots would
+   have been shrunk into. The devices are the widest thing on the page now, so they get the whole of
+   it and the words sit over them at their own measure. */
+/* The hero runs wider than the rest of the page. Every other section is a column of words and
+   wants the measure a column of words wants; this one is a word and a machine side by side, and a
+   1080 column leaves a band of nothing down each edge that the machine could have had. */
+.hero .wrap {
+  max-width: 1560px;
+  padding: 0 clamp(24px, 3.5vw, 56px);
+}
+
+.hero-inner {
+  height: 100%;
+  min-height: 0;
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: clamp(32px, 6vw, 72px);
+  /* Both rows sized by what is in them, so a narrow page grows to fit its devices rather than
+     squeezing them into whatever is left of a screen. The wide rule below turns the second row
+     into the remainder, which is what the devices are then measured against. */
+  grid-template-rows: auto auto;
+  align-content: start;
+  justify-items: center;
+  text-align: center;
+}
+
+/* The devices get whatever the words leave, and are sized off that rather than off the width of
+   the page, so the whole hero is one screen at any shape of window.
+
+   `container-type: size` is what makes that leftover height readable from inside. Without it the
+   stage would have to guess at how tall the copy above it is, and the guess would be wrong the
+   first time a heading reflowed or a line was added. */
+.hero-stage {
+  justify-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: clamp(24px, 3.5vh, 52px);
+}
+
+.hero-copy {
+  display: flex;
+  flex-direction: column;
   align-items: center;
 }
 
 .hero-mark {
   display: block;
-  margin-bottom: 18px;
+  /* Scaled with the title rather than left at a fixed 96, so the mark stays in proportion to the
+     word it introduces at every width. */
+  width: clamp(78px, 8.5vw, 112px);
+  height: auto;
+  margin-bottom: 16px;
   filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.6));
 }
 
 .hero h1 {
-  font-size: clamp(46px, 7vw, 76px);
-  letter-spacing: -0.03em;
+  /* The largest thing on the page, deliberately: it is the name of the product and the first word
+     anyone reads, and the mark above it and the line under it are both smaller than it. The ceiling
+     is where the word still fits the column it is in when the columns are side by side. */
+  font-size: clamp(64px, 10vw, 124px);
+  letter-spacing: -0.035em;
 }
 
-.lede {
+.hero h1 span {
+  display: block;
   font-family: var(--display);
-  font-size: clamp(21px, 2.6vw, 27px);
+  font-size: clamp(22px, 2.8vw, 30px);
+  font-weight: 400;
   color: var(--ink-70);
-  margin-top: 10px;
+  margin-top: 12px;
   letter-spacing: -0.01em;
 }
 
 .hero .body {
-  margin-top: 22px;
-  max-width: 34em;
+  margin-top: 24px;
+  max-width: 32em;
   color: var(--ink-55);
-  font-size: 17px;
+  font-size: 17.5px;
 }
 
 .cta-row {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 12px;
-  margin-top: 30px;
+  margin-top: 32px;
 }
 
 .fine {
@@ -297,24 +506,150 @@ a { color: inherit; }
   max-width: 40em;
 }
 
+/* The hero arriving: the mark, the name, the line under it, the sentence, the buttons, and then
+   the two machines. In the order it is read, one piece a fraction behind the last.
+
+   **A keyframe animation rather than the `.reveal` the rest of the page uses**, and the difference
+   is the section. Everything below the fold is scrolled to, so an observer can see it happen;
+   this is on the first frame, and a reveal driven by an observer would hold the whole hero
+   invisible until the observer's first callback: a flash of blank page on a fast machine and a
+   blank hero on a slow one. There is nothing to observe: it is already here, and what it has to do
+   is arrive.
+
+   The rise and the distance are the app's own, from the landing screen this page is the web
+   version of: the same short lift, the same fraction of a second between one line and the next.
+   Nothing overshoots, because a page whose every line springs past its resting place reads as
+   restless rather than as arrived. */
+.hero-mark,
+.hero h1,
+.hero .body,
+.hero .cta-row,
+.hero-stage {
+  animation: hero-in 0.62s cubic-bezier(0.32, 0.72, 0.24, 1) both;
+}
+
+.hero-mark { animation-delay: 0.04s; }
+.hero h1 { animation-delay: 0.11s; }
+.hero .body { animation-delay: 0.18s; }
+.hero .cta-row { animation-delay: 0.25s; }
+/* Last, and by the widest margin, because it is the widest thing here: the eye should reach it
+   after the words have said what it is looking at. */
+.hero-stage { animation-delay: 0.32s; }
+
+@keyframes hero-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-mark,
+  .hero h1,
+  .hero .body,
+  .hero .cta-row,
+  .hero-stage {
+    animation: none;
+  }
+}
+
+/* ---------- Devices ---------- */
+
+/* Both devices are drawn rather than rendered, and drawn the same way: a body that is nearly black,
+   one machined highlight along its edge, and a screen cut into it. A device seen face on in a dark
+   room is the highlight and very little else, which is why the body is as dark as a body and no
+   darker: flat black would take the edge away and leave the screens floating.
+
+   Every number here is a fraction of the screen it surrounds rather than a number of points, so the
+   two keep their proportions at any size and stay the same devices as the ones the app's own tour
+   draws. The bench is `PhoneStage` in MacCast/Onboarding/OnboardingView.swift: same bezel over screen, same
+   body and screen corners, same island, same two-colour body and same one-point rim. A frame that
+   matched it in one place and not the other would be two claims about one product.
+
+   The body used to be white at 18% fading to 5%, which over this backdrop is not a device. It is a
+   bright band, and a bright band is what the eye measures when it decides how thick the bezel is.
+   That, and not the ten points, is what was making the phone read as a mount. */
+
+.stage {
+  /* The two devices are sized together because they are one composition. The Mac's display is the
+     unit and the phone is a fraction of it, so the pair keeps its balance at every width instead of
+     drifting apart as the viewport changes. The fraction is not the true one. An honest 14-inch
+     laptop beside an honest iPhone makes the phone 107px wide, and a screenshot nobody can read is
+     not a screenshot. It is the fraction that keeps the phone legible, which is what the picture is
+     for. */
+  /* Sized off the page here rather than off the room it has, because on a phone there is no
+     fixed room to divide up: the section grows to whatever the words need. */
+  --display: min(420px, 62vw);
+  --screen: calc(var(--display) * 0.46);
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+/* Body, and the light along its edge. The rim is a mask rather than a border so the gradient
+   survives the corner radius, and it is drawn inside the body rather than around it so the
+   highlight is the last thing on the device and not a ring floating off it. */
+.phone,
+.mac-lid { position: relative; }
+
+/* The phone is black, for the reason the Mac below it is and one of its own: the bezel around an
+   iPhone's display is the same black glass as the display, so face on the device is one black
+   rectangle with a machined highlight around it and the screen is a hole in that black rather than
+   a picture in a frame. It was the app's two near-black greys, which is the shape of a laptop's lid
+   rather than of a phone's face. The rim is what keeps it from being a hole in the page, exactly as
+   it is for the Mac. */
+.phone { background: #000; }
+
+/* The Mac is black, because the lid of a MacBook is black glass: the bezel and the housing in it
+   are the same black, and that is the whole point of the notch, which is a cut in the display
+   rather than a shape stuck onto it. The rim is what keeps it from being a hole in the page. */
+.mac-lid {
+  background: #000;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+}
+
+.phone::after,
+.mac-lid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0.08));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
 /* ---------- Phone ---------- */
 
-/* Drawn rather than a rendered frame: the border, the radius and the island are the whole of what
-   a device shot needs, and an image of a phone would have to be re-cut for every screenshot. */
 .phone {
-  position: relative;
-  justify-self: center;
-  width: min(310px, 78vw);
-  padding: 10px;
-  border-radius: 46px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05));
-  box-shadow:
-    0 40px 90px rgba(0, 0, 0, 0.65),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+  /* The bezel is a fraction of the screen it surrounds, and it is thinner than the app's own tour
+     draws it: the tour holds the phone up as the subject of a page, where a visible border is what
+     tells the reader it is a device, and here it sits beside a Mac and only has to be one. Two
+     fifths of the screen's width would have been the same bevel twice. */
+  --bezel: calc(var(--screen) * 7 / 290);
+  --body-w: calc(var(--screen) + var(--bezel) * 2);
+  --body-r: calc(var(--body-w) * 0.148);
+  /* The screen's corner is the body's corner less the bezel, which is the only value that makes the
+     two concentric. Picked by eye instead, the inner radius is either too tight or too slack, and
+     the bezel looks thicker at the corners than along the edges. */
+  --screen-r: calc(var(--body-r) - var(--bezel));
+  /* The screenshot's own proportions. A frame that did not match them would letterbox or crop every
+     image put inside it, which is the one thing a frame must not do. */
+  --screen-h: calc(var(--screen) * 1311 / 603);
+
+  flex: none;
+  width: var(--body-w);
+  padding: var(--bezel);
+  border-radius: var(--body-r);
+  box-shadow: 0 34px 74px rgba(0, 0, 0, 0.62);
+  z-index: 2;
 }
 
 .phone-screen {
-  border-radius: 37px;
+  border-radius: var(--screen-r);
   overflow: hidden;
   background: #000;
   aspect-ratio: 603 / 1311;
@@ -326,15 +661,126 @@ a { color: inherit; }
   height: auto;
 }
 
+/* Part of the phone rather than part of the picture, so it is drawn here rather than expected in
+   every screenshot. A screenshot of this app already has one, its own is black on a black
+   backdrop, and the two land in the same place on the same device. */
 .phone-island {
   position: absolute;
-  top: 22px;
+  top: calc(var(--bezel) + var(--screen-h) * 0.019);
   left: 50%;
   transform: translateX(-50%);
-  width: 30%;
-  height: 24px;
+  width: calc(var(--screen) * 0.30);
+  height: calc(var(--screen-h) * 0.038);
   border-radius: 999px;
   background: #000;
+}
+
+/* ---------- Mac ---------- */
+
+/* An open MacBook, drawn in the same three parts a MacBook has: a lid with a screen in it, a hinge,
+   and a base wider than the lid with the scoop in its front edge.
+
+   The display is 1512 by 982, which is this Mac's screen and the one the capture in it was taken
+   on, so the picture is 1:1 with the device and nothing is cut off at the edges or left as a band.
+   16:10 was a number borrowed from the old frame and it was short: a Mac display is 1.54. */
+.mac {
+  --bezel: calc(var(--display) * 0.017);
+  --lid-w: calc(var(--display) + var(--bezel) * 2);
+  --lid-r: calc(var(--lid-w) * 0.030);
+  /* Concentric with the lid, for the same reason the phone's screen is concentric with its body. */
+  --screen-r: calc(var(--lid-r) - var(--bezel));
+  --screen-h: calc(var(--display) * 982 / 1512);
+  --base-h: calc(var(--lid-w) * 0.030);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+}
+
+.mac-lid {
+  width: var(--lid-w);
+  padding: var(--bezel);
+  border-radius: var(--lid-r) var(--lid-r)
+                 calc(var(--lid-w) * 0.009) calc(var(--lid-w) * 0.009);
+}
+
+.mac-screen {
+  position: relative;
+  border-radius: var(--screen-r);
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 1512 / 982;
+}
+
+.mac-screen img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* The camera housing, which every MacBook Pro since 2021 has and which is part of the machine
+   rather than part of the picture: a screenshot cannot contain it, because it is not something the
+   display draws, it is something the display is missing. Drawn over the top of whatever is in the
+   screen, in the black of the housing, with the shallow bottom corners the real one has.
+
+   It is a little wider and a little deeper than a real one, and it has an edge. Both are for the
+   same reason: the housing sits in the empty middle of the menu bar, which in a dark capture is
+   black on black, and a shape that cannot be seen is not doing the one job it has. The edge is
+   what the real housing has anyway, where the light from above catches the inside of the cut. */
+.mac-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(var(--display) * 0.092);
+  height: calc(var(--screen-h) * 0.026);
+  border-radius: 0 0 calc(var(--screen-h) * 0.013) calc(var(--screen-h) * 0.013);
+  background: #000;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.mac-base {
+  position: relative;
+  width: calc(var(--lid-w) * 1.055);
+  height: var(--base-h);
+  border-radius: 0 0 calc(var(--base-h) * 0.36) calc(var(--base-h) * 0.36);
+  background: linear-gradient(180deg, #1c1c1f, #0b0b0d);
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.62);
+}
+
+/* The lit hinge where the base meets the lid, so the two read as one machine rather than as a
+   screen standing on a bar. */
+.mac-base::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.20), transparent);
+}
+
+/* The scoop in the front edge, which is the one detail that says MacBook rather than laptop. */
+.mac-base::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(var(--lid-w) * 0.15);
+  height: calc(var(--base-h) * 0.55);
+  border-radius: 0 0 999px 999px;
+  background: #060607;
+}
+
+/* The phone stands in front of the Mac's right rather than beside it, which is how the two sit on a
+   desk and what stops the pair reading as two pictures that happened to land next to each other. The
+   Mac is lifted a little for the same reason: of the two, the near one is the low one. */
+.stage .phone {
+  margin-left: calc(var(--display) * -0.14);
+}
+
+.stage .mac {
+  margin-bottom: calc(var(--display) * 0.035);
 }
 
 /* ---------- Sections ---------- */
@@ -344,16 +790,19 @@ a { color: inherit; }
   position: relative;
 }
 
+/* Larger than they were, and the lede has moved with them rather than staying where it was: a
+   section heading at 54 points with eighteens underneath is a title and a caption, and the caption
+   is the thing being read. */
 .section h2 {
-  font-size: clamp(31px, 4.4vw, 46px);
-  max-width: 18em;
+  font-size: clamp(34px, 5.1vw, 54px);
+  max-width: 16em;
 }
 
 .section-lede {
-  margin-top: 16px;
+  margin-top: 18px;
   color: var(--ink-55);
-  font-size: 18px;
-  max-width: 44em;
+  font-size: 19px;
+  max-width: 42em;
 }
 
 /* ---------- Steps ---------- */
@@ -385,12 +834,22 @@ a { color: inherit; }
   margin-bottom: 16px;
 }
 
+/* The card's headings are the display face, like every other heading on the page. They were the
+   system face, following the app's rule that the display face is for names and not for labels, but
+   a card heading *is* a name. It is the name of the thing the sentence under it describes, which is
+   the same job the plan names and the section headings do, and a page where the h2s are one face and
+   the h3s under them are another reads as two documents stapled together.
+
+   The size comes up with the face, because a serif sets smaller on its x-height than the sans it
+   replaced, and the tracking is negative for the reason the base rule gives: at heading sizes a
+   serif wants its letters closed up, and a card heading is small enough that leaving it at zero is
+   the difference between a name and a caption. */
 .step h3, .feature h3 {
-  font-family: var(--text);
-  font-size: 16.5px;
-  font-weight: 600;
-  letter-spacing: 0;
-  line-height: 1.35;
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
 }
 
 .step p, .feature p {
@@ -398,6 +857,18 @@ a { color: inherit; }
   font-size: 15px;
   color: var(--ink-55);
 }
+
+/* Same reasoning as `.doc p a`: scoped to the card's own prose so a link inside a step reads as
+   part of the sentence rather than as a button underneath it. */
+.step p a {
+  color: var(--ink);
+  text-underline-offset: 3px;
+}
+
+/* A card that had one paragraph of three sentences and now has two. The break has to be visible or
+   it has not been made: at eight points the second paragraph sits as close to the first as the
+   heading does, and the card reads as one block with a stray indent. */
+.step p + p, .feature p + p { margin-top: 12px; }
 
 /* ---------- Features ---------- */
 
@@ -409,6 +880,26 @@ a { color: inherit; }
 }
 
 .feature { padding: 24px; }
+
+/* The plan a feature needs, on the cards that need one.
+   On the card's top-trailing corner rather than above the heading, which is where the app puts it
+   on a control it has locked: above the heading it takes a line out of the flow, so a card that
+   costs something is a different shape from one that does not and the grid goes ragged.
+   Quieter than `.plan-badge` on purpose. A feature card is a description rather than an offer, so
+   this labels instead of selling, and most cards carry nothing at all. */
+.feature-tag {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(10, 132, 255, 0.14);
+  border: 1px solid rgba(10, 132, 255, 0.45);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
 
 .feature svg {
   width: 26px;
@@ -488,10 +979,11 @@ a { color: inherit; }
 }
 
 .privacy-notes h3 {
-  font-family: var(--text);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0;
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 
 .privacy-notes p {
@@ -502,31 +994,202 @@ a { color: inherit; }
 
 /* ---------- Pricing ---------- */
 
-.plans {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-top: 40px;
-  /* Deliberately not `align-items: start`. The four cards are one comparison, and four rectangles
-     of four different heights read as four things that happened to land next to each other — the
-     eye gets a ragged bottom edge where it wants a table. They stretch to the tallest instead, and
-     because every card has the same three header lines the bullets all start at the same height
-     too — so the empty space lands at the bottom of the short ones, where nobody is looking. */
+/* One table rather than four cards, and the table is the point. A card can only list what its own
+   plan has, which is why every card past the first opened with "everything free has" and then
+   stopped: a reader who wanted to know what Relay adds to Free had to hold two lists in their head
+   and diff them, and the two lists did not always agree. A row here is a question, and it is asked
+   once and answered four times.
+
+   The first column sticks, because on a phone this table is wider than the screen and a tick with
+   no row beside it answers nothing. */
+/* No scroll container here by default, which is what lets the header row stick to the viewport
+   rather than to a box inside the page. A narrow page cannot have it that way: see the table block
+   in the narrow-width section, where the wrapper becomes one. */
+/* Hidden until the table starts scrolling; see the media query where it is shown. */
+.plans-scroll-hint {
+  display: none;
 }
 
-.plan { padding: 26px 22px 28px; }
+.plans-wrap {
+  margin-top: 44px;
+  position: relative;
+  /* The one thing on this page that widened the document without meaning to.
 
-.plan h3 { font-family: var(--text); font-size: 15px; font-weight: 600; letter-spacing: 0; color: var(--ink-70); }
+     The table's cells are sticky so that a tick is never without the row it answers and never
+     without the plan it belongs to. A sticky box inside a scroll container still reports its full
+     width to the scrollable overflow of everything above that container, so on a phone the table
+     escaped the wrapper's own `overflow: auto` and the page could be dragged 324px sideways while
+     the wrapper sat there scrolling correctly, with the whole of the bug invisible in the wrapper.
 
-.plan-price {
+     `contain: paint` keeps every half of it: the cells go on sticking, the wrapper goes on scrolling
+     them, and nothing inside is part of the document's overflow any more. Turning the cells static
+     also stops it, and costs the feature. An `overflow-x` on `html` or `body` also stops it, and on
+     `body` it costs the sticky bar, because it makes the body a scroll container and takes the bar's
+     scrollport away from the viewport. This is the only place the containment is needed, so this is
+     where it goes. */
+  contain: paint;
+}
+
+.plans {
+  width: 100%;
+  /* Below this the four price columns stop being readable side by side, which is the one thing the
+     table is for; the wrapper scrolls instead. */
+  min-width: 860px;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  /* Fixed rather than automatic, so the price columns are the same width as each other at
+     every viewport. Left to itself the browser gives the column holding "every Mac you own" more
+     room than the one holding a tick, and unequal columns stop reading as a comparison. */
+  table-layout: fixed;
+}
+
+.plans .corner { width: 40%; }
+.plans thead th.plan-col { width: 20%; }
+
+.plans th,
+.plans td {
+  font-weight: 400;
+  text-align: left;
+  vertical-align: middle;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Visible to a screen reader and not to the eye: the ticks are drawn, so without this a row of
+   cells reads as a row of nothing. */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The answers. */
+.plans .yes,
+.plans .no-cell,
+.plans .val { text-align: center; }
+
+.plans .yes::before {
+  content: "";
+  display: block;
+  width: 11px;
+  height: 6px;
+  margin: 0 auto;
+  border-left: 1.8px solid var(--ink-70);
+  border-bottom: 1.8px solid var(--ink-70);
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+.plans .no-cell .no {
+  display: block;
+  font-size: 17px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.20);
+}
+
+.plans .val {
+  font-size: 14.5px;
+  color: var(--ink-70);
+}
+
+/* Everything here that has to cover what scrolls behind it paints the page's own light rather
+   than a flat colour. That light is a gradient fixed to the viewport (see `body`), so a
+   cell painting #0a0a0c would cut a rectangle out of it wherever the two overlapped. Fixed
+   attachment paints the same gradient in the same place, and there is no seam. */
+.plans tbody th[scope="row"],
+.plans .corner,
+.plans .group-row th,
+.plans thead th.plan-col {
+  background-color: var(--backdrop);
+  background-image: radial-gradient(60% 42% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%);
+  background-attachment: fixed;
+}
+
+/* The question in each row, flush to the page's own left edge so the price columns slide
+   underneath it rather than through it. */
+.plans tbody th[scope="row"],
+.plans .corner {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding-left: 0;
+  padding-right: 32px;
+  font-size: 15px;
+  color: var(--ink-70);
+}
+
+/* A group of rows. Named in the display face rather than as a tracked all-caps kicker: this is a
+   label inside a table, and the page does not use eyebrows above headings anywhere else. */
+.plans .group-row th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding: 38px 28px 10px 0;
+  font-family: var(--display);
+  font-size: 18px;
+  color: var(--ink);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+/* The four plans, as a header row rather than as four card tops. Centred, because a name sitting
+   to the left of a column of ticks reads as belonging to the column before it.
+   The header sticks, and on a phone it has to: the table is wider than the screen, so three of the
+   four columns are off it at any moment, and a tick whose plan name has scrolled off the top
+   answers nothing. Sticking by column means a name travels sideways with its own ticks and never
+   with anyone else's. */
+.plans thead .corner,
+.plans thead th.plan-col,
+.plans .group-row td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.plans thead th.plan-col {
+  position: sticky;
+  /* Under the bar, which is 64px and is itself sticky. */
+  top: 64px;
+  z-index: 2;
+  text-align: center;
+  vertical-align: bottom;
+  /* The top is the badge's room. Every column takes it rather than only the one with a badge, so
+     all four names land on the same line. */
+  padding: 34px 14px 20px;
+}
+
+.plans thead .corner {
+  position: sticky;
+  top: 64px;
+  left: 0;
+  z-index: 3;
+}
+
+/* The name and the price are one pair in the app's own plans page, and both of them are set in the
+   display face there. Here the name was the system face, which made the price read as the only
+   thing on the row that had been designed. */
+.plans .plan-name {
+  display: block;
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-70);
+}
+
+.plans .plan-price {
+  display: block;
   font-family: var(--display);
   font-size: 30px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
-.plan-price span {
+.plans .plan-price span {
   font-family: var(--text);
   font-size: 13.5px;
   font-weight: 400;
@@ -534,50 +1197,21 @@ a { color: inherit; }
   letter-spacing: 0;
 }
 
-.plan-note { font-size: 13.5px; color: var(--ink-50); margin-top: 4px; }
-
-.plan ul {
-  list-style: none;
-  margin: 18px 0 0;
-  padding: 0;
-  display: grid;
-  gap: 9px;
+.plans .plan-note {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-50);
+  margin-top: 3px;
 }
 
-.plan li {
-  position: relative;
-  padding-left: 22px;
-  font-size: 14.5px;
-  color: var(--ink-55);
-}
-
-.plan li::before {
-  content: "";
+.plans .plan-badge {
   position: absolute;
-  left: 0;
-  top: 8px;
-  width: 9px;
-  height: 5px;
-  border-left: 1.6px solid var(--ink-50);
-  border-bottom: 1.6px solid var(--ink-50);
-  transform: rotate(-45deg);
-}
-
-.plan-best {
-  background: var(--surface-raised);
-}
-
-.plan-best::before {
-  background: linear-gradient(180deg, var(--accent), rgba(10, 132, 255, 0.35));
-}
-
-.plan-badge {
-  position: absolute;
-  top: -11px;
-  left: 22px;
-  padding: 4px 10px;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 9px;
   border-radius: 999px;
-  /* A deeper blue than the accent, and only here. White on the accent itself is 3.6:1 — legible
+  /* A deeper blue than the accent, and only here. White on the accent itself is 3.6:1: legible
      as a large shape and not as eleven-point type, which is what this is. */
   background: #0a63c9;
   color: #fff;
@@ -586,7 +1220,43 @@ a { color: inherit; }
   letter-spacing: 0.01em;
 }
 
-.plan-best li::before { border-color: var(--accent); }
+/* The rows every plan shares. They are read after the differences and they are quieter than they
+   were, because twelve identical ticks in a row is a block that says "free gets everything" to
+   anyone scanning, and the paid columns beside it then read as empty. They stay in the table
+   rather than moving to a list above it: what Free gets is a question this section has to answer,
+   and it is answered here as a row rather than as a claim. */
+.plans tr.quiet th[scope="row"] {
+  font-size: 14px;
+  color: var(--ink-55);
+}
+
+.plans tr.quiet .yes::before { border-color: rgba(255, 255, 255, 0.42); }
+.plans tr.quiet .no-cell .no { color: rgba(255, 255, 255, 0.12); }
+.plans tr.quiet td, .plans tr.quiet th { border-bottom-color: rgba(255, 255, 255, 0.045); }
+
+/* The Pro column, lifted out of the table the way the badge inside it is lifted out of the type.
+   The lift runs the whole height of the column, which is why a group row is one cell spanning four
+   columns and a bare cell for the fifth: a single cell across all five would cut the tint in two. */
+.plans .col-pro {
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 1px solid rgba(10, 132, 255, 0.45);
+  border-right: 1px solid rgba(10, 132, 255, 0.45);
+}
+
+.plans thead .col-pro {
+  border-top: 1px solid rgba(10, 132, 255, 0.45);
+  border-radius: 14px 14px 0 0;
+  /* The same lift as the body of the column, over the same light rather than over a flat dark. */
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05)),
+    radial-gradient(60% 42% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%);
+  background-attachment: scroll, fixed;
+}
+
+.plans tbody tr:last-child .col-pro {
+  border-bottom: 1px solid rgba(10, 132, 255, 0.45);
+  border-radius: 0 0 14px 14px;
+}
 
 /* ---------- FAQ ---------- */
 
@@ -599,13 +1269,21 @@ a { color: inherit; }
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* A question is the heading of the answer under it, so it is set like one. It was the system face
+   at 500, near enough to the body's own weight that the eight questions read as eight more
+   paragraphs, and the one thing a disclosure needs is for its row to be the thing the eye lands on.
+   The weight goes to bold rather than to a colour: the display face has no 500, and a heavier
+   question in the page's own ink is a heading, where a coloured one is a link. */
 .faq summary {
   cursor: pointer;
   list-style: none;
   padding: 20px 34px 20px 0;
   position: relative;
-  font-size: 16.5px;
-  font-weight: 500;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 
 .faq summary::-webkit-details-marker { display: none; }
@@ -657,7 +1335,8 @@ a { color: inherit; }
 
 .foot-links {
   display: flex;
-  gap: 22px;
+  flex-wrap: wrap;
+  gap: 10px 22px;
   font-size: 15px;
   margin-left: auto;
 }
@@ -710,12 +1389,24 @@ a { color: inherit; }
   color: var(--ink-50);
 }
 
+/* A section of a document is a heading like any other, and it inherits the display face from the
+   base rule everywhere else on the site. It was pulled back to the system face here alone, which
+   made the legal pages the only place where a heading and the paragraph under it were the same
+   weight of the same letterform. */
 .doc h2 {
-  font-family: var(--text);
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0;
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
   margin-top: 40px;
+}
+
+.doc h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 24px;
+  color: var(--ink);
 }
 
 .doc p, .doc li {
@@ -744,38 +1435,250 @@ a { color: inherit; }
   color: var(--ink-70);
 }
 
+/* A real screenshot on a guide page, boxed the same way `.callout` is rather than floated bare:
+   the card's hairline is what tells a reader where the app's own window ends and the page
+   resumes, which a screenshot with no edge of its own does not say by itself. */
+.doc-figure {
+  margin-top: 28px;
+  padding: 10px;
+}
+
+.doc-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: calc(var(--radius) - 10px);
+}
+
+.doc-figure figcaption {
+  margin-top: 10px;
+  padding: 0 6px 2px;
+  font-size: 13px;
+  color: var(--ink-50);
+}
+
+.doc-table-wrap {
+  margin-top: 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.doc-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.doc-table th,
+.doc-table td {
+  padding: 12px 14px 12px 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--ink-55);
+}
+
+.doc-table th {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.doc-table td:first-child { color: var(--ink); }
+
+.doc-table tr:last-child td { border-bottom: 0; }
+
+.doc .related {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.doc .related h2 { margin-top: 0; }
+
 /* ---------- Narrow ---------- */
 
+/* Side by side, on a screen wide enough to hold the words and the devices at once. Stacked, the
+   copy takes a third of the height and the devices are left with what is under it, which on a
+   laptop is not enough for either of them to be worth showing. Beside it, they are limited by the
+   width of their own column instead, which is the dimension that a hero has spare. */
+@media (min-width: 1000px) {
+  /* Exactly one screen, and the devices sized against it. Above this width there is room for the
+     words and the machines to share a screen, and the section stops being a page you scroll. */
+  .hero {
+    height: calc(100vh - var(--bar));
+    height: calc(100svh - var(--bar));
+    min-height: 640px;
+  }
+
+  /* Two ceilings, because the stage can be short of room in either direction. `98cqh` is the
+     height: the phone is the tallest thing in it and stands 1.0224 of this width, so the display
+     has to be 97.8% of whatever it is given. `72.6cqw` is the width, and it is the same sum with
+     the stage's own width in it, because the two devices together are 1.376 of the display across.
+     62vw is the page-width ceiling, which binds on the way up to this breakpoint. */
+  .stage { --display: min(750px, 62vw, calc(98cqh), calc(72.6cqw)); }
+
+  /* A query container, which is what lets the devices read the height of the row they are in. It
+     is here and not in the base because `container-type: size` is size containment: the element
+     stops contributing its own content to the layout, which is exactly right for a row that is
+     being measured and exactly wrong for one that is being sized by what is inside it. */
+  .hero-stage { min-height: 0; container-type: size; }
+
+  .hero-inner {
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+    grid-template-rows: 1fr;
+    align-content: stretch;
+    gap: clamp(32px, 4vw, 64px);
+    justify-items: start;
+    text-align: left;
+  }
+
+  .hero-copy {
+    align-items: flex-start;
+    align-self: center;
+  }
+
+  .hero-copy .cta-row { justify-content: flex-start; }
+
+  /* Stretched, not centred. A centred item's height would come from its content, and a container
+     whose size comes from its content cannot be asked how tall it is by the things inside it. */
+  .hero-stage {
+    align-self: stretch;
+    justify-self: stretch;
+    padding-top: 0;
+  }
+}
+
+/* Stacked again, once the window is tall enough to afford it. The two arrangements are not a
+   preference, they are two answers to the same sum: stacked, the words are taken out of the height
+   the devices have to live in, and side by side they are taken out of the width instead. On a
+   laptop the height is the scarce one, and the devices come out half the size they do here. On a
+   display with height to spare the height stops being the constraint at all, and the centred
+   arrangement gives the machine the whole width to grow into. */
+@media (min-width: 1000px) and (min-height: 1250px) {
+  .hero-inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .hero-copy {
+    align-items: center;
+    align-self: auto;
+  }
+
+  .hero-copy .cta-row { justify-content: center; }
+
+  .hero-stage { padding-top: clamp(24px, 3.5vh, 52px); }
+}
+
+@media (max-width: 960px) {
+  /* Four plans and a label do not fit across a narrow page, so this is where the table stops
+     trying. It becomes its own scroll box: the wrapper scrolls both ways, the header row pins to the
+     top of that box and the row labels pin to its left, so a tick is never without the row it
+     answers and never without the plan it belongs to. The box is bounded because a sticky header
+     needs something to stick inside, and it is capped at most of the viewport so the table does not
+     become a page of its own.
+
+     This is the only place the page asks the reader to scroll something other than the page, and it
+     is confined to the widths where the alternative is a table two thirds off the screen. */
+  .plans-wrap {
+    max-height: 78vh;
+    overflow: auto;
+    overscroll-behavior: contain;
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  }
+
+  .plans thead th.plan-col,
+  .plans thead .corner { top: 0; }
+
+  /* Narrower columns, so that the label column plus a whole plan column is what a phone shows.
+     At the desk width a label of 30% reads best; on a 390-point screen the same 30% is 258 of the
+     342 points available and the plan beside it arrives as three letters and a dollar sign. */
+  .plans { min-width: 760px; }
+  .plans .corner { width: 26%; }
+  .plans thead th.plan-col { width: 18.5%; }
+
+  /* iOS Safari draws no visible scrollbar and gives no hover state, so a box that scrolls
+     sideways with nothing marking its edge reads as a table that was simply cut off rather than
+     one with more to see. Said in words above the table instead. */
+  .plans-scroll-hint {
+    display: block;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--ink-50);
+    text-align: center;
+  }
+
+  /* A row's own name and a cell's own answer both wrap onto a second line by default, but a word
+     with nowhere to break (a long product name, a run-together number) will not, and `fixed`
+     layout will not grow the column to fit it either: the word draws over the cell beside it
+     instead of inside its own. Letting it break stops that without touching the widths above. */
+  .plans .corner, .plans .group-row th, .plans tbody th[scope="row"], .plans .val {
+    overflow-wrap: break-word;
+  }
+}
+
+@media (max-width: 480px) {
+  /* True phone widths, narrower than the breakpoint above was tuned for. The label column gives
+     up some of its share, since the same words fit in less room once they are wrapping anyway,
+     and the price columns take the difference: "every Mac you own" and "unlimited" are the
+     widest things a column carries, and 140px left them tight against the tick marks above them. */
+  .plans { min-width: 700px; }
+  .plans .corner { width: 22%; }
+  .plans thead th.plan-col { width: 19.5%; }
+}
+
 @media (max-width: 900px) {
-  .hero-grid { grid-template-columns: 1fr; }
-  .phone { width: min(280px, 64vw); margin-top: 8px; }
+  /* The pair is sized off the display, so a narrower page shrinks both together and the phone
+     eventually becomes a thumbnail. The phone's fraction goes up instead, which costs the Mac some
+     width and buys the screenshot inside it the room to still be a screenshot. */
+  .stage {
+    --display: min(420px, 58vw);
+    --screen: calc(var(--display) * 0.44);
+  }
+  .stage .phone { margin-left: calc(var(--display) * -0.10); }
   .steps, .grid, .privacy-notes { grid-template-columns: 1fr; }
-  .plans { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 720px) {
+  .bar-inner { padding: 0 6px 0 18px; }
+
   .nav {
     position: fixed;
-    inset: 64px 0 auto 0;
+    inset: calc(100% + 8px) 0 auto 0;
     flex-direction: column;
     gap: 0;
-    padding: 8px 24px 20px;
-    background: rgba(10, 10, 12, 0.96);
+    padding: 6px 20px 10px;
+    background: #101013;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 22px;
     font-size: 17px;
-    display: none;
+    display: flex;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s ease 0.22s;
   }
 
-  .nav.open { display: flex; }
-  .nav a { padding: 14px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+  .nav.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+  }
+  .nav a { padding: 14px 0; border-radius: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+  .nav a, .nav a:hover, .nav a[aria-current="true"] { background: none; }
   .nav a:last-child { border-bottom: 0; }
 
   .bar-cta { display: none; }
   .menu { display: block; }
-  .plans { grid-template-columns: 1fr; }
-  .plan-badge { position: static; display: inline-block; margin-bottom: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -783,4 +1686,5 @@ a { color: inherit; }
   .reveal { opacity: 1; transform: none; }
   .link i { animation: none; opacity: 0; }
   .btn:active { transform: none; }
+  .nav { transition: none; }
 }

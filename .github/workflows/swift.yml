@@ -1,0 +1,65 @@
+# Runs the three Swift package suites on a macOS runner.
+#
+# The Xcode project cannot run them: for a test action it builds every package product as a
+# separate dynamic framework, the Crypto product's target never gets a link step, and X509,
+# RemoteCore and the app fail to link in a cascade. The opening comment of MacCastKit/Package.swift,
+# and RemoteCore's, says all of that and why the policy that can be wrong silently therefore lives
+# in a package, where `swift test` can run it. This file is that runner, and it is the only Swift
+# check the repository has.
+#
+# Until now the only workflow was the relay's, whose filter is `Relay/**`, so a change to any Swift
+# file produced no check at all: what it produced was the absence of one, which reads as green.
+
+name: swift
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "RemoteCore/**"
+      - "SSHCore/**"
+      - "MacCastKit/**"
+      # This file as well, so that the push which adds it runs it.
+      - ".github/workflows/swift.yml"
+  pull_request:
+    paths:
+      - "RemoteCore/**"
+      - "SSHCore/**"
+      - "MacCastKit/**"
+      - ".github/workflows/swift.yml"
+  # To run the suites without changing anything, including when a change is outside those paths.
+  workflow_dispatch:
+
+jobs:
+  test:
+    # macOS, because the toolchain these are built against is the Mac's. The relay's job pins Rust
+    # with dtolnay/rust-toolchain because Rust is a separate download; Swift arrives with the
+    # image's Xcode, so there is nothing to pin. Each manifest sets its own floor instead, with
+    # `swift-tools-version: 6.1`, which every current macOS image is above.
+    runs-on: macos-latest
+    strategy:
+      # One runner per suite, and no fail-fast: a suite that breaks should not hide whether the
+      # other two still pass. MacCastKit reaches RemoteCore by a relative path dependency, so it
+      # builds RemoteCore as part of its own run.
+      fail-fast: false
+      matrix:
+        package: [RemoteCore, SSHCore, MacCastKit]
+    steps:
+      - uses: actions/checkout@v4
+
+      # Printed rather than pinned, since the compiler is the image's: a failure here reads better
+      # with the version that produced it sitting above it.
+      - run: swift --version
+
+      # The relay's `cargo test --locked`, in SwiftPM's spelling: resolve from the committed
+      # Package.resolved, and fail here if a manifest has drifted from it, rather than quietly
+      # resolving to versions nobody chose.
+      - run: swift test --package-path ${{ matrix.package }} --disable-automatic-resolution
+
+# The filter covers the three package directories and nothing else, because the suites read nothing
+# outside them: sources, tests and Package.resolved all sit under the package, and MacCastKit's
+# dependency on RemoteCore is a relative path inside the checkout. Keeping the workflow off pushes
+# that cannot affect it is worth more here than it is for the relay, since GitHub bills macOS
+# runners at a multiple of Linux ones and this job takes three of them per run. A Swift directory
+# added at the top level later does not get that reasoning for free and belongs in the list above;
+# `workflow_dispatch` is the way to run the suites by hand until it is.

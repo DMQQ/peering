@@ -5,9 +5,6 @@ import Testing
 
 @Suite("ApplicationActions")
 struct ApplicationActionsTests {
-    /// The common case, and the one that must not misbehave: an app nobody has written a profile
-    /// for keeps the client's own macros, and a lookup that invented something for it would be
-    /// worse than one that finds nothing.
     @Test("an application with no profile resolves to nil")
     func unknownApplication() {
         #expect(ApplicationActions.profile(forBundleID: "com.example.something") == nil)
@@ -23,9 +20,6 @@ struct ApplicationActionsTests {
         #expect(terminal?.actions.isEmpty == false)
     }
 
-    /// The table is a list folded into a dictionary keyed by each row's own `bundleID`. A row
-    /// whose id and key disagreed would be a profile that exists and can never be found, which
-    /// is the kind of mistake a lookup table hides until someone asks for it by name.
     @Test("every profile is reachable by its own bundle identifier")
     func tableIsKeyedCorrectly() {
         let all = ApplicationActions.known
@@ -41,8 +35,7 @@ struct ApplicationActionsTests {
         #expect(Set(ids).count == ids.count)
     }
 
-    /// The client keys its buttons by action id, so a duplicate inside one profile would make
-    /// two different keystrokes the same button — and the wrong one would be the one that stuck.
+    /// The client keys buttons by action id, so a duplicate inside one profile would make two keystrokes one button.
     @Test("action ids are unique within a profile")
     func actionIDsAreUniqueWithinAProfile() {
         for profile in ApplicationActions.known {
@@ -51,8 +44,6 @@ struct ApplicationActionsTests {
         }
     }
 
-    /// A title is the keystroke and a detail is why anyone would press it. Both are shown, so
-    /// neither can be left empty without the button reading as a bug.
     @Test("every action has something to show")
     func actionsAreLabelled() {
         for profile in ApplicationActions.known {

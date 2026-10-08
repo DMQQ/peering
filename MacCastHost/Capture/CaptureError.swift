@@ -1,31 +1,18 @@
 import Foundation
+import RemoteCore
 import ScreenCaptureKit
 
-/// Everything the capture path can fail with, phrased for the status window.
 ///
-/// ScreenCaptureKit's codes are mapped rather than passed through because two of them are
-/// not really failures at all but *states the host has to recover from*, and a host that
-/// treats them as fatal is a host that dies the first time a monitor is unplugged:
-///
-/// - `-3821` `systemStoppedStream` — the display configuration changed, or the Mac woke
-///   from sleep. The stream is gone; a new one has to be built and the client re-keyed.
-/// - `-3801` `userDeclined` — Screen Recording was never granted, or was revoked between
-///   launches. Nothing will be captured until the user grants it and relaunches.
-///
-/// Anything else keeps its code and its own wording. A ScreenCaptureKit failure that has
-/// been reworded into something friendlier is a failure nobody can search for.
+/// `-3821` and `-3801` are states the host recovers from rather than fatal errors: the first
+/// means the display configuration changed or the Mac woke from sleep, so the stream is rebuilt
+/// and the client re-keyed; the second means Screen Recording was never granted, or was revoked
+/// between launches. Every other code keeps its own wording, so it stays searchable.
 enum CaptureError: LocalizedError, Equatable {
-    /// The TCC grant this app needs before a single frame can exist.
     case screenRecordingDenied
-    /// The chosen display, application, or window is no longer there.
     case sourceUnavailable(String)
-    /// A filter was asked for before the catalogue had been read.
     case catalogUnavailable
-    /// The stream stopped on its own; `code` is the raw `SCStreamError` code.
     case streamStopped(code: Int, description: String)
-    /// The stream could not be created or started.
     case streamFailed(String)
-    /// VideoToolbox refused a frame, or the session could not be created.
     case encodingFailed(String)
 
     var errorDescription: String? {
@@ -54,13 +41,23 @@ enum CaptureError: LocalizedError, Equatable {
         }
     }
 
-    /// The stream is dead but the session can be rebuilt, unlike a denial or a bug.
-    var isRecoverable: Bool {
-        if case .streamStopped = self { return true }
-        return false
+/// What the phone is told about this, or nothing when it is not the phone's business.
+///
+/// A denial is the one failure the phone is otherwise blind to, and it arrives as a connection
+/// that works with no frames behind it. The rest either recover by themselves or show as a
+/// picture that stopped, which the client already has words for.
+    var clientNotice: NoticePayload? {
+        switch self {
+        case .screenRecordingDenied:
+            return NoticePayload(
+                message: "This Mac cannot record its screen. Someone there has to allow Screen Recording for Peering in System Settings, then quit Peering on the Mac and open it again.",
+                symbol: "rectangle.slash"
+            )
+        case .sourceUnavailable, .catalogUnavailable, .streamStopped, .streamFailed, .encodingFailed:
+            return nil
+        }
     }
 
-    /// Translates a thrown `SCStreamError` into the state it implies.
     static func from(_ error: Error) -> CaptureError {
         let nsError = error as NSError
         guard nsError.domain == SCStreamError.errorDomain,

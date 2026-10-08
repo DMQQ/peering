@@ -1,7 +1,6 @@
 import Darwin
 import Foundation
 
-/// Reads the hardware MAC addresses of physical network interfaces.
 enum NetworkInterfaceInfo {
     /// Returns colon-separated MAC address strings (e.g. "aa:bb:cc:dd:ee:ff") for all
     /// physical interfaces that carry a 6-byte link-level address.
@@ -23,21 +22,6 @@ enum NetworkInterfaceInfo {
                 let addressLength = Int(sdl.pointee.sdl_alen)
                 guard addressLength == 6 else { return }
 
-                // Read through the pointer, not out of `sdl_data`.
-                //
-                // `sdl_data` is *declared* as 12 bytes and is not: it is the first 12 bytes of a
-                // variable-length tail, and the kernel writes the whole interface name into it
-                // however long that name is. A name of 7 characters — `bridge0` is one, and this
-                // Mac has had one — puts the address at offset 13, and indexing the declared
-                // array for it is an out-of-bounds read that Swift traps on rather than
-                // returning garbage. It is a crash, not a wrong answer, and it happened on every
-                // connection from a paired device, because that is when the server hello carries
-                // these for Wake-on-LAN.
-                //
-                // So: the address is contiguous in the buffer `getifaddrs` handed us, at the
-                // declared offset plus the name, and `sdl_len` is the length the kernel records
-                // for the whole structure — which is the bound that makes this safe rather than
-                // merely different.
                 let totalLength = Int(sdl.pointee.sdl_len)
                 guard totalLength >= dataOffset + nameLength + addressLength else { return }
 

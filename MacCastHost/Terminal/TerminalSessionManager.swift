@@ -3,68 +3,89 @@ import Foundation
 import RemoteCore
 import os
 
-private let terminalLog = Logger(subsystem: "pl.dmq.peering.host", category: "terminal")
+let terminalLog = Logger(subsystem: "pl.dmq.peering.host", category: "terminal")
 
-/// Owns login shells independently of network connections. A disconnected phone can list the
-/// sessions later and receives the bounded output history before live output resumes.
 final class TerminalSessionManager: @unchecked Sendable {
     typealias Sink = @Sendable (TerminalEvent) -> Void
 
-    private final class Session: @unchecked Sendable {
-        let id: UUID
-        let ownerClientID: String
-        /// The name the tab shows. Resolved from the two below rather than set directly, so
-        /// there is one place that decides which of them wins.
-        var name: String
-        let process: Process
-        let master: FileHandle
-        var isRunning = true
-        var history = Data()
-        var promptTail = ""
-        var lastAttention: (kind: TerminalAttentionKind, time: Date)?
-        /// The name the user typed. While this is set, nothing else renames the terminal.
-        var manualName: String?
-        /// The last command sent to it, which is what an unnamed terminal is called.
-        var lastCommand: String?
+    /// The one queue every write's disk work happens on.
+    static let writeIO = DispatchQueue(
+        label: "pl.dmq.peering.host.write",
+        qos: .userInitiated
+    )
 
-        init(id: UUID, ownerClientID: String, name: String, process: Process, master: FileHandle) {
-            self.id = id
-            self.ownerClientID = ownerClientID
-            self.name = name
-            self.process = process
-            self.master = master
-        }
+    let lock = NSLock()
+    var sessions: [UUID: Session] = [:]
+    var sinks: [String: Sink] = [:]
+    var writes: [WriteKey: PendingWrite] = [:]
 
-        var info: TerminalSessionInfo {
-            TerminalSessionInfo(id: id, name: name, isRunning: isRunning)
+    /// The file-browsing scopes that are not shells, by the id the phone made for each.
+    var browsers: [UUID: String] = [:]
+    /// How many scopes one client may hold open. More than the one a phone uses, so a bug that
+    /// makes a new scope per request is caught rather than unbounded.
+    static let maximumBrowsersPerClient = 4
+
+    var onPushNeeded: (@Sendable (String, String, String) -> Void)?
+
+    func allPushTokens() -> [String] {
+        // Read before the lock below rather than inside it: the store has a lock of its own, and one
+        // lock order held everywhere is one fewer way for the two to deadlock.
+        let tokens = PushTokenStore.shared.tokensByClient()
+        return lock.withLock {
+            tokens.compactMap { clientID, token in
+                sinks[clientID] == nil ? token : nil
+            }
         }
     }
 
-    private let lock = NSLock()
-    private var sessions: [UUID: Session] = [:]
-    private var sinks: [String: Sink] = [:]
-    private static let maximumHistoryBytes = 512 * 1024
-    private static let maximumSessionsPerClient = 10
+    /// Every token this Mac holds, whether or not the phone that gave it is connected.
+    func registeredPushTokens() -> [String] {
+        Array(PushTokenStore.shared.tokensByClient().values)
+    }
 
-    /// How many entries one listing carries. A folder with more than this is a folder whose next
-    /// screenful is worth fetching rather than one to send whole: the listing crosses the same
-    /// connection as the shell's output, and a directory like `/usr/bin` is several thousand rows
-    /// the user is going to scroll past. The answer says it was cut, so the client can say so too.
-    private static let maximumDirectoryEntries = 2_000
-    /// How much of a file a preview shows.
-    ///
-    /// Picked against the screen rather than against the file: the phone draws what it is sent as
-    /// one piece of text, so this is also the most text it has to lay out, and a hundred kilobytes
-    /// is some two thousand lines — more of a file than anyone scrolls on a phone and little
-    /// enough that a preview is never a wait. A longer file is shown from the beginning and said
-    /// to be, rather than refused.
-    private static let maximumPreviewBytes = 128 * 1024
+    func connectedPushClientCount() -> Int {
+        let clients = PushTokenStore.shared.tokensByClient().keys
+        return lock.withLock { clients.filter { sinks[$0] != nil }.count }
+    }
+    static let maximumHistoryBytes = 512 * 1024
+    static let historySlackBytes = 64 * 1024
+    static let maximumSessionsPerClient = 10
+
+    /// How large a file this Mac will take from a phone.
+    static let maximumWriteBytes = 2 * 1_073_741_824
+    /// How much of a file may travel in one message.
+    static let writeChunkBytes = 32 * 1024
+
+    static let maximumPreviewBytes = 128 * 1024
+    /// How much of a *picture* a preview shows.
+    static let maximumImagePreviewBytes = 8 * 1024 * 1024
     /// How much of a file travels per event. Comfortably inside the 64 KB the control channel
     /// accepts for a request, and small enough that a preview never sits in front of a keystroke
-    /// for long — see ``TerminalEvent/fileContents(sessionID:path:offset:totalBytes:data:isLast:)``.
-    private static let previewChunkBytes = 32 * 1024
-    /// How much of a file is looked at to decide whether it is text at all.
-    private static let binaryProbeBytes = 8 * 1024
+    /// for long.
+    static let previewChunkBytes = 32 * 1024
+    static let binaryProbeBytes = RemoteFileKind.probeBytes
+
+    static func probeAgents(_ reply: @escaping @Sendable ([String]) -> Void) {
+        let names = ["claude", "codex", "opencode", "hermes", "gemini", "aider"]
+        DispatchQueue.global(qos: .utility).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh")
+            process.arguments = ["-l", "-i", "-c", "for c in \(names.joined(separator: " ")); do command -v $c >/dev/null 2>&1 && echo $c; done"]
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice
+            process.standardInput = FileHandle.nullDevice
+            do { try process.run() } catch { reply(names); return }
+            let deadline = DispatchTime.now() + .seconds(6)
+            let group = DispatchGroup()
+            group.enter()
+            DispatchQueue.global().async { process.waitUntilExit(); group.leave() }
+            if group.wait(timeout: deadline) == .timedOut { process.terminate(); reply(names); return }
+            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let found = output.split(separator: "\n").map { String($0) }.filter { names.contains($0) }
+            reply(found)
+        }
+    }
 
     deinit {
         let active = lock.withLock { Array(sessions.values) }
@@ -79,6 +100,9 @@ final class TerminalSessionManager: @unchecked Sendable {
         lock.withLock { sinks[clientID] = sink }
 
         switch request {
+        case .agents:
+            Self.probeAgents { sink(.agents(installed: $0)) }
+
         case .list:
             let snapshot = lock.withLock {
                 sessions.values.filter { $0.ownerClientID == clientID }.map(\.info).sorted { $0.name < $1.name }
@@ -114,43 +138,105 @@ final class TerminalSessionManager: @unchecked Sendable {
                 sink(.failed(sessionID: id, message: "That terminal is no longer running."))
                 return
             }
+            lock.withLock { session.attentionDetector.userDidRespond() }
             do { try session.master.write(contentsOf: data) }
             catch { sink(.failed(sessionID: id, message: "Could not write to the terminal.")) }
 
+        case .startBrowser(let id):
+            lock.withLock {
+                if browsers.count(where: { $0.value == clientID }) < Self.maximumBrowsersPerClient {
+                    browsers[id] = clientID
+                }
+            }
+
         case .listDirectory(let id, let path):
-            guard liveSession(id, ownerClientID: clientID) != nil else {
+            guard canBrowse(id, ownerClientID: clientID) else {
                 sink(.failed(sessionID: id, message: "That terminal is no longer running."))
                 return
             }
             list(id: id, requested: path, sink: sink)
 
         case .readFile(let id, let path):
-            guard liveSession(id, ownerClientID: clientID) != nil else {
+            guard canBrowse(id, ownerClientID: clientID) else {
                 sink(.failed(sessionID: id, message: "That terminal is no longer running."))
                 return
             }
             read(id: id, path: path, sink: sink)
+
+        case .readRange(let id, let path, let offset):
+            guard canBrowse(id, ownerClientID: clientID) else {
+                sink(.failed(sessionID: id, message: "That terminal is no longer running."))
+                return
+            }
+            readRange(id: id, path: path, offset: offset, sink: sink)
+
+        case .archiveFolder(let id, let path):
+            guard canBrowse(id, ownerClientID: clientID) else {
+                sink(.failed(sessionID: id, message: "That terminal is no longer running."))
+                return
+            }
+            archiveFolder(id: id, path: path, sink: sink)
+
+        case .beginWrite(let id, let path, let totalBytes):
+            guard canBrowse(id, ownerClientID: clientID) else {
+                sink(.failed(sessionID: id, message: "That terminal is no longer running."))
+                return
+            }
+            beginWrite(id: id, path: path, totalBytes: totalBytes, ownerClientID: clientID, sink: sink)
+
+        case .writeChunk(let id, let path, let data, let isLast):
+            guard canBrowse(id, ownerClientID: clientID) else {
+                sink(.failed(sessionID: id, message: "That terminal is no longer running."))
+                return
+            }
+            write(
+                id: id,
+                path: path,
+                data: data,
+                isLast: isLast,
+                ownerClientID: clientID,
+                sink: sink
+            )
+
+        case .changeFile(let id, let operation):
+            guard canBrowse(id, ownerClientID: clientID) else {
+                sink(.failed(sessionID: id, message: "That terminal is no longer running."))
+                return
+            }
+            change(id: id, operation: operation, sink: sink)
 
         case .resize(let id, let columns, let rows):
             guard columns > 0, rows > 0,
                   let session = lock.withLock({ sessions[id] }),
                   session.ownerClientID == clientID else { return }
             var size = winsize(ws_row: rows, ws_col: columns, ws_xpixel: 0, ws_ypixel: 0)
-            if ioctl(session.master.fileDescriptor, TIOCSWINSZ, &size) == -1 {
+            guard ioctl(session.master.fileDescriptor, TIOCSWINSZ, &size) != -1 else {
                 terminalLog.error("could not resize terminal \(id.uuidString, privacy: .public)")
+                return
+            }
+            // Recorded because a client that lists the sessions is sent this shell's history and
+            // has to lay the replay out on the grid those bytes were drawn for: this one.
+            lock.withLock {
+                session.columns = Int(columns)
+                session.rows = Int(rows)
             }
 
         case .close(let id):
             close(id: id, ownerClientID: clientID)
+
+        case .registerPushToken(let tokenData):
+            // Empty means forget me: the phone sends no bytes when its plan stops including being
+            // told about a terminal, and the token it gave earlier is dropped. Stored nil rather
+            // than "", because the push path tests the token for existence and a registered ""
+            // would be sent to APNs as a device nobody can reach.
+            let hex = tokenData.isEmpty
+                ? nil
+                : tokenData.map { String(format: "%02x", $0) }.joined()
+            PushTokenStore.shared.set(hex, for: clientID)
         }
     }
 
-    /// A terminal this client owns and can still type into.
-    ///
-    /// The identifier arrives from the network, so every request that touches a shell asks this
-    /// first: without it an authenticated client could name a terminal belonging to another
-    /// device, and a terminal that has ended has no shell left to act on.
-    private func liveSession(_ id: UUID, ownerClientID: String) -> Session? {
+    func liveSession(_ id: UUID, ownerClientID: String) -> Session? {
         lock.withLock {
             guard let session = sessions[id],
                   session.ownerClientID == ownerClientID,
@@ -159,521 +245,33 @@ final class TerminalSessionManager: @unchecked Sendable {
         }
     }
 
+    /// Whether this client may browse through this id: a shell of its own that is still running,
+    /// or a browsing scope it opened with ``TerminalRequest/startBrowser(id:)``.
+    func canBrowse(_ id: UUID, ownerClientID: String) -> Bool {
+        if liveSession(id, ownerClientID: ownerClientID) != nil { return true }
+        return lock.withLock { browsers[id] == ownerClientID }
+    }
+
     func disconnect(clientID: String) {
-        _ = lock.withLock { sinks.removeValue(forKey: clientID) }
-    }
-
-    private func create(ownerClientID: String, sink: @escaping Sink) {
-        let id = UUID()
-        let name = lock.withLock { unusedTerminalName() }
-        var masterFD: Int32 = -1
-        var slaveFD: Int32 = -1
-        var size = winsize(ws_row: 30, ws_col: 100, ws_xpixel: 0, ws_ypixel: 0)
-        guard openpty(&masterFD, &slaveFD, nil, nil, &size) == 0 else {
-            sink(.failed(sessionID: nil, message: "Could not create a terminal."))
-            return
+        // Whatever it was in the middle of writing goes with it: an unfinished transfer is not a
+        // file waiting to be resumed, because the client that would claim it is the one that has
+        // just gone.
+        let abandoned = lock.withLock { () -> [PendingWrite] in
+            let mine = writes.values.filter { $0.ownerClientID == clientID }
+            writes = writes.filter { $0.value.ownerClientID != clientID }
+            browsers = browsers.filter { $0.value != clientID }
+            _ = sinks.removeValue(forKey: clientID)
+            return mine
         }
-
-        let master = FileHandle(fileDescriptor: masterFD, closeOnDealloc: true)
-        let slave = FileHandle(fileDescriptor: slaveFD, closeOnDealloc: true)
-        let process = Process()
-        // Foundation's Process can attach the slave descriptors but does not make them the
-        // child's controlling terminal. `script` performs the required forkpty/setsid/TIOCSCTTY
-        // setup, so job control and password prompts behave like a real Terminal window.
-        let shell = loginShell()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/script")
-        process.arguments = ["-q", "/dev/null", shell, "-l"]
-        process.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
-        var environment = ProcessInfo.processInfo.environment
-        environment["TERM"] = "xterm-256color"
-        environment["COLORTERM"] = "truecolor"
-        process.environment = environment
-        process.standardInput = slave
-        process.standardOutput = slave
-        process.standardError = slave
-
-        let session = Session(id: id, ownerClientID: ownerClientID, name: name, process: process, master: master)
-        process.terminationHandler = { [weak self, weak session] process in
-            guard let self, let session else { return }
-            self.didExit(session, status: process.terminationStatus)
-        }
-        master.readabilityHandler = { [weak self, weak session] handle in
-            guard let self, let session else { return }
-            let data = handle.availableData
-            if data.isEmpty { handle.readabilityHandler = nil; return }
-            self.received(data, from: session)
-        }
-
-        do {
-            lock.withLock { sessions[id] = session }
-            try process.run()
-            // The spawned process owns duplicated slave descriptors. Keeping the parent's copy
-            // open would prevent EOF on the master after the shell exits.
-            try? slave.close()
-            sink(.created(session.info))
-            terminalLog.notice("started terminal \(name, privacy: .public) \(id.uuidString, privacy: .public)")
-        } catch {
-            _ = lock.withLock { sessions.removeValue(forKey: id) }
-            master.readabilityHandler = nil
-            try? master.close()
-            try? slave.close()
-            sink(.failed(sessionID: id, message: "Could not start the login shell: \(error.localizedDescription)"))
+        // The pieces have to be deleted, not merely dropped: they are on somebody's disk as a
+        // scratch file beside the destination, and leaving those behind fills a folder with the
+        // ghosts of every failed upload. On the write queue, so the removal lands after any append
+        // still in flight for the same transfer.
+        for pending in abandoned {
+            Self.writeIO.async { pending.discard() }
         }
     }
 
-    private func received(_ data: Data, from session: Session) {
-        let attention: TerminalAttentionKind? = lock.withLock {
-            guard sessions[session.id] === session else { return nil }
-            session.history.append(data)
-            if session.history.count > Self.maximumHistoryBytes {
-                session.history.removeFirst(session.history.count - Self.maximumHistoryBytes)
-            }
-            let text = String(decoding: data, as: UTF8.self)
-            session.promptTail = String((session.promptTail + text).suffix(1_024))
-            guard let kind = Self.detectAttention(in: session.promptTail) else { return nil }
-            if let last = session.lastAttention, last.kind == kind,
-               Date().timeIntervalSince(last.time) < 5 { return nil }
-            session.lastAttention = (kind, Date())
-            return kind
-        }
 
-        send(.output(sessionID: session.id, data: data), to: session.ownerClientID)
-        if let attention {
-            let noun = attention == .password ? "a password" : "confirmation"
-            send(.attention(
-                sessionID: session.id,
-                kind: attention,
-                message: "Terminal “\(session.name)” is waiting for \(noun)."
-            ), to: session.ownerClientID)
-        }
-    }
 
-    private func didExit(_ session: Session, status: Int32) {
-        session.master.readabilityHandler = nil
-        lock.withLock {
-            guard sessions[session.id] === session else { return }
-            session.isRunning = false
-        }
-        send(.exited(sessionID: session.id, status: status), to: session.ownerClientID)
-        terminalLog.notice("terminal \(session.id.uuidString, privacy: .public) exited with \(status)")
-    }
-
-    private func close(id: UUID, ownerClientID: String) {
-        guard let session = lock.withLock({ () -> Session? in
-            guard sessions[id]?.ownerClientID == ownerClientID else { return nil }
-            return sessions.removeValue(forKey: id)
-        }) else { return }
-        session.master.readabilityHandler = nil
-        if session.isRunning { session.process.terminate() }
-        try? session.master.close()
-        send(.closed(sessionID: id), to: ownerClientID)
-        terminalLog.notice("closed terminal \(id.uuidString, privacy: .public)")
-    }
-
-    private func send(_ event: TerminalEvent, to clientID: String) {
-        lock.withLock { sinks[clientID] }?(event)
-    }
-
-    // MARK: - Browsing
-
-    private enum ListingOutcome {
-        case entries([RemoteDirectoryEntry], truncated: Bool)
-        case failure(String)
-    }
-
-    private enum PreviewOutcome {
-        case contents(Data, totalBytes: Int)
-        case failure(String)
-    }
-
-    /// One folder's contents.
-    ///
-    /// Answered off the connection's own queue. `contentsOfDirectory` is a blocking call, and on a
-    /// network volume — or in a folder the system is about to put a consent prompt in front of —
-    /// it takes as long as it takes. That queue carries every keystroke the phone sends, so the
-    /// reading happens on another one and the answer comes back through the sink the shell's
-    /// output already arrives on, which is a thread the caller has always been called from.
-    private func list(id: UUID, requested: String?, sink: @escaping Sink) {
-        // Absolute paths only. A relative one would resolve against this process's working
-        // directory rather than against the shell's, which is the directory the user believes they
-        // are looking at. Not an authorization boundary either way: whoever owns this terminal
-        // already has a login shell as this user and can list any of it.
-        //
-        // Tested on the string that arrived, not on the `URL`: `URL(fileURLWithPath:)` quietly
-        // makes a relative path absolute against the process's own working directory, so a check
-        // after it would pass every time and mean nothing.
-        let path = requested ?? FileManager.default.homeDirectoryForCurrentUser.path
-        guard path.hasPrefix("/") else {
-            sink(.browseFailure(
-                sessionID: id,
-                path: path,
-                message: "That is not a path this Mac can open."
-            ))
-            return
-        }
-        // Standardised for the answer rather than for the lookup: `..` and doubled slashes come
-        // out, so the path the phone puts in its breadcrumbs is the one it can send back. Symbolic
-        // links are left alone, because a folder reached through one is the folder the user asked
-        // for and the name they know it by.
-        let directory = URL(fileURLWithPath: path).standardizedFileURL
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            switch Self.entries(in: directory) {
-            case .entries(let entries, let truncated):
-                sink(.directory(
-                    sessionID: id,
-                    path: directory.path,
-                    entries: entries,
-                    truncated: truncated
-                ))
-            case .failure(let message):
-                sink(.browseFailure(sessionID: id, path: directory.path, message: message))
-            }
-        }
-    }
-
-    /// A file's text, for the browser's preview.
-    private func read(id: UUID, path: String, sink: @escaping Sink) {
-        // Absolute, and tested on the string that arrived — see ``list(id:requested:sink:)``.
-        guard path.hasPrefix("/") else {
-            sink(.browseFailure(
-                sessionID: id,
-                path: path,
-                message: "That is not a path this Mac can open."
-            ))
-            return
-        }
-        let url = URL(fileURLWithPath: path).standardizedFileURL
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            switch Self.contents(of: url) {
-            case .contents(let data, let totalBytes):
-                Self.send(data, totalBytes: totalBytes, id: id, path: url.path, sink: sink)
-            case .failure(let message):
-                sink(.browseFailure(sessionID: id, path: url.path, message: message))
-            }
-        }
-    }
-
-    /// A preview, in pieces.
-    ///
-    /// A chunk boundary can fall inside a UTF-8 character — the cut is by bytes and the text is
-    /// not — so the client joins the pieces before decoding them. The last piece says it is the
-    /// last, and `totalBytes` is what tells a whole file from the beginning of one.
-    private static func send(_ data: Data, totalBytes: Int, id: UUID, path: String, sink: Sink) {
-        guard !data.isEmpty else {
-            sink(.fileContents(
-                sessionID: id,
-                path: path,
-                offset: 0,
-                totalBytes: totalBytes,
-                data: Data(),
-                isLast: true
-            ))
-            return
-        }
-
-        var offset = 0
-        while offset < data.count {
-            let end = min(offset + Self.previewChunkBytes, data.count)
-            sink(.fileContents(
-                sessionID: id,
-                path: path,
-                offset: offset,
-                totalBytes: totalBytes,
-                data: data.subdata(in: offset..<end),
-                isLast: end == data.count
-            ))
-            offset = end
-        }
-    }
-
-    /// No size among them: `URLResourceValues` has no key for the mode bits, so the two come from
-    /// one `attributesOfItem` instead — and it is the call that has to be used anyway, because
-    /// `fileSize` answers nothing at all for a folder, which is a row that now has a size.
-    private static let entryKeys: Set<URLResourceKey> = [
-        .isDirectoryKey, .isSymbolicLinkKey, .contentModificationDateKey,
-    ]
-
-    private static func entries(in directory: URL) -> ListingOutcome {
-        let urls: [URL]
-        do {
-            urls = try FileManager.default.contentsOfDirectory(
-                at: directory,
-                includingPropertiesForKeys: Array(entryKeys),
-                // Hidden entries are listed rather than skipped. Which of them to show is the
-                // phone's decision, and a filter here would be a second answer to a question the
-                // client already answers — including for the SSH browser this will serve next,
-                // which has its own idea of what "hidden" means.
-                options: []
-            )
-        } catch {
-            return .failure(browseMessage(for: error))
-        }
-
-        // Entered as it will be read: folders first, then by name. Sorted here rather than on the
-        // phone so every client shows the same order without having to agree on how two names
-        // compare, and compared the way the Finder compares them, so `file 10` follows `file 9`
-        // rather than `file 1`.
-        let entries = urls.compactMap(entry(for:)).sorted {
-            $0.isDirectory == $1.isDirectory
-                ? $0.name.localizedStandardCompare($1.name) == .orderedAscending
-                : $0.isDirectory
-        }
-        // Cut after the sort, so what arrives is the beginning of a real order rather than
-        // whatever order the filesystem happened to hand over.
-        return .entries(
-            Array(entries.prefix(Self.maximumDirectoryEntries)),
-            truncated: entries.count > Self.maximumDirectoryEntries
-        )
-    }
-
-    /// One row, or nothing for an entry that could not be described.
-    ///
-    /// Dropped rather than fatal: a file deleted between the listing and the look is a row missing
-    /// from a folder, not a folder that failed to open.
-    private static func entry(for url: URL) -> RemoteDirectoryEntry? {
-        guard let values = try? url.resourceValues(forKeys: entryKeys) else { return nil }
-
-        let isSymlink = values.isSymbolicLink ?? false
-        var isDirectory = values.isDirectory ?? false
-        if isSymlink {
-            // A link reports its own type rather than its target's, and a link to a folder is a
-            // folder as far as a tap on the row is concerned. `fileExists` follows the link, which
-            // is exactly the question being asked there, and only links pay for the second look.
-            var pointsAtDirectory: ObjCBool = false
-            if FileManager.default.fileExists(atPath: url.path, isDirectory: &pointsAtDirectory) {
-                isDirectory = pointsAtDirectory.boolValue
-            }
-        }
-
-        // One look for the mode bits *and* the size, which is the pair `ls -l` prints a row of.
-        // A folder included: the number beside one there is the bytes its own entry takes, and
-        // that is what this browser is the picture of.
-        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
-
-        return RemoteDirectoryEntry(
-            name: url.lastPathComponent,
-            isDirectory: isDirectory,
-            isSymlink: isSymlink,
-            size: (attributes?[.size] as? NSNumber)?.int64Value ?? 0,
-            permissions: modeString(from: attributes, isDirectory: isDirectory, isSymlink: isSymlink),
-            modified: values.contentModificationDate
-        )
-    }
-
-    /// The mode bits in the form `ls -l` prints them, type character and all.
-    ///
-    /// The one field here with no resource-value key of its own, so it comes from the call that
-    /// has answered this question since before `URL` did — the same call ``entry(for:)`` takes
-    /// the size from, which is why the attributes arrive rather than a path.
-    private static func modeString(
-        from attributes: [FileAttributeKey: Any]?,
-        isDirectory: Bool,
-        isSymlink: Bool
-    ) -> String {
-        guard let mode = (attributes?[.posixPermissions] as? NSNumber)?.intValue else { return "" }
-
-        let type = isSymlink ? "l" : (isDirectory ? "d" : "-")
-        var bits = ""
-        for (mask, letter) in [
-            (0o400, "r"), (0o200, "w"), (0o100, "x"),
-            (0o040, "r"), (0o020, "w"), (0o010, "x"),
-            (0o004, "r"), (0o002, "w"), (0o001, "x"),
-        ] {
-            bits += mode & mask != 0 ? letter : "-"
-        }
-        // The three that sit on top of an execute bit and are printed in its place: `s` where the
-        // execute bit is set too and `S` where it is not, and the same idea with `t` and `T` for
-        // the sticky bit.
-        var characters = Array(bits)
-        if mode & 0o4000 != 0 { characters[2] = mode & 0o100 != 0 ? "s" : "S" }
-        if mode & 0o2000 != 0 { characters[5] = mode & 0o010 != 0 ? "s" : "S" }
-        if mode & 0o1000 != 0 { characters[8] = mode & 0o001 != 0 ? "t" : "T" }
-        return type + String(characters)
-    }
-
-    /// A file's text, bounded.
-    ///
-    /// Four answers, and the refusals are each a thing the user would otherwise meet as a broken
-    /// screen: something that is not a file, something that cannot be read, something that is not
-    /// text, and something too long to show whole — the last of which is a beginning rather than a
-    /// refusal.
-    private static func contents(of url: URL) -> PreviewOutcome {
-        // Through `stat` rather than a resource value, so the answer follows a symbolic link: a
-        // link to a text file is a text file to anyone looking at it.
-        var info = stat()
-        var failure: Int32 = 0
-        let looked = url.withUnsafeFileSystemRepresentation { pointer -> Int32 in
-            guard let pointer else {
-                failure = EINVAL
-                return -1
-            }
-            let result = stat(pointer, &info)
-            if result != 0 { failure = errno }
-            return result
-        }
-        guard looked == 0 else { return .failure(message(forErrno: failure)) }
-        guard info.st_mode & S_IFMT == S_IFREG else {
-            return .failure("That is not a file, so there is nothing to show here.")
-        }
-
-        let handle: FileHandle
-        do { handle = try FileHandle(forReadingFrom: url) }
-        catch { return .failure(browseMessage(for: error)) }
-        defer { try? handle.close() }
-
-        let totalBytes = Int(info.st_size)
-        let limit = min(totalBytes, Self.maximumPreviewBytes)
-        var data = Data()
-        do {
-            // A read is allowed to return less than it was asked for, so it is asked again until
-            // the cap or the end of the file. For a regular file it never does, and the loop costs
-            // one comparison.
-            while data.count < limit {
-                guard let piece = try handle.read(upToCount: limit - data.count),
-                      !piece.isEmpty else { break }
-                data.append(piece)
-            }
-        } catch {
-            return .failure(browseMessage(for: error))
-        }
-
-        // A NUL byte near the start is the same test `file` uses to call something binary, and the
-        // one editors refuse to open a file on. Nothing here can render an image or a database,
-        // and a screen of replacement characters is a worse answer than being told why.
-        guard !data.prefix(Self.binaryProbeBytes).contains(0) else {
-            return .failure("That file is not text, so there is nothing to show here.")
-        }
-        // And what got past that still has to decode. Up to three bytes come off the end first,
-        // for the case where the read stopped at the cap rather than at the end of the file and
-        // the cut landed inside a character: calling a text file binary because it was long is
-        // exactly the wrong answer.
-        var text = data
-        var dropped = 0
-        while dropped < 3, String(data: text, encoding: .utf8) == nil, !text.isEmpty {
-            text = text.dropLast()
-            dropped += 1
-        }
-        guard String(data: text, encoding: .utf8) != nil else {
-            return .failure("That file is not text, so there is nothing to show here.")
-        }
-        return .contents(text, totalBytes: totalBytes)
-    }
-
-    /// What to tell the phone when the filesystem says no.
-    ///
-    /// The permission case is the one worth spelling out: it is the only failure here the user can
-    /// do anything about, and the only one where the Mac has already asked them a question the
-    /// phone never saw. macOS answers "operation not permitted" both when the prompt was declined
-    /// and when it has not been shown yet, so the sentence names the setting rather than guessing
-    /// which of the two it was.
-    private static func message(forErrno code: Int32) -> String {
-        switch code {
-        case EPERM, EACCES:
-            return "Peering is not allowed to read this. Allow Peering in Files and Folders under Privacy and Security on the Mac."
-        case ENOENT:
-            return "That is no longer there."
-        case ENOTDIR:
-            return "Part of that path is not a folder."
-        default:
-            return NSError(domain: NSPOSIXErrorDomain, code: Int(code)).localizedDescription
-        }
-    }
-
-    private static func browseMessage(for error: any Error) -> String {
-        let error = error as NSError
-        if error.domain == NSCocoaErrorDomain {
-            switch error.code {
-            case NSFileReadNoPermissionError: return message(forErrno: EPERM)
-            case NSFileNoSuchFileError: return message(forErrno: ENOENT)
-            default: break
-            }
-        }
-        if error.domain == NSPOSIXErrorDomain { return message(forErrno: Int32(error.code)) }
-        return error.localizedDescription
-    }
-
-    /// Puts a new name on a terminal, if it will take one.
-    ///
-    /// Two kinds of name, and the difference between them is the whole of the naming rule. One
-    /// the user typed, which sticks and is never replaced. And one the terminal earns by being
-    /// used — the last command run in it — which holds only until the user names it by hand.
-    ///
-    /// Clearing the name is the way back. An empty field says "stop calling it that", and the
-    /// terminal goes back to the last thing that ran there, or to a number if nothing has.
-    private func rename(id: UUID, ownerClientID: String, to requested: String, isManual: Bool) {
-        let updated: TerminalSessionInfo? = lock.withLock {
-            guard let session = sessions[id], session.ownerClientID == ownerClientID else { return nil }
-            let name = sanitizedName(requested)
-            if isManual {
-                session.manualName = name.isEmpty ? nil : name
-            } else {
-                // Remembered even while a hand-typed name is in force, so clearing that name
-                // has something to fall back to.
-                guard !name.isEmpty else { return nil }
-                session.lastCommand = name
-            }
-            let resolved = session.manualName
-                ?? session.lastCommand
-                ?? unusedTerminalName(excluding: session)
-            guard resolved != session.name else { return nil }
-            session.name = resolved
-            return session.info
-        }
-        guard let updated else { return }
-        send(.renamed(updated), to: ownerClientID)
-        terminalLog.notice("renamed terminal to \(updated.name, privacy: .public)")
-    }
-
-    /// The lowest "Terminal N" that no live terminal is using.
-    ///
-    /// Counted rather than taken from the count: close the second of three and open another,
-    /// and counting hands out a second Terminal 2. That used to be a harmless collision and is
-    /// not one now that the strip of tabs is the list of terminals.
-    private func unusedTerminalName(excluding excluded: Session? = nil) -> String {
-        let taken = Set(sessions.values.filter { $0 !== excluded }.map(\.name))
-        var number = 1
-        while taken.contains("Terminal \(number)") { number += 1 }
-        return "Terminal \(number)"
-    }
-
-    /// A name with the control characters taken out and a length a tab can show.
-    private func sanitizedName(_ requested: String) -> String {
-        let safe = String(requested.filter { character in
-            !character.isNewline && !character.unicodeScalars.contains {
-                CharacterSet.controlCharacters.contains($0)
-            }
-        }.prefix(40))
-        return safe.trimmingCharacters(in: .whitespaces)
-    }
-
-    private func loginShell() -> String {
-        if let record = getpwuid(getuid()), let shell = record.pointee.pw_shell {
-            let path = String(cString: shell)
-            if !path.isEmpty { return path }
-        }
-        return ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-    }
-
-    private static func detectAttention(in rawText: String) -> TerminalAttentionKind? {
-        let plain = rawText.replacingOccurrences(
-            of: "\\u{001B}\\[[0-?]*[ -/]*[@-~]",
-            with: "",
-            options: .regularExpression
-        ).lowercased()
-        let tail = String(plain.suffix(400))
-        if tail.range(of: #"(?:password|passphrase)(?: for [^:\n]+)?:\s*$"#, options: .regularExpression) != nil {
-            return .password
-        }
-        let confirmationPatterns = [
-            #"(?:\[|\()(?:y/n|yes/no)(?:\]|\))\??\s*$"#,
-            #"are you sure[^\n]*\??\s*$"#,
-            #"press (?:enter|return)[^\n]*$"#,
-            #"continue\?\s*$"#,
-        ]
-        return confirmationPatterns.contains {
-            tail.range(of: $0, options: .regularExpression) != nil
-        } ? .confirmation : nil
-    }
 }

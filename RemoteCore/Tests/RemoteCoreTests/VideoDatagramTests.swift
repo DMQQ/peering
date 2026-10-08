@@ -1,6 +1,4 @@
-// The one test below that has to build a datagram by hand seals it with the same key the
-// opener holds, which is the only way to produce bytes that authenticate and are still not
-// something a peer would ever send.
+// The hand-built datagram below is sealed with the opener's key: bytes that authenticate yet are not what a peer would send.
 #if canImport(CryptoKit)
 import CryptoKit
 #else
@@ -11,21 +9,13 @@ import Testing
 
 @testable import RemoteCore
 
-/// The relay's token, as `sessionReady` hands it out.
 private let sessionToken = Data((0..<16).map { UInt8(truncatingIfNeeded: $0 &* 7 &+ 1) })
 
-/// A payload with a byte pattern that changes everywhere, so a datagram opened with the wrong
-/// key, or a frame reassembled from chunks in the wrong order, cannot pass by being mostly
-/// zeros.
 private func payload(bytes: Int) -> Data {
     Data((0..<bytes).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ 7) })
 }
 
-/// What the relay does between the two ends: strips the sender's token and forwards the rest.
-///
-/// Written out rather than assumed, because it is the one part of the contract that lives in
-/// another repository: everything below feeds the opener a datagram with the prefix gone, and
-/// a change there would break these tests rather than the app.
+/// What the relay does between the two ends: strips the sender's token and forwards the rest. Written out because that contract lives in another repository.
 private func forwarded(_ datagrams: [Data]) -> [Data] {
     datagrams.map { Data($0.dropFirst(VideoDatagram.tokenSize)) }
 }
@@ -49,9 +39,7 @@ struct VideoKeyScheduleTests {
         let outbound = schedule.key(for: .hostToClient)
         let inbound = schedule.key(for: .clientToHost)
 
-        // The whole point of the labels: the counter is the nonce and it travels in the
-        // clear, so two senders counting from one under one key would repeat a nonce on the
-        // first datagram each of them sent.
+        // The counter is the nonce and travels in the clear, so two senders counting from one under one key would repeat a nonce.
         #expect(outbound != inbound)
         #expect(outbound.withUnsafeBytes { Data($0) }.count == VideoKeySchedule.secretSize)
     }
@@ -114,8 +102,6 @@ struct VideoDatagramRoundTripTests {
         let original = payload(bytes: 3000)
         let datagrams = forwarded(sealer.seal(kind: .videoFrame, payload: original))
 
-        // 3000 bytes at 1024 a chunk: three of them, the last one short. Every datagram but
-        // the last is a piece, so only the last one completes the frame.
         #expect(datagrams.count == 3)
         #expect(try opener.open(datagrams[0]) == nil)
         #expect(try opener.open(datagrams[1]) == nil)
@@ -133,10 +119,7 @@ struct VideoDatagramRoundTripTests {
         let datagrams = forwarded(sealer.seal(kind: .videoFrame, payload: original))
         #expect(datagrams.count == 3)
 
-        // Deliberately not in any order that would help: the last piece first, then the ones
-        // in front of it. Reordering is the normal state of a datagram path, and a receiver
-        // that insisted on ascending counters would spend its life dropping pictures that
-        // were merely overtaken.
+        // Reordering is the normal state of a datagram path; a receiver needing ascending counters would drop overtaken pictures.
         #expect(try opener.open(datagrams[2]) == nil)
         #expect(try opener.open(datagrams[0]) == nil)
         let frame = try opener.open(datagrams[1])
@@ -164,10 +147,6 @@ struct VideoDatagramRoundTripTests {
         let datagram = try #require(datagrams.first)
 
         #expect(datagram.prefix(VideoDatagram.tokenSize) == sessionToken)
-        // 200 bytes fit one chunk, so this travels as itself: the counter, then the framing's
-        // four-byte length and kind byte, then the payload, then the tag. Nothing else, and
-        // nothing missing — the relay reads the first sixteen bytes and drops them, so every
-        // byte after that is ciphertext the receiver has to account for exactly.
         #expect(
             datagram.count
                 == VideoDatagram.tokenSize + VideoDatagram.counterSize + 5 + 200 + VideoDatagram.tagSize
@@ -196,9 +175,7 @@ struct VideoDatagramRoundTripTests {
     func datagramsStayUnderTheMTU() {
         var (sealer, _) = lane()
 
-        // A full chunk of every kind the video path sends, which is the largest datagram this
-        // can produce. IPv6 guarantees 1280 bytes with no fragmentation; anything at or under
-        // that arrives whole on every path, including the ones that drop fragments.
+        // IPv6 guarantees 1280 bytes unfragmented; a full chunk of every kind must stay at or under that.
         let video = sealer.seal(kind: .videoFrame, payload: payload(bytes: 4096))
         let audio = sealer.seal(kind: .audioFrame, payload: payload(bytes: 4096))
 
@@ -219,8 +196,6 @@ struct VideoDatagramFailureTests {
 
         let datagrams = forwarded(sealer.seal(kind: .videoFrame, payload: payload(bytes: 200)))
 
-        // This is what the label separation buys: the two keys are not interchangeable, so a
-        // counter that repeats across the two directions can never do it under one key.
         #expect(throws: VideoDatagramError.authenticationFailed) {
             _ = try opener.open(try #require(datagrams.first))
         }
@@ -233,9 +208,7 @@ struct VideoDatagramFailureTests {
         var datagram = try #require(forwarded(sealer.seal(kind: .videoFrame, payload: payload(bytes: 200))).first)
         datagram[20] ^= 0x01
 
-        // Not `nil`. A datagram that fails to authenticate is the only evidence that
-        // distinguishes a lossy network from two ends that are not speaking the same key, and
-        // a receiver that swallowed it would leave a session with no picture and no reason.
+        // Not `nil`: a datagram failing authentication is the only evidence of a key mismatch as opposed to a lossy network.
         #expect(throws: VideoDatagramError.authenticationFailed) {
             _ = try opener.open(datagram)
         }
@@ -255,8 +228,6 @@ struct VideoDatagramFailureTests {
             _ = try tagOpener.open(badTag)
         }
 
-        // The counter is in the clear and is the nonce, so changing it is not a corruption
-        // the tag can catch by accident: it is a different nonce, and the AEAD refuses it.
         var movedCounter = try #require(datagrams.first)
         movedCounter[7] &+= 1
         var (_, counterOpener) = lane()
@@ -271,10 +242,7 @@ struct VideoDatagramFailureTests {
 
         let genuine = forwarded(sealer.seal(kind: .videoFrame, payload: payload(bytes: 200)))
 
-        // A forged datagram claiming a counter far in the future. If the window advanced on
-        // arrival rather than on authentication, this one packet would push every genuine
-        // datagram behind it out of the window — a denial of service for the price of a
-        // single spoofed datagram.
+        // A forged far-future counter must not advance the window on arrival, or one spoofed datagram would push out every genuine one.
         var forged = Data(repeating: 0, count: 64)
         forged.appendBigEndian(UInt64.max / 2)
         #expect(throws: VideoDatagramError.authenticationFailed) {
@@ -308,9 +276,6 @@ struct VideoDatagramFailureTests {
         let schedule = VideoKeySchedule(secret: payload(bytes: VideoKeySchedule.secretSize))
         var opener = schedule.opener(direction: .hostToClient)
 
-        // Sealed by the real key and not a frame — the peer is who it says it is and is
-        // sending nonsense. A bug rather than an attack, and still not something to guess at:
-        // a decoder handed whatever came out would fail much later and much less clearly.
         let nonce = try #require(VideoDatagramSealer.nonce(1))
         let box = try ChaChaPoly.seal(
             Data([0x00, 0x00, 0x00, 0x02, 0x99, 0x00]),
@@ -343,9 +308,7 @@ struct VideoReplayWindowTests {
     func reorderingIsAccepted() {
         var window = VideoReplayWindow()
 
-        // Five through nine arrive first, then the four that were behind them. None of these
-        // is a replay, and a window that could not tell that apart would drop the picture
-        // every time a router reordered a burst.
+        // Reordered, not replayed: the window must not drop these.
         for counter in UInt64(5)...9 { window.commit(counter) }
 
         for counter in UInt64(1)...4 {
@@ -400,14 +363,9 @@ struct VideoDatagramLossTests {
         let lost = forwarded(sealer.seal(kind: .videoFrame, payload: payload(bytes: 3000)))
         #expect(lost.count == 3)
 
-        // The middle piece never arrives. The picture cannot be completed and is abandoned,
-        // which is the honest outcome: nothing here waits for a retransmission the sender was
-        // never going to make.
         #expect(try opener.open(lost[0]) == nil)
         #expect(try opener.open(lost[2]) == nil)
 
-        // And the next picture is unaffected, which is the half that matters. A loss that
-        // poisoned the reassembler would leave a stream that never showed anything again.
         let next = payload(bytes: 2500)
         var last: Frame?
         for datagram in forwarded(sealer.seal(kind: .videoFrame, payload: next)) {
@@ -423,8 +381,6 @@ struct VideoDatagramLossTests {
         let original = payload(bytes: 3000)
         let datagrams = forwarded(sealer.seal(kind: .videoFrame, payload: original))
 
-        // The duplicate is refused by the replay window before it can reach the reassembler,
-        // so a picture is never assembled from a chunk counted twice.
         #expect(try opener.open(datagrams[0]) == nil)
         #expect(try opener.open(datagrams[0]) == nil)
         #expect(try opener.open(datagrams[1]) == nil)
@@ -452,9 +408,7 @@ struct VideoDatagramLossTests {
 struct VideoKeyMessageTests {
     @Test("the key exchange has kinds of its own, above the fallback's")
     func messageKindsAreStable() {
-        // Fixed values rather than whatever `allCases` happens to hold: these two numbers are
-        // in another repository's relay as well, and a build that quietly renumbered them
-        // would be a client and a Mac disagreeing about which message is which.
+        // Fixed values rather than `allCases`: another repository's relay holds these numbers too.
         #expect(MessageKind.videoKeyRequest.rawValue == 0x19)
         #expect(MessageKind.videoKey.rawValue == 0x1A)
         #expect(MessageKind.allCases.contains(.videoKeyRequest))
@@ -471,10 +425,9 @@ struct VideoKeyMessageTests {
         #expect(decoded.secret == secret)
     }
 
+    /// A mixed pair must fail at the door, so the version is read back and a bump has to be deliberate.
     @Test("the two ends of the exchange agree about the protocol version")
     func theVersionWasBumped() {
-        // Version 13 is what makes a mixed pair fail at the door rather than at the first
-        // datagram: a 12 host cannot decode the request and would answer it with silence.
-        #expect(ProtocolInfo.version == 13)
+        #expect(ProtocolInfo.version == 20)
     }
 }

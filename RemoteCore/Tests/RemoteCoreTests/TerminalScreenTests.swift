@@ -3,12 +3,6 @@ import Testing
 
 @testable import RemoteCore
 
-/// What a full-screen program's byte stream becomes.
-///
-/// These exist because the line-based renderer cannot draw one. It throws away cursor addressing
-/// and appends whatever text is left, so `htop` arrives as a couple of mangled lines rather than as
-/// a screen. The centre of gravity of the suite is the last test — a screen drawn the way `htop`
-/// draws one — because that is the shape of the bug rather than an edge of it.
 @Suite("Terminal screen")
 struct TerminalScreenTests {
     @Test("plain text lands on the first row")
@@ -28,9 +22,7 @@ struct TerminalScreenTests {
 
     @Test("a row filled exactly to the last column does not wrap on its own")
     func wrapIsDeferred() {
-        // A full-screen program pads every row out to the full width, so a wrap that happened on
-        // the write itself would scroll the screen every time the bottom-right cell was drawn —
-        // one row of the frame lost per refresh, which reads as a rendering fault and is one.
+        // A write must not wrap eagerly: padded full-width rows would scroll the screen on every bottom-right cell.
         var screen = TerminalScreen(columns: 5, rows: 3)
         screen.feed(Data("abcde".utf8))
         #expect(screen.visible == ["abcde"])
@@ -47,8 +39,6 @@ struct TerminalScreenTests {
 
     @Test("a shorter rewrite leaves the tail of the row it did not reach")
     func shorterRewrite() {
-        // The difference from the line-based renderer, which has no columns to leave behind and
-        // cuts the tail instead. A terminal keeps it: erasing is something a program asks for.
         var screen = TerminalScreen(columns: 20, rows: 4)
         screen.feed(Data("abcdef\rxy".utf8))
         #expect(screen.visible == ["xycdef"])
@@ -95,7 +85,6 @@ struct TerminalScreenTests {
         one.feed(Data("\u{1B}[3d\u{1B}[5Gx".utf8))
         #expect(one.visible == ["", "", "    x"])
 
-        // `f` is the same request as `H`, and a missing column means the first.
         var other = TerminalScreen(columns: 10, rows: 4)
         other.feed(Data("\u{1B}[2fq".utf8))
         #expect(other.visible == ["", "q"])
@@ -176,8 +165,6 @@ struct TerminalScreenTests {
     @Test("an escape sequence leaves no characters behind")
     func escapeSequencesAreNotText() {
         var screen = TerminalScreen(columns: 20, rows: 4)
-        // Colour, a window title, a hidden cursor and an operating system command: none of it is
-        // text, and the payload of the title is not either.
         screen.feed(Data("\u{1B}[1;32mgreen\u{1B}[0m\u{1B}]0;htop frame\u{07}\u{1B}[?25l\u{1B}[5n!".utf8))
         #expect(screen.visible == ["green!"])
         #expect(!screen.visible.joined().contains("\u{1B}"))
@@ -194,15 +181,12 @@ struct TerminalScreenTests {
     func absurdParameters() {
         var screen = TerminalScreen(columns: 10, rows: 4)
         screen.feed(Data("\u{1B}[99999999;99999999Hx".utf8))
-        // A position past the end lands in the corner instead of asking for a grid that is not
-        // there, and the same is true of a number too long to be an `Int` at all.
         #expect(screen.visible == ["", "", "", "         x"])
 
         var overflowing = TerminalScreen(columns: 10, rows: 4)
         overflowing.feed(Data("\u{1B}[99999999999999999999;7Hy".utf8))
         #expect(overflowing.visible == ["", "", "", "      y"])
 
-        // An erase whose mode is not one of the modes is not an erase.
         var erasing = TerminalScreen(columns: 10, rows: 4)
         erasing.feed(Data("abc\u{1B}[99999999J".utf8))
         #expect(erasing.visible == ["abc"])
@@ -212,8 +196,6 @@ struct TerminalScreenTests {
     func splitCharacter() {
         var screen = TerminalScreen(columns: 20, rows: 4)
         let bytes = Array("héllo".utf8)
-        // The half that arrived first waits for the other half rather than being printed as a
-        // replacement character in the middle of a word.
         screen.feed(Data(bytes[0..<2]))
         #expect(screen.visible == ["h"])
         screen.feed(Data(bytes[2...]))
@@ -230,7 +212,6 @@ struct TerminalScreenTests {
     @Test("half an escape sequence prints nothing at all")
     func splitEscapeSequence() {
         var screen = TerminalScreen(columns: 20, rows: 4)
-        // A read can end anywhere, including in the middle of a sequence — neither half is text.
         screen.feed(Data("\u{1B}[2;".utf8))
         #expect(screen.visible == [])
         screen.feed(Data("3Hx".utf8))
@@ -239,9 +220,7 @@ struct TerminalScreenTests {
 
     @Test("the same bytes give the same screen however they are cut up")
     func replayIsStable() {
-        // The caller re-processes its whole buffer from a fresh screen on every read, so a screen
-        // built from one read and one built from many have to agree. That is only sound if the
-        // bytes are the whole of the input and nothing accumulates outside them.
+        // The caller re-processes its whole buffer from a fresh screen on every read, so nothing may accumulate outside the bytes.
         let output = Data("\u{1B}[?1049h\u{1B}[Htop\u{1B}[1;1HZz\u{1B}[K".utf8)
 
         var whole = TerminalScreen(columns: 20, rows: 4)
@@ -259,27 +238,56 @@ struct TerminalScreenTests {
 
     @Test("a screen drawn the way htop draws one shows the last frame")
     func fullScreenProgram() {
-        // The regression. A line-based renderer replays these bytes in order — the two frames run
-        // into each other and the values that were overwritten are still on the row — so what is
-        // asserted is not only that the text arrived but that it is in the right *place*.
+        // The regression: a line-based renderer leaves overwritten values on the row, so assert the text is in the right place.
         var screen = TerminalScreen(columns: 20, rows: 6)
 
-        // Entering the alternate screen, then a frame the way htop draws one: cursor home, a
-        // header, the cursor placed at a column to write a value, and a second value re-drawn over
-        // the first with the rest of the row erased behind it.
         screen.feed(Data("\u{1B}[?1049h\u{1B}[HCPU\u{1B}[1;6H12%\u{1B}[2;1HMem\u{1B}[2;6H45%\u{1B}[3;1HTasks: 42".utf8))
         #expect(screen.visible == ["CPU  12%", "Mem  45%", "Tasks: 42"])
 
-        // The refresh, with the values changed and a shorter one that has to erase the digit it
-        // no longer covers.
         screen.feed(Data("\u{1B}[HCPU\u{1B}[1;6H9%\u{1B}[K\u{1B}[2;1HMem\u{1B}[2;6H62%\u{1B}[K\u{1B}[3;1HTasks: 43".utf8))
         #expect(screen.visible == ["CPU  9%", "Mem  62%", "Tasks: 43"])
         #expect(screen.visible.count == 3)
 
-        // Leaving the alternate screen throws the picture away instead of smearing it into the
-        // history, which is what makes htop vanish on exit the way it does in a terminal.
         screen.feed(Data("\u{1B}[?1049l".utf8))
         #expect(screen.visible == [])
         #expect(screen.scrollback == [])
+    }
+
+    @Test("the scrollback keeps the newest rows and drops the oldest")
+    func scrollbackIsBounded() {
+        var screen = TerminalScreen(columns: 20, rows: 4)
+        for index in 0..<5_000 {
+            screen.feed(Data("line \(index)\r\n".utf8))
+        }
+
+        let kept = screen.scrollback
+        let bounded = kept.count < 3_000
+        let oldest = kept.contains { $0.hasPrefix("line 0") }
+        let lastKept = kept.last ?? ""
+        let recent = lastKept.hasPrefix("line 49")
+
+        #expect(bounded)
+        #expect(!oldest)
+        #expect(recent)
+    }
+
+    @Test("a screen fed in pieces styles the same as one fed at once")
+    func styledMatchesAScreenBuiltInOneGo() {
+        let bytes = Data((0..<3_000).map { "row \($0)\r\n" }.joined().utf8)
+
+        var piecemeal = TerminalScreen(columns: 20, rows: 6)
+        let raw = Array(bytes)
+        for start in stride(from: 0, to: raw.count, by: 97) {
+            piecemeal.feed(Data(raw[start..<min(start + 97, raw.count)]))
+        }
+
+        var whole = TerminalScreen(columns: 20, rows: 6)
+        whole.feed(bytes)
+
+        let stylesAgree = piecemeal.styled == whole.styled
+        let textAgrees = piecemeal.visible == whole.visible
+
+        #expect(stylesAgree)
+        #expect(textAgrees)
     }
 }

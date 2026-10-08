@@ -20,10 +20,44 @@ pub enum ClientMessage {
     /// A Mac announcing itself. Holding this connection open *is* the Mac's presence: when it
     /// drops, the Mac is offline, and it re-registers when it comes back — on a new address, under
     /// the same device ID.
+    ///
+    /// **`device_id` on its own is a claim, and these three fields are the evidence.** A device ID
+    /// is not a secret and was never meant to be one: it is broadcast in the Mac's Bonjour TXT
+    /// record to everyone on the network and printed into the pairing QR code. That was harmless
+    /// while the ID was only a name two devices used to find each other, and it stopped being
+    /// harmless when this message started writing to a table with it. Anyone who learns an ID could
+    /// register it, and `HostRegistry` puts without checking, so a stranger could displace the real
+    /// Mac's registration and make it unreachable through the relay until it reconnected.
+    ///
+    /// The evidence is a signature, not a shared secret, because every device already holds the key
+    /// to make one: a long-term P-256 key in the keychain, whose public bytes the pairing handshake
+    /// already pins. Nothing new is minted, nothing new is stored, and losing the key is a failure
+    /// the app already has, because losing it breaks pairing too.
+    ///
+    /// All three are `None` in a build that predates this, and that is not a refusal: an id nobody
+    /// has proved yet is registered by anyone, exactly as before. What the proof buys is that an id
+    /// which has been proved can only be claimed by the device that proved it. See
+    /// `device_bindings`, which is where that rule lives and why it is shaped that way.
     RegisterHost {
         device_id: String,
         name: String,
         protocol_version: u16,
+        /// Hex of the 65-byte uncompressed P-256 point, `0x04 ‖ X ‖ Y`. The same value the two
+        /// devices pin for each other, so a phone that has paired with this Mac is looking at it.
+        #[serde(default, deserialize_with = "optional_text")]
+        public_key: Option<String>,
+        /// Hex of a DER-encoded ECDSA signature over [`Self::proof_payload`].
+        #[serde(default, deserialize_with = "optional_text")]
+        proof: Option<String>,
+        /// Seconds since the Unix epoch, covered by the signature.
+        ///
+        /// A replayed registration is not much of an attack, since it proves the same key and lands
+        /// on the same binding, but it would let a captured message re-register a Mac that is already
+        /// connected, which is the displacement this exists to stop. The window is what makes that
+        /// replay worthless rather than merely uninteresting. It is a bound on how long a capture
+        /// stays useful, not a clock the relay trusts for anything else.
+        #[serde(default)]
+        proof_time: Option<u64>,
     },
 
     /// A phone asking where its Mac is.
@@ -58,10 +92,92 @@ pub enum ClientMessage {
         plan: Option<String>,
         #[serde(default, deserialize_with = "optional_text")]
         jws_representation: Option<String>,
+        /// The client's proof that it is the device whose ID it announces: the same three fields
+        /// the Mac sends when it registers, over a different string. `signalling` checks it, and
+        /// what it buys is that relay time is metered against a key rather than against an ID the
+        /// app can lose by being reinstalled. See `device_proof::client_payload`.
+        ///
+        /// Optional, and absent from every build before this one: a client that offers no proof is
+        /// metered by its announced id, exactly as it was.
+        #[serde(default, deserialize_with = "optional_text")]
+        public_key: Option<String>,
+        #[serde(default, deserialize_with = "optional_text")]
+        proof: Option<String>,
+        #[serde(default)]
+        proof_time: Option<u64>,
     },
 
     /// Keeps the signalling connection alive through idle NAT timeouts.
     Ping,
+
+    /// One end asking where the *other* end of its session is.
+    ///
+    /// **This is the one message that makes the relay's oldest promise false**, so it is worth being
+    /// exact about what changes. Until now neither end ever learned the other's address: both
+    /// addressed the relay, and the relay was the only thing that knew both. That is what lets a
+    /// session open between two machines neither of which can be dialled — and it is also why every
+    /// byte goes to Helsinki even when the two ends are in the same city.
+    ///
+    /// What the answer buys is an *introduction*, not a redirect. Knowing where the peer is lets the
+    /// two ends try a path between themselves and fall back to this relay when it does not open, so
+    /// the worst case is the behaviour that existed before this message did. The relay is not
+    /// asking either end to trust the answer: the two ends authenticate each other with the pairing
+    /// handshake they already run over the control channel, and a wrong address simply fails to
+    /// answer.
+    ///
+    /// The asker identifies itself by its own `video_token`, which is the only thing either end
+    /// holds that says which of the session's two slots it is. Nothing new is collected to answer
+    /// it: the relay already stores each slot's observed source address, because forwarding is
+    /// impossible without it.
+    RequestPeerAddress {
+        /// Hex, and the asking end's own — its peer's address is what comes back.
+        video_token: String,
+    },
+
+    /// Is this Mac registered with the relay right now?
+    ///
+    /// **Asked by a phone that has paired with a Mac and cannot see it.** Bonjour answers that
+    /// question for a Mac on the same network and answers nothing at all for one that is not, which
+    /// is every Mac reached through this relay. So the app had two states, nearby and unknown, and
+    /// drew the second one the same way it would draw *offline*: a grey dot on a Mac that was
+    /// sitting awake on the other side of the country. This is the smallest question that fixes it.
+    ///
+    /// It is a question and not a subscription: one ask, one answer, and the registration it reads
+    /// is the same one `ConnectToHost` consults before it will open a session. Nothing is stored
+    /// about the ask, and the answer says only whether the Mac is here, never where.
+    ///
+    /// **What it costs is worth naming**, because it is the first message that tells this process
+    /// something it did not already need to know: a phone that asks after three Macs has told the
+    /// relay which three it is interested in, where before it revealed one at the moment it
+    /// connected to it. That is a small disclosure and a real one, and it is why this is a poll the
+    /// app runs while the Connect tab is open rather than something it reports continuously.
+    HostPresence {
+        /// The device id the phone paired with, exactly as it stores it.
+        host_id: String,
+    },
+
+    /// A registered Mac asking the relay to push an APNs notification to a phone that is no
+    /// longer reachable over the control channel. The relay holds the APNs key; the Mac only
+    /// knows the device token it received from the phone.
+    NotifyDevice {
+        device_token: String,
+        title: String,
+        body: String,
+        /// The capture source the notification is about, which the phone shows when it is tapped.
+        /// Absent from Macs that predate it.
+        #[serde(default)]
+        source: Option<String>,
+        /// The notification category the phone registered, so the system shows its buttons.
+        /// Absent from Macs that predate it.
+        #[serde(default)]
+        category: Option<String>,
+        /// Which agent chat the notification asks about, for a button pressed with the app closed.
+        #[serde(default)]
+        session_id: Option<String>,
+        /// Which approval request within that chat.
+        #[serde(default)]
+        approval_id: Option<String>,
+    },
 }
 
 /// What the relay sends back.
@@ -90,6 +206,31 @@ pub enum ServerMessage {
 
     /// The Mac is not registered. It is asleep, off, or has not been launched.
     HostOffline { device_id: String },
+
+    /// Where the other end of this session was last seen, as seen from the relay's outside.
+    ///
+    /// It is the source address of the peer's most recent video datagram, so it is the peer as the
+    /// peer's *own* NAT presents it — which is exactly the address anything else on the internet
+    /// would have to send to for the packet to be delivered. Whether it is delivered is a different
+    /// question, and one the relay cannot answer: a NAT that forwards to the relay need not accept
+    /// anything from a third party, and the address the relay saw may have been replaced by a
+    /// fresh one for a different destination. That uncertainty is why the two ends prove the path
+    /// to each other rather than treating this message as a fact.
+    ///
+    /// Sent only in answer to [`ClientMessage::RequestPeerAddress`], and only when the peer has
+    /// been heard from at all — see the `peerAddressUnknown` error for the other case.
+    PeerAddress { host: String, port: u16 },
+
+    /// Whether a Mac is registered, in answer to [`ClientMessage::HostPresence`].
+    ///
+    /// `online: false` is a fact the relay is entitled to state: it is the same fact that makes
+    /// `ConnectToHost` answer [`ServerMessage::HostOffline`], read a moment earlier. It is *not* a
+    /// claim that the Mac is switched off, and the app is careful not to draw it as one: a Mac can
+    /// be awake and reachable on its own network while being registered nowhere.
+    ///
+    /// The `host_id` is echoed so an answer can be matched to its question without relying on the
+    /// order they arrive in.
+    HostPresence { host_id: String, online: bool },
 
     Pong,
 
@@ -146,6 +287,39 @@ pub fn unhex(text: &str) -> Option<Token> {
     Some(out)
 }
 
+/// The same encoding for a byte string of any length.
+///
+/// `hex` and `unhex` above are the token-sized pair and stay as they are, because a token is
+/// always exactly sixteen bytes and the fixed size is half of what makes decoding one safe. Keys
+/// and signatures are not a fixed size, so they get the general pair rather than a second
+/// special case.
+pub fn bytes_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut out, b| {
+            let _ = write!(out, "{b:02x}");
+            out
+        })
+}
+
+/// Decodes hex of any even length, and refuses anything else.
+///
+/// `None` rather than a partial answer for every way this can be wrong: an odd length, a character
+/// that is not a hex digit, or a string longer than the caller could possibly want. The length cap
+/// is the caller's, passed in, because "too long" means something different for a public key than
+/// for a signature and neither number belongs here.
+pub fn hex_bytes(text: &str, limit: usize) -> Option<Vec<u8>> {
+    if text.len() % 2 != 0 || text.len() > limit * 2 {
+        return None;
+    }
+    let mut out = Vec::with_capacity(text.len() / 2);
+    for i in 0..text.len() / 2 {
+        out.push(u8::from_str_radix(text.get(i * 2..i * 2 + 2)?, 16).ok()?);
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -160,6 +334,30 @@ mod tests {
                 device_id: "abc".into(),
                 name: "Studio".into(),
                 protocol_version: 3,
+                // Absent, which is the shape a build that predates the proof sends. It has to parse,
+                // because every Mac in the field right now sends exactly this.
+                public_key: None,
+                proof: None,
+                proof_time: None,
+            }
+        );
+    }
+
+    /// And the shape a build that proves itself sends.
+    #[test]
+    fn a_proved_registration_round_trips_too() {
+        let text = r#"{"type":"registerHost","deviceId":"abc","name":"Studio","protocolVersion":14,
+            "publicKey":"04aa","proof":"3045","proofTime":1760000000}"#;
+        let message: ClientMessage = serde_json::from_str(text).expect("should parse");
+        assert_eq!(
+            message,
+            ClientMessage::RegisterHost {
+                device_id: "abc".into(),
+                name: "Studio".into(),
+                protocol_version: 14,
+                public_key: Some("04aa".into()),
+                proof: Some("3045".into()),
+                proof_time: Some(1_760_000_000),
             }
         );
     }
@@ -178,6 +376,9 @@ mod tests {
                 api_key: None,
                 plan: None,
                 jws_representation: None,
+                public_key: None,
+                proof: None,
+                proof_time: None,
             }
         );
     }
@@ -195,6 +396,9 @@ mod tests {
                 api_key: None,
                 plan: Some("pro".into()),
                 jws_representation: None,
+                public_key: None,
+                proof: None,
+                proof_time: None,
             }
         );
     }
@@ -253,6 +457,9 @@ mod tests {
             api_key: None,
             plan: Some("relay".into()),
             jws_representation: None,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         };
         let json = serde_json::to_string(&message).expect("should encode");
         assert_eq!(
@@ -295,6 +502,9 @@ mod tests {
             api_key: None,
             plan: None,
             jws_representation: None,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         };
         let json = serde_json::to_string(&message).expect("should encode");
         assert_eq!(
@@ -345,6 +555,29 @@ mod tests {
         })
         .unwrap();
         assert_eq!(json, r#"{"type":"hostOffline","deviceId":"abc"}"#);
+    }
+
+    /// The introduction, pinned in both directions. The Swift side decodes these by name, so a
+    /// rename here is a silent break at runtime rather than a compile error there.
+    #[test]
+    fn a_peer_address_round_trips_and_the_tag_is_the_swift_case_name() {
+        let json = serde_json::to_string(&ServerMessage::PeerAddress {
+            host: "203.0.113.7".into(),
+            port: 51234,
+        })
+        .expect("should encode");
+        assert_eq!(
+            json,
+            r#"{"type":"peerAddress","host":"203.0.113.7","port":51234}"#
+        );
+
+        let text = r#"{"type":"requestPeerAddress","videoToken":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"}"#;
+        assert_eq!(
+            serde_json::from_str::<ClientMessage>(text).expect("should parse"),
+            ClientMessage::RequestPeerAddress {
+                video_token: "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd".into(),
+            }
+        );
     }
 
     #[test]
