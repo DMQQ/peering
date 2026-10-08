@@ -113,6 +113,9 @@ public struct MosaicLayout: Codable, Sendable, Equatable, Hashable {
     /// one tile over a 7680×4320 canvas is a quarter of a billion pixels per second to composite.
     public static let maximumCanvasPixels = 2560 * 1440
 
+    /// The area budget alone lets a 1e13 by 1 canvas through (the short side is floored at 2 afterwards), and the encoder traps converting such a width.
+    public static let maximumCanvasSide: CGFloat = 8192
+
     public let canvas: CGSize
     public let tiles: [MosaicTile]
     public let frameRate: Int
@@ -128,12 +131,17 @@ public struct MosaicLayout: Codable, Sendable, Equatable, Hashable {
         self.frameRate = frameRate
     }
 
+    private static func sanitisedSide(_ value: CGFloat) -> CGFloat {
+        guard value.isFinite else { return 2 }
+        return min(max(2, value.rounded(.down)), maximumCanvasSide)
+    }
+
     /// What a host will actually build, or `nil` when there is no mosaic. Trimmed rather than refused, since the layout comes from an untrusted device; the canvas is clamped by area, so 4000×300 fits the budget unreshaped.
     public var validated: MosaicLayout? {
         guard !tiles.isEmpty else { return nil }
 
-        let width = max(2, canvas.width.rounded(.down))
-        let height = max(2, canvas.height.rounded(.down))
+        let width = Self.sanitisedSide(canvas.width)
+        let height = Self.sanitisedSide(canvas.height)
         let pixels = width * height
         let budget = CGFloat(Self.maximumCanvasPixels)
         let scale = pixels > budget ? (budget / pixels).squareRoot() : 1

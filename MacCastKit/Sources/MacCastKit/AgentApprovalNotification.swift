@@ -64,9 +64,15 @@ public struct AgentApprovalNotification: Equatable, Sendable {
     static func layout(for call: AgentToolCall) -> Layout {
         let questions = call.questions ?? []
         if call.name == "ExitPlanMode" || questions.count > 1 { return .openOnly }
-        guard questions.count == 1 else { return .allowDeny }
+        guard questions.count == 1 else { return showsWholeCommand(call) ? .allowDeny : .openOnly }
         let labels = questions[0].options.map(\.label).filter { !$0.isEmpty }
         return (1...maxOptionActions).contains(labels.count) ? .options(labels) : .openOnly
+    }
+
+    /// One tap on a lock screen must not approve what the banner cut short or never named: the app shows the whole request.
+    static func showsWholeCommand(_ call: AgentToolCall) -> Bool {
+        guard let command = call.detail?.trimmingCharacters(in: .whitespacesAndNewlines), !command.isEmpty else { return false }
+        return command.count < maxBodyLength
     }
 
     /// The category a push can name: a push cannot carry per-question button titles, so a question gets Open.

@@ -84,11 +84,15 @@ extension HostStatusView {
                           systemImage: "lock.fill")
                         .font(.caption)
                         .foregroundStyle(HostPalette.muted)
+
+                    if pairing.needsApproval {
+                        PairingApprovalButtons(clientName: pairing.clientName) { model.resolvePairing(approved: $0) }
+                    }
                 }
 
                 Spacer(minLength: 20)
 
-                if let image = qrCode(encoding: PairingPayload.encode(code: pairing.code)) {
+                if let image = qrCode(encoding: PairingPayload.encode(code: pairing.code, secret: pairing.secret)) {
                     Image(nsImage: image)
                         .interpolation(.none)
                         .resizable()

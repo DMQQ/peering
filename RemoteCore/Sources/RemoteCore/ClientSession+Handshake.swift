@@ -62,15 +62,10 @@ extension ClientSession {
             }
             emit(.note("The Mac's key matches the pin stored for it."))
         } else if hello.alreadyPaired {
-            // Reached only when this device lost its pin store while the Mac kept its half. Not a
-            // way in for an attacker: the Mac only answers `alreadyPaired` to a client whose
-            // certificate it recognises, and our identity key is `…ThisDeviceOnly`, so a backup
-            // restore cannot carry it here. Re-pin with the server key already verified over TLS.
-            if pins.record(hostID: hello.serverID, publicKey: serverKey) {
-                emit(.note("The Mac already knows this device. Pin restored. It will appear in Trusted Macs again."))
-            } else {
-                emit(.note("The Mac already knows this device, but the pin could not be saved. Keychain may be unavailable."))
-            }
+            // An unpinned Mac's own claim proves nothing: an impostor can make it, and trusting it
+            // would pin the impostor's key without any code comparison. The user pairs again.
+            fail(Failure.noPinOnFile(hostID: hello.serverID))
+            return
         }
 
         if hello.alreadyPaired {
@@ -177,6 +172,7 @@ extension ClientSession {
         )
 
         let code = PairingSAS.code(for: transcript)
+        lock.withLock { pairingTranscript = transcript }
         lock.withLock {
             state = .awaitingUserConfirmation
             _phase = .confirming(code: code)

@@ -79,14 +79,17 @@ extension HostModel {
                 removeAllManagedVirtualDisplays()
             }
 
-        case .pairingCode(let code, let clientName, let isRemote):
-            pairing = PairingPrompt(clientName: clientName, code: code, isRemote: isRemote)
+        case .pairingCode(let code, let secret, let clientName, let isRemote):
+            pairing = PairingPrompt(clientName: clientName, code: code, secret: secret, isRemote: isRemote)
             record(isRemote
                    ? "Pairing request from \(clientName), over the relay"
                    : "Pairing request from \(clientName)")
             // The code is not logged: the unified log is readable by any local process, and the
             // digits are already on screen for the user to compare.
             hostLog.notice("pairing code displayed for \(clientName, privacy: .public)")
+
+        case .pairingNeedsApproval:
+            pairing?.needsApproval = true
 
         case .pairingCompleted(let clientName, let accepted):
             pairing = nil

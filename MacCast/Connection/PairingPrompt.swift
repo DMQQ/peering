@@ -138,7 +138,7 @@ struct PairingPrompt: View {
                     showsScanner = false
                     enteredCode = scannedCode
                     if scannedCode == code {
-                        model.confirmPairing(accepted: true)
+                        model.confirmPairing(accepted: true, secret: PairingPayload.secret(from: payload))
                     } else {
                         showsMismatch = true
                     }

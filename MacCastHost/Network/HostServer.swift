@@ -150,6 +150,13 @@ final class HostServer: @unchecked Sendable {
         terminalManager.allPushTokens()
     }
 
+    /// The Mac user's answer to a pairing that arrived without the QR secret.
+    func resolvePairingApproval(approved: Bool) {
+        queue.async { [weak self] in
+            self?.controlSessions.forEach { $0.resolveApproval(approved: approved) }
+        }
+    }
+
     func registeredPushTokens() -> [String] {
         terminalManager.registeredPushTokens()
     }
@@ -245,8 +252,13 @@ final class HostServer: @unchecked Sendable {
         }
     }
 
+    /// Revokes every client and ends the sessions they have open: a pin removed under a live session would otherwise leave it running.
     func unpairAll() -> Bool {
-        pins.removeAll()
+        guard pins.removeAll() else { return false }
+        queue.async { [weak self] in
+            self?.controlSessions.forEach { $0.cancel() }
+        }
+        return true
     }
 
     /// Revokes one client and ends any session it already has open.
@@ -294,6 +306,8 @@ final class HostServer: @unchecked Sendable {
     /// How long a connection may occupy a session slot without completing authentication.
     private static let handshakeSilenceLimit: TimeInterval = 30
 
+    private static let approvalLimit: TimeInterval = 120
+
     /// How often to look. Well under the limit, so a session ends within a few seconds of going
     /// quiet rather than up to a whole interval late.
     private static let reaperInterval: TimeInterval = 5
@@ -301,6 +315,11 @@ final class HostServer: @unchecked Sendable {
     /// Ends sessions whose client has stopped answering.
     private func reapSilentSessions() {
         for session in controlSessions where !session.isVideoConnection {
+            // A person has to find the Mac and click, so this wait is longer than a handshake's, and ends as a declined pairing so the card on the Mac goes away.
+            if session.isAwaitingApproval {
+                if session.silence > Self.approvalLimit { session.resolveApproval(approved: false) }
+                continue
+            }
             let limit = session.isAuthorized ? Self.silenceLimit : Self.handshakeSilenceLimit
             guard session.silence > limit else { continue }
             if session.isAuthorized {

@@ -27,4 +27,10 @@ public struct FieldState: Codable, Sendable, Equatable {
         self.selectionLength = selectionLength
         self.caret = caret
     }
+
+    /// The selection as the phone's field can take it. The values arrive from the Mac, and a range outside the text is an exception in UIKit.
+    public func selection(inTextOfLength length: Int) -> (location: Int, length: Int) {
+        let location = min(max(selectionLocation, 0), length)
+        return (location, min(max(selectionLength, 0), length - location))
+    }
 }

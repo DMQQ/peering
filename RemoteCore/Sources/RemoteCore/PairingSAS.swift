@@ -48,6 +48,20 @@ public enum PairingSAS {
         ConstantTime.equals(commitment, self.commitment(ephemeralPublicKey: ephemeralPublicKey, nonce: nonce))
     }
 
+    public static let proofDomain = "MacCast-Pairing-proof-v1"
+
+    /// Shows that the confirming phone saw the Mac's screen: the secret exists only in the QR code,
+    /// while the six digits can be computed by anyone on the connection.
+    public static func proof(secret: Data, transcript: PairingTranscript) -> Data {
+        var message = Data(proofDomain.utf8)
+        message.append(transcript.serialized())
+        return Data(HMAC<SHA256>.authenticationCode(for: message, using: SymmetricKey(data: secret)))
+    }
+
+    public static func verifyProof(_ proof: Data, secret: Data, transcript: PairingTranscript) -> Bool {
+        ConstantTime.equals(proof, self.proof(secret: secret, transcript: transcript))
+    }
+
     public static func code(for transcript: PairingTranscript) -> String {
         let digest = Array(SHA256.hash(data: transcript.serialized()))
 

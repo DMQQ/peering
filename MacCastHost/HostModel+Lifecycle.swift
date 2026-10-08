@@ -387,7 +387,7 @@ extension HostModel {
     func unpairAll() {
         Analytics.track(.unpairedAll)
         guard let pins else { return }
-        if pins.removeAll() {
+        if server?.unpairAll() ?? pins.removeAll() {
             pairedClientIDs = []
             // Names go with the pins, or the device list would name phones it will never let back in.
             clientNames = [:]
@@ -398,6 +398,10 @@ extension HostModel {
         } else {
             record("Could not clear paired clients", level: .failure)
         }
+    }
+
+    func resolvePairing(approved: Bool) {
+        server?.resolvePairingApproval(approved: approved)
     }
 
     /// Drops a connection but leaves the phone trusted: the pin stays, so it reconnects without a pairing code.

@@ -36,7 +36,7 @@ enum SSHDirectoryListing {
             isDirectory: isDirectory,
             isSymlink: isSymlink,
             // The entry's own size, a folder's included, as `ls -l` prints it; the only size obtainable without reading the tree.
-            size: Int64(size ?? 0),
+            size: Int64(clamping: size ?? 0),
             permissions: mode.map { permissions(type: typeCharacter(of: type), mode: $0) } ?? "",
             modified: modified
         )

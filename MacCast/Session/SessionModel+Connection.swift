@@ -44,14 +44,14 @@ extension SessionModel {
         return nil
     }
 
-    func confirmPairing(accepted: Bool) {
+    func confirmPairing(accepted: Bool, secret: Data? = nil) {
         // Declining ends the session from the Mac's side too and arrives as `.disconnected`, so without this the user's own "no" reads as a lost connection.
         if !accepted { activeSession?.userEndedDeliberately = true }
         Analytics.pairingDecided(accepted: accepted)
         PostHogLog.info("pairing decision submitted", attributes: [
             "pairing_outcome": accepted ? "accepted" : "declined",
         ])
-        session?.confirmPairing(accepted: accepted)
+        session?.confirmPairing(accepted: accepted, secret: secret)
     }
 
     /// `deliberate` is "did the user mean it", not "who called": a tapped disconnect is silent, one iOS forced is not, since a banner is the only way they hear of it.

@@ -25,7 +25,14 @@ use crate::session::{Join, Registry, Token};
 /// short enough that an idle socket cannot be used to hold resources.
 const TOKEN_DEADLINE: Duration = Duration::from_secs(5);
 
+/// Sockets that may be waiting to present a token at once. Established splices do not count: the permit is returned the moment the token is read.
+const MAX_UNAUTHENTICATED: usize = 512;
+
+/// Without a pause a persistent accept error (descriptor exhaustion) turns this loop into a spinning core and a log flood.
+const ACCEPT_ERROR_BACKOFF: Duration = Duration::from_millis(50);
+
 pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
+    let waiting = Arc::new(tokio::sync::Semaphore::new(MAX_UNAUTHENTICATED));
     info!(addr = %listener.local_addr().map(|a| a.to_string()).unwrap_or_default(), "control relay listening");
 
     loop {
@@ -48,9 +55,14 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
                     warn!(%error, %peer, "could not disable Nagle on a control connection");
                 }
 
+                let Ok(permit) = Arc::clone(&waiting).try_acquire_owned() else {
+                    warn!(%peer, "refused a control connection: too many are waiting for a token");
+                    continue;
+                };
+
                 let registry = Arc::clone(&registry);
                 tokio::spawn(async move {
-                    if let Err(error) = handle(stream, registry).await {
+                    if let Err(error) = handle(stream, registry, permit).await {
                         debug!(%peer, %error, "control connection ended");
                     }
                 });
@@ -58,18 +70,26 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
             // A failed accept is about this connection, not the listener — a file-descriptor
             // exhaustion or a peer that vanished mid-handshake. Logging and carrying on is right;
             // tearing the listener down would take every other session with it.
-            Err(error) => warn!(%error, "control listener could not accept"),
+            Err(error) => {
+                warn!(%error, "control listener could not accept");
+                tokio::time::sleep(ACCEPT_ERROR_BACKOFF).await;
+            }
         }
     }
 }
 
-async fn handle(mut stream: TcpStream, registry: Arc<Registry>) -> std::io::Result<()> {
+async fn handle(
+    mut stream: TcpStream,
+    registry: Arc<Registry>,
+    waiting: tokio::sync::OwnedSemaphorePermit,
+) -> std::io::Result<()> {
     // No buffering here, and none needed: this is the only read this side ever does. Everything
     // after it belongs to TLS.
     let mut token: Token = [0u8; 16];
     timeout(TOKEN_DEADLINE, stream.read_exact(&mut token))
         .await
         .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "no token presented"))??;
+    drop(waiting);
 
     // Looked up before joining, for the reason the client id used to be: the registry still holds
     // the session at this point, and what the splice is metered on has to be in hand before the

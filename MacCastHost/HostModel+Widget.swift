@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import WidgetKit
 
 // MARK: - Desktop widget
@@ -20,12 +21,25 @@ extension HostModel {
         case "start":
             start()
         case "stop":
+            // Any web page or app can open this URL, so stopping while someone is connected is confirmed.
             Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .milliseconds(180))
-                self?.stop()
+                guard let self, connectedClients.isEmpty || confirmStopWhileConnected() else { return }
+                stop()
             }
         default:
             break
         }
+    }
+}
+
+extension HostModel {
+    func confirmStopWhileConnected() -> Bool {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Stop sharing this Mac?")
+        alert.informativeText = String(localized: "A connected device will be disconnected.")
+        alert.addButton(withTitle: String(localized: "Stop"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        return alert.runModal() == .alertFirstButtonReturn
     }
 }

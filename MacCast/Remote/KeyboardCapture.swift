@@ -284,8 +284,8 @@ final class KeyboardTypingView: UITextView, UITextViewDelegate {
         guard markedTextRange == nil else { return }
         if text != draft { restore(draft) }
         let length = (text as NSString).length
-        let location = min(selection.location, length)
-        let clamped = NSRange(location: location, length: min(selection.length, length - location))
+        let location = min(max(selection.location, 0), length)
+        let clamped = NSRange(location: location, length: min(max(selection.length, 0), length - location))
         if selectedRange != clamped { selectedRange = clamped }
     }
 

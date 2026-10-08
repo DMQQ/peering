@@ -44,9 +44,13 @@ public struct TerminalCommandFinishDetector: Sendable {
         return Self.parse(body: body)
     }
 
+    /// Anything longer reads the same: a marker is printed by whatever runs in the terminal, so the number is not to be trusted.
+    static let maximumDuration: TimeInterval = 30 * 24 * 3_600
+
     /// Shared by host (push body) and phone (live banner) so the two sentences cannot drift.
     public static func durationSuffix(_ duration: TimeInterval) -> String {
-        let totalSeconds = Int(duration.rounded())
+        let bounded = duration.isNaN ? 0 : min(max(duration, 0), maximumDuration)
+        let totalSeconds = Int(bounded.rounded())
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
         guard minutes > 0 else { return " after \(seconds)s" }
@@ -59,11 +63,11 @@ public struct TerminalCommandFinishDetector: Sendable {
     private static func parse(body: String) -> Finish? {
         let parts = body.split(separator: ";", maxSplits: 2, omittingEmptySubsequences: false)
         guard parts.count == 3,
-              let durationMS = Double(parts[0]),
+              let durationMS = Double(parts[0]), durationMS.isFinite, durationMS >= 0,
               let exitStatus = Int32(parts[1])
         else { return nil }
 
         let command = Data(base64Encoded: String(parts[2])).flatMap { String(data: $0, encoding: .utf8) }
-        return Finish(command: command, duration: durationMS / 1_000, exitStatus: exitStatus)
+        return Finish(command: command, duration: min(durationMS / 1_000, maximumDuration), exitStatus: exitStatus)
     }
 }

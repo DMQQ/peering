@@ -64,6 +64,9 @@ ExecStart=/usr/local/bin/peeringd
 Restart=always
 RestartSec=2
 
+# Every socket is a descriptor, and the default soft limit of 1024 is below the 4096 connections the signalling listener is configured to accept.
+LimitNOFILE=65536
+
 # The relay's design principle is that it should be too stupid to break the property it exists to
 # provide: it copies bytes it cannot read. These settings are the same idea applied from the
 # outside, so that a bug in it has very little to work with. None of them names a user, so none of

@@ -96,7 +96,7 @@ struct FirstConnectionOnboardingView: View {
                     .tracking(2)
                     .textSelection(.enabled)
 
-                if let image = qrCodeImage(encoding: PairingPayload.encode(code: pairing.code)) {
+                if let image = qrCodeImage(encoding: PairingPayload.encode(code: pairing.code, secret: pairing.secret)) {
                     Image(nsImage: image)
                         .interpolation(.none)
                         .resizable()
@@ -104,6 +104,10 @@ struct FirstConnectionOnboardingView: View {
                         .padding(12)
                         .background(.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .accessibilityLabel("Pairing QR code")
+                }
+
+                if pairing.needsApproval {
+                    PairingApprovalButtons(clientName: pairing.clientName) { model.resolvePairing(approved: $0) }
                 }
             }
             .frame(maxWidth: .infinity)

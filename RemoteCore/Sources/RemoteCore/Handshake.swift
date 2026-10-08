@@ -171,9 +171,12 @@ public struct PairingReveal: Codable, Sendable, Equatable {
 
 public struct PairConfirm: Codable, Sendable, Equatable {
     public var accepted: Bool
+    /// ``PairingSAS/proof(secret:transcript:)``; absent when the digits were typed rather than scanned.
+    public var proof: Data?
 
-    public init(accepted: Bool) {
+    public init(accepted: Bool, proof: Data? = nil) {
         self.accepted = accepted
+        self.proof = proof
     }
 }
 

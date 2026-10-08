@@ -258,6 +258,7 @@ pub async fn serve(
             Ok(pair) => pair,
             Err(error) => {
                 warn!(%error, "signalling listener could not accept");
+                tokio::time::sleep(Duration::from_millis(50)).await;
                 continue;
             }
         };

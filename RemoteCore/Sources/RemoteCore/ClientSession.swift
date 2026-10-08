@@ -126,6 +126,7 @@ public final class ClientSession: @unchecked Sendable {
 
     var ephemeral: P256.KeyAgreement.PrivateKey?
     var nonce: Data?
+    var pairingTranscript: PairingTranscript?
     var remoteCommitment: Data?
 
     /// Where the handshake has got to; finer than ``Phase``.
@@ -326,14 +327,17 @@ public final class ClientSession: @unchecked Sendable {
 
     // MARK: - Pairing
 
-    public func confirmPairing(accepted: Bool) {
+    /// `secret` is the one from the Mac's QR code; digits typed by hand have none, and the Mac then asks its own user.
+    public func confirmPairing(accepted: Bool, secret: Data? = nil) {
         lock.lock()
         let canConfirm = state == .awaitingUserConfirmation
         if accepted, canConfirm { state = .awaitingPairResult }
+        let transcript = pairingTranscript
         lock.unlock()
 
         guard canConfirm else { return }
-        connection()?.send(.pairConfirm, PairConfirm(accepted: accepted))
+        let proof = secret.flatMap { secret in transcript.map { PairingSAS.proof(secret: secret, transcript: $0) } }
+        connection()?.send(.pairConfirm, PairConfirm(accepted: accepted, proof: proof))
 
         guard accepted else {
             emit(.note("Pairing declined."))
