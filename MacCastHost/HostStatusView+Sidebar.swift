@@ -94,7 +94,7 @@ extension HostStatusView {
             .contentShape(RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous))
         }
         .buttonStyle(.plain)
-        .disabled(!updater.canCheck)
+        .disabled(!updater.canInstall)
     }
 
     /// Selection is a fill rather than a tint, as on the phone: a coloured glyph is hard to find at arm length.

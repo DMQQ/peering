@@ -38,7 +38,7 @@ extension HostMenuBarContent {
             .contentShape(Rectangle())
         }
         .buttonStyle(PressableStyle())
-        .disabled(!updater.canCheck)
+        .disabled(!updater.canInstall)
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
