@@ -7,7 +7,7 @@ import os
 
 private let storeLog = Logger(subsystem: "pl.dmq.peering", category: "store")
 
-// RelayPlan lives in MacCastKit beside the feature map so the map's answers can be tested; this file is about buying.
+// RelayPlan lives in MacCastKit so its allowance can be tested; this file is about buying.
 
 /// How often a plan is billed. Every tier is sold both ways so the paywall compares plans, not periods; monthly is roughly eight months to the year.
 nonisolated enum BillingPeriod: String, CaseIterable, Identifiable, Sendable {
@@ -52,13 +52,20 @@ final class StoreManager {
     /// `nonisolated`: ``Tier`` and ``BillingPeriod`` are not main-actor types and must be able to build identifiers.
     nonisolated static let productIDStem = "pl.dmq.peering.iap"
 
+    /// A non-consumable, bought once and never renewed. Pro only: a lifetime of unlimited relay is priced as the whole plan, not as the cheapest one. The relay repeats this identifier in `Relay/src/storekit.rs`.
+    nonisolated static let lifetimeProductID = "\(productIDStem).pro.lifetime1"
+
     nonisolated static let paidProductIDs: Set<String> = Set(
         Tier.allCases.flatMap { tier in
             BillingPeriod.allCases.map { tier.productID(for: $0) }
         }
-    )
+    ).union([lifetimeProductID])
 
     private(set) var products: [Product] = []
+    /// Kept out of ``products``, which is the subscription ladder the period picker and cards walk.
+    private(set) var lifetimeProduct: Product?
+    /// True once a lifetime purchase is live, so a screen can say so instead of offering it again.
+    private(set) var hasLifetime = false
     /// The best live tier, not the first: someone who moved up holds two, and the relay meters, so guessing low meters a subscriber.
     private(set) var activeTier: Tier?
     /// Not what a gate asks: false also before `Transaction.currentEntitlements` has answered. Use ``access``.
@@ -148,9 +155,18 @@ final class StoreManager {
         isPurchasing = true
         purchaseError = nil
         defer { isPurchasing = false }
+        let analyticsProduct = Self.analyticsName(for: product.id)
+        Analytics.purchaseStarted(product: analyticsProduct)
         let outcome = await performPurchase(product)
-        Analytics.purchaseFinished(outcome: "\(outcome)")
+        Analytics.purchaseFinished(outcome: "\(outcome)", product: analyticsProduct)
         return outcome
+    }
+
+    /// A closed set for the event: the store's identifiers are not sent.
+    nonisolated static func analyticsName(for productID: String) -> String {
+        if productID == lifetimeProductID { return "pro_lifetime" }
+        guard Tier.named(by: productID) == .pro else { return "other" }
+        return productID.hasSuffix(BillingPeriod.yearly.identifier) ? "pro_yearly" : "pro_monthly"
     }
 
     private func performPurchase(_ product: Product) async -> PurchaseOutcome {
@@ -206,6 +222,9 @@ final class StoreManager {
 
         var id: String { rawValue }
 
+        /// What the paywall offers. Relay is no longer sold; it stays a case so a subscription bought before still reads as a paid plan.
+        static let sold: [Tier] = [.pro]
+
         var identifier: String {
             switch self {
             case .relay: return "relay"
@@ -248,36 +267,15 @@ final class StoreManager {
         var tagline: String {
             switch self {
             case .relay: return String(localized: "Unlimited relay, on every Mac you own.")
-            case .pro: return String(localized: "No limit on relay, and the whole toolbox.")
+            case .pro: return String(localized: "Unlimited time away from your own network.")
             }
         }
 
-        /// One answer for all three paid tiers; free pairs a single Mac. Enforced client-side at the pairings by ``PlanCapability/extraMacs``.
-        static let macCount = String(localized: "Every Mac")
-
-        /// Whole lists, not "everything below plus": a card read alone looked like it offered less.
         var features: [String] {
-            let relay = [
-                String(localized: "Unlimited relay every day"),
-                String(localized: "Every Mac you own, instead of one"),
-                String(localized: "Sound from the Mac, and Picture in Picture"),
-                String(localized: "Files that move both ways"),
-                String(localized: "The clipboard history"),
-                String(localized: "Told when a terminal needs you"),
+            [
+                String(localized: "Unlimited time away from your own network, relayed or direct"),
+                String(localized: "The sharpest picture over the relay"),
             ]
-            switch self {
-            case .relay:
-                return relay
-            case .pro:
-                return relay + [
-                    String(localized: "Several shells at once, as tabs"),
-                    String(localized: "Virtual displays, the Mac's own and any you add"),
-                    String(localized: "Several Macs open at the same time"),
-                    String(localized: "Macros, snippets and quick commands"),
-                    String(localized: "Several of the Mac's windows in one picture"),
-                    String(localized: "The sharpest picture over the relay"),
-                ]
-            }
         }
 
         var isRecommended: Bool { self == .pro }
@@ -298,29 +296,6 @@ final class StoreManager {
         return "\(product.displayPrice)/\(period.shortName)"
     }
 
-    /// The yearly price divided by twelve in the store's currency. Rounded by the currency formatter, since `Decimal` division does not give the number a person would write.
-    func effectiveMonthlyPrice(for tier: Tier) -> String? {
-        guard let yearly = product(for: tier, period: .yearly) else { return nil }
-        return (yearly.price / 12).formatted(yearly.priceFormatStyle)
-    }
-
-    /// The smallest yearly saving across tiers, for the one place a single number stands for both. Nil until a tier has both periods.
-    var smallestYearlySaving: Int? {
-        Tier.allCases.compactMap { yearlySaving(for: $0) }.min()
-    }
-
-    /// Computed from the two fetched prices, nil unless both exist, rounded down so the promise stays true.
-    func yearlySaving(for tier: Tier) -> Int? {
-        guard let monthly = product(for: tier, period: .monthly),
-              let yearly = product(for: tier, period: .yearly) else { return nil }
-        let monthlyCents = (monthly.price * 100 as NSDecimalNumber).doubleValue
-        let yearlyCents = (yearly.price * 100 as NSDecimalNumber).doubleValue
-        guard monthlyCents > 0, yearlyCents > 0 else { return nil }
-        let full = monthlyCents * 12
-        guard yearlyCents < full else { return nil }
-        return Int(((full - yearlyCents) / full * 100).rounded(.down))
-    }
-
     // MARK: - Private
 
     private func fetchProducts() async {
@@ -334,6 +309,7 @@ final class StoreManager {
                     loaded.first { $0.id == tier.productID(for: period) }
                 }
             }
+            lifetimeProduct = loaded.first { $0.id == Self.lifetimeProductID }
             // An empty answer is not a slow one. The store has spoken.
             productsUnavailable = products.isEmpty
         } catch {
@@ -347,20 +323,27 @@ final class StoreManager {
     private func refreshEntitlement() async {
         /// The signed transaction each live entitlement came with, by the tier it buys.
         var live: [Tier: String] = [:]
+        var lifetimeLive = false
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result else { continue }
             // Read off the identifier's middle word: two ids per tier, and a table of one would leave a yearly subscriber looking like they bought nothing.
             guard let tier = Tier.named(by: transaction.productID) else { continue }
             guard transaction.revocationDate == nil else { continue }
             // Off the VerificationResult, not the wrapped transaction: the JWS is Apple's signature over this checked result.
-            live[tier] = result.jwsRepresentation
+            // A lifetime receipt wins over a subscription's for the same tier: it is the one that never lapses under a running session.
+            let isLifetime = transaction.productID == Self.lifetimeProductID
+            if isLifetime { lifetimeLive = true }
+            if isLifetime || live[tier] == nil {
+                live[tier] = result.jwsRepresentation
+            }
             await transaction.finish()
         }
+        hasLifetime = lifetimeLive
 
         // The best tier, not the first: more than one can be live and the relay must hear the dearest.
         activeTier = Tier.allCases.last { live[$0] != nil }
         activeJWS = activeTier.flatMap { live[$0] }
-        // Set only here. The loop runs to its end even when nothing is live, since "bought nothing" is an answer that must unlock the gates. See ``PlanAccess``.
+        // Set only here. The loop runs to its end even when nothing is live, since "bought nothing" is an answer that must stop the app waiting. See ``PlanAccess``.
         hasReadEntitlement = true
     }
 

@@ -5,10 +5,11 @@ import SwiftUI
 extension PaywallView {
     var header: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Image(systemName: "network")
-                .font(.system(size: 46, weight: .light))
-                .foregroundStyle(ColorPalette.ink)
-                .frame(height: 56)
+            Image(String(localized: "Pears"))
+                .resizable()
+                .scaledToFit()
+                .frame(width: 56, height: 56)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(reason.title)
@@ -58,47 +59,21 @@ extension PaywallView {
                 loadingPlaceholder
             }
         } else {
-            VStack(spacing: 10) {
-                periodPicker
-
-                ForEach(StoreManager.Tier.allCases) { tier in
-                    PlanCard(
-                        tier: tier,
-                        price: store.priceLabel(for: tier, period: period),
-                        note: period == .yearly
-                            ? store.effectiveMonthlyPrice(for: tier).map { String(localized: "\($0) a month") }
-                            : nil,
-                        selected: chosen == tier,
-                        select: { chosen = tier }
-                    )
-                }
-            }
-            .animation(Motion.tap, value: chosen)
+            PlanOfferCards(selection: $chosen)
         }
-    }
-
-    private var periodPicker: some View {
-        BillingPeriodPicker(period: $period, saving: store.smallestYearlySaving)
     }
 
     @ViewBuilder
     var buyButton: some View {
-        if let product = store.product(for: chosen, period: period),
-           let price = store.compactPriceLabel(for: chosen, period: period) {
+        if let chosen, let product = store.product(for: chosen), let title = store.buttonTitle(for: chosen) {
             VStack(alignment: .leading, spacing: 10) {
                 WelcomePrimaryButton(
-                    title: store.isPurchasing
-                        ? String(localized: "Contacting the App Store…")
-                        : String(localized: "Continue with \(chosen.name) · \(price)")
+                    title: store.isPurchasing ? String(localized: "Contacting the App Store…") : title
                 ) {
                     Task {
-                        // Captured before the await, because `chosen` is a live selection: somebody
-                        // tapping another card while the store is answering should not change what
-                        // the confirmation goes on to say they bought.
-                        let buying = chosen
                         switch await store.purchase(product) {
                         case .purchased:
-                            justBought = buying
+                            justBought = .pro
                         case .pending:
                             awaitingApproval = true
                         case .cancelled:
@@ -152,44 +127,6 @@ extension PaywallView {
 
     var footer: some View {
         VStack(spacing: 18) {
-            VStack(spacing: 12) {
-                Text("On your own network Peering is free. A plan pays for the relay, the server that carries your session when your Mac is somewhere else, and adds the tools for working away from it.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button {
-                    showsEverythingIncluded = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Text("See everything Peering does")
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
-                    }
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(ColorPalette.ink)
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    Task {
-                        if await store.restore() {
-                            restoreNote = nil
-                            justBought = store.activeTier
-                        } else if store.purchaseError == nil {
-                            restoreNote = String(localized: "No purchases to restore on this Apple Account.")
-                        }
-                    }
-                } label: {
-                    Text("Restore purchases")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.plain)
-            }
-
             if let note = restoreNote ?? store.purchaseError {
                 Text(note)
                     .font(.caption)
@@ -199,7 +136,7 @@ extension PaywallView {
             }
 
             VStack(spacing: 9) {
-                Text("\(period == .monthly ? String(localized: "This subscription renews every month") : String(localized: "This subscription renews every year")) until cancelled, whichever plan you choose. You can cancel any time in your App Store settings. Payment is taken from your Apple Account when you confirm.")
+                Text("The subscription renews every month until cancelled, and you can cancel any time in your App Store settings. Lifetime is a single payment that does not renew. Payment is taken from your Apple Account when you confirm.")
                     .fixedSize(horizontal: false, vertical: true)
             }
             .font(.caption2)
@@ -214,6 +151,17 @@ extension PaywallView {
     /// both are plain HTML with no script for the reviewer whose browser runs none.
     var legalLinks: some View {
         HStack(spacing: 18) {
+            Button("Restore purchases") {
+                Task {
+                    if await store.restore() {
+                        restoreNote = nil
+                        justBought = store.activeTier
+                    } else if store.purchaseError == nil {
+                        restoreNote = String(localized: "No purchases to restore on this Apple Account.")
+                    }
+                }
+            }
+            .disabled(store.isPurchasing)
             Link("Privacy Policy", destination: Legal.privacy)
             Link("Terms of Use", destination: Legal.terms)
         }
