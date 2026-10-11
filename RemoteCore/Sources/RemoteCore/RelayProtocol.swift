@@ -41,6 +41,8 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
     /// Asked only while the Connect tab is open, never in the background, so the relay cannot learn which Macs a phone wants.
     case hostPresence(hostID: String)
     case ping
+    case referralStatus(clientID: String, proof: RelayDeviceProof)
+    case redeemReferral(clientID: String, code: String, proof: RelayDeviceProof)
     /// Only a registered Mac may send this.
     /// `source` is the terminal window the notification is about; omitted when nil.
     /// `action` makes the notification answerable from the Lock Screen: the category names its buttons and the ids say what they answer.
@@ -57,6 +59,7 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
         case clientID = "clientId"
         case videoToken
         case token, title, body, source, category
+        case code
         case sessionID = "sessionId"
         case approvalID = "approvalId"
     }
@@ -105,6 +108,15 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encode(Self.hex(videoToken), forKey: .videoToken)
         case .ping:
             try container.encode("ping", forKey: .type)
+        case .referralStatus(let clientID, let proof):
+            try container.encode("referralStatus", forKey: .type)
+            try container.encode(clientID, forKey: .clientID)
+            try Self.encode(proof, into: &container)
+        case .redeemReferral(let clientID, let code, let proof):
+            try container.encode("redeemReferral", forKey: .type)
+            try container.encode(clientID, forKey: .clientID)
+            try container.encode(code, forKey: .code)
+            try Self.encode(proof, into: &container)
         case .notifyDevice(let token, let title, let body, let source, let action):
             try container.encode("notifyDevice", forKey: .type)
             try container.encode(token, forKey: .deviceToken)
@@ -115,6 +127,12 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encodeIfPresent(action?.sessionID, forKey: .sessionID)
             try container.encodeIfPresent(action?.approvalID, forKey: .approvalID)
         }
+    }
+
+    private static func encode(_ proof: RelayDeviceProof, into container: inout KeyedEncodingContainer<CodingKeys>) throws {
+        try container.encode(proof.publicKey, forKey: .publicKey)
+        try container.encode(proof.signature, forKey: .proof)
+        try container.encode(proof.proofTime, forKey: .proofTime)
     }
 
     /// `%02x` keeps leading zeros; the relay's `unhex` refuses a short token.
@@ -193,6 +211,7 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
     /// `online: false` is about registration with the relay, not the Mac's reachability.
     case hostPresence(deviceID: String, online: Bool)
     case pong
+    case referral(RelayReferral)
     case error(code: String, message: String)
 
     private enum CodingKeys: String, CodingKey {
@@ -204,6 +223,7 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
         case online
         case code, message
         case host, port
+        case bonusSeconds, bonusEndsAt, redeemed, invitesEarned, invitesMax
     }
 
     public init(from decoder: Decoder) throws {
@@ -242,6 +262,16 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
             )
         case "pong":
             self = .pong
+        case "referral":
+            self = .referral(RelayReferral(
+                code: try container.decode(String.self, forKey: .code),
+                bonusSeconds: try container.decode(TimeInterval.self, forKey: .bonusSeconds),
+                bonusEndsAt: try container.decodeIfPresent(TimeInterval.self, forKey: .bonusEndsAt)
+                    .map(Date.init(timeIntervalSince1970:)),
+                redeemed: try container.decode(Bool.self, forKey: .redeemed),
+                invitesEarned: try container.decode(Int.self, forKey: .invitesEarned),
+                invitesMax: try container.decode(Int.self, forKey: .invitesMax)
+            ))
         case "error":
             self = .error(
                 code: try container.decode(String.self, forKey: .code),

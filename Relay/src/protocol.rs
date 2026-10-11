@@ -107,6 +107,35 @@ pub enum ClientMessage {
         proof_time: Option<u64>,
     },
 
+    /// A phone asking for its own invite code and what invites have earned it.
+    ///
+    /// All three proof fields are required, signed over `device_proof::referral_payload("status",
+    /// client_id, proof_time)`: bonus time hangs from the device key, never from an announced id.
+    /// Absent from every build before invites.
+    ReferralStatus {
+        client_id: String,
+        #[serde(default, deserialize_with = "optional_text")]
+        public_key: Option<String>,
+        #[serde(default, deserialize_with = "optional_text")]
+        proof: Option<String>,
+        #[serde(default)]
+        proof_time: Option<u64>,
+    },
+
+    /// A phone redeeming another device's invite code. Signed over
+    /// `device_proof::referral_payload("redeem:" + code, client_id, proof_time)`, with `code`
+    /// exactly as sent.
+    RedeemReferral {
+        client_id: String,
+        code: String,
+        #[serde(default, deserialize_with = "optional_text")]
+        public_key: Option<String>,
+        #[serde(default, deserialize_with = "optional_text")]
+        proof: Option<String>,
+        #[serde(default)]
+        proof_time: Option<u64>,
+    },
+
     /// Keeps the signalling connection alive through idle NAT timeouts.
     Ping,
 
@@ -232,6 +261,21 @@ pub enum ServerMessage {
     /// order they arrive in.
     HostPresence { host_id: String, online: bool },
 
+    /// A device's invite standing, in answer to [`ClientMessage::ReferralStatus`] and to a
+    /// successful [`ClientMessage::RedeemReferral`].
+    ///
+    /// `bonus_seconds` is what is added to *each window's* free allowance right now, so the app's
+    /// "relay time left" bar is `free allowance + bonus_seconds - used`. `bonus_ends_at` is Unix
+    /// seconds and absent when no grant is running.
+    Referral {
+        code: String,
+        bonus_seconds: u64,
+        bonus_ends_at: Option<u64>,
+        redeemed: bool,
+        invites_earned: u32,
+        invites_max: u32,
+    },
+
     Pong,
 
     Error { code: String, message: String },
@@ -323,6 +367,27 @@ pub fn hex_bytes(text: &str, limit: usize) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn invite_messages_use_camel_case_and_reach_an_old_parser_as_unknown() {
+        let text = r#"{"type":"redeemReferral","clientId":"p","code":"ABCDEFGH","publicKey":"04","proof":"30","proofTime":5}"#;
+        let message: ClientMessage = serde_json::from_str(text).expect("should parse");
+        assert!(matches!(message, ClientMessage::RedeemReferral { ref code, .. } if code == "ABCDEFGH"));
+
+        let reply = serde_json::to_value(ServerMessage::Referral {
+            code: "ABCDEFGH".into(),
+            bonus_seconds: 1800,
+            bonus_ends_at: None,
+            redeemed: false,
+            invites_earned: 0,
+            invites_max: 5,
+        })
+        .expect("serialises");
+        assert_eq!(reply["type"], "referral");
+        assert_eq!(reply["bonusSeconds"], 1800);
+        assert_eq!(reply["invitesMax"], 5);
+        assert!(reply["bonusEndsAt"].is_null());
+    }
 
     #[test]
     fn a_host_registration_round_trips_through_camel_case() {

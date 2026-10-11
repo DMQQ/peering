@@ -38,11 +38,16 @@ use crate::apns::{ApnsClient, PushAction, PushRoute};
 const AGENT_APPROVAL_CATEGORY_PREFIX: &str = "peering.agent.approval.";
 const AGENT_FINISHED_CATEGORY: &str = "peering.agent.finished";
 
+fn unix_now() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+}
+
 fn is_agent_category(category: &str) -> bool {
     category.starts_with(AGENT_APPROVAL_CATEGORY_PREFIX) || category == AGENT_FINISHED_CATEGORY
 }
 use crate::protocol::{hex, unhex, ClientMessage, ServerMessage};
 use crate::quota::{Plan, QuotaTracker};
+use crate::referrals::Standing;
 use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
 use crate::storekit::{ReceiptCache, StoreKitVerifier};
 
@@ -99,6 +104,57 @@ struct ConnectionState {
     /// The verdict on the receipts this client has sent, so a JWS is verified once per session
     /// rather than once per message. See `storekit::ReceiptCache`.
     receipts: ReceiptCache,
+    /// Invite requests this socket has made. Each costs a signature check, and an honest client
+    /// makes one or two.
+    referral_requests: usize,
+}
+
+/// Invite requests one socket may make before it is told to reconnect.
+const MAX_REFERRAL_REQUESTS_PER_CONNECTION: usize = 16;
+
+/// The identity an invite request proves, which is the device key, or the reply to refuse with.
+///
+/// Unlike metering, a missing or bad proof is a refusal here: an announced id would let one person
+/// redeem once per install.
+fn referral_identity(
+    action: &str,
+    client_id: &str,
+    key: Option<&str>,
+    signature: Option<&str>,
+    stamp: Option<u64>,
+) -> Result<String, ServerMessage> {
+    let (Some(key), Some(signature), Some(stamp)) = (key, signature, stamp) else {
+        return Err(ServerMessage::error(
+            "proofRequired",
+            "invites need a device key; update the app",
+        ));
+    };
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    if !device_proof::time_is_current(stamp, now) {
+        return Err(ServerMessage::error(
+            "proofStale",
+            "that request was signed for a time this relay will not accept",
+        ));
+    }
+    let body = device_proof::referral_payload(action, client_id, stamp);
+    if !device_proof::verifies(key, signature, body.as_bytes()) {
+        return Err(ServerMessage::error(
+            "proofInvalid",
+            "that request does not prove it comes from the device it names",
+        ));
+    }
+    Ok(key.to_string())
+}
+
+fn referral_reply(standing: Standing) -> ServerMessage {
+    ServerMessage::Referral {
+        code: standing.code,
+        bonus_seconds: standing.bonus_seconds,
+        bonus_ends_at: standing.bonus_ends_at,
+        redeemed: standing.redeemed,
+        invites_earned: standing.invites_earned,
+        invites_max: standing.invites_max,
+    }
 }
 
 /// The Macs that are currently registered, by device ID.
@@ -845,6 +901,66 @@ async fn dispatch(
             None
         }
 
+        ClientMessage::ReferralStatus { client_id, public_key, proof, proof_time } => {
+            if client_id.len() > MAX_FIELD {
+                return Some(ServerMessage::error("invalid", "field too long"));
+            }
+            if state.referral_requests >= MAX_REFERRAL_REQUESTS_PER_CONNECTION {
+                return Some(ServerMessage::error(
+                    "tooManyRequests",
+                    "this connection has made too many invite requests; reconnect to try again",
+                ));
+            }
+            state.referral_requests += 1;
+            let identity = match referral_identity(
+                "status",
+                &client_id,
+                public_key.as_deref(),
+                proof.as_deref(),
+                proof_time,
+            ) {
+                Ok(identity) => identity,
+                Err(refusal) => return Some(refusal),
+            };
+            Some(match settings.quota.referrals().standing(&identity, unix_now()) {
+                Ok(standing) => referral_reply(standing),
+                Err(refusal) => ServerMessage::error(refusal.code(), refusal.message()),
+            })
+        }
+
+        ClientMessage::RedeemReferral { client_id, code, public_key, proof, proof_time } => {
+            if client_id.len() > MAX_FIELD || code.len() > MAX_FIELD {
+                return Some(ServerMessage::error("invalid", "field too long"));
+            }
+            if state.referral_requests >= MAX_REFERRAL_REQUESTS_PER_CONNECTION {
+                return Some(ServerMessage::error(
+                    "tooManyRequests",
+                    "this connection has made too many invite requests; reconnect to try again",
+                ));
+            }
+            state.referral_requests += 1;
+            let identity = match referral_identity(
+                &format!("redeem:{code}"),
+                &client_id,
+                public_key.as_deref(),
+                proof.as_deref(),
+                proof_time,
+            ) {
+                Ok(identity) => identity,
+                Err(refusal) => return Some(refusal),
+            };
+            Some(match settings.quota.referrals().redeem(&identity, &code, unix_now()) {
+                Ok(standing) => {
+                    info!(%client_id, "an invite code was redeemed");
+                    referral_reply(standing)
+                }
+                Err(refusal) => {
+                    info!(%client_id, reason = refusal.code(), "an invite code was refused");
+                    ServerMessage::error(refusal.code(), refusal.message())
+                }
+            })
+        }
+
         ClientMessage::Ping => Some(ServerMessage::Pong),
     }
 }
@@ -865,6 +981,143 @@ mod tests {
 
     fn channel() -> (mpsc::Sender<ServerMessage>, mpsc::Receiver<ServerMessage>) {
         mpsc::channel(4)
+    }
+
+    use p256::ecdsa::{Signature, SigningKey, signature::Signer};
+
+    fn device_key(seed: u8) -> (SigningKey, String) {
+        let signing = SigningKey::from_bytes(&[seed; 32].into()).expect("a valid scalar");
+        let public = crate::protocol::bytes_hex(&signing.verifying_key().to_sec1_bytes());
+        (signing, public)
+    }
+
+    fn signed(signing: &SigningKey, action: &str, client_id: &str, stamp: u64) -> String {
+        let body = device_proof::referral_payload(action, client_id, stamp);
+        let signature: Signature = signing.sign(body.as_bytes());
+        crate::protocol::bytes_hex(signature.to_der().as_bytes())
+    }
+
+    async fn ask(settings: &Settings, message: ClientMessage) -> Option<ServerMessage> {
+        let (tx, _rx) = channel();
+        let registry = Arc::new(Registry::new(usize::MAX));
+        let mut state = ConnectionState::default();
+        dispatch(message, &tx, &registry, &HostRegistry::new(), settings, "127.0.0.1", &mut state).await
+    }
+
+    fn status_request(seed: u8, client_id: &str) -> ClientMessage {
+        let (signing, public) = device_key(seed);
+        let stamp = unix_now();
+        ClientMessage::ReferralStatus {
+            client_id: client_id.into(),
+            public_key: Some(public),
+            proof: Some(signed(&signing, "status", client_id, stamp)),
+            proof_time: Some(stamp),
+        }
+    }
+
+    fn redeem_request(seed: u8, client_id: &str, code: &str) -> ClientMessage {
+        let (signing, public) = device_key(seed);
+        let stamp = unix_now();
+        ClientMessage::RedeemReferral {
+            client_id: client_id.into(),
+            code: code.into(),
+            public_key: Some(public),
+            proof: Some(signed(&signing, &format!("redeem:{code}"), client_id, stamp)),
+            proof_time: Some(stamp),
+        }
+    }
+
+    fn quota_settings() -> Settings {
+        settings_with(Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default())))
+    }
+
+    #[tokio::test]
+    async fn a_proved_device_is_given_a_code_and_a_friend_can_redeem_it() {
+        let settings = quota_settings();
+        let Some(ServerMessage::Referral { code, bonus_seconds: 0, .. }) =
+            ask(&settings, status_request(1, "owner-phone")).await
+        else {
+            panic!("expected a code with no bonus yet");
+        };
+
+        let reply = ask(&settings, redeem_request(2, "friend-phone", &code)).await;
+        assert!(matches!(
+            reply,
+            Some(ServerMessage::Referral { bonus_seconds: 1800, redeemed: true, .. })
+        ), "got {reply:?}");
+
+        // The bonus is on the key the friend proves, and is what the quota check reads.
+        let (_, friend_key) = device_key(2);
+        assert_eq!(settings.quota.remaining(&friend_key, None, Plan::Free), Some(1800 + 1800));
+        let (_, owner_key) = device_key(1);
+        assert_eq!(settings.quota.remaining(&owner_key, None, Plan::Free), Some(1800 + 1800));
+    }
+
+    #[tokio::test]
+    async fn an_invite_request_without_a_proof_is_refused() {
+        let settings = quota_settings();
+        let reply = ask(
+            &settings,
+            ClientMessage::ReferralStatus {
+                client_id: "phone".into(),
+                public_key: None,
+                proof: None,
+                proof_time: None,
+            },
+        )
+        .await;
+        assert!(matches!(reply, Some(ServerMessage::Error { ref code, .. }) if code == "proofRequired"));
+    }
+
+    #[tokio::test]
+    async fn a_redemption_signed_for_another_code_is_refused() {
+        let settings = quota_settings();
+        let Some(ServerMessage::Referral { code, .. }) =
+            ask(&settings, status_request(1, "owner-phone")).await
+        else {
+            panic!("expected a code");
+        };
+        let ClientMessage::RedeemReferral { client_id, public_key, proof, proof_time, .. } =
+            redeem_request(2, "friend-phone", "AAAAAAAA")
+        else {
+            unreachable!()
+        };
+        let reply = ask(
+            &settings,
+            ClientMessage::RedeemReferral { client_id, code, public_key, proof, proof_time },
+        )
+        .await;
+        assert!(matches!(reply, Some(ServerMessage::Error { ref code, .. }) if code == "proofInvalid"));
+    }
+
+    #[tokio::test]
+    async fn redeeming_twice_or_your_own_code_is_refused() {
+        let settings = quota_settings();
+        let Some(ServerMessage::Referral { code, .. }) =
+            ask(&settings, status_request(1, "owner-phone")).await
+        else {
+            panic!("expected a code");
+        };
+        let own = ask(&settings, redeem_request(1, "owner-phone", &code)).await;
+        assert!(matches!(own, Some(ServerMessage::Error { ref code, .. }) if code == "referralOwnCode"));
+
+        ask(&settings, redeem_request(2, "friend-phone", &code)).await;
+        let again = ask(&settings, redeem_request(2, "friend-phone", &code)).await;
+        assert!(matches!(again, Some(ServerMessage::Error { ref code, .. }) if code == "referralAlreadyRedeemed"));
+    }
+
+    #[tokio::test]
+    async fn a_connection_that_keeps_asking_is_told_to_reconnect() {
+        let settings = quota_settings();
+        let (tx, _rx) = channel();
+        let registry = Arc::new(Registry::new(usize::MAX));
+        let hosts = HostRegistry::new();
+        let mut state = ConnectionState::default();
+        let mut last = None;
+        for _ in 0..=MAX_REFERRAL_REQUESTS_PER_CONNECTION {
+            last = dispatch(status_request(1, "p"), &tx, &registry, &hosts, &settings, "127.0.0.1", &mut state).await;
+        }
+        assert!(matches!(last, Some(ServerMessage::Error { ref code, .. }) if code == "tooManyRequests"));
     }
 
     /// The port every session is told to send video to. A fixed number rather than a bound socket:

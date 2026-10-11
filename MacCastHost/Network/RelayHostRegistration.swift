@@ -193,7 +193,7 @@ final class RelayHostRegistration: @unchecked Sendable {
                     // Mac learns where its clients are by being sent to. Ignored rather than
                     // refused, because a relay that says more than this build expects is no reason
                     // to drop a working registration.
-                    case .peerAddress, .hostPresence:
+                    case .peerAddress, .hostPresence, .referral:
                         break
                     }
                 }

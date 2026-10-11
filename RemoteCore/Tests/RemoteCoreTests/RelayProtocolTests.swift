@@ -350,3 +350,57 @@ struct RelayProtocolTests {
         #expect(!encoded.contains("approvalId"))
     }
 }
+
+@Suite("Relay referrals")
+struct RelayReferralTests {
+    private let proof = RelayDeviceProof(publicKey: "04aa", signature: "3045", proofTime: 1_760_000_000)
+
+    @Test("a redeem request names the code and carries the whole proof")
+    func redeemRequest() throws {
+        let message = RelayClientMessage.redeemReferral(clientID: "phone-1", code: "ABCD-EFGH", proof: proof)
+
+        let text = String(decoding: try RelayMessageCodec.encode(message), as: UTF8.self)
+
+        for fragment in [
+            #""type":"redeemReferral""#, #""clientId":"phone-1""#, #""code":"ABCD-EFGH""#,
+            #""publicKey":"04aa""#, #""proof":"3045""#, #""proofTime":1760000000"#,
+        ] {
+            #expect(text.contains(fragment), "\(fragment) should be on the wire")
+        }
+    }
+
+    @Test("a status request has no code")
+    func statusRequest() throws {
+        let message = RelayClientMessage.referralStatus(clientID: "phone-1", proof: proof)
+
+        let text = String(decoding: try RelayMessageCodec.encode(message), as: UTF8.self)
+
+        #expect(text.contains(#""type":"referralStatus""#))
+        #expect(!text.contains(#""code""#))
+    }
+
+    @Test("the signed text is the relay's, with the code exactly as typed")
+    func signedText() {
+        #expect(String(decoding: RelayDeviceProof.referralStatusPayload(clientID: "c", proofTime: 7), as: UTF8.self)
+            == "peeringd-referral-v1\nstatus\nc\n7")
+        #expect(String(decoding: RelayDeviceProof.redeemReferralPayload(clientID: "c", code: "ab cd", proofTime: 7), as: UTF8.self)
+            == "peeringd-referral-v1\nredeem:ab cd\nc\n7")
+    }
+
+    @Test("a referral reply decodes with and without a running grant")
+    func reply() throws {
+        let running = #"{"type":"referral","code":"ABCDEFGH","bonusSeconds":1800,"bonusEndsAt":1760600000,"redeemed":true,"invitesEarned":2,"invitesMax":5}"#
+        let idle = #"{"type":"referral","code":"ABCDEFGH","bonusSeconds":0,"bonusEndsAt":null,"redeemed":false,"invitesEarned":0,"invitesMax":5}"#
+
+        let first = try RelayMessageCodec.decode(RelayServerMessage.self, from: Data(running.utf8))
+        let second = try RelayMessageCodec.decode(RelayServerMessage.self, from: Data(idle.utf8))
+
+        #expect(first == .referral(RelayReferral(
+            code: "ABCDEFGH", bonusSeconds: 1800, bonusEndsAt: Date(timeIntervalSince1970: 1_760_600_000),
+            redeemed: true, invitesEarned: 2, invitesMax: 5
+        )))
+        #expect(second == .referral(RelayReferral(
+            code: "ABCDEFGH", bonusSeconds: 0, bonusEndsAt: nil, redeemed: false, invitesEarned: 0, invitesMax: 5
+        )))
+    }
+}

@@ -72,7 +72,7 @@ public final class RelaySignallingConnection: @unchecked Sendable {
                 case .sessionReady(let session): return session
                 case .hostOffline(let id): throw RelaySignallingError.hostOffline(id)
                 case .error(let code, let message): throw RelaySignallingError.refused(code: code, message: message)
-                case .pong, .registered: continue
+                case .pong, .registered, .referral: continue
                 case .peerAddress, .hostPresence: continue
                 }
             }
@@ -150,7 +150,7 @@ public final class RelaySignallingConnection: @unchecked Sendable {
                     try await Task.sleep(for: interval)
                 case .error(let code, let message):
                     throw RelaySignallingError.refused(code: code, message: message)
-                case .pong, .registered: continue
+                case .pong, .registered, .referral: continue
                 case .hostPresence: continue
                 case .sessionReady, .hostOffline:
                     throw RelaySignallingError.unexpectedResponse

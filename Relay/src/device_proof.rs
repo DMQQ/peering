@@ -70,6 +70,15 @@ pub fn client_payload(client_id: &str, proof_time: u64) -> String {
     format!("peeringd-client-registration-v1\n{client_id}\n{proof_time}")
 }
 
+/// The bytes a client signs to ask about or redeem an invite code.
+///
+/// Its own domain, for the reason `client_payload` is: the same key signs all three. `action` is
+/// `status`, or `redeem:` followed by the code exactly as sent, so a captured redemption cannot be
+/// replayed for a different code and a captured status request cannot be replayed as a redemption.
+pub fn referral_payload(action: &str, client_id: &str, proof_time: u64) -> String {
+    format!("peeringd-referral-v1\n{action}\n{client_id}\n{proof_time}")
+}
+
 /// Whether a signature is genuinely this device's.
 ///
 /// The public key is checked to be a point on P-256 as part of verifying, so a garbage key is a
@@ -112,6 +121,21 @@ mod tests {
     fn sign(signing: &SigningKey, payload: &str) -> String {
         let signature: Signature = signing.sign(payload.as_bytes());
         bytes_hex(signature.to_der().as_bytes())
+    }
+
+    #[test]
+    fn a_referral_signature_is_bound_to_its_action() {
+        let signing = key(9);
+        let status = referral_payload("status", "phone", 1_760_000_000);
+        let signature = sign(&signing, &status);
+        let redeem = referral_payload("redeem:ABCDEFGH", "phone", 1_760_000_000);
+        assert!(verifies(&uncompressed(&signing), &signature, status.as_bytes()));
+        assert!(!verifies(&uncompressed(&signing), &signature, redeem.as_bytes()));
+        assert!(!verifies(
+            &uncompressed(&signing),
+            &signature,
+            client_payload("phone", 1_760_000_000).as_bytes()
+        ));
     }
 
     #[test]
