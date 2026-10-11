@@ -3,7 +3,6 @@ package pl.dmq.peering.session.connection
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -158,7 +157,7 @@ class ClientStateMachineTest {
         val actions = machine.confirm(accepted = true, secret = secret)
 
         val sent = WireJson.decodeFromString(PairConfirm.serializer(), actions.single().sentFrame().payload.decodeToString())
-        assertArrayEquals(transcript().proof(secret), assertNotNull(sent.proof).fromBase64())
+        assertArrayEquals(transcript().proof(secret), checkNotNull(sent.proof).fromBase64())
     }
 
     @Test

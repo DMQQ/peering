@@ -6,9 +6,8 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
 /**
- * Events the Mac sends an agent chat client. The directory entries, the changes report, the git result
- * and the resumable listing stay raw JSON until their features decode them, so an unrelated decode
- * cannot fail on them.
+ * Events the Mac sends an agent chat client. The changes report, the git result and the resumable listing
+ * stay raw JSON until their features decode them, so an unrelated decode cannot fail on them.
  */
 @Serializable(with = AgentEventSerializer::class)
 sealed class AgentEvent {
@@ -33,7 +32,7 @@ sealed class AgentEvent {
     @Serializable
     data class Directory(
         val path: String,
-        val entries: List<JsonElement>,
+        val entries: List<RemoteDirectoryEntry>,
         val truncated: Boolean,
     ) : AgentEvent()
 
