@@ -52,7 +52,7 @@ TOKEN = jwt.encode(
 def call(method, path, body=None, params=None):
     response = requests.request(
         method, path if path.startswith("http") else BASE + path,
-        headers={"Authorization": f"Bearer {TOKEN}"}, json=body, params=params,
+        headers={"Authorization": f"Bearer {TOKEN}"}, json=body, params=params, timeout=30,
     )
     if response.status_code >= 400:
         sys.exit(f"{method} {path}: {response.status_code} {response.text[:400]}")
