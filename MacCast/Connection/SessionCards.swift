@@ -16,6 +16,7 @@ enum SessionBadge: Equatable {
     case starting
     case ended
     case failed
+    case paused
 }
 
 /// One live chat or terminal on the Mac terminals page.
@@ -201,6 +202,7 @@ struct SessionCard<Subtitle: View>: View {
             case .running: ("Running", .white.opacity(0.85))
             case .starting: ("Starting", .white.opacity(0.5))
             case .ended: ("Ended", .white.opacity(0.4))
+            case .paused: ("Paused", .white.opacity(0.4))
             case .failed: ("Failed", ColorPalette.danger)
             }
         }()

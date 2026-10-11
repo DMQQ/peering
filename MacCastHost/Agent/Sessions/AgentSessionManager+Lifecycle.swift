@@ -114,6 +114,35 @@ extension AgentSessionManager {
         append(.failure(message: message), to: session)
     }
 
+    /// Stops the process and keeps the chat. The adapter's callbacks are dropped first: its exit would otherwise be written into the transcript as the chat ending.
+    func pause(_ session: AgentSession, sink: Sink) {
+        enum Outcome { case paused(any AgentAdapter), busy, nothingToPause }
+        let outcome: Outcome = lock.withLock {
+            guard session.adapterLive else { return .nothingToPause }
+            guard !session.isBusy else { return .busy }
+            // A chat that has talked but never named its session would start again with no memory of it.
+            guard session.cliSessionID != nil || !session.hasHistory else { return .nothingToPause }
+            session.adapterLive = false
+            return .paused(session.adapter)
+        }
+        switch outcome {
+        case .nothingToPause:
+            return
+        case .busy:
+            sink(.failed(sessionID: session.id, message: "Stop the turn before moving this chat to history."))
+        case .paused(let adapter):
+            adapter.onEvent = nil
+            adapter.onUsage = nil
+            adapter.onPermissionMode = nil
+            adapter.onModel = nil
+            adapter.stop()
+            append(.notice(text: AgentPause.notice), to: session)
+            persist(session)
+            refreshActivity()
+            agentLog.notice("agent chat paused · \(session.agentID, privacy: .public)")
+        }
+    }
+
     func remove(_ session: AgentSession) {
         adapter(of: session).stop()
         lock.withLock { sessions[session.id] = nil }

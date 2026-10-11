@@ -137,6 +137,12 @@ extension MacSession {
         wire?.sendAgent(.setPermissionMode(sessionID: id, mode: mode))
     }
 
+    /// Stops the chat's process and keeps the conversation, which then lives under the Paused chats until a message picks it up again.
+    func pauseAgentSession(_ id: UUID) {
+        guard hostSupportsAgentPause else { return }
+        wire?.sendAgent(.pause(sessionID: id))
+    }
+
     func closeAgentSession(_ id: UUID) {
         wire?.sendAgent(.close(sessionID: id))
     }

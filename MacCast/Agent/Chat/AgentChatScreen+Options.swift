@@ -84,6 +84,12 @@ extension AgentChatScreen {
                 Label("Web preview", systemImage: "safari")
             }
             Button("Rename", systemImage: "character.cursor.ibeam") { beginRename(session) }
+            if model.hostSupportsAgentPause, session.state == .idle, !AgentPause.isPaused(session.transcript) {
+                Button("Stop and move to history", systemImage: "archivebox") {
+                    model.pauseAgentSession(session.id)
+                    dismiss()
+                }
+            }
             Divider()
             Button(role: .destructive) { pendingClose = session } label: {
                 Label("Close chat", systemImage: "xmark")

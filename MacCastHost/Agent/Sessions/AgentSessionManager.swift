@@ -145,6 +145,10 @@ final class AgentSessionManager: @unchecked Sendable {
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
             AgentGitActions.push(directory: session.directory, sessionID: id, sink: sink)
 
+        case .pause(let id):
+            guard let session = owned(id, by: clientID, reporting: sink) else { return }
+            pause(session, sink: sink)
+
         case .listResumable:
             listResumable(clientID: clientID, sink: sink)
 

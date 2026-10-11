@@ -41,12 +41,22 @@ extension SessionModel {
     func refreshAgentSessions() { activeSession?.refreshAgentSessions() }
 
     func startAgentChat(agentID: String, directory: String?) {
-        guard AgentChatLimit.allowsAnother(openChats: agentCards.filter(\.isLive).count, access: storeManager.access) else {
-            paywallReason = .feature(.moreAgents)
-            return
-        }
         Analytics.featureUsed(.agentChatStarted, agent: agentID)
         activeSession?.startAgentChat(agentID: agentID, directory: directory)
+    }
+
+    var hostSupportsAgentPause: Bool { activeSession?.hostSupportsAgentPause ?? false }
+
+    func pauseAgentSession(_ id: UUID) {
+        Analytics.featureUsed(.agentChatStopped, agent: agentCards.first { $0.id == id }?.agentID)
+        activeSession?.pauseAgentSession(id)
+    }
+
+    /// A new chat in the same folder that opens with a recap of one the CLI can no longer reopen.
+    func continueInNewChat(from session: RemoteAgentSession) {
+        Analytics.featureUsed(.agentChatContinuedInNew, agent: session.agentID)
+        ChatSeed.set(AgentRecap.text(from: session.transcript), agentID: session.agentID)
+        startAgentChat(agentID: session.agentID, directory: session.directory)
     }
 
     var hostSupportsAgentSessionImport: Bool { activeSession?.hostSupportsAgentSessionImport ?? false }
@@ -56,10 +66,6 @@ extension SessionModel {
     func refreshResumableSessions() { activeSession?.refreshResumableSessions() }
 
     func resumeAgentSession(_ session: AgentResumableSession) {
-        guard AgentChatLimit.allowsAnother(openChats: agentCards.filter(\.isLive).count, access: storeManager.access) else {
-            paywallReason = .feature(.moreAgents)
-            return
-        }
         Analytics.featureUsed(.agentChatResumed, agent: session.agentID)
         activeSession?.resumeAgentSession(session)
     }

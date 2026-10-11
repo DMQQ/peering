@@ -175,6 +175,7 @@ final class MacSession: Identifiable {
     var hostSupportsAgentPermissionModes = false
     var hostSupportsAgentUsage = false
     var hostSupportsAgentSessionImport = false
+    var hostSupportsAgentPause = false
 
     /// A Mac from before the list chats with the first two.
     var hostChatAgents: Set<String> = ["claude", "codex"]

@@ -145,7 +145,8 @@ extension HostSession {
             agentChatAgents: AgentSessionManager.chatAgents.keys.sorted(),
             supportsAgentPermissionModes: true,
             supportsAgentUsage: true,
-            supportsAgentSessionImport: true
+            supportsAgentSessionImport: true,
+            supportsAgentPause: true
         ))
         if alreadyPaired, let source = hello.resumeSource {
             onCommand?(.setCaptureSource(source))

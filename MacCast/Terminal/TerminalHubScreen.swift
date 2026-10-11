@@ -47,6 +47,7 @@ struct TerminalHubScreen: View {
                 AgentToReviewCard()
                 chatsSection
                 resumeEntry
+                pausedChatsSection
                 agentsNotice
                 historySection
             }

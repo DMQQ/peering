@@ -5,11 +5,29 @@ import SwiftUI
 extension TerminalHubScreen {
     @ViewBuilder
     var chatsSection: some View {
-        if !model.agentCards.isEmpty {
+        let active = model.agentCards.filter { !$0.isPaused }
+        if !active.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Controls.sectionLabel("Chats", systemImage: "bubble.left.and.text.bubble.right")
                 VStack(spacing: 10) {
-                    ForEach(Array(model.agentCards.enumerated()), id: \.element.id) { index, session in
+                    ForEach(Array(active.enumerated()), id: \.element.id) { index, session in
+                        chatRow(session, index: index)
+                    }
+                }
+            }
+            .padding(.top, 20)
+        }
+    }
+
+    /// Chats stopped on purpose: out of the way of the ones in use, and one message from picking up where they left off.
+    @ViewBuilder
+    var pausedChatsSection: some View {
+        let paused = model.agentCards.filter(\.isPaused)
+        if !paused.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Controls.sectionLabel("Paused chats", systemImage: "archivebox")
+                VStack(spacing: 10) {
+                    ForEach(Array(paused.enumerated()), id: \.element.id) { index, session in
                         chatRow(session, index: index)
                     }
                 }
@@ -48,8 +66,9 @@ extension TerminalHubScreen {
         }
     }
 
-    private func chatBadge(_ state: AgentSessionState) -> SessionBadge {
-        switch state {
+    private func chatBadge(_ card: AgentCardDigest) -> SessionBadge {
+        if card.isPaused { return .paused }
+        switch card.state {
         case .idle: return .ready
         case .working: return .working
         case .awaitingApproval: return .needsYou
@@ -68,7 +87,7 @@ extension TerminalHubScreen {
             SessionCard(
                 symbol: agent?.symbol ?? "sparkles",
                 title: session.title,
-                badge: chatBadge(session.state),
+                badge: chatBadge(session),
                 index: index,
                 folder: folder.isEmpty ? nil : folder,
                 preview: session.preview,
@@ -93,6 +112,10 @@ extension TerminalHubScreen {
             .menuInk()
             Button("Rename", systemImage: "character.cursor.ibeam") { beginRename(session) }
                 .menuInk()
+            if model.hostSupportsAgentPause, session.state == .idle, !session.isPaused {
+                Button("Stop and move to history", systemImage: "archivebox") { model.pauseAgentSession(session.id) }
+                    .menuInk()
+            }
             Button("Close", systemImage: "xmark", role: .destructive) { pendingEnd = .chat(session.id) }
                 .menuDanger()
         } preview: {

@@ -332,6 +332,10 @@ public enum AgentRequest: Codable, Equatable, Sendable {
     ///
     /// Sent only to a Mac that declared ``ServerHello/supportsAgentSessionImport``.
     case resume(agentID: String, cliSessionID: String)
+    /// Stops the session's process and keeps the chat, which starts again where it left off on the next prompt. Refused while a turn is running.
+    ///
+    /// Sent only to a Mac that declared ``ServerHello/supportsAgentPause``.
+    case pause(sessionID: UUID)
 }
 
 public enum AgentEvent: Codable, Equatable, Sendable {

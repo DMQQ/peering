@@ -14,7 +14,10 @@ struct AgentCardDigest: Identifiable, Equatable {
     let plan: AgentPlanProgress?
     let createdAt: Date
 
-    var isLive: Bool { state != .exited && state != .failed }
+    /// Stopped on purpose and kept: it has no process and does not count against the open chats.
+    let isPaused: Bool
+
+    var isLive: Bool { state != .exited && state != .failed && !isPaused }
 
     init(_ session: RemoteAgentSession) {
         id = session.id
@@ -26,5 +29,6 @@ struct AgentCardDigest: Identifiable, Equatable {
         activity = session.transcript.activity
         plan = session.transcript.planProgress
         preview = session.transcript.preview
+        isPaused = AgentPause.isPaused(session.transcript)
     }
 }

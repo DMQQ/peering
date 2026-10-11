@@ -110,6 +110,9 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// additive: `nil` reads as no, and the list is offered only on an explicit `true`.
     public var supportsAgentSessionImport: Bool?
 
+    /// Whether this Mac takes ``AgentRequest/pause(sessionID:)``. Optional and additive: `nil` reads as no.
+    public var supportsAgentPause: Bool?
+
     public init(
         serverID: String,
         hostName: String,
@@ -130,7 +133,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         agentChatAgents: [String]? = nil,
         supportsAgentPermissionModes: Bool? = nil,
         supportsAgentUsage: Bool? = nil,
-        supportsAgentSessionImport: Bool? = nil
+        supportsAgentSessionImport: Bool? = nil,
+        supportsAgentPause: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -151,6 +155,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.supportsAgentPermissionModes = supportsAgentPermissionModes
         self.supportsAgentUsage = supportsAgentUsage
         self.supportsAgentSessionImport = supportsAgentSessionImport
+        self.supportsAgentPause = supportsAgentPause
         self.pushesTerminalAlertsWhileConnected = pushesTerminalAlertsWhileConnected
     }
 }

@@ -98,8 +98,10 @@ extension AgentSessionManager {
                     approvalID: ""
                 ) : nil)
             }
-        case .failure:
+        case .failure(let message):
             session.state = .failed
+            // The CLI has lost this conversation: a prompt must not try to resume it again.
+            if message == AgentExpiry.message { session.cliSessionID = nil }
             applied.persists = true
         case .sessionExited:
             session.state = .exited
