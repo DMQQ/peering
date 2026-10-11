@@ -1,16 +1,24 @@
 import SwiftUI
 import UIKit
 
-/// **No wrap is a text container with an unbounded width.** `widthTracksTextView` is what makes a
-/// text view re-wrap to its own bounds, and turning it off leaves the container asking instead for
-/// the width it was given — which, given an unbounded one, is a single line for as long as it needs
-/// to be. The text view then scrolls to it on its own, horizontally as well as vertically, so this
-/// is not wrapped in SwiftUI scroll views: the scrolling belongs to the view that knows how wide
-/// the text is.
+/// **No wrap is a text container as wide as its longest line.** An unbounded container width
+/// leaves the text view's content size at its own width, so the long lines run off screen and
+/// nothing scrolls sideways. The container is measured once unbounded, then given that finite
+/// width, which is what makes the text view scroll horizontally on its own.
 ///
-/// Reading this switches the text view off TextKit 2 and onto TextKit 1, because the container is
-/// reached through `textContainer` and that is the compatibility path. It is a supported one, and
-/// at a hundred kilobytes of text there is nothing here that would notice the difference.
+/// The view is made on TextKit 1 from the start: asking a TextKit 2 view for its `layoutManager`
+/// swaps it over and rebuilds the container with default settings, which silently undid the width
+/// set here and left the text wrapping.
+/// The text view clamps its own content width to its bounds even when the container is wider, so the width the container asked for is enforced here.
+final class SidewaysTextView: UITextView {
+    var minimumContentWidth: CGFloat = 0
+
+    override var contentSize: CGSize {
+        get { super.contentSize }
+        set { super.contentSize = CGSize(width: max(newValue.width, minimumContentWidth), height: newValue.height) }
+    }
+}
+
 struct MonospacedTextSurface: UIViewRepresentable {
     let text: String
     var onEdit: ((String) -> Void)?
@@ -18,7 +26,7 @@ struct MonospacedTextSurface: UIViewRepresentable {
     var fontSize: CGFloat = 12
 
     func makeUIView(context: Context) -> UITextView {
-        let view = UITextView()
+        let view = SidewaysTextView(usingTextLayoutManager: false)
         view.delegate = context.coordinator
         view.isSelectable = true
         view.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
@@ -54,7 +62,10 @@ struct MonospacedTextSurface: UIViewRepresentable {
         // would put the caret at the top of the file after every character typed. The two agree
         // while typing — the coordinator's callback fed this exact string back — so the guard is
         // what keeps typing from being undone by the redraw it caused.
-        if view.text != text { view.text = text }
+        if view.text != text {
+            view.text = text
+            if !wraps { Self.applyWrapping(false, to: view) }
+        }
 
         let editable = onEdit != nil
         if view.isEditable != editable { view.isEditable = editable }
@@ -70,18 +81,25 @@ struct MonospacedTextSurface: UIViewRepresentable {
         }
     }
 
-    /// Both branches set the container's size and not only the flag, because the flag changes what
-    /// the container *asks for* and the size is what it already has: flipping the flag alone leaves
-    /// the view laid out to the old width until something else forces a pass.
-    private static func applyWrapping(_ wraps: Bool, to view: UITextView) {
+    fileprivate static func applyWrapping(_ wraps: Bool, to view: UITextView) {
         let container = view.textContainer
         let unbounded = CGFloat.greatestFiniteMagnitude
         if wraps {
             container.widthTracksTextView = true
             container.size = CGSize(width: view.bounds.width, height: unbounded)
-        } else {
-            container.widthTracksTextView = false
-            container.size = CGSize(width: unbounded, height: unbounded)
+            (view as? SidewaysTextView)?.minimumContentWidth = 0
+            return
+        }
+        container.widthTracksTextView = false
+        container.size = CGSize(width: unbounded, height: unbounded)
+        view.layoutManager.ensureLayout(for: container)
+        let longest = view.layoutManager.usedRect(for: container).width
+        let visible = view.bounds.width - view.textContainerInset.left - view.textContainerInset.right
+        let width = max(longest.rounded(.up), visible)
+        container.size = CGSize(width: width, height: unbounded)
+        if let sideways = view as? SidewaysTextView {
+            sideways.minimumContentWidth = width + view.textContainerInset.left + view.textContainerInset.right
+            sideways.contentSize = sideways.contentSize
         }
     }
 
@@ -97,6 +115,7 @@ struct MonospacedTextSurface: UIViewRepresentable {
 
         func textViewDidChange(_ textView: UITextView) {
             onEdit?(textView.text)
+            if appliedWraps == false { MonospacedTextSurface.applyWrapping(false, to: textView) }
         }
     }
 }
