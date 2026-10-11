@@ -5,6 +5,17 @@ public enum VideoCodec: String, Codable, Sendable, Equatable, CaseIterable {
     case hevc
 }
 
+extension VideoCodec {
+    /// The codec to stream to a client: the host's own choice, unless the client listed what it decodes and left that out.
+    /// Without a list the client is one that decodes both. A list naming no codec this host knows gets H.264, which every decoder reads.
+    public static func negotiated(preferred: VideoCodec, declared: [String]?) -> VideoCodec {
+        guard let declared, !declared.isEmpty else { return preferred }
+        let known = declared.compactMap { VideoCodec(rawValue: $0.lowercased()) }
+        if known.contains(preferred) { return preferred }
+        return known.first ?? .h264
+    }
+}
+
 /// The parameter sets are not in the frame data: VideoToolbox emits them in the format description
 /// attached to the sample buffer, and in AVCC they stay out of band, which is where
 /// `CMVideoFormatDescriptionCreateFromH264ParameterSets` wants them on the client.

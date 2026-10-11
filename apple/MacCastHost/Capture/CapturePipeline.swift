@@ -18,7 +18,17 @@ final class CapturePipeline: @unchecked Sendable {
     }
 
     let backend: Backend
-    let codec: VideoCodec
+    /// What the host is set to stream. The codec a stream really uses can be H.264 instead, for a client that cannot decode this one.
+    let preferredCodec: VideoCodec
+    private let codecLock = NSLock()
+    private var activeCodec: VideoCodec
+
+    var codec: VideoCodec { codecLock.withLock { activeCodec } }
+
+    /// Takes effect when the next stream starts.
+    func useCodec(_ codec: VideoCodec) {
+        codecLock.withLock { activeCodec = codec }
+    }
     /// Nil on synthetic pipelines (no screen) and for callers with no preferences store. See ``CursorOverlay``.
     let overlay: CursorOverlay?
     let lock = NSLock()
@@ -77,7 +87,8 @@ final class CapturePipeline: @unchecked Sendable {
             engine: CaptureEngine(),
             compositor: MosaicCompositor()
         )
-        self.codec = codec
+        self.preferredCodec = codec
+        self.activeCodec = codec
         self.overlay = overlay
     }
 
@@ -86,7 +97,8 @@ final class CapturePipeline: @unchecked Sendable {
         self.backend = .synthetic(
             engine: SyntheticCaptureEngine(pixelSize: syntheticPixelSize, frameRate: frameRate)
         )
-        self.codec = codec
+        self.preferredCodec = codec
+        self.activeCodec = codec
         self.overlay = nil
     }
 

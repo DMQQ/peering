@@ -92,6 +92,7 @@ extension HostSession {
         clientSupportsAgentChat = hello.supportsAgentChat
         clientSupportsAgentPermissionModes = hello.supportsAgentPermissionModes
         clientSupportsAgentUsage = hello.supportsAgentUsage
+        onVideoCodecsDeclared?(hello.videoCodecs)
 
         let existingPin = pins.pin(for: clientID)
         if let existingPin, !SPKI.matches(existingPin, presentedKey) {
@@ -147,7 +148,8 @@ extension HostSession {
             supportsAgentPermissionModes: true,
             supportsAgentUsage: true,
             supportsAgentSessionImport: true,
-            supportsAgentPause: true
+            supportsAgentPause: true,
+            hostPlatform: "macos"
         ))
         if alreadyPaired, let source = hello.resumeSource {
             onCommand?(.setCaptureSource(source))

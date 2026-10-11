@@ -44,6 +44,7 @@ final class HostServer: @unchecked Sendable {
     private var _onVideoTransport: (@Sendable (Data?, VideoTransportRequest, PeerConnection) -> Void)?
     private var _onVideoKeyRequest: (@Sendable (Data?, RelaySession) -> Data?)?
     private var _onVideoEnabled: (@Sendable (Data?, Bool) -> Void)?
+    private var _onClientVideoCodecs: (@Sendable (Data?, [String]?) -> Void)?
     private var _onRequestClipboard: (@Sendable () -> ClipboardPayload?)?
     private var _onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
 
@@ -109,6 +110,12 @@ final class HostServer: @unchecked Sendable {
     var onVideoEnabled: (@Sendable (Data?, Bool) -> Void)? {
         get { callbackLock.withLock { _onVideoEnabled } }
         set { callbackLock.withLock { _onVideoEnabled = newValue } }
+    }
+
+    /// Called with the key that identifies a client and the codecs it decodes, and with nil once its last session ends.
+    var onClientVideoCodecs: (@Sendable (Data?, [String]?) -> Void)? {
+        get { callbackLock.withLock { _onClientVideoCodecs } }
+        set { callbackLock.withLock { _onClientVideoCodecs = newValue } }
     }
 
     var onRequestClipboard: (@Sendable () -> ClipboardPayload?)? {
@@ -385,6 +392,10 @@ final class HostServer: @unchecked Sendable {
             guard let self, let session else { return }
             self.onVideoEnabled?(session.peerPublicKey, enabled)
         }
+        session.onVideoCodecsDeclared = { [weak self, weak session] codecs in
+            guard let self, let session else { return }
+            self.onClientVideoCodecs?(session.peerPublicKey, codecs)
+        }
         session.onTerminalRequest = { [weak self, weak session] request, sink in
             guard let self, let session else { return }
             self.terminalManager.handle(clientID: session.clientID, request: request, sink: sink)
@@ -458,6 +469,7 @@ final class HostServer: @unchecked Sendable {
             }
             if !session.isVideoConnection, !keyIsStillServed {
                 closeVideoConnections(for: session.peerPublicKey)
+                self.onClientVideoCodecs?(session.peerPublicKey, nil)
             }
             self.updateAdvertisement()
             if let relayBridge {

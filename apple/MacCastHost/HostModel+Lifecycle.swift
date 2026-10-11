@@ -136,6 +136,10 @@ extension HostModel {
             coordinator?.setVideoEnabled(enabled, clientKey: clientKey)
         }
 
+        server.onClientVideoCodecs = { [weak coordinator] clientKey, codecs in
+            coordinator?.setDeclaredVideoCodecs(codecs, clientKey: clientKey)
+        }
+
         // Captured directly, not through self: hopping to the main actor would put every pointer event behind SwiftUI.
         let input = self.input
         let textFocusWatcher = self.textFocusWatcher

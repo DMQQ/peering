@@ -12,7 +12,8 @@ extension VideoCoordinator {
 
     func ensureCapturing() async throws {
         let target = lock.withLock { chosenSource ?? Self.defaultSource }
-        guard lock.withLock({ currentSource }) != target else { return }
+        let codecIsRight = pipeline.codec == desiredCodec()
+        guard lock.withLock({ currentSource }) != target || !codecIsRight else { return }
         try await startCapture(target)
     }
 
@@ -56,6 +57,7 @@ extension VideoCoordinator {
         let (resolution, frameRate) = lock.withLock { (captureResolution, captureFrameRate) }
         // Before the start, because the description it holds belongs to the source being replaced:
         adapter.forget()
+        pipeline.useCodec(desiredCodec())
         try await pipeline.start(
             source: source,
             frameRate: frameRate.rawValue,
@@ -128,5 +130,19 @@ extension VideoCoordinator {
             "Capture started but produced no frames from \(source.description), and Screen "
                 + "Recording permission is granted. The source may have gone away."
         ))
+    }
+}
+
+extension VideoCoordinator {
+    func setDeclaredVideoCodecs(_ codecs: [String]?, clientKey: Data?) {
+        guard let clientKey else { return }
+        lock.withLock { declaredVideoCodecs[clientKey] = codecs }
+    }
+
+    /// The host's own codec, unless the client being served said it cannot decode it.
+    func desiredCodec() -> VideoCodec {
+        let declared = lock.withLock { audience.served?.peerPublicKey.flatMap { declaredVideoCodecs[$0] } }
+        let chosen = RemoteCore.VideoCodec.negotiated(preferred: pipeline.preferredCodec.wireCodec, declared: declared)
+        return chosen == .hevc ? .hevc : .h264
     }
 }

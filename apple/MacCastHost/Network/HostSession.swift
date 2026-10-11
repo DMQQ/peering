@@ -78,6 +78,9 @@ final class HostSession: @unchecked Sendable {
 
     var onVideoEnabled: (@Sendable (Bool) -> Void)?
 
+    /// What the client said it decodes, or nil when it did not say. Called once, as soon as the hello is read.
+    var onVideoCodecsDeclared: (@Sendable ([String]?) -> Void)?
+
     /// Called when the client requests the clipboard. Return `nil` to send nothing.
     var onRequestClipboard: (@Sendable () -> ClipboardPayload?)?
     var onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?

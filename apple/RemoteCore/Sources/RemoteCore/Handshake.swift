@@ -33,6 +33,12 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// Set only by a phone that dialled a Mac by its ID and holds no pin for it, so the Mac may still trust the phone's key while the phone has forgotten the Mac. Without it that pair was stuck: the Mac answered "already paired" and the phone refused to proceed. `nil` reads as no, which is every older client.
     public var lostPairing: Bool?
 
+    /// Which platform this client runs on, for a host whose behaviour differs by it (`"android"`, `"ios"`). Optional and additive: `nil` is an iPhone build from before this field.
+    public var clientPlatform: String?
+
+    /// The codecs this client decodes, best first (`"hevc"`, `"h264"`). Optional and additive: `nil` is a client from before this field, which decodes both.
+    public var videoCodecs: [String]?
+
     /// Whether the Mac skips pairing for a client whose key it has pinned. The one place the rule lives, because the Mac cannot unit-test its handshake.
     public static func hostTreatsAsPaired(clientKeyIsPinned: Bool, lostPairing: Bool?) -> Bool {
         clientKeyIsPinned && lostPairing != true
@@ -51,9 +57,13 @@ public struct ClientHello: Codable, Sendable, Equatable {
         supportsAgentPermissionModes: Bool? = nil,
         supportsAgentUsage: Bool? = nil,
         resumeSource: CaptureSource? = nil,
-        lostPairing: Bool? = nil
+        lostPairing: Bool? = nil,
+        clientPlatform: String? = nil,
+        videoCodecs: [String]? = nil
     ) {
         self.lostPairing = lostPairing
+        self.clientPlatform = clientPlatform
+        self.videoCodecs = videoCodecs
         self.clientID = clientID
         self.clientName = clientName
         self.protocolVersion = protocolVersion
@@ -128,6 +138,9 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// Whether this Mac takes ``AgentRequest/pause(sessionID:)``. Optional and additive: `nil` reads as no.
     public var supportsAgentPause: Bool?
 
+    /// Which platform this host runs on (`"macos"`, `"windows"`). Optional and additive: `nil` is a Mac from before this field. A client may use it to choose key codes and to hide what only a Mac does.
+    public var hostPlatform: String?
+
     public init(
         serverID: String,
         hostName: String,
@@ -149,8 +162,10 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsAgentPermissionModes: Bool? = nil,
         supportsAgentUsage: Bool? = nil,
         supportsAgentSessionImport: Bool? = nil,
-        supportsAgentPause: Bool? = nil
+        supportsAgentPause: Bool? = nil,
+        hostPlatform: String? = nil
     ) {
+        self.hostPlatform = hostPlatform
         self.serverID = serverID
         self.hostName = hostName
         self.protocolVersion = protocolVersion

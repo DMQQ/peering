@@ -28,6 +28,9 @@ final class VideoCoordinator: @unchecked Sendable {
 /// The source a client chose, as opposed to the default the host fell back to.
     var chosenSource: CaptureSource?
 
+/// What each connected client said it decodes, by key. Absent means it did not say.
+    var declaredVideoCodecs: [Data: [String]] = [:]
+
 /// How the next stream is built: the size of its surface, and the rate it is asked for.
     var captureResolution: CaptureResolution = .full
     var captureFrameRate: CaptureFrameRate = .sixty

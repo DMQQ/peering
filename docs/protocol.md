@@ -212,9 +212,10 @@ Hello flags are the whole capability mechanism. A flag absent or false means uns
 `supportsFileBrowser`, `supportsAgentModelPicker`, `agentChatAgents` (array of strings), `supportsAgentPermissionModes`,
 `supportsAgentUsage`, `supportsAgentSessionImport`, `supportsAgentPause`.
 
-Proposed additive fields, not yet in any shipped build: `ClientHello.clientPlatform`, `ClientHello.videoCodecs`
-(ordered array of `"h264"`/`"hevc"`), `ServerHello.hostPlatform`. Implementations MAY send them; the Mac host does not
-read `videoCodecs` yet.
+Additive fields, read by the Mac host from the build after the shipped one (older builds ignore them): `ClientHello.clientPlatform`,
+`ClientHello.videoCodecs` (ordered array of `"h264"`/`"hevc"`, best first), `ServerHello.hostPlatform` (`"macos"` from the Mac host).
+A client that omits `videoCodecs` is assumed to decode both. A client that lists codecs without the host's choice (HEVC by default)
+gets H.264 for the stream it is served; the host restarts capture when the served client needs another codec.
 
 ## 8. Commands (`command`, kind 0x06)
 
