@@ -72,7 +72,7 @@ Owns: `docs/protocol/video.md`. Deps: none.
 Done: header layouts, HKDF parameters, nonce rule, chunk header, replay window, fallback constants, direct probe cadence documented with sources.
 Commit: Write protocol spec part three: video lanes, sealing and fallback.
 
-SPEC-004 | todo | foundation | S : protocol.md part 4, relay signalling
+SPEC-004 | done | foundation | S : protocol.md part 4, relay signalling
 Port: `relay/src/protocol.rs`, `RelayProtocol.swift`, `RelayDeviceProof.swift`, `tcp_relay.rs`, `udp_relay.rs`.
 Owns: `docs/protocol/relay.md`. Deps: none.
 Done: both message sets with JSON examples, proof payload strings, token handshake, error codes seen in `signalling.rs`.
