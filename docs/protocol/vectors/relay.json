@@ -1,0 +1,76 @@
+{
+ "source": "computed from RelayProtocolTests.swift literals and protocol.rs",
+ "clientMessages": [
+  {
+   "name": "registerHost",
+   "json": "{\"deviceId\":\"mac-1\",\"name\":\"Studio\",\"protocolVersion\":3,\"type\":\"registerHost\"}"
+  },
+  {
+   "name": "connectToHost free",
+   "json": "{\"clientId\":\"phone-1\",\"hostId\":\"mac-1\",\"protocolVersion\":3,\"type\":\"connectToHost\"}"
+  },
+  {
+   "name": "connectToHost plan",
+   "json": "{\"clientId\":\"phone-1\",\"hostId\":\"mac-1\",\"plan\":\"relay\",\"protocolVersion\":3,\"type\":\"connectToHost\"}"
+  },
+  {
+   "name": "ping",
+   "json": "{\"type\":\"ping\"}"
+  },
+  {
+   "name": "requestPeerAddress",
+   "json": "{\"type\":\"requestPeerAddress\",\"videoToken\":\"000102030405060708090a0b0c0d0e0f\"}"
+  },
+  {
+   "name": "hostPresence",
+   "json": "{\"hostId\":\"mac-1\",\"type\":\"hostPresence\"}"
+  },
+  {
+   "name": "notifyDevice",
+   "json": "{\"body\":\"b\",\"deviceToken\":\"abababababababababababababababababababababababababababababababab\",\"title\":\"t\",\"type\":\"notifyDevice\"}"
+  }
+ ],
+ "serverMessages": [
+  {
+   "name": "sessionReady",
+   "json": "{\"type\":\"sessionReady\",\"controlHost\":\"relay.getpeering.app\",\"controlPort\":20190,\"videoHost\":\"relay.getpeering.app\",\"videoPort\":30190,\"controlToken\":\"000102030405060708090a0b0c0d0e0f\",\"videoToken\":\"fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0\"}"
+  },
+  {
+   "name": "registered",
+   "json": "{\"sessionTtlSeconds\":300,\"type\":\"registered\"}"
+  },
+  {
+   "name": "hostOffline",
+   "json": "{\"deviceId\":\"mac-1\",\"type\":\"hostOffline\"}"
+  },
+  {
+   "name": "peerAddress",
+   "json": "{\"host\":\"203.0.113.5\",\"port\":40000,\"type\":\"peerAddress\"}"
+  },
+  {
+   "name": "hostPresence",
+   "json": "{\"hostId\":\"mac-1\",\"online\":true,\"type\":\"hostPresence\"}"
+  },
+  {
+   "name": "pong",
+   "json": "{\"type\":\"pong\"}"
+  },
+  {
+   "name": "error",
+   "json": "{\"code\":\"quotaExceeded\",\"message\":\"relay allowance exhausted for this period\",\"type\":\"error\"}"
+  }
+ ],
+ "tokens": {
+  "valid": [
+   "000102030405060708090a0b0c0d0e0f",
+   "FFFEFDFCFBFAF9F8F7F6F5F4F3F2F1F0"
+  ],
+  "invalid": [
+   "",
+   "0001",
+   "+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1",
+   "000102030405060708090a0b0c0d0e0g",
+   "000102030405060708090a0b0c0d0e0f00"
+  ]
+ }
+}

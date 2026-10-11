@@ -102,7 +102,7 @@ Owns: `docs/protocol/vectors/wire.json`. Deps: SPEC-003.
 Done: framed bytes (hex) for several kinds, split and coalesced delivery cases, video frame header, audio header, chunk sequences with loss and reordering.
 Commit: Add framing, video frame and chunk vectors.
 
-SPEC-009 | todo | foundation | S : relay vectors
+SPEC-009 | done | foundation | S : relay vectors
 Port: `RelayProtocolTests.swift`, `relay/tests`.
 Owns: `docs/protocol/vectors/relay.json`. Deps: SPEC-004.
 Done: client and server relay messages byte exact (sorted keys), token hex cases including the invalid ones.
