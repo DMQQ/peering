@@ -15,6 +15,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 import javax.security.auth.x500.X500Principal
+import pl.dmq.peering.platform.net.TlsCredentials
 import pl.dmq.peering.session.ports.DeviceIdentity
 import pl.dmq.peering.session.ports.SecretStore
 
@@ -33,7 +34,7 @@ private val validity: Duration = Duration.ofDays(3650)
 class KeystoreIdentity(
     private val secrets: SecretStore,
     name: String,
-) : DeviceIdentity {
+) : DeviceIdentity, TlsCredentials {
     private val subject = "CN=${deviceName(name)}, O=Peering"
     private val keyStore: KeyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
 
@@ -53,11 +54,9 @@ class KeystoreIdentity(
             return uncompressedPoint(key)
         }
 
-    /** The certificate chain presented to peers during TLS, leaf first. */
-    fun certificateChain(): List<X509Certificate> = chain
+    override fun certificateChain(): List<X509Certificate> = chain
 
-    /** The private key for TLS client and server authentication. It stays inside the Keystore. */
-    fun privateKey(): PrivateKey {
+    override fun privateKey(): PrivateKey {
         ensureKey()
         return keyStore.getKey(IDENTITY_ALIAS, null) as? PrivateKey
             ?: throw IllegalStateException("identity private key missing")
