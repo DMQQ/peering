@@ -144,32 +144,32 @@ Port: `relay/src/apns.rs`. Owns: new `relay/src/push.rs` (trait, `token_kind(hex
 Done: unit tests: 32 byte hex is APNs, hex of `fcm:`+text is FCM, garbage is APNs; `cargo test --locked`.
 Commit: Add push token kind detection ahead of FCM support.
 
-REL-003 | todo | parallel-safe | S : FCM OAuth token minting
+REL-003 | done | parallel-safe | S : FCM OAuth token minting
 Owns: new `relay/src/fcm_auth.rs`. Deps: REL-002.
 Done: service account JSON parsed, RS256 JWT built with `ring`, 45 minute cache, tested with a generated key and a fake clock (no network).
 Commit: Mint Google OAuth tokens for FCM from a service account.
 
-REL-004 | todo | parallel-safe | S : FCM sender
+REL-004 | done | parallel-safe | S : FCM sender
 Owns: new `relay/src/fcm.rs`. Deps: REL-003.
 Done: builds the HTTP v1 body (notification plus data keys `hostId`, `source`, `agentSessionId`, `agentApprovalId`, `category`), unit tested; transport behind a trait with a fake.
 Commit: Send pushes to Android devices through FCM HTTP v1.
 
-REL-005 | todo | integration | S : route notifyDevice by token kind
+REL-005 | done | integration | S : route notifyDevice by token kind
 Owns: `relay/src/signalling.rs` notify branch, `relay/src/config.rs` (env `PEERINGD_FCM_PROJECT_ID`, `PEERINGD_FCM_SERVICE_ACCOUNT`), `relay/tests/push_routing.rs`. Deps: REL-001, REL-002, REL-004.
 Done: e2e test with fake senders proves FCM token reaches FCM and APNs token reaches APNs; no env set means FCM disabled and iOS path unchanged; `cargo test --locked`.
 Commit: Route notifyDevice to APNs or FCM by token kind.
 
-REL-006 | todo | parallel-safe | S : Play verdict model and cache (live Play calls need the owner's Google credentials: Needs the user; build against the trait and fakes)
+REL-006 | done | parallel-safe | S : Play verdict model and cache (live Play calls need the owner's Google credentials: Needs the user; build against the trait and fakes)
 Port: `storekit.rs` (Resolved, Trust, ReceiptCache). Owns: new `relay/src/playbilling.rs` (pure types, mapping product id to Plan, per session cache). Deps: none.
 Done: unit tests mirror the storekit rejection table: unknown product, expired, not matching device binding, all end at Free.
 Commit: Model Play purchase verdicts and their per session cache.
 
-REL-007 | todo | parallel-safe | S : Play API client
+REL-007 | done | parallel-safe | S : Play API client
 Owns: new `relay/src/play_api.rs`. Deps: REL-003, REL-006.
 Done: request building and response parsing unit tested against saved JSON samples; transport behind a trait; endpoints confirmed against current Google docs and noted in the module header.
 Commit: Query the Google Play Developer API for purchase state.
 
-REL-008 | todo | integration | S : accept Play fields in connectToHost
+REL-008 | done | integration | S : accept Play fields in connectToHost
 Owns: `relay/src/protocol.rs` (optional `play_purchase_token`, `play_product_id`), `relay/src/signalling.rs` connect branch, `relay/tests/play_plan.rs`. Deps: REL-006, REL-007.
 Done: old messages decode unchanged (existing tests untouched and green); fake verifier yields Pro and unlimited metering; bad token yields free.
 Commit: Meter relay time by a verified Play purchase.
@@ -266,23 +266,23 @@ AND-049 | done | S : session history and last-activity records. Port `SessionHis
 
 ## Android: platform glue (core:platform, app), thin, no logic
 
-AND-050 | todo | parallel-safe | S : Keystore identity. Port `SelfSignedIdentity.swift`. Owns `android/core/platform/.../identity/*`. Deps AND-002. Done: key generation, certificate, public point export, DER signature, instrumented test documented; JVM test covers the point encoding helper. Commit: Create the device identity in the Android Keystore.
+AND-050 | done | parallel-safe | S : Keystore identity. Port `SelfSignedIdentity.swift`. Owns `android/core/platform/.../identity/*`. Deps AND-002. Done: key generation, certificate, public point export, DER signature, instrumented test documented; JVM test covers the point encoding helper. Commit: Create the device identity in the Android Keystore.
 
-AND-051 | todo | parallel-safe | S : TLS socket factory. Port `TLSConfig.swift`. Owns `.../net/TlsFactory.kt`. Deps AND-050. Done: TLSv1.3 only, client cert, recording trust manager, pin compare, no-delay; JVM test against an in-process TLS server using a generated cert. Commit: Open pinned mutual TLS 1.3 connections.
+AND-051 | done | parallel-safe | S : TLS socket factory. Port `TLSConfig.swift`. Owns `.../net/TlsFactory.kt`. Deps AND-050. Done: TLSv1.3 only, client cert, recording trust manager, pin compare, no-delay; JVM test against an in-process TLS server using a generated cert. Commit: Open pinned mutual TLS 1.3 connections.
 
-AND-052 | todo | parallel-safe | S : pin store. Port `PeerPinning.swift`. Owns `.../store/PinStoreImpl.kt`. Deps AND-002. Done: set, get, remove, failed write leaves memory unchanged; tests with a fake file. Commit: Persist host pins in encrypted storage.
+AND-052 | done | parallel-safe | S : pin store. Port `PeerPinning.swift`. Owns `.../store/PinStoreImpl.kt`. Deps AND-002. Done: set, get, remove, failed write leaves memory unchanged; tests with a fake file. Commit: Persist host pins in encrypted storage.
 
-AND-053 | todo | parallel-safe | S : NSD discovery. Port `ServiceDiscovery.swift`. Owns `.../net/NsdDiscovery.kt`. Deps AND-002. Done: maps resolved services with TXT id/name/v to hosts; mapper function unit tested. Commit: Discover hosts on the local network with NSD.
+AND-053 | done | parallel-safe | S : NSD discovery. Port `ServiceDiscovery.swift`. Owns `.../net/NsdDiscovery.kt`. Deps AND-002. Done: maps resolved services with TXT id/name/v to hosts; mapper function unit tested. Commit: Discover hosts on the local network with NSD.
 
-AND-054 | todo | parallel-safe | S : relay WebSocket. Owns `.../net/OkHttpSignalling.kt`. Deps AND-022. Done: send/receive of relay messages over a local test WebSocket server in a JVM test. Commit: Connect to relay signalling over OkHttp.
+AND-054 | done | parallel-safe | S : relay WebSocket. Owns `.../net/OkHttpSignalling.kt`. Deps AND-022. Done: send/receive of relay messages over a local test WebSocket server in a JVM test. Commit: Connect to relay signalling over OkHttp.
 
-AND-055 | todo | parallel-safe | S : datagram socket. Port `VideoDatagramSocket*.swift`. Owns `.../net/UdpLane.kt`. Deps AND-002. Done: one socket, two destinations, token-only bind and keepalive, loopback test. Commit: Add the unconnected UDP socket for the video lane.
+AND-055 | done | parallel-safe | S : datagram socket. Port `VideoDatagramSocket*.swift`. Owns `.../net/UdpLane.kt`. Deps AND-002. Done: one socket, two destinations, token-only bind and keepalive, loopback test. Commit: Add the unconnected UDP socket for the video lane.
 
-AND-056 | todo | parallel-safe | S : MediaCodec wrapper. Owns `.../video/CodecDecoder.kt`. Deps AND-027. Done: configure from config, queue Annex-B frames, low latency keys, rebuild on new config; the pure configuration builder is unit tested, device test documented. Commit: Wrap MediaCodec for low latency decoding.
+AND-056 | done | parallel-safe | S : MediaCodec wrapper. Owns `.../video/CodecDecoder.kt`. Deps AND-027. Done: configure from config, queue Annex-B frames, low latency keys, rebuild on new config; the pure configuration builder is unit tested, device test documented. Commit: Wrap MediaCodec for low latency decoding.
 
 AND-057 | todo | parallel-safe | S : video surface composable. Owns `.../video/VideoSurface.kt`. Deps AND-056. Done: SurfaceView host with aspect fit, transform; no tests (UI). Commit: Render decoded video into a SurfaceView.
 
-AND-058 | todo | parallel-safe | S : network callback. Port `NetworkPathWatcher.swift`. Owns `.../net/NetworkWatcher.kt`. Deps AND-002. Done: emits path changes to the session layer; mapper tested. Commit: Report network changes to the session layer.
+AND-058 | done | parallel-safe | S : network callback. Port `NetworkPathWatcher.swift`. Owns `.../net/NetworkWatcher.kt`. Deps AND-002. Done: emits path changes to the session layer; mapper tested. Commit: Report network changes to the session layer.
 
 AND-059 | todo | parallel-safe | S : billing gateway interface and Play adapter. Port `StoreManager.swift`. Owns `.../billing/*`. Deps none (REL-008 only for the live relay check). Done: `BillingGateway` interface (products, purchase, current entitlement as a flow) with a fake used by everything else; Play adapter behind it; state mapping unit tested. The live Play verification needs the owner's accounts (Needs the user). Commit: Wrap Play Billing and expose the purchase for the relay.
 
@@ -310,11 +310,11 @@ AND-076 | todo | integration | S : wire the app graph. Owns `app/.../AppGraph.kt
 
 AND-080 | done | S : pairing flow. Owns `core/session/src/test/.../PairingFlowTest.kt`. Deps AND-040. Done: scripted fake host: SAS match, SAS mismatch, QR secret proof, host refusal, pin recorded only after success. Run `./gradlew :core:session:test --tests '*PairingFlow*'`. Commit: Test the pairing flow end to end with a fake host.
 AND-081 | done | S : connect and reconnect flow. Owns `.../ConnectFlowTest.kt`. Deps AND-040, AND-041, AND-028. Done: LAN connect, drop and ladder, network change, host stopped code stops reconnecting. Commit: Test connect and reconnect behaviour.
-AND-082 | todo | S : relay fallback and direct path flow. Owns `.../RelayFlowTest.kt`. Deps AND-043..045. Done: relayed session, silent datagram lane triggers control fallback, host decline repeats, direct path opens and fallback returns. Commit: Test relay fallback and direct path switching.
-AND-083 | todo | S : session start and stop flow. Owns `.../SessionLifecycleTest.kt`. Deps AND-042, AND-049. Done: start, pause picture, resume, stop, history recorded. Commit: Test session start and stop.
-AND-084 | todo | S : source switching flow. Owns `.../SourceSwitchTest.kt`. Deps AND-046. Done: switch display, config update owed, input transform follows, resume source on reconnect. Commit: Test display switching.
-AND-085 | todo | S : agent chat turn with approval flow. Owns `.../AgentTurnFlowTest.kt`. Deps AND-047. Done: start, prompt, stream, approval, allow, turn finished, interrupt, replay after reconnect. Commit: Test an agent turn with an approval.
-AND-086 | todo | S : file browse and transfer flow. Owns `.../FilesFlowTest.kt`. Deps AND-048. Done: list, preview, ranged download, failure, upload chunks. Commit: Test file browsing and transfer.
+AND-082 | done | S : relay fallback and direct path flow. Owns `.../RelayFlowTest.kt`. Deps AND-043..045. Done: relayed session, silent datagram lane triggers control fallback, host decline repeats, direct path opens and fallback returns. Commit: Test relay fallback and direct path switching.
+AND-083 | done | S : session start and stop flow. Owns `.../SessionLifecycleTest.kt`. Deps AND-042, AND-049. Done: start, pause picture, resume, stop, history recorded. Commit: Test session start and stop.
+AND-084 | done | S : source switching flow. Owns `.../SourceSwitchTest.kt`. Deps AND-046. Done: switch display, config update owed, input transform follows, resume source on reconnect. Commit: Test display switching.
+AND-085 | done | S : agent chat turn with approval flow. Owns `.../AgentTurnFlowTest.kt`. Deps AND-047. Done: start, prompt, stream, approval, allow, turn finished, interrupt, replay after reconnect. Commit: Test an agent turn with an approval.
+AND-086 | done | S : file browse and transfer flow. Owns `.../FilesFlowTest.kt`. Deps AND-048. Done: list, preview, ranged download, failure, upload chunks. Commit: Test file browsing and transfer.
 AND-087 | done | S : permission and error paths. Owns `.../ErrorPathsTest.kt`. Deps AND-040, AND-044. Done: version mismatch message, quotaExceeded, host offline, malformed frames, oversize payload, unknown enum case does not kill the session. Commit: Test error and refusal paths.
 
 ## Android: integration
@@ -422,15 +422,23 @@ WIN-075 | todo | S : secure desktop notice. Owns `peering-platform/src/session_s
 
 ## Windows: flow tests (service level, fake ports, vectors)
 
-WIN-090 | todo | S : pairing flow. Owns `peering-core/tests/pairing_flow.rs`. Deps WIN-040. Done: SAS match/mismatch, QR proof, approval, decline, pin only after success. Run `cargo test -p peering-core --test pairing_flow`. Commit: Test the host pairing flow.
-WIN-091 | todo | S : connect, liveness and reconnect flow. Owns `peering-core/tests/connect_flow.rs`. Deps WIN-042. Done: video connection without control session is refused; silence reaped. Commit: Test connection and liveness behaviour.
-WIN-092 | todo | S : relay fallback and direct path flow. Owns `peering-core/tests/relay_flow.rs`. Deps WIN-046..049. Done: registration, session dial, key request, fallback and decline, direct knock. Commit: Test relay and direct path behaviour.
-WIN-093 | todo | S : session start and stop flow. Owns `peering-core/tests/session_lifecycle.rs`. Deps WIN-045. Done: attach/detach, last client leaves, next client does not inherit source, input released. Commit: Test session start and stop.
-WIN-094 | todo | S : display switching flow. Owns `peering-core/tests/switch_flow.rs`. Deps WIN-045. Done: switch emits one config, input transform follows. Commit: Test display switching.
-WIN-095 | todo | S : agent chat turn with approval flow. Owns `peering-agent/tests/turn_flow.rs`. Deps WIN-055. Done: fake CLI script, approval allow and deny. Commit: Test an agent turn with an approval.
-WIN-096 | todo | S : file browse and transfer flow. Owns `peering-core/tests/files_flow.rs`. Deps WIN-052. Done: browse, read range, errors, path escape refused. Commit: Test file browsing.
-WIN-097 | todo | S : permission and error paths. Owns `peering-core/tests/error_paths.rs`. Deps WIN-043. Done: bad version, oversize, unknown command, observe mode. Commit: Test error and refusal paths.
+WIN-090 | done | S : pairing flow. Owns `peering-core/tests/pairing_flow.rs`. Deps WIN-040. Done: SAS match/mismatch, QR proof, approval, decline, pin only after success. Run `cargo test -p peering-core --test pairing_flow`. Commit: Test the host pairing flow.
+WIN-091 | done | S : connect, liveness and reconnect flow. Owns `peering-core/tests/connect_flow.rs`. Deps WIN-042. Done: video connection without control session is refused; silence reaped. Commit: Test connection and liveness behaviour.
+WIN-092 | done | S : relay fallback and direct path flow. Owns `peering-core/tests/relay_flow.rs`. Deps WIN-046..049. Done: registration, session dial, key request, fallback and decline, direct knock. Commit: Test relay and direct path behaviour.
+WIN-093 | done | S : session start and stop flow. Owns `peering-core/tests/session_lifecycle.rs`. Deps WIN-045. Done: attach/detach, last client leaves, next client does not inherit source, input released. Commit: Test session start and stop.
+WIN-094 | done | S : display switching flow. Owns `peering-core/tests/switch_flow.rs`. Deps WIN-045. Done: switch emits one config, input transform follows. Commit: Test display switching.
+WIN-095 | done | S : agent chat turn with approval flow. Owns `peering-agent/tests/turn_flow.rs`. Deps WIN-055. Done: fake CLI script, approval allow and deny. Commit: Test an agent turn with an approval.
+WIN-096 | done | S : file browse and transfer flow. Owns `peering-core/tests/files_flow.rs`. Deps WIN-052. Done: browse, read range, errors, path escape refused. Commit: Test file browsing.
+WIN-097 | done | S : permission and error paths. Owns `peering-core/tests/error_paths.rs`. Deps WIN-043. Done: bad version, oversize, unknown command, observe mode. Commit: Test error and refusal paths.
 WIN-098 | todo | integration | S : iPhone to the Windows host over LAN (milestone M2). Owns `docs/plans/interop-iphone-windows.md`. Deps WIN-071, WIN-067, WIN-069. Done: pair, picture, mouse on a real iPhone; written up. Needs a device (Needs the user). Commit: Record the iPhone to Windows host interop run.
+
+## Follow-ups found by the flow tests and builders
+
+AND-134 | todo | S : map framing errors (unknown kind, oversize frame) from the decoder to a session failure in the connection layer. Owns `core/session/.../connection/` new file. Done: ErrorPathsTest asserts the failure reason, `./gradlew :core:session:test`.
+AND-135 | todo | S : call `CodecDecoder.flush()` on keyframe loss and declare manifest permissions (INTERNET, ACCESS_NETWORK_STATE, CHANGE_WIFI_MULTICAST_STATE) for the platform module. Owns `core/platform` manifest and a small policy class with a test.
+AND-136 | todo | S : AND-022b is done (relay proof fields on connectToHost and registerHost, RelayConnect sends the client proof); this entry records it.
+WIN-134 | todo | S : a disconnect path that calls `InputSink::release_all` (the ignored lifecycle flow test names it). Owns `peering-core/src/session/` new file and un-ignores that test.
+WIN-135 | todo | S : export the scripted launcher and pin store fakes behind a `testing` feature so flows stop re-implementing them. Owns `peering-agent/src/claude_adapter/fake.rs` exposure and `peering-core/src/session/test_support.rs`.
 
 ## Windows: LATER and SKIP
 
