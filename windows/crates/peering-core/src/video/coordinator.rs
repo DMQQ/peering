@@ -1,1 +1,262 @@
-//! Placeholder owned by its task; see docs/plans/android-and-windows-tasks.md.
+//! Capture and encode for the clients attached to the video channel. Driven by explicit calls: the caller pumps it
+//! with the time and sends what comes back.
+
+use std::collections::BTreeSet;
+
+use peering_wire::drop_policy::{LatestFrameSlot, PendingFrame};
+use peering_wire::quality::{clamped_bitrate_kbps, default_bitrate_bps, even_size};
+use peering_wire::source::CaptureSource;
+use peering_wire::video::{EncodedVideoFrame, VideoStreamConfig, VideoWireError};
+use thiserror::Error;
+
+use crate::ports::capture::{Capture, CaptureError, RawFrame};
+use crate::ports::encoder::{EncodeError, EncodedOutput, Encoder};
+
+/// How long a capture may run before the watchdog treats a frame-less start as a failure.
+pub const FIRST_FRAME_GRACE: f64 = 5.0;
+const FRAME_RATE: u32 = 60;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum VideoOutput {
+    Config(VideoStreamConfig),
+    Frame(EncodedVideoFrame),
+}
+
+#[derive(Debug, Error)]
+pub enum CoordinatorError {
+    #[error("only display sources can be captured, not {0}")]
+    UnsupportedSource(String),
+    #[error(transparent)]
+    Capture(#[from] CaptureError),
+    #[error(transparent)]
+    Encode(#[from] EncodeError),
+    #[error(transparent)]
+    Wire(#[from] VideoWireError),
+}
+
+pub struct VideoCoordinator<C: Capture, E: Encoder> {
+    capture: C,
+    encoder: E,
+    clients: BTreeSet<String>,
+    video_enabled: bool,
+    source: Option<CaptureSource>,
+    chosen_source: Option<CaptureSource>,
+    size: (u32, u32),
+    last_config: Option<VideoStreamConfig>,
+    config_pending: bool,
+    keyframe_pending: bool,
+    requested_kbps: Option<u32>,
+    ceiling_kbps: Option<u32>,
+    capture_started_at: Option<f64>,
+    frame_ever_seen: bool,
+    last_frame_at: Option<f64>,
+    dropped_frames: u64,
+}
+
+impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
+    pub fn new(capture: C, encoder: E) -> Self {
+        Self {
+            capture,
+            encoder,
+            clients: BTreeSet::new(),
+            video_enabled: true,
+            source: None,
+            chosen_source: None,
+            size: (0, 0),
+            last_config: None,
+            config_pending: false,
+            keyframe_pending: false,
+            requested_kbps: None,
+            ceiling_kbps: None,
+            capture_started_at: None,
+            frame_ever_seen: false,
+            last_frame_at: None,
+            dropped_frames: 0,
+        }
+    }
+
+    /// A new client needs a description and a recovery point before any delta frame reaches it.
+    pub fn attach(&mut self, client_id: &str) {
+        self.clients.insert(client_id.to_owned());
+        self.keyframe_pending = true;
+        self.config_pending = true;
+    }
+
+    pub fn detach(&mut self, client_id: &str) {
+        self.clients.remove(client_id);
+    }
+
+    /// Clears the source a client chose once nobody is attached. Capture keeps running, so a client that
+    /// reconnects soon still gets a picture without a restart.
+    pub fn forget_chosen_source_if_idle(&mut self) {
+        if self.clients.is_empty() {
+            self.chosen_source = None;
+        }
+    }
+
+    /// Switches capture to a display. A switch to the source already running changes nothing.
+    pub fn set_source(&mut self, source: CaptureSource, now: f64) -> Result<(), CoordinatorError> {
+        let id = match &source {
+            CaptureSource::Display { id } => *id,
+            other => return Err(CoordinatorError::UnsupportedSource(other.stable_id())),
+        };
+        if self.source.as_ref() == Some(&source) {
+            self.chosen_source = Some(source);
+            return Ok(());
+        }
+        let display = self
+            .capture
+            .list_displays()
+            .into_iter()
+            .find(|display| display.id == id)
+            .ok_or(CaptureError::DisplayNotFound(id))?;
+        self.source = None;
+        self.capture.start(id)?;
+        self.size = even_size(display.pixel_width, display.pixel_height);
+        let (width, height) = self.size;
+        self.encoder.configure(width, height, FRAME_RATE, self.target_bitrate_bps())?;
+        self.source = Some(source.clone());
+        self.chosen_source = Some(source);
+        self.last_config = None;
+        self.config_pending = false;
+        self.keyframe_pending = true;
+        self.capture_started_at = Some(now);
+        Ok(())
+    }
+
+    /// Applies a bitrate the client asked for. Values the wire bounds reject are ignored, not an error.
+    pub fn set_quality(&mut self, bitrate_kbps: i64) {
+        let Some(kbps) = clamped_bitrate_kbps(bitrate_kbps) else { return };
+        self.requested_kbps = Some(kbps);
+        self.apply_bitrate();
+    }
+
+    /// The most the encoder may run at, whatever the client asked for. The control channel uses this.
+    pub fn set_bitrate_ceiling(&mut self, ceiling_kbps: Option<u32>) {
+        self.ceiling_kbps = ceiling_kbps;
+        self.apply_bitrate();
+    }
+
+    /// Pausing drops what is captured and keeps the connections. Resuming starts again with a description and a keyframe.
+    pub fn set_video_enabled(&mut self, enabled: bool) {
+        if enabled && !self.video_enabled {
+            self.keyframe_pending = true;
+            self.config_pending = true;
+        }
+        self.video_enabled = enabled;
+    }
+
+    /// Takes every frame the capture has ready, encodes it while anyone is watching, and returns what to send.
+    /// Only the newest frame survives a burst, except that a keyframe is never lost to a delta behind it.
+    pub fn pump(&mut self, now: f64) -> Result<Vec<VideoOutput>, CoordinatorError> {
+        let mut outputs = Vec::new();
+        let mut slot = LatestFrameSlot::new();
+        while let Some(raw) = self.capture.poll_frame() {
+            self.frame_ever_seen = true;
+            if self.sending() {
+                self.encode_into(&raw, now, &mut outputs, &mut slot)?;
+            }
+        }
+        if let Some(pending) = slot.take() {
+            outputs.push(VideoOutput::Frame(EncodedVideoFrame::decode(&pending.data)?));
+        }
+        Ok(outputs)
+    }
+
+    /// True when no frame has ever arrived and the grace period since the capture started has passed.
+    /// A capture that has delivered anything is never reported this way, so a still screen is not a failure.
+    pub fn watchdog_expired(&self, now: f64) -> bool {
+        !self.frame_ever_seen
+            && self.capture_started_at.is_some_and(|started| now - started >= FIRST_FRAME_GRACE)
+    }
+
+    pub fn running_source(&self) -> Option<&CaptureSource> {
+        self.source.as_ref()
+    }
+
+    pub fn chosen_source(&self) -> Option<&CaptureSource> {
+        self.chosen_source.as_ref()
+    }
+
+    /// When the encoder last produced a frame, for deciding whether a missing picture is the network's fault.
+    pub fn last_frame_produced_at(&self) -> Option<f64> {
+        self.last_frame_at
+    }
+
+    pub fn dropped_frames(&self) -> u64 {
+        self.dropped_frames
+    }
+
+    fn sending(&self) -> bool {
+        self.video_enabled && !self.clients.is_empty() && self.source.is_some()
+    }
+
+    fn encode_into(
+        &mut self,
+        raw: &RawFrame,
+        now: f64,
+        outputs: &mut Vec<VideoOutput>,
+        slot: &mut LatestFrameSlot,
+    ) -> Result<(), CoordinatorError> {
+        let force_keyframe = self.keyframe_pending;
+        let encoded = self.encoder.encode(raw, force_keyframe)?;
+        self.keyframe_pending = false;
+        for output in encoded {
+            self.route(output, now, outputs, slot)?;
+        }
+        Ok(())
+    }
+
+    fn route(
+        &mut self,
+        output: EncodedOutput,
+        now: f64,
+        outputs: &mut Vec<VideoOutput>,
+        slot: &mut LatestFrameSlot,
+    ) -> Result<(), CoordinatorError> {
+        if let Some(config) = output.config {
+            let config = self.stamped(config);
+            self.last_config = Some(config.clone());
+            self.config_pending = false;
+            outputs.push(VideoOutput::Config(config));
+        } else if self.config_pending {
+            if let Some(config) = self.last_config.clone() {
+                self.config_pending = false;
+                outputs.push(VideoOutput::Config(config));
+            }
+        }
+        let frame = output.frame;
+        let pending = PendingFrame { is_keyframe: frame.is_keyframe, data: frame.encode()? };
+        self.dropped_frames += slot.offer(pending) as u64;
+        self.last_frame_at = Some(now);
+        Ok(())
+    }
+
+    fn stamped(&self, mut config: VideoStreamConfig) -> VideoStreamConfig {
+        if let Some(source) = &self.source {
+            config.source_id = source.stable_id();
+        }
+        config
+    }
+
+    fn apply_bitrate(&mut self) {
+        if self.source.is_some() {
+            self.encoder.set_bitrate(self.target_bitrate_bps());
+        }
+    }
+
+    fn target_bitrate_bps(&self) -> u32 {
+        let (width, height) = self.size;
+        let wanted = self
+            .requested_kbps
+            .map(|kbps| kbps.saturating_mul(1000))
+            .unwrap_or_else(|| default_bitrate_bps(width, height, FRAME_RATE));
+        match self.ceiling_kbps {
+            Some(ceiling) => wanted.min(ceiling.saturating_mul(1000)),
+            None => wanted,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests;
