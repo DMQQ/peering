@@ -1,5 +1,5 @@
 #!/bin/bash
-# Regenerate the social card, `Relay/site/assets/og.png`.
+# Regenerate the social card, `relay/site/assets/og.png`.
 #
 # Written because the card had no generator, and a card with no generator is a card that goes
 # stale: the one that was here showed an iPhone running a build of the app from before the
@@ -15,14 +15,14 @@
 # 1.9:1. Rendering at 1600x840 and scaling down keeps the same 1.905 proportion with a window the
 # hero actually fits in, so the buttons that are the card's call to action survive the crop.
 #
-#   Tools/make-og.sh
+#   relay/tools/make-og.sh
 #
 # Requires Google Chrome. Serves the site on a loopback port for the length of the render, because
 # the stylesheet and the screenshots are absolute paths from the site root.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SITE_DIR="$REPO_DIR/Relay/site"
+SITE_DIR="$REPO_DIR/site"
 OUT="$SITE_DIR/assets/og.png"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 

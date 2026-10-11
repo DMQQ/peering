@@ -2,12 +2,12 @@
 #
 # The Xcode project cannot run them: for a test action it builds every package product as a
 # separate dynamic framework, the Crypto product's target never gets a link step, and X509,
-# RemoteCore and the app fail to link in a cascade. The opening comment of MacCastKit/Package.swift,
+# RemoteCore and the app fail to link in a cascade. The opening comment of apple/MacCastKit/Package.swift,
 # and RemoteCore's, says all of that and why the policy that can be wrong silently therefore lives
 # in a package, where `swift test` can run it. This file is that runner, and it is the only Swift
 # check the repository has.
 #
-# Until now the only workflow was the relay's, whose filter is `Relay/**`, so a change to any Swift
+# Until now the only workflow was the relay's, whose filter is `relay/**`, so a change to any Swift
 # file produced no check at all: what it produced was the absence of one, which reads as green.
 
 name: swift
@@ -16,16 +16,16 @@ on:
   push:
     branches: [main]
     paths:
-      - "RemoteCore/**"
-      - "SSHCore/**"
-      - "MacCastKit/**"
+      - "apple/RemoteCore/**"
+      - "apple/SSHCore/**"
+      - "apple/MacCastKit/**"
       # This file as well, so that the push which adds it runs it.
       - ".github/workflows/swift.yml"
   pull_request:
     paths:
-      - "RemoteCore/**"
-      - "SSHCore/**"
-      - "MacCastKit/**"
+      - "apple/RemoteCore/**"
+      - "apple/SSHCore/**"
+      - "apple/MacCastKit/**"
       - ".github/workflows/swift.yml"
   # To run the suites without changing anything, including when a change is outside those paths.
   workflow_dispatch:
@@ -54,7 +54,7 @@ jobs:
       # The relay's `cargo test --locked`, in SwiftPM's spelling: resolve from the committed
       # Package.resolved, and fail here if a manifest has drifted from it, rather than quietly
       # resolving to versions nobody chose.
-      - run: swift test --package-path ${{ matrix.package }} --disable-automatic-resolution
+      - run: swift test --package-path apple/${{ matrix.package }} --disable-automatic-resolution
 
 # The filter covers the three package directories and nothing else, because the suites read nothing
 # outside them: sources, tests and Package.resolved all sit under the package, and MacCastKit's

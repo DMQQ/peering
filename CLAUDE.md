@@ -10,7 +10,7 @@ marketing art, or reaching for a colour, font, radius or padding value. It exist
 next to the existing UI rather than beside it.
 
 The source files it documents are still the final word when the two disagree:
-`MacCast/Design/Theme.swift` (client) and `MacCastHost/Theme.swift` (Mac host).
+`apple/MacCast/Design/Theme.swift` (client) and `apple/MacCastHost/Theme.swift` (Mac host).
 
 Two rules from it that are easy to break by accident:
 
@@ -41,7 +41,7 @@ The repo is meant to be read by strangers. Before calling work done, check it ag
 
 **Structure**
 
-- Code lives in a feature folder (`MacCast/Agent/Chat/`, `MacCastHost/Agent/Sessions/`), never loose
+- Code lives in a feature folder (`apple/MacCast/Agent/Chat/`, `apple/MacCastHost/Agent/Sessions/`), never loose
   at the root of a target. A new file goes next to the files it works with.
 - One main type per file, named after it. `Type+Topic.swift` only for an extension of that type.
 - A file stays under about 300 lines and a function under about 40. Past that, split by

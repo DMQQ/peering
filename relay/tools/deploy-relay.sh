@@ -14,8 +14,8 @@
 # The tag is what makes the artifact downloadable without logging in, which is why this takes a
 # tag rather than a branch or a commit.
 #
-#   Tools/deploy-relay.sh v0.1.6
-#   Tools/deploy-relay.sh v0.1.6 --yes      # skip the confirmation
+#   relay/tools/deploy-relay.sh v0.1.6
+#   relay/tools/deploy-relay.sh v0.1.6 --yes      # skip the confirmation
 #
 # Environment overrides: PEERINGD_SSH (default below), PEERINGD_SSH_PORT, PEERINGD_REPO,
 # PEERINGD_REMOTE_BIN. The site travels by deploy-site.sh, which this calls at the end, so
@@ -97,16 +97,16 @@ scp -q "${SCP_ARGS[@]}" "$STAGING/peeringd" "$SSH_TARGET:/tmp/peeringd-new"
 # The self-check travels with the binary: it is part of what a deployment installs, not something
 # that was set up once by hand and then silently drifted.
 scp -q "${SCP_ARGS[@]}" \
-    "$REPO_DIR/Relay/deploy/peeringd-healthcheck.sh" \
-    "$REPO_DIR/Relay/deploy/peeringd-healthcheck.service" \
-    "$REPO_DIR/Relay/deploy/peeringd-healthcheck.timer" \
+    "$REPO_DIR/deploy/peeringd-healthcheck.sh" \
+    "$REPO_DIR/deploy/peeringd-healthcheck.service" \
+    "$REPO_DIR/deploy/peeringd-healthcheck.timer" \
     "$SSH_TARGET:/tmp/"
 # And the relay's own unit, for the same reason the healthcheck's travels: it is part of what a
 # deployment installs rather than something set up once by hand and left to drift. It has to go
 # with the binary in particular, because the unit is what declares the state directory the relay
 # writes its usage log into. A binary that expects one and a unit that does not grant it is a
 # relay that starts, records nothing, and looks healthy.
-scp -q "${SCP_ARGS[@]}" "$REPO_DIR/Relay/deploy/peeringd.service" "$SSH_TARGET:/tmp/"
+scp -q "${SCP_ARGS[@]}" "$REPO_DIR/deploy/peeringd.service" "$SSH_TARGET:/tmp/"
 
 if [ "$YES" != "--yes" ]; then
     printf 'install on %s and restart peeringd? [y/N] ' "$SSH_TARGET"
@@ -178,7 +178,7 @@ REMOTE
 # was rather than half-deploying the pair. `--yes` because the question above has already been
 # asked and answered once, and this is the same deploy.
 echo "==> deploying the site"
-"$REPO_DIR/Tools/deploy-site.sh" --yes
+"$REPO_DIR/tools/deploy-site.sh" --yes
 
 echo "==> verifying"
 # From the box first: that proves the process is listening, and it is the half this script controls.

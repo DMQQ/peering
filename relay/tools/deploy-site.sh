@@ -12,8 +12,8 @@
 # URL, and the cache has nothing stale to answer with. A file that did not change keeps its URL
 # and stays cached, which is the point of doing it by content rather than by build number.
 #
-#   Tools/deploy-site.sh
-#   Tools/deploy-site.sh --yes
+#   relay/tools/deploy-site.sh
+#   relay/tools/deploy-site.sh --yes
 #
 # Environment overrides, as in deploy-relay.sh: PEERINGD_SSH, PEERINGD_SSH_PORT,
 # PEERINGD_REMOTE_SITE, PEERINGD_PUBLIC.
@@ -28,7 +28,7 @@ SCP_ARGS=(-P "${PEERINGD_SSH_PORT:-10190}")
 REMOTE_SITE="${PEERINGD_REMOTE_SITE:-/srv/peering/site}"
 PUBLIC="${PEERINGD_PUBLIC:-https://getpeering.app}"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SITE_DIR="$REPO_DIR/Relay/site"
+SITE_DIR="$REPO_DIR/site"
 
 YES="${1:-}"
 if [ -n "$YES" ] && [ "$YES" != "--yes" ]; then

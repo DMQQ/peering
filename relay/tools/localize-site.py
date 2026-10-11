@@ -2,7 +2,7 @@
 """Wire the translated pages into the site: hreflang alternates, a language row in the footer,
 and the sitemap. Idempotent, so it is safe to run after every edit of any page.
 
-The translations themselves live in Relay/site/<dir>/<page>.html, one file per English page.
+The translations themselves live in relay/site/<dir>/<page>.html, one file per English page.
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import datetime
 import pathlib
 import re
 
-SITE = pathlib.Path(__file__).resolve().parent.parent / "Relay" / "site"
+SITE = pathlib.Path(__file__).resolve().parent.parent / "site"
 ORIGIN = "https://getpeering.app"
 # directory, hreflang, name in its own language
 LANGS = [

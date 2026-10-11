@@ -474,7 +474,7 @@ any — they are the URLs to paste into App Store Connect.
 The Mac app updates itself with [Sparkle](https://sparkle-project.org), which is already a package
 dependency of the `MacCastHost` target. Three things have to line up, and only the first is code:
 
-1. **The feed URL and the public key** are in `Config/MacCastHost-Info.plist` — `SUFeedURL` points at
+1. **The feed URL and the public key** are in `apple/Config/MacCastHost-Info.plist` — `SUFeedURL` points at
    `/updates/appcast.xml` on this site, and `SUPublicEDKey` holds the Ed25519 public key that every
    download is verified against.
 2. **The private key** goes in the login keychain of whoever publishes, once, and never in this
@@ -484,7 +484,7 @@ dependency of the `MacCastHost` target. Three things have to line up, and only t
 
 ```sh
 # One-time: the signing key pair. Keep the private half where it is; add the printed public half
-# to Config/MacCastHost-Info.plist as SUPublicEDKey.
+# to apple/Config/MacCastHost-Info.plist as SUPublicEDKey.
 "$SPARKLE/bin/generate_keys"
 
 # Build a release. The version that matters is CFBundleVersion (sparkle:version in the feed) and it

@@ -81,25 +81,25 @@ Log subsystems are `pl.dmq.peering.host` (the Mac) and `pl.dmq.peering` (the pho
 This project has a script client that can prove almost everything without the iOS UI. **Use
 it.** Phases 1–5 of the plan were all verified with it before any iOS UI existed.
 
-### `Tools/run-probe.sh`
+### `apple/Tools/run-probe.sh`
 
-Builds, **signs**, and runs `Tools/MacCastProbe`. The signing step is load-bearing, not
+Builds, **signs**, and runs `apple/Tools/MacCastProbe`. The signing step is load-bearing, not
 housekeeping — read the comment at the top of the script before you change it.
 
 ```bash
-Tools/run-probe.sh --drive --accept --id probe-client-2
-Tools/run-probe.sh --hold-drop 55 --accept --id probe-client-2
-Tools/run-probe.sh --video-recv --video-recv-seconds 5 --accept --id probe-client-2
-Tools/run-probe.sh --browse                    # Bonjour discovery only
-Tools/run-probe.sh --reset --id probe-client-3 --accept   # force a fresh identity + pairing
+apple/Tools/run-probe.sh --drive --accept --id probe-client-2
+apple/Tools/run-probe.sh --hold-drop 55 --accept --id probe-client-2
+apple/Tools/run-probe.sh --video-recv --video-recv-seconds 5 --accept --id probe-client-2
+apple/Tools/run-probe.sh --browse                    # Bonjour discovery only
+apple/Tools/run-probe.sh --reset --id probe-client-3 --accept   # force a fresh identity + pairing
 ```
 
-Full flag list: `Tools/run-probe.sh --help`. Highlights: `--drive` (moves the real cursor and
+Full flag list: `apple/Tools/run-probe.sh --help`. Highlights: `--drive` (moves the real cursor and
 verifies it lands), `--type` / `--key` / `--combo` / `--space` (injection), `--flags LABEL`
 (prints held modifiers — use it to prove nothing is stuck), `--video` / `--video-only` /
 `--video-recv`, `--switch-to src@seconds`, `--catalog`, `--find`.
 
-### `Tools/activity.sh [seconds]`
+### `apple/Tools/activity.sh [seconds]`
 
 Drives the cursor in a Lissajous path (incommensurate axes, so the picture never settles into
 a loop the encoder compresses away) and restores it on exit. **Any test of frame ordering,
@@ -107,7 +107,7 @@ frame rate, or queue depth needs the screen moving** — see trap #7. Run it in 
 across the measurement:
 
 ```bash
-Tools/activity.sh 20 & sleep 2; Tools/run-probe.sh --video-recv --accept --id probe-client-2
+apple/Tools/activity.sh 20 & sleep 2; apple/Tools/run-probe.sh --video-recv --accept --id probe-client-2
 ```
 
 ### The regression sweep
@@ -116,14 +116,14 @@ The full sweep that was green at the end of the build:
 
 ```bash
 ID="--accept --id probe-client-2"     # NOTE: see trap #3 about shell quoting
-Tools/run-probe.sh $ID --drive
-Tools/run-probe.sh $ID --hold-drop 55
-Tools/run-probe.sh $ID --hold-button-drop 0
-Tools/run-probe.sh $ID --type "hello" --combo cmd:0 --space right --flags AFTER
-Tools/run-probe.sh $ID --catalog
-Tools/run-probe.sh $ID --video-recv --video-recv-seconds 5
-Tools/run-probe.sh $ID --video-only          # expects refusal
-Tools/run-probe.sh $ID --switch-to window:NNNN@1 --switch-to application:NNNN@2 ...
+apple/Tools/run-probe.sh $ID --drive
+apple/Tools/run-probe.sh $ID --hold-drop 55
+apple/Tools/run-probe.sh $ID --hold-button-drop 0
+apple/Tools/run-probe.sh $ID --type "hello" --combo cmd:0 --space right --flags AFTER
+apple/Tools/run-probe.sh $ID --catalog
+apple/Tools/run-probe.sh $ID --video-recv --video-recv-seconds 5
+apple/Tools/run-probe.sh $ID --video-only          # expects refusal
+apple/Tools/run-probe.sh $ID --switch-to window:NNNN@1 --switch-to application:NNNN@2 ...
 ```
 
 ---
@@ -224,10 +224,10 @@ pipeline never switches on source kind. The catalogue is **live** — re-enumera
   still screen and a blocked path look identical from its side — and caps the rate at the low
   tier while the picture is there. The lane it came from keeps being probed with keyframes
   every four seconds, and two of those arriving is what the client treats as recovery and asks
-  to switch back on. Rules live in `RemoteCore/VideoFallback.swift`, in values, so they can be
+  to switch back on. Rules live in `apple/RemoteCore/VideoFallback.swift`, in values, so they can be
   tested without a network; the host's half is `VideoStreamer.use(transport:controlPeer:)`.
 
-Reference for the directory layout: `RemoteCore/Sources/RemoteCore/` holds `Framing`,
+Reference for the directory layout: `apple/RemoteCore/Sources/RemoteCore/` holds `Framing`,
 `Handshake`, `PairingSAS`, `TLSConfig`, `SelfSignedIdentity`, `PeerPinning`, `DeviceIdentity`,
 `ClientSession`, `ClientTransport`, `RemoteCommand`, `InputTransform`, `InputEncoding`,
 `CaptureSource`, `VideoWire`, `VideoFallback`, `ServiceDiscovery`, `ConstantTime`,
@@ -237,8 +237,8 @@ Reference for the directory layout: `RemoteCore/Sources/RemoteCore/` holds `Fram
 
 ### Analytics and Error Tracking
 
-Both apps send anonymous counts and handled errors to PostHog (`Analytics.swift` in `MacCast/App/` and
-`MacCastHost/`), off with one Settings switch. Events carry `$process_person_profile: false`, so a
+Both apps send anonymous counts and handled errors to PostHog (`Analytics.swift` in `apple/MacCast/App/` and
+`apple/MacCastHost/`), off with one Settings switch. Events carry `$process_person_profile: false`, so a
 user is a device, not a person.
 
 - **Errors carry no message.** `Analytics.failed(_:in:context:)` sends the domain and code, plus
@@ -267,12 +267,12 @@ These are the ones that cost real time. Each was hit at least once.
    Do not use it in an unattended script. It was hit once and had to be backgrounded and killed.
 
 3. **zsh does NOT word-split unquoted parameter expansions.** `ID="--id probe-client-2";
-   Tools/run-probe.sh $ID` passes `--id probe-client-2` as **one argument**. Either inline the
+   apple/Tools/run-probe.sh $ID` passes `--id probe-client-2` as **one argument**. Either inline the
    arguments or use an array (`ID=(--id probe-client-2); cmd "${ID[@]}"`).
 
 4. **A bare `swift build` breaks the probe.** SwiftPM's default ad-hoc signature is derived
    from the build hash, so rebuilding without signing changes the probe's code identity →
-   keychain ACL mismatch → `errSecAuthFailed`. Always go through `Tools/run-probe.sh`.
+   keychain ACL mismatch → `errSecAuthFailed`. Always go through `apple/Tools/run-probe.sh`.
    *(This trap was hit a second time by the agent that wrote this file, which had recorded it
    in memory and still violated it. Go through the script.)*
 
@@ -330,7 +330,7 @@ These are the ones that cost real time. Each was hit at least once.
     The prompt uses a system string that cannot be customised.
 
 19. **`INFOPLIST_KEY_NSBonjourServices` is silently inert.** It must go in the real Info.plist
-    (`Config/MacCast-Info.plist`), even though `INFOPLIST_KEY_NSLocalNetworkUsageDescription`
+    (`apple/Config/MacCast-Info.plist`), even though `INFOPLIST_KEY_NSLocalNetworkUsageDescription`
     and friends work fine as build settings. Missing Bonjour services makes browse fail
     *quietly* — no prompt, no error.
 
@@ -386,7 +386,7 @@ These are the ones that cost real time. Each was hit at least once.
 
 28. **A quiet screen hides capture races.** Seven attaches with a static screen gave
     `0 discarded awaiting a keyframe` every time; four attaches with the screen actively
-    changing gave 1, 2, 2, 3. Use `Tools/activity.sh`.
+    changing gave 1, 2, 2, 3. Use `apple/Tools/activity.sh`.
 
 29. **Keychain ACL denial is indistinguishable from "no key".** `loadOrCreateKey`
     (`SelfSignedIdentity.swift:187-222`) mints a **second** key when `SecItemCopyMatching`
@@ -396,7 +396,7 @@ These are the ones that cost real time. Each was hit at least once.
     which reads like an attack, not like a local signing problem. The fix is
     `--reset --id <new-id> --accept`.
 
-30. **The secrets moved to the data protection keychain.** `RemoteCore/SecretStore.swift` is the
+30. **The secrets moved to the data protection keychain.** `apple/RemoteCore/SecretStore.swift` is the
     one place that says which keychain an item belongs to, and every `SecItem*` call plus
     `SecKeyCreateRandomKey` in this repository goes through it. It was the login keychain, whose
     items carry an access control list naming the *certificate* they were created under, so signing
@@ -410,7 +410,7 @@ These are the ones that cost real time. Each was hit at least once.
     Two things to know before touching it. It is a **different keychain**, so nothing already
     stored moves: the host mints a new identity on the first launch and every paired phone pairs
     again, once. And the function **asks whether the process is entitled** rather than assuming,
-    because `Tools/MacCastProbe` is this same code linked into a SwiftPM executable that is signed
+    because `apple/Tools/MacCastProbe` is this same code linked into a SwiftPM executable that is signed
     with no entitlements at all. A process that cannot claim a group gets the login keychain, which
     is where the probe has always been and what its pinned signing identity is arranged around. If
     a future binary of ours mysteriously cannot see its own items, check which branch it took

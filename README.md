@@ -25,29 +25,32 @@ The repository is called MacCast. The products are **Peering** (iPhone) and **Pe
 
 The relay cannot read anything it carries. Control traffic is a TLS session between the two ends
 that the relay copies without terminating, and video is sealed with a key the relay was never told.
-That property is the product, and `Relay/` is kept deliberately too simple to break it. See
-[Relay/README.md](Relay/README.md).
+That property is the product, and `relay/` is kept deliberately too simple to break it. See
+[relay/README.md](relay/README.md).
 
 ## Repository layout
 
 | Path | What it is |
 |---|---|
-| `MacCast/` | The iOS app (Peering) |
-| `MacCastHost/` | The macOS app (Peering Host): capture, encode, input injection |
-| `MacCastKit/` | Logic that needs no UI framework: agent parsing, review, plans, formatting. Has the tests |
-| `RemoteCore/` | Shared protocol, framing, crypto and coordinate mapping |
-| `SSHCore/` | SSH client used by the terminal and file browser |
-| `Relay/` | `peeringd`, the Rust relay, and the marketing site in `Relay/site/` |
-| `MacCastWidget/`, `MacCastHostWidget/`, `Shared/` | Widgets and Live Activities |
-| `MacCastTests/`, `MacCastUITests/` | App-level tests |
-| `Tools/` | Build, install, check and deploy scripts |
+| `apple/` | The iOS and macOS apps, their packages and scripts, built from one Xcode project |
+| `apple/MacCast/` | The iOS app (Peering) |
+| `apple/MacCastHost/` | The macOS app (Peering Host): capture, encode, input injection |
+| `apple/MacCastKit/` | Logic that needs no UI framework: agent parsing, review, plans, formatting. Has the tests |
+| `apple/RemoteCore/` | Shared protocol, framing, crypto and coordinate mapping |
+| `apple/SSHCore/` | SSH client used by the terminal and file browser |
+| `relay/` | `peeringd`, the Rust relay, and the marketing site in `relay/site/` |
+| `apple/MacCastWidget/`, `apple/MacCastHostWidget/`, `apple/Shared/` | Widgets and Live Activities |
+| `apple/MacCastTests/`, `apple/MacCastUITests/` | App-level tests |
+| `apple/Tools/`, `relay/tools/` | Build, install and check scripts; relay and site deploy scripts |
+| `marketing/` | App Store art, social media and release material |
+| `docs/` | Research notes |
 | `wiki/` | Design system, domain glossary, plans and App Store copy |
 
 ## Requirements
 
 - Xcode with Swift 6
 - iOS 18.0 and macOS 15.0 deployment targets
-- Rust (see `Relay/rust-toolchain.toml`) to build the relay
+- Rust (see `relay/rust-toolchain.toml`) to build the relay
 
 ## Building
 
@@ -70,11 +73,11 @@ apps, which is its whole job. It is distributed outside the Mac App Store, updat
 ## Testing
 
 ```sh
-Tools/check.sh           # package tests, then a compile of both apps
-Tools/check.sh --quick   # package tests only
+apple/Tools/check.sh           # package tests, then a compile of both apps
+apple/Tools/check.sh --quick   # package tests only
 
-cd MacCastKit && swift test
-cd Relay && cargo test
+cd apple/MacCastKit && swift test
+cd relay && cargo test
 ```
 
 New logic goes in `MacCastKit` or `RemoteCore` with Swift Testing tests, so it can be checked
@@ -88,7 +91,7 @@ cargo run    # signalling on :8443, control on :9443
 ```
 
 Point both apps at `127.0.0.1` to try it. Configuration and deployment are in
-[Relay/README.md](Relay/README.md).
+[relay/README.md](relay/README.md).
 
 ## Contributing and working notes
 

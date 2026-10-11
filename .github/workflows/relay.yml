@@ -15,11 +15,11 @@ on:
     branches: [main]
     tags: ["v*"]
     paths:
-      - "Relay/**"
+      - "relay/**"
       - ".github/workflows/relay.yml"
   pull_request:
     paths:
-      - "Relay/**"
+      - "relay/**"
   # So a binary can be produced on demand without cutting a tag first.
   workflow_dispatch:
 
@@ -32,7 +32,7 @@ jobs:
       # The suite includes five tests that drive the whole relay over real sockets, so this is a
       # real check that the thing works rather than only that it compiles.
       - run: cargo test --locked
-        working-directory: Relay
+        working-directory: relay
 
   build:
     needs: test
@@ -50,7 +50,7 @@ jobs:
           targets: x86_64-unknown-linux-musl
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: Relay
+          workspaces: relay
 
       # `musl-tools` supplies musl-gcc, which the `ring` crate needs to compile its C for the musl
       # target. This is the whole build dependency list — see the comment in Cargo.toml about why
@@ -58,12 +58,12 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y musl-tools
 
       - run: cargo build --release --locked --target x86_64-unknown-linux-musl
-        working-directory: Relay
+        working-directory: relay
         env:
           CC_x86_64_unknown_linux_musl: musl-gcc
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
 
-      - run: cp Relay/target/x86_64-unknown-linux-musl/release/peeringd peeringd-linux-x86_64
+      - run: cp relay/target/x86_64-unknown-linux-musl/release/peeringd peeringd-linux-x86_64
 
       - uses: actions/upload-artifact@v4
         with:
