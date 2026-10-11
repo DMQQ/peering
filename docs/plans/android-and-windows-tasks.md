@@ -84,7 +84,7 @@ Owns: `docs/protocol/vectors/keymap.json`, `docs/protocol/keymap.md`. Deps: none
 Done: macOS keycode to Windows scancode and VK table, Android `KeyEvent` code to macOS keycode table, modifier mapping rules; JSON parses (`python3 -m json.tool`).
 Commit: Add the keycode map between macOS, Windows and Android.
 
-SPEC-006 | todo | foundation | S : message vectors
+SPEC-006 | done | foundation | S : message vectors
 Port: `Handshake.swift`, `RemoteCommand.swift`, `CaptureSource.swift`, `AgentWire.swift`, `TerminalWire.swift`, existing literals in `apple/RemoteCore/Tests/RemoteCoreTests`.
 Owns: `docs/protocol/vectors/messages.json`. Deps: SPEC-002.
 Done: one JSON file of `{name, kind, json}` cases covering clientHello, serverHello, every command, catalog, config, ping; literal cases copied from the Swift tests are flagged `source: swift-test`.
