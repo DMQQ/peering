@@ -148,7 +148,7 @@ extension ClientSession {
         case busy, protocolMismatch, pinMismatch, noPinOnFile, hostIDMismatch, identity
         case handshake, pairingRefused, pairingNotSaved
         case timedOut, hostClosed, refused, transport, relay
-        case hostReportedError, unresponsive, videoLost, other
+        case hostReportedError, unresponsive, unresponsiveAfterCheck, videoLost, other
 
         init(_ error: Error) {
             switch error {

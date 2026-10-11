@@ -1,6 +1,7 @@
 import Foundation
 import MacCastKit
 import PostHog
+import os
 import UIKit
 
 /// Anonymous usage counts, on by default and off with one switch in Settings.
@@ -73,8 +74,10 @@ enum Analytics {
     }
 
     /// `afterReady` tells a drop mid-session from a connection that never came up.
-    static func connectFailed(afterReady: Bool, reason: String) {
-        send("connect_failed", ["after_ready": String(afterReady), "reason": reason])
+    static func connectFailed(afterReady: Bool, reason: String, path: String, reconnectAttempt: Int, secondsIntoSession: Int?) {
+        var properties = ["after_ready": String(afterReady), "reason": reason, "path": path, "reconnect_attempt": String(reconnectAttempt)]
+        if let secondsIntoSession { properties["seconds_into_session"] = String(secondsIntoSession) }
+        send("connect_failed", properties)
     }
 
     static func paywallShown(reason: String) {
@@ -105,12 +108,18 @@ enum Analytics {
         case purchase, fileTransfer, ssh, audio, notification, liveActivity, security, preview
     }
 
+    private static let reportFilter = OSAllocatedUnfairLock(initialState: ErrorReportFilter())
+
     /// Handled errors go to Error Tracking as the domain and code only: a message can carry a path, a Mac's name or an address.
-    static func failed(_ error: Error, in area: Area) {
+    static func failed(_ error: Error, in area: Area, context: [String: String] = [:]) {
         guard isEnabled, PostHogConfiguration.isConfigured else { return }
         let nsError = error as NSError
+        guard reportFilter.withLock({ $0.shouldReport(nsError, area: area.rawValue) }) else { return }
         let scrubbed = NSError(domain: nsError.domain, code: nsError.code)
-        PostHogSDK.shared.captureException(scrubbed, properties: ["area": area.rawValue, "$process_person_profile": false])
+        var properties: [String: Any] = ErrorDetail.properties(for: error).merging(context) { $1 }
+        properties["area"] = area.rawValue
+        properties["$process_person_profile"] = false
+        PostHogSDK.shared.captureException(scrubbed, properties: properties)
     }
 
     static func settingChanged(_ name: String, to value: String) {

@@ -58,6 +58,14 @@ enum CaptureError: LocalizedError, Equatable {
         }
     }
 
+    /// Denied recording and a system-stopped stream are states the host recovers from and tells the phone about.
+    var isExpectedState: Bool {
+        switch self {
+        case .screenRecordingDenied, .streamStopped: return true
+        case .sourceUnavailable, .catalogUnavailable, .streamFailed, .encodingFailed: return false
+        }
+    }
+
     static func from(_ error: Error) -> CaptureError {
         let nsError = error as NSError
         guard nsError.domain == SCStreamError.errorDomain,

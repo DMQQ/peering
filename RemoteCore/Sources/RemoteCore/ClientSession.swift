@@ -408,7 +408,7 @@ public final class ClientSession: @unchecked Sendable {
             }
             guard silent else { return }
             clientSessionLog.error("no answer within \(grace, privacy: .public)s of being asked; failing the session")
-            self.fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsive)
+            self.fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsiveAfterCheck)
         }
     }
 
