@@ -120,9 +120,10 @@ extension TerminalHubScreen {
                 } label: {
                     Image(systemName: "questionmark.circle")
                         .font(.system(size: 20))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(ColorPalette.ink.opacity(0.6))
                         .frame(width: 44, height: 44)
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("How this page works")
             }
         }

@@ -191,9 +191,9 @@ final class TourFlowTests: XCTestCase {
 
         app.buttons["Add server"].tap()
 
-        // `firstMatch`: an unwiped container lists earlier runs' servers.
-        let saved = app.staticTexts["127.0.0.1"].firstMatch
-        XCTAssertTrue(saved.waitForExistence(timeout: 5), "the server was not saved")
+        // An unwiped container lists earlier runs' servers, some of them locked, and the newest is last.
+        XCTAssertTrue(app.staticTexts["127.0.0.1"].firstMatch.waitForExistence(timeout: 5), "the server was not saved")
+        let saved = app.staticTexts.matching(NSPredicate(format: "label == %@", "127.0.0.1")).allElementsBoundByIndex.last ?? app.staticTexts["127.0.0.1"].firstMatch
 
         // MARK: The shell screen
 

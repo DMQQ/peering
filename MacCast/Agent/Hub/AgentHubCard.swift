@@ -145,7 +145,6 @@ struct HubDock: View {
     let terminal: () -> Void
     let offersFiles: Bool
     let files: () -> Void
-    let canOpenAnotherShell: Bool
     let newTerminal: () -> Void
 
     @State private var held = false
@@ -175,18 +174,11 @@ struct HubDock: View {
     @ViewBuilder
     private var main: some View {
         if tab == .terminals {
-            PlanLocked(
-                capability: .shellTabs,
-                title: String(localized: "New terminal"),
-                diameter: 26,
-                isIncluded: canOpenAnotherShell
-            ) {
-                Button(action: newTerminal) {
-                    primary("New terminal", symbol: "plus", id: "terminal")
-                }
-                .buttonStyle(CardPress())
-                .accessibilityLabel("New terminal")
+            Button(action: newTerminal) {
+                primary("New terminal", symbol: "plus", id: "terminal")
             }
+            .buttonStyle(CardPress())
+            .accessibilityLabel("New terminal")
         } else if let agent {
             holdsToChoose(canChat ? chat : terminal) {
                 primary(canChat ? "Chat with \(agent.name)" : "Open \(agent.name)", symbol: agent.symbol, id: agent.id)

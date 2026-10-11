@@ -25,10 +25,6 @@ extension MacSession {
         wire?.sendTerminal(.startBrowser(id: browserID))
     }
 
-    var canOpenAnotherShell: Bool {
-        model.storeManager.access.includes(.shellTabs) || !terminals.contains { $0.isRunning }
-    }
-
     func createTerminal() {
         createTerminal(inDirectory: nil)
     }
@@ -39,40 +35,17 @@ extension MacSession {
     /// ``sendTerminalInput(_:to:)`` so it does not name the shell "cd" or land in the command
     /// history — the same reasoning ``navigate(to:in:)`` records.
     func createTerminal(inDirectory path: String?) {
-        // **The concurrency gate, and the reason it is enforced here rather than only on the
-        // button.** Three things ask for a shell: the terminal's own `+`, the SSH tab's menu, and a
-        // Run from the file browser. A check drawn on one of them would be a check the other two
-        // walk past, which is the shape of gate that ends up on a review as a promise the app does
-        // not keep.
-        guard canOpenAnotherShell else { return }
         pendingTerminalDirectory = path
         wire?.sendTerminal(.create)
     }
 
     /// **A shell of its own rather than the one the browser is sitting on.** That shell is the one
     /// the user has been typing into, and a file that prints for a minute or waits on a prompt
-    /// should not take it over — nor should running one quietly change the directory it was in.
+    /// should not take it over, nor should running one quietly change the directory it was in.
     /// The cost is one round trip between the tap and the output, which is what ``pendingRun`` is.
-    /// **On a plan that runs one shell, this types into the one in hand instead.** Running what the
-    /// browser lists is part of the browser and is free on every plan, so refusing the run would
-    /// break a promise to sell a tab; and opening the tab anyway would be the app granting itself,
-    /// silently, exactly what it draws a badge on when the user asks. What is left is the
-    /// sentence the feature is described with: a line typed into a shell you already have.
     func runInNewTerminal(_ command: String) {
-        guard canOpenAnotherShell else {
-            if let target = runningShellTargetID { sendTerminalInput(command, to: target) }
-            return
-        }
         pendingRun = command
         createTerminal()
-    }
-
-    /// `selectedTerminalID` first, which is the shell on screen. A running one as the fallback,
-    /// for the case where the selection is one that has ended and the Mac has not said so yet: a
-    /// command sent into a dead tab would be a Run that silently did nothing.
-    var runningShellTargetID: UUID? {
-        terminals.first { $0.id == selectedTerminalID && $0.isRunning }?.id
-            ?? terminals.last(where: { $0.isRunning })?.id
     }
 
     func renameTerminal(_ id: UUID, to name: String) {

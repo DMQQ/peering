@@ -21,18 +21,15 @@ struct MacroBar: View {
                     .buttonStyle(RailButtonStyle(scale: 0.86))
                 }
 
-                // What is paid is making a macro, not using one: the built-in chips are the keyboard and free on every plan, and gating them would charge for the keyboard. On a plan without the editor the button stays, dimmed with the badge, so users can see what it does.
-                PlanLocked(capability: .macros, title: String(localized: "Edit macros"), diameter: 34) {
-                    Button {
-                        showingMacroEditor = true
-                    } label: {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 15, weight: .medium))
-                            .keyChip()
-                    }
-                    .buttonStyle(RailButtonStyle(scale: 0.86))
-                    .accessibilityLabel("Edit macros")
+                Button {
+                    showingMacroEditor = true
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 15, weight: .medium))
+                        .keyChip()
                 }
+                .buttonStyle(RailButtonStyle(scale: 0.86))
+                .accessibilityLabel("Edit macros")
         }
         .sheet(isPresented: $showingMacroEditor) {
             MacroEditorView(model: model)

@@ -76,28 +76,26 @@ struct ClipboardPanel: View {
     }
 
     private var historyRow: some View {
-        PlanLocked(capability: .clipboardHistory, title: String(localized: "Clipboard history"), placement: .trailing) {
-            Button {
-                withAnimation(Motion.settle) { showingHistory = true }
-            } label: {
-                HStack(spacing: 11) {
-                    icon("clock.arrow.circlepath")
-                    Text("History")
-                        .font(.subheadline.weight(.medium))
-                    Text("\(model.clipboardHistory.count)")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 10)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(10)
-                .contentShape(Rectangle())
-                .rowSurface()
+        Button {
+            withAnimation(Motion.settle) { showingHistory = true }
+        } label: {
+            HStack(spacing: 11) {
+                icon("clock.arrow.circlepath")
+                Text("History")
+                    .font(.subheadline.weight(.medium))
+                Text("\(model.clipboardHistory.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 10)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.tertiary)
             }
-            .buttonStyle(RailButtonStyle(scale: 0.97))
+            .padding(10)
+            .contentShape(Rectangle())
+            .rowSurface()
         }
+        .buttonStyle(RailButtonStyle(scale: 0.97))
     }
 
     private func row<Actions: View>(

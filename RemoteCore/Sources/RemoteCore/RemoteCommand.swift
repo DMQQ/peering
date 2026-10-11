@@ -122,8 +122,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     case reportDeviceOrientation(isLandscape: Bool)
 
     /// Empty `name` asks the host to pick one. `width`/`height` are portrait pixels regardless of `startLandscape`, clamped by the host.
-    /// Sent only to a Mac that has declared ``ServerHello/supportsVirtualDisplayManagement``, and
-    /// only by a plan that includes it: see `PlanCapability.virtualDisplays` in `MacCastKit`.
+    /// Sent only to a Mac that has declared ``ServerHello/supportsVirtualDisplayManagement``.
     case addVirtualDisplay(name: String, width: Int, height: Int, startLandscape: Bool)
     /// Asks the host to remove a display it made; `displayID` is a `CGDirectDisplayID`'s raw value.
     case removeVirtualDisplay(displayID: UInt32)

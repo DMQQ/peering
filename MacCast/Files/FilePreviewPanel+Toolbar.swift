@@ -33,14 +33,8 @@ extension FilePreviewPanel {
         ToolbarItem(placement: .bottomBar) {
             if !isEditing, let shareURL {
                 // Dimmed with the plan's name when the plan does not move files, so users can find the feature; tapping opens the plans.
-                PlanLocked(
-                    capability: .fileTransfer,
-                    title: String(localized: "Download to this device"),
-                    diameter: 26
-                ) {
-                    ShareLink(item: shareURL) { Image(systemName: "square.and.arrow.up") }
-                        .accessibilityLabel("Download to this device")
-                }
+                ShareLink(item: shareURL) { Image(systemName: "square.and.arrow.up") }
+                    .accessibilityLabel("Download to this device")
             }
         }
 

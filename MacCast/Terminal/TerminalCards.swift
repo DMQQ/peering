@@ -58,11 +58,6 @@ struct TerminalCardDigest: Identifiable, Equatable {
 
 extension SessionModel {
     var terminalCards: [TerminalCardDigest] { activeSession?.terminalCards ?? [] }
-
-    /// ``canOpenAnotherShell`` without reading the terminals themselves, which a page must not do: they change with every chunk of output.
-    var canOpenAnotherShellFromCards: Bool {
-        storeManager.access.includes(.shellTabs) || !terminalCards.contains { $0.isRunning }
-    }
 }
 
 /// A shell as a small window onto the Mac: its name and age on a title bar, its last lines underneath, and a cursor that breathes while it runs.
@@ -236,7 +231,6 @@ private struct Cursor: View {
 
 /// No shells yet: a window that types a few commands to itself, so the page shows what it is for.
 struct TerminalEmptyState: View {
-    let canCreate: Bool
     let create: () -> Void
 
     private static let script = ["swift test", "git status", "npm run dev", "claude", "tail -f server.log"]

@@ -154,35 +154,33 @@ struct SourcesPanel: View {
     @ViewBuilder
     var mosaicEntry: some View {
         if model.hostSupportsMosaic {
-            PlanLocked(capability: .mosaic, placement: .trailing) {
-                Button {
-                    // Animated rather than assigned: this swaps three whole sections for another arrangement.
-                    withAnimation(Motion.settle) {
-                        buildingMosaic = true
-                        picked = []
-                    }
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "rectangle.split.2x2")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(ColorPalette.ink)
-                            .frame(width: 22)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Mosaic")
-                                .font(.subheadline.weight(.medium))
-                            Text("Pick several, and see them all at once")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 8)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .rowSurface()
-                    .contentShape(Rectangle())
+            Button {
+                // Animated rather than assigned: this swaps three whole sections for another arrangement.
+                withAnimation(Motion.settle) {
+                    buildingMosaic = true
+                    picked = []
                 }
-                .buttonStyle(.plain)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "rectangle.split.2x2")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(ColorPalette.ink)
+                        .frame(width: 22)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Mosaic")
+                            .font(.subheadline.weight(.medium))
+                        Text("Pick several, and see them all at once")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 8)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .rowSurface()
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
     }
 }

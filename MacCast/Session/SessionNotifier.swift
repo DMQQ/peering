@@ -19,10 +19,6 @@ final class SessionNotifier {
     /// Kept rather than dropped: a phone that never registered looks exactly like a Mac that never sent anything, and this is the only evidence. Shown in Settings.
     private(set) var remoteTokenFailure: String?
 
-    /// Pushed in, like ``SessionPiP/isOnPlan``: this object owns no store.
-    /// False until told otherwise, the direction to fail in: a shell stopping raises its banner with no tap, so the wrong default delivers the paid half to someone who has not bought it. Gates the terminal banner only.
-    var isOnPlan = false
-
     private init() {}
 
     // MARK: - Permission
@@ -128,10 +124,8 @@ final class SessionNotifier {
         sessionID: UUID,
         name: String? = nil,
         macName: String? = nil,
-        isSSH: Bool = false,
-        onLAN: Bool = false
+        isSSH: Bool = false
     ) {
-        guard TerminalAlertsAccess.allowsBanner(planIncluded: isOnPlan, onLAN: onLAN) else { return }
         guard !isForeground else {
             InAppBanner.shared.post(InAppBannerItem(
                 symbol: "terminal.fill",
@@ -157,23 +151,20 @@ final class SessionNotifier {
         _ kind: TerminalAttentionKind,
         name: String,
         sessionID: UUID,
-        macName: String?,
-        onLAN: Bool
+        macName: String?
     ) {
         let noun = kind == .password ? String(localized: "a password") : "confirmation"
         terminalNeedsAttention(
             String(localized: "Terminal \u{201C}\(name)\u{201D} is waiting for \(noun)."),
             sessionID: sessionID,
             name: name,
-            macName: macName,
-            onLAN: onLAN
+            macName: macName
         )
     }
 
     /// A command that took a while has returned to the prompt. No `terminalStillWaiting` counterpart: nothing waits on an answer.
-    /// Gated on `isOnPlan` or a LAN session; the local route is the fallback when no APNs token exists.
-    func terminalFinishedWork(_ message: String, sessionID: UUID, name: String? = nil, macName: String? = nil, onLAN: Bool = false) {
-        guard TerminalAlertsAccess.allowsBanner(planIncluded: isOnPlan, onLAN: onLAN) else { return }
+    /// The local route is the fallback when no APNs token exists.
+    func terminalFinishedWork(_ message: String, sessionID: UUID, name: String? = nil, macName: String? = nil) {
         guard !isForeground else {
             InAppBanner.shared.post(InAppBannerItem(
                 symbol: "checkmark.circle.fill",

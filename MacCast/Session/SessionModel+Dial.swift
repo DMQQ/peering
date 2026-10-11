@@ -30,12 +30,6 @@ extension SessionModel {
         isSessionOnScreen = true
         pausedBySteppingAway = false
 
-        // The gate, at the one place every route passes: a gate on one door can be walked past by another.
-        // A ladder putting a Mac back is not gated: the plan was checked when it opened, and asking again would end a paid session mid-reconnect.
-        if old == nil, hasOpenSession, !canAddAnotherSession {
-            paywallReason = .feature(.concurrentSessions)
-            return
-        }
         // Said rather than silently refused: the ceiling is a fact about this phone, and a tap that did nothing would read as broken.
         if old == nil, openSessions.count >= Self.sessionCeiling {
             append(note: String(localized: "This device holds \(Self.sessionCeiling) Macs open at once. Close one to open another."))

@@ -230,13 +230,8 @@ struct SSHTab: View {
     /// A menu rather than a long press: nothing mentions the gesture, and forgetting a key is needed exactly when the connection has failed.
     private func rowMenu(_ host: SSHHost) -> some View {
         Menu {
-            // Kept in the menu on a one-shell plan so the item does not vanish; tap opens the plans. Written out rather than via ``PlanLocked`` because a system menu row cannot draw the badge.
             Button("New shell", systemImage: "plus.rectangle.on.rectangle") {
-                if session.storeManager.access.includes(.shellTabs) {
-                    openAnother(host)
-                } else {
-                    session.paywallReason = .feature(.shellTabs)
-                }
+                openAnother(host)
             }
             Button("Edit…", systemImage: "pencil") { editingHost = host }
 

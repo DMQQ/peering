@@ -6,18 +6,13 @@ import SwiftUI
 import UIKit
 
 extension SettingsTab {
-    /// On a plan without it the switch is dimmed and inert with the plan's name overlaid at the corner: an overlay costs no width, so the row does not move when the plan changes.
     var pipSection: some View {
         Controls.card(
             String(localized: "Picture in Picture"),
-            footer: model.storeManager.access.includes(.pictureInPicture)
-                ? String(localized: "Peering can keep a live view of your Mac floating over other apps.")
-                : String(localized: "It is part of \(PlanCapability.pictureInPicture.minimumPlan.name), with sound from the Mac and files that move both ways.")
+            footer: String(localized: "Peering can keep a live view of your Mac floating over other apps.")
         ) {
-            PlanLocked(capability: .pictureInPicture, title: "Float automatically") {
-                Controls.toggle(String(localized: "Float automatically"), systemImage: "pip", isOn: $pipAutoStart)
-                    .onChange(of: pipAutoStart) { _, on in model.setPiPAutoStart(on) }
-            }
+            Controls.toggle(String(localized: "Float automatically"), systemImage: "pip", isOn: $pipAutoStart)
+                .onChange(of: pipAutoStart) { _, on in model.setPiPAutoStart(on) }
         }
     }
 
@@ -58,22 +53,16 @@ extension SettingsTab {
         }
     }
 
-    /// Not a control: there is nothing to switch, the banner is raised because a shell stopped. The state printed is the system permission, not our preference; a row saying On beside a refused permission would claim something the app cannot do. On a plan without it the tap opens the paywall through ``PlanLocked``.
+    /// Not a control: there is nothing to switch, the banner is raised because a shell stopped. The state printed is the system permission, not our preference; a row saying On beside a refused permission would claim something the app cannot do.
     var notificationsSection: some View {
-        let included = model.storeManager.access.includes(.terminalAlerts)
-
-        return Controls.card(
+        Controls.card(
             String(localized: "Notifications"),
-            footer: included
-                ? String(localized: "A shell that stops for an answer puts a banner up while Peering is not in front of you, on this device and through the Mac when no session is open. iOS carries the permission under Settings, Notifications, Peering.")
-                : String(localized: "On your home network, a shell that stops for an answer puts a banner up while Peering is in the background. Everywhere else, and when no session is open, it is part of \(PlanCapability.terminalAlerts.minimumPlan.name).")
+            footer: String(localized: "A shell that stops for an answer puts a banner up while Peering is not in front of you, on this device and through the Mac when no session is open. iOS carries the permission under Settings, Notifications, Peering.")
         ) {
-            PlanLocked(capability: .terminalAlerts, title: String(localized: "Told when a shell needs you"), isIncluded: true) {
-                Controls.row(String(localized: "Terminal needs you"), systemImage: "bell.badge") {
-                    Text(model.notificationsAuthorized ? "On" : "Off")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+            Controls.row(String(localized: "Terminal needs you"), systemImage: "bell.badge") {
+                Text(model.notificationsAuthorized ? "On" : "Off")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
 
             Controls.divider

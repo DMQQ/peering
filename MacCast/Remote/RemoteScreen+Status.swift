@@ -67,7 +67,7 @@ extension RemoteScreen {
                         Circle()
                             .fill(isReconnectingToMac ? ColorPalette.caution : (model.phase == .ready ? Color.green : ColorPalette.ink))
                             .frame(width: 7, height: 7)
-                        Text(model.hostName ?? "Mac")
+                        Text(model.shownHostName ?? "Mac")
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -175,7 +175,7 @@ extension RemoteScreen {
                                 .fill(connectionDotTint)
                                 .frame(width: 6, height: 6)
                                 .accessibilityLabel(connectionDotLabel)
-                            Text(model.hostName ?? "Mac")
+                            Text(model.shownHostName ?? "Mac")
                                 .font(.caption.weight(.semibold))
                                 .lineLimit(1)
                         }
@@ -391,28 +391,20 @@ extension RemoteScreen {
     private var terminalWantsAttention: Bool { model.terminals.contains { $0.attention != nil } }
 
     /// Settings cannot be opened while a session runs, which is the only time anybody wants to silence a Mac, so the switch has to live here.
-    /// Gated like every paid control and drawn as itself, so the gate stays visible.
     var soundButton: some View {
-        PlanLocked(
-            capability: .macSound,
-            title: "Sound from the Mac",
-            diameter: 26,
-            isIncluded: model.storeManager.access.includes(.macSound)
-        ) {
-            Button {
-                withAnimation(Motion.settle) { model.hostAudioMuted.toggle() }
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: model.hostAudioMuted ? "speaker.slash" : "speaker.wave.2")
-                    Text(model.hostAudioMuted ? "Unmute" : "Mute")
-                }
-                .foregroundStyle(ColorPalette.ink)
-                .pillChip(filling: true)
+        Button {
+            withAnimation(Motion.settle) { model.hostAudioMuted.toggle() }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: model.hostAudioMuted ? "speaker.slash" : "speaker.wave.2")
+                Text(model.hostAudioMuted ? "Unmute" : "Mute")
             }
-            .buttonStyle(RailButtonStyle(scale: 0.9))
-            .menuInk()
-            .accessibilityLabel(model.hostAudioMuted ? "Unmute the Mac" : "Mute the Mac")
+            .foregroundStyle(ColorPalette.ink)
+            .pillChip(filling: true)
         }
+        .buttonStyle(RailButtonStyle(scale: 0.9))
+        .menuInk()
+        .accessibilityLabel(model.hostAudioMuted ? "Unmute the Mac" : "Mute the Mac")
     }
 
     /// A `Button` rather than a `Menu`: as a menu label it drew a visibly different shade from its neighbours, something the menu drew rather than anything set here.

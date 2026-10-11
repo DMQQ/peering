@@ -50,6 +50,8 @@ extension FileBrowserPanel {
     var bottomBar: some View {
         FolderBrowserBar(
             prompt: String(localized: "Search this folder"),
+            // Without breadcrumbs nothing else says where the browser opened.
+            location: showsBreadcrumbs ? nil : path,
             query: $query,
             showsHidden: Binding(get: { showsHidden }, set: { _ in onToggleHidden?() }),
             searchFocused: $searchFocused
@@ -73,21 +75,15 @@ extension FileBrowserPanel {
         } actions: {
             if onUpload != nil {
                 // The button rather than the row, dimmed with the plan's name on its corner for plans without file transfer: a free user who never sees the control never learns the app can do it. Tapping opens the plans.
-                PlanLocked(
-                    capability: .fileTransfer,
-                    title: "Send a file or a folder here",
-                    diameter: 48
-                ) {
-                    Menu {
-                        Button("Files", systemImage: "folder") { uploadTarget = nil; showsImporter = true }
-                        Button("Photos & Videos", systemImage: "photo.on.rectangle") { uploadTarget = nil; showsPhotos = true }
-                    } label: {
-                        chrome("arrow.up.to.line")
-                    }
-                    .buttonStyle(RailButtonStyle(scale: 0.9))
-                    .disabled(isChanging)
-                    .accessibilityLabel("Send a file or a folder here")
+                Menu {
+                    Button("Files", systemImage: "folder") { uploadTarget = nil; showsImporter = true }
+                    Button("Photos & Videos", systemImage: "photo.on.rectangle") { uploadTarget = nil; showsPhotos = true }
+                } label: {
+                    chrome("arrow.up.to.line")
                 }
+                .buttonStyle(RailButtonStyle(scale: 0.9))
+                .disabled(isChanging)
+                .accessibilityLabel("Send a file or a folder here")
             }
         }
     }

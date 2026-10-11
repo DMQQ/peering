@@ -67,29 +67,20 @@ struct SessionTabs: View {
         .accessibilityLabel(isSelected ? String(localized: "\(name), showing") : name)
     }
 
-    /// Drawn as itself whether or not the plan includes it: a `+` that became a padlock would not tell someone with one Mac that the app holds several.
-    /// `isIncluded` is passed because the first Mac is free on every plan.
     /// The 11 points of top padding centre it on the tab names, as in the terminal panels' strips.
     @ViewBuilder
     private var addButton: some View {
-        PlanLocked(
-            capability: .concurrentSessions,
-            title: String(localized: "Another Mac"),
-            diameter: 20,
-            isIncluded: model.canAddAnotherSession
-        ) {
-            Menu {
-                ForEach(model.closedPairedMacs, id: \.id) { mac in
-                    Button(mac.name) { model.addSession(hostID: mac.id) }
-                }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 26, height: 26)
-                    .background(ColorPalette.surface, in: Circle())
+        Menu {
+            ForEach(model.closedPairedMacs, id: \.id) { mac in
+                Button(mac.name) { model.addSession(hostID: mac.id) }
             }
-            .accessibilityLabel("Another Mac")
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 26, height: 26)
+                .background(ColorPalette.surface, in: Circle())
         }
+        .accessibilityLabel("Another Mac")
         .padding(.top, 11)
         .padding(.trailing, 8)
     }
