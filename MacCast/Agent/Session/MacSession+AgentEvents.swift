@@ -29,6 +29,8 @@ extension MacSession {
             for session in agentSessions where session.isLoaded {
                 loadAgentHistory(session.id, since: session.transcript.lastIndex)
             }
+            // The chat on screen may have asked before this list existed, and that ask is gone with the set cleared above.
+            if let selectedAgentSessionID { ensureAgentHistory(selectedAgentSessionID) }
 
         case .created(let info):
             if let index = agentSessions.firstIndex(where: { $0.id == info.id }) {
