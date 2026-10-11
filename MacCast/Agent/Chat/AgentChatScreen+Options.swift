@@ -11,8 +11,14 @@ extension AgentChatScreen {
         session.model.map(AgentModelName.short) ?? String(localized: "Default")
     }
 
-    /// What was four header buttons, down by the composer where the thumb is: this chat's model and permissions as chips that say their current value, and the rest behind a menu.
+    /// This chat's model and permissions as chips that say their current value, and the context meter, down by the composer where the thumb is. One row, so the composer keeps the screen; the rest is behind the header's menu.
     func optionsBar(_ session: RemoteAgentSession) -> some View {
+        optionChips(session)
+            .padding(.horizontal, 14)
+            .padding(.top, 6)
+    }
+
+    private func optionChips(_ session: RemoteAgentSession) -> some View {
         HStack(spacing: 8) {
             if offersModelPicker(session) {
                 Menu {
@@ -57,35 +63,35 @@ extension AgentChatScreen {
                 .accessibilityLabel(Text("Permissions, \(AgentPermissionModeMenu.title(current))"))
             }
             Spacer(minLength: 0)
-            Menu {
-                if model.hostSupportsAgentUsage {
-                    Button { showsUsage = true } label: {
-                        Label("Usage and limits", systemImage: "gauge.with.dots.needle.33percent")
-                    }
-                }
-                Button { showsChanges = true } label: {
-                    Label("Changes", systemImage: "doc.badge.gearshape")
-                }
-                Button { showsPreview = true } label: {
-                    Label("Web preview", systemImage: "safari")
-                }
-                Button("Rename", systemImage: "character.cursor.ibeam") { beginRename(session) }
-                Divider()
-                Button(role: .destructive) { pendingClose = session } label: {
-                    Label("Close chat", systemImage: "xmark")
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .frame(width: 34, height: 30)
-                    .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
-                    .contentShape(Capsule())
+            if model.hostSupportsAgentUsage, let usage = session.usage, AgentContextBar.hasContent(usage) {
+                AgentContextBar(usage: usage) { showsUsage = true }
             }
-            .accessibilityLabel(Text("Chat options"))
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 6)
+    }
+
+    /// In the navigation bar's trailing corner, where a screen's own actions live.
+    func moreMenu(_ session: RemoteAgentSession) -> some View {
+        Menu {
+            if model.hostSupportsAgentUsage {
+                Button { showsUsage = true } label: {
+                    Label("Usage and limits", systemImage: "gauge.with.dots.needle.33percent")
+                }
+            }
+            Button { showsChanges = true } label: {
+                Label("Changes", systemImage: "doc.badge.gearshape")
+            }
+            Button { showsPreview = true } label: {
+                Label("Web preview", systemImage: "safari")
+            }
+            Button("Rename", systemImage: "character.cursor.ibeam") { beginRename(session) }
+            Divider()
+            Button(role: .destructive) { pendingClose = session } label: {
+                Label("Close chat", systemImage: "xmark")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .accessibilityLabel(Text("Chat options"))
     }
 
     func optionChip(_ title: String, symbol: String) -> some View {
@@ -100,7 +106,7 @@ extension AgentChatScreen {
         }
         .foregroundStyle(.white.opacity(0.85))
         .padding(.horizontal, 11)
-        .frame(height: 30)
+        .frame(height: 28)
         .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
         .contentShape(Capsule())
     }

@@ -44,7 +44,8 @@ struct AgentChatScreen: View {
         Group {
             if let session {
                 VStack(spacing: 0) {
-                    tabStrip
+                    // One chat has nothing to switch to; its close and rename are in More.
+                    if model.agentSessions.count > 1 { tabStrip }
                     content(session)
                 }
             } else {
@@ -80,6 +81,9 @@ struct AgentChatScreen: View {
                             .truncationMode(.middle)
                     }
                 }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                if let session { moreMenu(session) }
             }
             // No keyboard accessory bar: with the composer on the bottom safe-area inset the bar's height is counted twice and the field floats a row too high.
         }
@@ -287,7 +291,8 @@ struct AgentChatScreen: View {
                     stop: { model.interruptAgent(session.id) }
                 )
             }
-            .background(ColorPalette.backdrop)
+            // Down through the keyboard's own area too: the keyboard is translucent, and without this the transcript showed through it.
+            .background(ColorPalette.backdrop.ignoresSafeArea(.all, edges: .bottom))
             .animation(Motion.settle, value: attaching == nil)
             .animation(Motion.settle, value: session.transcript.runningSubagents.count)
         }
