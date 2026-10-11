@@ -76,6 +76,9 @@ sealed interface RelayClientMessage {
         val plan: String? = null,
         val playPurchaseToken: String? = null,
         val playProductId: String? = null,
+        val publicKey: String? = null,
+        val proof: String? = null,
+        val proofTime: Long? = null,
     ) : RelayClientMessage {
         override val type = "connectToHost"
 
@@ -86,6 +89,9 @@ sealed interface RelayClientMessage {
             plan?.let { put("plan", JsonPrimitive(it)) }
             playPurchaseToken?.let { put("playPurchaseToken", JsonPrimitive(it)) }
             playProductId?.let { put("playProductId", JsonPrimitive(it)) }
+            publicKey?.let { put("publicKey", JsonPrimitive(it)) }
+            proof?.let { put("proof", JsonPrimitive(it)) }
+            proofTime?.let { put("proofTime", JsonPrimitive(it)) }
         }
     }
 

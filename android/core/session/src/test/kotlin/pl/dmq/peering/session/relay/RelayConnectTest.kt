@@ -7,14 +7,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import pl.dmq.peering.session.ports.PeerAddress
+import pl.dmq.peering.session.testing.FakeClock
+import pl.dmq.peering.session.testing.FakeIdentity
 import pl.dmq.peering.session.testing.FakeSignalling
 import pl.dmq.peering.wire.RelayClientMessage
 import pl.dmq.peering.wire.RelayServerMessage
 import pl.dmq.peering.wire.Token
+import pl.dmq.peering.wire.clientPayload
+import pl.dmq.peering.wire.toHex
 
 class RelayConnectTest {
     private val signalling = FakeSignalling()
-    private val relay = RelayConnect(signalling)
+    private val identity = FakeIdentity()
+    private val clock = FakeClock(unixNow = PROOF_TIME)
+    private val relay = RelayConnect(signalling, identity, clock)
     private val controlToken = Token(ByteArray(16) { 1 })
     private val videoToken = Token(ByteArray(16) { 2 })
 
@@ -49,6 +55,18 @@ class RelayConnectTest {
         assertEquals(16, session.videoTokenBytes.size)
         assertEquals(16, session.controlHandoff().token.size)
         assertEquals(PeerAddress("control.example", 4431), session.controlHandoff().address)
+    }
+
+    @Test
+    fun connectCarriesTheClientProofOverTheClientIdAndTheClockTime() = runTest {
+        signalling.reply(sessionReady())
+
+        relay.requestSession("host-1", "client-1")
+
+        val sent = signalling.sent.single() as RelayClientMessage.ConnectToHost
+        assertEquals(identity.publicKey.toHex(), sent.publicKey)
+        assertEquals(PROOF_TIME, sent.proofTime)
+        assertEquals(identity.sign(clientPayload("client-1", PROOF_TIME)).toHex(), sent.proof)
     }
 
     @Test
@@ -155,6 +173,10 @@ class RelayConnectTest {
         signalling.reply(RelayServerMessage.Error("unauthorized", "no"))
 
         assertRejects<RelaySessionException.Refused> { relay.discoverPeer(ByteArray(16) { 2 }) }
+    }
+
+    private companion object {
+        const val PROOF_TIME = 1_760_000_000L
     }
 
     private suspend inline fun <reified T : RelaySessionException> assertRejects(block: () -> Unit): T {

@@ -13,6 +13,8 @@ import pl.dmq.peering.session.connection.ClientStateMachine
 import pl.dmq.peering.session.connection.FailureReason
 import pl.dmq.peering.session.relay.RelayConnect
 import pl.dmq.peering.session.relay.RelaySessionException
+import pl.dmq.peering.session.testing.FakeClock
+import pl.dmq.peering.session.testing.FakeIdentity
 import pl.dmq.peering.session.testing.FakePinStore
 import pl.dmq.peering.session.testing.FakeSignalling
 import pl.dmq.peering.session.testing.FixedRandom
@@ -62,7 +64,9 @@ class ErrorPathsTest {
         val signalling = FakeSignalling()
         signalling.reply(RelayServerMessage.Error("version", "relay is older"))
 
-        val failure = runCatching { RelayConnect(signalling).requestSession(ScriptedPairingHost.HOST_ID, CLIENT_ID) }
+        val relay = RelayConnect(signalling, FakeIdentity(), FakeClock())
+
+        val failure = runCatching { relay.requestSession(ScriptedPairingHost.HOST_ID, CLIENT_ID) }
             .exceptionOrNull()
 
         assertEquals(RelaySessionException.VersionMismatch, failure)
@@ -77,7 +81,9 @@ class ErrorPathsTest {
         val signalling = FakeSignalling()
         signalling.reply(RelayServerMessage.Error("quotaExceeded", "free time used"))
 
-        val failure = runCatching { RelayConnect(signalling).requestSession(ScriptedPairingHost.HOST_ID, CLIENT_ID) }
+        val relay = RelayConnect(signalling, FakeIdentity(), FakeClock())
+
+        val failure = runCatching { relay.requestSession(ScriptedPairingHost.HOST_ID, CLIENT_ID) }
             .exceptionOrNull()
 
         assertEquals(RelaySessionException.QuotaExceeded, failure)

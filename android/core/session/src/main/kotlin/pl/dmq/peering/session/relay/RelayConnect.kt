@@ -1,23 +1,32 @@
 package pl.dmq.peering.session.relay
 
 import kotlinx.coroutines.delay
+import pl.dmq.peering.session.ports.Clock
+import pl.dmq.peering.session.ports.DeviceIdentity
 import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.ports.Signalling
 import pl.dmq.peering.wire.PROTOCOL_VERSION
+import pl.dmq.peering.wire.ProofSigner
 import pl.dmq.peering.wire.RelayClientMessage
 import pl.dmq.peering.wire.RelayServerMessage
 import pl.dmq.peering.wire.Token
+import pl.dmq.peering.wire.makeClientProof
 
 /**
  * Asks the relay for a session to a Mac and for its presence, over the signalling connection. Each call reads
  * replies until the one it is waiting for; anything else the relay says (pongs, registrations) is skipped.
  */
-class RelayConnect(private val signalling: Signalling) {
+class RelayConnect(
+    private val signalling: Signalling,
+    private val identity: DeviceIdentity,
+    private val clock: Clock,
+) {
     suspend fun requestSession(
         hostId: String,
         clientId: String,
         entitlement: RelayEntitlement = RelayEntitlement(),
     ): RelaySession {
+        val proof = makeClientProof(IdentityProofSigner(identity), clientId, clock.unixSeconds())
         signalling.send(
             RelayClientMessage.ConnectToHost(
                 hostId = hostId,
@@ -26,6 +35,9 @@ class RelayConnect(private val signalling: Signalling) {
                 plan = entitlement.plan,
                 playPurchaseToken = entitlement.playPurchaseToken,
                 playProductId = entitlement.playProductId,
+                publicKey = proof.publicKey,
+                proof = proof.signature,
+                proofTime = proof.proofTime,
             ),
         )
         while (true) {
@@ -101,4 +113,10 @@ class RelayConnect(private val signalling: Signalling) {
     private companion object {
         const val PEER_ADDRESS_UNKNOWN = "peerAddressUnknown"
     }
+}
+
+private class IdentityProofSigner(private val identity: DeviceIdentity) : ProofSigner {
+    override fun publicKey(): ByteArray = identity.publicKey
+
+    override fun sign(message: ByteArray): ByteArray = identity.sign(message)
 }

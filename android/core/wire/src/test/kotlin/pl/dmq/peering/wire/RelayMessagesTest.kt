@@ -148,6 +148,51 @@ class RelayMessagesTest {
     }
 
     @Test
+    fun aConnectWithoutAProofLeavesTheProofMembersOut() {
+        val json = ConnectToHost(hostId = "mac-1", clientId = "phone-1", protocolVersion = 20).toJson()
+
+        assertEquals(false, json.contains("publicKey"))
+        assertEquals(false, json.contains("\"proof\""))
+        assertEquals(false, json.contains("proofTime"))
+    }
+
+    @Test
+    fun aConnectWithAProofWritesTheThreeProofMembers() {
+        val json = ConnectToHost(
+            hostId = "mac-1",
+            clientId = "phone-1",
+            protocolVersion = 20,
+            publicKey = "04aa",
+            proof = "3044",
+            proofTime = 1_760_000_000,
+        ).toJson()
+
+        assertEquals(
+            "{\"clientId\":\"phone-1\",\"hostId\":\"mac-1\",\"proof\":\"3044\",\"proofTime\":1760000000," +
+                "\"protocolVersion\":20,\"publicKey\":\"04aa\",\"type\":\"connectToHost\"}",
+            json,
+        )
+    }
+
+    @Test
+    fun aRegisterWithAProofWritesTheThreeProofMembers() {
+        val json = RegisterHost(
+            deviceId = "mac-1",
+            name = "Studio",
+            protocolVersion = 20,
+            publicKey = "04aa",
+            proof = "3044",
+            proofTime = 1_760_000_000,
+        ).toJson()
+
+        assertEquals(
+            "{\"deviceId\":\"mac-1\",\"name\":\"Studio\",\"proof\":\"3044\",\"proofTime\":1760000000," +
+                "\"protocolVersion\":20,\"publicKey\":\"04aa\",\"type\":\"registerHost\"}",
+            json,
+        )
+    }
+
+    @Test
     fun aNonObjectOrMalformedServerMessageThrows() {
         assertThrows(RelayMessageException::class.java) { RelayServerMessage.parse("not json") }
         assertThrows(RelayMessageException::class.java) { RelayServerMessage.parse("[1,2]") }
