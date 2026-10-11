@@ -103,6 +103,21 @@ extension SessionModel {
 
     func ensureAgentPreviews() { activeSession?.ensureAgentPreviews() }
 
+    /// Moves a chat with a conversation to History and deletes one without, so ending a chat does not lose what was said in it.
+    func endAgentSession(_ id: UUID) {
+        let session = agentSessions.first { $0.id == id }
+        let action = AgentEndAction.choose(
+            hasConversation: session.map { !$0.transcript.isEmpty } ?? false,
+            isWorking: session?.state == .working,
+            isPaused: session.map { AgentPause.isPaused($0.transcript) } ?? false,
+            hostSupportsPause: hostSupportsAgentPause
+        )
+        switch action {
+        case .pause: pauseAgentSession(id)
+        case .close: closeAgentSession(id)
+        }
+    }
+
     func closeAgentSession(_ id: UUID) {
         LastActivity.clear(id)
         activeSession?.closeAgentSession(id)

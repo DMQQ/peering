@@ -45,7 +45,7 @@ extension TerminalHubScreen {
     func endPending() {
         switch pendingEnd {
         case .terminal(let id): model.closeTerminal(id)
-        case .chat(let id): model.closeAgentSession(id)
+        case .chat(let id): model.endAgentSession(id)
         case nil: break
         }
         pendingEnd = nil

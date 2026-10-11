@@ -97,7 +97,7 @@ struct AgentChatScreen: View {
             ),
             onEnd: {
                 guard let session = pendingClose else { return }
-                model.closeAgentSession(session.id)
+                model.endAgentSession(session.id)
                 pendingClose = nil
                 dismiss()
             }
