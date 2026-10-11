@@ -239,6 +239,7 @@ impl VideoRoutes {
     /// survivable. The alternative — binding once and trusting the address after that — gives a
     /// stream that stops with nothing to reconnect, because datagrams have no connection to
     /// re-establish.
+    #[cfg(test)]
     pub fn route(&self, token: &Token, from: SocketAddr) -> Routed {
         self.route_sized(token, from, 0)
     }

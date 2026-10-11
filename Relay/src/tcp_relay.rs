@@ -11,6 +11,7 @@
 //! tells us where the TLS handshake should be carried, so it necessarily precedes it. See the
 //! module comment on `session.rs` for why that is safe.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -19,6 +20,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
 use tracing::{debug, info, warn};
 
+use crate::counted_stream::CountedStream;
 use crate::session::{Join, Registry, Token};
 
 /// How long a connection may sit without presenting a token. Long enough to survive a slow start,
@@ -106,7 +108,7 @@ async fn handle(
         return Ok(());
     };
 
-    let Join::Waiting { mut mine, peer } = join else {
+    let Join::Waiting { mine, peer } = join else {
         debug!("control connection handed to its peer");
         return Ok(());
     };
@@ -115,7 +117,7 @@ async fn handle(
     // lifetime: when the sweep takes an abandoned session it drops the sender, this await fails,
     // and the socket closes. A second timeout here would only duplicate that with a second number
     // to keep in step.
-    let Ok(mut theirs) = peer.await else {
+    let Ok(theirs) = peer.await else {
         info!("session was swept before the peer connected; the other end never arrived");
         return Ok(());
     };
@@ -139,6 +141,9 @@ async fn handle(
     // `copy_bidirectional` created fresh per iteration would start again with the buffers it had
     // already filled, and bytes read from one end but not yet written to the other would be lost
     // every time a tick was handled.
+    let control_bytes = Arc::new(AtomicU64::new(0));
+    let mut mine = CountedStream::new(mine, Arc::clone(&control_bytes));
+    let mut theirs = CountedStream::new(theirs, Arc::clone(&control_bytes));
     let splice = tokio::io::copy_bidirectional(&mut mine, &mut theirs);
     tokio::pin!(splice);
 
@@ -160,15 +165,11 @@ async fn handle(
     // reported as one that ran out of allowance, which is a distinction the log line below exists
     // to make. Polling the work before the clock is also the order the two matter in.
     let mut spent = false;
-    let mut control_bytes: Option<(u64, u64)> = None;
     let spliced_at = std::time::Instant::now();
     loop {
         tokio::select! {
             biased;
-            copied = &mut splice => {
-                control_bytes = copied.ok();
-                break;
-            }
+            _ = &mut splice => break,
             _ = ticks.tick() => {
                 // **Said on every tick, not once at the start.** The sweep retires a session whose
                 // registry entry has not been touched for the TTL, and the only thing that used to
@@ -215,16 +216,15 @@ async fn handle(
 
     // One line per relayed session, kept at info: a session whose picture never crossed the video
     // socket is how a network that blocks UDP shows up here, and nothing else in the log says so.
-    // `control_bytes` is large when the picture travelled on the control channel instead.
+    // `control_bytes` is large when the picture travelled on the control channel instead, so `video_over_udp = false` with a large count is a fallback that worked, not a blocked network.
     if let Some(video) = video {
-        let (to_peer, from_peer) = control_bytes.unwrap_or_default();
         info!(
             seconds = spliced_at.elapsed().as_secs(),
             video_over_udp = video.from_host_datagrams > 0,
             video_datagrams_from_host = video.from_host_datagrams,
             video_bytes_from_host = video.from_host_bytes,
             video_datagrams_from_client = video.from_client_datagrams,
-            control_bytes = to_peer + from_peer,
+            control_bytes = control_bytes.load(Ordering::Relaxed),
             "relayed session ended"
         );
     }
