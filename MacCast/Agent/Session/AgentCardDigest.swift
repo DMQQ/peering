@@ -13,18 +13,21 @@ struct AgentCardDigest: Identifiable, Equatable {
     let activity: String?
     let plan: AgentPlanProgress?
     let createdAt: Date
+    /// When the chat was stopped, if this run watched it happen; otherwise when it began. What History sorts a paused chat by.
+    let pausedAt: Date
 
     /// Stopped on purpose and kept: it has no process and does not count against the open chats.
     let isPaused: Bool
 
     var isLive: Bool { state != .exited && state != .failed && !isPaused }
 
-    init(_ session: RemoteAgentSession) {
+    init(_ session: RemoteAgentSession, pauses: AgentPauseClock = AgentPauseClock()) {
         id = session.id
         agentID = session.agentID
         title = session.title
         directory = session.directory
         createdAt = session.createdAt
+        pausedAt = pauses.date(for: session.id, fallback: session.createdAt)
         state = session.state
         activity = session.transcript.activity
         plan = session.transcript.planProgress

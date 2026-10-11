@@ -302,6 +302,7 @@ final class MacSession: Identifiable {
     var agentQueues: [UUID: AgentPromptQueue] = [:]
     /// The chat list's own copy, rebuilt at most a few times a second: see ``AgentCardDigest``.
     var agentCards: [AgentCardDigest] = []
+    @ObservationIgnored var agentPauses = AgentPauseClock()
     @ObservationIgnored var agentCardsTask: Task<Void, Never>?
     var terminalCards: [TerminalCardDigest] = []
     @ObservationIgnored var terminalCardsTask: Task<Void, Never>?

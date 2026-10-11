@@ -87,7 +87,10 @@ extension MacSession {
         #endif
         agentCardsTask?.cancel()
         agentCardsTask = nil
-        let cards = agentSessions.map(AgentCardDigest.init)
+        for session in agentSessions {
+            agentPauses.observe(session.id, isPaused: AgentPause.isPaused(session.transcript), at: Date())
+        }
+        let cards = agentSessions.map { AgentCardDigest($0, pauses: agentPauses) }
         if cards != agentCards { agentCards = cards }
     }
 
