@@ -11,7 +11,7 @@ struct AgentToolCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button(action: toggle) {
-                HStack(spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
                     Image(systemName: symbol)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(tint)
@@ -37,7 +37,8 @@ struct AgentToolCard: View {
                         }
                     }
                     Spacer(minLength: 6)
-                    statusGlyph
+                    // As tall as the icon tile, so an expanded header keeps both at its top and not on its middle.
+                    statusGlyph.frame(height: 28)
                 }
                 .contentShape(Rectangle())
             }
@@ -58,6 +59,8 @@ struct AgentToolCard: View {
             }
         }
         .padding(11)
+        // A block leaving on collapse is drawn on for a few frames after the card's frame has shrunk past it, which put it over the row that slid up into its place.
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.clear)
         }

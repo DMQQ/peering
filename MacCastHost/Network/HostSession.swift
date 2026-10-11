@@ -20,6 +20,7 @@ final class HostSession: @unchecked Sendable {
         case awaitingClientCommit
         case awaitingClientReveal
         case awaitingConfirmation
+        case awaitingApproval
         case ready
         case failed
     }
@@ -99,6 +100,7 @@ final class HostSession: @unchecked Sendable {
     var clientSupportsClipboardImages: Bool?
     var clientSupportsTextFocus: Bool?
     var clientSupportsFieldState: Bool?
+    var clientSupportsPointerReport: Bool?
     var clientSupportsAgentChat: Bool?
     var clientSupportsAgentPermissionModes: Bool?
     var clientSupportsAgentUsage: Bool?
@@ -113,6 +115,8 @@ final class HostSession: @unchecked Sendable {
 
     var closedByHost = false
 
+    var isAwaitingApproval: Bool { state == .awaitingApproval }
+
     // Pairing ephemerals. Generated per attempt, never persisted: they exist only to contribute
     // entropy the other side cannot predict.
     var localEphemeral: P256.KeyAgreement.PrivateKey?
@@ -120,6 +124,8 @@ final class HostSession: @unchecked Sendable {
     var remoteCommitment: Data?
     var remoteEphemeralPublicKey: Data?
     var remoteNonce: Data?
+    var pairingTranscript: PairingTranscript?
+    var pairingSecret = Data()
 
     init(
         connection: PeerConnection,

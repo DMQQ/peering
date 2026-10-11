@@ -32,7 +32,10 @@ final class SSHLockFlowTests: XCTestCase {
     func testLockingAServerWithAPasscode() throws {
         let app = XCUIApplication()
         // Argument domain: seeding the container plist does not outrank the app's own defaults.
-        app.launchArguments = ["-Peering.hasSeenWelcome", "1"]
+        app.launchArguments = [
+            "-Peering.hasSeenWelcome", "1", "-Peering.hasSeenTourConnect", "1", "-Peering.hasSeenTourServers", "1",
+            "-Peering.hasSeenTourShell", "1", "-Peering.hasSeenTourTerminal", "1", "-Peering.hasSeenTourScreen", "1",
+        ]
         app.launch()
 
         tab("Servers", in: app).tap()
@@ -66,11 +69,11 @@ final class SSHLockFlowTests: XCTestCase {
 
         app.buttons["Add server"].tap()
 
-        XCTAssertTrue(app.staticTexts["127.0.0.1"].waitForExistence(timeout: 5),
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label == %@", "127.0.0.1")).firstMatch.waitForExistence(timeout: 5),
                       "the server was not saved")
         capture(app, "5-server-listed")
 
-        app.staticTexts["127.0.0.1"].tap()
+        app.staticTexts.matching(NSPredicate(format: "label == %@", "127.0.0.1")).allElementsBoundByIndex.last?.tap()
 
         XCTAssertTrue(app.staticTexts["Locked"].waitForExistence(timeout: 5),
                       "tapping a locked server did not raise the lock")

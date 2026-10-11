@@ -33,7 +33,8 @@ enum SeededAgentChat {
         let terminals = app.buttons["Open Mac terminals"]
         XCTAssertTrue(terminals.waitForExistence(timeout: 15), "The pretend Mac never reached its session screen:\n\(app.debugDescription)")
         terminals.tap()
-        let agents = app.buttons["Agents"]
+        // The tab's label carries the open count ("Agents, 1"), so match its start.
+        let agents = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Agents'")).firstMatch
         if agents.waitForExistence(timeout: 3) { agents.tap() }
     }
 

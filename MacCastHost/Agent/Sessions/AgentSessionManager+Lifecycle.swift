@@ -74,9 +74,7 @@ extension AgentSessionManager {
     func launch(_ adapter: any AgentAdapter, for session: AgentSession) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self, weak session] in
             let directory = session.map { URL(fileURLWithPath: $0.directory) }
-            var isDirectory: ObjCBool = false
-            if let directory,
-               !(FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory) && isDirectory.boolValue) {
+            if let directory, FolderAccessWatch.isMissing(directory.path) {
                 self?.abandon(adapter, of: session, message: "There is no folder at \(directory.path) on this Mac.")
                 return
             }
@@ -114,9 +112,51 @@ extension AgentSessionManager {
         append(.failure(message: message), to: session)
     }
 
+    /// Stops the process and keeps the chat. The adapter's callbacks are dropped first: its exit would otherwise be written into the transcript as the chat ending.
+    func pause(_ session: AgentSession, sink: Sink) {
+        enum Outcome { case paused(any AgentAdapter), withoutProcess, busy, nothingToPause }
+        let outcome: Outcome = lock.withLock {
+            guard !session.isBusy else { return .busy }
+            // A chat that has talked but never named its session would start again with no memory of it.
+            guard session.cliSessionID != nil || !session.hasHistory else { return .nothingToPause }
+            // One read back from disk or continued from a terminal has no process to stop, and still belongs under history when asked.
+            guard session.adapterLive else { return isPaused(session.transcript) ? .nothingToPause : .withoutProcess }
+            session.adapterLive = false
+            return .paused(session.adapter)
+        }
+        switch outcome {
+        case .nothingToPause:
+            return
+        case .withoutProcess:
+            append(.notice(text: AgentPause.notice), to: session)
+            persist(session)
+            refreshActivity()
+        case .busy:
+            sink(.failed(sessionID: session.id, message: "Stop the turn before moving this chat to history."))
+        case .paused(let adapter):
+            adapter.onEvent = nil
+            adapter.onUsage = nil
+            adapter.onPermissionMode = nil
+            adapter.onModel = nil
+            adapter.stop()
+            append(.notice(text: AgentPause.notice), to: session)
+            persist(session)
+            refreshActivity()
+            agentLog.notice("agent chat paused · \(session.agentID, privacy: .public)")
+        }
+    }
+
+    private func isPaused(_ transcript: AgentTranscriptBuffer) -> Bool {
+        if case .notice(let text)? = transcript.events.last?.payload { return text == AgentPause.notice }
+        return false
+    }
+
     func remove(_ session: AgentSession) {
         adapter(of: session).stop()
-        lock.withLock { sessions[session.id] = nil }
+        lock.withLock {
+            sessions[session.id] = nil
+            if let id = session.cliSessionID { releasedConversations[id] = Date() }
+        }
         forget(session.id)
         refreshActivity()
     }

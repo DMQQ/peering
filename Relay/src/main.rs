@@ -12,6 +12,7 @@ use tracing_subscriber::EnvFilter;
 use peeringd::apns::ApnsClient;
 use peeringd::config::{Config, TlsFiles};
 use peeringd::quota::QuotaTracker;
+use peeringd::referrals::Referrals;
 use peeringd::session::Registry;
 use peeringd::signalling::{HostRegistry, Settings};
 use peeringd::storekit::StoreKitVerifier;
@@ -65,7 +66,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.paid_keys.clone(),
         config.usage_log.clone(),
     );
-    let quota = Arc::new(quota);
+    let (referrals, referrals_failure) =
+        Referrals::open(config.referral_terms, config.referrals.clone());
+    let quota = Arc::new(quota.with_referrals(Arc::new(referrals)));
+
+    match (&config.referrals, &referrals_failure) {
+        (Some(path), None) => {
+            info!(path = %path.display(), "invite codes are persisted; a restart will not forget them")
+        }
+        (Some(path), Some(error)) => warn!(
+            path = %path.display(),
+            %error,
+            "the invite store could not be opened; invites are in memory and a restart will forget them"
+        ),
+        (None, _) => warn!(
+            "PEERINGD_REFERRALS is unset; invites are in memory and a restart lets every device redeem again"
+        ),
+    }
 
     match (&config.usage_log, &usage_log_failure) {
         (Some(path), None) => {

@@ -148,23 +148,19 @@ extension FileBrowserPanel {
             .contextMenu {
                 if let onDownload {
                     Button(entry.isDirectory ? "Download as zip" : "Download", systemImage: "arrow.down.circle") {
-                        transferring { onDownload(entry) }
+                        onDownload(entry)
                     }
                     .menuInk()
                 }
                 if entry.isDirectory, onUploadInto != nil {
                     Button("Upload here", systemImage: "arrow.up.circle") {
-                        transferring {
-                            uploadTarget = childPath(entry.name, of: path)
-                            showsImporter = true
-                        }
+                        uploadTarget = childPath(entry.name, of: path)
+                        showsImporter = true
                     }
                     .menuInk()
                     Button("Upload photos here", systemImage: "photo.on.rectangle") {
-                        transferring {
-                            uploadTarget = childPath(entry.name, of: path)
-                            showsPhotos = true
-                        }
+                        uploadTarget = childPath(entry.name, of: path)
+                        showsPhotos = true
                     }
                     .menuInk()
                 }
@@ -203,15 +199,6 @@ extension FileBrowserPanel {
                 .padding(.trailing, 12)
                 .accessibilityLabel("Run \(entry.name)")
             }
-        }
-    }
-
-    /// Moving files is a plan capability: a plan without it is shown the plans instead.
-    func transferring(_ action: () -> Void) {
-        if model.storeManager.access.includes(.fileTransfer) {
-            action()
-        } else {
-            model.paywallReason = .feature(.fileTransfer)
         }
     }
 

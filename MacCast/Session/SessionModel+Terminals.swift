@@ -59,10 +59,6 @@ extension SessionModel {
         return session.hostSupportsAgentList && session.knownInstalledAgents == nil
     }
 
-    var canOpenAnotherShell: Bool { activeSession?.canOpenAnotherShell ?? true }
-
-    var runningShellTargetID: UUID? { activeSession?.runningShellTargetID }
-
     /// Written back to nil when taken, so the same arrival is not opened twice.
     var newTerminalID: UUID? {
         get { activeSession?.newTerminalID }
@@ -91,5 +87,9 @@ extension SessionModel {
         activeSession?.resizeTerminal(id, columns: columns, rows: rows)
     }
 
-    func closeTerminal(_ id: UUID) { Analytics.featureUsed(.terminalClosed); activeSession?.closeTerminal(id) }
+    func closeTerminal(_ id: UUID) {
+        Analytics.featureUsed(.terminalClosed)
+        LastActivity.clear(id)
+        activeSession?.closeTerminal(id)
+    }
 }

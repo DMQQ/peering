@@ -13,6 +13,7 @@ extension ClientSession {
             // The watchdog's baseline until the first pong arrives. Without it, a session whose
             // first pong is late would be judged against a silence that began before it existed.
             readyAt = Self.monotonicNow()
+            videoDelivery = VideoDeliveryRecord(readyAt: readyAt)
         }
         emit(.phase(.ready))
 
@@ -61,6 +62,11 @@ extension ClientSession {
         case .fieldState:
             if let state = try? MessageCodec.decode(FieldState.self, from: frame.payload) {
                 emit(.fieldState(state))
+            }
+
+        case .pointerReport:
+            if let point = try? MessageCodec.decode(NormalizedPoint.self, from: frame.payload) {
+                emit(.pointer(point))
             }
 
         case .terminalEvent:

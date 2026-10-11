@@ -119,16 +119,42 @@ struct AgentApprovalNotificationTests {
         #expect(reference.layoutForCategory == .options(["Yes", "No"]))
     }
 
+    @Test func aCommandTheBannerWouldCutShortCannotBeAllowedFromTheLockScreen() {
+        let fits = AgentApprovalNotification(approval: approval(detail: String(repeating: "a", count: 239)), sessionID: session)
+        let cut = AgentApprovalNotification(approval: approval(detail: String(repeating: "a", count: 240)), sessionID: session)
+        #expect(fits.layout == .allowDeny)
+        #expect(cut.layout == .openOnly)
+        #expect(cut.actions.map(\.title) == [.open])
+    }
+
+    @Test func aToolWithNoCommandToShowCannotBeAllowedFromTheLockScreen() {
+        let note = AgentApprovalNotification(approval: approval(name: "mcp__x__run", detail: nil, reason: "Needs approval"), sessionID: session)
+        #expect(note.layout == .openOnly)
+    }
+
     @Test func aPayloadWithoutOurKeysIsNotAnApproval() {
         #expect(AgentApprovalNotification.Reference(userInfo: ["hostId": "MAC-1"]) == nil)
         #expect(AgentApprovalNotification.Reference(userInfo: ["agentApprovalId": "A1", "agentSessionId": "nope"]) == nil)
     }
 
     @Test func aPushNamesOnlyTheCategoriesThePhoneRegisters() {
-        let tool = AgentToolCall(id: "c", name: "Bash", title: "Bash")
+        let tool = AgentToolCall(id: "c", name: "Bash", title: "Bash", detail: "ls")
         let asking = AgentToolCall(id: "c", name: "AskUserQuestion", title: "Q", questions: [question(["a", "b"])])
         #expect(AgentApprovalNotification.pushCategory(for: tool) == "peering.agent.approval.tool")
         #expect(AgentApprovalNotification.pushCategory(for: asking) == "peering.agent.approval.open")
+    }
+
+    @Test func aPushedYesOrNoQuestionGetsYesAndNoButtons() {
+        let asking = AgentToolCall(id: "c", name: "AskUserQuestion", title: "Q", questions: [question(["Yes", "No"])])
+        let reversed = AgentToolCall(id: "c", name: "AskUserQuestion", title: "Q", questions: [question([" no", "YES"])])
+        #expect(AgentApprovalNotification.pushCategory(for: asking) == "peering.agent.approval.yesno")
+        #expect(AgentApprovalNotification.pushCategory(for: reversed) == "peering.agent.approval.yesno")
+        #expect(AgentApprovalNotification.yesNoActions.map(\.title) == [.no, .yes])
+    }
+
+    @Test func theYesAndNoButtonsAnswerTheQuestion() {
+        #expect(AgentApprovalNotification.decision(forActionIdentifier: "yes", answers: []) == .choose(["Yes"]))
+        #expect(AgentApprovalNotification.decision(forActionIdentifier: "no", answers: []) == .choose(["No"]))
     }
 
     @Test func theNotificationIdentifierIsFoundByItsPrefix() {

@@ -73,6 +73,13 @@ struct HomeTab: View {
                                     )
                             }
 
+                            resumeCard
+                                .connectEntrance(
+                                    visible: sectionsVisible,
+                                    delay: 0.06,
+                                    reduceMotion: reduceMotion
+                                )
+
                             if model.pairedHostIDs.isEmpty {
                                 firstPairingCard
                                     .connectEntrance(
@@ -116,7 +123,7 @@ struct HomeTab: View {
                 }
             }
             .sheet(isPresented: $showsManualConnection) {
-                manualSheet(address: $model.manualAddress, port: $model.manualPort)
+                ManualConnectionSheet()
             }
             .sheet(isPresented: $showsRemotePairing) {
                 RemotePairingSheet()

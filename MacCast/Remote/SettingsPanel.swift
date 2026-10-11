@@ -59,7 +59,7 @@ struct SettingsPanel: View {
     private var session: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel(String(localized: "Session"))
-            info("Mac", model.hostName ?? String(localized: "None"))
+            info("Mac", model.shownHostName ?? String(localized: "None"))
             info(String(localized: "State"), stateDescription)
             info("Path", model.connectionPath?.rawValue ?? "None")
             // Only when worth reading: a direct session has nothing to explain.
@@ -160,32 +160,21 @@ struct SettingsPanel: View {
             quality
 
             // Its own row: what the picture costs and what you hear are two decisions, and this is the one reached for mid-session.
-            // The switch is the switch on every plan: dimmed and inert without the capability, and the tap opens the plans. A padlock in its place left a row whose control could have been anything.
-            PlanLocked(capability: .macSound, title: String(localized: "Sound from the Mac")) {
-                Toggle(isOn: Binding(
-                    get: { !model.hostAudioMuted },
-                    set: { model.hostAudioMuted = $0 }
-                )) {
-                    Text("Sound from the Mac")
-                        .font(.subheadline.weight(.medium))
-                }
-                .tint(ColorPalette.accent)
+            Toggle(isOn: Binding(
+                get: { !model.hostAudioMuted },
+                set: { model.hostAudioMuted = $0 }
+            )) {
+                Text("Sound from the Mac")
+                    .font(.subheadline.weight(.medium))
             }
+            .tint(ColorPalette.accent)
 
-            if model.storeManager.access.includes(.macSound) {
-                Text(model.hostAudioMuted
-                     ? "The Mac's audio is still sent, and dropped here without being played."
-                     : "Whatever the Mac plays comes out of this device, including the sounds it makes in answer to what you send it.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                // The plan-aware sentence is the only thing the locked state adds: which plan turns it on.
-                Text("Whatever the Mac plays would come out of this device. It is part of \(PlanCapability.macSound.minimumPlan.name), along with Picture in Picture and files that move both ways.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(model.hostAudioMuted
+                 ? "The Mac's audio is still sent, and dropped here without being played."
+                 : "Whatever the Mac plays comes out of this device, including the sounds it makes in answer to what you send it.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 10) {
                 Image(systemName: hevcSupported ? "checkmark.seal.fill" : "xmark.seal")
@@ -282,27 +271,18 @@ struct SettingsPanel: View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel(String(localized: "Picture"))
 
-            PlanLocked(capability: .pictureInPicture, title: String(localized: "Float automatically")) {
-                Toggle(isOn: $pipAutoStart) {
-                    Text("Float automatically")
-                        .font(.subheadline.weight(.medium))
-                }
-                .tint(ColorPalette.accent)
-                // Pushed straight through: the controller that is already running must pick it up.
-                .onChange(of: pipAutoStart) { _, on in model.setPiPAutoStart(on) }
+            Toggle(isOn: $pipAutoStart) {
+                Text("Float automatically")
+                    .font(.subheadline.weight(.medium))
             }
+            .tint(ColorPalette.accent)
+            // Pushed straight through: the controller that is already running must pick it up.
+            .onChange(of: pipAutoStart) { _, on in model.setPiPAutoStart(on) }
 
-            if model.storeManager.access.includes(.pictureInPicture) {
-                Text("Leaving the app floats the picture over whatever is next. iOS has its own switch for this under Settings, General, Picture in Picture, and both have to allow it.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text("Leaving the app would keep the Mac's screen floating over whatever is next, and iOS has a switch of its own for it under Settings, General, Picture in Picture. Both of them are part of \(PlanCapability.pictureInPicture.minimumPlan.name).")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text("Leaving the app floats the picture over whatever is next. iOS has its own switch for this under Settings, General, Picture in Picture, and both have to allow it.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

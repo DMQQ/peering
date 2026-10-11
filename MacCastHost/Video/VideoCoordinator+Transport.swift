@@ -29,7 +29,7 @@ extension VideoCoordinator {
 
 /// Applies a stream-quality change requested by the client.
     func setStreamQuality(fps: Int, bitrateKbps: Int) {
-        guard bitrateKbps > 0 else { return }
+        guard let bitrateKbps = StreamQualityLimits.clampedBitrateKbps(bitrateKbps) else { return }
         lock.withLock { requestedBitrateKbps = bitrateKbps }
         pipeline.setBitrate(effectiveBitrateKbps * 1000)
     }

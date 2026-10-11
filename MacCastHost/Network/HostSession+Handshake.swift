@@ -30,6 +30,8 @@ extension HostSession {
             try handleClientReveal(frame)
         case .awaitingConfirmation:
             try handlePairConfirm(frame)
+        case .awaitingApproval:
+            break
         case .ready:
             try handleCommand(frame)
         case .failed:
@@ -86,6 +88,7 @@ extension HostSession {
         clientSupportsClipboardImages = hello.supportsClipboardImages
         clientSupportsTextFocus = hello.supportsTextFocus
         clientSupportsFieldState = hello.supportsFieldState
+        clientSupportsPointerReport = hello.supportsPointerReport
         clientSupportsAgentChat = hello.supportsAgentChat
         clientSupportsAgentPermissionModes = hello.supportsAgentPermissionModes
         clientSupportsAgentUsage = hello.supportsAgentUsage
@@ -105,7 +108,7 @@ extension HostSession {
             detail: "\(connection.negotiatedTLSVersion) · \(presentedKey.count)-byte key"
         ))
 
-        let alreadyPaired = existingPin != nil
+        let alreadyPaired = ClientHello.hostTreatsAsPaired(clientKeyIsPinned: existingPin != nil, lostPairing: hello.lostPairing)
         send(.serverHello, ServerHello(
             serverID: device.id,
             hostName: device.name,
@@ -142,7 +145,9 @@ extension HostSession {
             // Which agents, since the set grows and a phone cannot guess it from the version.
             agentChatAgents: AgentSessionManager.chatAgents.keys.sorted(),
             supportsAgentPermissionModes: true,
-            supportsAgentUsage: true
+            supportsAgentUsage: true,
+            supportsAgentSessionImport: true,
+            supportsAgentPause: true
         ))
         if alreadyPaired, let source = hello.resumeSource {
             onCommand?(.setCaptureSource(source))
@@ -224,8 +229,11 @@ extension HostSession {
             serverIdentityPublicKey: identity.publicKeyBytes
         )
 
+        pairingTranscript = transcript
+        pairingSecret = try Self.randomBytes(16)
         emit(.pairingCode(
             code: PairingSAS.code(for: transcript),
+            secret: pairingSecret,
             clientName: clientName,
             isRemote: arrivedThroughRelay
         ))
@@ -247,6 +255,38 @@ extension HostSession {
             return
         }
 
+        if let proof = confirm.proof {
+            guard let transcript = pairingTranscript,
+                  PairingSAS.verifyProof(proof, secret: pairingSecret, transcript: transcript)
+            else {
+                rejectPairing(reason: "The pairing code was not accepted.")
+                return
+            }
+            finishPairing(peerPublicKey: peerPublicKey)
+        } else {
+            // Digits typed by hand prove nothing: they can be computed from the handshake by anyone.
+            state = .awaitingApproval
+            emit(.pairingNeedsApproval(clientName: clientName))
+        }
+    }
+
+    /// The Mac user's answer for a pairing that arrived without the QR secret.
+    func resolveApproval(approved: Bool) {
+        guard state == .awaitingApproval, let peerPublicKey, approved else {
+            if state == .awaitingApproval { rejectPairing(reason: "The pairing was declined on the Mac.") }
+            return
+        }
+        finishPairing(peerPublicKey: peerPublicKey)
+    }
+
+    private func rejectPairing(reason: String) {
+        send(.pairResult, PairResult(accepted: false, reason: reason))
+        emit(.pairingCompleted(clientName: clientName, accepted: false))
+        state = .failed
+        connection.cancel()
+    }
+
+    private func finishPairing(peerPublicKey: Data) {
         guard pins.record(peerID: clientID, publicKey: peerPublicKey) else {
             // Reporting success would tell the user they are paired while the next connection
             // silently fails, so the write result is checked rather than assumed.

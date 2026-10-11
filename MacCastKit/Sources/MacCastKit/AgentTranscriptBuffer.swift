@@ -24,6 +24,11 @@ public struct AgentTranscriptBuffer: Sendable {
         bytes = events.reduce(0) { $0 + Self.approximateBytes(of: $1.payload) }
     }
 
+    /// For a conversation read in from a file whose start was not read.
+    public mutating func markTruncatedAtFront() {
+        truncatedAtFront = true
+    }
+
     /// Asks the transcript raised and never closed.
     public var unresolvedApprovalIDs: [String] {
         var open: [String] = []

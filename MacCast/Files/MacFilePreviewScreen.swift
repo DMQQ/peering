@@ -25,7 +25,6 @@ struct MacFilePreviewScreen: View {
                     usesToolbars: true,
                     modified: modified(id),
                     onSave: { model.saveFile($0, sessionID: id) }
-                    // Reading and editing stay free; the panel gates the share button (``PlanCapability/fileTransfer``).
                 )
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)

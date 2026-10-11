@@ -16,20 +16,15 @@ import os
 final class SessionPiP: NSObject {
     static let shared = SessionPiP()
 
-    /// Our own switch because the system's is buried in Settings. Both must allow auto start; this one speaks only for the app. Drawn on every plan, the arming is gated by ``isOnPlan`` in ``applyAutoStart()``.
+    /// Our own switch because the system's is buried in Settings. Both must allow auto start; this one speaks only for the app. 
     var autoStart =
         UserDefaults.standard.object(forKey: PreferenceKeys.pipAutoStart) as? Bool ?? true {
         didSet { applyAutoStart() }
     }
 
-    /// Pushed in from ``SessionModel/applyPictureInPicturePlan()``: this singleton owns no store, to avoid a second copy of the entitlement. False until told, the safe direction, since the automatic start fires without a control being touched so no later gate could ask.
-    var isOnPlan = false {
-        didSet { applyAutoStart() }
-    }
-
-    /// Writes the preference combined with the plan onto the armed controller. Called from both properties and ``attach(_:)`` since the controller is replaced per session.
+    /// Writes the preference onto the armed controller. Called from ``autoStart`` and ``attach(_:)`` since the controller is replaced per session.
     private func applyAutoStart() {
-        controller?.canStartPictureInPictureAutomaticallyFromInline = autoStart && isOnPlan
+        controller?.canStartPictureInPictureAutomaticallyFromInline = autoStart
     }
 
     /// Recorded on success too: `enteringBackground` may never reach `start`, and silence looks the same either way.
@@ -84,7 +79,7 @@ final class SessionPiP: NSObject {
         // Set for the failure callback: without a delegate, a refusal to start is silent.
         controller.delegate = self
         self.controller = controller
-        // Last because it writes the switch and plan together onto the controller; going to another app then floats the picture instead of ending the session.
+        // Last because it writes the switch onto the controller; going to another app then floats the picture instead of ending the session.
         applyAutoStart()
     }
 
@@ -101,12 +96,6 @@ final class SessionPiP: NSObject {
 
     /// Starts now, to try it without leaving and to say why it will not start.
     func start() {
-        guard PictureInPictureAccess.canStart(isOnPlan: isOnPlan) else {
-            lastRefusal = String(localized: "Picture in Picture is part of \(PlanCapability.pictureInPicture.minimumPlan.name).")
-            lastAttempt = String(localized: "not included in plan")
-            videoLog.notice("Picture in Picture refused because the current plan does not include it")
-            return
-        }
         guard let controller else {
             lastRefusal = String(localized: "No picture yet. PiP mirrors the video layer, so a session has to be running.")
             lastAttempt = String(localized: "no layer")

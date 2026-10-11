@@ -8,7 +8,7 @@ public enum AgentGitDiff {
     /// - Parameter perFileLimit: bytes of diff kept for one file; counts still cover the whole file.
     public static func files(in patch: String, perFileLimit: Int = 200 * 1024) -> [AgentChangedFile] {
         var blocks: [[Substring]] = []
-        for line in patch.split(separator: "\n", omittingEmptySubsequences: false) {
+        for line in lines(of: patch) {
             if line.hasPrefix("diff --git ") {
                 blocks.append([line])
             } else if !blocks.isEmpty {
@@ -52,12 +52,21 @@ public enum AgentGitDiff {
         return AgentChangedFile(path: path, kind: kind, added: added, removed: removed, diff: clipped(text, to: limit))
     }
 
+    /// Split on the newline scalar alone: `String.split(separator: "\n")` compares Characters, and a CRLF pair is one Character that is not "\n", so a file with CRLF lines swallowed the next file's header.
+    private static func lines(of text: String) -> [Substring] {
+        text.unicodeScalars
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { Substring($0) }
+    }
+
     /// Taken from the `---`/`+++` lines where there are any, since a name with a space makes the `diff --git` line ambiguous; a binary file has neither, and its two names are equal because renames are off.
+    /// Only the header part of the block is searched: an added line that reads `++ b/x` is content.
     private static func path(header: Substring, block: [Substring]) -> String? {
-        for prefix in ["+++ b/", "--- a/"] {
-            if let line = block.first(where: { $0.hasPrefix(prefix) }) {
-                return String(line.dropFirst(prefix.count)).trimmingCharacters(in: CharacterSet(charactersIn: "\t"))
-            }
+        let headerLines = block.prefix { !$0.hasPrefix("@@") }
+        for prefix in ["+++ ", "--- "] {
+            guard let line = headerLines.first(where: { $0.hasPrefix(prefix) }) else { continue }
+            let name = unquoted(String(line.dropFirst(prefix.count)).trimmingCharacters(in: CharacterSet(charactersIn: "\t\r")))
+            for side in ["b/", "a/"] where name.hasPrefix(side) { return String(name.dropFirst(side.count)) }
         }
         let rest = header.dropFirst("diff --git a/".count)
         let length = (rest.count - 3) / 2
@@ -65,11 +74,42 @@ public enum AgentGitDiff {
         return String(rest.prefix(length))
     }
 
+    /// Git quotes a name holding a quote, backslash, tab or control character, writing the rest of a non-ASCII name as octal bytes.
+    static func unquoted(_ name: String) -> String {
+        guard name.hasPrefix("\""), name.hasSuffix("\""), name.count >= 2 else { return name }
+        var bytes: [UInt8] = []
+        let body = Array(name.dropFirst().dropLast().utf8)
+        var index = 0
+        while index < body.count {
+            let byte = body[index]
+            index += 1
+            guard byte == UInt8(ascii: "\\"), index < body.count else { bytes.append(byte); continue }
+            let escaped = body[index]
+            index += 1
+            switch escaped {
+            case UInt8(ascii: "t"): bytes.append(9)
+            case UInt8(ascii: "n"): bytes.append(10)
+            case UInt8(ascii: "r"): bytes.append(13)
+            case UInt8(ascii: "0")...UInt8(ascii: "7"):
+                var value = Int(escaped - UInt8(ascii: "0"))
+                var digits = 1
+                while digits < 3, index < body.count, (UInt8(ascii: "0")...UInt8(ascii: "7")).contains(body[index]) {
+                    value = value * 8 + Int(body[index] - UInt8(ascii: "0"))
+                    index += 1
+                    digits += 1
+                }
+                bytes.append(UInt8(truncatingIfNeeded: value))
+            default: bytes.append(escaped)
+            }
+        }
+        return String(decoding: bytes, as: UTF8.self)
+    }
+
     private static func clipped(_ text: String, to limit: Int) -> String {
         guard text.utf8.count > limit else { return text }
         var kept = ""
         var size = 0
-        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        for line in lines(of: text) {
             size += line.utf8.count + 1
             if size > limit { break }
             kept += line + "\n"

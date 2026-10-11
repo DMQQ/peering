@@ -75,8 +75,10 @@ The repo is meant to be read by strangers. Before calling work done, check it ag
 
 **Wire and release**
 
-- The app has no deployed users yet. Change wire types freely: do not bump `ProtocolInfo.version`
-  and do not add compatibility guards for older peers until a build has shipped.
+- A build has shipped (the iOS app cleared App Review around 2026-10-10), so a wire change must work
+  with that build: add optional fields rather than changing existing ones, and do not bump
+  `ProtocolInfo.version` unless forcing an update is intended, since the handshake requires exact
+  equality. A new command an older peer cannot decode needs a capability guard.
 
 **Public repo hygiene**
 

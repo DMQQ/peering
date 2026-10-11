@@ -19,14 +19,13 @@ struct AgentEmptyChat: View {
     let pick: (String) -> Void
 
     @State private var arrived = false
+    @State var templates = PromptTemplates.load()
+    @State var addingTemplate = false
+    @State var templateDraft = ""
+    @AppStorage("Peering.chatGuideSeen") private var guideSeen = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var ended: Bool { session.state == .exited || session.state == .failed }
-
-    private var folder: String {
-        let name = (session.directory as NSString).lastPathComponent
-        return name.isEmpty ? session.directory : name
-    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -39,11 +38,18 @@ struct AgentEmptyChat: View {
         }
         .background(alignment: .top) { aurora }
         .onAppear { arrived = true }
+        .alert("Save a prompt", isPresented: $addingTemplate) {
+            TextField("What should the agent do?", text: $templateDraft)
+            Button("Save") { saveTemplate() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("It appears with the suggestions in every new chat.")
+        }
     }
 
     private var content: some View {
         VStack(spacing: 0) {
-            Spacer(minLength: 24)
+            Spacer(minLength: 8)
             tile
                 .modifier(Rise(arrived: arrived, order: 0))
             Text(ended ? "This chat has ended" : "What are we working on?")
@@ -51,33 +57,31 @@ struct AgentEmptyChat: View {
                 .tracking(-0.9)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(ColorPalette.ink)
-                .padding(.top, 22)
+                .padding(.top, 8)
                 .modifier(Rise(arrived: arrived, order: 1))
-            HStack(spacing: 8) {
-                Text(verbatim: agent?.name ?? session.title)
-                    .font(.system(size: 13.5, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.75))
-                Circle().fill(.white.opacity(0.3)).frame(width: 3, height: 3)
-                folderChip
+            if ended {
+                Text("This chat has ended. Its conversation is above; start a new chat to keep going.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 14)
+                    .padding(.horizontal, 12)
+                    .modifier(Rise(arrived: arrived, order: 3))
             }
-            .padding(.top, 12)
-            .modifier(Rise(arrived: arrived, order: 2))
-            Text(ended
-                ? "This chat has ended. Its conversation is above; start a new chat to keep going."
-                : "Runs on your Mac, not here. It keeps working when you disconnect.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.top, 14)
-                .padding(.horizontal, 12)
-                .modifier(Rise(arrived: arrived, order: 3))
-            Spacer(minLength: 24)
+            Spacer(minLength: 20)
+            if !ended, !compact, !guideSeen {
+                HubGuideCard.chat { withAnimation(Motion.settle) { guideSeen = true } }
+                    .padding(.bottom, 10)
+                    .modifier(Rise(arrived: arrived, order: 4))
+            }
             if !ended, !compact {
                 VStack(spacing: 8) {
                     ForEach(Array(AgentSuggestions.all.enumerated()), id: \.offset) { offset, suggestion in
                         row(suggestion)
                             .modifier(Rise(arrived: arrived, order: 4 + offset))
                     }
+                    templateRows
+                        .modifier(Rise(arrived: arrived, order: 7))
                 }
                 .padding(.bottom, 10)
                 .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
@@ -147,25 +151,11 @@ struct AgentEmptyChat: View {
                 }
                 .modifier(AgentIdleFloat())
         }
-        .frame(height: 130)
+        .scaleEffect(0.8)
+        .frame(height: 100)
     }
 
-    private var folderChip: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "folder")
-                .font(.system(size: 11, weight: .medium))
-            Text(verbatim: folder)
-                .font(.system(size: 12.5, weight: .medium, design: .monospaced))
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .foregroundStyle(.white.opacity(0.7))
-        .padding(.horizontal, 12)
-        .frame(height: 28)
-        .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
-    }
-
-    private func row(_ suggestion: (symbol: String, text: String, detail: String)) -> some View {
+    func row(_ suggestion: (symbol: String, text: String, detail: String)) -> some View {
         Button { pick(suggestion.text) } label: {
             HStack(spacing: 12) {
                 Image(systemName: suggestion.symbol)
@@ -177,6 +167,7 @@ struct AgentEmptyChat: View {
                     Text(suggestion.text)
                         .font(.system(size: 14.5, weight: .semibold))
                         .foregroundStyle(ColorPalette.ink)
+                        .lineLimit(1)
                     Text(suggestion.detail)
                         .font(.system(size: 12))
                         .foregroundStyle(.white.opacity(0.5))

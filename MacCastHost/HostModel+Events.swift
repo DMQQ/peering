@@ -44,6 +44,11 @@ extension HostModel {
                 onChange: { [weak server] focus in server?.broadcastTextFocus(focus) },
                 onField: { [weak server] state in server?.broadcastFieldState(state) }
             )
+            pointerWatcher.start(
+                transform: { input.transform },
+                lastInjected: { input.clickLocation },
+                onMove: { [weak server] point in server?.broadcastPointer(point) }
+            )
             record("\(clientName) connected · \(detail)")
             // Sent a source list now and immediately: the client is waiting to ask for its last source and the push interval would hold it up. This is also the first catalogue read, which needs Screen Recording; a refusal here is ignored and the video path reports it.
             coordinator?.refreshCatalog(immediate: true)
@@ -55,10 +60,13 @@ extension HostModel {
         case .clientDisconnected(let clientID, let clientName):
             connectedClients.removeAll { $0.id == clientID }
             endSession(id: clientID)
+            // A phone that quits or is relaunched mid-pairing leaves a question nobody is asking: its buttons would answer a session that no longer exists.
+            if pairing?.clientName == clientName { pairing = nil }
             // The last one out stops the watch. Anybody still attached keeps being told.
             if connectedClients.isEmpty {
                 stopScreenWatch()
                 textFocusWatcher.stop()
+                pointerWatcher.stop()
                 coordinator?.watchSourceThumbnails(false)
             }
             record("\(clientName) disconnected")
@@ -66,7 +74,8 @@ extension HostModel {
             if connectedClients.isEmpty {
                 input.releaseAll()
                 releaseSleepAssertion()
-                setPrivacyMode(false)
+                setPrivacyMode(false, counted: false)
+                lastCountedCaptureSource = nil
                 // The last client has gone: the schedule gets its say first, then the keep-awake prompt.
                 Task { @MainActor in
                     await applyKeepAwakeSchedule()
@@ -79,14 +88,17 @@ extension HostModel {
                 removeAllManagedVirtualDisplays()
             }
 
-        case .pairingCode(let code, let clientName, let isRemote):
-            pairing = PairingPrompt(clientName: clientName, code: code, isRemote: isRemote)
+        case .pairingCode(let code, let secret, let clientName, let isRemote):
+            pairing = PairingPrompt(clientName: clientName, code: code, secret: secret, isRemote: isRemote)
             record(isRemote
                    ? "Pairing request from \(clientName), over the relay"
                    : "Pairing request from \(clientName)")
             // The code is not logged: the unified log is readable by any local process, and the
             // digits are already on screen for the user to compare.
             hostLog.notice("pairing code displayed for \(clientName, privacy: .public)")
+
+        case .pairingNeedsApproval:
+            pairing?.needsApproval = true
 
         case .pairingCompleted(let clientName, let accepted):
             pairing = nil
@@ -151,10 +163,11 @@ extension HostModel {
     }
 
     /// A brightness write where it holds, otherwise a cover window the window server keeps out of capture.
-    func setPrivacyMode(_ enabled: Bool) {
-        Analytics.track(.privacyModeChanged)
+    /// `counted` is false where the host turns it off itself, because a session ended: that is not a choice.
+    func setPrivacyMode(_ enabled: Bool, counted: Bool = true) {
         if enabled {
             guard !privacyModeEnabled else { return }
+            Analytics.track(.privacyModeChanged)
             // Before the cover goes up, so a display that arrives while it is up is not missed:
             // nothing else tells the host that the Mac's display list changed.
             observeDisplayChanges(true)
@@ -166,6 +179,7 @@ extension HostModel {
                 displayPrivacy.restore()
                 return
             }
+            if counted { Analytics.track(.privacyModeChanged) }
             privacyModeEnabled = false
             observeDisplayChanges(false)
             displayPrivacy.restore()

@@ -141,6 +141,9 @@ final class HostModel {
     /// pendingCaptureSource is the ask, not the answer; this is what is actually streamed.
     var capturingSource: CaptureSource?
 
+    /// The last source that was counted, so a phone replaying its source on every reconnect is not counted as a change each time.
+    @ObservationIgnored var lastCountedCaptureSource: CaptureSource?
+
     /// Kept so a source can be named rather than shown as a display ID or pid.
     var catalog: CaptureCatalog?
 
@@ -196,6 +199,7 @@ final class HostModel {
 
     var screenWatchTask: Task<Void, Never>?
     @ObservationIgnored let textFocusWatcher = TextFocusWatcher()
+    @ObservationIgnored let pointerWatcher = PointerWatcher()
 
     /// Held so a problem is not announced twice: a denied grant fails on every stream attempt.
     var announcedCaptureProblem: String?
@@ -234,6 +238,7 @@ final class HostModel {
         return message
     }
     var nativeTerminalWatcher: NativeTerminalWatcher?
+    let terminalHooks = TerminalHookController()
     var pins: PinStore?
     var identity: SelfSignedIdentity?
     var spaceObserver: NSObjectProtocol?

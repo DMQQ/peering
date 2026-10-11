@@ -101,26 +101,54 @@ extension TerminalHubScreen {
             && model.activeSession?.hostChatAgents.contains(agent.id) == true
     }
 
-    func pageHeading(_ title: LocalizedStringKey, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(DisplayFont.display(34))
-                .tracking(-0.8)
-                .foregroundStyle(ColorPalette.ink)
-            Text(verbatim: detail)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+    func pageHeading(_ title: LocalizedStringKey, detail: String, guideSeen: Binding<Bool>) -> some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(DisplayFont.display(34))
+                    .tracking(-0.8)
+                    .foregroundStyle(ColorPalette.ink)
+                Text(verbatim: detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            if guideSeen.wrappedValue {
+                Button {
+                    withAnimation(Motion.settle) { guideSeen.wrappedValue = false }
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 20))
+                        .foregroundStyle(ColorPalette.ink.opacity(0.6))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("How this page works")
+            }
         }
         .padding(.horizontal, 4)
         .padding(.top, 4)
         .padding(.bottom, 6)
     }
 
+    /// Shown until it is dismissed once; the heading's help button sets it going again.
+    @ViewBuilder
+    func guide(_ page: HubTab) -> some View {
+        switch page {
+        case .agents where !agentsGuideSeen:
+            HubGuideCard.agents { withAnimation(Motion.settle) { agentsGuideSeen = true } }
+        case .terminals where !terminalsGuideSeen:
+            HubGuideCard.terminals { withAnimation(Motion.settle) { terminalsGuideSeen = true } }
+        default:
+            EmptyView()
+        }
+    }
+
     func page<Content: View>(_ which: HubTab, @ViewBuilder content: () -> Content) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                content()
+                if isBuilt(which) { content() }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
@@ -139,7 +167,7 @@ extension TerminalHubScreen {
     var tabSwitcher: some View {
         HubTabs(
             selection: $tab,
-            terminalCount: model.terminalCards.count,
+            terminalCount: shellCards.filter(\.isRunning).count,
             agentCount: model.agentCards.filter(\.isLive).count,
             agentsBusy: model.agentCards.contains { $0.state == .working },
             offersFiles: model.hostSupportsFileBrowser
@@ -183,18 +211,12 @@ extension TerminalHubScreen {
             terminal: { if let agent = selectedAgent { start(agent) } },
             offersFiles: model.hostSupportsFileBrowser,
             files: { tab = .files },
-            canOpenAnotherShell: model.canOpenAnotherShell,
             newTerminal: { path.append(.terminalFolder(nil)) }
         )
     }
 
     func start(_ agent: TerminalAgent, restarting entry: AgentLaunch? = nil) {
-        if !model.canOpenAnotherShell, let target = model.runningShellTargetID {
-            model.launchAgent(agent, restarting: entry)
-            path.append(.terminal(target))
-        } else {
-            model.launchAgent(agent, restarting: entry)
-        }
+        model.launchAgent(agent, restarting: entry)
         history = AgentHistory.load()
     }
 

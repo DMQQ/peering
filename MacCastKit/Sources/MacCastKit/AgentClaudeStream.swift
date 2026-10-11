@@ -85,6 +85,10 @@ public struct AgentClaudeStream {
             return [.notice(text: "Claude Code is retrying after an API error.")]
         case "permission_denied":
             return [.notice(text: "Claude Code denied a tool call by its own rules.")]
+        case "task_notification":
+            // A background sub-agent's call finished the moment it launched; this is the end of the work itself.
+            guard let callID = json["tool_use_id"] as? String, !callID.isEmpty else { return [] }
+            return [.toolFinished(callID: callID, ok: json["status"] as? String == "completed", output: nil, truncated: false)]
         case "status", "thinking_tokens", "informational", "worker_shutting_down":
             return []
         default:
@@ -189,6 +193,11 @@ public struct AgentClaudeStream {
             duration: (json["duration_ms"] as? Double).map { $0 / 1000 },
             model: (json["modelUsage"] as? [String: Any])?.keys.first ?? model
         )
+        // The reason a turn failed (a full context, an expired login) is in `result`, and without it the turn only reads as failed.
+        if !summary.ok, !summary.stopped,
+           let reason = (json["result"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !reason.isEmpty {
+            return [.notice(text: AgentLimits.trimmed(reason, to: 600).0), .turnFinished(summary: summary)]
+        }
         return [.turnFinished(summary: summary)]
     }
 

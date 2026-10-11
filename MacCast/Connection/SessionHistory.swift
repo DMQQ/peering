@@ -7,7 +7,7 @@ extension SessionModel {
     /// The authority is `Relay/src/config.rs`; ``RelayPlan`` mirrors it so the bar needs no server. Reading the wrong plan makes the bar lie.
     /// `nil` is an unlimited plan: callers ask `RelayPlan/isUnlimited` rather than comparing numbers.
     var relayAllowanceSeconds: TimeInterval? {
-        storeManager.relayPlan.allowanceSeconds
+        storeManager.relayPlan.allowanceSeconds.map { $0 + referralBonusSeconds }
     }
 
     /// A sum over `sessions`, not one running session: the relay splices every open connection to one allowance, so a single-session meter under-counts.

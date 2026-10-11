@@ -40,6 +40,36 @@ public struct RelayDeviceProof: Sendable, Equatable {
         try make(identity: identity, over: clientPayload(clientID: clientID, proofTime: stamp(now)), now: now)
     }
 
+    /// Mirrors `device_proof` in the relay for referrals. The code is signed exactly as sent, so a proof for one code cannot redeem another.
+    public static func referralStatusPayload(clientID: String, proofTime: UInt64) -> Data {
+        Data("peeringd-referral-v1\nstatus\n\(clientID)\n\(proofTime)".utf8)
+    }
+
+    public static func redeemReferralPayload(clientID: String, code: String, proofTime: UInt64) -> Data {
+        Data("peeringd-referral-v1\nredeem:\(code)\n\(clientID)\n\(proofTime)".utf8)
+    }
+
+    public static func makeReferralStatusProof(
+        clientID: String,
+        identity: SelfSignedIdentity,
+        now: Date = Date()
+    ) throws -> RelayDeviceProof {
+        try make(identity: identity, over: referralStatusPayload(clientID: clientID, proofTime: stamp(now)), now: now)
+    }
+
+    public static func makeRedeemReferralProof(
+        clientID: String,
+        code: String,
+        identity: SelfSignedIdentity,
+        now: Date = Date()
+    ) throws -> RelayDeviceProof {
+        try make(
+            identity: identity,
+            over: redeemReferralPayload(clientID: clientID, code: code, proofTime: stamp(now)),
+            now: now
+        )
+    }
+
     /// Clamped at zero rather than trapping on a pre-1970 clock.
     private static func stamp(_ now: Date) -> UInt64 {
         UInt64(max(0, now.timeIntervalSince1970))

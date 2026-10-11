@@ -16,7 +16,7 @@ extension OnboardingView {
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(ColorPalette.ink)
 
-                Text("Every Mac, relay without a limit, and every update from here on.")
+                Text("No limit away from your own network, and every update from here on.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -34,48 +34,12 @@ extension OnboardingView {
                     .fixedSize(horizontal: false, vertical: true)
             }
         } else {
-            VStack(spacing: 10) {
-                BillingPeriodPicker(period: $period, saving: store.smallestYearlySaving)
-
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 10) {
-                        PlanChoice(
-                            name: String(localized: "Free"),
-                            line: Self.freeLine,
-                            price: String(localized: "No charge"),
-                            recommended: false,
-                            selected: chosen == nil,
-                            select: { chosen = nil }
-                        )
-
-                        ForEach(StoreManager.Tier.allCases) { tier in
-                            PlanChoice(
-                                name: tier.name,
-                                line: tier.tagline,
-                                price: store.priceLabel(for: tier, period: period) ?? "···",
-                                recommended: tier.isRecommended,
-                                selected: chosen == tier,
-                                features: tier.features,
-                                select: { chosen = tier }
-                            )
-                        }
-                    }
-                    .animation(Motion.tap, value: chosen)
-                    .animation(Motion.tap, value: period)
-                }
-                .mask {
-                    LinearGradient(
-                        stops: [
-                            .init(color: .black.opacity(0.25), location: 0),
-                            .init(color: .black, location: 0.025),
-                            .init(color: .black, location: 0.95),
-                            .init(color: .clear, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                }
+            ScrollView(.vertical, showsIndicators: false) {
+                PlanOfferCards(selection: $chosen, includesFree: true)
+                    .padding(.top, 12)
             }
+            .scrollBounceBehavior(.basedOnSize)
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

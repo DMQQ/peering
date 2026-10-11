@@ -92,12 +92,10 @@ struct SSHTerminalScreen: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 // Same button on every plan; on a one-shell plan it is dimmed and the tap opens the plans.
-                PlanLocked(capability: .shellTabs, title: String(localized: "New shell"), diameter: 20) {
-                    Button("New shell", systemImage: "plus") {
-                        model.openAnotherShell(on: terminal)
-                    }
-                    .accessibilityHint("Opens another shell on \(terminal.host.displayName)")
+                Button("New shell", systemImage: "plus") {
+                    model.openAnotherShell(on: terminal)
                 }
+                .accessibilityHint("Opens another shell on \(terminal.host.displayName)")
             }
             if !terminal.host.forwards.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {

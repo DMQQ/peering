@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import MacCastKit
 import PostHog
+import os
 
 /// Anonymous usage counts from the Mac app, on by default and off with one switch in Settings.
 ///
@@ -59,12 +60,19 @@ enum Analytics {
         case capture, display, network, relay, terminal, fileTransfer, agent, sleepPrevention, permission, launchAtLogin, appLaunching, update
     }
 
+    private static let reportFilter = OSAllocatedUnfairLock(initialState: ErrorReportFilter())
+
     /// Handled errors go to Error Tracking as the domain and code only: a message can carry a path, a window title or an address.
-    static func failed(_ error: Error, in area: Area) {
+    static func failed(_ error: Error, in area: Area, context: [String: String] = [:]) {
         guard isEnabled, PostHogConfiguration.isConfigured else { return }
+        if (error as? CaptureError)?.isExpectedState == true { return }
         let nsError = error as NSError
+        guard reportFilter.withLock({ $0.shouldReport(nsError, area: area.rawValue) }) else { return }
         let scrubbed = NSError(domain: nsError.domain, code: nsError.code)
-        PostHogSDK.shared.captureException(scrubbed, properties: ["area": area.rawValue, "$process_person_profile": false])
+        var properties: [String: Any] = ErrorDetail.properties(for: error).merging(context) { $1 }
+        properties["area"] = area.rawValue
+        properties["$process_person_profile"] = false
+        PostHogSDK.shared.captureException(scrubbed, properties: properties)
     }
 
     private static func send(_ event: String, _ properties: [String: String]) {

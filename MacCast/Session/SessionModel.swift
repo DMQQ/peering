@@ -57,11 +57,6 @@ final class SessionModel {
 
     var hasOpenSession: Bool { !openSessions.isEmpty }
 
-    /// The first Mac is free on every plan, so the question is "is this paid, or the first one".
-    var canAddAnotherSession: Bool {
-        storeManager.access.includes(.concurrentSessions) || openSessions.isEmpty
-    }
-
     /// A ceiling on the phone: each open Mac costs a control connection, a keepalive and a sleep assertion.
     static let sessionCeiling = 4
 
@@ -72,6 +67,9 @@ final class SessionModel {
         set { activeSession?.phase = newValue }
     }
     var hosts: [DiscoveredHost] = []
+
+    /// A `peering://pair` link opened from outside the app (the system camera on the Mac's QR code). Held rather than acted on, because the card that checks it only exists once a Mac is asking; see ``PairingPrompt``.
+    var pairingLink: (url: URL, receivedAt: Date)?
 
     /// Re-derived from Bonjour at the dial, which is the one moment it cannot be trusted: after a backgrounding its mDNS results are stale and a re-browse takes seconds. Kept on disk so a relaunch dials at once; an address from a network since left loses the race to the relay. See ``DialRace``.
     private var lastLANHosts: [String: DiscoveredHost] = RememberedLANHosts.load() {
@@ -235,6 +233,9 @@ final class SessionModel {
     var lastLocalEdit = Date.distantPast
     var pendingField: FieldState?
 
+    /// Where a hand on the Mac last left its pointer. A serial, because a second report at the same spot after the joystick has moved the drawn cursor away must still pull it back.
+    var hostPointer = HostPointer(point: NormalizedPoint(x: 0.5, y: 0.5), serial: 0)
+
     // MARK: - Purchase
 
     let storeManager = StoreManager()
@@ -242,6 +243,8 @@ final class SessionModel {
 
     /// The one case where a session ends and nothing says why: the relay stops splicing silently, so this end sees an ordinary close and reconnects, and the reason first exists when the reconnect is refused with `quotaExceeded`.
     var spentAllowance: RelayPlan?
+    /// What the relay last said about this device's invite code. Nil until asked, or when it could not be.
+    var referral: RelayReferral?
 
     /// `quotaExceeded` looks identical whether the user tapped Connect into a spent allowance or the relay cut a running session, and only the first is a wall they walked into.
     var relaySessionDropped = false
@@ -266,11 +269,17 @@ final class SessionModel {
 
     /// The browser replaces a dead one itself, but a suspended app is not running to do it, so the foreground is the moment to restart.
     var browseFailed = false
+    /// Set while the system is refusing the browser; see ``HostBrowser/Event/denied``.
+    var localNetworkDenied = false
     var identity: SelfSignedIdentity?
     var device = DeviceIdentity(id: "", name: "")
 
     /// A task rather than a timestamp: the showing must be cancellable, not the decision, and it doubles as the flag that stops a second offer.
     var pendingOffer: Task<Void, Never>?
+
+    /// Raised on teardown when a rating is due; ``ContentView`` owns the `requestReview` action, which only a view can call, and lowers it.
+    var wantsReviewPrompt = false
+    var pendingReviewPrompt: Task<Void, Never>?
 
     init() {
         device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
@@ -359,12 +368,13 @@ final class SessionModel {
 
     /// A resume is silent, so "still coming back" and "gone" look alike and the only difference the user can act on is how long they wonder: hence short, with a nearly immediate first rung.
     /// The two ladders share a counter: `reconnectAttempt` indexes into whichever is in use and is carried across a dial, so the shorter simply runs out sooner.
+    /// Long enough to outlast the Mac app restarting (quit, relaunch, listening again), which takes more than the first three rungs: they ended the resume in about four seconds, before a restarted Mac was up.
     static let resumeReconnectDelays: [Duration] = [
-        .milliseconds(250), .seconds(1), .seconds(3),
+        .milliseconds(250), .seconds(1), .seconds(3), .seconds(5), .seconds(8), .seconds(10),
     ]
 
     /// A rung is a wait plus a dial that can take ten seconds to fail, so "three rungs" is not a duration, and a dial that never answers is not bounded by the count. This bound does not depend on the network answering and covers the restoration, which dials once with no ladder.
-    static let reconnectWindow: TimeInterval = 10
+    static let reconnectWindow: TimeInterval = 30
 
     var reconnectTask: Task<Void, Never>? {
         get { activeSession?.reconnectTask }

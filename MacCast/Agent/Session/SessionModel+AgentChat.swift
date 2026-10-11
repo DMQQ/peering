@@ -41,16 +41,37 @@ extension SessionModel {
     func refreshAgentSessions() { activeSession?.refreshAgentSessions() }
 
     func startAgentChat(agentID: String, directory: String?) {
-        guard AgentChatLimit.allowsAnother(openChats: agentCards.filter(\.isLive).count, access: storeManager.access) else {
-            paywallReason = .feature(.moreAgents)
-            return
-        }
-        Analytics.featureUsed(.agentChatStarted)
+        Analytics.featureUsed(.agentChatStarted, agent: agentID)
         activeSession?.startAgentChat(agentID: agentID, directory: directory)
     }
 
+    var hostSupportsAgentPause: Bool { activeSession?.hostSupportsAgentPause ?? false }
+
+    func pauseAgentSession(_ id: UUID) {
+        Analytics.featureUsed(.agentChatStopped, agent: agentCards.first { $0.id == id }?.agentID)
+        activeSession?.pauseAgentSession(id)
+    }
+
+    /// A new chat in the same folder that opens with a recap of one the CLI can no longer reopen.
+    func continueInNewChat(from session: RemoteAgentSession) {
+        Analytics.featureUsed(.agentChatContinuedInNew, agent: session.agentID)
+        ChatSeed.set(AgentRecap.text(from: session.transcript), agentID: session.agentID)
+        startAgentChat(agentID: session.agentID, directory: session.directory)
+    }
+
+    var hostSupportsAgentSessionImport: Bool { activeSession?.hostSupportsAgentSessionImport ?? false }
+
+    var resumableSessions: [AgentResumableSession]? { activeSession?.resumableSessions }
+
+    func refreshResumableSessions() { activeSession?.refreshResumableSessions() }
+
+    func resumeAgentSession(_ session: AgentResumableSession) {
+        Analytics.featureUsed(.agentChatResumed, agent: session.agentID)
+        activeSession?.resumeAgentSession(session)
+    }
+
     func sendAgentPrompt(_ text: String, to id: UUID) {
-        Analytics.featureUsed(.agentPromptSent)
+        Analytics.featureUsed(.agentPromptSent, agent: agentCards.first { $0.id == id }?.agentID)
         activeSession?.sendAgentPrompt(text, to: id)
     }
 
@@ -82,7 +103,25 @@ extension SessionModel {
 
     func ensureAgentPreviews() { activeSession?.ensureAgentPreviews() }
 
-    func closeAgentSession(_ id: UUID) { activeSession?.closeAgentSession(id) }
+    /// Moves a chat with a conversation to History and deletes one without, so ending a chat does not lose what was said in it.
+    func endAgentSession(_ id: UUID) {
+        let session = agentSessions.first { $0.id == id }
+        let action = AgentEndAction.choose(
+            hasConversation: session.map { !$0.transcript.isEmpty } ?? false,
+            isWorking: session?.state == .working,
+            isPaused: session.map { AgentPause.isPaused($0.transcript) } ?? false,
+            hostSupportsPause: hostSupportsAgentPause
+        )
+        switch action {
+        case .pause: pauseAgentSession(id)
+        case .close: closeAgentSession(id)
+        }
+    }
+
+    func closeAgentSession(_ id: UUID) {
+        LastActivity.clear(id)
+        activeSession?.closeAgentSession(id)
+    }
 
     func closeAgentSessionIfUnused(_ id: UUID) { activeSession?.closeAgentSessionIfUnused(id) }
 

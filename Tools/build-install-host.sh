@@ -55,6 +55,11 @@ do
     esac
 done
 
+# This copy is the developer's own, and a Release build reports usage like any other, so their
+# sessions and settings changes would be counted as users. Off on this Mac; the switch in Settings
+# turns it back on to test the pipeline.
+defaults write pl.dmq.peering.host Peering.analyticsEnabled -bool false
+
 osascript -e 'tell application id "pl.dmq.peering.host" to quit' 2>/dev/null || true
 
 # **Waited for, and complained about, because a quit that does nothing is the quietest way this

@@ -167,7 +167,7 @@ struct ActivityTab: View {
 
     /// Read off the recommended tier so the button names the rung the paywall opens on.
     private var recommendedTierName: String {
-        StoreManager.Tier.allCases.first { $0.isRecommended }?.name ?? "Pro"
+        StoreManager.Tier.pro.name
     }
 
 
@@ -245,7 +245,7 @@ struct ActivityTab: View {
             } label: {
                 recentRow(
                     symbol: "macbook",
-                    name: session.hostName,
+                    name: model.shownName(hostID: session.hostID, fallback: session.hostName),
                     detail: "\(session.path.name) · \(durationLabel(session.duration)) · \(bytesLabel(session.videoBytesReceived))",
                     startedAt: session.startedAt,
                     navigates: true
@@ -350,6 +350,8 @@ struct ActivityTab: View {
 private struct SessionHistoryDetail: View {
     let session: ClientSessionRecord
 
+    @Environment(SessionModel.self) private var model
+
     @State private var copied = false
 
     var body: some View {
@@ -359,7 +361,7 @@ private struct SessionHistoryDetail: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Controls.card(String(localized: "Connection")) {
-                        detailRow(String(localized: "Mac"), session.hostName)
+                        detailRow(String(localized: "Mac"), model.shownName(hostID: session.hostID, fallback: session.hostName))
                         Controls.divider
                         detailRow(String(localized: "Path"), session.path.name)
                         Controls.divider
@@ -402,7 +404,7 @@ private struct SessionHistoryDetail: View {
                 .padding(.bottom, 36)
             }
         }
-        .navigationTitle(session.hostName)
+        .navigationTitle(model.shownName(hostID: session.hostID, fallback: session.hostName))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -428,7 +430,7 @@ private struct SessionHistoryDetail: View {
     /// The rows and the log together: a transport line means nothing without its session, and the version answers the first question asked about a failure.
     private var logText: String {
         var lines = [
-            String(localized: "Peering session · \(session.hostName)"),
+            String(localized: "Peering session · \(model.shownName(hostID: session.hostID, fallback: session.hostName))"),
             String(localized: "App version: \(ProtocolInfo.version)"),
             "Path: \(session.path.rawValue)",
             String(localized: "Started: \(session.startedAt.formatted(date: .abbreviated, time: .shortened))"),

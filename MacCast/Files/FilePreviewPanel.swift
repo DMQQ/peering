@@ -33,8 +33,8 @@ struct FilePreviewPanel: View {
             content
         }
         .toolbar { if usesToolbars { toolbarContent } }
-        .toolbarBackground(ColorPalette.backdrop, for: .bottomBar)
-        .toolbarBackground(.visible, for: .bottomBar)
+        // Hidden, so the text scrolls behind the bar and the system's edge blur softens it, instead of a solid strip cutting the page.
+        .toolbarBackground(.hidden, for: .bottomBar)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(ColorPalette.backdrop)
         // Prepared on arrival: the share sheet reads the file as it opens, so a URL that does not exist yet comes up empty.
@@ -114,21 +114,15 @@ struct FilePreviewPanel: View {
             } else {
                 if let shareURL {
                     // The share button keeps its arrow, dimmed with the plan's name, when the plan does not move files, so users can find the feature; tapping opens the plans.
-                    PlanLocked(
-                        capability: .fileTransfer,
-                        title: String(localized: "Download to this device"),
-                        diameter: 26
-                    ) {
-                        ShareLink(item: shareURL) {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 30, height: 30)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Download to this device")
+                    ShareLink(item: shareURL) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 30, height: 30)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Download to this device")
                 }
 
                 if canEdit {
@@ -233,6 +227,7 @@ struct FilePreviewPanel: View {
 
     var reader: some View {
         MonospacedTextSurface(text: preview.text, wraps: wraps)
+            .ignoresSafeArea(.container, edges: usesToolbars ? .bottom : [])
     }
 
     /// Smart quotes and dashes are system keyboard settings that SwiftUI's `TextEditor` cannot turn off, and a curled quote silently changes a config file.
@@ -259,6 +254,7 @@ struct FilePreviewPanel: View {
                 onEdit: { edited = $0 },
                 wraps: wraps
             )
+            .ignoresSafeArea(.container, edges: usesToolbars ? .bottom : [])
         }
     }
 

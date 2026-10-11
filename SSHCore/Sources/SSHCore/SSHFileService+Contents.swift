@@ -22,7 +22,7 @@ extension SSHFileService {
                 throw SSHSessionError.browse("That is not a file, so there is nothing to show here.")
             }
 
-            let totalBytes = Int(attributes.size ?? 0)
+            let totalBytes = Int(clamping: attributes.size ?? 0)
 
             let file = try await sftp.openFile(filePath: path, flags: .read)
             var data = Data()

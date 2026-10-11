@@ -59,6 +59,7 @@ final class MacSession: Identifiable {
     var datagramCounts: ClientSession.DatagramCounts?
 
     var latencyMilliseconds: Double?
+    var badConnectionWarning = BadConnectionWarning()
 
     /// ``latencyMilliseconds`` stays the relay's even then: the control connection carries input and always goes the long way.
     var pathLatencyMilliseconds: Double?
@@ -102,7 +103,6 @@ final class MacSession: Identifiable {
     var connectTask: Task<Void, Never>?
     var sourceToResume: CaptureSource? {
         if activeSourceID?.hasPrefix("mosaic:") == true {
-            guard model.storeManager.access.includes(.mosaic) else { return nil }
             return askedMosaicLayout.map { .mosaic($0) }
         }
         return catalog?.all.first { $0.id == activeSourceID }?.source
@@ -174,6 +174,8 @@ final class MacSession: Identifiable {
     var hostSupportsAgentModelPicker = false
     var hostSupportsAgentPermissionModes = false
     var hostSupportsAgentUsage = false
+    var hostSupportsAgentSessionImport = false
+    var hostSupportsAgentPause = false
 
     /// A Mac from before the list chats with the first two.
     var hostChatAgents: Set<String> = ["claude", "codex"]
@@ -300,15 +302,18 @@ final class MacSession: Identifiable {
     var agentQueues: [UUID: AgentPromptQueue] = [:]
     /// The chat list's own copy, rebuilt at most a few times a second: see ``AgentCardDigest``.
     var agentCards: [AgentCardDigest] = []
+    @ObservationIgnored var agentPauses = AgentPauseClock()
     @ObservationIgnored var agentCardsTask: Task<Void, Never>?
     var terminalCards: [TerminalCardDigest] = []
     @ObservationIgnored var terminalCardsTask: Task<Void, Never>?
     /// Chats whose full history has been asked for, so a stream of events does not ask again for each one.
-    var agentHistoryRequested: Set<UUID> = []
+    var agentHistoryRequests = AgentHistoryRequests()
     var selectedAgentSessionID: UUID?
 
     var newAgentSessionID: UUID?
     var agentPicker = AgentPickerState()
+    /// Nil until the Mac has answered; the terminal conversations it offers to continue.
+    var resumableSessions: [AgentResumableSession]?
     /// What git said about each chat's folder, and the chats still waiting for that answer.
     var agentChanges: [UUID: AgentChangesReport] = [:]
     var agentChangesLoading: Set<UUID> = []

@@ -13,6 +13,9 @@ struct AgentTranscriptRow: View {
     /// Set for a `Task` call whose sub-agent has done something to show: the card opens it instead of expanding.
     var openSubagent: (() -> Void)?
     var subagentSteps: Int?
+    /// True for the reply that has just arrived: it is shown being typed instead of appearing whole.
+    var streams = false
+    var onReveal: () -> Void = {}
 
     var body: some View {
         switch item {
@@ -53,12 +56,18 @@ struct AgentTranscriptRow: View {
             .id(id)
 
         case .reply(let id, let text):
-            AgentMarkdownText(text: text)
-                .contextMenu {
-                    Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
-                        .menuInk()
+            Group {
+                if streams {
+                    AgentStreamedMarkdown(text: text, revealed: onReveal)
+                } else {
+                    AgentMarkdownText(text: text)
                 }
-                .id(id)
+            }
+            .contextMenu {
+                Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
+                    .menuInk()
+            }
+            .id(id)
 
         case .tool(let id, let tool):
             AgentToolCard(tool: tool, isExpanded: expandedTools.contains(id), subagentSteps: subagentSteps) {

@@ -42,7 +42,8 @@ extension SessionModel {
         }
         pendingField = nil
         typedDraft = text
-        draftSelection = NSRange(location: state.selectionLocation, length: state.selectionLength)
+        let selection = state.selection(inTextOfLength: (text as NSString).length)
+        draftSelection = NSRange(location: selection.location, length: selection.length)
         fieldSerial += 1
     }
 

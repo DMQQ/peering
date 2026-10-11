@@ -44,7 +44,8 @@ struct AgentChatScreen: View {
         Group {
             if let session {
                 VStack(spacing: 0) {
-                    tabStrip
+                    // One chat has nothing to switch to; its close and rename are in More.
+                    if model.agentSessions.count > 1 { tabStrip }
                     content(session)
                 }
             } else {
@@ -52,6 +53,7 @@ struct AgentChatScreen: View {
             }
         }
         .background(ColorPalette.backdrop)
+        .analyticsScreen(.agentChat)
         .navigationTitle(session?.title ?? String(localized: "Chat"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
@@ -81,6 +83,9 @@ struct AgentChatScreen: View {
                     }
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                if let session { moreMenu(session) }
+            }
             // No keyboard accessory bar: with the composer on the bottom safe-area inset the bar's height is counted twice and the field floats a row too high.
         }
         .terminalEndPrompt(
@@ -92,7 +97,7 @@ struct AgentChatScreen: View {
             ),
             onEnd: {
                 guard let session = pendingClose else { return }
-                model.closeAgentSession(session.id)
+                model.endAgentSession(session.id)
                 pendingClose = nil
                 dismiss()
             }
@@ -102,6 +107,8 @@ struct AgentChatScreen: View {
             model.ensureAgentHistory(currentID)
             model.prefetchAgentChanges(currentID)
             InAppBanner.shared.onScreen = .chat(currentID)
+            model.noteOpenedChat(currentID)
+            seedDraftIfNew()
         }
         .onChange(of: session?.transcript.state) { old, new in
             if new == .idle, old == .working { model.prefetchAgentChanges(currentID) }
@@ -240,7 +247,9 @@ struct AgentChatScreen: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 // Hints take the place of the chips, which they cover rather than sit above.
-                if let query = mentionQuery(session), let id = model.browserID {
+                if AgentExpiry.isExpired(session.transcript) {
+                    expiredBar(session)
+                } else if let query = mentionQuery(session), let id = model.browserID {
                     let folder = query.folder(in: session.directory)
                     AgentMentionHints(
                         query: query,
@@ -262,31 +271,39 @@ struct AgentChatScreen: View {
                         .padding(.bottom, 2)
                         .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
                 } else {
+                    let followUps = (drafts[session.id] ?? "").isEmpty ? AgentFollowUps.suggestions(for: session.transcript) : []
+                    if !followUps.isEmpty {
+                        AgentFollowUpBar(suggestions: followUps) { follow(up: $0, in: session) }
+                            .transition(.blurReplace)
+                    }
                     optionsBar(session)
                         .transition(.blurReplace)
                 }
-                AgentComposer(
-                    text: draft,
-                    isFocused: $composerFocused,
-                    isWorking: session.transcript.state == .working,
-                    canSend: AgentDraft.canSend(
-                        draft: drafts[session.id] ?? "",
-                        attachedCount: (attached[session.id] ?? []).filter { $0.failure == nil }.count,
-                        isUploading: attaching != nil
-                    ),
-                    send: { send(session) },
-                    attach: attachAvailable
-                        ? { source in
-                            switch source {
-                            case .files: showsAttachPicker = true
-                            case .photos: showsPhotoPicker = true
+                if !AgentExpiry.isExpired(session.transcript) {
+                    AgentComposer(
+                        text: draft,
+                        isFocused: $composerFocused,
+                        isWorking: session.transcript.state == .working,
+                        canSend: AgentDraft.canSend(
+                            draft: drafts[session.id] ?? "",
+                            attachedCount: (attached[session.id] ?? []).filter { $0.failure == nil }.count,
+                            isUploading: attaching != nil
+                        ),
+                        send: { send(session) },
+                        attach: attachAvailable
+                            ? { source in
+                                switch source {
+                                case .files: showsAttachPicker = true
+                                case .photos: showsPhotoPicker = true
+                                }
                             }
-                        }
-                        : nil,
-                    stop: { model.interruptAgent(session.id) }
-                )
+                            : nil,
+                        stop: { model.interruptAgent(session.id) }
+                    )
+                }
             }
-            .background(ColorPalette.backdrop)
+            // Down through the keyboard's own area too: the keyboard is translucent, and without this the transcript showed through it.
+            .background(ColorPalette.backdrop.ignoresSafeArea(.all, edges: .bottom))
             .animation(Motion.settle, value: attaching == nil)
             .animation(Motion.settle, value: session.transcript.runningSubagents.count)
         }

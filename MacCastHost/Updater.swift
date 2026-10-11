@@ -14,6 +14,10 @@ final class Updater {
 
     var readyToInstall: Bool { installNow != nil }
 
+    /// Sparkle reports `canCheckForUpdates` false for as long as a downloaded update is waiting to
+    /// install, which is exactly when "Restart" must work.
+    var canInstall: Bool { readyToInstall || canCheck }
+
     private var installNow: (() -> Void)?
 
     @ObservationIgnored private let controller: SPUStandardUpdaterController

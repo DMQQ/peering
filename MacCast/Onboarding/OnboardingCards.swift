@@ -44,11 +44,11 @@ struct NotificationBanner: View {
 
                 VStack(spacing: width * 0.005) {
                     Text("Wednesday, September 24")
-                        .font(.system(size: width * 0.036, weight: .semibold))
+                        .font(.system(size: width * 0.045, weight: .semibold))
 
                     Text("9:41")
-                        .font(.system(size: width * 0.175, weight: .thin))
-                        .tracking(-width * 0.006)
+                        .font(DisplayFont.display(width * 0.30))
+                        .tracking(-width * 0.01)
                 }
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.16), radius: width * 0.012, y: width * 0.006)
@@ -145,83 +145,6 @@ struct NotificationBanner: View {
 }
 
 // MARK: - Plan choice
-
-struct PlanChoice: View {
-    let name: String
-    let line: String
-    let price: String
-    let recommended: Bool
-    let selected: Bool
-    var features: [String] = []
-    let select: () -> Void
-
-    var body: some View {
-        Button(action: select) {
-            VStack(alignment: .leading, spacing: 8) {
-                if recommended {
-                    Text("Best value")
-                        .font(.system(size: 10, weight: .bold))
-                        .tracking(0.4)
-                        .foregroundStyle(ColorPalette.accent)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .background(ColorPalette.accent.opacity(0.18), in: Capsule())
-                }
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(name)
-                        .font(DisplayFont.display(21))
-                        .tracking(-0.5)
-                        .foregroundStyle(ColorPalette.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.82)
-
-                    Text(price)
-                        .font(DisplayFont.display(26))
-                        .tracking(-0.8)
-                        .foregroundStyle(ColorPalette.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.68)
-                }
-
-                Text(line)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                if !features.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(features, id: \.self) { feature in
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(ColorPalette.ink.opacity(0.45))
-                                    .frame(width: 10, alignment: .leading)
-
-                                Text(feature)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                    }
-                    .padding(.top, 2)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .cardSurface()
-            .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .strokeBorder(ColorPalette.accent, lineWidth: 1.5)
-                    .opacity(selected ? 1 : 0)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        }
-        .buttonStyle(RailButtonStyle(scale: 0.985))
-        .accessibilityAddTraits(selected ? [.isSelected] : [])
-    }
-}
 
 #Preview {
     OnboardingView(onFinish: {})

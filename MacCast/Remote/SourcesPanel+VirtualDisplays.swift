@@ -14,9 +14,7 @@ extension SourcesPanel {
                 if managedVirtualDisplays.isEmpty {
                     // Nothing to show yet: a small + and a line, not a mostly empty full-height row.
                     HStack(spacing: 12) {
-                        PlanLocked(capability: .virtualDisplays) {
-                            addVirtualDisplayTile(height: 44)
-                        }
+                        addVirtualDisplayTile(height: 44)
                         Text("No virtual displays. Add one to give your iPhone a screen of its own on the Mac, the shape of this phone.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -26,14 +24,10 @@ extension SourcesPanel {
                     HStack(alignment: .top, spacing: Self.tileGap) {
                         Self.tileRow {
                             ForEach(managedVirtualDisplays) { descriptor in
-                                PlanLocked(capability: .virtualDisplays) {
-                                    previewTile(descriptor, fallbackIcon: "display", height: Self.packedTileHeight)
-                                }
+                                previewTile(descriptor, fallbackIcon: "display", height: Self.packedTileHeight)
                             }
                         }
-                        PlanLocked(capability: .virtualDisplays) {
-                            addVirtualDisplayTile()
-                        }
+                        addVirtualDisplayTile()
                     }
                 }
             }
@@ -47,10 +41,6 @@ extension SourcesPanel {
 
     var managedVirtualDisplays: [CaptureSourceDescriptor] {
         model.catalog?.displays.filter(\.isManagedVirtualDisplay) ?? []
-    }
-
-    var includesVirtualDisplays: Bool {
-        model.storeManager.access.includes(.virtualDisplays)
     }
 
     func removeVirtualDisplay(_ descriptor: CaptureSourceDescriptor, id: UInt32) {

@@ -605,6 +605,36 @@ struct ClientPairingTests {
         }
     }
 
+    @Test func anUnpinnedMacClaimingAlreadyPairedIsRefusedNotPinned() async throws {
+        let pins = TestPins()
+        defer { pins.destroy() }
+
+        try await withTestEnds { client, macIdentity in
+            let hostID = "claimed-mac"
+            let mac = try ScriptedMac(identity: macIdentity)
+            await mac.start()
+            defer { mac.stop() }
+
+            let log = SessionLog()
+            let session = ClientSession(
+                identity: client,
+                clientID: "phone-1",
+                clientName: "Test iPhone",
+                pins: pins.store,
+                onEvent: { log.record($0) }
+            )
+            defer { session.disconnect() }
+
+            await session.connect(to: .address(host: "127.0.0.1", port: mac.port), timeout: 10)
+            let link = try #require(await mac.nextConnection(), "the client never connected")
+            _ = try await greet(link, serverID: hostID, alreadyPaired: true)
+
+            #expect(await log.wait { $0.failure != nil })
+            #expect(session.failureReason == .noPinOnFile)
+            #expect(pins.store.pin(for: hostID) == nil)
+        }
+    }
+
     @Test func aMacWhoseKeyMatchesThePinIsLetThrough() async throws {
         let pins = TestPins()
         defer { pins.destroy() }

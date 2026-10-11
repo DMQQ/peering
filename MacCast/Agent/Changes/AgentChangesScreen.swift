@@ -44,25 +44,26 @@ struct AgentChangesScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            // Close and Commit balance the title; the view controls (filters, refresh) are at the thumb in the bottom bar rather than a third and fourth icon beside Commit.
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
-                ToolbarItem(placement: .primaryAction) {
-                    Button { showsCommit = true } label: { Image(systemName: "checkmark.circle") }
-                        .accessibilityLabel(Text("Commit"))
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Commit") { showsCommit = true }
                         .disabled(report?.isRepository != true)
                 }
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItemGroup(placement: .bottomBar) {
                     Button { showsFilters = true } label: {
-                        Image(systemName: filters.filter.isDefault
+                        Label("Filters", systemImage: filters.filter.isDefault
                             ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
                     }
-                    .accessibilityLabel(Text("Filters"))
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button { model.loadAgentChanges(sessionID) } label: { Image(systemName: "arrow.clockwise") }
-                        .accessibilityLabel(Text("Refresh"))
+                    Spacer()
+                    Button { model.loadAgentChanges(sessionID) } label: {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                    }
                 }
             }
+            .toolbarBackground(ColorPalette.backdrop, for: .bottomBar)
+            .toolbarBackground(.visible, for: .bottomBar)
             .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: Text("Search files"))
             .navigationDestination(for: String.self) { path in
                 if let entry = overview.entry(at: path) {

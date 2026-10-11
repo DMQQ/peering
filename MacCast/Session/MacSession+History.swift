@@ -103,6 +103,7 @@ extension MacSession {
         // do. The record is already in `sessionHistory` by this point, which is what makes the
         // figure right rather than merely uncounted.
         model.offerSubscriptionIfDue(after: record)
+        model.askForReviewIfDue(after: record)
         return record
     }
 }

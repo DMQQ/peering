@@ -59,7 +59,11 @@ extension HostStatusView {
 
     @ViewBuilder
     var pairingSection: some View {
-        if let pairing = model.pairing {
+        if let pairing = model.pairing, pairing.needsApproval {
+            PairingApprovalCard(clientName: pairing.clientName) { model.resolvePairing(approved: $0) }
+                .padding(16)
+                .priorityPanel()
+        } else if let pairing = model.pairing {
             HStack(spacing: 24) {
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Pair a new iPhone", systemImage: "iphone.and.arrow.forward")
@@ -88,7 +92,7 @@ extension HostStatusView {
 
                 Spacer(minLength: 20)
 
-                if let image = qrCode(encoding: PairingPayload.encode(code: pairing.code)) {
+                if let image = qrCode(encoding: PairingPayload.encode(code: pairing.code, secret: pairing.secret)) {
                     Image(nsImage: image)
                         .interpolation(.none)
                         .resizable()

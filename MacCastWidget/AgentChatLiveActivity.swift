@@ -2,7 +2,7 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
-/// The agent chat that is working or waiting on you, on the Lock Screen and in the Dynamic Island.
+/// The agent chat that matters most, on the Lock Screen and in the Dynamic Island: the one waiting on you, else the busiest, else the latest to finish.
 ///
 /// Same card as the sessions'; see ``ActivityCard``. The plan sits under it when the agent made one.
 struct AgentChatLiveActivity: Widget {
@@ -57,7 +57,7 @@ struct AgentChatLiveActivity: Widget {
                     Text("\(number)/\(chat.planTotal)")
                         .font(.caption.monospacedDigit())
                 } else {
-                    Image(systemName: "ellipsis")
+                    Image(systemName: chat.state == .working ? "ellipsis" : chat.state == .failed ? "exclamationmark" : "checkmark")
                 }
             } minimal: {
                 Image(systemName: glyph(chat))
@@ -74,10 +74,11 @@ struct AgentChatLiveActivity: Widget {
     private func status(_ state: AgentChatActivityAttributes.ContentState) -> String {
         let chat = state.chat
         let base: String
-        if chat.state == .needsYou {
-            base = String(localized: "Waiting on you")
-        } else {
-            base = chat.activity ?? String(localized: "Working")
+        switch chat.state {
+        case .needsYou: base = String(localized: "Waiting on you")
+        case .working: base = chat.activity ?? String(localized: "Working")
+        case .finished: base = String(localized: "Finished")
+        case .failed: base = String(localized: "Stopped with an error")
         }
         let others = state.waiting + state.working - 1
         return others > 0 ? String(localized: "\(base) · +\(others) more") : base

@@ -65,6 +65,34 @@ video, and serves signalling in plaintext. That is exactly right for pointing bo
 | `PEERINGD_WEB_ROOT` | `site` | Directory the site is read from. Relative paths resolve against the working directory |
 | `PEERINGD_USAGE_LOG` | `/var/lib/peeringd/usage.log` in the shipped unit, unset otherwise | File the relay-time counter is written to. See "Relay time is remembered" below |
 
+| `PEERINGD_REFERRALS` | unset | File invite codes and redemptions are written to. Unset means a restart forgets them, so every device can redeem again and promised bonus time is lost. Set it beside the usage log (the shipped unit does not yet) |
+| `PEERINGD_REFERRAL_BONUS_MINUTES` | `30` | Minutes one running invite grant adds to each window's free allowance |
+| `PEERINGD_REFERRAL_DAYS` | `7` | How long a grant runs from the redemption |
+| `PEERINGD_REFERRAL_MAX_INVITES` | `5` | Redemptions of one code that earn its owner a grant. The redeemer is always granted; zero means owners never earn |
+
+### Invites
+
+Every device with a key can ask for a short code (`referralStatus`) and a friend can redeem it
+(`redeemReferral`). Both then get `+PEERINGD_REFERRAL_BONUS_MINUTES` of free relay time in every
+window for `PEERINGD_REFERRAL_DAYS` days. Grants stack, so the most any device holds is one per
+redemption it earned, up to the cap. Paid plans are unmetered and unaffected.
+
+- **Identity is the device key.** Both messages must carry `publicKey`, `proof` and `proofTime`,
+  signed over `peeringd-referral-v1\n<action>\n<clientId>\n<proofTime>` where the action is
+  `status` or `redeem:<code as sent>`. Without a proof the answer is `proofRequired`: an announced
+  id is lost on reinstall, and would let one person redeem once per install. A client metered by
+  its id (no proof on `ConnectToHost`) has no bonus, because the bonus hangs from the key.
+- **Ceilings.** 1000 redemptions a day across all devices, 50000 redemptions and 100000 codes
+  in total (`referralsBusy` past them), and 16 invite requests per signalling connection. Making
+  keys is free for a script, so these bound the memory and the file rather than closing the
+  free-allowance-per-new-key hole the README already describes.
+- **Replies.** `referral` carries `code`, `bonusSeconds` (added to each window's allowance now),
+  `bonusEndsAt` (Unix seconds, null when nothing is running), `redeemed`, `invitesEarned` and
+  `invitesMax`. Errors: `proofRequired`, `proofStale`, `proofInvalid`, `referralUnknownCode`,
+  `referralOwnCode`, `referralAlreadyRedeemed`, `referralsBusy`, `tooManyRequests`, `invalid`.
+- The relay does not report remaining time anywhere; the app keeps its own bar (see
+  `PEERINGD_FREE_MINUTES`) and must add `bonusSeconds` to the allowance it draws.
+
 ### Relay time is remembered
 
 The counter used to live in a `HashMap` for the lifetime of the process, which made `Restart=always`

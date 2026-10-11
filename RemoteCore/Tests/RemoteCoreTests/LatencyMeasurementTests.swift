@@ -196,30 +196,67 @@ struct LanePingWireTests {
 struct ControlSilenceTests {
     private let silence = ControlSilence(limit: 10)
 
-    @Test func aChannelThatHasAnsweredRecentlyHasNotExpired() {
-        #expect(!silence.hasExpired(isReady: true, readyAt: 0, lastReplyAt: 97, now: 100))
+    /// A watchdog that ticked half a second ago, which is how it normally runs.
+    private func verdict(
+        isReady: Bool = true,
+        readyAt: TimeInterval? = 0,
+        lastReplyAt: TimeInterval? = nil,
+        restartedAt: TimeInterval? = nil,
+        previousCheckAt: TimeInterval? = 99.5,
+        now: TimeInterval = 100
+    ) -> ControlSilence.Verdict {
+        silence.judge(
+            isReady: isReady, readyAt: readyAt, lastReplyAt: lastReplyAt,
+            restartedAt: restartedAt, previousCheckAt: previousCheckAt, now: now
+        )
+    }
+
+    @Test func aChannelThatHasAnsweredRecentlyIsHealthy() {
+        #expect(verdict(lastReplyAt: 97) == .healthy)
     }
 
     @Test func aChannelSilentPastTheLimitHasExpired() {
-        #expect(silence.hasExpired(isReady: true, readyAt: 0, lastReplyAt: 89, now: 100))
+        #expect(verdict(lastReplyAt: 89) == .expired)
     }
 
     /// Without a baseline from the ready moment it could never expire.
     @Test func beforeTheFirstReplyTheClockRunsFromWhenTheSessionBecameReady() {
-        #expect(!silence.hasExpired(isReady: true, readyAt: 95, lastReplyAt: nil, now: 100))
-        #expect(silence.hasExpired(isReady: true, readyAt: 80, lastReplyAt: nil, now: 100))
+        #expect(verdict(readyAt: 95) == .healthy)
+        #expect(verdict(readyAt: 80) == .expired)
     }
 
     @Test func aSessionThatIsNotReadyNeverExpires() {
-        #expect(!silence.hasExpired(isReady: false, readyAt: 0, lastReplyAt: 0, now: 100))
+        #expect(verdict(isReady: false, readyAt: 0, lastReplyAt: 0) == .healthy)
     }
 
     @Test func withNoBaselineThereIsNoOpinion() {
-        #expect(!silence.hasExpired(isReady: true, readyAt: nil, lastReplyAt: nil, now: 100))
+        #expect(verdict(readyAt: nil, lastReplyAt: nil) == .healthy)
     }
 
     @Test func theLimitItselfIsNotYetExpired() {
-        #expect(!silence.hasExpired(isReady: true, readyAt: 0, lastReplyAt: 90, now: 100))
+        #expect(verdict(lastReplyAt: 90) == .healthy)
+    }
+
+    /// The backgrounded app: nothing ran for twenty seconds, so no ping went out and no pong was read.
+    @Test func aWatchdogThatWasFrozenDoesNotBlameTheNetwork() {
+        #expect(verdict(lastReplyAt: 70, previousCheckAt: 75) == .resumedFromFreeze)
+    }
+
+    @Test func aFreezeThatLeftTheChannelRecentlyAnsweredIsNotAnIssue() {
+        #expect(verdict(lastReplyAt: 98, previousCheckAt: 75) == .healthy)
+    }
+
+    @Test func afterAFreezeTheClockRunsFromWhenItEnded() {
+        #expect(verdict(lastReplyAt: 70, restartedAt: 95) == .healthy)
+        #expect(verdict(lastReplyAt: 70, restartedAt: 85) == .expired)
+    }
+
+    @Test func aFirstCheckHasNoPreviousTickToCompareWith() {
+        #expect(verdict(lastReplyAt: 70, previousCheckAt: nil) == .expired)
+    }
+
+    @Test func aGapJustUnderTheFreezeThresholdStillCountsAsSilence() {
+        #expect(verdict(lastReplyAt: 70, previousCheckAt: 97.5) == .expired)
     }
 }
 

@@ -81,7 +81,11 @@ struct FirstConnectionOnboardingView: View {
 
     @ViewBuilder
     private var livePairingCard: some View {
-        if let pairing = model.pairing {
+        if let pairing = model.pairing, pairing.needsApproval {
+            PairingApprovalCard(clientName: pairing.clientName) { model.resolvePairing(approved: $0) }
+                .padding(16)
+                .priorityPanel()
+        } else if let pairing = model.pairing {
             VStack(spacing: 14) {
                 Text(pairing.isRemote
                      ? String(localized: "\(pairing.clientName) reached this Mac over the relay. Read the six digits out to whoever is holding it.")
@@ -96,7 +100,7 @@ struct FirstConnectionOnboardingView: View {
                     .tracking(2)
                     .textSelection(.enabled)
 
-                if let image = qrCodeImage(encoding: PairingPayload.encode(code: pairing.code)) {
+                if let image = qrCodeImage(encoding: PairingPayload.encode(code: pairing.code, secret: pairing.secret)) {
                     Image(nsImage: image)
                         .interpolation(.none)
                         .resizable()

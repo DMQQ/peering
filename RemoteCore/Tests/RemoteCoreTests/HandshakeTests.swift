@@ -328,3 +328,44 @@ struct DeviceIdentityTests {
         #expect(a.id != b.id)
     }
 }
+
+@Suite("Re-pairing a phone that forgot the Mac")
+struct LostPairingTests {
+    @Test("a pinned client that has lost its pin is paired again")
+    func lostPinPairsAgain() {
+        #expect(!ClientHello.hostTreatsAsPaired(clientKeyIsPinned: true, lostPairing: true))
+    }
+
+    @Test("a pinned client that has not lost anything, or an older one, stays paired")
+    func pinnedClientStaysPaired() {
+        #expect(ClientHello.hostTreatsAsPaired(clientKeyIsPinned: true, lostPairing: nil))
+        #expect(ClientHello.hostTreatsAsPaired(clientKeyIsPinned: true, lostPairing: false))
+    }
+
+    @Test("an unpinned client is never paired already")
+    func unpinnedClientPairs() {
+        #expect(!ClientHello.hostTreatsAsPaired(clientKeyIsPinned: false, lostPairing: nil))
+    }
+
+    @Test("a hello from an older phone decodes without the flag")
+    func olderHelloDecodes() throws {
+        let hello = ClientHello(clientID: "c", clientName: "n", protocolVersion: 1, wantsPairing: false)
+        let data = try JSONEncoder().encode(hello)
+        let decoded = try JSONDecoder().decode(ClientHello.self, from: data)
+        #expect(decoded.lostPairing == nil)
+    }
+}
+
+@Suite("Local network permission")
+struct LocalNetworkPermissionTests {
+    @Test("a policy-denied DNS error is a refused local network permission")
+    func policyDeniedIsRefusal() {
+        #expect(HostBrowser.isLocalNetworkDenied(.dns(-65570)))
+    }
+
+    @Test("any other error is not")
+    func otherErrorsAreNot() {
+        #expect(!HostBrowser.isLocalNetworkDenied(.dns(-65537)))
+        #expect(!HostBrowser.isLocalNetworkDenied(.posix(.ECONNREFUSED)))
+    }
+}

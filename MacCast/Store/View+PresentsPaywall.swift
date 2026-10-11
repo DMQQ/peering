@@ -17,6 +17,8 @@ extension View {
             PaywallView(reason: model.paywallReason ?? .upgrade) { model.paywallReason = nil }
                 .environment(model.storeManager)
                 .preferredColorScheme(.dark)
+                .presentationDetents([.fraction(0.6)])
+                .presentationSizing(.form)
         }
     }
 }

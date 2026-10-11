@@ -18,11 +18,15 @@ final class AgentSessionManager: @unchecked Sendable {
     var sessions: [UUID: AgentSession] = [:]
     var sinks: [String: Sink] = [:]
     var wasActive = false
+    /// When each conversation this app closed was last ours, by CLI session id. Guarded by `lock`.
+    var releasedConversations: [String: Date] = [:]
 
     let store: AgentSessionDiskStore
     let persistQueue = DispatchQueue(label: "pl.dmq.peering.host.agent.persist", qos: .utility)
 
     var onPushNeeded: (@Sendable (String, String, String, RelayPushAction?) -> Void)?
+    /// Set once before any phone connects.
+    var externalApprovals: (@Sendable (String, AgentApprovalDecision) -> Bool)?
     var onActivityChanged: (@Sendable (Bool) -> Void)?
 
     init(store: AgentSessionDiskStore = AgentSessionManager.defaultStore()) {
@@ -116,6 +120,8 @@ final class AgentSessionManager: @unchecked Sendable {
             ensureLive(session)?.setPermissionMode(mode)
 
         case .approval(let id, let approvalID, let decision):
+            // A hook in a terminal has no chat here to own it.
+            if externalApprovals?(approvalID, decision) == true { return }
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
             guard lock.withLock({ session.pendingApprovals.remove(approvalID) != nil }) else { return }
             append(.approvalResolved(approvalID: approvalID, decision: decision), to: session)
@@ -144,6 +150,16 @@ final class AgentSessionManager: @unchecked Sendable {
         case .push(let id):
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
             AgentGitActions.push(directory: session.directory, sessionID: id, sink: sink)
+
+        case .pause(let id):
+            guard let session = owned(id, by: clientID, reporting: sink) else { return }
+            pause(session, sink: sink)
+
+        case .listResumable:
+            listResumable(clientID: clientID, sink: sink)
+
+        case .resume(let agentID, let cliSessionID):
+            resume(agentID: agentID, cliSessionID: cliSessionID, clientID: clientID, sink: sink)
         }
     }
 
@@ -203,12 +219,7 @@ final class AgentSessionManager: @unchecked Sendable {
                 failure = "Chat session limit reached."
                 return
             }
-            while existing.count >= Self.maximumStoredSessionsPerClient,
-                  let oldest = existing.filter({ !$0.adapterLive }).min(by: { $0.createdAt < $1.createdAt }) {
-                sessions[oldest.id] = nil
-                existing.removeAll { $0.id == oldest.id }
-                evicted.append(oldest)
-            }
+            evicted = makeRoom(among: &existing)
             let name = directory.lastPathComponent.isEmpty ? "/" : directory.lastPathComponent
             let session = AgentSession(
                 ownerClientID: clientID,
@@ -237,7 +248,19 @@ final class AgentSessionManager: @unchecked Sendable {
         launch(adapter, for: created)
     }
 
-    private static func uniqueTitle(base: String, among sessions: [AgentSession]) -> String {
+    /// Drops the oldest chats with no process until there is room for one more. Called under the lock.
+    func makeRoom(among existing: inout [AgentSession]) -> [AgentSession] {
+        var evicted: [AgentSession] = []
+        while existing.count >= Self.maximumStoredSessionsPerClient,
+              let oldest = existing.filter({ !$0.adapterLive }).min(by: { $0.createdAt < $1.createdAt }) {
+            sessions[oldest.id] = nil
+            existing.removeAll { $0.id == oldest.id }
+            evicted.append(oldest)
+        }
+        return evicted
+    }
+
+    static func uniqueTitle(base: String, among sessions: [AgentSession]) -> String {
         var title = base
         var counter = 2
         while sessions.contains(where: { $0.title == title }) {

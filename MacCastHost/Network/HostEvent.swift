@@ -9,7 +9,9 @@ enum HostEvent: Sendable {
     case clientDisconnected(clientID: String, clientName: String)
 
     /// The six digits to show the user. Present only during a first pairing.
-    case pairingCode(code: String, clientName: String, isRemote: Bool)
+    case pairingCode(code: String, secret: Data, clientName: String, isRemote: Bool)
+    /// A pairing arrived without the QR secret, so only the Mac's user can vouch for it.
+    case pairingNeedsApproval(clientName: String)
     case pairingCompleted(clientName: String, accepted: Bool)
 
     case failed(String)
@@ -32,7 +34,9 @@ struct ConnectedClient: Identifiable, Sendable, Equatable {
 struct PairingPrompt: Sendable, Equatable {
     let clientName: String
     let code: String
+    let secret: Data
     var isRemote = false
+    var needsApproval = false
 }
 
 struct PairingOutcome: Sendable, Equatable {

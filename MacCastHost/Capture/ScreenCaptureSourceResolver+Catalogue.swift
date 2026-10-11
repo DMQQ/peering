@@ -90,6 +90,13 @@ extension ScreenCaptureSourceResolver {
     /// A reading with no window in it is not this Mac: every row is built from a window, and ScreenCaptureKit returns such readings for a beat around a Space change, which would empty the picker while cached.
     /// So a first such reading is not cached and the last good one is served; windowless readings ``windowlessReadGrace`` apart must agree before a Mac with nothing open is believed. Under ``lock``.
     private func serve(_ fresh: SCShareableContent) -> (SCShareableContent, String?) {
+        // A display that is asleep reports no displays and no windows, which is the Mac resting rather than empty. Counting those reads toward the grace let a morning's worth of them expire it, so the first read after the display woke was believed and a connecting phone saw nothing to capture.
+        if CGDisplayIsAsleep(CGMainDisplayID()) != 0, fresh.displays.isEmpty || Self.foundNoWindow(fresh) {
+            firstWindowlessReadAt = nil
+            isStale = true
+            return (snapshot ?? fresh, nil)
+        }
+
         guard Self.foundNoWindow(fresh) else {
             firstWindowlessReadAt = nil
             snapshot = fresh

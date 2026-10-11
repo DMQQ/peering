@@ -65,6 +65,12 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         // A desktop can only be photographed while it is on the display, so one visited before the client connected would otherwise have no picture.
         Task { [weak self] in await self?.captureActiveSpacePreview() }
 
+        // The first catalogue otherwise walks every Applications folder and renders an icon per app before it can be sent, and a phone pairing right after launch waits for it to name the display.
+        Task.detached(priority: .utility) { [weak self] in
+            let installed = Self.installedApplications()
+            self?.lock.withLock { if self?.installedApplicationsCache == nil { self?.installedApplicationsCache = installed } }
+        }
+
         let poll = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.spacePollInterval)

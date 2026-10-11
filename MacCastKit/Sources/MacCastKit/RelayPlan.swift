@@ -30,28 +30,4 @@ public enum RelayPlan: String, CaseIterable, Sendable {
         case .pro: return String(localized: "Pro")
         }
     }
-
-    /// Shorter than ``name``, for a badge capsule.
-    public var badge: String {
-        switch self {
-        case .free: return "FREE"
-        case .relay: return "RELAY"
-        case .pro: return "PRO"
-        }
-    }
-
-    /// Asked of a ``PlanAccess`` rather than a plan, so the answer has a third state.
-    public func includes(_ capability: PlanCapability) -> Bool {
-        self >= capability.minimumPlan
-    }
-}
-
-/// The order of `allCases`; a hand-written rank would drift when a rung is inserted.
-extension RelayPlan: Comparable {
-    public static func < (lhs: RelayPlan, rhs: RelayPlan) -> Bool {
-        guard let left = allCases.firstIndex(of: lhs),
-              let right = allCases.firstIndex(of: rhs)
-        else { return false }
-        return left < right
-    }
 }

@@ -175,4 +175,10 @@ struct SSHDirectoryListingTests {
         let expected = "command ls -1pA -- '/tmp/it'\\''s here' | command head -n 2001"
         #expect(SSHFileService.listingCommand(for: "/tmp/it's here") == expected)
     }
+
+    @Test("a size no signed integer can hold is clamped instead of trapping")
+    func hugeSizeIsClamped() {
+        let built = SSHDirectoryListing.entry(name: "x", mode: 0o100644, size: UInt64.max, modified: nil)
+        #expect(built.size == Int64.max)
+    }
 }

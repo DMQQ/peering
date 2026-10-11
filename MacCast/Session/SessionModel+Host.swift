@@ -13,6 +13,11 @@ extension SessionModel {
 
     func displayName(forHostID id: String) -> String? { customHostNames[id] ?? hostNames[id] }
 
+    /// What a screen shows for a Mac that may have been renamed: the user's name, else the Mac's own.
+    func shownName(hostID: String?, fallback: String) -> String {
+        hostID.flatMap { customHostNames[$0] } ?? fallback
+    }
+
     func rename(hostID: String, to name: String) {
         Analytics.featureUsed(.macRenamed)
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -41,7 +46,8 @@ extension SessionModel {
     func publishOpenMacs() {
         SharedStore.connectedMacIDs = openSessions.compactMap(\.hostID)
         SharedStore.activeMacID = activeSession?.hostID
-        if let name = activeSession?.hostName {
+        if let session = activeSession, let actual = session.hostName {
+            let name = shownName(hostID: session.hostID, fallback: actual)
             SharedStore.lastHostName = name
             UserDefaults.standard.set(name, forKey: Self.lastHostNameKey)
         }

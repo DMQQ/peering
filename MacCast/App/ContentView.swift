@@ -1,13 +1,25 @@
 import MacCastKit
 import RemoteCore
+import StoreKit
 import SwiftUI
 import UIKit
 
 struct ContentView: View {
     @Environment(SessionModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.requestReview) private var requestReview
 
     @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = false
+    @AppStorage(PreferenceKeys.hasDismissedFirstConnection) private var hasDismissedFirstConnection = false
+
+    /// The first-connection guide owns the screen until the first Mac is paired, including the handshake and the code (a pairing in progress holds it even once the pin is written, so the picker never flashes between the guide and the session).
+    private var coversPairing: Bool {
+        guard hasSeenWelcome, !hasDismissedFirstConnection else { return false }
+        switch model.phase {
+        case .confirming: return true
+        default: return model.pins.isEmpty
+        }
+    }
 
     private var isRemoteScreen: Bool {
         // A drop leaves the phase at `.failed`, which used to unmount this subtree and lose the zoom, open panel and dock. A session being resumed (``MacSession/isResumingAfterDrop``, ``MacSession/isBeingPutBack``) keeps this screen; one the user stepped away from (``SessionModel/isSessionOnScreen``) does not, and that is checked first.
@@ -34,6 +46,9 @@ struct ContentView: View {
     @State private var holdsLaunch = UserDefaults.standard.bool(forKey: SessionModel.resumeKey)
     @State private var isLaunchRestore = UserDefaults.standard.bool(forKey: SessionModel.resumeKey)
     private static let launchHold: Duration = .seconds(1)
+    /// Whether the pairing now under way is the first Mac's, noted when the code is asked for because by the time it ends the pin is written and the guide no longer covers it.
+    @State private var pairingIsFirst = false
+    @State private var celebratesPairing = false
     @State private var showsConnecting = false
     @State private var connectingSince: Date?
     @State private var connectingFailure: String?
@@ -63,12 +78,20 @@ struct ContentView: View {
         // A ZStack, not a Group: a Group is transparent, so a branch change has no container to interpolate and only cross-fades.
         ZStack {
             // A session outranks the introduction (load-bearing order): the widget URL and automatic resume connect without a tap, so a first launch that is also a resume would otherwise land on welcome with a live session behind it.
-            if isRemoteScreen {
+            // One branch for the guide and its last beat, so the same view carries on rather than being replaced by another: its steps stay where they are and tick to done.
+            if coversPairing || celebratesPairing {
+                FirstConnectionScreen(isConnected: celebratesPairing) { withAnimation(Motion.settle) { hasDismissedFirstConnection = true } }
+                    .transition(.opacity)
+            } else if isRemoteScreen {
                 RemoteScreen()
                     .transition(Self.screenHandover)
             } else if !hasSeenWelcome {
                 WelcomeFlow {
-                    withAnimation(Motion.settle) { hasSeenWelcome = true }
+                    withAnimation(Motion.settle) {
+                        // Finishing the tour, first time or replayed, is when the guide is owed: a "later" tapped on an earlier run must not swallow it.
+                        hasDismissedFirstConnection = false
+                        hasSeenWelcome = true
+                    }
                     model.startBrowsing()
                 }
                     .environment(model.storeManager)
@@ -83,7 +106,7 @@ struct ContentView: View {
             // Last in the stack so it covers whichever screen is underneath, including the moment the session replaces the picker.
             if showsConnecting {
                 ConnectingView(
-                    hostName: model.hostName,
+                    hostName: model.shownHostName,
                     failure: connectingFailure,
                     isSlow: connectingIsSlow,
                     isConnected: connectingDidSucceed,
@@ -108,6 +131,13 @@ struct ContentView: View {
             guard holdsLaunch else { return }
             try? await Task.sleep(for: Self.launchHold)
             withAnimation(Motion.settle) { holdsLaunch = false }
+        }
+        .onChange(of: model.phase) { old, new in
+            if case .confirming = new { pairingIsFirst = coversPairing }
+            if case .confirming = old, new == .ready, pairingIsFirst {
+                pairingIsFirst = false
+                celebratePairing()
+            }
         }
         .onChange(of: model.phase) { _, phase in
             guard isLaunchRestore else { return }
@@ -156,6 +186,12 @@ struct ContentView: View {
         }
         // Presented from the top level so the paywall behaves the same however the user got here. A lock inside a sheet needs its own presenter (see ``SwiftUI/View/presentsPaywall(_:)``).
         .presentsPaywall(model)
+        .presentsWhatsNew()
+        .onChange(of: model.wantsReviewPrompt) { _, wants in
+            guard wants else { return }
+            model.wantsReviewPrompt = false
+            requestReview()
+        }
         // A session ended for spent allowance is not a wall the user walked into, so it gets its own explanation sheet (``AllowanceSpentView``), not the purchase screen.
         .sheet(isPresented: Binding(
             get: { model.spentAllowance != nil },
@@ -178,7 +214,17 @@ struct ContentView: View {
         }
     }
 
+    private func celebratePairing() {
+        hasDismissedFirstConnection = true
+        withAnimation(Motion.settle) { celebratesPairing = true }
+        Task {
+            try? await Task.sleep(for: .milliseconds(1700))
+            withAnimation(Motion.settle) { celebratesPairing = false }
+        }
+    }
+
     private func beginConnecting() {
+        guard !coversPairing else { return }
         // A resume gets no card: a picture is already on screen and the 0.9s hold is tuned for opening a Mac. Asked of the session because a resume is a resume whether or not a session object survived.
         guard !model.isBeingPutBack else { return }
 

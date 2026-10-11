@@ -135,6 +135,11 @@ extension OnboardingView {
             // places its content at the top leading corner: without this the machines would be
             // centred in a box the size of themselves and then pinned to the corner of the real one.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay {
+                FloatingChips(chips: Self.pages[index].chips)
+                    .id(index)
+                    .transition(.opacity.animation(.easeOut(duration: 0.14)))
+            }
         }
         .frame(height: stageHeight)
         .padding(.horizontal, 22)

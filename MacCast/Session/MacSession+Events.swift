@@ -54,13 +54,21 @@ extension MacSession {
                 refreshAgentSessions()
                 // Every arrival at `.ready`: the Mac keeps a scope only for the connection that made it, so a reconnect must announce this phone's id again.
                 openFileScope()
-                // Through the model: whether the Mac may learn where to reach this device is the plan's answer. See ``SessionModel/sendPushToken()``.
                 model.sendPushToken()
                 // Every arrival at `.ready`, a reconnect included: the Mac on the other end has no memory of the one before. See ``pendingSourceReassertion``.
                 pendingSourceReassertion = true
             }
             if case .failed(let message) = phase {
-                Analytics.connectFailed(afterReady: hasBeenReady, reason: wire?.failureReason?.rawValue ?? "unknown")
+                Analytics.connectFailed(
+                    afterReady: hasBeenReady,
+                    reason: wire?.failureReason?.rawValue ?? "unknown",
+                    path: (connectionPath ?? .lan).rawValue,
+                    reconnectAttempt: model.reconnectAttempt,
+                    secondsIntoSession: sessionStartedAt.map { Int(Date().timeIntervalSince($0)) },
+                    appState: Analytics.name(of: UIApplication.shared.applicationState),
+                    pictureInPictureActive: SessionPiP.shared.isActive,
+                    video: wire?.videoDeliveryRecord
+                )
                 videoStatus = String(localized: "Stopped: \(message)")
             }
             if phase == .disconnected {
@@ -109,7 +117,7 @@ extension MacSession {
             model.notifier.sessionMoved(
                 from: previous,
                 to: phase,
-                hostName: hostName ?? String(localized: "the Mac"),
+                hostName: shownName ?? String(localized: "the Mac"),
                 hostID: hostID,
                 deliberate: userEnded,
                 resuming: isResumingAfterDrop
@@ -126,7 +134,7 @@ extension MacSession {
                 SessionActivity.shared.sessionMoved(
                     from: previous,
                     to: phase,
-                    hostName: hostName ?? String(localized: "the Mac"),
+                    hostName: shownName ?? String(localized: "the Mac"),
                     startedAt: sessionStartedAt,
                     reconnecting: isReconnecting,
                     deliberate: userEnded,
@@ -168,6 +176,8 @@ extension MacSession {
             hostSupportsAgentModelPicker = hello.supportsAgentModelPicker == true
             hostSupportsAgentPermissionModes = hello.supportsAgentPermissionModes == true
             hostSupportsAgentUsage = hello.supportsAgentUsage == true
+            hostSupportsAgentSessionImport = hello.supportsAgentSessionImport == true
+            hostSupportsAgentPause = hello.supportsAgentPause == true
             hostChatAgents = Set(hello.agentChatAgents ?? ["claude", "codex"])
             UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
             // Also the name the widget and Lock Screen card show, as the only one that came from the Mac itself; a first pairing by ID knows no name until this arrives.
@@ -213,8 +223,7 @@ extension MacSession {
                 // A reconnect where this end knows what it wants: told again, since the fresh capture pipeline has no memory of `activeSourceID`. See ``pendingSourceReassertion``.
                 // Read from `activeSourceID`, not `isAskingForMosaic`: the session object is new and only `activeSourceID` and `mosaicChoices` were carried (see ``SessionModel/connect(to:replacing:)``).
                 // Matched by prefix, not by recomputing the layout hash: the `stableID` hashes the exact canvas size, which depends on window sizes a re-enumerated catalogue may report in a different order or precision, so a hash comparison never matched and the reassertion silently did nothing. The prefix is the part of the id that does not move. See ``CaptureSource/stableID``.
-                if !mosaicChoices.isEmpty, activeSourceID?.hasPrefix("mosaic:") == true,
-                   model.storeManager.access.includes(.mosaic) {
+                if !mosaicChoices.isEmpty, activeSourceID?.hasPrefix("mosaic:") == true {
                     model.showMosaic(mosaicChoices, remembering: false)
                 } else if let activeSourceID,
                           let descriptor = catalog.all.first(where: { $0.id == activeSourceID }) {
@@ -225,6 +234,7 @@ extension MacSession {
             apply(video: event)
         case .latency(let milliseconds):
             latencyMilliseconds = milliseconds
+            warnIfConnectionIsVeryBad(milliseconds)
         case .pathLatency(let milliseconds, let fromPeer):
             pathLatencyMilliseconds = milliseconds
             pathLatencyIsDirect = fromPeer
@@ -256,6 +266,8 @@ extension MacSession {
             }
         case .textFocus(let focus):
             if isActive { model.textFocusChanged(focus) }
+        case .pointer(let point):
+            if isActive { model.hostPointer = HostPointer(point: point, serial: model.hostPointer.serial + 1) }
         case .fieldState(let state):
             if isActive { model.fieldStateChanged(state) }
         case .clipboard(let payload):
@@ -289,6 +301,7 @@ extension MacSession {
             } else if model.relaySessionDropped {
                 // The mid-session cut: the relay ends a session the moment its allowance is spent by dropping the connection, with no way to say why (everything past the token is TLS). This sheet says it, opening on the plans. Not the paywall itself, whose question is which plan is worth it; being sold to while being told is how a wall turns into a con.
                 model.spentAllowance = plan ?? .free
+                Analytics.relayAllowanceExhausted(path: connectionPath?.rawValue)
                 model.relaySessionDropped = false
                 // The cut is simultaneous: the relay reads one counter per client, so every spliced session is dropped at once. Ending only the Mac that noticed leaves dead tabs behind the sheet.
                 // The flag is cleared above so the ends this causes cannot re-enter this branch.
@@ -301,6 +314,7 @@ extension MacSession {
             } else {
                 // Free with the day's allowance spent and the user tapped Connect into it: a wall they walked into, not a session taken away, which is why this branch is the paywall.
                 model.paywallReason = .quotaExhausted
+                Analytics.relayAllowanceExhausted(path: nil)
                 // Suppress the reconnect ladder: there is nothing to reconnect to.
                 userEndedDeliberately = true
                 model.stopReconnecting()

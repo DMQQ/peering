@@ -282,29 +282,23 @@ private struct TerminalAllKeys: View {
                             .menuDanger()
                     }
                 }
-                // Drawn even when nothing is saved, and dimmed with the plan name on restricted plans, so the feature is discoverable.
-                PlanLocked(
-                    capability: .macros,
-                    title: commands.isEmpty ? "Add a quick command" : "Edit quick commands",
-                    diameter: 40
-                ) {
-                    Button {
-                        dismiss()
-                        edit()
-                    } label: {
-                        Label(commands.isEmpty ? "Add" : "Edit", systemImage: commands.isEmpty ? "plus" : "slider.horizontal.3")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(ColorPalette.ink)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 40)
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .strokeBorder(.white.opacity(0.14), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                            }
-                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    }
-                    .buttonStyle(RailButtonStyle(scale: 0.95))
+                // Drawn even when nothing is saved, so the feature is discoverable.
+                Button {
+                    dismiss()
+                    edit()
+                } label: {
+                    Label(commands.isEmpty ? "Add" : "Edit", systemImage: commands.isEmpty ? "plus" : "slider.horizontal.3")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(ColorPalette.ink)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(.white.opacity(0.14), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                        }
+                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
+                .buttonStyle(RailButtonStyle(scale: 0.95))
             }
         }
     }

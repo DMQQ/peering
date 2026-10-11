@@ -15,6 +15,9 @@ extension SessionModel {
         set { activeSession?.hostName = newValue }
     }
 
+    /// ``hostName`` as the user renamed it, for anything drawn on screen.
+    var shownHostName: String? { activeSession?.shownName }
+
     var currentHostID: String? {
         get { activeSession?.hostID }
         set { activeSession?.hostID = newValue }
@@ -203,10 +206,7 @@ extension SessionModel {
         set { activeSession?.audioPlayer = newValue }
     }
 
-    /// The audio arrives over a connection the user already has, so a free user would still hear it unless the player is told.
-    var playsHostAudio: Bool {
-        !hostAudioMuted && storeManager.access.includes(.macSound)
-    }
+    var playsHostAudio: Bool { !hostAudioMuted }
 
     // MARK: - Terminals
 

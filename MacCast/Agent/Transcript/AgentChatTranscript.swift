@@ -14,6 +14,27 @@ struct AgentChatTranscript: View {
     let review: (AgentApproval) -> Void
     let openSubagent: (String) -> Void
 
+    /// What was already in the transcript when it appeared; nil until then, so a conversation being opened is never typed out.
+    @State private var present: Set<UUID>?
+    /// Scrolling a transcript shorter than its viewport pushes the offset negative and snaps back, which reads as flicker.
+    @State private var overflows = false
+
+    private func scrollToEnd(_ reader: ScrollViewProxy, animated: Bool = false) {
+        guard overflows else { return }
+        if animated {
+            withAnimation(Motion.settle) { reader.scrollTo("chat-end", anchor: .bottom) }
+        } else {
+            reader.scrollTo("chat-end", anchor: .bottom)
+        }
+    }
+
+    /// Only the newest reply, and only if it arrived while this screen was open.
+    private func streams(_ item: AgentTranscriptItem) -> Bool {
+        guard let present, case .reply(let id, _) = item, !present.contains(id) else { return false }
+        let lastReply = session.transcript.items.last { if case .reply = $0 { return true } else { return false } }
+        return lastReply?.id == id
+    }
+
     private func approval(for item: AgentTranscriptItem) -> AgentApproval? {
         guard case .tool(_, let tool) = item, case .awaitingApproval = tool.state else { return nil }
         return session.transcript.pendingApprovals.first { $0.call.id == tool.call.id }
@@ -48,7 +69,9 @@ struct AgentChatTranscript: View {
                             approval: approval(for: item),
                             review: review,
                             openSubagent: subagentOpener(for: item),
-                            subagentSteps: subagent(for: item)?.items.count
+                            subagentSteps: subagent(for: item)?.items.count,
+                            streams: streams(item),
+                            onReveal: { if stickToBottom { scrollToEnd(reader) } }
                         )
                         .agentRowArrival()
                     }
@@ -69,12 +92,21 @@ struct AgentChatTranscript: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
+                .scrollsToTopDisabled()
                 .animation(Motion.settle, value: session.transcript.items.count)
                 .animation(Motion.settle, value: queued.count)
                 .animation(Motion.settle, value: session.transcript.state == .working)
             }
             .scrollBounceBehavior(.basedOnSize)
             .scrollDismissesKeyboard(.interactively)
+            // A chat opens at its latest message. Only the first layout: later growth is the manual stick-to-bottom below.
+            .defaultScrollAnchor(.bottom, for: .initialOffset)
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentSize.height > geometry.containerSize.height
+            } action: { _, now in
+                overflows = now
+                if now && stickToBottom { reader.scrollTo("chat-end", anchor: .bottom) }
+            }
             .onScrollGeometryChange(for: Bool.self) { geometry in
                 geometry.contentOffset.y + geometry.containerSize.height
                     >= geometry.contentSize.height - 40
@@ -82,13 +114,23 @@ struct AgentChatTranscript: View {
                 // Manual stick-to-bottom: a default scroll anchor fights a finger that has scrolled up.
                 stickToBottom = atBottom
             }
-            .onChange(of: session.transcript.items.count) { _, _ in
-                guard stickToBottom else { return }
-                withAnimation(Motion.settle) { reader.scrollTo("chat-end", anchor: .bottom) }
+            .onChange(of: session.transcript.items.count) { old, _ in
+                // A conversation read back from the Mac arrives after the screen does: that first fill lands on its end, not its top, and without animating past the whole history.
+                if old == 0 {
+                    stickToBottom = true
+                    scrollToEnd(reader)
+                } else if stickToBottom {
+                    scrollToEnd(reader, animated: true)
+                }
+            }
+            .onAppear {
+                present = Set(session.transcript.items.map(\.id))
+                scrollToEnd(reader)
             }
             .onChange(of: session.id) { _, _ in
+                present = Set(session.transcript.items.map(\.id))
                 stickToBottom = true
-                reader.scrollTo("chat-end", anchor: .bottom)
+                scrollToEnd(reader)
             }
         }
     }

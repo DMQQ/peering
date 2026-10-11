@@ -557,6 +557,61 @@ Peering 由两个 App 组成。这是 iPhone 端；Mac 端可在 getpeering.app 
 """ + URLS.format(priv="隐私政策", terms="使用条款"),
 )
 
+L["en-US"] = dict(
+    name="Peering: Mac Control & Agents",
+    subtitle="Remote desktop for AI coding",
+    promo="Approve Claude Code, Codex and OpenCode from your phone, then take over your Mac's screen and terminal when you need to. Free on your own network. No account.",
+    keywords="ssh,sftp,terminal,iphone,claude,codex,opencode,approve,vibe,aider,homelab,mac mini,vnc,wake on lan",
+    desc="""Your coding agents keep working. You keep control, from your phone.
+
+Peering puts your Mac in your pocket. Chat with Claude Code, Codex and OpenCode running on your Mac, approve or deny what they ask to do, and open the full screen or a terminal the moment you want to take over.
+
+Pair once. After that the two devices know each other. No account, no sign-in, and nothing stored on a server.
+
+CONTROL YOUR AI AGENTS
+
+• Chat with Claude Code, Codex and OpenCode from your iPhone, in sessions that run on your Mac
+• Approve or deny tool requests, and switch between Manual, Auto accept and Auto
+• Attach photos and files, type @ for files or / for commands, or dictate
+• An Agents tab shows every agent on your Mac with its live activity and plan, next to your terminals
+• Approvals reach you as a banner in the app, an Agents widget and a Live Activity
+• Context, token use and remaining limits for a chat, in one sheet
+• A terminal or agent waiting on a yes/no, a permission prompt or a sudo password pings you, in Terminal and iTerm windows as well as your own. Tap the notification and answer from your phone
+
+CONTROL YOUR MAC
+
+• Your Mac's display on your iPhone: pointer, keyboard, scroll wheel, real right-click and a joystick for anything that needs one
+• Any display, a running app or a single window, switchable without dropping the session
+• F1 to F12, Esc, Tab and the control keys a phone keyboard cannot type
+• Pinch to zoom, fit the whole screen, or fill the phone with it
+• On iPad, a trackpad or mouse drives the Mac's pointer
+• Sound from the Mac, Picture in Picture, and a Live Activity and widget so locking the phone does not end the session
+• Every Space as a tappable picture, screenshots straight into Photos, and a way to open an app that was not running when you connected
+
+A TERMINAL AND A FILE BROWSER TOO
+
+• Full-screen SSH sessions with keys, passwords and port forwarding
+• A file browser for your Mac and your servers: upload, download, rename, delete
+• Clipboard, macros and shortcuts
+
+PRIVATE BY DESIGN
+
+• Direct between the two devices whenever the network allows, so the picture never passes through a server
+• End-to-end encrypted through the relay when it does not
+• Each device keeps its own key and rejects anything that claims to be the other
+• A Face ID lock, so an unlocked phone is not an unlocked Mac
+
+FREE, AND WHAT A PLAN ADDS
+
+Peering is free on your own network, for as long as you like: one Mac, and every display, app and window it can show. Relay and Pro are for reaching your Mac when you are away from it. Away from home your session is carried by a relay server we run, which costs money every month it is on, so that part is a subscription.
+
+Peering for Mac is required and is a free download at getpeering.app. Without it this app has nothing to connect to.
+
+Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period, and are charged to your App Store account.
+
+""" + URLS.format(priv="Privacy Policy", terms="Terms of Use"),
+)
+
 LIMITS = dict(name=30, subtitle=30, promo=170, keywords=100, desc=4000)
 FILES = dict(name="name.txt", subtitle="subtitle.txt", promo="promotional_text.txt", keywords="keywords.txt", desc="description.txt")
 

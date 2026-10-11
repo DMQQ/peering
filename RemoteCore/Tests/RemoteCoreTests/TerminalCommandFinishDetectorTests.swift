@@ -83,4 +83,18 @@ struct TerminalCommandFinishDetectorTests {
         #expect(TerminalCommandFinishDetector.durationSuffix(3_599.5) == " after 1h 0m")
         #expect(TerminalCommandFinishDetector.durationSuffix(3_665) == " after 1h 1m")
     }
+
+    @Test("a duration that is not a sane number is dropped or clamped, never turned into an Int trap")
+    func hostileDurationsAreContained() {
+        for text in ["inf", "nan", "-5"] {
+            var detector = TerminalCommandFinishDetector()
+            #expect(detector.receive(Data("\u{1B}]9999;\(text);0;\u{07}".utf8)) == nil)
+        }
+        var detector = TerminalCommandFinishDetector()
+        let huge = detector.receive(Data("\u{1B}]9999;1e30;0;\u{07}".utf8))
+        #expect(huge?.duration == TerminalCommandFinishDetector.maximumDuration)
+        #expect(TerminalCommandFinishDetector.durationSuffix(.infinity) == TerminalCommandFinishDetector.durationSuffix(1e30))
+        #expect(TerminalCommandFinishDetector.durationSuffix(.nan) == " after 0s")
+        #expect(TerminalCommandFinishDetector.durationSuffix(-3) == " after 0s")
+    }
 }

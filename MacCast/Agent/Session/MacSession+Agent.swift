@@ -30,7 +30,7 @@ extension MacSession {
     /// A chat the Mac already had when this phone connected is listed but empty: nothing else asks for its conversation.
     func ensureAgentHistory(_ id: UUID) {
         guard let session = agentSessions.first(where: { $0.id == id }),
-              !session.isLoaded, agentHistoryRequested.insert(id).inserted
+              agentHistoryRequests.claim(id, isLoaded: session.isLoaded, wireIsUp: wire != nil)
         else { return }
         loadAgentHistory(id, since: 0)
     }
@@ -38,6 +38,17 @@ extension MacSession {
     /// The chats' cards show the last reply, which lives in the conversation: ask for every one that has not been read, not only the one that gets opened.
     func ensureAgentPreviews() {
         for session in agentSessions where !session.isLoaded { ensureAgentHistory(session.id) }
+    }
+
+    func refreshResumableSessions() {
+        guard hostSupportsAgentChat, hostSupportsAgentSessionImport else { return }
+        wire?.sendAgent(.listResumable)
+    }
+
+    func resumeAgentSession(_ session: AgentResumableSession) {
+        guard hostSupportsAgentSessionImport else { return }
+        AgentFolderHistory.record(directory: session.directory, agentID: session.agentID, macName: model.hostName)
+        wire?.sendAgent(.resume(agentID: session.agentID, cliSessionID: session.cliSessionID))
     }
 
     func startAgentChat(agentID: String, directory: String?) {
@@ -76,7 +87,10 @@ extension MacSession {
         #endif
         agentCardsTask?.cancel()
         agentCardsTask = nil
-        let cards = agentSessions.map(AgentCardDigest.init)
+        for session in agentSessions {
+            agentPauses.observe(session.id, isPaused: AgentPause.isPaused(session.transcript), at: Date())
+        }
+        let cards = agentSessions.map { AgentCardDigest($0, pauses: agentPauses) }
         if cards != agentCards { agentCards = cards }
     }
 
@@ -124,6 +138,12 @@ extension MacSession {
     func setAgentPermissionMode(_ mode: AgentPermissionMode, in id: UUID) {
         guard hostSupportsAgentPermissionModes else { return }
         wire?.sendAgent(.setPermissionMode(sessionID: id, mode: mode))
+    }
+
+    /// Stops the chat's process and keeps the conversation, which then moves to History until a message picks it up again.
+    func pauseAgentSession(_ id: UUID) {
+        guard hostSupportsAgentPause else { return }
+        wire?.sendAgent(.pause(sessionID: id))
     }
 
     func closeAgentSession(_ id: UUID) {

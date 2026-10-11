@@ -205,9 +205,9 @@ func switchToSpace(
     guard cgsSetManagedDisplayCurrentSpace != nil else { return false }
     guard let target = readDisplays().first(where: { $0.displayID == display }) else { return false }
 
-    let zeroIndex = index - 1
     let desktops = target.desktopIDs
-    guard zeroIndex >= 0, zeroIndex < desktops.count else { return false }
+    guard index >= 1, index <= desktops.count else { return false }
+    let zeroIndex = index - 1
 
     // Logged because "accepted but nothing moved" and "the desktop I asked for is not the one
     // the phone drew under that number" look identical from every other vantage point — the

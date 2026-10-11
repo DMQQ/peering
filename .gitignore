@@ -70,3 +70,17 @@ codex-session-*.md
 
 # Working notes, plans, copy drafts and session dumps. Local only.
 wiki/
+
+# Local tool state, generated videos and images, release deltas and one-off reports.
+/.claude/
+/.agents/
+/skills-lock.json
+/posthog-error-tracking-report.md
+/Marketing/appstore/debug/
+/Marketing/appstore/raw/
+/Marketing/social/carousel/
+/Marketing/social/film/
+/Marketing/social/motion/
+/Marketing/social/reel/
+/Relay/site/updates/*.delta
+/Relay/site/updates/old_updates/

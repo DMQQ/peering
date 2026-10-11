@@ -456,6 +456,18 @@ struct MosaicWireTests {
         MosaicLayout(canvas: canvas, tiles: tiles, frameRate: frameRate)
     }
 
+    @Test("a canvas of extreme shape or non-finite size stays inside the budget and the side cap")
+    func extremeCanvasIsBounded() throws {
+        let tile = self.tile(.display(1), 0, 0)
+        for canvas in [CGSize(width: 1e13, height: 1), CGSize(width: 1, height: 1e13),
+                       CGSize(width: CGFloat.infinity, height: CGFloat.nan), CGSize(width: -5, height: -5)] {
+            let validated = try #require(layout([tile], canvas: canvas).validated).canvas
+            #expect(validated.width <= MosaicLayout.maximumCanvasSide)
+            #expect(validated.height <= MosaicLayout.maximumCanvasSide)
+            #expect(validated.width >= 2 && validated.height >= 2)
+        }
+    }
+
     @Test("round-trips through JSON")
     func codec() throws {
         let value = layout([tile(.window(42), 0, 0), tile(.application(9), 0.5, 0.5)])

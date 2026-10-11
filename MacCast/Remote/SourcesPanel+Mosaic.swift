@@ -236,7 +236,7 @@ extension SourcesPanel {
                 TileControl(colour: TileControl.yellow, symbol: "minus", label: String(localized: "Minimise window")) { send(.minimize) },
                 TileControl(colour: TileControl.green, symbol: "arrow.up.left.and.arrow.down.right", label: String(localized: "Zoom window")) { send(.zoom) },
             ]
-        case .display(let id) where descriptor.isManagedVirtualDisplay && includesVirtualDisplays:
+        case .display(let id) where descriptor.isManagedVirtualDisplay:
             return [
                 TileControl(colour: TileControl.red, symbol: "xmark", label: String(localized: "Remove \(descriptor.title)")) {
                     removeVirtualDisplay(descriptor, id: id)

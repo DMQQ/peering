@@ -72,6 +72,7 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::config::PlanAllowances;
+use crate::referrals::{ReferralTerms, Referrals};
 
 /// One-day rolling window. Dividing epoch seconds by this gives a bucket number that advances
 /// every 24 hours — no calendar library needed, and the exact hour it rolls over does not matter
@@ -335,6 +336,9 @@ pub struct QuotaTracker {
     allowances: PlanAllowances,
     /// How often a running splice is charged. See [`CHARGE_PERIOD`].
     charge_period: Duration,
+    /// Extra free time earned by invites. Added to the free allowance only, so it can never turn a
+    /// paid plan's "unlimited" into a number.
+    referrals: Arc<Referrals>,
     inner: Mutex<Inner>,
 }
 
@@ -376,6 +380,7 @@ impl QuotaTracker {
         Self {
             allowances,
             charge_period: CHARGE_PERIOD,
+            referrals: Arc::new(Referrals::in_memory(ReferralTerms::default())),
             inner: Mutex::new(Inner {
                 usage: HashMap::new(),
                 paid_keys,
@@ -394,6 +399,16 @@ impl QuotaTracker {
     pub fn with_charge_period(mut self, period: Duration) -> Self {
         self.charge_period = period;
         self
+    }
+
+    /// The same tracker, with invite bonuses read from `referrals`.
+    pub fn with_referrals(mut self, referrals: Arc<Referrals>) -> Self {
+        self.referrals = referrals;
+        self
+    }
+
+    pub fn referrals(&self) -> &Arc<Referrals> {
+        &self.referrals
     }
 
     /// A tracker whose counter is kept in a file, or one that explains why it is not.
@@ -418,6 +433,7 @@ impl QuotaTracker {
         let tracker = Self {
             allowances,
             charge_period: CHARGE_PERIOD,
+            referrals: Arc::new(Referrals::in_memory(ReferralTerms::default())),
             inner: Mutex::new(Inner {
                 usage,
                 paid_keys,
@@ -458,6 +474,8 @@ impl QuotaTracker {
             return None;
         }
         let allowance = self.allowance(plan)?;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+        let allowance = allowance.saturating_add(self.referrals.bonus_seconds(client_id, now));
 
         let inner = self.lock();
         let window = window_key();
@@ -769,6 +787,21 @@ mod tests {
         let q = default_tracker();
         q.record("phone", Duration::from_secs(300));
         assert_eq!(q.remaining("phone", None, Plan::Free), Some(600));
+    }
+
+    #[test]
+    fn an_invite_bonus_adds_to_the_free_allowance_only() {
+        let referrals = Arc::new(Referrals::in_memory(ReferralTerms::default()));
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let code = referrals.standing("owner", now).unwrap().code;
+        referrals.redeem("friend", &code, now).unwrap();
+        let q = default_tracker().with_referrals(referrals);
+
+        assert_eq!(q.remaining("friend", None, Plan::Free), Some(900 + 1800));
+        q.record("friend", Duration::from_secs(1000));
+        assert_eq!(q.remaining("friend", None, Plan::Free), Some(1700));
+        assert_eq!(q.remaining("stranger", None, Plan::Free), Some(900));
+        assert_eq!(q.remaining("friend", None, Plan::Pro), None);
     }
 
     #[test]

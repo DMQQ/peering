@@ -60,12 +60,36 @@ public enum PairingPayload {
         return (host == linkDomain || host == "www." + linkDomain) && url.path == linkPath
     }
 
-    public static func encode(code: String) -> String {
+    public static let secretKey = "secret"
+
+    public static func encode(code: String, secret: Data? = nil) -> String {
         var components = URLComponents()
         components.scheme = scheme
         components.host = codeHost
         components.queryItems = [URLQueryItem(name: codeKey, value: code)]
+        if let secret {
+            components.queryItems?.append(URLQueryItem(name: secretKey, value: secret.map { String(format: "%02x", $0) }.joined()))
+        }
         return components.string ?? "\(scheme)://\(codeHost)?\(codeKey)=\(code)"
+    }
+
+    /// The pairing secret in a scanned code, or `nil` for a code without one.
+    public static func secret(from raw: String) -> Data? {
+        guard let components = URLComponents(string: raw.trimmingCharacters(in: .whitespacesAndNewlines)),
+              components.scheme?.lowercased() == scheme,
+              components.host?.lowercased() == codeHost,
+              let hex = components.queryItems?.first(where: { $0.name == secretKey })?.value,
+              hex.count.isMultiple(of: 2), !hex.isEmpty
+        else { return nil }
+        var bytes = Data()
+        var index = hex.startIndex
+        while index < hex.endIndex {
+            let next = hex.index(index, offsetBy: 2)
+            guard let byte = UInt8(hex[index..<next], radix: 16) else { return nil }
+            bytes.append(byte)
+            index = next
+        }
+        return bytes
     }
 
     /// A bare ID is accepted as well as the URL, since one way this value arrives has no URL.

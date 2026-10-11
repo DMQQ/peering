@@ -5,7 +5,7 @@ import os
 
 private let activityLog = Logger(subsystem: "pl.dmq.peering", category: "agent-activity")
 
-/// One card for all the chats: it exists while any of them is working or waiting on the person, and shows the one that matters most.
+/// One card for all the chats: it exists while any of them is open, and shows the one that matters most.
 @MainActor
 final class AgentChatActivity {
     static let shared = AgentChatActivity()
@@ -20,7 +20,8 @@ final class AgentChatActivity {
 
     func update(chats: [AgentChatSnapshot]) {
         let busy = chats.filter { $0.state == .working || $0.state == .needsYou }
-        guard isEnabled, let top = AgentChatSnapshot.ordered(busy).first else {
+        // Kept while any chat is open: one that has finished stays on the card, a tap from picking it up.
+        guard isEnabled, let top = AgentChatSnapshot.ordered(chats).first else {
             end()
             return
         }

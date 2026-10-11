@@ -24,6 +24,9 @@ struct SettingsTab: View {
     @State var query = ""
     @State var copiedDiagnostics = false
     @State var showingMailComposer = false
+    @State var showsRedeemAlert = false
+    @State var redeemDraft = ""
+    @State var redeemFailure: String?
     @FocusState var deviceNameFocused: Bool
     @Environment(\.openURL) var openURL
 
@@ -42,6 +45,7 @@ struct SettingsTab: View {
                         if shows(.controls) { controlsSection }
                         if shows(.quality) { qualitySection }
                         if shows(.remoteAccess) { remoteAccessSection }
+                        if shows(.remoteAccess) { inviteSection }
                         if shows(.security) { securitySection }
                         if shows(.pip) { pipSection }
                         if shows(.widget) { homeScreenWidgetSection }

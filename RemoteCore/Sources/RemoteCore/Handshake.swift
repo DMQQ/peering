@@ -15,6 +15,9 @@ public struct ClientHello: Codable, Sendable, Equatable {
 
     public var supportsFieldState: Bool?
 
+    /// Declared like ``supportsTextFocus``: an older client cannot decode the frame kind.
+    public var supportsPointerReport: Bool?
+
     /// Declared in both directions: the Mac streams events, so it is the Mac that must restrain itself when the phone is older. `nil` reads as no.
     public var supportsAgentChat: Bool?
 
@@ -27,6 +30,14 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// Honoured only for a client the Mac already trusts.
     public var resumeSource: CaptureSource?
 
+    /// Set only by a phone that dialled a Mac by its ID and holds no pin for it, so the Mac may still trust the phone's key while the phone has forgotten the Mac. Without it that pair was stuck: the Mac answered "already paired" and the phone refused to proceed. `nil` reads as no, which is every older client.
+    public var lostPairing: Bool?
+
+    /// Whether the Mac skips pairing for a client whose key it has pinned. The one place the rule lives, because the Mac cannot unit-test its handshake.
+    public static func hostTreatsAsPaired(clientKeyIsPinned: Bool, lostPairing: Bool?) -> Bool {
+        clientKeyIsPinned && lostPairing != true
+    }
+
     public init(
         clientID: String,
         clientName: String,
@@ -35,11 +46,14 @@ public struct ClientHello: Codable, Sendable, Equatable {
         supportsClipboardImages: Bool? = nil,
         supportsTextFocus: Bool? = nil,
         supportsFieldState: Bool? = nil,
+        supportsPointerReport: Bool? = nil,
         supportsAgentChat: Bool? = nil,
         supportsAgentPermissionModes: Bool? = nil,
         supportsAgentUsage: Bool? = nil,
-        resumeSource: CaptureSource? = nil
+        resumeSource: CaptureSource? = nil,
+        lostPairing: Bool? = nil
     ) {
+        self.lostPairing = lostPairing
         self.clientID = clientID
         self.clientName = clientName
         self.protocolVersion = protocolVersion
@@ -47,6 +61,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         self.supportsClipboardImages = supportsClipboardImages
         self.supportsTextFocus = supportsTextFocus
         self.supportsFieldState = supportsFieldState
+        self.supportsPointerReport = supportsPointerReport
         self.supportsAgentChat = supportsAgentChat
         self.supportsAgentPermissionModes = supportsAgentPermissionModes
         self.supportsAgentUsage = supportsAgentUsage
@@ -106,6 +121,13 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// and the usage sheet is offered only on an explicit `true`.
     public var supportsAgentUsage: Bool?
 
+    /// Whether this Mac lists and continues conversations started in a terminal. Optional and
+    /// additive: `nil` reads as no, and the list is offered only on an explicit `true`.
+    public var supportsAgentSessionImport: Bool?
+
+    /// Whether this Mac takes ``AgentRequest/pause(sessionID:)``. Optional and additive: `nil` reads as no.
+    public var supportsAgentPause: Bool?
+
     public init(
         serverID: String,
         hostName: String,
@@ -125,7 +147,9 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsAgentModelPicker: Bool? = nil,
         agentChatAgents: [String]? = nil,
         supportsAgentPermissionModes: Bool? = nil,
-        supportsAgentUsage: Bool? = nil
+        supportsAgentUsage: Bool? = nil,
+        supportsAgentSessionImport: Bool? = nil,
+        supportsAgentPause: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -145,6 +169,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.agentChatAgents = agentChatAgents
         self.supportsAgentPermissionModes = supportsAgentPermissionModes
         self.supportsAgentUsage = supportsAgentUsage
+        self.supportsAgentSessionImport = supportsAgentSessionImport
+        self.supportsAgentPause = supportsAgentPause
         self.pushesTerminalAlertsWhileConnected = pushesTerminalAlertsWhileConnected
     }
 }
@@ -171,9 +197,12 @@ public struct PairingReveal: Codable, Sendable, Equatable {
 
 public struct PairConfirm: Codable, Sendable, Equatable {
     public var accepted: Bool
+    /// ``PairingSAS/proof(secret:transcript:)``; absent when the digits were typed rather than scanned.
+    public var proof: Data?
 
-    public init(accepted: Bool) {
+    public init(accepted: Bool, proof: Data? = nil) {
         self.accepted = accepted
+        self.proof = proof
     }
 }
 

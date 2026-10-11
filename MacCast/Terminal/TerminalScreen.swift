@@ -126,6 +126,7 @@ struct TerminalScreen: View {
         .onAppear {
             model.selectTerminal(currentID)
             InAppBanner.shared.onScreen = .terminal(currentID)
+            model.noteOpenedTerminal(currentID)
         }
         .onDisappear { InAppBanner.shared.leave(.terminal(currentID)) }
         .onChange(of: InAppBanner.shared.openRequest) { _, target in

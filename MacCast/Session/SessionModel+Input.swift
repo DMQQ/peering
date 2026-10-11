@@ -155,9 +155,8 @@ extension SessionModel {
 
     /// Asked when the catalogue arrives, the first moment anything knows which windows still exist (a window ID outlives neither a restart nor a quit). Fewer than two survivors is nothing.
     /// A pure lookup: the caller decides instead of the default source.
-    /// An arrangement the plan no longer includes is not restored: a reconnection is not a way round the gate.
     func mosaicToRestore(hostID: String?, catalog: CaptureCatalog?) -> [MosaicChoice] {
-        guard let hostID, storeManager.access.includes(.mosaic) else { return [] }
+        guard let hostID else { return [] }
         return MosaicArrangement.restored(
             MosaicArrangementStore.load(hostID: hostID),
             into: catalog
@@ -165,18 +164,9 @@ extension SessionModel {
     }
 
     /// The arrangement wins where both are remembered; with neither, the first display.
-    /// A virtual display is not restored on a plan without one: that would be a padlock a reconnection walks around.
     func sourceToRestore(hostID: String?, catalog: CaptureCatalog?) -> CaptureSource? {
-        guard let hostID, let source = ChosenSource.restored(
-            ChosenSourceStore.load(hostID: hostID),
-            into: catalog
-        ) else { return nil }
-        if let descriptor = catalog?.descriptor(for: source),
-           descriptor.isVirtualDisplay,
-           !storeManager.access.includes(.virtualDisplays) {
-            return nil
-        }
-        return source
+        guard let hostID else { return nil }
+        return ChosenSource.restored(ChosenSourceStore.load(hostID: hostID), into: catalog)
     }
 
     /// A weight, not a size: it survives a seventh window being added.

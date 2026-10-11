@@ -7,6 +7,8 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use crate::referrals::ReferralTerms;
+
 /// Runtime configuration, read from the environment.
 ///
 /// The defaults are chosen so that running `peeringd` with no configuration at all gives a working
@@ -120,6 +122,15 @@ pub struct Config {
     /// having no binding at all for the length of a run. Set it, in the same state directory as the
     /// usage log. See `device_bindings.rs`.
     pub device_bindings: Option<PathBuf>,
+    /// Where invite codes and redemptions are written. `PEERINGD_REFERRALS`.
+    ///
+    /// Unset means a restart forgets them, which lets a device redeem again and loses the bonus
+    /// time already promised. Set it beside the usage log. See `referrals.rs`.
+    pub referrals: Option<PathBuf>,
+    /// What an invite is worth: `PEERINGD_REFERRAL_BONUS_MINUTES` (30) added to each window's free
+    /// allowance for `PEERINGD_REFERRAL_DAYS` (7) days, and `PEERINGD_REFERRAL_MAX_INVITES` (5)
+    /// redemptions of one code that earn its owner the same.
+    pub referral_terms: ReferralTerms,
     /// How many sessions may exist at once, over the whole process.
     /// `PEERINGD_MAX_SESSIONS`, 1000 by default.
     ///
@@ -310,6 +321,12 @@ impl Config {
                 .unwrap_or_else(|| PathBuf::from("site")),
             usage_log: get("PEERINGD_USAGE_LOG").map(PathBuf::from),
             device_bindings: get("PEERINGD_DEVICE_BINDINGS").map(PathBuf::from),
+            referrals: get("PEERINGD_REFERRALS").map(PathBuf::from),
+            referral_terms: ReferralTerms {
+                bonus_seconds: seconds(&get, "PEERINGD_REFERRAL_BONUS_MINUTES", 30)? * 60,
+                duration_secs: seconds(&get, "PEERINGD_REFERRAL_DAYS", 7)? * 24 * 3600,
+                max_paid_invites: seconds(&get, "PEERINGD_REFERRAL_MAX_INVITES", 5)?.min(u32::MAX as u64) as u32,
+            },
             max_sessions: count(&get, "PEERINGD_MAX_SESSIONS", DEFAULT_MAX_SESSIONS)?,
             max_connections: count(&get, "PEERINGD_MAX_CONNECTIONS", DEFAULT_MAX_CONNECTIONS)?,
             handshake_timeout: Duration::from_secs(seconds(
@@ -406,6 +423,31 @@ mod tests {
             .map(|(key, value)| (key.to_string(), value.to_string()))
             .collect();
         Config::from_lookup(|name| values.get(name).cloned())
+    }
+
+    #[test]
+    fn invite_terms_default_to_thirty_minutes_for_a_week_with_five_paid_invites() {
+        let config = configured(&[]).expect("defaults are valid");
+        assert_eq!(config.referral_terms, ReferralTerms::default());
+        assert_eq!(config.referral_terms.bonus_seconds, 1800);
+        assert_eq!(config.referral_terms.duration_secs, 7 * 24 * 3600);
+        assert_eq!(config.referral_terms.max_paid_invites, 5);
+        assert_eq!(config.referrals, None);
+    }
+
+    #[test]
+    fn invite_terms_can_be_set_and_zero_invites_is_allowed() {
+        let config = configured(&[
+            ("PEERINGD_REFERRAL_BONUS_MINUTES", "10"),
+            ("PEERINGD_REFERRAL_DAYS", "3"),
+            ("PEERINGD_REFERRAL_MAX_INVITES", "0"),
+            ("PEERINGD_REFERRALS", "/var/lib/peeringd/referrals.jsonl"),
+        ])
+        .expect("valid");
+        assert_eq!(config.referral_terms.bonus_seconds, 600);
+        assert_eq!(config.referral_terms.duration_secs, 3 * 24 * 3600);
+        assert_eq!(config.referral_terms.max_paid_invites, 0);
+        assert!(config.referrals.is_some());
     }
 
     /// The defaults are what the loopback test depends on, so they are worth pinning down.

@@ -37,9 +37,38 @@ final class AgentApprovalNotifier {
     private func publishCategories() {
         let fixed = [
             Self.category(AgentApprovalNotification.toolCategory, layout: .allowDeny),
+            UNNotificationCategory(
+                identifier: AgentApprovalNotification.yesNoCategory,
+                actions: AgentApprovalNotification.yesNoActions.map(Self.action),
+                intentIdentifiers: [],
+                options: []
+            ),
             Self.category(AgentApprovalNotification.openCategory, layout: .openOnly),
         ]
-        UNUserNotificationCenter.current().setNotificationCategories(Set(fixed + optionCategories.values))
+        UNUserNotificationCenter.current().setNotificationCategories(Set(fixed + [Self.finishedCategory] + optionCategories.values))
+    }
+
+    /// Buttons need the phone unlocked: they start work on the Mac.
+    private static var finishedCategory: UNNotificationCategory {
+        UNNotificationCategory(
+            identifier: AgentFinishedNotification.category,
+            actions: [
+                UNNotificationAction(
+                    identifier: AgentFinishedNotification.continueIdentifier,
+                    title: String(localized: "Continue"),
+                    options: [.authenticationRequired]
+                ),
+                UNTextInputNotificationAction(
+                    identifier: AgentFinishedNotification.replyIdentifier,
+                    title: String(localized: "Reply"),
+                    options: [.authenticationRequired],
+                    textInputButtonTitle: String(localized: "Send"),
+                    textInputPlaceholder: String(localized: "Message")
+                ),
+            ],
+            intentIdentifiers: [],
+            options: []
+        )
     }
 
     private static func category(_ identifier: String, layout: AgentApprovalNotification.Layout) -> UNNotificationCategory {
@@ -60,6 +89,8 @@ final class AgentApprovalNotifier {
         case .allow: title = String(localized: "Allow")
         case .deny: title = String(localized: "Deny")
         case .open: title = String(localized: "Open")
+        case .yes: title = String(localized: "Yes")
+        case .no: title = String(localized: "No")
         case .option(let label): title = label
         }
         return UNNotificationAction(identifier: action.identifier, title: title, options: options)

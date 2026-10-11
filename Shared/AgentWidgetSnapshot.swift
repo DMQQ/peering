@@ -6,7 +6,7 @@ nonisolated struct AgentChatSnapshot: Codable, Hashable, Identifiable {
     enum State: String, Codable, Hashable {
         case needsYou
         case working
-        case ready
+        case finished
         case failed
 
         /// What a list shows first: the chat that is waiting on the person, then the busy ones.
@@ -15,7 +15,7 @@ nonisolated struct AgentChatSnapshot: Codable, Hashable, Identifiable {
             case .needsYou: 0
             case .working: 1
             case .failed: 2
-            case .ready: 3
+            case .finished: 3
             }
         }
     }

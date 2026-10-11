@@ -72,8 +72,13 @@ public final class ClientSession: @unchecked Sendable {
     var videoWatchTask: Task<Void, Never>?
     var fallbackPolicy = VideoFallbackPolicy()
     var lastPictureAt: TimeInterval?
+    /// Of the connection that was live at the end: `becomeReady` starts it again.
+    var videoDelivery = VideoDeliveryRecord()
     var lastControlReplyAt: TimeInterval?
     var readyAt: TimeInterval?
+    /// When the silence watchdog last ran, and when it last found the app had been frozen. Both are `ControlSilence`'s inputs and reset with the reply time.
+    var lastSilenceCheckAt: TimeInterval?
+    var silenceRestartedAt: TimeInterval?
 
     /// The rule that turns a silent control channel into a failure. See ``ControlSilence``. Nothing else reports it: a dead path leaves the picture frozen while every layer waits for an error.
     static let controlSilence = ControlSilence()
@@ -126,6 +131,7 @@ public final class ClientSession: @unchecked Sendable {
 
     var ephemeral: P256.KeyAgreement.PrivateKey?
     var nonce: Data?
+    var pairingTranscript: PairingTranscript?
     var remoteCommitment: Data?
 
     /// Where the handshake has got to; finer than ``Phase``.
@@ -191,6 +197,7 @@ public final class ClientSession: @unchecked Sendable {
     /// Set with ``Phase/failed(_:)`` and cleared when a new connection begins.
     public var failureReason: FailureReason? { lock.withLock { _failureReason } }
     public var serverHello: ServerHello? { lock.withLock { _serverHello } }
+    public var videoDeliveryRecord: VideoDeliveryRecord { lock.withLock { videoDelivery } }
     public var catalog: CaptureCatalog? { lock.withLock { _catalog } }
     public var serverKey: Data? { lock.withLock { _serverKey } }
     public var isReady: Bool { lock.withLock { state == .ready } }
@@ -309,10 +316,12 @@ public final class ClientSession: @unchecked Sendable {
             supportsClipboardImages: true,
             supportsTextFocus: true,
             supportsFieldState: true,
+            supportsPointerReport: true,
             supportsAgentChat: true,
             supportsAgentPermissionModes: true,
             supportsAgentUsage: true,
-            resumeSource: knowsHost ? resumeSource : nil
+            resumeSource: knowsHost ? resumeSource : nil,
+            lostPairing: hostID != nil && !knowsHost ? true : nil
         ))
 
         lock.withLock {
@@ -326,14 +335,17 @@ public final class ClientSession: @unchecked Sendable {
 
     // MARK: - Pairing
 
-    public func confirmPairing(accepted: Bool) {
+    /// `secret` is the one from the Mac's QR code; digits typed by hand have none, and the Mac then asks its own user.
+    public func confirmPairing(accepted: Bool, secret: Data? = nil) {
         lock.lock()
         let canConfirm = state == .awaitingUserConfirmation
         if accepted, canConfirm { state = .awaitingPairResult }
+        let transcript = pairingTranscript
         lock.unlock()
 
         guard canConfirm else { return }
-        connection()?.send(.pairConfirm, PairConfirm(accepted: accepted))
+        let proof = secret.flatMap { secret in transcript.map { PairingSAS.proof(secret: secret, transcript: $0) } }
+        connection()?.send(.pairConfirm, PairConfirm(accepted: accepted, proof: proof))
 
         guard accepted else {
             emit(.note("Pairing declined."))
@@ -404,7 +416,7 @@ public final class ClientSession: @unchecked Sendable {
             }
             guard silent else { return }
             clientSessionLog.error("no answer within \(grace, privacy: .public)s of being asked; failing the session")
-            self.fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsive)
+            self.fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsiveAfterCheck)
         }
     }
 

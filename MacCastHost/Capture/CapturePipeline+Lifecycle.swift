@@ -6,6 +6,8 @@ import ScreenCaptureKit
 import os
 
 extension CapturePipeline {
+    private static let displayWakeAttempts = 12
+
     /// Re-reads the catalogue first, since the client's list may be seconds stale; failing here names the missing source.
     /// A synthetic pipeline takes the source as given, ignores frame rate and resolution, and cannot fail.
     func start(
@@ -52,7 +54,15 @@ extension CapturePipeline {
             }
 
             await resolver.bringOnScreen(source)
-            let catalog = try await resolver.catalog()
+            var catalog = try await resolver.catalog()
+            // A phone that connects to a Mac whose display is still waking sees no display for a second or two. Failing here left it on a paused stream with nothing retrying.
+            var attempts = 0
+            while catalog.displays.isEmpty, attempts < Self.displayWakeAttempts {
+                try await Task.sleep(for: .milliseconds(500))
+                resolver.invalidate()
+                catalog = try await resolver.catalog()
+                attempts += 1
+            }
             guard let descriptor = catalog.all.first(where: { $0.source == source }) else {
                 throw CaptureError.sourceUnavailable("That capture source is no longer available.")
             }

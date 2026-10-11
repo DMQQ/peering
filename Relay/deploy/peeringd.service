@@ -48,6 +48,7 @@ Environment=PEERINGD_USAGE_LOG=%S/peeringd/usage.log
 # And who each device id belongs to. A relay that forgets these on restart will register an
 # unproved claim for an id it had already seen proved, which is the window this closes.
 Environment=PEERINGD_DEVICE_BINDINGS=%S/peeringd/devices.jsonl
+Environment=PEERINGD_REFERRALS=%S/peeringd/referrals.jsonl
 
 # Every setting the relay takes, in one root-owned file, so this unit can stay in version control
 # without carrying a certificate path or an API key. See the environment table in the README.
@@ -63,6 +64,9 @@ ExecStart=/usr/local/bin/peeringd
 # exit is also an outage: a signal, an operator's mistake, a panic that unwound tidily.
 Restart=always
 RestartSec=2
+
+# Every socket is a descriptor, and the default soft limit of 1024 is below the 4096 connections the signalling listener is configured to accept.
+LimitNOFILE=65536
 
 # The relay's design principle is that it should be too stupid to break the property it exists to
 # provide: it copies bytes it cannot read. These settings are the same idea applied from the

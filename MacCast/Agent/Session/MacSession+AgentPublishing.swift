@@ -72,7 +72,7 @@ extension MacSession {
             switch session.state {
             case .working: state = .working
             case .awaitingApproval: state = .needsYou
-            case .idle: state = .ready
+            case .idle: state = .finished
             case .failed: state = .failed
             case .exited: return nil
             }
@@ -103,7 +103,7 @@ extension MacSession {
     private func announceApprovalOnLockScreen(_ approval: AgentApproval, in session: RemoteAgentSession) {
         guard UIApplication.shared.applicationState != .active, SessionNotifier.shared.remoteToken == nil else { return }
         let notification = AgentApprovalNotification(approval: approval, sessionID: session.id)
-        let (title, hostID, hostName) = (session.title, self.hostID, self.hostName)
+        let (title, hostID, hostName) = (session.title, self.hostID, self.shownName)
         Task { await AgentApprovalNotifier.shared.post(notification, sessionTitle: title, hostID: hostID, hostName: hostName) }
     }
 }

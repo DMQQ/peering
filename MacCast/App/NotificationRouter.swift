@@ -14,6 +14,20 @@ nonisolated final class NotificationRouter: NSObject, UNUserNotificationCenterDe
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let info = response.notification.request.content.userInfo
+        if response.notification.request.content.categoryIdentifier == AgentFinishedNotification.category,
+           let reference = AgentApprovalNotification.Reference(userInfo: info) {
+            let actionID = response.actionIdentifier
+            let prompt = AgentFinishedNotification.prompt(
+                forActionIdentifier: actionID,
+                userText: (response as? UNTextInputNotificationResponse)?.userText
+            )
+            nonisolated(unsafe) let finish = completionHandler
+            Task { @MainActor in
+                await Self.handleFinished(reference, actionID: actionID, prompt: prompt)
+                finish()
+            }
+            return
+        }
         if let reference = AgentApprovalNotification.Reference(userInfo: info) {
             let actionID = response.actionIdentifier
             // The system's handler may be called from any thread, exactly once.
@@ -38,6 +52,22 @@ extension NotificationRouter {
     fileprivate static func handleApproval(_ reference: AgentApprovalNotification.Reference, actionID: String) async {
         if let decision = AgentApprovalNotification.decision(forActionIdentifier: actionID, answers: reference.answers) {
             await AgentApprovalResponder.answer(decision, to: reference)
+            return
+        }
+        guard actionID != UNNotificationDismissActionIdentifier else { return }
+        InAppBanner.shared.openRequest = .chat(reference.sessionID)
+        if let hostID = reference.hostID {
+            NotificationRoute.open(hostID: hostID, sourceID: nil)
+        }
+    }
+}
+
+extension NotificationRouter {
+    /// A button sends the next prompt; a tap on the body shows the chat.
+    @MainActor
+    fileprivate static func handleFinished(_ reference: AgentApprovalNotification.Reference, actionID: String, prompt: String?) async {
+        if let prompt {
+            await AgentApprovalResponder.reply(prompt, to: reference)
             return
         }
         guard actionID != UNNotificationDismissActionIdentifier else { return }

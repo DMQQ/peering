@@ -54,6 +54,9 @@ extension AgentSessionManager {
         switch payload {
         case .turnStarted:
             session.state = .working
+            session.turnEditedFiles = []
+        case .toolStarted(let call):
+            if AgentTurnDigest.edits(call), let path = call.filePath { session.turnEditedFiles.insert(path) }
         case .approvalRequested(let approvalID, let call, let reason):
             session.pendingApprovals.insert(approvalID)
             session.state = .awaitingApproval
@@ -86,12 +89,19 @@ extension AgentSessionManager {
             }
             if sinks[session.ownerClientID] == nil, token != nil {
                 let text = AgentNotificationText.finished(
-                    agentName: name, ok: summary.ok, stopped: summary.stopped, lastReply: session.lastReply
+                    agentName: name, ok: summary.ok, stopped: summary.stopped, lastReply: session.lastReply,
+                    editedFiles: session.turnEditedFiles.count, duration: summary.duration
                 )
-                applied.push = (text.title, text.body, nil)
+                applied.push = (text.title, text.body, summary.ok ? RelayPushAction(
+                    category: AgentFinishedNotification.category,
+                    sessionID: session.id.uuidString,
+                    approvalID: ""
+                ) : nil)
             }
-        case .failure:
+        case .failure(let message):
             session.state = .failed
+            // The CLI has lost this conversation: a prompt must not try to resume it again.
+            if message == AgentExpiry.message { session.cliSessionID = nil }
             applied.persists = true
         case .sessionExited:
             session.state = .exited
@@ -104,7 +114,7 @@ extension AgentSessionManager {
                 applied.correctedModel = model
             }
             applied.persists = true
-        case .textDelta, .notice, .toolStarted, .toolFinished, .child:
+        case .textDelta, .notice, .toolFinished, .child:
             break
         }
 

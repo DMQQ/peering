@@ -11,6 +11,7 @@
 //! tells us where the TLS handshake should be carried, so it necessarily precedes it. See the
 //! module comment on `session.rs` for why that is safe.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -19,13 +20,21 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
 use tracing::{debug, info, warn};
 
+use crate::counted_stream::CountedStream;
 use crate::session::{Join, Registry, Token};
 
 /// How long a connection may sit without presenting a token. Long enough to survive a slow start,
 /// short enough that an idle socket cannot be used to hold resources.
 const TOKEN_DEADLINE: Duration = Duration::from_secs(5);
 
+/// Sockets that may be waiting to present a token at once. Established splices do not count: the permit is returned the moment the token is read.
+const MAX_UNAUTHENTICATED: usize = 512;
+
+/// Without a pause a persistent accept error (descriptor exhaustion) turns this loop into a spinning core and a log flood.
+const ACCEPT_ERROR_BACKOFF: Duration = Duration::from_millis(50);
+
 pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
+    let waiting = Arc::new(tokio::sync::Semaphore::new(MAX_UNAUTHENTICATED));
     info!(addr = %listener.local_addr().map(|a| a.to_string()).unwrap_or_default(), "control relay listening");
 
     loop {
@@ -48,9 +57,14 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
                     warn!(%error, %peer, "could not disable Nagle on a control connection");
                 }
 
+                let Ok(permit) = Arc::clone(&waiting).try_acquire_owned() else {
+                    warn!(%peer, "refused a control connection: too many are waiting for a token");
+                    continue;
+                };
+
                 let registry = Arc::clone(&registry);
                 tokio::spawn(async move {
-                    if let Err(error) = handle(stream, registry).await {
+                    if let Err(error) = handle(stream, registry, permit).await {
                         debug!(%peer, %error, "control connection ended");
                     }
                 });
@@ -58,18 +72,26 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
             // A failed accept is about this connection, not the listener — a file-descriptor
             // exhaustion or a peer that vanished mid-handshake. Logging and carrying on is right;
             // tearing the listener down would take every other session with it.
-            Err(error) => warn!(%error, "control listener could not accept"),
+            Err(error) => {
+                warn!(%error, "control listener could not accept");
+                tokio::time::sleep(ACCEPT_ERROR_BACKOFF).await;
+            }
         }
     }
 }
 
-async fn handle(mut stream: TcpStream, registry: Arc<Registry>) -> std::io::Result<()> {
+async fn handle(
+    mut stream: TcpStream,
+    registry: Arc<Registry>,
+    waiting: tokio::sync::OwnedSemaphorePermit,
+) -> std::io::Result<()> {
     // No buffering here, and none needed: this is the only read this side ever does. Everything
     // after it belongs to TLS.
     let mut token: Token = [0u8; 16];
     timeout(TOKEN_DEADLINE, stream.read_exact(&mut token))
         .await
         .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "no token presented"))??;
+    drop(waiting);
 
     // Looked up before joining, for the reason the client id used to be: the registry still holds
     // the session at this point, and what the splice is metered on has to be in hand before the
@@ -86,7 +108,7 @@ async fn handle(mut stream: TcpStream, registry: Arc<Registry>) -> std::io::Resu
         return Ok(());
     };
 
-    let Join::Waiting { mut mine, peer } = join else {
+    let Join::Waiting { mine, peer } = join else {
         debug!("control connection handed to its peer");
         return Ok(());
     };
@@ -95,7 +117,7 @@ async fn handle(mut stream: TcpStream, registry: Arc<Registry>) -> std::io::Resu
     // lifetime: when the sweep takes an abandoned session it drops the sender, this await fails,
     // and the socket closes. A second timeout here would only duplicate that with a second number
     // to keep in step.
-    let Ok(mut theirs) = peer.await else {
+    let Ok(theirs) = peer.await else {
         info!("session was swept before the peer connected; the other end never arrived");
         return Ok(());
     };
@@ -119,6 +141,9 @@ async fn handle(mut stream: TcpStream, registry: Arc<Registry>) -> std::io::Resu
     // `copy_bidirectional` created fresh per iteration would start again with the buffers it had
     // already filled, and bytes read from one end but not yet written to the other would be lost
     // every time a tick was handled.
+    let control_bytes = Arc::new(AtomicU64::new(0));
+    let mut mine = CountedStream::new(mine, Arc::clone(&control_bytes));
+    let mut theirs = CountedStream::new(theirs, Arc::clone(&control_bytes));
     let splice = tokio::io::copy_bidirectional(&mut mine, &mut theirs);
     tokio::pin!(splice);
 
@@ -140,6 +165,7 @@ async fn handle(mut stream: TcpStream, registry: Arc<Registry>) -> std::io::Resu
     // reported as one that ran out of allowance, which is a distinction the log line below exists
     // to make. Polling the work before the clock is also the order the two matter in.
     let mut spent = false;
+    let spliced_at = std::time::Instant::now();
     loop {
         tokio::select! {
             biased;
@@ -163,7 +189,7 @@ async fn handle(mut stream: TcpStream, registry: Arc<Registry>) -> std::io::Resu
 
     // Released so the token cannot be presented again. Without this a token stays valid for the
     // rest of its TTL, and a leaked one could hold a splice open.
-    registry.release(&token).await;
+    let video = registry.release(&token).await;
 
     // The last stretch, which is whatever has passed since the previous charge. Taken here rather
     // than left to the meter's own drop so that the number billed is the number on the line below;
@@ -185,6 +211,21 @@ async fn handle(mut stream: TcpStream, registry: Arc<Registry>) -> std::io::Resu
             client_id = meter.client_id(),
             remaining_secs = ?left,
             "relay usage recorded"
+        );
+    }
+
+    // One line per relayed session, kept at info: a session whose picture never crossed the video
+    // socket is how a network that blocks UDP shows up here, and nothing else in the log says so.
+    // `control_bytes` is large when the picture travelled on the control channel instead, so `video_over_udp = false` with a large count is a fallback that worked, not a blocked network.
+    if let Some(video) = video {
+        info!(
+            seconds = spliced_at.elapsed().as_secs(),
+            video_over_udp = video.from_host_datagrams > 0,
+            video_datagrams_from_host = video.from_host_datagrams,
+            video_bytes_from_host = video.from_host_bytes,
+            video_datagrams_from_client = video.from_client_datagrams,
+            control_bytes = control_bytes.load(Ordering::Relaxed),
+            "relayed session ended"
         );
     }
 

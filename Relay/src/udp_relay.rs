@@ -135,7 +135,7 @@ async fn forward(socket: UdpSocket, routes: Arc<VideoRoutes>, idle_ttl: Duration
                         .try_into()
                         .expect("a prefix is exactly the length of a token");
 
-                    match routes.route(token, from) {
+                    match routes.route_sized(token, from, packet.len() - PREFIX_LEN) {
                         // No session holds this token, or the address it came from already holds
                         // the other end of the session it claims. Dropped without a reply, for the
                         // same reason an unknown control token gets none: silence tells a prober

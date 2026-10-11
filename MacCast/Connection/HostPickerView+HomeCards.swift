@@ -169,31 +169,19 @@ extension HomeTab {
             if !model.hosts.isEmpty {
                 VStack(spacing: 8) {
                     ForEach(model.hosts) { host in
-                        // A Mac never paired with is a pairing (past the first it is `extraMacs`); one already in the trusted list is a reconnect and stays free on every plan. The pin store tells them apart.
-                        let isNewPairing = !model.pairedHostIDs.contains(host.id)
-                        // Also compatible: a Mac on an older protocol shows UPDATE and stays untappable, since buying a plan is not the answer.
-                        let locked = isNewPairing && !canPairAnotherMac && isCompatible(host)
-
-                        // The locked form is the row itself with the plan's name over its trailing edge, keeping its name, ID and tile: a row replaced by a badge would be a Mac that vanished from the list.
-                        PlanLocked(
-                            capability: .extraMacs,
-                            title: model.displayName(forHostID: host.id) ?? host.name,
-                            placement: .trailing,
-                            diameter: 26,
-                            isIncluded: !locked
-                        ) {
-                            Button {
-                                model.connect(to: .discovered(host))
-                            } label: {
-                                hostRow(host)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(model.isBusy || !isCompatible(host))
+                        Button {
+                            model.connect(to: .discovered(host))
+                        } label: {
+                            hostRow(host)
                         }
+                        .buttonStyle(.plain)
+                        .disabled(model.isBusy || !isCompatible(host))
                         .transition(Self.hostArrival)
                     }
                 }
             }
+
+            if model.localNetworkDenied { LocalNetworkNotice() }
 
             Text(model.browseStatus)
                 .font(.caption)
@@ -214,51 +202,35 @@ extension HomeTab {
         VStack(alignment: .leading, spacing: 14) {
             sectionLabel(String(localized: "Another network"), systemImage: "globe")
 
-            // The second way to pair counts the same: the pin store is the one list of paired Macs. What is locked is the limit (``canPairAnotherMac``), not the row, since the first Mac is free. Tapping opens the plans.
-            PlanLocked(
-                capability: .extraMacs,
-                title: "Pair with a Mac elsewhere",
-                placement: .trailing,
-                diameter: 26,
-                isIncluded: canPairAnotherMac
-            ) {
-                Button {
-                    showsRemotePairing = true
-                } label: {
-                    HStack(spacing: 12) {
-                        IconTile(symbol: "number")
+            Button {
+                showsRemotePairing = true
+            } label: {
+                HStack(spacing: 12) {
+                    IconTile(symbol: "number")
 
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Pair with a Mac elsewhere")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(ColorPalette.ink)
-                                .multilineTextAlignment(.leading)
-                            Text(canPairAnotherMac
-                                 ? String(localized: "Type or scan the device ID shown on it.")
-                                 : String(localized: "One Mac is free. \(PlanCapability.extraMacs.minimumPlan.name) pairs with every Mac you own."))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .multilineTextAlignment(.leading)
-                        }
-
-                        // The spacer keeps the row's tap target to the card edge. Room for the badge is held by a hidden copy of the badge itself, since a spacer gives its space away to the sentence and the mark would land on the last line. ``PlanLocked`` draws the mark over this copy.
-                        if canPairAnotherMac {
-                            Spacer(minLength: 8)
-                        } else {
-                            PlanLock(capability: .extraMacs, diameter: 26).hidden()
-                        }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Pair with a Mac elsewhere")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(ColorPalette.ink)
+                            .multilineTextAlignment(.leading)
+                        Text("Type or scan the device ID shown on it.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 9)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .rowSurface()
-                    .contentShape(Rectangle())
+
+                    Spacer(minLength: 8)
                 }
-                .buttonStyle(.plain)
-                .disabled(model.isBusy)
-                .opacity(model.isBusy ? 0.5 : 1)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .rowSurface()
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .disabled(model.isBusy)
+            .opacity(model.isBusy ? 0.5 : 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

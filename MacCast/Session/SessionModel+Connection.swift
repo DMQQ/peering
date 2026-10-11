@@ -20,6 +20,17 @@ extension SessionModel {
         .relayPairing(hostID: hostID, name: name, entitlement: relayEntitlement)
     }
 
+    /// A Mac's own QR code, scanned with the system camera. A Mac on this network is dialled directly, because the relay is for a Mac that cannot be reached any other way and costs the free allowance; only a Mac that is not here goes through it.
+    func openHostLink(hostID: String) {
+        if pairedHostIDs.contains(hostID) {
+            connectToTrusted(hostID: hostID)
+        } else if let host = hosts.first(where: { $0.id == hostID }) {
+            connect(to: .discovered(host))
+        } else {
+            pairWithRemoteMac(hostID: hostID)
+        }
+    }
+
     /// The one path into a Mac with no pin behind it: the user has just read a device ID off the other machine. The guard is answered, not relaxed: the Mac still asks both people to compare six digits.
     @discardableResult
     func pairWithRemoteMac(hostID text: String) -> PairingPayloadError? {
@@ -44,14 +55,14 @@ extension SessionModel {
         return nil
     }
 
-    func confirmPairing(accepted: Bool) {
+    func confirmPairing(accepted: Bool, secret: Data? = nil) {
         // Declining ends the session from the Mac's side too and arrives as `.disconnected`, so without this the user's own "no" reads as a lost connection.
         if !accepted { activeSession?.userEndedDeliberately = true }
         Analytics.pairingDecided(accepted: accepted)
         PostHogLog.info("pairing decision submitted", attributes: [
             "pairing_outcome": accepted ? "accepted" : "declined",
         ])
-        session?.confirmPairing(accepted: accepted)
+        session?.confirmPairing(accepted: accepted, secret: secret)
     }
 
     /// `deliberate` is "did the user mean it", not "who called": a tapped disconnect is silent, one iOS forced is not, since a banner is the only way they hear of it.
@@ -60,6 +71,7 @@ extension SessionModel {
         let wasStartedAt = sessionStartedAt
         let wasPath = MacSession.activityPath(connectionPath)
         let analyticsPath = connectionPath?.rawValue ?? "unknown"
+        let videoDelivery = activeSession?.wire?.videoDeliveryRecord
 
         // Only for a deliberate end: a drop and the end iOS forces should find the session restored on return.
         if deliberate { UserDefaults.standard.set(false, forKey: Self.resumeKey) }
@@ -96,7 +108,7 @@ extension SessionModel {
         SessionPiP.shared.detach()
 
         if deliberate {
-            Analytics.sessionEnded(path: analyticsPath)
+            Analytics.sessionEnded(path: analyticsPath, video: videoDelivery)
             PostHogLog.info("session disconnect requested", attributes: [
                 "connection_path": analyticsPath,
             ])
@@ -325,33 +337,11 @@ extension SessionModel {
 
     // MARK: - Backgrounding
 
-    /// One writer called wherever the answer can change; the easy one to miss is launch, and a controller armed before the App Store answered stays wrong.
-    @discardableResult
-    func applyPictureInPicturePlan() -> Bool {
-        let included = PictureInPictureAccess.canArm(access: storeManager.access)
-        SessionPiP.shared.isOnPlan = included
-        return included
-    }
-
-    /// Its twin. A push because the object owns no store; failing closed costs a subscriber one banner at launch.
-    @discardableResult
-    func applyTerminalAlertPlan() -> Bool {
-        let included = TerminalAlertsAccess.canNotify(access: storeManager.access)
-        SessionNotifier.shared.isOnPlan = included
-        return included
-    }
-
     func setPiPAutoStart(_ on: Bool) { SessionPiP.shared.autoStart = on }
 
     /// No background mode a remote desktop can honestly claim: this only buys the few seconds that make switching away and straight back survivable.
     func enteringBackground() {
         SessionActivity.shared.enteringBackground()
-
-        // The plan is pushed into the singleton before it floats anything: written on every backgrounding because an entitlement can arrive or lapse while running.
-        let pipIncluded = applyPictureInPicturePlan()
-
-        // A shell that stops off screen raises its banner without a tap, so the answer it reads has to be current.
-        applyTerminalAlertPlan()
 
         // The Mac's detector fires once when the prompt appears and this side says nothing while the app is in front, so without this a prompt left open never reaches a banner.
         for session in sessions where session.phase == .ready {
@@ -368,7 +358,7 @@ extension SessionModel {
 
         // Started here, not left to `canStartPictureInPictureAutomaticallyFromInline`: iOS never takes the hint, since an `AVAudioPlayer` running silence does not count as playing.
         // The moment matters: as the app leaves the screen, `startPictureInPicture` still has a view hierarchy to lift the layer from.
-        SessionPiP.shared.backgrounding(sessionIsUp: phase.holdsSession && pipIncluded)
+        SessionPiP.shared.backgrounding(sessionIsUp: phase.holdsSession)
 
         // Held while any Mac is open or retrying: iOS suspends the process, and a LAN session that drops to `.failed` before `enteringBackground()` would freeze `Task.sleep` and never show the "dropped" card.
         guard hasOpenSession, backgroundTask == .invalid else { return }

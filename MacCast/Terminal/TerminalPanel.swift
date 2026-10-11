@@ -102,9 +102,6 @@ struct TerminalPanel: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .preferredColorScheme(.dark)
             .onAppear {
-                model.refreshTerminals()
-                model.refreshAgents()
-                model.refreshAgentSessions()
                 // A shell or chat made while the hub was away was already opened by its maker; do not jump to it.
                 model.newTerminalID = nil
                 model.newAgentSessionID = nil

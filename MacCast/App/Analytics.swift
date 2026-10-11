@@ -1,6 +1,8 @@
 import Foundation
 import MacCastKit
 import PostHog
+import RemoteCore
+import os
 import UIKit
 
 /// Anonymous usage counts, on by default and off with one switch in Settings.
@@ -12,6 +14,16 @@ enum Analytics {
     /// A foreground within this of the last one is the same sitting, not a new open.
     private static let openGap: TimeInterval = 30 * 60
 
+    /// What every `feature_used` carries, so a count can be read by connection and plan: set where a session starts and the plan is read, cleared where the session ends.
+    private struct Context {
+        var path: String?
+        var plan: String?
+        var tab: Screen?
+        var pushed: Screen?
+    }
+
+    private static let context = OSAllocatedUnfairLock(initialState: Context())
+
     static var isEnabled: Bool {
         UserDefaults.standard.object(forKey: PreferenceKeys.analyticsEnabled) as? Bool ?? true
     }
@@ -21,10 +33,12 @@ enum Analytics {
         let last = UserDefaults.standard.double(forKey: lastOpenKey)
         guard now - last > openGap else { return }
         UserDefaults.standard.set(now, forKey: lastOpenKey)
+        context.withLock { $0.plan = plan?.rawValue }
         send("app_opened", ["plan": plan?.rawValue ?? "unknown"])
     }
 
     static func sessionStarted(path: String, plan: RelayPlan?) {
+        context.withLock { $0.path = path; $0.plan = plan?.rawValue }
         send("session_started", ["path": path, "plan": plan?.rawValue ?? "unknown"])
     }
 
@@ -32,8 +46,24 @@ enum Analytics {
         send(accepted ? "pairing_accepted" : "pairing_declined", [:])
     }
 
-    static func sessionEnded(path: String) {
-        send("session_ended", ["path": path])
+    /// `first_picture_ms` is absent when no picture ever arrived, which on a relayed session is how a network blocking video shows up.
+    static func sessionEnded(path: String, video: VideoDeliveryRecord?) {
+        context.withLock { $0.path = nil }
+        var properties: [String: Any] = ["path": path]
+        properties.merge(videoProperties(video)) { _, new in new }
+        send("session_ended", properties)
+    }
+
+    /// `video_recorded` is false when the session had no wire to ask, which is not the same as a wire that never delivered a picture.
+    private static func videoProperties(_ video: VideoDeliveryRecord?) -> [String: Any] {
+        guard let video else { return ["video_recorded": false] }
+        var properties: [String: Any] = [
+            "video_recorded": true,
+            "video_transport": video.transport.rawValue,
+            "fell_back": video.fellBack,
+        ]
+        if let milliseconds = video.firstPictureMilliseconds { properties["first_picture_ms"] = milliseconds }
+        return properties
     }
 
     static func onboardingCompleted() {
@@ -49,11 +79,28 @@ enum Analytics {
     }
 
     enum Screen: String {
-        case home, activity, settings, paywall, terminals, session
+        case home, activity, settings, paywall, terminals, session, agentChat, agentReview, whatsNew
     }
 
     static func screen(_ screen: Screen) {
+        context.withLock { $0.tab = screen }
         send("screen_viewed", ["screen": screen.rawValue])
+    }
+
+    /// A screen pushed or presented over a tab. The SDK names a rage click after the UIKit hosting controller, which says nothing about which SwiftUI screen it was.
+    static func screenAppeared(_ screen: Screen) {
+        context.withLock { $0.pushed = screen }
+        send("screen_viewed", ["screen": screen.rawValue])
+    }
+
+    static func screenDisappeared(_ screen: Screen) {
+        context.withLock { if $0.pushed == screen { $0.pushed = nil } }
+    }
+
+    /// Added to the SDK's own `$rageclick`: the screen the person was on, nothing they touched or typed.
+    static func rageClickDetail() -> [String: Any] {
+        let current = context.withLock { $0.pushed ?? $0.tab }
+        return ["app_screen": current?.rawValue ?? "unknown"]
     }
 
     enum Panel: String {
@@ -72,21 +119,63 @@ enum Analytics {
         send("connect_started", ["route": route.rawValue])
     }
 
-    /// `afterReady` tells a drop mid-session from a connection that never came up.
-    static func connectFailed(afterReady: Bool, reason: String) {
-        send("connect_failed", ["after_ready": String(afterReady), "reason": reason])
+    /// `afterReady` tells a drop mid-session from a connection that never came up, and `video` is what the dropped session's picture went through, since a drop is how a network that blocks video usually ends. `appState` and `pictureInPictureActive` tell a drop the network caused from one iOS caused by freezing the app.
+    static func connectFailed(
+        afterReady: Bool, reason: String, path: String, reconnectAttempt: Int,
+        secondsIntoSession: Int?, appState: String, pictureInPictureActive: Bool, video: VideoDeliveryRecord?
+    ) {
+        var properties: [String: Any] = [
+            "after_ready": String(afterReady), "reason": reason, "path": path,
+            "reconnect_attempt": String(reconnectAttempt), "app_state": appState,
+            "pip_active": String(pictureInPictureActive),
+        ]
+        if let secondsIntoSession { properties["seconds_into_session"] = String(secondsIntoSession) }
+        properties.merge(videoProperties(video)) { _, new in new }
+        send("connect_failed", properties)
+    }
+
+    static func name(of state: UIApplication.State) -> String {
+        switch state {
+        case .active: "active"
+        case .inactive: "inactive"
+        case .background: "background"
+        @unknown default: "unknown"
+        }
     }
 
     static func paywallShown(reason: String) {
         send("paywall_shown", ["reason": reason])
     }
 
-    static func purchaseFinished(outcome: String) {
-        send("purchase_finished", ["outcome": outcome])
+    static func paywallDismissed(reason: String) {
+        send("paywall_dismissed", ["reason": reason])
+    }
+
+    /// `product` is one of `pro_monthly`, `pro_yearly`, `pro_lifetime` or `other`, never the store's own identifier.
+    static func purchaseStarted(product: String) {
+        send("purchase_started", ["product": product])
+    }
+
+    static func purchaseFinished(outcome: String, product: String) {
+        send("purchase_finished", ["outcome": outcome, "product": product])
+    }
+
+    /// The day's remote time ran out, mid-session or at the next connect. The warning before it is the `running_low` paywall reason.
+    static func relayAllowanceExhausted(path: String?) {
+        send("relay_allowance_exhausted", ["path": path ?? "unknown"])
+    }
+
+    static func referralShared() {
+        send("referral_shared", [:])
+    }
+
+    /// `outcome` is `redeemed` or a ``ReferralRefusal`` case name.
+    static func referralRedeemed(outcome: String) {
+        send("referral_redeemed", ["outcome": outcome])
     }
 
     enum Feature: String {
-        case macro, agentChatStarted, agentPromptSent, fileUpload, sourceSelected, clipboardPush, sshConnected
+        case macro, agentChatStarted, agentChatResumed, agentChatStopped, agentChatContinuedInNew, agentPromptSent, fileUpload, sourceSelected, clipboardPush, sshConnected
         case pointerSpeedChanged, observeOnlyChanged, privacyModeChanged, macLocked, lockScreenShown
         case mosaicShown, mosaicTileResized, mosaicTileRemoved, applicationLaunched, keyboardModeChanged
         case autoQualityChanged, qualityChanged
@@ -97,20 +186,32 @@ enum Analytics {
         case remotePairingStarted, manualAddressConnect, intentRun, pipStarted
     }
 
-    static func featureUsed(_ feature: Feature) {
-        send("feature_used", ["feature": feature.rawValue])
+    /// `agent` is one of the built-in agents' ids, or `other`: the list comes from the Mac, so an id is not sent as it arrives.
+    static func featureUsed(_ feature: Feature, agent: String? = nil) {
+        var properties = ["feature": feature.rawValue]
+        let current = context.withLock { $0 }
+        if let path = current.path { properties["path"] = path }
+        if let plan = current.plan { properties["plan"] = plan }
+        if let agent { properties["agent"] = ["claude", "codex", "opencode"].contains(agent) ? agent : "other" }
+        send("feature_used", properties)
     }
 
     enum Area: String {
         case purchase, fileTransfer, ssh, audio, notification, liveActivity, security, preview
     }
 
+    private static let reportFilter = OSAllocatedUnfairLock(initialState: ErrorReportFilter())
+
     /// Handled errors go to Error Tracking as the domain and code only: a message can carry a path, a Mac's name or an address.
-    static func failed(_ error: Error, in area: Area) {
+    static func failed(_ error: Error, in area: Area, context: [String: String] = [:]) {
         guard isEnabled, PostHogConfiguration.isConfigured else { return }
         let nsError = error as NSError
+        guard reportFilter.withLock({ $0.shouldReport(nsError, area: area.rawValue) }) else { return }
         let scrubbed = NSError(domain: nsError.domain, code: nsError.code)
-        PostHogSDK.shared.captureException(scrubbed, properties: ["area": area.rawValue, "$process_person_profile": false])
+        var properties: [String: Any] = ErrorDetail.properties(for: error).merging(context) { $1 }
+        properties["area"] = area.rawValue
+        properties["$process_person_profile"] = false
+        PostHogSDK.shared.captureException(scrubbed, properties: properties)
     }
 
     static func settingChanged(_ name: String, to value: String) {
@@ -122,7 +223,7 @@ enum Analytics {
         SettingsObserver.shared.start()
     }
 
-    private static func send(_ event: String, _ properties: [String: String]) {
+    private static func send(_ event: String, _ properties: [String: Any]) {
         guard isEnabled, PostHogConfiguration.isConfigured else { return }
         var props: [String: Any] = properties
         props["$process_person_profile"] = false

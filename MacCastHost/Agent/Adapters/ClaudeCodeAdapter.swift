@@ -232,6 +232,11 @@ final class ClaudeCodeAdapter: AgentAdapter, @unchecked Sendable {
         // A session that died before hello is a CLI too old for these flags or unauthenticated; its last words are the user's sentence.
         if !seenReady || status != 0 {
             let tail = stderrTail.joined(separator: "\n")
+            if AgentExpiry.isResumeRefusal(stderr: tail) {
+                onEvent?(.failure(message: AgentExpiry.message))
+                onEvent?(.sessionExited(status: status))
+                return
+            }
             let message = seenReady
                 ? "Claude Code exited with status \(status)."
                 : "Claude Code started and stopped before saying anything. Update it, or use the terminal instead."

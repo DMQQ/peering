@@ -90,8 +90,7 @@ extension SessionModel {
     }
 
     func rememberClipboard(_ text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard ClipboardHistoryPolicy.remembers(text) else { return }
         var history = clipboardHistory.filter { $0.text != text }
         history.insert(ClipboardEntry(id: UUID(), text: text, at: Date()), at: 0)
         if history.count > Self.clipboardHistoryLimit {

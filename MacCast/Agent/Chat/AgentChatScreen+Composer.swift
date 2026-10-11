@@ -60,4 +60,17 @@ extension AgentChatScreen {
         stickToBottom = true
         model.sendAgentPrompt(text, to: session.id)
     }
+
+    func follow(up suggestion: AgentFollowUps.Suggestion, in session: RemoteAgentSession) {
+        switch suggestion {
+        case .reviewChanges:
+            showsChanges = true
+        case .runTests:
+            stickToBottom = true
+            model.sendAgentPrompt("Run the project's tests and fix anything that fails.", to: session.id)
+        case .summarizeChanges:
+            stickToBottom = true
+            model.sendAgentPrompt("Summarize what you changed and why, file by file.", to: session.id)
+        }
+    }
 }
