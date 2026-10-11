@@ -144,6 +144,19 @@ struct AgentApprovalNotificationTests {
         #expect(AgentApprovalNotification.pushCategory(for: asking) == "peering.agent.approval.open")
     }
 
+    @Test func aPushedYesOrNoQuestionGetsYesAndNoButtons() {
+        let asking = AgentToolCall(id: "c", name: "AskUserQuestion", title: "Q", questions: [question(["Yes", "No"])])
+        let reversed = AgentToolCall(id: "c", name: "AskUserQuestion", title: "Q", questions: [question([" no", "YES"])])
+        #expect(AgentApprovalNotification.pushCategory(for: asking) == "peering.agent.approval.yesno")
+        #expect(AgentApprovalNotification.pushCategory(for: reversed) == "peering.agent.approval.yesno")
+        #expect(AgentApprovalNotification.yesNoActions.map(\.title) == [.no, .yes])
+    }
+
+    @Test func theYesAndNoButtonsAnswerTheQuestion() {
+        #expect(AgentApprovalNotification.decision(forActionIdentifier: "yes", answers: []) == .choose(["Yes"]))
+        #expect(AgentApprovalNotification.decision(forActionIdentifier: "no", answers: []) == .choose(["No"]))
+    }
+
     @Test func theNotificationIdentifierIsFoundByItsPrefix() {
         let note = AgentApprovalNotification(approval: approval(), sessionID: session)
         #expect(AgentApprovalNotification.isApprovalIdentifier(note.identifier))

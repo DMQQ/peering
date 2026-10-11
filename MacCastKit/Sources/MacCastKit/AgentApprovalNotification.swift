@@ -17,6 +17,8 @@ public struct AgentApprovalNotification: Equatable, Sendable {
             case allow
             case deny
             case open
+            case yes
+            case no
             case option(String)
         }
 
@@ -36,11 +38,14 @@ public struct AgentApprovalNotification: Equatable, Sendable {
     public static let allowIdentifier = "allow"
     public static let denyIdentifier = "deny"
     public static let openIdentifier = "open"
+    public static let yesIdentifier = "yes"
+    public static let noIdentifier = "no"
     static let optionPrefix = "choose."
 
     public static let identifierPrefix = "peering-agent-approval-"
     public static let toolCategory = "peering.agent.approval.tool"
     public static let openCategory = "peering.agent.approval.open"
+    public static let yesNoCategory = "peering.agent.approval.yesno"
     static let optionsCategoryPrefix = "peering.agent.approval.options."
 
     public let approvalID: String
@@ -75,9 +80,28 @@ public struct AgentApprovalNotification: Equatable, Sendable {
         return command.count < maxBodyLength
     }
 
-    /// The category a push can name: a push cannot carry per-question button titles, so a question gets Open.
+    /// The category a push can name: a push cannot carry per-question button titles, so a plain Yes or No question gets
+    /// fixed Yes and No buttons and any other question gets Open.
     public static func pushCategory(for call: AgentToolCall) -> String {
-        layout(for: call) == .allowDeny ? toolCategory : openCategory
+        switch layout(for: call) {
+        case .allowDeny: toolCategory
+        case .options(let labels) where isYesNo(labels): yesNoCategory
+        case .options, .openOnly: openCategory
+        }
+    }
+
+    static func isYesNo(_ labels: [String]) -> Bool {
+        guard labels.count == 2 else { return false }
+        let words = labels.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        return Set(words) == ["yes", "no"]
+    }
+
+    /// The buttons of the fixed push category for a Yes or No question.
+    public static var yesNoActions: [Action] {
+        [
+            Action(identifier: noIdentifier, title: .no, requiresAuthentication: false, opensApp: false),
+            Action(identifier: yesIdentifier, title: .yes, requiresAuthentication: false, opensApp: false),
+        ]
     }
 
     public var identifier: String { Self.identifierPrefix + approvalID }
@@ -122,6 +146,10 @@ public struct AgentApprovalNotification: Equatable, Sendable {
             return .allow
         case denyIdentifier:
             return .deny
+        case yesIdentifier:
+            return .choose(["Yes"])
+        case noIdentifier:
+            return .choose(["No"])
         default:
             guard identifier.hasPrefix(optionPrefix),
                   let index = Int(identifier.dropFirst(optionPrefix.count)),
