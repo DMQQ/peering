@@ -92,7 +92,11 @@ extension AgentSessionManager {
                     agentName: name, ok: summary.ok, stopped: summary.stopped, lastReply: session.lastReply,
                     editedFiles: session.turnEditedFiles.count, duration: summary.duration
                 )
-                applied.push = (text.title, text.body, nil)
+                applied.push = (text.title, text.body, summary.ok ? RelayPushAction(
+                    category: AgentFinishedNotification.category,
+                    sessionID: session.id.uuidString,
+                    approvalID: ""
+                ) : nil)
             }
         case .failure:
             session.state = .failed

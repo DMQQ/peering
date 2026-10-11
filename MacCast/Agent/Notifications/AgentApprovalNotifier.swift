@@ -39,7 +39,30 @@ final class AgentApprovalNotifier {
             Self.category(AgentApprovalNotification.toolCategory, layout: .allowDeny),
             Self.category(AgentApprovalNotification.openCategory, layout: .openOnly),
         ]
-        UNUserNotificationCenter.current().setNotificationCategories(Set(fixed + optionCategories.values))
+        UNUserNotificationCenter.current().setNotificationCategories(Set(fixed + [Self.finishedCategory] + optionCategories.values))
+    }
+
+    /// Buttons need the phone unlocked: they start work on the Mac.
+    private static var finishedCategory: UNNotificationCategory {
+        UNNotificationCategory(
+            identifier: AgentFinishedNotification.category,
+            actions: [
+                UNNotificationAction(
+                    identifier: AgentFinishedNotification.continueIdentifier,
+                    title: String(localized: "Continue"),
+                    options: [.authenticationRequired]
+                ),
+                UNTextInputNotificationAction(
+                    identifier: AgentFinishedNotification.replyIdentifier,
+                    title: String(localized: "Reply"),
+                    options: [.authenticationRequired],
+                    textInputButtonTitle: String(localized: "Send"),
+                    textInputPlaceholder: String(localized: "Message")
+                ),
+            ],
+            intentIdentifiers: [],
+            options: []
+        )
     }
 
     private static func category(_ identifier: String, layout: AgentApprovalNotification.Layout) -> UNNotificationCategory {

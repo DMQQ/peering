@@ -30,6 +30,26 @@ enum AgentApprovalResponder {
         }
     }
 
+    /// The next prompt for a chat, from the button on its "finished" notification.
+    static func reply(_ prompt: String, to reference: AgentApprovalNotification.Reference) async {
+        var backgroundTask = UIBackgroundTaskIdentifier.invalid
+        backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Reply to agent chat") {
+            UIApplication.shared.endBackgroundTask(backgroundTask)
+            backgroundTask = .invalid
+        }
+        defer {
+            if backgroundTask != .invalid { UIApplication.shared.endBackgroundTask(backgroundTask) }
+        }
+
+        guard let model = await waitForModel(), let hostID = reference.hostID,
+              let session = await readySession(of: model, hostID: hostID)
+        else {
+            await AgentApprovalNotifier.shared.postDeliveryFailure(reference, sessionTitle: IntentHost.model?.agentTitle(reference.sessionID))
+            return
+        }
+        session.sendAgentPrompt(prompt, to: reference.sessionID)
+    }
+
     private static func send(_ decision: AgentApprovalDecision, to reference: AgentApprovalNotification.Reference) async -> Bool {
         guard let model = await waitForModel(), let hostID = reference.hostID else { return false }
         guard let session = await readySession(of: model, hostID: hostID) else { return false }

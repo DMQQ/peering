@@ -33,8 +33,14 @@ use tracing::{debug, info, warn};
 
 use crate::apns::{ApnsClient, PushAction, PushRoute};
 
-/// The only categories a Mac may name: the ones the phone registers for an agent approval.
+/// The only categories a Mac may name: the ones the phone registers for an agent approval, and for
+/// the notice that a turn finished.
 const AGENT_APPROVAL_CATEGORY_PREFIX: &str = "peering.agent.approval.";
+const AGENT_FINISHED_CATEGORY: &str = "peering.agent.finished";
+
+fn is_agent_category(category: &str) -> bool {
+    category.starts_with(AGENT_APPROVAL_CATEGORY_PREFIX) || category == AGENT_FINISHED_CATEGORY
+}
 use crate::protocol::{hex, unhex, ClientMessage, ServerMessage};
 use crate::quota::{Plan, QuotaTracker};
 use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
@@ -824,7 +830,7 @@ async fn dispatch(
                     // else is dropped rather than forwarded under the phone's name.
                     let action = match (category.as_deref(), session_id.as_deref(), approval_id.as_deref()) {
                         (Some(category), Some(session_id), Some(approval_id))
-                            if category.starts_with(AGENT_APPROVAL_CATEGORY_PREFIX) =>
+                            if is_agent_category(category) =>
                         {
                             Some(PushAction { category, session_id, approval_id })
                         }
@@ -847,6 +853,15 @@ async fn dispatch(
 mod tests {
     use super::*;
     use crate::config::PlanAllowances;
+
+    #[test]
+    fn a_mac_may_name_only_the_categories_the_phone_registers() {
+        assert!(is_agent_category("peering.agent.approval.tool"));
+        assert!(is_agent_category("peering.agent.approval.options.abc"));
+        assert!(is_agent_category("peering.agent.finished"));
+        assert!(!is_agent_category("peering.agent.finished.extra"));
+        assert!(!is_agent_category("com.apple.something"));
+    }
 
     fn channel() -> (mpsc::Sender<ServerMessage>, mpsc::Receiver<ServerMessage>) {
         mpsc::channel(4)
