@@ -7,7 +7,7 @@ mod control;
 mod launch;
 
 #[cfg(test)]
-mod fake;
+pub(crate) mod fake;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
