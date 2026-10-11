@@ -54,10 +54,10 @@ AND-050/051 + WIN-060/061 -> AND-090 (M1) -> WIN-064..066 -> WIN-098 (M2) -> XOP
 
 ## SPEC and CI (foundation)
 
-SPEC-001 | todo | foundation | S : protocol.md part 1, transport, framing, roles, handshake, pairing
+SPEC-001 | done | foundation | S : protocol.md part 1, transport, framing, roles, handshake, pairing
 Port: `Framing.swift`, `Handshake.swift`, `ClientSession+Handshake.swift`, `HostSession+Handshake.swift`, `PairingSAS.swift`, `PairingPayload.swift`.
 Owns: `docs/protocol.md` (sections 1 to 4). Deps: none.
-Done: every constant and byte layout in plan section 1.1 to 1.5 appears with its source path; a reviewer can implement framing and SAS from it alone; no em dashes (`grep -n '—' docs/protocol.md` empty).
+Done: every constant and byte layout in plan section 1.1 to 1.5 appears with its source path; a reviewer can implement framing and SAS from it alone; no em or en dashes in the file.
 Commit: Write protocol spec part one: framing, handshake and pairing.
 
 SPEC-002 | todo | foundation | S : protocol.md part 2, JSON shapes, commands, capability flags
