@@ -178,6 +178,6 @@ fn parse_object(line: &str) -> Option<Object> {
     }
 }
 
-pub(super) fn notice(text: &str) -> AgentStreamPayload {
+pub(crate) fn notice(text: &str) -> AgentStreamPayload {
     AgentStreamPayload::Notice { text: text.to_owned() }
 }
