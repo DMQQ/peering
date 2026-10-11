@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/peering-wire", "crates/peering-core"]
+members = ["crates/peering-wire", "crates/peering-core", "crates/peering-agent"]
 
 [workspace.package]
 version = "0.1.0"
