@@ -5,7 +5,7 @@ Status: proposal, 2026-10-11. Companion document: [android-and-windows-tasks.md]
 
 Two new ports that share no code with the Apple apps:
 
-1. **Android client** (Kotlin, Jetpack Compose, Material 3 with Material You), same job as `apple/MacCast`.
+1. **Android client** (Kotlin, Jetpack Compose, Material 3 components styled with the Peering visual language), same job as `apple/MacCast`.
 2. **Windows host** (Rust), same job as `apple/MacCastHost`, kept simple.
 
 They must talk to the existing relay and, ideally, to the existing Apple apps on the other end
@@ -255,7 +255,7 @@ produced nothing recently (`VideoFallback.swift:244-247` comment).
 
 ## 3. Android app
 
-SDK: minSdk 29, targetSdk current. Dynamic color on 31+, a static Material 3 scheme below. Package `pl.dmq.peering`.
+SDK: minSdk 29, targetSdk current. Dark only, no dynamic colour: Material 3 components with the palette, surfaces, outlined cards and type from the design guidelines (decision 1). Package `pl.dmq.peering`.
 
 Modules (Gradle, version catalog):
 
@@ -285,8 +285,7 @@ through the SPEC-005 table; a modifier bar and shortcut bar sit above the keyboa
 Screens (mirror `HostPickerView.swift:9`, tabs connect, servers, sessions, faq, settings): bottom navigation with
 Connect, Sessions, Settings (FAQ inside Settings; Servers/SSH is SKIP). The session screen is a full screen canvas with a
 sheet hub (Sources, Agents, Files, Settings; Terminal later), matching the iOS `RemoteScreen` panels. Window size classes
-switch the sheet to a side panel on tablets. Material You replaces `wiki/DESIGN.md` on Android on purpose; that is an
-open question for the owner.
+switch the sheet to a side panel on tablets. The visual language comes from `wiki/DESIGN.md`, adapted where Material 3 requires it (decision 1).
 
 Agent chat UI: transcript list with row types (user, streamed markdown, tool card, diff block, plan steps, subagent),
 approval sheet, composer with permission mode and model menus, queue, interrupt. State logic ports from
@@ -352,10 +351,8 @@ No login shell concept, so the environment is the host's own, restarted after in
 Terminal: ConPTY (`CreatePseudoConsole`) through `portable-pty`; the wire carries raw VT bytes (`TerminalWire.swift:135-181`), so
 the Android emulator needs no change. LATER.
 
-Packaging: Velopack per-user installer and updater (replaces Sparkle; Rust crate existence not verified, fallback WinSparkle which
-reuses the appcast format). Autostart through an `HKCU\...\Run` value. Firewall: per-user install cannot add a rule; the OS prompt
-appears on first listen; a "Fix firewall" button runs an elevated `netsh`. Signing: Azure Trusted Signing if the owner qualifies,
-otherwise an OV certificate; SmartScreen reputation takes time either way (UNVERIFIED details).
+Packaging: an unsigned installer and documented build from source (decision 6); updates are LATER (Velopack or WinSparkle, unverified). Autostart through an `HKCU\...\Run` value. Firewall: per-user install cannot add a rule; the OS prompt
+appears on first listen; a "Fix firewall" button runs an elevated `netsh`. Signing: none; the README explains the SmartScreen warning.
 
 ## 5. Relay changes (all additive, shipped iOS unaffected)
 
@@ -504,20 +501,46 @@ Sizes: S under a week, M one to three weeks, L more, for one person. Every miles
 7. HEVC default from the Mac against an Android device without a decoder (3 x 3). The optional codec field.
 8. Relay regression hitting the shipped iPhone app (2 x 5). All changes additive, relay e2e tests extended, deploy after the suite passes.
 9. Play Billing verification adds an outbound dependency to the relay (3 x 2). Cache, fail to free.
-10. Windows signing and SmartScreen (5 x 2). Budget time; not a code risk.
+10. SmartScreen warnings on an unsigned installer (5 x 2). Documented in the README; build from source is the alternative.
 
-## 10. Open questions for the owner
+## 10. Decisions
 
-1. Material 3 / Material You on Android instead of `wiki/DESIGN.md`: confirm.
-2. Lockstep policy: any future `ProtocolInfo.version` bump now breaks Android and Windows until they ship. Accept, or make new features optional only?
-3. Should the Mac host be updated now to read `videoCodecs` and send `hostPlatform` (no version bump)?
-4. Android minSdk 29 (drops about 10 percent of devices by guess; not measured) versus 26 with a bundled Conscrypt.
-5. Play Billing: same product ids as iOS, and is an online verifier in the relay acceptable?
-6. Windows signing: Azure Trusted Signing eligibility or an OV certificate purchase.
-7. Windows agents: native only in v1, or WSL as well?
-8. Google Play and Firebase project ownership for FCM.
-9. Windows virtual desktops: confirm SKIP.
-10. HEVC from the Windows host later, or H.264 forever?
+Answered by the owner on 2026-10-11.
+
+1. **Design.** Start from `wiki/DESIGN.md` (a local file, not tracked; do not copy it into the repo) and adapt it to Android and Material 3
+   where something cannot be done natively. Material 3 components and behaviour, styled with that visual language: near-black backdrop,
+   white opacities for ink and surfaces, one state blue as the only accent, outlined cards (never filled), dark only. No dynamic colour.
+   This replaces the "Material You instead of DESIGN.md" assumption in section 3.
+2. **Versioning.** Bump `ProtocolInfo.version` only for breaking changes. Additive features (optional fields, capability flags) need no bump.
+3. **Mac host changes.** Not answered. The rule stays: `apple/` is not touched. The exact proposed patch (reading `videoCodecs`, sending
+   `hostPlatform`, additive only) is in [mac-host-patch.md](mac-host-patch.md) for the owner to review and apply.
+4. **Android minSdk.** 29, or higher if that simplifies anything.
+5. **Play Billing and the relay verifier.** Not answered. They stay under "Needs the user" in the tasks document; the app is built around a
+   pluggable billing interface so everything else works without Play.
+6. **Windows distribution.** No Azure signing. Windows ships as an unsigned exe plus installer, or is built from source. Signing tasks are
+   replaced by documented build-from-source steps, an unsigned installer build and a README note about the SmartScreen warning.
+7. **Windows agents.** Native only in v1. WSL is an optional future feature, recorded as a LATER entry.
+8. **Firebase.** The owner owns the project and will provide the config later. FCM is built against a gitignored config file with a
+   documented example (never real keys), and the app works without it (push disabled).
+9. **Windows virtual desktops.** SKIP confirmed.
+10. **HEVC from the Windows host.** Decided by evidence, below.
+
+### HEVC from the Windows host: comparison and decision
+
+| Question | H.264 | HEVC |
+|---|---|---|
+| Bitrate for equal quality | baseline | commonly quoted around 30 to 40 percent lower for screen content; not measured here |
+| Value to this product | enough on a LAN, where bandwidth is not the limit | matters on relayed sessions, where the tiers are 2, 8 and 20 Mbps (`VideoFallback.swift:3-7`) and the relay is a single region |
+| Windows hardware encode through Media Foundation | exposed by NVENC, Quick Sync and AMF encoder MFTs on essentially every GPU; software MFT as fallback | the GPU vendor MFTs expose it on newer parts; availability depends on GPU generation and driver, and the software path may need a store extension; not verified on any machine |
+| Android MediaCodec decode | universal | widespread hardware decode, not guaranteed on low end devices; must be detected with `MediaCodecList` |
+| Latency | lowest encode cost | similar with low latency settings, slightly heavier encode |
+| Licensing and patent exposure | lighter, and the OS or GPU vendor carries the codec | larger, separate pools; using vendor encoders shifts most of it but a distributed app is not outside it; not legal advice, owner to confirm |
+| Apple clients | decode both | decode both; the Mac host already defaults to HEVC (`HostModel+Capture.swift:24-26`) |
+| Complexity | none | a codec negotiation (`videoCodecs` in the hello), a second parameter set layout (VPS, SPS, PPS), encoder capability probing, and an always-working H.264 fallback |
+
+Decision: not in v1, and not SKIP. The benefit is real only for relayed sessions, while the costs (per-machine encoder availability,
+negotiation, licensing question) are paid up front. HEVC is recorded as three small LATER tasks (WIN-124, WIN-131, WIN-132) behind a
+capability flag, with H.264 as the encoder that always works. A client that does not declare `videoCodecs` (every shipped iPhone) always gets H.264 from the Windows host.
 
 ## 11. Not verified
 

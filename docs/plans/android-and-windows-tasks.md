@@ -32,6 +32,10 @@ Windows: `cargo test` with core logic in `peering-wire` and `peering-core`, whic
 must pass on Linux (`cargo test -p peering-wire -p peering-core`). Flow tasks drive the logic layer (state holder or
 service level) with fake transports and the shared vectors in `docs/protocol/vectors/`.
 
+**Android design rule (owner decision 1).** Every Android UI task follows the visual language of `wiki/DESIGN.md` (a local, untracked file: read it, never copy it into the repo): dark only, no dynamic colour, near-black backdrop `#0A0A0B`, ink and surfaces as opacities of white, one state blue `#0A84FF` as the only accent, cards outlined and never filled, Material 3 components and behaviour underneath. Where Material 3 cannot do something natively, adapt and note it in the task commit. The theme lives in `feature/theme` (AND-060). Definition of done for a UI task also includes: uses only theme tokens, no hard coded colours, builds with `./gradlew :app:assembleDebug`.
+
+**Decisions** are recorded in the plan, section 10 (pluggable billing, FCM from a gitignored config, unsigned Windows build, native-only agents, HEVC later).
+
 **Task format.** `ID | Status | kind | size`, then Port (Apple sources to read), Owns (files only this task edits),
 Deps, Done (checkable), Commit (the message line). Kinds: foundation, parallel-safe, integration. All sizes are S
 (one short session) unless stated. Status values: todo, done, blocked, later (LATER or SKIP, not scheduled).
@@ -155,7 +159,7 @@ Owns: `relay/src/signalling.rs` notify branch, `relay/src/config.rs` (env `PEERI
 Done: e2e test with fake senders proves FCM token reaches FCM and APNs token reaches APNs; no env set means FCM disabled and iOS path unchanged; `cargo test --locked`.
 Commit: Route notifyDevice to APNs or FCM by token kind.
 
-REL-006 | todo | parallel-safe | S : Play verdict model and cache
+REL-006 | todo | parallel-safe | S : Play verdict model and cache (live Play calls need the owner's Google credentials: Needs the user; build against the trait and fakes)
 Port: `storekit.rs` (Resolved, Trust, ReceiptCache). Owns: new `relay/src/playbilling.rs` (pure types, mapping product id to Plan, per session cache). Deps: none.
 Done: unit tests mirror the storekit rejection table: unknown product, expired, not matching device binding, all end at Free.
 Commit: Model Play purchase verdicts and their per session cache.
@@ -188,13 +192,13 @@ Commit: Define the ports the session layer depends on, with fakes.
 
 AND-010 | done | S : frame codec. Port `Framing.swift`. Owns `core/wire/.../Framing.kt`, test. Deps SPEC-008. Done: decoder handles split, coalesced and oversize frames, unknown kind error, vectors pass. Commit: Add the frame encoder and decoder with the 16 MiB guard.
 
-AND-011 | todo | S : Swift enum serializer. Port `MessageCodec`. Owns `core/wire/.../SwiftEnumSerializer.kt`. Deps SPEC-006. Done: encodes and decodes `{"case":{"label":v}}`, `_0`, empty payload cases, optional omission, base64 Data, uppercase UUID, reference-date Date; tests per rule. Commit: Add a serializer base for Swift Codable enums.
+AND-011 | done | S : Swift enum serializer. Port `MessageCodec`. Owns `core/wire/.../SwiftEnumSerializer.kt`. Deps SPEC-006. Done: encodes and decodes `{"case":{"label":v}}`, `_0`, empty payload cases, optional omission, base64 Data, uppercase UUID, reference-date Date; tests per rule. Commit: Add a serializer base for Swift Codable enums.
 
-AND-012 | todo | S : handshake models. Port `Handshake.swift`. Owns `core/wire/.../Handshake.kt`. Deps AND-011, SPEC-006. Done: all hello/pairing/notice/clipboard/ping/error payloads round trip against vectors; missing optional flags read as null. Commit: Add the handshake and pairing message models.
+AND-012 | done | S : handshake models. Port `Handshake.swift`. Owns `core/wire/.../Handshake.kt`. Deps AND-011, SPEC-006. Done: all hello/pairing/notice/clipboard/ping/error payloads round trip against vectors; missing optional flags read as null. Commit: Add the handshake and pairing message models.
 
-AND-013 | todo | S : command models. Port `RemoteCommand.swift`. Owns `core/wire/.../RemoteCommand.kt`. Deps AND-011. Done: every case encodes to the vector; coalescing and critical flags tested. Commit: Add the remote command model with coalescing rules.
+AND-013 | done | S : command models. Port `RemoteCommand.swift`. Owns `core/wire/.../RemoteCommand.kt`. Deps AND-011. Done: every case encodes to the vector; coalescing and critical flags tested. Commit: Add the remote command model with coalescing rules.
 
-AND-014 | todo | S : capture source and catalogue models. Port `CaptureSource.swift`. Owns `core/wire/.../CaptureSource.kt`. Deps AND-011. Done: decodes a catalogue with and without optional parts, `CGSize` array form, stable ids. Commit: Add capture source and catalogue models.
+AND-014 | done | S : capture source and catalogue models. Port `CaptureSource.swift`. Owns `core/wire/.../CaptureSource.kt`. Deps AND-011. Done: decodes a catalogue with and without optional parts, `CGSize` array form, stable ids. Commit: Add capture source and catalogue models.
 
 AND-015 | done | S : video and audio wire. Port `VideoWire.swift`. Owns `core/wire/.../VideoWire.kt`. Deps SPEC-008. Done: 25 byte frame header and 20 byte audio header encode/decode, truncated and length mismatch errors, config model. Commit: Add the video and audio frame wire format.
 
@@ -202,11 +206,11 @@ AND-016 | done | S : SAS and transcript. Port `PairingSAS.swift`. Owns `core/wir
 
 AND-017 | done | S : pairing payload parser. Port `PairingPayload.swift`, `PairingPayloadTests.swift`. Owns `core/wire/.../PairingPayload.kt`. Deps none beyond AND-001. Done: host link, code link with secret, bare UUID, six digit codes and each error case. Commit: Parse pairing QR payloads and typed device ids.
 
-AND-018 | todo | S : video key schedule and sealer/opener. Port `VideoKeySchedule.swift`, `VideoDatagramSealer.swift`, `VideoDatagramOpener.swift`. Owns `core/wire/.../VideoSealing.kt`. Deps SPEC-007, AND-020. Done: HKDF and ChaCha20-Poly1305 match vectors, counter nonce, tamper rejected. Commit: Seal and open video datagrams with the derived keys.
+AND-018 | done | S : video key schedule and sealer/opener. Port `VideoKeySchedule.swift`, `VideoDatagramSealer.swift`, `VideoDatagramOpener.swift`. Owns `core/wire/.../VideoSealing.kt`. Deps SPEC-007, AND-020. Done: HKDF and ChaCha20-Poly1305 match vectors, counter nonce, tamper rejected. Commit: Seal and open video datagrams with the derived keys.
 
 AND-019 | done | S : replay window. Port `VideoReplayWindow.swift`. Owns `core/wire/.../ReplayWindow.kt`. Deps SPEC-007. Done: reorder accepted, duplicate and too-old rejected, forged jump does not poison (check does not mutate). Commit: Add the datagram replay window.
 
-AND-020 | todo | S : chunk encoder and reassembler. Port `VideoFallback.swift:41-180`. Owns `core/wire/.../VideoChunks.kt`. Deps SPEC-008. Done: loss, reorder, newer frame replaces older, nested chunk and oversize errors. Commit: Add video chunking and reassembly.
+AND-020 | done | S : chunk encoder and reassembler. Port `VideoFallback.swift:41-180`. Owns `core/wire/.../VideoChunks.kt`. Deps SPEC-008. Done: loss, reorder, newer frame replaces older, nested chunk and oversize errors. Commit: Add video chunking and reassembly.
 
 AND-021 | done | S : fallback policy. Port `VideoFallback.swift:183-282`. Owns `core/wire/.../VideoFallbackPolicy.kt`. Deps SPEC-008. Done: table driven tests for 3 s silence, control health window, repeat interval, return after two pictures, host decline. Commit: Port the video fallback decision rules.
 
@@ -214,15 +218,15 @@ AND-022 | done | S : relay messages. Port `RelayProtocol.swift`. Owns `core/wire
 
 AND-023 | done | S : relay proof payloads. Port `RelayDeviceProof.swift`. Owns `core/wire/.../RelayProof.kt`. Deps SPEC-007. Done: payload strings and hex encoding match vectors. Commit: Build relay device proof payloads.
 
-AND-024 | todo | S : command coalescer. Port `CommandCoalescer.swift`, `CoalescerTimerTests.swift`. Owns `core/wire/.../CommandCoalescer.kt`. Deps AND-013. Done: mouse move replaced, scroll accumulates, button events never dropped or reordered, virtual clock tests. Commit: Coalesce pointer commands without dropping button events.
+AND-024 | done | S : command coalescer. Port `CommandCoalescer.swift`, `CoalescerTimerTests.swift`. Owns `core/wire/.../CommandCoalescer.kt`. Deps AND-013. Done: mouse move replaced, scroll accumulates, button events never dropped or reordered, virtual clock tests. Commit: Coalesce pointer commands without dropping button events.
 
-AND-025 | todo | S : Android key mapping. Port `InputEncoding.swift`. Owns `core/wire/.../KeyMap.kt`. Deps SPEC-005. Done: Android key code to macOS keycode table and modifier bits from vectors; text vs key routing rule tested. Commit: Map Android keys to macOS keycodes.
+AND-025 | done | S : Android key mapping. Port `InputEncoding.swift`. Owns `core/wire/.../KeyMap.kt`. Deps SPEC-005. Done: Android key code to macOS keycode table and modifier bits from vectors; text vs key routing rule tested. Commit: Map Android keys to macOS keycodes.
 
-AND-026 | todo | S : trackpad gesture model. Port `CanvasGestureRouting.swift`, `InputTransform.swift`. Owns `core/wire/.../TrackpadModel.kt`. Deps AND-013. Done: pure model from pointer samples to commands: move, tap, two finger tap, scroll, drag, clamping to 0..1. Commit: Turn touch samples into pointer commands.
+AND-026 | done | S : trackpad gesture model. Port `CanvasGestureRouting.swift`, `InputTransform.swift`. Owns `core/wire/.../TrackpadModel.kt`. Deps AND-013. Done: pure model from pointer samples to commands: move, tap, two finger tap, scroll, drag, clamping to 0..1. Commit: Turn touch samples into pointer commands.
 
-AND-027 | todo | S : AVCC to Annex-B and codec config. Port `VideoRenderer.swift:300-345`. Owns `core/wire/.../AnnexB.kt`. Deps AND-015. Done: in place length rewrite, csd for H.264 and HEVC, malformed length rejected. Commit: Convert length prefixed frames to Annex-B for MediaCodec.
+AND-027 | done | S : AVCC to Annex-B and codec config. Port `VideoRenderer.swift:300-345`. Owns `core/wire/.../AnnexB.kt`. Deps AND-015. Done: in place length rewrite, csd for H.264 and HEVC, malformed length rejected. Commit: Convert length prefixed frames to Annex-B for MediaCodec.
 
-AND-028 | todo | S : reconnect ladder and auto quality. Port `VideoReconnect.swift`, `AutoQualityPolicy.swift`, `StreamQualityLimits.swift`. Owns `core/wire/.../Backoff.kt`, `QualityPolicy.kt`. Deps none. Done: ladder steps, exhaustion, tier moves with fake samples. Commit: Port reconnect backoff and automatic quality rules.
+AND-028 | done | S : reconnect ladder and auto quality. Port `VideoReconnect.swift`, `AutoQualityPolicy.swift`, `StreamQualityLimits.swift`. Owns `core/wire/.../Backoff.kt`, `QualityPolicy.kt`. Deps none. Done: ladder steps, exhaustion, tier moves with fake samples. Commit: Port reconnect backoff and automatic quality rules.
 
 AND-030 | todo | S : agent wire models. Port `AgentWire.swift`. Owns `core/wire/.../AgentWire.kt`. Deps AND-011. Done: every request and event decodes from vectors, unknown stream payload does not crash the list. Commit: Add the agent chat wire models.
 
@@ -280,11 +284,11 @@ AND-057 | todo | parallel-safe | S : video surface composable. Owns `.../video/V
 
 AND-058 | todo | parallel-safe | S : network callback. Port `NetworkPathWatcher.swift`. Owns `.../net/NetworkWatcher.kt`. Deps AND-002. Done: emits path changes to the session layer; mapper tested. Commit: Report network changes to the session layer.
 
-AND-059 | todo | parallel-safe | S : Play Billing wrapper. Port `StoreManager.swift`. Owns `.../billing/*`. Deps REL-008 for the field names. Done: product list, purchase flow, purchase token and obfuscated account id exposure; mapping of states unit tested. Commit: Wrap Play Billing and expose the purchase for the relay.
+AND-059 | todo | parallel-safe | S : billing gateway interface and Play adapter. Port `StoreManager.swift`. Owns `.../billing/*`. Deps none (REL-008 only for the live relay check). Done: `BillingGateway` interface (products, purchase, current entitlement as a flow) with a fake used by everything else; Play adapter behind it; state mapping unit tested. The live Play verification needs the owner's accounts (Needs the user). Commit: Wrap Play Billing and expose the purchase for the relay.
 
 ## Android: UI (parallel-safe, built against fakes, no UI tests)
 
-AND-060 | todo | foundation | S : app module, theme, navigation shell. Owns `android/app/*` build files, `MainActivity.kt`, `theme/*`, `nav/*`. Deps AND-001. Done: `./gradlew :app:assembleDebug` builds; bottom nav Connect, Sessions, Settings; dynamic color. Commit: Add the Android app shell with Material 3 navigation.
+AND-060 | todo | foundation | S : app module, Peering theme (tokens from the design rule), navigation shell. Owns `android/app/*` build files, `MainActivity.kt`, `theme/*`, `nav/*`. Deps AND-001. Done: `./gradlew :app:assembleDebug` builds; bottom nav Connect, Sessions, Settings; dynamic color. Commit: Add the Android app shell with Material 3 navigation.
 AND-061 | todo | S : connect screen (hosts list, presence, add by id). Port `HostPickerView*.swift`. Owns `feature/connect/ConnectScreen.kt`, `ConnectViewModel.kt`. Deps AND-060, AND-040. Done: view model unit test over fakes (list ordering, presence); builds. Commit: Add the Connect screen with discovered and paired hosts.
 AND-062 | todo | S : pairing screens (code entry, scanner, confirm digits). Port `PairingCode*.swift`, `PairingPrompt.swift`. Owns `feature/pairing/*`. Deps AND-060, AND-040, AND-017. Done: view model tests for digit comparison and cancel; builds. Commit: Add the pairing screens with code comparison.
 AND-063 | todo | S : remote canvas and gestures. Port `Remote/RemoteCanvas.swift`, `RemoteScreen+Gestures.swift`. Owns `feature/remote/RemoteScreen.kt`, `GestureLayer.kt`. Deps AND-057, AND-026. Done: feeds AND-026 model; builds. Commit: Add the remote screen with touch input.
@@ -332,7 +336,7 @@ AND-109 skip: virtual display management (`SourcesPanel+VirtualDisplays.swift`).
 AND-110 skip: joystick (`JoystickView.swift`). Reason: not useful on a touch client.
 AND-111 later: macros and shortcut sets (`Macro*.swift`, `MacroBar.swift`, `QuickCommands.swift`).
 AND-112 later: Wake on LAN (`WakeOnLAN.swift`). Reason: UDP magic packet from hello MACs.
-AND-113 later: FCM registration and push display (needs REL-005); AND-114 later: approval actions from a notification; AND-115 later: ongoing session notification (the Android answer to Live Activity).
+AND-113 later: FCM registration and push display (needs REL-005); Firebase config comes from a gitignored `google-services.json`, with a documented `google-services.example.json` that holds no real keys, and the app runs with push disabled when the file is absent; AND-114 later: approval actions from a notification; AND-115 later: ongoing session notification (the Android answer to Live Activity).
 AND-116 skip: widgets, Siri intents, Live Activity (`MacCastWidget`, `PeeringIntents.swift`). Reason: Apple surfaces.
 AND-117 skip: SSH servers and SSH terminal (`SSH/*`, `SSHCore`). Reason: separate product, not a Peering host feature.
 AND-118 later: agent changes list and file diff (`Agent/Changes/*`); AND-119 later: commit and push sheet; AND-120 later: review inbox and rejection (`Agent/Review/*`); AND-121 later: web preview (`Agent/Preview/*`); AND-122 later: usage sheet; AND-123 later: resumable session import; AND-124 later: slash and mention hints.
@@ -368,9 +372,10 @@ WIN-024 | done | S : keymap macOS to scancode and VK, modifier mapping. Owns `pe
 WIN-025 | done | S : normalised point to desktop coordinates. Port `InputTransform.swift`. Owns `peering-wire/src/transform.rs`. Deps none. Done: negative origins, DPI scale, clamp. Commit: Map normalised points onto the virtual desktop.
 WIN-026 | done | S : Annex-B to AVCC and parameter set extraction. Owns `peering-wire/src/annexb.rs`. Deps WIN-015. Done: NAL splitting, SPS/PPS lift, 3 and 4 byte start codes, keyframe detection. Commit: Convert encoder output to length prefixed frames.
 WIN-027 | done | S : quality limits and bitrate default. Port `StreamQualityLimits.swift`, `VideoEncoder.swift:444`. Owns `peering-wire/src/quality.rs`. Deps none. Done: clamps and default formula. Commit: Port stream quality limits.
-WIN-028 | todo | S : agent wire models. Owns `peering-wire/src/agent.rs`. Deps WIN-011. Done: vectors. Commit: Add the agent chat wire models.
-WIN-029 | todo | S : terminal and file wire models. Owns `peering-wire/src/files.rs`, `terminal.rs`. Deps WIN-011. Done: vectors. Commit: Add terminal and file wire models.
+WIN-028 | done | S : agent wire models. Owns `peering-wire/src/agent.rs`. Deps WIN-011. Done: vectors. Commit: Add the agent chat wire models.
+WIN-029 | done | S : terminal and file wire models. Owns `peering-wire/src/files.rs`, `terminal.rs`. Deps WIN-011. Done: vectors. Commit: Add terminal and file wire models.
 WIN-030 | done | S : drop policy and send queue (one frame, keyframe wins). Port `VideoDropPolicy`. Owns `peering-wire/src/drop_policy.rs`. Deps WIN-015. Done: tests. Commit: Keep only the newest frame and never drop a keyframe.
+WIN-031 | done | S : split the long wire modules into folders with sibling tests.rs. Owns `peering-wire/src/{command,video,relay_messages}/`. Done: test count unchanged. Commit: Split the long wire modules so each file stays readable.
 
 ## Windows: core logic (peering-core), Deps WIN-002 plus wire tasks named
 
@@ -429,7 +434,7 @@ WIN-098 | todo | integration | S : iPhone to the Windows host over LAN (mileston
 
 ## Windows: LATER and SKIP
 
-WIN-100 later: window capture with Windows.Graphics.Capture (`window(u32)` HWND source). WIN-101 skip: application capture (`application(pid)` composite). WIN-102 skip: mosaic. WIN-103 skip: Spaces listing and jump by index (undocumented COM). WIN-104 later: Space direction chord (`Ctrl+Win+Left/Right`). WIN-105 skip: virtual display (needs a signed driver). WIN-106 skip: privacy mode brightness (DDC/CI unreliable). WIN-107 later: lock screen command (`LockWorkStation`). WIN-108 later: keep awake (`SetThreadExecutionState`). WIN-109 skip: lid close, wake schedule, sleep control. WIN-110 later: Wake on LAN MACs in hello. WIN-111 later: clipboard (text, then PNG). WIN-112 later: audio loopback capture (WASAPI, float32 frames). WIN-113 later: terminal sessions (ConPTY, `portable-pty`, `TerminalSessionManager*.swift`). WIN-114 later: Claude terminal hooks (`Terminal/Hooks`). WIN-115 later: Codex and OpenCode adapters (`CodexAdapter.swift`, `OpenCodeAdapter.swift`, `PerTurnAdapter.swift`) and their parsers. WIN-116 later: agent changes, git, commit, push (`AgentChanges*.swift`, `AgentGit*.swift`). WIN-117 later: resumable session import (`ClaudeSessionLibrary.swift`). WIN-118 later: file write, rename, delete, folder archive. WIN-119 later: push on approval needed (`notifyDevice` forwarding, depends on REL-005). WIN-120 later: web preview proxy (`PreviewProxyService.swift`). WIN-121 later: updates with Velopack. WIN-122 later: installer and signing. WIN-123 skip: text focus, field state, pointer report (UI Automation). WIN-124 later: HEVC encode. WIN-125 later: `uiAccess` build for elevated windows. WIN-126 skip: widget, analytics, onboarding windows. WIN-127 later: Windows host resource sampler and activity log view (`HostResourceSampler.swift`, `HostDiagnostics.swift`).
+WIN-100 later: window capture with Windows.Graphics.Capture (`window(u32)` HWND source). WIN-101 skip: application capture (`application(pid)` composite). WIN-102 skip: mosaic. WIN-103 skip: Spaces listing and jump by index (undocumented COM). WIN-104 later: Space direction chord (`Ctrl+Win+Left/Right`). WIN-105 skip: virtual display (needs a signed driver). WIN-106 skip: privacy mode brightness (DDC/CI unreliable). WIN-107 later: lock screen command (`LockWorkStation`). WIN-108 later: keep awake (`SetThreadExecutionState`). WIN-109 skip: lid close, wake schedule, sleep control. WIN-110 later: Wake on LAN MACs in hello. WIN-111 later: clipboard (text, then PNG). WIN-112 later: audio loopback capture (WASAPI, float32 frames). WIN-113 later: terminal sessions (ConPTY, `portable-pty`, `TerminalSessionManager*.swift`). WIN-114 later: Claude terminal hooks (`Terminal/Hooks`). WIN-115 later: Codex and OpenCode adapters (`CodexAdapter.swift`, `OpenCodeAdapter.swift`, `PerTurnAdapter.swift`) and their parsers. WIN-116 later: agent changes, git, commit, push (`AgentChanges*.swift`, `AgentGit*.swift`). WIN-117 later: resumable session import (`ClaudeSessionLibrary.swift`). WIN-118 later: file write, rename, delete, folder archive. WIN-119 later: push on approval needed (`notifyDevice` forwarding, depends on REL-005). WIN-120 later: web preview proxy (`PreviewProxyService.swift`). WIN-121 later: updates (Velopack or WinSparkle, unverified). WIN-122 todo: unsigned installer build and README note about the SmartScreen warning (owner decision 6; no signing). WIN-128 todo: documented build-from-source steps in `windows/README.md`. WIN-123 skip: text focus, field state, pointer report (UI Automation). WIN-124 later: HEVC negotiation (read `videoCodecs` from clientHello; clients that do not declare it get H.264). WIN-131 later: HEVC encoder capability probe through Media Foundation. WIN-132 later: HEVC encode path with VPS/SPS/PPS config, H.264 always the fallback. Decision and comparison in plan section 10. WIN-129 later: agents inside WSL (optional future feature, native only in v1). WIN-125 later: `uiAccess` build for elevated windows. WIN-126 skip: widget, analytics, onboarding windows. WIN-127 later: Windows host resource sampler and activity log view (`HostResourceSampler.swift`, `HostDiagnostics.swift`).
 
 ## Cross platform interop (integration)
 
@@ -440,8 +445,9 @@ XOP-004 | todo | integration | S : full matrix run (Android/iPhone x Mac/Windows
 
 ## Needs the user
 
-* SPEC-010 needs permission to add one test file under `apple/RemoteCore/Tests/` (the Swift vector exporter). Until then vectors are hand-derived and marked as unconfirmed by Swift.
+* Mac host patch: review and apply `docs/plans/mac-host-patch.md` (reading `videoCodecs`, sending `hostPlatform`). `apple/` is not touched by these agents.
+* SPEC-010 needs permission to add one test file under `apple/RemoteCore/Tests/` (the Swift vector exporter). Until then vectors are hand-derived and marked as such.
 * AND-090, WIN-098, XOP-001..004 need a device or a running Mac host.
-* AND-131 and the `hostPlatform` field need a small Mac host change (read `videoCodecs`).
-* Signing credentials (Windows code signing, Play upload key, Firebase project, Google Play service account).
-* Decisions listed in plan section 10.
+* Play Billing: Google Play Console product setup and a service account for REL-007 live verification. Everything else builds against the `BillingGateway` fake.
+* Firebase: the owner provides `google-services.json` later; FCM tasks work without it.
+* Play upload key (releasing the Android app).
