@@ -172,6 +172,11 @@ public final class SelfSignedIdentity: @unchecked Sendable {
         throw Failure.identityNotRemoved
     }
 
+    /// Only "no such key" licenses a new one. A locked keychain (a launch right after a restart) also fails the lookup, and minting then replaces the key every paired peer has pinned.
+    static func canMintKey(afterLookup status: OSStatus) -> Bool {
+        status == errSecItemNotFound
+    }
+
     private static func loadOrCreateKey(tag: Data) throws -> SecKey {
         // `kSecAttrKeyClassPrivate` is load-bearing: a permanent EC key is stored as two keychain
         // items sharing one application tag, and a query matching only on class+tag may return the
@@ -186,10 +191,11 @@ public final class SelfSignedIdentity: @unchecked Sendable {
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         var item: CFTypeRef?
-        if SecItemCopyMatching(SecretStore.attributes(lookup), &item) == errSecSuccess,
-           let existing = item as! SecKey? {
+        let status = SecItemCopyMatching(SecretStore.attributes(lookup), &item)
+        if status == errSecSuccess, let existing = item as! SecKey? {
             return existing
         }
+        guard canMintKey(afterLookup: status) else { throw Failure.keychain(status) }
 
         var error: Unmanaged<CFError>?
         let attributes: [String: Any] = [
