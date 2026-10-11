@@ -66,7 +66,7 @@ Owns: `docs/protocol.md` (sections 5 to 8, appended after SPEC-001 merges; other
 Done: every rule of plan 1.3 stated with an example; every `RemoteCommand` case listed with its JSON; each unverified shape marked UNVERIFIED.
 Commit: Write protocol spec part two: JSON shapes, commands and capability flags.
 
-SPEC-003 | todo | foundation | S : protocol.md part 3, video and audio lanes
+SPEC-003 | done | foundation | S : protocol.md part 3, video and audio lanes
 Port: `VideoWire.swift`, `VideoDatagram*.swift`, `VideoKeySchedule.swift`, `VideoFallback.swift`, `VideoReplayWindow.swift`, `ClientSession+DirectPath.swift`.
 Owns: `docs/protocol/video.md`. Deps: none.
 Done: header layouts, HKDF parameters, nonce rule, chunk header, replay window, fallback constants, direct probe cadence documented with sources.
