@@ -78,7 +78,7 @@ Owns: `docs/protocol/relay.md`. Deps: none.
 Done: both message sets with JSON examples, proof payload strings, token handshake, error codes seen in `signalling.rs`.
 Commit: Write protocol spec part four: relay signalling and token handshake.
 
-SPEC-005 | todo | foundation | S : key maps
+SPEC-005 | done | foundation | S : key maps
 Port: `InputEncoding.swift`, `MediaKey` in `RemoteCommand.swift`, `apple/MacCastHost/Input/InputInjector+Events.swift`.
 Owns: `docs/protocol/vectors/keymap.json`, `docs/protocol/keymap.md`. Deps: none.
 Done: macOS keycode to Windows scancode and VK table, Android `KeyEvent` code to macOS keycode table, modifier mapping rules; JSON parses (`python3 -m json.tool`).
