@@ -186,7 +186,7 @@ Commit: Define the ports the session layer depends on, with fakes.
 
 ## Android: pure wire logic (core:wire), all parallel-safe, Deps AND-001 plus the vector task named
 
-AND-010 | todo | S : frame codec. Port `Framing.swift`. Owns `core/wire/.../Framing.kt`, test. Deps SPEC-008. Done: decoder handles split, coalesced and oversize frames, unknown kind error, vectors pass. Commit: Add the frame encoder and decoder with the 16 MiB guard.
+AND-010 | done | S : frame codec. Port `Framing.swift`. Owns `core/wire/.../Framing.kt`, test. Deps SPEC-008. Done: decoder handles split, coalesced and oversize frames, unknown kind error, vectors pass. Commit: Add the frame encoder and decoder with the 16 MiB guard.
 
 AND-011 | todo | S : Swift enum serializer. Port `MessageCodec`. Owns `core/wire/.../SwiftEnumSerializer.kt`. Deps SPEC-006. Done: encodes and decodes `{"case":{"label":v}}`, `_0`, empty payload cases, optional omission, base64 Data, uppercase UUID, reference-date Date; tests per rule. Commit: Add a serializer base for Swift Codable enums.
 
@@ -196,23 +196,23 @@ AND-013 | todo | S : command models. Port `RemoteCommand.swift`. Owns `core/wire
 
 AND-014 | todo | S : capture source and catalogue models. Port `CaptureSource.swift`. Owns `core/wire/.../CaptureSource.kt`. Deps AND-011. Done: decodes a catalogue with and without optional parts, `CGSize` array form, stable ids. Commit: Add capture source and catalogue models.
 
-AND-015 | todo | S : video and audio wire. Port `VideoWire.swift`. Owns `core/wire/.../VideoWire.kt`. Deps SPEC-008. Done: 25 byte frame header and 20 byte audio header encode/decode, truncated and length mismatch errors, config model. Commit: Add the video and audio frame wire format.
+AND-015 | done | S : video and audio wire. Port `VideoWire.swift`. Owns `core/wire/.../VideoWire.kt`. Deps SPEC-008. Done: 25 byte frame header and 20 byte audio header encode/decode, truncated and length mismatch errors, config model. Commit: Add the video and audio frame wire format.
 
-AND-016 | todo | S : SAS and transcript. Port `PairingSAS.swift`. Owns `core/wire/.../PairingSas.kt`. Deps SPEC-007. Done: commitment, transcript bytes, code, proof, constant time compare match crypto vectors. Commit: Implement short authentication string pairing maths.
+AND-016 | done | S : SAS and transcript. Port `PairingSAS.swift`. Owns `core/wire/.../PairingSas.kt`. Deps SPEC-007. Done: commitment, transcript bytes, code, proof, constant time compare match crypto vectors. Commit: Implement short authentication string pairing maths.
 
-AND-017 | todo | S : pairing payload parser. Port `PairingPayload.swift`, `PairingPayloadTests.swift`. Owns `core/wire/.../PairingPayload.kt`. Deps none beyond AND-001. Done: host link, code link with secret, bare UUID, six digit codes and each error case. Commit: Parse pairing QR payloads and typed device ids.
+AND-017 | done | S : pairing payload parser. Port `PairingPayload.swift`, `PairingPayloadTests.swift`. Owns `core/wire/.../PairingPayload.kt`. Deps none beyond AND-001. Done: host link, code link with secret, bare UUID, six digit codes and each error case. Commit: Parse pairing QR payloads and typed device ids.
 
 AND-018 | todo | S : video key schedule and sealer/opener. Port `VideoKeySchedule.swift`, `VideoDatagramSealer.swift`, `VideoDatagramOpener.swift`. Owns `core/wire/.../VideoSealing.kt`. Deps SPEC-007, AND-020. Done: HKDF and ChaCha20-Poly1305 match vectors, counter nonce, tamper rejected. Commit: Seal and open video datagrams with the derived keys.
 
-AND-019 | todo | S : replay window. Port `VideoReplayWindow.swift`. Owns `core/wire/.../ReplayWindow.kt`. Deps SPEC-007. Done: reorder accepted, duplicate and too-old rejected, forged jump does not poison (check does not mutate). Commit: Add the datagram replay window.
+AND-019 | done | S : replay window. Port `VideoReplayWindow.swift`. Owns `core/wire/.../ReplayWindow.kt`. Deps SPEC-007. Done: reorder accepted, duplicate and too-old rejected, forged jump does not poison (check does not mutate). Commit: Add the datagram replay window.
 
 AND-020 | todo | S : chunk encoder and reassembler. Port `VideoFallback.swift:41-180`. Owns `core/wire/.../VideoChunks.kt`. Deps SPEC-008. Done: loss, reorder, newer frame replaces older, nested chunk and oversize errors. Commit: Add video chunking and reassembly.
 
-AND-021 | todo | S : fallback policy. Port `VideoFallback.swift:183-282`. Owns `core/wire/.../VideoFallbackPolicy.kt`. Deps SPEC-008. Done: table driven tests for 3 s silence, control health window, repeat interval, return after two pictures, host decline. Commit: Port the video fallback decision rules.
+AND-021 | done | S : fallback policy. Port `VideoFallback.swift:183-282`. Owns `core/wire/.../VideoFallbackPolicy.kt`. Deps SPEC-008. Done: table driven tests for 3 s silence, control health window, repeat interval, return after two pictures, host decline. Commit: Port the video fallback decision rules.
 
-AND-022 | todo | S : relay messages. Port `RelayProtocol.swift`. Owns `core/wire/.../RelayMessages.kt`. Deps SPEC-009. Done: sorted-key encoding byte equal to vectors, token hex strictness. Commit: Add relay signalling messages.
+AND-022 | done | S : relay messages. Port `RelayProtocol.swift`. Owns `core/wire/.../RelayMessages.kt`. Deps SPEC-009. Done: sorted-key encoding byte equal to vectors, token hex strictness. Commit: Add relay signalling messages.
 
-AND-023 | todo | S : relay proof payloads. Port `RelayDeviceProof.swift`. Owns `core/wire/.../RelayProof.kt`. Deps SPEC-007. Done: payload strings and hex encoding match vectors. Commit: Build relay device proof payloads.
+AND-023 | done | S : relay proof payloads. Port `RelayDeviceProof.swift`. Owns `core/wire/.../RelayProof.kt`. Deps SPEC-007. Done: payload strings and hex encoding match vectors. Commit: Build relay device proof payloads.
 
 AND-024 | todo | S : command coalescer. Port `CommandCoalescer.swift`, `CoalescerTimerTests.swift`. Owns `core/wire/.../CommandCoalescer.kt`. Deps AND-013. Done: mouse move replaced, scroll accumulates, button events never dropped or reordered, virtual clock tests. Commit: Coalesce pointer commands without dropping button events.
 
@@ -346,7 +346,7 @@ AND-132 later: keyframe request fallback by pause/resume after decode errors.
 
 WIN-001 | done | foundation | S : Cargo workspace. Owns `windows/Cargo.toml`, `windows/rust-toolchain.toml`, `windows/crates/peering-wire/{Cargo.toml,src/lib.rs}`, `windows/crates/peering-core/{Cargo.toml,src/lib.rs}`, `windows/README.md`. Deps none. Done: `cd windows && cargo test -p peering-wire -p peering-core` green on a placeholder; crates have no Windows dependency. Commit: Scaffold the Windows host Cargo workspace.
 
-WIN-002 | todo | foundation | S : core traits. Owns `windows/crates/peering-core/src/ports/*.rs`. Deps WIN-001. Done: traits `Clock`, `SecretStore`, `Identity`, `ControlStream`, `DatagramSocket`, `Capture`, `Encoder`, `InputSink`, `Catalogue`, `Signalling` with fakes in `peering-core/src/fakes/`, one loopback test. Commit: Define the ports the host core depends on, with fakes.
+WIN-002 | done | foundation | S : core traits. Owns `windows/crates/peering-core/src/ports/*.rs`. Deps WIN-001. Done: traits `Clock`, `SecretStore`, `Identity`, `ControlStream`, `DatagramSocket`, `Capture`, `Encoder`, `InputSink`, `Catalogue`, `Signalling` with fakes in `peering-core/src/fakes/`, one loopback test. Commit: Define the ports the host core depends on, with fakes.
 
 ## Windows: pure wire logic (peering-wire), parallel-safe, Deps WIN-001 plus the vector task
 
@@ -361,16 +361,16 @@ WIN-017 | done | S : pairing payload encoder (QR strings). Owns `peering-wire/sr
 WIN-018 | done | S : key schedule, sealer, opener. Owns `peering-wire/src/sealing.rs`. Deps SPEC-007. Done: vectors, tamper, counter monotonic. Commit: Seal and open video datagrams.
 WIN-019 | done | S : replay window. Owns `peering-wire/src/replay.rs`. Deps SPEC-007. Done: same table as Android. Commit: Add the datagram replay window.
 WIN-020 | done | S : chunk encoder and reassembler. Owns `peering-wire/src/chunks.rs`. Deps SPEC-008. Done: loss, reorder, newer frame wins. Commit: Add video chunking and reassembly.
-WIN-021 | todo | S : fallback host side rules (decline when nothing produced, rate cap, probe keyframes every 4 s). Port `VideoStreamer.use(transport:controlPeer:)`, `VideoFallback.swift`. Owns `peering-wire/src/fallback.rs`. Deps SPEC-008. Done: table tests. Commit: Port the host side of video fallback.
+WIN-021 | done | S : fallback host side rules (decline when nothing produced, rate cap, probe keyframes every 4 s). Port `VideoStreamer.use(transport:controlPeer:)`, `VideoFallback.swift`. Owns `peering-wire/src/fallback.rs`. Deps SPEC-008. Done: table tests. Commit: Port the host side of video fallback.
 WIN-022 | done | S : relay messages. Owns `peering-wire/src/relay_messages.rs`. Deps SPEC-009. Done: byte equal vectors. Commit: Add relay signalling messages.
 WIN-023 | done | S : relay proof payloads. Owns `peering-wire/src/relay_proof.rs`. Deps SPEC-007. Done: vectors. Commit: Build relay device proof payloads.
 WIN-024 | done | S : keymap macOS to scancode and VK, modifier mapping. Owns `peering-wire/src/keymap.rs`. Deps SPEC-005. Done: table vectors, Command to Ctrl rule. Commit: Map macOS keycodes to Windows scancodes.
-WIN-025 | todo | S : normalised point to desktop coordinates. Port `InputTransform.swift`. Owns `peering-wire/src/transform.rs`. Deps none. Done: negative origins, DPI scale, clamp. Commit: Map normalised points onto the virtual desktop.
+WIN-025 | done | S : normalised point to desktop coordinates. Port `InputTransform.swift`. Owns `peering-wire/src/transform.rs`. Deps none. Done: negative origins, DPI scale, clamp. Commit: Map normalised points onto the virtual desktop.
 WIN-026 | done | S : Annex-B to AVCC and parameter set extraction. Owns `peering-wire/src/annexb.rs`. Deps WIN-015. Done: NAL splitting, SPS/PPS lift, 3 and 4 byte start codes, keyframe detection. Commit: Convert encoder output to length prefixed frames.
-WIN-027 | todo | S : quality limits and bitrate default. Port `StreamQualityLimits.swift`, `VideoEncoder.swift:444`. Owns `peering-wire/src/quality.rs`. Deps none. Done: clamps and default formula. Commit: Port stream quality limits.
+WIN-027 | done | S : quality limits and bitrate default. Port `StreamQualityLimits.swift`, `VideoEncoder.swift:444`. Owns `peering-wire/src/quality.rs`. Deps none. Done: clamps and default formula. Commit: Port stream quality limits.
 WIN-028 | todo | S : agent wire models. Owns `peering-wire/src/agent.rs`. Deps WIN-011. Done: vectors. Commit: Add the agent chat wire models.
 WIN-029 | todo | S : terminal and file wire models. Owns `peering-wire/src/files.rs`, `terminal.rs`. Deps WIN-011. Done: vectors. Commit: Add terminal and file wire models.
-WIN-030 | todo | S : drop policy and send queue (one frame, keyframe wins). Port `VideoDropPolicy`. Owns `peering-wire/src/drop_policy.rs`. Deps WIN-015. Done: tests. Commit: Keep only the newest frame and never drop a keyframe.
+WIN-030 | done | S : drop policy and send queue (one frame, keyframe wins). Port `VideoDropPolicy`. Owns `peering-wire/src/drop_policy.rs`. Deps WIN-015. Done: tests. Commit: Keep only the newest frame and never drop a keyframe.
 
 ## Windows: core logic (peering-core), Deps WIN-002 plus wire tasks named
 
@@ -384,7 +384,7 @@ WIN-046 | todo | S : video lane on the host (datagram sender, key grant, control
 WIN-047 | todo | S : relay registration loop. Port `RelayHostRegistration.swift`. Owns `peering-core/src/relay/registration.rs`. Deps WIN-022, 023. Done: register, 25 s ping, backoff ladder, proof refreshed per attempt, sessionReady callback, notification queue of 16. Commit: Keep the host registered with the relay.
 WIN-048 | todo | S : relayed session dial (token write, then TLS server handoff). Owns `peering-core/src/relay/dial.rs`. Deps WIN-047. Done: fake stream shows token written first. Commit: Dial the relay control port when a session is ready.
 WIN-049 | todo | S : direct path knocking. Port `VideoDatagramLane.swift` probe parts. Owns `peering-core/src/video/direct.rs`. Deps WIN-046. Done: cadence tests. Commit: Knock for a direct path from the host side.
-WIN-050 | todo | S : host settings model (port, quality, autostart flag). Owns `peering-core/src/settings.rs`. Deps none. Done: defaults and clamps. Commit: Model host settings.
+WIN-050 | done | S : host settings model (port, quality, autostart flag). Owns `peering-core/src/settings.rs`. Deps none. Done: defaults and clamps. Commit: Model host settings.
 WIN-051 | todo | S : push token registry. Port `PushTokenStore.swift`. Owns `peering-core/src/push_tokens.rs`. Deps WIN-029. Done: hex of bytes, empty forgets. Commit: Store the push tokens clients register.
 WIN-052 | todo | S : file browse service on a fake filesystem with POSIX style virtual paths. Port `TerminalSessionManager+FileBrowsing.swift`, `DirectoryListing.swift`. Owns `peering-core/src/files/browse.rs`. Deps WIN-029. Done: `/` lists drives, `/C:/Users`, `ls` permission string synthesis, read limits, errors. Commit: Serve directory listings and file reads.
 
