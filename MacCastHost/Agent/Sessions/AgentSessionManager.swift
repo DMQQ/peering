@@ -23,6 +23,8 @@ final class AgentSessionManager: @unchecked Sendable {
     let persistQueue = DispatchQueue(label: "pl.dmq.peering.host.agent.persist", qos: .utility)
 
     var onPushNeeded: (@Sendable (String, String, String, RelayPushAction?) -> Void)?
+    /// Set once before any phone connects.
+    var externalApprovals: (@Sendable (String, AgentApprovalDecision) -> Bool)?
     var onActivityChanged: (@Sendable (Bool) -> Void)?
 
     init(store: AgentSessionDiskStore = AgentSessionManager.defaultStore()) {
@@ -116,6 +118,8 @@ final class AgentSessionManager: @unchecked Sendable {
             ensureLive(session)?.setPermissionMode(mode)
 
         case .approval(let id, let approvalID, let decision):
+            // A hook in a terminal has no chat here to own it.
+            if externalApprovals?(approvalID, decision) == true { return }
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
             guard lock.withLock({ session.pendingApprovals.remove(approvalID) != nil }) else { return }
             append(.approvalResolved(approvalID: approvalID, decision: decision), to: session)

@@ -47,6 +47,12 @@ final class HostServer: @unchecked Sendable {
     private var _onRequestClipboard: (@Sendable () -> ClipboardPayload?)?
     private var _onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
 
+    /// Answers an approval that belongs to a Claude Code hook in a terminal, not to a chat started from the phone.
+    var externalApprovalResolver: (@Sendable (String, AgentApprovalDecision) -> Bool)? {
+        get { agentManager.externalApprovals }
+        set { agentManager.externalApprovals = newValue }
+    }
+
     /// Called when a terminal needs attention, or has finished a command worth mentioning.
     var onPushNeeded: (@Sendable (String, String, String) -> Void)? {
         get { callbackLock.withLock { _onPushNeeded } }

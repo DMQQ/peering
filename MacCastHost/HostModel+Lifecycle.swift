@@ -314,6 +314,14 @@ extension HostModel {
             }
             watcher.start()
             nativeTerminalWatcher = watcher
+
+            terminalHooks.attach(
+                tokens: { [weak server] in server?.allPushTokens() ?? [] },
+                push: { [weak registration] token, title, body, action in
+                    registration?.notifyDevice(token: token, title: title, body: body, action: action)
+                }
+            )
+            server.externalApprovalResolver = terminalHooks.resolver
         } catch {
             Analytics.failed(error, in: .network)
             let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
@@ -347,6 +355,7 @@ extension HostModel {
         relayRegistration = nil
         nativeTerminalWatcher?.stop()
         nativeTerminalWatcher = nil
+        terminalHooks.detach()
         coordinator?.stop()
         coordinator = nil
         if let observer = spaceObserver {

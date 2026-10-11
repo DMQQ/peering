@@ -237,6 +237,7 @@ final class HostModel {
         return message
     }
     var nativeTerminalWatcher: NativeTerminalWatcher?
+    let terminalHooks = TerminalHookController()
     var pins: PinStore?
     var identity: SelfSignedIdentity?
     var spaceObserver: NSObjectProtocol?

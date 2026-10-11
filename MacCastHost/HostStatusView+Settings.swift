@@ -32,6 +32,10 @@ extension HostStatusView {
 
                 Divider().padding(.leading, 52)
 
+                TerminalHooksRow(controller: model.terminalHooks)
+
+                Divider().padding(.leading, 52)
+
                 analyticsRow
 
                 Divider().padding(.leading, 52)
