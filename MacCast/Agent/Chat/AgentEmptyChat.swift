@@ -27,11 +27,6 @@ struct AgentEmptyChat: View {
 
     private var ended: Bool { session.state == .exited || session.state == .failed }
 
-    private var folder: String {
-        let name = (session.directory as NSString).lastPathComponent
-        return name.isEmpty ? session.directory : name
-    }
-
     var body: some View {
         GeometryReader { geometry in
             ScrollView {
@@ -54,7 +49,7 @@ struct AgentEmptyChat: View {
 
     private var content: some View {
         VStack(spacing: 0) {
-            Spacer(minLength: 24)
+            Spacer(minLength: 8)
             tile
                 .modifier(Rise(arrived: arrived, order: 0))
             Text(ended ? "This chat has ended" : "What are we working on?")
@@ -62,27 +57,18 @@ struct AgentEmptyChat: View {
                 .tracking(-0.9)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(ColorPalette.ink)
-                .padding(.top, 22)
+                .padding(.top, 8)
                 .modifier(Rise(arrived: arrived, order: 1))
-            HStack(spacing: 8) {
-                Text(verbatim: agent?.name ?? session.title)
-                    .font(.system(size: 13.5, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.75))
-                Circle().fill(.white.opacity(0.3)).frame(width: 3, height: 3)
-                folderChip
+            if ended {
+                Text("This chat has ended. Its conversation is above; start a new chat to keep going.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 14)
+                    .padding(.horizontal, 12)
+                    .modifier(Rise(arrived: arrived, order: 3))
             }
-            .padding(.top, 12)
-            .modifier(Rise(arrived: arrived, order: 2))
-            Text(ended
-                ? "This chat has ended. Its conversation is above; start a new chat to keep going."
-                : "Runs on your Mac, not here. It keeps working when you disconnect.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.top, 14)
-                .padding(.horizontal, 12)
-                .modifier(Rise(arrived: arrived, order: 3))
-            Spacer(minLength: 24)
+            Spacer(minLength: 20)
             if !ended, !compact, !guideSeen {
                 HubGuideCard.chat { withAnimation(Motion.settle) { guideSeen = true } }
                     .padding(.bottom, 10)
@@ -165,22 +151,8 @@ struct AgentEmptyChat: View {
                 }
                 .modifier(AgentIdleFloat())
         }
-        .frame(height: 130)
-    }
-
-    private var folderChip: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "folder")
-                .font(.system(size: 11, weight: .medium))
-            Text(verbatim: folder)
-                .font(.system(size: 12.5, weight: .medium, design: .monospaced))
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .foregroundStyle(.white.opacity(0.7))
-        .padding(.horizontal, 12)
-        .frame(height: 28)
-        .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
+        .scaleEffect(0.8)
+        .frame(height: 100)
     }
 
     func row(_ suggestion: (symbol: String, text: String, detail: String)) -> some View {

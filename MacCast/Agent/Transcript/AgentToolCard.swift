@@ -58,6 +58,8 @@ struct AgentToolCard: View {
             }
         }
         .padding(11)
+        // A block leaving on collapse is drawn on for a few frames after the card's frame has shrunk past it, which put it over the row that slid up into its place.
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.clear)
         }
