@@ -351,7 +351,7 @@ WIN-002 | todo | foundation | S : core traits. Owns `windows/crates/peering-core
 ## Windows: pure wire logic (peering-wire), parallel-safe, Deps WIN-001 plus the vector task
 
 WIN-010 | done | S : frame codec. Owns `peering-wire/src/framing.rs`. Deps SPEC-008. Done: split/coalesced/oversize/unknown kind vectors pass in `cargo test -p peering-wire`. Commit: Add the frame codec with the 16 MiB guard.
-WIN-011 | todo | S : Swift enum serde helpers. Owns `peering-wire/src/swift_enum.rs`. Deps SPEC-006. Done: (de)serialize `{"case":{...}}`, `_0`, empty payload, optional omit, base64, uppercase UUID, reference-date. Commit: Add serde helpers for Swift Codable enums.
+WIN-011 | done | S : Swift enum serde helpers. Owns `peering-wire/src/swift_enum.rs`. Deps SPEC-006. Done: (de)serialize `{"case":{...}}`, `_0`, empty payload, optional omit, base64, uppercase UUID, reference-date. Commit: Add serde helpers for Swift Codable enums.
 WIN-012 | todo | S : handshake models. Owns `peering-wire/src/handshake.rs`. Deps WIN-011. Done: vectors round trip. Commit: Add handshake and pairing message models.
 WIN-013 | todo | S : command models. Owns `peering-wire/src/command.rs`. Deps WIN-011. Done: every command case from vectors; unknown case returns a typed error not a panic. Commit: Add the remote command model.
 WIN-014 | todo | S : catalogue and source models. Owns `peering-wire/src/source.rs`. Deps WIN-011. Done: encode catalogue with displays only and `CGSize` array. Commit: Add capture source and catalogue models.
