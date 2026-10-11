@@ -229,6 +229,9 @@ struct RemoteScreen: View {
         }
         // A hidden panel reports nothing, so its last frame would go on blocking touches in a
         // region that no longer has anything in it.
+        .onChange(of: model.hostPointer) { _, reported in
+            remoteCursor = reported.point
+        }
         .onChange(of: model.phase, initial: true) { _, phase in
             guard phase == .ready else {
                 abandonPictureTransit()

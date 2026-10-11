@@ -15,6 +15,9 @@ public struct ClientHello: Codable, Sendable, Equatable {
 
     public var supportsFieldState: Bool?
 
+    /// Declared like ``supportsTextFocus``: an older client cannot decode the frame kind.
+    public var supportsPointerReport: Bool?
+
     /// Declared in both directions: the Mac streams events, so it is the Mac that must restrain itself when the phone is older. `nil` reads as no.
     public var supportsAgentChat: Bool?
 
@@ -43,6 +46,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         supportsClipboardImages: Bool? = nil,
         supportsTextFocus: Bool? = nil,
         supportsFieldState: Bool? = nil,
+        supportsPointerReport: Bool? = nil,
         supportsAgentChat: Bool? = nil,
         supportsAgentPermissionModes: Bool? = nil,
         supportsAgentUsage: Bool? = nil,
@@ -57,6 +61,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         self.supportsClipboardImages = supportsClipboardImages
         self.supportsTextFocus = supportsTextFocus
         self.supportsFieldState = supportsFieldState
+        self.supportsPointerReport = supportsPointerReport
         self.supportsAgentChat = supportsAgentChat
         self.supportsAgentPermissionModes = supportsAgentPermissionModes
         self.supportsAgentUsage = supportsAgentUsage

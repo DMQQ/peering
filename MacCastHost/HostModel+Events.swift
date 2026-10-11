@@ -44,6 +44,11 @@ extension HostModel {
                 onChange: { [weak server] focus in server?.broadcastTextFocus(focus) },
                 onField: { [weak server] state in server?.broadcastFieldState(state) }
             )
+            pointerWatcher.start(
+                transform: { input.transform },
+                lastInjected: { input.clickLocation },
+                onMove: { [weak server] point in server?.broadcastPointer(point) }
+            )
             record("\(clientName) connected · \(detail)")
             // Sent a source list now and immediately: the client is waiting to ask for its last source and the push interval would hold it up. This is also the first catalogue read, which needs Screen Recording; a refusal here is ignored and the video path reports it.
             coordinator?.refreshCatalog(immediate: true)
@@ -61,6 +66,7 @@ extension HostModel {
             if connectedClients.isEmpty {
                 stopScreenWatch()
                 textFocusWatcher.stop()
+                pointerWatcher.stop()
                 coordinator?.watchSourceThumbnails(false)
             }
             record("\(clientName) disconnected")

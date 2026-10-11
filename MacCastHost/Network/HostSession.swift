@@ -100,6 +100,7 @@ final class HostSession: @unchecked Sendable {
     var clientSupportsClipboardImages: Bool?
     var clientSupportsTextFocus: Bool?
     var clientSupportsFieldState: Bool?
+    var clientSupportsPointerReport: Bool?
     var clientSupportsAgentChat: Bool?
     var clientSupportsAgentPermissionModes: Bool?
     var clientSupportsAgentUsage: Bool?

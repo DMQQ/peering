@@ -32,6 +32,11 @@ extension HostSession {
         send(MessageKind.fieldState, state)
     }
 
+    func sendPointer(_ point: NormalizedPoint) {
+        guard isAuthorized, clientSupportsPointerReport == true else { return }
+        send(MessageKind.pointerReport, point)
+    }
+
     func send<T: Encodable>(_ kind: MessageKind, _ value: T) {
         guard let payload = try? MessageCodec.encode(value) else {
             fail(SessionError.malformedPayload(kind, SessionError.randomFailure))

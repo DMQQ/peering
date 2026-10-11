@@ -88,6 +88,7 @@ extension HostSession {
         clientSupportsClipboardImages = hello.supportsClipboardImages
         clientSupportsTextFocus = hello.supportsTextFocus
         clientSupportsFieldState = hello.supportsFieldState
+        clientSupportsPointerReport = hello.supportsPointerReport
         clientSupportsAgentChat = hello.supportsAgentChat
         clientSupportsAgentPermissionModes = hello.supportsAgentPermissionModes
         clientSupportsAgentUsage = hello.supportsAgentUsage

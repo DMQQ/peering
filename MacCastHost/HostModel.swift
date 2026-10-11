@@ -199,6 +199,7 @@ final class HostModel {
 
     var screenWatchTask: Task<Void, Never>?
     @ObservationIgnored let textFocusWatcher = TextFocusWatcher()
+    @ObservationIgnored let pointerWatcher = PointerWatcher()
 
     /// Held so a problem is not announced twice: a denied grant fails on every stream attempt.
     var announcedCaptureProblem: String?

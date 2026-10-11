@@ -60,6 +60,8 @@ extension ClientSession {
         case clipboard(ClipboardPayload)
         case textFocus(TextFocus)
         case fieldState(FieldState)
+        /// The Mac's pointer moved by a hand on the Mac, not by this client.
+        case pointer(NormalizedPoint)
         case audio(AudioEvent)
         case terminal(TerminalEvent)
         case agent(AgentEvent)

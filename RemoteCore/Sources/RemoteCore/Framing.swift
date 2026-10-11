@@ -71,6 +71,9 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
 
     /// The answer, in pieces. JSON-encoded ``PreviewProxyEvent``.
     case previewEvent = 0x21
+
+    /// Where the Mac's pointer is after something other than this client moved it. JSON-encoded ``NormalizedPoint``. Sent only to a client that declared ``ClientHello/supportsPointerReport``.
+    case pointerReport = 0x22
 }
 
 public enum FramingError: Error, LocalizedError, Equatable, Sendable {

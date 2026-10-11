@@ -233,6 +233,9 @@ final class SessionModel {
     var lastLocalEdit = Date.distantPast
     var pendingField: FieldState?
 
+    /// Where a hand on the Mac last left its pointer. A serial, because a second report at the same spot after the joystick has moved the drawn cursor away must still pull it back.
+    var hostPointer = HostPointer(point: NormalizedPoint(x: 0.5, y: 0.5), serial: 0)
+
     // MARK: - Purchase
 
     let storeManager = StoreManager()

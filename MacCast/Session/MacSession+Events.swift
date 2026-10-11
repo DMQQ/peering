@@ -265,6 +265,8 @@ extension MacSession {
             }
         case .textFocus(let focus):
             if isActive { model.textFocusChanged(focus) }
+        case .pointer(let point):
+            if isActive { model.hostPointer = HostPointer(point: point, serial: model.hostPointer.serial + 1) }
         case .fieldState(let state):
             if isActive { model.fieldStateChanged(state) }
         case .clipboard(let payload):

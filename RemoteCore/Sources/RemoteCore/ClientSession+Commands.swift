@@ -63,6 +63,11 @@ extension ClientSession {
                 emit(.fieldState(state))
             }
 
+        case .pointerReport:
+            if let point = try? MessageCodec.decode(NormalizedPoint.self, from: frame.payload) {
+                emit(.pointer(point))
+            }
+
         case .terminalEvent:
             if let event = try? MessageCodec.decode(TerminalEvent.self, from: frame.payload) {
                 emit(.terminal(event))
