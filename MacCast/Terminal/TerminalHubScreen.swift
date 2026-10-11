@@ -69,7 +69,7 @@ struct TerminalHubScreen: View {
         .onAppear { restoreTab() }
         .analyticsScreen(.terminals)
         .scrollBounceBehavior(.basedOnSize)
-        .navigationTitle(model.shownHostName ?? String(localized: "Your Mac"))
+        .navigationTitle("Mac")
         .safeAreaInset(edge: .top, spacing: 0) { tabSwitcher.background(ColorPalette.backdrop) }
         // An overlay and not a bottom inset: an inset resizes every page, including the hidden Files page, so each tab switch re-laid out its search row against the dock.
         .overlay(alignment: .bottom) {
