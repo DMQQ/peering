@@ -135,7 +135,7 @@ Port: `relay/src/signalling.rs:871`. Owns: that check and a test in `relay/tests
 Done: a 330 hex character token passes, a 2000 character one is refused with `invalid`; `cd relay && cargo test --locked` green.
 Commit: Allow longer device tokens so FCM tokens fit in notifyDevice.
 
-REL-002 | todo | parallel-safe | S : push sender trait and token kind detection
+REL-002 | done | parallel-safe | S : push sender trait and token kind detection
 Port: `relay/src/apns.rs`. Owns: new `relay/src/push.rs` (trait, `token_kind(hex) -> Apns|Fcm`). Deps: none.
 Done: unit tests: 32 byte hex is APNs, hex of `fcm:`+text is FCM, garbage is APNs; `cargo test --locked`.
 Commit: Add push token kind detection ahead of FCM support.
