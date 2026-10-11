@@ -27,19 +27,23 @@ mod tests;
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use ring::digest::{SHA256, digest};
 
 use crate::fcm::https::{self, HttpsReply};
 use crate::fcm::{AccessTokens, BoxFuture};
 use crate::fcm_auth::{AccessTokenCache, BoxError, HttpTokenExchange, ServiceAccount, SystemClock};
-use crate::playbilling::{PlayProduct, PlayRejection, PlayVerdict};
+use crate::playbilling::{PlayProduct, PlayReceiptCache, PlayRejection, PlayVerdict};
 use crate::protocol::hex_bytes;
+use tracing::warn;
 
 pub const ANDROID_PUBLISHER_SCOPE: &str = "https://www.googleapis.com/auth/androidpublisher";
 const API_ORIGIN: &str = "https://androidpublisher.googleapis.com/androidpublisher/v3";
 /// A 65 byte uncompressed P-256 point, as hex.
 const MAX_CLIENT_KEY_HEX: usize = 130;
+/// How long Google gets to answer before the purchase is treated as unverifiable.
+pub const PLAY_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PurchaseState {
@@ -136,6 +140,65 @@ impl PlayApi for GooglePlayApi {
             }
             parse::purchase(product_id, is_one_time(product_id), &reply.body)
         })
+    }
+}
+
+/// Decides a connect's plan from the Play purchase it presents.
+///
+/// Asks Google at most once per purchase per session, and fails closed: an error, a timeout, or a
+/// session that has spent its budget is `Unavailable`, which meters as free.
+pub struct PlayVerifier {
+    package: String,
+    api: Box<dyn PlayApi>,
+    timeout: Duration,
+}
+
+impl PlayVerifier {
+    pub fn new(package: String, api: impl PlayApi + 'static) -> Self {
+        Self::with_timeout(package, api, PLAY_TIMEOUT)
+    }
+
+    pub fn with_timeout(package: String, api: impl PlayApi + 'static, timeout: Duration) -> Self {
+        Self { package, api: Box::new(api), timeout }
+    }
+
+    pub fn from_service_account_file(package: String, path: &Path) -> Result<Self, BoxError> {
+        Ok(Self::new(package, GooglePlayApi::from_service_account_file(path)?))
+    }
+
+    /// The verdict on one purchase. `client_key` is the device key once its proof has verified.
+    pub async fn verdict(
+        &self,
+        cache: &mut PlayReceiptCache,
+        product_id: &str,
+        purchase_token: &str,
+        client_key: Option<&str>,
+        now: u64,
+    ) -> PlayVerdict {
+        if let Some(seen) = cache.seen(purchase_token, product_id, client_key) {
+            return seen;
+        }
+        if !cache.can_check() {
+            return PlayVerdict::Rejected(PlayRejection::Unavailable);
+        }
+        let verdict = self.ask(product_id, purchase_token, client_key, now).await;
+        cache.record(purchase_token, product_id, client_key, verdict);
+        verdict
+    }
+
+    async fn ask(&self, product_id: &str, purchase_token: &str, client_key: Option<&str>, now: u64) -> PlayVerdict {
+        let lookup = self.api.purchase_state(&self.package, product_id, purchase_token);
+        match tokio::time::timeout(self.timeout, lookup).await {
+            Ok(Ok(purchase)) => verdict(&purchase, product_id, client_key, now),
+            Ok(Err(error)) => {
+                warn!(error = %error, "Play purchase lookup failed");
+                PlayVerdict::Rejected(PlayRejection::Unavailable)
+            }
+            Err(_) => {
+                warn!("Play purchase lookup timed out");
+                PlayVerdict::Rejected(PlayRejection::Unavailable)
+            }
+        }
     }
 }
 

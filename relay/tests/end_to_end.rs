@@ -119,6 +119,7 @@ async fn start_with_timeouts(
             idle_timeout,
             apns: None,
             fcm: None,
+            play: None,
         },
         None,
     ));
@@ -261,6 +262,8 @@ async fn a_mac_and_a_phone_are_introduced_and_their_control_sockets_talk() {
             public_key: None,
             proof: None,
             proof_time: None,
+            play_purchase_token: None,
+            play_product_id: None,
         },
     )
     .await;
@@ -313,6 +316,8 @@ async fn video_datagrams_flow_between_the_two_ends() {
             public_key: None,
             proof: None,
             proof_time: None,
+            play_purchase_token: None,
+            play_product_id: None,
         },
     )
     .await;
@@ -379,6 +384,8 @@ async fn an_end_can_learn_where_its_peer_is() {
             public_key: None,
             proof: None,
             proof_time: None,
+            play_purchase_token: None,
+            play_product_id: None,
         },
     )
     .await;
@@ -478,6 +485,8 @@ async fn two_sessions_share_the_one_video_port_without_crossing() {
             public_key: None,
             proof: None,
             proof_time: None,
+            play_purchase_token: None,
+            play_product_id: None,
         },
     )
     .await;
@@ -494,6 +503,8 @@ async fn two_sessions_share_the_one_video_port_without_crossing() {
             public_key: None,
             proof: None,
             proof_time: None,
+            play_purchase_token: None,
+            play_product_id: None,
         },
     )
     .await;
@@ -563,6 +574,8 @@ async fn a_phone_asking_for_a_mac_that_is_not_running_is_told_so() {
             public_key: None,
             proof: None,
             proof_time: None,
+            play_purchase_token: None,
+            play_product_id: None,
         },
     )
     .await;
@@ -609,6 +622,8 @@ async fn a_mac_that_disconnects_stops_being_reachable() {
             public_key: None,
             proof: None,
             proof_time: None,
+            play_purchase_token: None,
+            play_product_id: None,
         },
     )
     .await;
@@ -651,6 +666,8 @@ async fn a_stolen_control_token_is_no_use_twice() {
             public_key: None,
             proof: None,
             proof_time: None,
+            play_purchase_token: None,
+            play_product_id: None,
         },
     )
     .await;
@@ -698,6 +715,8 @@ fn connect_request(plan: Option<&str>) -> ClientMessage {
         public_key: None,
         proof: None,
         proof_time: None,
+        play_purchase_token: None,
+        play_product_id: None,
     }
 }
 
@@ -1056,6 +1075,8 @@ async fn a_reinstall_spends_the_allowance_the_first_install_spent() {
             public_key: Some(first.0.clone()),
             proof: Some(first.1),
             proof_time: Some(first.2),
+            play_purchase_token: None,
+            play_product_id: None,
         },
     )
     .await;
@@ -1090,6 +1111,8 @@ async fn a_reinstall_spends_the_allowance_the_first_install_spent() {
             public_key: Some(second.0),
             proof: Some(second.1),
             proof_time: Some(second.2),
+            play_purchase_token: None,
+            play_product_id: None,
         },
     )
     .await;

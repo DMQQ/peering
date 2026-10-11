@@ -626,6 +626,7 @@ async fn relay(verifier: StoreKitVerifier) -> u16 {
             idle_timeout: Duration::from_secs(90),
             apns: None,
             fcm: None,
+            play: None,
         },
         None,
     ));
@@ -702,6 +703,8 @@ async fn ask(port: u16, plan: &str, jws: Option<String>) -> ServerMessage {
             public_key: None,
             proof: None,
             proof_time: None,
+            play_purchase_token: None,
+            play_product_id: None,
         },
     )
     .await;
@@ -775,6 +778,8 @@ async fn a_receipt_does_not_make_a_mac_appear() {
             public_key: None,
             proof: None,
             proof_time: None,
+            play_purchase_token: None,
+            play_product_id: None,
         },
     )
     .await;
@@ -812,6 +817,8 @@ async fn a_receipt_repeated_on_one_socket_is_answered_the_same_way() {
                 public_key: None,
                 proof: None,
                 proof_time: None,
+                play_purchase_token: None,
+                play_product_id: None,
             },
         )
         .await;

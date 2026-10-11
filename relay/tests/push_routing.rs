@@ -42,6 +42,7 @@ async fn start(fcm: Option<Arc<FcmClient>>) -> u16 {
         idle_timeout: Duration::from_secs(90),
         apns: None,
         fcm,
+        play: None,
     };
     tokio::spawn(signalling::serve(
         signal,

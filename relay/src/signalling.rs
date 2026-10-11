@@ -54,7 +54,9 @@ use crate::protocol::{hex, unhex, ClientMessage, ServerMessage};
 use crate::quota::{Plan, QuotaTracker};
 use crate::referrals::Standing;
 use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
-use crate::storekit::{ReceiptCache, StoreKitVerifier};
+use crate::play_api::PlayVerifier;
+use crate::playbilling::{self, PlayReceiptCache, PlayRejection};
+use crate::storekit::{Rejection, ReceiptCache, StoreKitVerifier, Trust};
 
 /// How the relay describes itself to the two ends.
 #[derive(Clone)]
@@ -93,6 +95,49 @@ pub struct Settings {
     pub apns: Option<Arc<ApnsClient>>,
     /// FCM client, when the relay has been given a service account. `None` drops Android pushes.
     pub fcm: Option<Arc<FcmClient>>,
+    /// Google Play purchase verification, when the relay has a service account and a package name.
+    /// `None` leaves Play purchases unread, and a client's plan is decided as it was before Play.
+    pub play: Option<Arc<PlayVerifier>>,
+}
+
+/// The plan a connect is metered by, how it was arrived at, and why a purchase was refused.
+struct Metering {
+    plan: Plan,
+    trust: Trust,
+    refused: Option<&'static str>,
+}
+
+/// A Play purchase decides the plan when Play is configured and the client presents one. Otherwise
+/// the Apple receipt decides, exactly as it did before Play existed.
+async fn meter(
+    settings: &Settings,
+    state: &mut ConnectionState,
+    claimed: Plan,
+    jws: Option<&str>,
+    play: Option<(&str, &str)>,
+    client_key: Option<&str>,
+) -> Metering {
+    match (settings.play.as_deref(), play) {
+        (Some(verifier), Some((token, product))) => {
+            let verdict = verifier
+                .verdict(&mut state.play_purchases, product, token, client_key, unix_now())
+                .await;
+            let resolved = playbilling::resolve(settings.receipts.trusts_claims(), claimed, Some(verdict));
+            Metering {
+                plan: resolved.plan,
+                trust: resolved.trust,
+                refused: resolved.rejected.map(PlayRejection::reason),
+            }
+        }
+        _ => {
+            let resolved = state.receipts.resolve(&settings.receipts, claimed, jws);
+            Metering {
+                plan: resolved.plan,
+                trust: resolved.trust,
+                refused: resolved.rejected.map(Rejection::reason),
+            }
+        }
+    }
 }
 
 /// An action needs all three parts, and a category only the app registered: anything else is
@@ -126,6 +171,8 @@ struct ConnectionState {
     /// The verdict on the receipts this client has sent, so a JWS is verified once per session
     /// rather than once per message. See `storekit::ReceiptCache`.
     receipts: ReceiptCache,
+    /// The Play verdicts this client has had, so Google is asked once per purchase per socket.
+    play_purchases: PlayReceiptCache,
     /// Invite requests this socket has made. Each costs a signature check, and an honest client
     /// makes one or two.
     referral_requests: usize,
@@ -608,6 +655,8 @@ async fn dispatch(
             public_key,
             proof,
             proof_time,
+            play_purchase_token,
+            play_product_id,
         } => {
             if host_id.len() > MAX_FIELD || client_id.len() > MAX_FIELD {
                 return Some(ServerMessage::error("invalid", "field too long"));
@@ -666,12 +715,19 @@ async fn dispatch(
             // receipt as proof without having verified it. The receipt is verified at most once per
             // connection, which is what `ReceiptCache` is for, and it is never logged.
             let claimed = Plan::from_wire(plan.as_deref());
-            let resolved = state.receipts.resolve(
-                &settings.receipts,
+            let play = match (play_purchase_token.as_deref(), play_product_id.as_deref()) {
+                (Some(token), Some(product)) => Some((token, product)),
+                _ => None,
+            };
+            let Metering { plan, trust, refused } = meter(
+                settings,
+                state,
                 claimed,
                 jws_representation.as_deref(),
-            );
-            let plan = resolved.plan;
+                play,
+                proved.as_deref(),
+            )
+            .await;
 
             // One line, and only when a receipt was sent and refused: it is the answer to "why is
             // this client metered as free", which is the question an operator asks when a paying
@@ -679,12 +735,12 @@ async fn dispatch(
             // them is worth knowing by sight before reading the rest: `not_a_real_purchase` is a
             // TestFlight build's sandbox receipt, which this relay refuses by name whatever the
             // switch says, because Apple gives those away for nothing.
-            if let Some(rejected) = resolved.rejected {
+            if let Some(reason) = refused {
                 info!(
                     %client_id,
                     plan = plan.as_str(),
-                    plan_trust = resolved.trust.as_str(),
-                    reason = rejected.reason(),
+                    plan_trust = trust.as_str(),
+                    reason,
                     "receipt refused"
                 );
             }
@@ -708,7 +764,7 @@ async fn dispatch(
                 info!(
                     %client_id,
                     plan = plan.as_str(),
-                    plan_trust = resolved.trust.as_str(),
+                    plan_trust = trust.as_str(),
                     "relay allowance exhausted"
                 );
                 return Some(ServerMessage::error(
@@ -792,7 +848,7 @@ async fn dispatch(
                 metered_by = if proved.is_some() { "key" } else { "id" },
                 video_port = settings.video_port,
                 plan = plan.as_str(),
-                plan_trust = resolved.trust.as_str(),
+                plan_trust = trust.as_str(),
                 "session allocated"
             );
 
@@ -1181,6 +1237,7 @@ mod tests {
             idle_timeout: Duration::from_secs(90),
             apns: None,
             fcm: None,
+            play: None,
         }
     }
 
@@ -1348,6 +1405,8 @@ mod tests {
                 public_key: None,
                 proof: None,
                 proof_time: None,
+                play_purchase_token: None,
+                play_product_id: None,
             },
             &tx,
             &registry,
@@ -1392,6 +1451,8 @@ mod tests {
                 public_key: None,
                 proof: None,
                 proof_time: None,
+                play_purchase_token: None,
+                play_product_id: None,
             },
             &tx,
             &registry,
@@ -1431,6 +1492,8 @@ mod tests {
                 public_key: None,
                 proof: None,
                 proof_time: None,
+                play_purchase_token: None,
+                play_product_id: None,
             },
             &tx,
             &registry,
@@ -1510,6 +1573,8 @@ mod tests {
                 public_key: None,
                 proof: None,
                 proof_time: None,
+                play_purchase_token: None,
+                play_product_id: None,
             },
             &tx,
             &registry,

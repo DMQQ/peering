@@ -177,6 +177,12 @@ pub struct Config {
     /// `PEERINGD_FCM_PROJECT_ID`: the Firebase project to send to. Unset means the project named in
     /// the service account file.
     pub fcm_project_id: Option<String>,
+    /// `PEERINGD_PLAY_PACKAGE`: the Android application ID the Play purchases belong to, for example
+    /// `pl.dmq.peering`. Play verification needs this and `PEERINGD_PLAY_SERVICE_ACCOUNT` together.
+    pub play_package: Option<String>,
+    /// `PEERINGD_PLAY_SERVICE_ACCOUNT`: path to the Google service account JSON the Play Developer API
+    /// is queried with. Unset means Play purchases are not verified.
+    pub play_service_account: Option<PathBuf>,
 }
 
 /// Sessions at once, unless `PEERINGD_MAX_SESSIONS` says otherwise. See the field for why 1000.
@@ -351,6 +357,8 @@ impl Config {
             apns_key: get("PEERINGD_APNS_KEY").map(PathBuf::from),
             fcm_service_account: get("PEERINGD_FCM_SERVICE_ACCOUNT").map(PathBuf::from),
             fcm_project_id: get("PEERINGD_FCM_PROJECT_ID"),
+            play_package: get("PEERINGD_PLAY_PACKAGE"),
+            play_service_account: get("PEERINGD_PLAY_SERVICE_ACCOUNT").map(PathBuf::from),
         })
     }
 }
@@ -684,5 +692,23 @@ mod tests {
         let config = configured(&[("PEERINGD_FCM_SERVICE_ACCOUNT", ""), ("PEERINGD_FCM_PROJECT_ID", "")]).unwrap();
         assert!(config.fcm_service_account.is_none());
         assert!(config.fcm_project_id.is_none());
+    }
+
+    #[test]
+    fn play_verification_is_off_unless_asked_for() {
+        let config = configured(&[]).unwrap();
+        assert!(config.play_package.is_none());
+        assert!(config.play_service_account.is_none());
+    }
+
+    #[test]
+    fn the_play_package_and_service_account_are_read_from_the_environment() {
+        let config = configured(&[
+            ("PEERINGD_PLAY_PACKAGE", "pl.dmq.peering"),
+            ("PEERINGD_PLAY_SERVICE_ACCOUNT", "/etc/peeringd/play.json"),
+        ])
+        .unwrap();
+        assert_eq!(config.play_package.as_deref(), Some("pl.dmq.peering"));
+        assert_eq!(config.play_service_account, Some(PathBuf::from("/etc/peeringd/play.json")));
     }
 }

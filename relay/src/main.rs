@@ -11,6 +11,7 @@ use tracing_subscriber::EnvFilter;
 
 use peeringd::apns::ApnsClient;
 use peeringd::fcm::FcmClient;
+use peeringd::play_api::PlayVerifier;
 use peeringd::config::{Config, TlsFiles};
 use peeringd::quota::QuotaTracker;
 use peeringd::referrals::Referrals;
@@ -245,6 +246,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    let play = match (&config.play_package, &config.play_service_account) {
+        (Some(package), Some(path)) => match PlayVerifier::from_service_account_file(package.clone(), path) {
+            Ok(verifier) => {
+                info!("Play purchase verification ready");
+                Some(Arc::new(verifier))
+            }
+            Err(e) => {
+                warn!(error = %e, "Play verifier failed to initialise; Play purchases will be metered as free");
+                None
+            }
+        },
+        _ => {
+            info!("Play purchase verification disabled: PEERINGD_PLAY_PACKAGE and PEERINGD_PLAY_SERVICE_ACCOUNT are not both set");
+            None
+        }
+    };
+
     let settings = Settings {
         host: config.public_host.clone(),
         // Falls back to the bound port, which is right whenever nothing is forwarded.
@@ -264,6 +282,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         idle_timeout: config.idle_timeout,
         apns,
         fcm,
+        play,
     };
 
     tokio::select! {

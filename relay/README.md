@@ -71,6 +71,8 @@ video, and serves signalling in plaintext. That is exactly right for pointing bo
 | `PEERINGD_REFERRAL_MAX_INVITES` | `5` | Redemptions of one code that earn its owner a grant. The redeemer is always granted; zero means owners never earn |
 | `PEERINGD_FCM_SERVICE_ACCOUNT` | unset | Path to the Google service account JSON that sends pushes to Android devices through FCM HTTP v1. Unset means FCM is disabled, and the startup log says so. The key file is a secret: keep it out of the repository |
 | `PEERINGD_FCM_PROJECT_ID` | the project named in the service account file | Firebase project the pushes are sent to. Optional |
+| `PEERINGD_PLAY_PACKAGE` | unset | Android application ID the Google Play purchases belong to, e.g. `pl.dmq.peering`. Needed with the service account below; alone it changes nothing |
+| `PEERINGD_PLAY_SERVICE_ACCOUNT` | unset | Path to the Google service account JSON the Play Developer API is queried with. Its account needs access to the app's purchase data in Play Console. Unset means a client's Play purchase is not verified and it is metered as its claim allows, as before |
 
 ### Invites
 

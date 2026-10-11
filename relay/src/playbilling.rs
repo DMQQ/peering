@@ -117,19 +117,24 @@ fn fallback(trust_claims: bool, claimed: Plan, rejected: Option<PlayRejection>) 
 
 /// One session's Play verdicts, so a client cannot make the relay ask Google once per message.
 ///
-/// Keyed on the purchase token together with the product it was presented for. A session may check
+/// Keyed on the purchase token, the product it was presented for, and the device key it was bound
+/// to, because the same purchase is a different answer for a different device. A session may check
 /// `MAX_PURCHASES_PER_SESSION` distinct purchases; after that `can_check` is false and the caller
 /// resolves the connect without asking, which lands on the claim or the free allowance.
 #[derive(Default)]
 pub struct PlayReceiptCache {
-    verdicts: HashMap<(String, String), PlayVerdict>,
+    verdicts: HashMap<(String, String, Option<String>), PlayVerdict>,
+}
+
+type Key = (String, String, Option<String>);
+
+fn key(purchase_token: &str, product_id: &str, client_key: Option<&str>) -> Key {
+    (purchase_token.to_owned(), product_id.to_owned(), client_key.map(str::to_owned))
 }
 
 impl PlayReceiptCache {
-    pub fn seen(&self, purchase_token: &str, product_id: &str) -> Option<PlayVerdict> {
-        self.verdicts
-            .get(&(purchase_token.to_owned(), product_id.to_owned()))
-            .copied()
+    pub fn seen(&self, purchase_token: &str, product_id: &str, client_key: Option<&str>) -> Option<PlayVerdict> {
+        self.verdicts.get(&key(purchase_token, product_id, client_key)).copied()
     }
 
     /// Whether this session has budget left to ask Google about another purchase.
@@ -137,10 +142,9 @@ impl PlayReceiptCache {
         self.verdicts.len() < MAX_PURCHASES_PER_SESSION
     }
 
-    pub fn record(&mut self, purchase_token: &str, product_id: &str, verdict: PlayVerdict) {
+    pub fn record(&mut self, purchase_token: &str, product_id: &str, client_key: Option<&str>, verdict: PlayVerdict) {
         if self.can_check() {
-            self.verdicts
-                .insert((purchase_token.to_owned(), product_id.to_owned()), verdict);
+            self.verdicts.insert(key(purchase_token, product_id, client_key), verdict);
         }
     }
 }
@@ -237,10 +241,10 @@ mod tests {
     #[test]
     fn the_same_purchase_for_the_same_product_is_remembered() {
         let mut cache = PlayReceiptCache::default();
-        assert!(cache.seen("tok", "pl.dmq.peering.pro.year").is_none());
-        cache.record("tok", "pl.dmq.peering.pro.year", PlayVerdict::Active(Plan::Pro));
+        assert!(cache.seen("tok", "pl.dmq.peering.pro.year", None).is_none());
+        cache.record("tok", "pl.dmq.peering.pro.year", None, PlayVerdict::Active(Plan::Pro));
         assert_eq!(
-            cache.seen("tok", "pl.dmq.peering.pro.year"),
+            cache.seen("tok", "pl.dmq.peering.pro.year", None),
             Some(PlayVerdict::Active(Plan::Pro))
         );
     }
@@ -248,8 +252,16 @@ mod tests {
     #[test]
     fn the_same_token_for_another_product_is_a_different_question() {
         let mut cache = PlayReceiptCache::default();
-        cache.record("tok", "pl.dmq.peering.pro.year", PlayVerdict::Active(Plan::Pro));
-        assert!(cache.seen("tok", "pl.dmq.peering.relay.hour").is_none());
+        cache.record("tok", "pl.dmq.peering.pro.year", None, PlayVerdict::Active(Plan::Pro));
+        assert!(cache.seen("tok", "pl.dmq.peering.relay.hour", None).is_none());
+    }
+
+    #[test]
+    fn the_same_token_bound_to_another_device_is_a_different_question() {
+        let mut cache = PlayReceiptCache::default();
+        cache.record("tok", "pl.dmq.peering.pro.year", Some("616263"), PlayVerdict::Active(Plan::Pro));
+        assert!(cache.seen("tok", "pl.dmq.peering.pro.year", Some("616264")).is_none());
+        assert!(cache.seen("tok", "pl.dmq.peering.pro.year", None).is_none());
     }
 
     #[test]
@@ -257,10 +269,10 @@ mod tests {
         let mut cache = PlayReceiptCache::default();
         for n in 0..MAX_PURCHASES_PER_SESSION {
             assert!(cache.can_check());
-            cache.record(&format!("tok-{n}"), "pl.dmq.peering.pro.year", PlayVerdict::Rejected(PlayRejection::Expired));
+            cache.record(&format!("tok-{n}"), "pl.dmq.peering.pro.year", None, PlayVerdict::Rejected(PlayRejection::Expired));
         }
         assert!(!cache.can_check());
-        cache.record("one-more", "pl.dmq.peering.pro.year", PlayVerdict::Active(Plan::Pro));
-        assert!(cache.seen("one-more", "pl.dmq.peering.pro.year").is_none());
+        cache.record("one-more", "pl.dmq.peering.pro.year", None, PlayVerdict::Active(Plan::Pro));
+        assert!(cache.seen("one-more", "pl.dmq.peering.pro.year", None).is_none());
     }
 }

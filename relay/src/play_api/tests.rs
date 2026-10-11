@@ -1,4 +1,6 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use super::*;
 use crate::fcm::FakeAccessTokens;
@@ -329,4 +331,77 @@ async fn a_refused_lookup_is_an_error() {
 async fn a_reply_that_is_not_a_purchase_is_an_error() {
     let (api, _) = api_answering(200, "<html>");
     assert!(api.purchase_state(PACKAGE, YEAR, "tok").await.is_err());
+}
+
+/// Answers with one purchase and counts how often Google was asked.
+struct CountingPlayApi {
+    calls: Arc<AtomicUsize>,
+    answer: PlayPurchase,
+}
+
+impl PlayApi for CountingPlayApi {
+    fn purchase_state<'a>(&'a self, _: &'a str, _: &'a str, _: &'a str) -> BoxFuture<'a, Result<PlayPurchase, BoxError>> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        let answer = self.answer.clone();
+        Box::pin(async move { Ok(answer) })
+    }
+}
+
+/// Never answers, so only the verifier's timeout can end the lookup.
+struct NeverAnswers;
+
+impl PlayApi for NeverAnswers {
+    fn purchase_state<'a>(&'a self, _: &'a str, _: &'a str, _: &'a str) -> BoxFuture<'a, Result<PlayPurchase, BoxError>> {
+        Box::pin(std::future::pending())
+    }
+}
+
+fn live_pro_year() -> PlayPurchase {
+    parse::purchase(YEAR, false, SUBSCRIPTION_SAMPLE).expect("the sample parses")
+}
+
+#[tokio::test]
+async fn a_live_purchase_is_verified_as_pro() {
+    let verifier = PlayVerifier::new(PACKAGE.into(), FakePlayApi::answering(live_pro_year()));
+    let mut cache = PlayReceiptCache::default();
+    let verdict = verifier.verdict(&mut cache, YEAR, "tok", None, EXPIRY - 1).await;
+    assert_eq!(verdict, PlayVerdict::Active(Plan::Pro));
+}
+
+#[tokio::test]
+async fn google_is_asked_once_per_purchase_for_a_session() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let api = CountingPlayApi { calls: Arc::clone(&calls), answer: live_pro_year() };
+    let verifier = PlayVerifier::new(PACKAGE.into(), api);
+    let mut cache = PlayReceiptCache::default();
+    verifier.verdict(&mut cache, YEAR, "tok", None, EXPIRY - 1).await;
+    verifier.verdict(&mut cache, YEAR, "tok", None, EXPIRY - 1).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn the_same_purchase_for_another_device_is_asked_again() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let api = CountingPlayApi { calls: Arc::clone(&calls), answer: live_pro_year() };
+    let verifier = PlayVerifier::new(PACKAGE.into(), api);
+    let mut cache = PlayReceiptCache::default();
+    verifier.verdict(&mut cache, YEAR, "tok", Some("616263"), EXPIRY - 1).await;
+    verifier.verdict(&mut cache, YEAR, "tok", Some("616264"), EXPIRY - 1).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn a_failed_lookup_is_unavailable_and_so_free() {
+    let verifier = PlayVerifier::new(PACKAGE.into(), FakePlayApi::failing("status 500"));
+    let mut cache = PlayReceiptCache::default();
+    let verdict = verifier.verdict(&mut cache, YEAR, "tok", None, EXPIRY - 1).await;
+    assert_eq!(verdict, PlayVerdict::Rejected(PlayRejection::Unavailable));
+}
+
+#[tokio::test]
+async fn a_lookup_that_never_answers_is_unavailable_at_the_timeout() {
+    let verifier = PlayVerifier::with_timeout(PACKAGE.into(), NeverAnswers, Duration::from_millis(10));
+    let mut cache = PlayReceiptCache::default();
+    let verdict = verifier.verdict(&mut cache, YEAR, "tok", None, EXPIRY - 1).await;
+    assert_eq!(verdict, PlayVerdict::Rejected(PlayRejection::Unavailable));
 }

@@ -105,6 +105,13 @@ pub enum ClientMessage {
         proof: Option<String>,
         #[serde(default)]
         proof_time: Option<u64>,
+        /// A Google Play purchase token the client presents, and the product it was bought as. Read
+        /// only by a relay with a Play verifier configured, and absent from every build that predates
+        /// Play. Without a verifier they change nothing.
+        #[serde(default, deserialize_with = "optional_text")]
+        play_purchase_token: Option<String>,
+        #[serde(default, deserialize_with = "optional_text")]
+        play_product_id: Option<String>,
     },
 
     /// A phone asking for its own invite code and what invites have earned it.
@@ -444,6 +451,8 @@ mod tests {
                 public_key: None,
                 proof: None,
                 proof_time: None,
+                play_purchase_token: None,
+                play_product_id: None,
             }
         );
     }
@@ -464,6 +473,8 @@ mod tests {
                 public_key: None,
                 proof: None,
                 proof_time: None,
+                play_purchase_token: None,
+                play_product_id: None,
             }
         );
     }
@@ -525,6 +536,8 @@ mod tests {
             public_key: None,
             proof: None,
             proof_time: None,
+            play_purchase_token: None,
+            play_product_id: None,
         };
         let json = serde_json::to_string(&message).expect("should encode");
         assert_eq!(
@@ -570,6 +583,8 @@ mod tests {
             public_key: None,
             proof: None,
             proof_time: None,
+            play_purchase_token: None,
+            play_product_id: None,
         };
         let json = serde_json::to_string(&message).expect("should encode");
         assert_eq!(
@@ -658,5 +673,30 @@ mod tests {
         assert_eq!(unhex(&"z".repeat(32)), None, "not hex");
         assert_eq!(unhex(&"a".repeat(33)), None, "too long");
         assert_eq!(unhex(&"aB".repeat(16)), Some([0xab; 16]), "either case");
+    }
+
+    #[test]
+    fn a_connect_without_play_fields_decodes_as_it_always_did() {
+        let message: ClientMessage = serde_json::from_str(
+            r#"{"type":"connectToHost","hostId":"mac","clientId":"phone","protocolVersion":20,"plan":"pro"}"#,
+        )
+        .expect("an older connect still parses");
+        let ClientMessage::ConnectToHost { play_purchase_token, play_product_id, .. } = message else {
+            panic!("expected a connect");
+        };
+        assert_eq!((play_purchase_token, play_product_id), (None, None));
+    }
+
+    #[test]
+    fn the_play_fields_are_read_and_a_non_text_value_is_absent() {
+        let message: ClientMessage = serde_json::from_str(
+            r#"{"type":"connectToHost","hostId":"mac","clientId":"phone","protocolVersion":20,"playPurchaseToken":"tok","playProductId":7}"#,
+        )
+        .expect("parses");
+        let ClientMessage::ConnectToHost { play_purchase_token, play_product_id, .. } = message else {
+            panic!("expected a connect");
+        };
+        assert_eq!(play_purchase_token.as_deref(), Some("tok"));
+        assert_eq!(play_product_id, None);
     }
 }
