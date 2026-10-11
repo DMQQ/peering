@@ -148,7 +148,7 @@ extension TerminalHubScreen {
     func page<Content: View>(_ which: HubTab, @ViewBuilder content: () -> Content) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                content()
+                if isBuilt(which) { content() }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
