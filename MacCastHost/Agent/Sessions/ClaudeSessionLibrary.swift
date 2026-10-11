@@ -1,6 +1,9 @@
 import Foundation
 import MacCastKit
+import os
 import RemoteCore
+
+private let libraryLog = Logger(subsystem: "pl.dmq.peering.host", category: "claude-sessions")
 
 /// The conversations Claude Code keeps under `~/.claude/projects`, started in a terminal or here.
 enum ClaudeSessionLibrary {
@@ -44,7 +47,7 @@ enum ClaudeSessionLibrary {
     static func conversation(cliSessionID: String) -> Conversation? {
         guard let file = files().first(where: { $0.id == cliSessionID }),
               let summary = summary(of: file.url),
-              let handle = try? FileHandle(forReadingFrom: file.url)
+              let handle = openForReading(file.url)
         else { return nil }
         defer { try? handle.close() }
         guard let size = try? handle.seekToEnd() else { return nil }
@@ -82,8 +85,17 @@ enum ClaudeSessionLibrary {
         }
     }
 
+    private static func openForReading(_ url: URL) -> FileHandle? {
+        do {
+            return try FileHandle(forReadingFrom: url)
+        } catch {
+            libraryLog.error("Could not read a Claude session file: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
     private static func summary(of url: URL) -> AgentClaudeSessionFile.Summary? {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        guard let handle = openForReading(url) else { return nil }
         defer { try? handle.close() }
         guard let size = try? handle.seekToEnd() else { return nil }
         try? handle.seek(toOffset: 0)

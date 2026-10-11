@@ -67,7 +67,10 @@ extension SettingsTab {
         }
     }
 
-    private var bonusMinutes: Int { Int((model.referral?.bonusSeconds ?? 0) > 0 ? model.referral!.bonusSeconds / 60 : 30) }
+    private var bonusMinutes: Int {
+        guard let seconds = model.referral?.bonusSeconds, seconds > 0 else { return 30 }
+        return Int(seconds / 60)
+    }
     private var bonusDays: Int { 7 }
 
     private var inviteFooter: String {

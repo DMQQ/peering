@@ -1,8 +1,11 @@
 import MacCastKit
+import os
 import UserNotifications
 import RemoteCore
 import SwiftUI
 import UIKit
+
+private let linkLog = Logger(subsystem: "pl.dmq.peering", category: "links")
 
 // Singleton so the AppDelegate and any view can agree on the current allowed orientations.
 final class OrientationLock {
@@ -116,7 +119,13 @@ struct MacCastApp: App {
                 // The widget cannot connect anything itself, since the session, identity and sockets live in this process, so it hands over with one instruction. Live Activity buttons use the same channel.
                 .onOpenURL { url in
                     if PairingPayload.isHostLink(url) {
-                        guard let hostID = try? PairingPayload.hostID(from: url.absoluteString) else { return }
+                        let hostID: String
+                        do {
+                            hostID = try PairingPayload.hostID(from: url.absoluteString)
+                        } catch {
+                            linkLog.error("Ignored a Mac link that does not parse: \(error.localizedDescription, privacy: .public)")
+                            return
+                        }
                         model.openHostLink(hostID: hostID)
                         return
                     }
