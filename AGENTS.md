@@ -235,6 +235,24 @@ Reference for the directory layout: `RemoteCore/Sources/RemoteCore/` holds `Fram
 
 ---
 
+### Analytics and Error Tracking
+
+Both apps send anonymous counts and handled errors to PostHog (`Analytics.swift` in `MacCast/App/` and
+`MacCastHost/`), off with one Settings switch. Events carry `$process_person_profile: false`, so a
+user is a device, not a person.
+
+- **Errors carry no message.** `Analytics.failed(_:in:context:)` sends the domain and code, plus
+  `error_type` and `error_case` from `ErrorDetail` (enum case name, never its payload, which can
+  hold a path or an address). Anything extra goes in `context:` as a closed set of values.
+- **`ErrorReportFilter` decides what is reported.** Network errors (offline, timeouts, dropped
+  sockets, also as the cause under a wrapper such as Sparkle's) and ScreenCaptureKit's
+  recoverable states (`-3801`, `-3821`) are dropped, and each other error is sent once per area per
+  launch. 361 events from one offline retry loop is what made this necessary.
+- **`connect_failed`** carries `reason` (a closed set, `ClientSession.FailureReason`), `after_ready`,
+  `path`, `reconnect_attempt` and `seconds_into_session`. Builds before 202610064 sent no reason.
+- **Event counts are mostly the developer's own devices** while there are few installs; read a rate
+  only once real users arrive.
+
 ## 5. Traps — read this section twice
 
 These are the ones that cost real time. Each was hit at least once.
