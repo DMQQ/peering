@@ -3,68 +3,98 @@ import os
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "upload", "metadata")
 
 N = {
-"en-US": """• New: chat with Claude Code, Codex and OpenCode right from your phone. Approve or deny tool requests, switch between Manual, Auto accept and Auto, attach photos and files, and type @ for files or / for commands.
-• A new Agents tab shows every agent running on your Mac with its live activity and plan, next to your terminals.
-• Approvals can now reach you as a banner inside the app, plus a new Agents widget and a chat Live Activity.
-• Check a chat's context, token use and remaining limits in one sheet.
+"en-US": """• Approve Claude Code from any terminal or editor: switch on the hooks and Allow and Deny buttons appear on your phone.
+• Continue a Claude Code conversation you started in a terminal, pause chats and return later, and save your own prompts.
+• A finished turn says what it changed and how long it took, with Continue and Reply right in the notification.
+• A guide for your first connection, and a warning when the connection is too poor to work over.
+• Share an invite code from Settings and you both get free relay time.
+• Every feature is now free. Only relay time away from home is limited.
+• Putting the app in the background no longer uses up relay time, and the joystick cursor stays in step with your Mac's pointer.
 • Smaller fixes and polish.""",
-"de-DE": """• Neu: Chatte direkt vom iPhone mit Claude Code, Codex und OpenCode. Genehmige oder lehne Werkzeuganfragen ab, wechsle zwischen Manuell, Automatisch annehmen und Automatisch, hänge Fotos und Dateien an und tippe @ für Dateien oder / für Befehle.
-• Ein neuer Tab „Agenten“ zeigt neben deinen Terminals jeden Agenten auf deinem Mac mit Live-Aktivität und Plan.
-• Freigaben erreichen dich jetzt auch als Banner in der App, dazu gibt es ein neues Agenten-Widget und eine Live Activity für den Chat.
-• Kontext, Token-Verbrauch und verbleibende Limits eines Chats siehst du in einer Übersicht.
+"de-DE": """• Genehmige Claude Code aus jedem Terminal oder Editor: Schalte die Hooks ein, und Erlauben- und Ablehnen-Tasten erscheinen auf deinem iPhone.
+• Setze eine Claude-Code-Unterhaltung fort, die du im Terminal begonnen hast, pausiere Chats und kehre später zurück, und speichere eigene Prompts.
+• Ein beendeter Durchlauf sagt, was er geändert hat und wie lange er gedauert hat, mit Weiter und Antworten direkt in der Mitteilung.
+• Eine Anleitung für die erste Verbindung und eine Warnung, wenn die Verbindung zum Arbeiten zu schlecht ist.
+• Teile einen Einladungscode aus den Einstellungen, und ihr beide bekommt kostenlose Relay-Zeit.
+• Alle Funktionen sind jetzt kostenlos. Begrenzt ist nur die Relay-Zeit außerhalb deines Netzwerks.
+• Läuft die App im Hintergrund, verbraucht sie keine Relay-Zeit mehr, und der Joystick-Cursor folgt dem Zeiger deines Macs.
 • Kleinere Korrekturen und Feinschliff.""",
-"es-ES": """• Novedad: chatea con Claude Code, Codex y OpenCode directamente desde el móvil. Aprueba o rechaza las solicitudes de herramientas, cambia entre Manual, Aceptar automáticamente y Automático, adjunta fotos y archivos, y escribe @ para archivos o / para comandos.
-• Una nueva pestaña Agentes muestra, junto a tus terminales, todos los agentes de tu Mac con su actividad en directo y su plan.
-• Las aprobaciones ahora también te llegan como banner dentro de la app, y hay un nuevo widget de Agentes y una Live Activity del chat.
-• Consulta el contexto, el uso de tokens y los límites restantes de un chat en una sola hoja.
+"es-ES": """• Aprueba Claude Code desde cualquier terminal o editor: activa los hooks y aparecerán los botones Permitir y Denegar en tu móvil.
+• Continúa una conversación de Claude Code que empezaste en un terminal, pausa chats y vuelve más tarde, y guarda tus propios prompts.
+• Un turno terminado indica qué cambió y cuánto tardó, con Continuar y Responder en la propia notificación.
+• Una guía para la primera conexión y un aviso cuando la conexión es demasiado mala para trabajar.
+• Comparte un código de invitación desde Ajustes y los dos obtenéis tiempo de relay gratis.
+• Todas las funciones son ahora gratuitas. Solo se limita el tiempo de relay fuera de casa.
+• Poner la app en segundo plano ya no gasta tiempo de relay, y el cursor del joystick sigue al puntero de tu Mac.
 • Correcciones menores y mejoras.""",
-"fr-FR": """• Nouveau : discute avec Claude Code, Codex et OpenCode directement depuis ton iPhone. Approuve ou refuse les demandes d'outils, passe de Manuel à Accepter automatiquement ou Automatique, joins des photos et des fichiers, et tape @ pour les fichiers ou / pour les commandes.
-• Un nouvel onglet Agents affiche, à côté de tes terminaux, chaque agent de ton Mac avec son activité en direct et son plan.
-• Les approbations peuvent aussi arriver sous forme de bannière dans l'app, avec un nouveau widget Agents et une Live Activity pour le chat.
-• Consulte le contexte, la consommation de jetons et les limites restantes d'une discussion dans une seule feuille.
+"fr-FR": """• Approuve Claude Code depuis n'importe quel terminal ou éditeur : active les hooks et des boutons Autoriser et Refuser apparaissent sur ton iPhone.
+• Reprends une conversation Claude Code commencée dans un terminal, mets des discussions en pause pour y revenir plus tard, et enregistre tes propres prompts.
+• Un tour terminé indique ce qu'il a modifié et le temps qu'il a pris, avec Continuer et Répondre directement dans la notification.
+• Un guide pour la première connexion, et un avertissement quand la connexion est trop mauvaise pour travailler.
+• Partage un code d'invitation depuis les Réglages et vous gagnez tous les deux du temps de relais gratuit.
+• Toutes les fonctions sont désormais gratuites. Seul le temps de relais hors de chez toi est limité.
+• Mettre l'app en arrière-plan ne consomme plus de temps de relais, et le curseur du joystick suit le pointeur de ton Mac.
 • Petites corrections et améliorations.""",
-"it": """• Novità: chatta con Claude Code, Codex e OpenCode direttamente dal telefono. Approva o rifiuta le richieste degli strumenti, passa tra Manuale, Accetta automaticamente e Automatico, allega foto e file, e scrivi @ per i file o / per i comandi.
-• Una nuova scheda Agenti mostra, accanto ai tuoi terminali, ogni agente sul tuo Mac con la sua attività in tempo reale e il suo piano.
-• Le approvazioni ora possono arrivare anche come banner dentro l'app, con un nuovo widget Agenti e una Live Activity per la chat.
-• Controlla contesto, consumo di token e limiti rimanenti di una chat in un'unica schermata.
+"it": """• Approva Claude Code da qualsiasi terminale o editor: attiva gli hook e sul telefono compaiono i pulsanti Consenti e Nega.
+• Riprendi una conversazione di Claude Code iniziata in un terminale, metti in pausa le chat e torna più tardi, e salva i tuoi prompt.
+• Un turno concluso dice cosa ha cambiato e quanto ci ha messo, con Continua e Rispondi direttamente nella notifica.
+• Una guida per la prima connessione e un avviso quando la connessione è troppo scadente per lavorare.
+• Condividi un codice invito dalle Impostazioni e ricevete entrambi tempo di relay gratis.
+• Ogni funzione ora è gratuita. È limitato solo il tempo di relay fuori casa.
+• Mettere l'app in background non consuma più tempo di relay, e il cursore del joystick segue il puntatore del tuo Mac.
 • Correzioni minori e rifiniture.""",
-"pt-BR": """• Novidade: converse com Claude Code, Codex e OpenCode direto do celular. Aprove ou negue pedidos de ferramentas, alterne entre Manual, Aceitar automaticamente e Automático, anexe fotos e arquivos, e digite @ para arquivos ou / para comandos.
-• Uma nova aba Agentes mostra, ao lado dos seus terminais, cada agente do seu Mac com a atividade ao vivo e o plano.
-• As aprovações agora também chegam como banner dentro do app, com um novo widget de Agentes e uma Live Activity do chat.
-• Veja o contexto, o uso de tokens e os limites restantes de uma conversa em uma única tela.
+"pt-BR": """• Aprove o Claude Code de qualquer terminal ou editor: ative os hooks e os botões Permitir e Negar aparecem no seu celular.
+• Continue uma conversa do Claude Code que você começou em um terminal, pause conversas para voltar depois e salve seus próprios prompts.
+• Uma resposta concluída diz o que mudou e quanto tempo levou, com Continuar e Responder direto na notificação.
+• Um guia para a primeira conexão e um aviso quando a conexão está ruim demais para trabalhar.
+• Compartilhe um código de convite em Ajustes e vocês dois ganham tempo de relay grátis.
+• Todos os recursos agora são gratuitos. Só o tempo de relay fora de casa é limitado.
+• Colocar o app em segundo plano não gasta mais tempo de relay, e o cursor do joystick acompanha o ponteiro do seu Mac.
 • Pequenas correções e melhorias.""",
-"ru": """• Новое: общайся с Claude Code, Codex и OpenCode прямо с телефона. Одобряй или отклоняй запросы инструментов, переключайся между режимами «Вручную», «Автопринятие» и «Авто», прикрепляй фото и файлы, вводи @ для файлов или / для команд.
-• Новая вкладка «Агенты» показывает рядом с терминалами всех агентов на твоём Mac с их текущей активностью и планом.
-• Запросы на одобрение теперь приходят и баннером внутри приложения, а ещё появились виджет «Агенты» и Live Activity для чата.
-• Контекст, расход токенов и оставшиеся лимиты чата собраны в одном окне.
+"ru": """• Одобряй Claude Code из любого терминала или редактора: включи хуки, и на телефоне появятся кнопки «Разрешить» и «Запретить».
+• Продолжай диалог с Claude Code, начатый в терминале, ставь чаты на паузу и возвращайся к ним позже, сохраняй собственные промпты.
+• Завершённый ход сообщает, что он изменил и сколько заняло, а «Продолжить» и «Ответить» доступны прямо в уведомлении.
+• Подсказки для первого подключения и предупреждение, если соединение слишком плохое для работы.
+• Поделись кодом приглашения в настройках, и вы оба получите бесплатное время ретранслятора.
+• Теперь все функции бесплатны. Ограничено только время ретранслятора вне дома.
+• Приложение в фоне больше не расходует время ретранслятора, а курсор джойстика следует за указателем твоего Mac.
 • Мелкие исправления и улучшения.""",
-"ja": """• 新機能：Claude Code、Codex、OpenCodeとiPhoneから直接チャットできます。ツールの許可・拒否、「手動」「自動承認」「自動」の切り替え、写真やファイルの添付、@でファイル、/でコマンドの入力に対応しています。
-• 新しい「エージェント」タブでは、ターミナルと並んで、Macで動作中のすべてのエージェントのリアルタイムの動きとプランを確認できます。
-• 承認の依頼をアプリ内のバナーでも受け取れるようになり、エージェント用ウィジェットとチャットのLive Activityも追加されました。
-• チャットのコンテキスト、トークン使用量、残りの上限を1つのシートで確認できます。
+"ja": """• Claude Codeの許可を、どのターミナルやエディタからでも。フックをオンにすると、iPhoneに「許可」と「拒否」のボタンが表示されます。
+• ターミナルで始めたClaude Codeの会話を続けたり、チャットを一時停止して後で再開したり、自分のプロンプトを保存したりできます。
+• 完了したターンでは、何を変更し、どれくらいかかったかを通知で確認でき、「続ける」と「返信」もそのまま使えます。
+• 初回接続のガイドを追加し、接続が悪すぎて作業できないときは警告を表示します。
+• 設定から招待コードを共有すると、2人ともリレー時間が無料で増えます。
+• すべての機能が無料になりました。制限があるのは、外出先でのリレー時間だけです。
+• アプリをバックグラウンドにしてもリレー時間を消費しなくなり、ジョイスティックのカーソルがMacのポインタと同じ位置に表示されます。
 • 細かな修正と改善。""",
-"ko": """• 새로운 기능: iPhone에서 Claude Code, Codex, OpenCode와 바로 대화하세요. 도구 요청을 승인하거나 거부하고, 수동, 자동 수락, 자동 모드를 전환하고, 사진과 파일을 첨부하고, @로 파일을, /로 명령어를 입력할 수 있습니다.
-• 새 에이전트 탭에서 터미널 옆에 Mac에서 실행 중인 모든 에이전트의 실시간 활동과 계획을 볼 수 있습니다.
-• 승인 요청을 앱 안의 배너로도 받을 수 있고, 에이전트 위젯과 채팅 Live Activity가 새로 추가되었습니다.
-• 채팅의 컨텍스트, 토큰 사용량, 남은 한도를 시트 하나에서 확인하세요.
+"ko": """• 어떤 터미널이나 편집기에서든 Claude Code를 승인하세요. 훅을 켜면 iPhone에 허용과 거부 버튼이 나타납니다.
+• 터미널에서 시작한 Claude Code 대화를 이어가고, 채팅을 일시 중지했다가 나중에 다시 열고, 나만의 프롬프트를 저장할 수 있습니다.
+• 끝난 턴은 무엇을 바꿨는지와 걸린 시간을 알려 주며, 알림에서 바로 계속과 답장을 누를 수 있습니다.
+• 첫 연결 가이드가 추가되었고, 연결이 너무 나빠 작업하기 어려우면 경고가 표시됩니다.
+• 설정에서 초대 코드를 공유하면 두 사람 모두 릴레이 시간을 무료로 받습니다.
+• 이제 모든 기능이 무료입니다. 집 밖에서 쓰는 릴레이 시간만 제한됩니다.
+• 앱이 백그라운드에 있어도 릴레이 시간이 소모되지 않고, 조이스틱 커서가 Mac의 포인터와 같은 위치를 유지합니다.
 • 소소한 수정과 개선.""",
-"zh-Hans": """• 新功能：在手机上直接与 Claude Code、Codex 和 OpenCode 对话。可批准或拒绝工具请求，在“手动”“自动接受”和“自动”之间切换，添加照片和文件，输入 @ 引用文件，输入 / 使用命令。
-• 全新的“智能体”标签页会在终端旁显示你的 Mac 上所有智能体的实时动态和计划。
-• 审批请求现在也会以应用内横幅的形式送达，并新增智能体小组件和聊天实时活动。
-• 在一个面板中查看聊天的上下文、令牌用量和剩余额度。
+"zh-Hans": """• 在任何终端或编辑器中批准 Claude Code：开启钩子后，手机上会出现“允许”和“拒绝”按钮。
+• 继续在终端里开始的 Claude Code 对话，暂停聊天稍后再回来，并保存你自己的提示词。
+• 完成的回合会告诉你改了什么、花了多久，通知里可直接点“继续”和“回复”。
+• 新增首次连接指南，连接差到无法工作时会给出提醒。
+• 在设置中分享邀请码，你们两人都能获得免费的中继时间。
+• 现在所有功能都免费，只有在外使用的中继时间有限制。
+• 应用在后台时不再消耗中继时间，摇杆光标也会与 Mac 的指针保持同步。
 • 一些细节修复和优化。""",
 }
 P = {
-"en-US": "Approve Claude Code, Codex and OpenCode from your phone, then take over your Mac's screen and terminal when you need to. Free on your own network. No account.",
-"de-DE": "Dein Mac in der Hosentasche, mit deinen Coding-Agenten. Chatte mit Claude Code, Codex und OpenCode, genehmige Anfragen und sieh den Bildschirm von überall. Ohne Konto.",
-"es-ES": "Tu Mac en el bolsillo, con tus agentes de código. Chatea con Claude Code, Codex y OpenCode, aprueba sus solicitudes y mira la pantalla desde cualquier lugar. Sin cuenta.",
-"fr-FR": "Ton Mac dans ta poche, avec tes agents de code. Discute avec Claude Code, Codex et OpenCode, approuve leurs demandes et vois l'écran de n'importe où. Sans compte.",
-"it": "Il tuo Mac in tasca, con i tuoi agenti di codice. Chatta con Claude Code, Codex e OpenCode, approva le loro richieste e guarda lo schermo da ovunque. Senza account.",
-"pt-BR": "Seu Mac no bolso, com seus agentes de código. Converse com Claude Code, Codex e OpenCode, aprove os pedidos deles e veja a tela de qualquer lugar. Sem conta.",
-"ru": "Твой Mac в кармане, вместе с агентами кода. Общайся с Claude Code, Codex и OpenCode, одобряй их запросы и смотри на экран отовсюду. Без аккаунта.",
-"ja": "Macをポケットに、コーディングエージェントと一緒に。Claude Code、Codex、OpenCodeとチャットし、リクエストを承認し、どこからでも画面を確認できます。アカウント不要。",
-"ko": "주머니 속 Mac과 코딩 에이전트. Claude Code, Codex, OpenCode와 대화하고, 요청을 승인하고, 어디서든 화면을 확인하세요. 계정이 필요 없습니다.",
-"zh-Hans": "把 Mac 和你的编程智能体装进口袋。与 Claude Code、Codex 和 OpenCode 对话，批准它们的请求，随处查看屏幕。无需账号。",
+"en-US": "Approve Claude Code, Codex and OpenCode from your phone, then take over your Mac's screen and terminal. Every feature is free, with no account.",
+"de-DE": "Genehmige Claude Code, Codex und OpenCode vom iPhone und übernimm dann Bildschirm und Terminal deines Macs. Alle Funktionen kostenlos, ohne Konto.",
+"es-ES": "Aprueba Claude Code, Codex y OpenCode desde el móvil y toma el control de la pantalla y el terminal de tu Mac. Todo es gratis y sin cuenta.",
+"fr-FR": "Approuve Claude Code, Codex et OpenCode depuis ton iPhone, puis prends la main sur l'écran et le terminal de ton Mac. Tout est gratuit, sans compte.",
+"it": "Approva Claude Code, Codex e OpenCode dal telefono, poi prendi il controllo dello schermo e del terminale del tuo Mac. Tutto gratis, senza account.",
+"pt-BR": "Aprove Claude Code, Codex e OpenCode pelo celular e assuma a tela e o terminal do seu Mac. Todos os recursos são gratuitos, sem conta.",
+"ru": "Одобряй запросы Claude Code, Codex и OpenCode с телефона и управляй экраном и терминалом своего Mac. Все функции бесплатны, без аккаунта.",
+"ja": "Claude Code、Codex、OpenCodeの許可をiPhoneから行い、Macの画面とターミナルもそのまま操作。すべての機能が無料で、アカウントは不要です。",
+"ko": "Claude Code, Codex, OpenCode 요청을 iPhone에서 승인하고 Mac의 화면과 터미널까지 바로 제어하세요. 모든 기능이 무료이며 계정이 필요 없습니다.",
+"zh-Hans": "在手机上批准 Claude Code、Codex 和 OpenCode 的请求，再接管 Mac 的屏幕和终端。所有功能免费，无需账号。",
 }
 for loc, promo in P.items():
     assert len(promo) <= 170 and "—" not in promo and "–" not in promo, (loc, len(promo))
