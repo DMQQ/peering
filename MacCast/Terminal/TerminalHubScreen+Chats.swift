@@ -19,23 +19,6 @@ extension TerminalHubScreen {
         }
     }
 
-    /// Chats stopped on purpose: out of the way of the ones in use, and one message from picking up where they left off.
-    @ViewBuilder
-    var pausedChatsSection: some View {
-        let paused = model.agentCards.filter(\.isPaused)
-        if !paused.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                Controls.sectionLabel("Paused chats", systemImage: "archivebox")
-                VStack(spacing: 10) {
-                    ForEach(Array(paused.enumerated()), id: \.element.id) { index, session in
-                        chatRow(session, index: index)
-                    }
-                }
-            }
-            .padding(.top, 20)
-        }
-    }
-
     private func chatBadge(_ card: AgentCardDigest) -> SessionBadge {
         if card.isPaused { return .paused }
         switch card.state {

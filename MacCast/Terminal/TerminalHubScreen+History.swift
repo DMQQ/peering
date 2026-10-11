@@ -15,7 +15,8 @@ extension TerminalHubScreen {
         let onMac = (model.hostSupportsAgentSessionImport ? model.resumableSessions ?? [] : [])
             .filter { !$0.mayBeOpenElsewhere }
             .map { (date: $0.modifiedAt, entry: macEntry($0)) }
-        return (launched + onMac)
+        let paused = model.agentCards.filter(\.isPaused).map { (date: $0.createdAt, entry: pausedEntry($0)) }
+        return (launched + onMac + paused)
             .sorted { $0.date > $1.date }
             .prefix(SessionModel.terminalHistoryLimit)
             .map(\.entry)
@@ -78,6 +79,22 @@ extension TerminalHubScreen {
             ) : nil
         ) {
             model.resumeAgentSession(session)
+        }
+    }
+
+    private func pausedEntry(_ card: AgentCardDigest) -> HistoryCard.Entry {
+        let folder = (card.directory as NSString).lastPathComponent
+        return HistoryCard.Entry(
+            id: card.id.uuidString,
+            symbol: TerminalAgent.all.first { $0.id == card.agentID }?.symbol ?? "sparkles",
+            title: card.title,
+            detail: folder,
+            date: card.createdAt,
+            isLive: false,
+            isEnabled: true
+        ) {
+            model.selectedAgentSessionID = card.id
+            path.append(.chat(card.id))
         }
     }
 

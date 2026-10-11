@@ -23,7 +23,8 @@ struct WhatsNewSheet: View {
                 WelcomePrimaryButton(title: String(localized: "Got it"), action: onDismiss)
             }
             .padding(.horizontal, 18)
-            .padding(.vertical, 28)
+            .padding(.top, 48)
+            .padding(.bottom, 28)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .preferredColorScheme(.dark)

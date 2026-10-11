@@ -48,7 +48,6 @@ struct TerminalHubScreen: View {
                 AgentToReviewCard()
                 chatsSection
                 activeOnMacSection
-                pausedChatsSection
                 agentsNotice
                 historySection
             }
