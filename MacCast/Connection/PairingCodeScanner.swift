@@ -44,11 +44,12 @@ final class ScannerViewController: UIViewController {
     weak var metadataDelegate: AVCaptureMetadataOutputObjectsDelegate?
     private let session = AVCaptureSession()
     private var previewLayer: AVCaptureVideoPreviewLayer?
+    private var isConfigured = false
+    private var showsMessage = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
-        configureCamera()
     }
 
     override func viewDidLayoutSubviews() {
@@ -56,10 +57,18 @@ final class ScannerViewController: UIViewController {
         previewLayer?.frame = view.bounds
     }
 
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        if !session.isRunning {
-            DispatchQueue.global(qos: .userInitiated).async { [session] in session.startRunning() }
+    /// Everything waits for the sheet to be on screen with a size, and for the camera to be allowed: configured while the sheet was still sliding up, or before the first permission answer, the preview came up black and stayed that way until the sheet was reopened.
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            startCamera()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async { granted ? self?.startCamera() : self?.showUnavailableMessage() }
+            }
+        default:
+            showUnavailableMessage()
         }
     }
 
@@ -68,6 +77,13 @@ final class ScannerViewController: UIViewController {
         if session.isRunning {
             DispatchQueue.global(qos: .utility).async { [session] in session.stopRunning() }
         }
+    }
+
+    private func startCamera() {
+        if !isConfigured { configureCamera() }
+        guard isConfigured, !session.isRunning else { return }
+        previewLayer?.frame = view.bounds
+        DispatchQueue.global(qos: .userInitiated).async { [session] in session.startRunning() }
     }
 
     private func configureCamera() {
@@ -91,8 +107,10 @@ final class ScannerViewController: UIViewController {
 
         let preview = AVCaptureVideoPreviewLayer(session: session)
         preview.videoGravity = .resizeAspectFill
+        preview.frame = view.bounds
         view.layer.insertSublayer(preview, at: 0)
         previewLayer = preview
+        isConfigured = true
     }
 
     /// Two reasons, and the difference matters to whoever is holding the phone. A device or a
@@ -101,6 +119,8 @@ final class ScannerViewController: UIViewController {
     /// problem with their phone. The typed code is the way past either, so it is named here
     /// rather than left to be discovered.
     private func showUnavailableMessage() {
+        guard !showsMessage else { return }
+        showsMessage = true
         let refused = AVCaptureDevice.authorizationStatus(for: .video) == .denied
         let label = UILabel()
         label.text = refused

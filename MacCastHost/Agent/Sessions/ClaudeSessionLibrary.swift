@@ -20,7 +20,7 @@ enum ClaudeSessionLibrary {
             guard found.count < limit, now.timeIntervalSince(file.modified) < maximumAge else { break }
             guard !known.contains(file.id),
                   let summary = summary(of: file.url),
-                  isFolder(summary.directory)
+                  !FolderAccessWatch.isMissing(summary.directory)
             else { continue }
             found.append(AgentResumableSession(
                 agentID: ClaudeCodeAdapter.command,
@@ -37,6 +37,7 @@ enum ClaudeSessionLibrary {
     struct Conversation {
         let summary: AgentClaudeSessionFile.Summary
         let events: [AgentStreamEvent.Payload]
+        let usage: AgentUsage?
         let startsMidConversation: Bool
     }
 
@@ -50,9 +51,11 @@ enum ClaudeSessionLibrary {
         let start = size > UInt64(conversationBytes) ? size - UInt64(conversationBytes) : 0
         try? handle.seek(toOffset: start)
         guard let data = try? handle.readToEnd() else { return nil }
+        let text = String(decoding: data, as: UTF8.self)
         return Conversation(
             summary: summary,
-            events: AgentClaudeSessionFile.events(from: String(decoding: data, as: UTF8.self)),
+            events: AgentClaudeSessionFile.events(from: text),
+            usage: AgentClaudeSessionFile.usage(from: text),
             startsMidConversation: start > 0
         )
     }
@@ -93,10 +96,5 @@ enum ClaudeSessionLibrary {
         return AgentClaudeSessionFile.summary(
             head: String(decoding: head, as: UTF8.self), tail: String(decoding: tail, as: UTF8.self)
         )
-    }
-
-    private static func isFolder(_ path: String) -> Bool {
-        var isDirectory: ObjCBool = false
-        return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
     }
 }

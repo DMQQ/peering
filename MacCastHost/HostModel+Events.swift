@@ -55,6 +55,8 @@ extension HostModel {
         case .clientDisconnected(let clientID, let clientName):
             connectedClients.removeAll { $0.id == clientID }
             endSession(id: clientID)
+            // A phone that quits or is relaunched mid-pairing leaves a question nobody is asking: its buttons would answer a session that no longer exists.
+            if pairing?.clientName == clientName { pairing = nil }
             // The last one out stops the watch. Anybody still attached keeps being told.
             if connectedClients.isEmpty {
                 stopScreenWatch()
@@ -66,7 +68,8 @@ extension HostModel {
             if connectedClients.isEmpty {
                 input.releaseAll()
                 releaseSleepAssertion()
-                setPrivacyMode(false)
+                setPrivacyMode(false, counted: false)
+                lastCountedCaptureSource = nil
                 // The last client has gone: the schedule gets its say first, then the keep-awake prompt.
                 Task { @MainActor in
                     await applyKeepAwakeSchedule()
@@ -154,8 +157,8 @@ extension HostModel {
     }
 
     /// A brightness write where it holds, otherwise a cover window the window server keeps out of capture.
-    func setPrivacyMode(_ enabled: Bool) {
-        // Counted where the mode really changes: the host also turns it off whenever a session ends, and that is not a choice.
+    /// `counted` is false where the host turns it off itself, because a session ended: that is not a choice.
+    func setPrivacyMode(_ enabled: Bool, counted: Bool = true) {
         if enabled {
             guard !privacyModeEnabled else { return }
             Analytics.track(.privacyModeChanged)
@@ -170,7 +173,7 @@ extension HostModel {
                 displayPrivacy.restore()
                 return
             }
-            Analytics.track(.privacyModeChanged)
+            if counted { Analytics.track(.privacyModeChanged) }
             privacyModeEnabled = false
             observeDisplayChanges(false)
             displayPrivacy.restore()

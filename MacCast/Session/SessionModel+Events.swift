@@ -20,10 +20,15 @@ extension SessionModel {
 
     func apply(_ event: HostBrowser.Event) {
         switch event {
+        case .denied:
+            localNetworkDenied = true
+            browseStatus = String(localized: "Peering cannot look for Macs because Local Network access is off. Turn it on in Settings.")
         case .started:
+            localNetworkDenied = false
             browseFailed = false
             browseStatus = String(localized: "Looking for Macs on this network…")
         case .updated(let hosts):
+            localNetworkDenied = false
             browseFailed = false
             let reappeared = hosts.filter { host in !self.hosts.contains { $0.id == host.id } }
             self.hosts = hosts

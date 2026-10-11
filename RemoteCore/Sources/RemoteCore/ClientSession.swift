@@ -313,7 +313,8 @@ public final class ClientSession: @unchecked Sendable {
             supportsAgentChat: true,
             supportsAgentPermissionModes: true,
             supportsAgentUsage: true,
-            resumeSource: knowsHost ? resumeSource : nil
+            resumeSource: knowsHost ? resumeSource : nil,
+            lostPairing: hostID != nil && !knowsHost ? true : nil
         ))
 
         lock.withLock {

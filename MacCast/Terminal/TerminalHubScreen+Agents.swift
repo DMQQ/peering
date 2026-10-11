@@ -166,7 +166,7 @@ extension TerminalHubScreen {
     var tabSwitcher: some View {
         HubTabs(
             selection: $tab,
-            terminalCount: model.terminalCards.count,
+            terminalCount: shellCards.filter(\.isRunning).count,
             agentCount: model.agentCards.filter(\.isLive).count,
             agentsBusy: model.agentCards.contains { $0.state == .working },
             offersFiles: model.hostSupportsFileBrowser
@@ -210,18 +210,12 @@ extension TerminalHubScreen {
             terminal: { if let agent = selectedAgent { start(agent) } },
             offersFiles: model.hostSupportsFileBrowser,
             files: { tab = .files },
-            canOpenAnotherShell: model.canOpenAnotherShell,
             newTerminal: { path.append(.terminalFolder(nil)) }
         )
     }
 
     func start(_ agent: TerminalAgent, restarting entry: AgentLaunch? = nil) {
-        if !model.canOpenAnotherShell, let target = model.runningShellTargetID {
-            model.launchAgent(agent, restarting: entry)
-            path.append(.terminal(target))
-        } else {
-            model.launchAgent(agent, restarting: entry)
-        }
+        model.launchAgent(agent, restarting: entry)
         history = AgentHistory.load()
     }
 

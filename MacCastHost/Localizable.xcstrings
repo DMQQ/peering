@@ -1,9 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "" : {
-
-    },
+    "" : {},
     " The lid-close switch below needs its administrator rule before this can release it." : {
       "localizations" : {
         "de" : {
@@ -410,12 +408,8 @@
         }
       }
     },
-    "%lld. %@" : {
-
-    },
-    "≈ %@ CPU · %@" : {
-
-    },
+    "%lld. %@" : {},
+    "≈ %@ CPU · %@" : {},
     "3/4 captures at 75% width and height (~56% of pixels). Half is a quarter of the pixels. Applies when the next stream starts, which is a change of source or the next connection." : {
       "localizations" : {
         "de" : {
@@ -474,9 +468,7 @@
         }
       }
     },
-    "30 fps" : {
-
-    },
+    "30 fps" : {},
     "30 fps saves bandwidth and battery. 60 fps is the standard. 120 fps only gains anything on a ProMotion display and doubles what must be sent. Applies when the next stream starts." : {
       "localizations" : {
         "de" : {
@@ -535,12 +527,8 @@
         }
       }
     },
-    "60 fps" : {
-
-    },
-    "120 fps" : {
-
-    },
+    "60 fps" : {},
+    "120 fps" : {},
     "A device is connected" : {
       "localizations" : {
         "de" : {
@@ -3093,9 +3081,7 @@
         }
       }
     },
-    "Counts of which screens and features are used, and crash reports. Never your screen, files, commands or names, and nothing that identifies you or this Mac." : {
-
-    },
+    "Counts of which screens and features are used, and crash reports. Never your screen, files, commands or names, and nothing that identifies you or this Mac." : {},
     "Deletes /etc/sudoers.d/peering-sleep and lets this Mac sleep normally again, in one administrator prompt." : {
       "localizations" : {
         "de" : {
@@ -5416,9 +5402,7 @@
         }
       }
     },
-    "LAN" : {
-
-    },
+    "LAN" : {},
     "Leave it alone" : {
       "localizations" : {
         "de" : {
@@ -8146,9 +8130,7 @@
         }
       }
     },
-    "P2P" : {
-
-    },
+    "P2P" : {},
     "Pair a new iPhone" : {
       "localizations" : {
         "de" : {
@@ -8439,9 +8421,7 @@
         }
       }
     },
-    "Peering" : {
-
-    },
+    "Peering" : {},
     "Peering has to be running to be reached. Open it at login if this Mac should be reachable after it restarts." : {
       "localizations" : {
         "de" : {
@@ -9254,9 +9234,7 @@
         }
       }
     },
-    "Port %u · protocol v%u" : {
-
-    },
+    "Port %u · protocol v%u" : {},
     "Press Start first: a Mac that is not hosting cannot be reached by this code." : {
       "localizations" : {
         "de" : {
@@ -9954,9 +9932,7 @@
         }
       }
     },
-    "RELAY" : {
-
-    },
+    "RELAY" : {},
     "remove it" : {
       "localizations" : {
         "de" : {
@@ -11293,9 +11269,7 @@
         }
       }
     },
-    "Share anonymous usage statistics" : {
-
-    },
+    "Share anonymous usage statistics" : {},
     "Show the live preview" : {
       "localizations" : {
         "de" : {
@@ -14425,6 +14399,238 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的 Mac，就在这里。"
+          }
+        }
+      }
+    },
+    "Pair %@?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ koppeln?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Emparejar %@?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jumeler %@ ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abbinare %@?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ をペアリングしますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@와(과) 페어링할까요?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parear %@?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выполнить сопряжение с %@?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "与 %@ 配对？"
+          }
+        }
+      }
+    },
+    "It entered the code shown on this Mac. Only approve if that was you." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Gerät hat den auf diesem Mac angezeigten Code eingegeben. Bestätige nur, wenn du das warst."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ha introducido el código que muestra este Mac. Aprueba solo si has sido tú."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il a saisi le code affiché sur ce Mac. N'approuvez que si c'était vous."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ha inserito il codice mostrato su questo Mac. Approva solo se sei stato tu."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacに表示されたコードが入力されました。あなたが入力した場合のみ承認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac에 표시된 코드를 입력했습니다. 본인이 입력한 경우에만 승인하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ele digitou o código mostrado neste Mac. Aprove apenas se foi você."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Введён код, показанный на этом Mac. Подтверждайте, только если это были вы."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "它输入了此 Mac 上显示的代码。仅在是你本人操作时才批准。"
+          }
+        }
+      }
+    },
+    "Decline" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ablehnen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechazar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refuser"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rifiuta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拒否"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "거부"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recusar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отклонить"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拒绝"
+          }
+        }
+      }
+    },
+    "Approve" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bestätigen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprobar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approuver"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Approva"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "承認"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "승인"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aprovar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подтвердить"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "批准"
           }
         }
       }

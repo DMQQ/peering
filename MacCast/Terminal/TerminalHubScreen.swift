@@ -46,7 +46,7 @@ struct TerminalHubScreen: View {
                 guide(.agents)
                 AgentToReviewCard()
                 chatsSection
-                resumeEntry
+                activeOnMacSection
                 pausedChatsSection
                 agentsNotice
                 historySection
@@ -54,7 +54,7 @@ struct TerminalHubScreen: View {
             page(.terminals) {
                 pageHeading(
                     "Terminals",
-                    detail: model.hostName.map { String(localized: "Shells running on \($0)") }
+                    detail: model.shownHostName.map { String(localized: "Shells running on \($0)") }
                         ?? String(localized: "Shells running on your Mac"),
                     guideSeen: $terminalsGuideSeen
                 )
@@ -67,8 +67,9 @@ struct TerminalHubScreen: View {
         .animation(Self.tabFade, value: tab)
         .onChange(of: tab) { _, tab in tabChanged(to: tab) }
         .onAppear { restoreTab() }
+        .analyticsScreen(.terminals)
         .scrollBounceBehavior(.basedOnSize)
-        .navigationTitle(model.hostName ?? String(localized: "Your Mac"))
+        .navigationTitle(model.shownHostName ?? String(localized: "Your Mac"))
         .safeAreaInset(edge: .top, spacing: 0) { tabSwitcher.background(ColorPalette.backdrop) }
         // An overlay and not a bottom inset: an inset resizes every page, including the hidden Files page, so each tab switch re-laid out its search row against the dock.
         .overlay(alignment: .bottom) {
@@ -101,8 +102,11 @@ struct TerminalHubScreen: View {
         }
         .onAppear {
             model.refreshAgents()
+            model.refreshResumableSessions()
             model.ensureAgentPreviews()
         }
+        // The section draws nothing until the list arrives, so it cannot ask for it itself: an onAppear on an empty view never fires.
+        .onChange(of: model.hostSupportsAgentSessionImport) { _, _ in model.refreshResumableSessions() }
         .onChange(of: model.agentCards.map(\.id)) { _, _ in model.ensureAgentPreviews() }
     }
 

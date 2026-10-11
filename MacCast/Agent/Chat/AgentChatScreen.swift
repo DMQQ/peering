@@ -53,6 +53,7 @@ struct AgentChatScreen: View {
             }
         }
         .background(ColorPalette.backdrop)
+        .analyticsScreen(.agentChat)
         .navigationTitle(session?.title ?? String(localized: "Chat"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
@@ -270,6 +271,11 @@ struct AgentChatScreen: View {
                         .padding(.bottom, 2)
                         .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
                 } else {
+                    let followUps = (drafts[session.id] ?? "").isEmpty ? AgentFollowUps.suggestions(for: session.transcript) : []
+                    if !followUps.isEmpty {
+                        AgentFollowUpBar(suggestions: followUps) { follow(up: $0, in: session) }
+                            .transition(.blurReplace)
+                    }
                     optionsBar(session)
                         .transition(.blurReplace)
                 }

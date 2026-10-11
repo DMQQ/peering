@@ -125,6 +125,7 @@ struct RemoteScreen: View {
     var body: some View {
         NavigationStack(path: $route) {
             screen
+                .analyticsScreen(.session)
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: RemoteRoute.self) { route in
                     switch route {
@@ -179,7 +180,7 @@ struct RemoteScreen: View {
                 sessionChrome(isLandscape: isLandscape, available: proxy.size)
 
                 if case .confirming(let code) = model.phase {
-                    PairingPrompt(code: code, hostName: model.hostName ?? String(localized: "this Mac"))
+                    PairingPrompt(code: code, hostName: model.shownHostName ?? String(localized: "this Mac"))
                 }
 
                 // **`isBeingPutBack`, not `isResumingAfterDrop`.** The narrower flag needs
@@ -195,7 +196,7 @@ struct RemoteScreen: View {
                         title: model.phase == .connecting
                             ? String(localized: "Connecting…")
                             : String(localized: "Securing the connection…"),
-                        detail: model.hostName
+                        detail: model.shownHostName
                     )
                 }
 
@@ -355,6 +356,8 @@ struct RemoteScreen: View {
                     .accessibilityLabel("Tab")
             }
             Spacer(minLength: 8)
+            // Landscape leaves about 90pt between the system keyboard and the top of the screen, which a third row does not fit in.
+            if deviceIsLandscape { arrowStrip(withReturn: false) }
             compactKeyButton(icon: "return", keyCode: 36, large: true) { model.pressReturn() }
                 .accessibilityLabel("Enter")
         }
@@ -364,14 +367,14 @@ struct RemoteScreen: View {
         VStack(spacing: 8) {
             keyboardInputRow
             keyboardKeyRow
-            arrowStrip(withReturn: false)
+            if !deviceIsLandscape { arrowStrip(withReturn: false) }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, deviceIsLandscape ? 8 : 12)
         .matchedGeometryEffect(id: "surface", in: floatingSurface)
         .glassSurface(in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous))
         .padding(.horizontal, ChromeMetrics.edgeInset)
-        .padding(.top, ChromeMetrics.edgeInset)
+        .padding(.top, deviceIsLandscape ? 4 : ChromeMetrics.edgeInset)
     }
 
     private var keyboardInputRow: some View {

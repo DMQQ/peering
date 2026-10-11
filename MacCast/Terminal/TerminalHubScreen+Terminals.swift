@@ -4,7 +4,7 @@ import SwiftUI
 
 extension TerminalHubScreen {
     /// A shell an agent was launched in belongs to the Agents page, where it shows in History while it runs: listing it here too made one agent appear in both tabs.
-    private var shellCards: [TerminalCardDigest] {
+    var shellCards: [TerminalCardDigest] {
         let agentShells = Set(AgentHistory.load().compactMap(\.terminalID))
         return model.terminalCards.filter { !agentShells.contains($0.id) }
     }
@@ -13,7 +13,7 @@ extension TerminalHubScreen {
         let shells = shellCards
         return VStack(alignment: .leading, spacing: 12) {
             if shells.isEmpty {
-                TerminalEmptyState(canCreate: model.canOpenAnotherShellFromCards) {
+                TerminalEmptyState {
                     path.append(.terminalFolder(nil))
                 }
             } else {
@@ -30,7 +30,7 @@ extension TerminalHubScreen {
             model.selectTerminal(terminal.id)
             path.append(.terminal(terminal.id))
         } label: {
-            TerminalWindowCard(terminal: terminal, index: index, host: model.hostName)
+            TerminalWindowCard(terminal: terminal, index: index, host: model.shownHostName)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -39,7 +39,7 @@ extension TerminalHubScreen {
             Button("End", systemImage: "xmark", role: .destructive) { pendingEnd = .terminal(terminal.id) }
                 .menuDanger()
         } preview: {
-            TerminalWindowCard(terminal: terminal, index: 0, host: model.hostName)
+            TerminalWindowCard(terminal: terminal, index: 0, host: model.shownHostName)
                 .frame(width: 340)
                 .background(ColorPalette.backdrop)
         }

@@ -50,6 +50,48 @@ public enum AgentClaudeSessionFile {
         return payloads
     }
 
+    /// What the file says the session has used: the size of the conversation at its last call, and the tokens of every call after the first reading of each message. A resumed chat has no process to report this until its next turn, and the usage sheet would be empty meanwhile. The window and limits are only the CLI's to say, so they stay absent.
+    public static func usage(from text: String) -> AgentUsage? {
+        var usage = AgentUsage()
+        var seen = Set<String>()
+        var found = false
+        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            guard let object = object(in: line), object["type"] as? String == "assistant",
+                  object["isSidechain"] as? Bool != true,
+                  let message = object["message"] as? [String: Any],
+                  let used = message["usage"] as? [String: Any]
+            else { continue }
+            let input = used["input_tokens"] as? Int ?? 0
+            let cacheRead = used["cache_read_input_tokens"] as? Int ?? 0
+            let cacheWrite = used["cache_creation_input_tokens"] as? Int ?? 0
+            let output = used["output_tokens"] as? Int ?? 0
+            let context = input + cacheRead + cacheWrite + output
+            guard context > 0 else { continue }
+            usage.contextUsedTokens = context
+            found = true
+            // One message is written once per content block, each with the same usage: counted once.
+            if let id = message["id"] as? String, !seen.insert(id).inserted { continue }
+            usage.inputTokens += input + cacheWrite
+            usage.cachedTokens += cacheRead
+            usage.outputTokens += output
+        }
+        return found ? usage : nil
+    }
+
+    /// The replay with its loose ends tied: a file read back belongs to a process that is gone, so a tool call it never saw finish ends as failed and the last turn is closed. Left open, the chat reads as working for ever and the composer waits on a reply that cannot come.
+    public static func settled(_ events: [AgentStreamEvent.Payload]) -> [AgentStreamEvent.Payload] {
+        var openCalls: [String] = []
+        for event in events {
+            switch event {
+            case .toolStarted(let call): openCalls.append(call.id)
+            case .toolFinished(let callID, _, _, _): openCalls.removeAll { $0 == callID }
+            default: break
+            }
+        }
+        let closing = openCalls.map { AgentStreamEvent.Payload.toolFinished(callID: $0, ok: false, output: nil, truncated: false) }
+        return events + closing + [.turnFinished(summary: AgentTurnSummary(ok: true))]
+    }
+
     /// What a person typed: a plain string or text blocks, not a tool result, and not the wrapper lines the CLI writes around its own slash commands.
     static func prompt(in object: [String: Any]) -> String? {
         guard object["type"] as? String == "user", object["isMeta"] as? Bool != true,

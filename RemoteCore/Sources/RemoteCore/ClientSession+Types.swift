@@ -217,7 +217,7 @@ extension ClientSession {
                 // ``HostPickerView`` looks for to give this its own title.
                 return "Something at this address is not the Mac you paired with (\(hostID)). Its key does not match the key this iPhone pinned for it. If the Mac was reset, forget it here and pair again."
             case .noPinOnFile(let hostID):
-                return "This iPhone has no pairing on file for that Mac (\(hostID)). Pair with it again, or forget it here and start over."
+                return "This iPhone has no pairing on file for that Mac (\(hostID)). The Mac still trusts this iPhone, so it will not ask to pair again: on the Mac, open Devices and forget this iPhone, then pair again."
             case .hostIDMismatch(let dialled, let answered):
                 return "A different Mac answered: \(answered), not \(dialled). Check that the code you scanned or typed came from the Mac you meant."
             case .unexpected(let kind, let expected):

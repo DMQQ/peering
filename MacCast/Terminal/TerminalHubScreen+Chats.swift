@@ -36,40 +36,10 @@ extension TerminalHubScreen {
         }
     }
 
-    /// Offered only by a Mac that can list its terminal conversations. One line, since it is an occasional door and not a card of content.
-    @ViewBuilder
-    var resumeEntry: some View {
-        if model.hostSupportsAgentSessionImport {
-            Button {
-                path.append(.resumable)
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "arrow.uturn.forward")
-                        .font(.system(size: 13, weight: .medium))
-                        .frame(width: 22)
-                    Text("Continue from your Mac")
-                        .font(.system(size: 14, weight: .medium))
-                    Spacer(minLength: 6)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.35))
-                }
-                .foregroundStyle(.white.opacity(0.8))
-                .padding(.horizontal, 14)
-                .frame(height: 44)
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.14)))
-                .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 14)
-            .accessibilityIdentifier("resume-entry")
-        }
-    }
-
     private func chatBadge(_ card: AgentCardDigest) -> SessionBadge {
         if card.isPaused { return .paused }
         switch card.state {
-        case .idle: return .ready
+        case .idle: return .finished
         case .working: return .working
         case .awaitingApproval: return .needsYou
         case .exited: return .ended
@@ -113,8 +83,8 @@ extension TerminalHubScreen {
             Button("Rename", systemImage: "character.cursor.ibeam") { beginRename(session) }
                 .menuInk()
             if model.hostSupportsAgentPause, session.state == .idle, !session.isPaused {
-                Button("Stop and move to history", systemImage: "archivebox") { model.pauseAgentSession(session.id) }
-                    .menuInk()
+                Button("Stop and move to history", systemImage: "archivebox", role: .destructive) { model.pauseAgentSession(session.id) }
+                    .menuDanger()
             }
             Button("Close", systemImage: "xmark", role: .destructive) { pendingEnd = .chat(session.id) }
                 .menuDanger()

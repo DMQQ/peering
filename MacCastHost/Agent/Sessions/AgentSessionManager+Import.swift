@@ -6,11 +6,23 @@ import RemoteCore
 /// Picking up a conversation that was started in a terminal on this Mac.
 extension AgentSessionManager {
     func listResumable(clientID: String, sink: @escaping Sink) {
+        agentLog.notice("resumable conversations asked for")
         let known = lock.withLock { Set(sessions.values.compactMap(\.cliSessionID)) }
         // Off the connection's queue: this reads the heads and tails of up to a month of files.
         DispatchQueue.global(qos: .userInitiated).async {
-            sink(.resumable(ClaudeSessionLibrary.list(excluding: known)))
+            let sessions = ClaudeSessionLibrary.list(excluding: known)
+            agentLog.notice("resumable conversations listed · \(sessions.count)")
+            sink(.resumable(sessions))
+            // After the list is sent: the question parks until someone answers it on the Mac, and the list should not wait for that.
+            for root in Self.protectedRoots(of: sessions) { FolderAccessWatch.requestAccess(to: root) }
         }
+    }
+
+    /// The Desktop, Documents or Downloads folder macOS guards, for each one a listed conversation lives under.
+    private static func protectedRoots(of sessions: [AgentResumableSession]) -> Set<String> {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let guarded = ["Desktop", "Documents", "Downloads"].map { "\(home)/\($0)" }
+        return Set(guarded.filter { root in sessions.contains { $0.directory == root || $0.directory.hasPrefix(root + "/") } })
     }
 
     func resume(agentID: String, cliSessionID: String, clientID: String, sink: @escaping Sink) {
@@ -57,7 +69,8 @@ extension AgentSessionManager {
             // No process yet: the first prompt starts the CLI with `--resume`, as it does for a chat read back from disk.
             session.adapterLive = false
             session.cliSessionID = cliSessionID
-            for payload in conversation.events { session.transcript.append(payload) }
+            session.usage = conversation.usage
+            for payload in AgentClaudeSessionFile.settled(conversation.events) { session.transcript.append(payload) }
             if conversation.startsMidConversation { session.transcript.markTruncatedAtFront() }
             session.transcript.append(.notice(text: "Continued from a Claude Code session started on this Mac."))
             sessions[session.id] = session

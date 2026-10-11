@@ -70,6 +70,7 @@ struct AgentReviewScreen: View {
             }
         }
         .preferredColorScheme(.dark)
+        .analyticsScreen(.agentReview)
         .sheet(isPresented: $showsFilters) { AgentReviewFilterSheet(filter: $inbox.filter) }
         .confirmationDialog("Send issues to the chats?", isPresented: $confirmsSendAll, titleVisibility: .visible) {
             Button("Send \(plan.commentCount) comments") { sendAll() }

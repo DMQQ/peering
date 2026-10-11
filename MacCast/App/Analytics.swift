@@ -17,6 +17,8 @@ enum Analytics {
     private struct Context {
         var path: String?
         var plan: String?
+        var tab: Screen?
+        var pushed: Screen?
     }
 
     private static let context = OSAllocatedUnfairLock(initialState: Context())
@@ -61,11 +63,28 @@ enum Analytics {
     }
 
     enum Screen: String {
-        case home, activity, settings, paywall, terminals, session
+        case home, activity, settings, paywall, terminals, session, agentChat, agentReview, whatsNew
     }
 
     static func screen(_ screen: Screen) {
+        context.withLock { $0.tab = screen }
         send("screen_viewed", ["screen": screen.rawValue])
+    }
+
+    /// A screen pushed or presented over a tab. The SDK names a rage click after the UIKit hosting controller, which says nothing about which SwiftUI screen it was.
+    static func screenAppeared(_ screen: Screen) {
+        context.withLock { $0.pushed = screen }
+        send("screen_viewed", ["screen": screen.rawValue])
+    }
+
+    static func screenDisappeared(_ screen: Screen) {
+        context.withLock { if $0.pushed == screen { $0.pushed = nil } }
+    }
+
+    /// Added to the SDK's own `$rageclick`: the screen the person was on, nothing they touched or typed.
+    static func rageClickDetail() -> [String: Any] {
+        let current = context.withLock { $0.pushed ?? $0.tab }
+        return ["app_screen": current?.rawValue ?? "unknown"]
     }
 
     enum Panel: String {
@@ -95,8 +114,31 @@ enum Analytics {
         send("paywall_shown", ["reason": reason])
     }
 
-    static func purchaseFinished(outcome: String) {
-        send("purchase_finished", ["outcome": outcome])
+    static func paywallDismissed(reason: String) {
+        send("paywall_dismissed", ["reason": reason])
+    }
+
+    /// `product` is one of `pro_monthly`, `pro_yearly`, `pro_lifetime` or `other`, never the store's own identifier.
+    static func purchaseStarted(product: String) {
+        send("purchase_started", ["product": product])
+    }
+
+    static func purchaseFinished(outcome: String, product: String) {
+        send("purchase_finished", ["outcome": outcome, "product": product])
+    }
+
+    /// The day's remote time ran out, mid-session or at the next connect. The warning before it is the `running_low` paywall reason.
+    static func relayAllowanceExhausted(path: String?) {
+        send("relay_allowance_exhausted", ["path": path ?? "unknown"])
+    }
+
+    static func referralShared() {
+        send("referral_shared", [:])
+    }
+
+    /// `outcome` is `redeemed` or a ``ReferralRefusal`` case name.
+    static func referralRedeemed(outcome: String) {
+        send("referral_redeemed", ["outcome": outcome])
     }
 
     enum Feature: String {

@@ -96,6 +96,16 @@ public final class HostBrowser: @unchecked Sendable {
         case started
         case updated([DiscoveredHost])
         case failed(String)
+        /// The person has refused Local Network access, or has not answered yet. Browsing does not fail then: it waits, and carries on by itself the moment the setting is turned on, which is why this is its own event and a later `started` clears it.
+        case denied
+    }
+
+    /// `kDNSServiceErr_PolicyDenied`, which is what a refused Local Network permission surfaces as.
+    private static let policyDenied: Int32 = -65570
+
+    static func isLocalNetworkDenied(_ error: NWError) -> Bool {
+        if case .dns(let code) = error { return code == policyDenied }
+        return false
     }
 
     private let queue = DispatchQueue(label: "pl.dmq.peering.browse")
@@ -147,6 +157,8 @@ public final class HostBrowser: @unchecked Sendable {
                 case .ready:
                     self.restartAttempt = 0
                     self.emit(.started)
+                case .waiting(let error) where Self.isLocalNetworkDenied(error):
+                    self.emit(.denied)
                 case .failed(let error):
                     // An `NWError`'s own `localizedDescription` is `Network.NWError error 60`, not a sentence.
                     self.emit(.failed(NetworkFailureText.describe(error)))

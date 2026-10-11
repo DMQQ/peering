@@ -227,7 +227,7 @@ private struct AgentsEntryView: View {
         switch chat.state {
         case .needsYou: return String(localized: "Waiting on you")
         case .working: return chat.activity ?? String(localized: "Working")
-        case .ready: return String(localized: "Ready")
+        case .finished: return String(localized: "Finished")
         case .failed: return String(localized: "Stopped with an error")
         }
     }
@@ -242,7 +242,7 @@ private struct AgentsEntryView: View {
         case .needsYou: ActivityTone.pending.tint
         case .failed: ActivityTone.lost.tint
         case .working: .white.opacity(0.9)
-        case .ready: .white.opacity(0.35)
+        case .finished: .white.opacity(0.35)
         }
     }
 

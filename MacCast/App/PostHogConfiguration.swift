@@ -16,6 +16,10 @@ enum PostHogConfiguration {
         #if DEBUG
         guard ProcessInfo.processInfo.environment["POSTHOG_IN_DEBUG"] != nil else { return }
         #endif
+        // An unsigned simulator build cannot create its keychain identity and reports that as an error on every launch: it was most of the project's error volume.
+        #if targetEnvironment(simulator)
+        return
+        #endif
         guard let projectToken = value("PostHogProjectToken", env: "POSTHOG_PROJECT_TOKEN"),
               let host = value("PostHogHost", env: "POSTHOG_HOST")
         else { return }
@@ -31,6 +35,7 @@ enum PostHogConfiguration {
         config.errorTrackingConfig.autoCapture = true
         config.logs.serviceName = "maccast-ios"
         config.setBeforeSend { event in
+            if event.event == "$rageclick" { event.properties.merge(Analytics.rageClickDetail()) { $1 } }
             for key in ["$ip", "$timezone", "$device_name", "$network_wifi_ssid"] { event.properties.removeValue(forKey: key) }
             return event
         }

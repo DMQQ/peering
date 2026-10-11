@@ -85,7 +85,7 @@ extension AgentChatScreen {
             }
             Button("Rename", systemImage: "character.cursor.ibeam") { beginRename(session) }
             if model.hostSupportsAgentPause, session.state == .idle, !AgentPause.isPaused(session.transcript) {
-                Button("Stop and move to history", systemImage: "archivebox") {
+                Button("Stop and move to history", systemImage: "archivebox", role: .destructive) {
                     model.pauseAgentSession(session.id)
                     dismiss()
                 }
@@ -96,6 +96,8 @@ extension AgentChatScreen {
             }
         } label: {
             Image(systemName: "ellipsis")
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .accessibilityLabel(Text("Chat options"))
     }

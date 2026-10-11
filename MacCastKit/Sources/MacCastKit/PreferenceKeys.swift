@@ -6,6 +6,10 @@ public enum PreferenceKeys {
     public static let opensKeyboardForTextFields = "Peering.opensKeyboardForTextFields"
     /// Set by both finishing and skipping the tour.
     public static let hasSeenWelcome = "Peering.hasSeenWelcome"
+    /// Set when the first-connection guide is finished or skipped; it is also never shown once a Mac is paired. See `FirstConnectionScreen`.
+    public static let hasDismissedFirstConnection = "Peering.hasDismissedFirstConnection"
+    /// The id of the last release the What's New sheet was shown for; see ``WhatsNewPolicy``.
+    public static let lastSeenWhatsNew = "Peering.lastSeenWhatsNew"
     /// Set when the card appears, not when dismissed: the remote screen is rebuilt each session, so a flag written only by the tap would let it return.
     public static let hasSeenLandscapeHint = "Peering.hasSeenLandscapeHint"
     /// Whether a Mac may be reached through the relay, or only over the local network.
@@ -21,6 +25,8 @@ public enum PreferenceKeys {
     public static let streamQuality = "Peering.streamQuality"
     /// A flag rather than `sessionHistory.count == 1`: the history prunes to twenty-five records.
     public static let offeredAfterFirstSession = "Peering.offeredAfterFirstSession"
+    /// A JSON ``ReviewPromptPolicy/Tally``: sessions worth counting, when the first was, and when the system was last asked to show the rating prompt.
+    public static let reviewPromptTally = "Peering.reviewPromptTally"
     /// The relay's day bucket (epoch seconds divided into days, see `Relay/src/quota.rs`), not a moment.
     public static let lowRelayOfferWindow = "Peering.lowRelayOfferWindow"
     /// Persisted so observe mode's no-input promise survives a relaunch.

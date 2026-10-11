@@ -107,7 +107,7 @@ extension HostSession {
             detail: "\(connection.negotiatedTLSVersion) · \(presentedKey.count)-byte key"
         ))
 
-        let alreadyPaired = existingPin != nil
+        let alreadyPaired = ClientHello.hostTreatsAsPaired(clientKeyIsPinned: existingPin != nil, lostPairing: hello.lostPairing)
         send(.serverHello, ServerHello(
             serverID: device.id,
             hostName: device.name,

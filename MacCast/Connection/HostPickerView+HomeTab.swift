@@ -123,7 +123,7 @@ struct HomeTab: View {
                 }
             }
             .sheet(isPresented: $showsManualConnection) {
-                manualSheet(address: $model.manualAddress, port: $model.manualPort)
+                ManualConnectionSheet()
             }
             .sheet(isPresented: $showsRemotePairing) {
                 RemotePairingSheet()

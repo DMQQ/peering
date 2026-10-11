@@ -45,7 +45,8 @@ struct AgentToReviewCard: View {
         .onChange(of: model.activeSession?.agentChanges) { _, reports in
             for (chat, report) in reports ?? [:] { inbox.absorb(report, from: chat) }
         }
-        .sheet(isPresented: $showsList) { AgentReviewScreen(inbox: inbox) }
+        // A drag down would dismiss the sheet instead of the keyboard over its reply field; Close is in the toolbar.
+        .sheet(isPresented: $showsList) { AgentReviewScreen(inbox: inbox).interactiveDismissDisabled() }
     }
 
     /// Rises into place out of a blur, as the terminal cards do, instead of switching on.

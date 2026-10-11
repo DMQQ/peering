@@ -96,11 +96,6 @@ struct MacCastApp: App {
                     TerminalActivity.shared.adoptOrphan()
                     AgentChatActivity.shared.adoptOrphan()
                 }
-                // PiP cannot wait for a tap: it is armed in advance and spends itself when the app is left, so the plan is pushed in on every change and the holder keeps the last. See ``SessionPiP/isOnPlan``.
-                .onChange(of: model.storeManager.access) { _, _ in
-                    model.applyPictureInPicturePlan()
-                    model.applyTerminalAlertPlan()
-                }
                 // Coming back to the front ends the banners' relevance: a pairing prompt from last night is a claim about the past.
                 .onChange(of: scenePhase, initial: true) { _, phase in
                     switch phase {
@@ -122,11 +117,7 @@ struct MacCastApp: App {
                 .onOpenURL { url in
                     if PairingPayload.isHostLink(url) {
                         guard let hostID = try? PairingPayload.hostID(from: url.absoluteString) else { return }
-                        if model.pairedHostIDs.contains(hostID) {
-                            model.connectToTrusted(hostID: hostID)
-                        } else {
-                            model.pairWithRemoteMac(hostID: hostID)
-                        }
+                        model.openHostLink(hostID: hostID)
                         return
                     }
                     guard url.scheme == "peering" else { return }
@@ -150,6 +141,18 @@ struct MacCastApp: App {
                             model.openFromNotification(hostID: hostID, sourceID: nil)
                         }
                         InAppBanner.shared.openRequest = .chat(chatID)
+                    case PairingPayload.codeHost:
+                        model.pairingLink = (url, Date())
+                        // The code belongs to a Mac that is asking right now; with none asking it is held for a minute and the person is told what to do, since nothing on screen changes otherwise.
+                        if case .confirming = model.phase { break }
+                        InAppBanner.shared.post(InAppBannerItem(
+                            symbol: "qrcode.viewfinder",
+                            title: String(localized: "Pairing code"),
+                            summary: String(localized: "Choose your Mac under Nearby first"),
+                            body: String(localized: "Tap your Mac in the list, and this code is used as soon as it asks. It stays valid for a minute."),
+                            needsYou: false,
+                            target: nil
+                        ))
                     case "disconnect":
                         model.disconnect()
                     case "end-shells":

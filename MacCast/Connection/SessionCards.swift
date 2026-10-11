@@ -11,7 +11,7 @@ enum ArrivalMemory {
 enum SessionBadge: Equatable {
     case working
     case needsYou
-    case ready
+    case finished
     case running
     case starting
     case ended
@@ -198,7 +198,7 @@ struct SessionCard<Subtitle: View>: View {
             switch badge {
             case .working: ("Working", .white.opacity(0.85))
             case .needsYou: ("Waiting on you", ColorPalette.caution)
-            case .ready: ("Ready", .white.opacity(0.5))
+            case .finished: ("Finished", .white.opacity(0.5))
             case .running: ("Running", .white.opacity(0.85))
             case .starting: ("Starting", .white.opacity(0.5))
             case .ended: ("Ended", .white.opacity(0.4))
@@ -351,7 +351,15 @@ struct HistoryCard: View {
         let date: Date
         let isLive: Bool
         let isEnabled: Bool
+        /// Asked on the row itself, so the dialog opens from the thing it is about.
+        var confirmation: Confirmation?
         let run: () -> Void
+    }
+
+    struct Confirmation {
+        let title: LocalizedStringKey
+        let message: LocalizedStringKey
+        let proceed: LocalizedStringKey
     }
 
     let entries: [Entry]
@@ -384,7 +392,7 @@ struct HistoryCard: View {
                     if index > 0 {
                         Rectangle().fill(.white.opacity(0.06)).frame(height: 1).padding(.leading, 56)
                     }
-                    row(entry)
+                    HistoryRow(entry: entry)
                 }
             }
             Color.clear.frame(height: 6)
@@ -398,9 +406,18 @@ struct HistoryCard: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
+}
 
-    private func row(_ entry: Entry) -> some View {
-        Button(action: entry.run) {
+private struct HistoryRow: View {
+    let entry: HistoryCard.Entry
+    @State private var isConfirming = false
+
+    private func tap() {
+        if entry.confirmation != nil { isConfirming = true } else { entry.run() }
+    }
+
+    var body: some View {
+        Button(action: tap) {
             HStack(spacing: 11) {
                 Image(systemName: entry.symbol)
                     .font(.system(size: 13, weight: .medium))
@@ -442,5 +459,17 @@ struct HistoryCard: View {
         }
         .buttonStyle(.plain)
         .disabled(!entry.isEnabled)
+        .confirmationDialog(
+            entry.confirmation?.title ?? "",
+            isPresented: $isConfirming,
+            titleVisibility: .visible
+        ) {
+            if let confirmation = entry.confirmation {
+                Button(confirmation.proceed, action: entry.run)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if let confirmation = entry.confirmation { Text(confirmation.message) }
+        }
     }
 }

@@ -81,7 +81,11 @@ struct FirstConnectionOnboardingView: View {
 
     @ViewBuilder
     private var livePairingCard: some View {
-        if let pairing = model.pairing {
+        if let pairing = model.pairing, pairing.needsApproval {
+            PairingApprovalCard(clientName: pairing.clientName) { model.resolvePairing(approved: $0) }
+                .padding(16)
+                .priorityPanel()
+        } else if let pairing = model.pairing {
             VStack(spacing: 14) {
                 Text(pairing.isRemote
                      ? String(localized: "\(pairing.clientName) reached this Mac over the relay. Read the six digits out to whoever is holding it.")
@@ -104,10 +108,6 @@ struct FirstConnectionOnboardingView: View {
                         .padding(12)
                         .background(.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .accessibilityLabel("Pairing QR code")
-                }
-
-                if pairing.needsApproval {
-                    PairingApprovalButtons(clientName: pairing.clientName) { model.resolvePairing(approved: $0) }
                 }
             }
             .frame(maxWidth: .infinity)

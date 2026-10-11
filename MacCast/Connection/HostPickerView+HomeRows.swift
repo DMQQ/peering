@@ -12,15 +12,6 @@ extension HomeTab {
         let reach = model.reachability(ofHost: hostID)
         let isActive = model.currentHostID == hostID && model.phase == .ready
         return HStack(spacing: 10) {
-            // The second Mac is the paid one, drawn dimmed with the plan's name at its trailing edge (see ``PlanLocked``); `isIncluded` is passed because the first Mac is free on every plan.
-            // A Mac that is open is the way back to it, so it must not open the paywall (see ``SessionModel/isSessionOnScreen``).
-            PlanLocked(
-                capability: .concurrentSessions,
-                title: String(localized: "Another Mac"),
-                placement: .trailing,
-                diameter: 44,
-                isIncluded: model.canAddAnotherSession || isActive
-            ) {
             Button { model.connectToTrusted(hostID: hostID) } label: {
                 HStack(spacing: 12) {
                     ZStack(alignment: .bottomTrailing) {
@@ -62,7 +53,6 @@ extension HomeTab {
             .buttonStyle(.plain)
             // Not disabled for the open Mac, for the reason it is not gated: this is the way back to it.
             .disabled(model.isBusy && !isActive)
-            }
 
             Menu {
                 Section("Connection") {
@@ -170,11 +160,6 @@ extension HomeTab {
         return nil
     }
 
-    /// Free pairs with one Mac and paid plans with all, so this is a question about the list: the first pairing is free and the second costs. Asked here so both places that pair answer the same.
-    var canPairAnotherMac: Bool {
-        model.storeManager.access.includes(.extraMacs) || model.pairedHostIDs.isEmpty
-    }
-
     func hostRow(_ host: DiscoveredHost) -> some View {
         HStack(spacing: 12) {
             ZStack(alignment: .bottomTrailing) {
@@ -205,7 +190,7 @@ extension HomeTab {
 
             Spacer(minLength: 8)
 
-            // A Mac this app cannot talk to is told what to do, not a version number (it stays in the diagnostics). The plan badge is drawn from outside via ``PlanLocked``, so the two badges never compete for one slot, and an incompatible Mac shows UPDATE, not a lock.
+            // A Mac this app cannot talk to is told what to do, not a version number (it stays in the diagnostics).
             if let version = host.protocolVersion, version != ProtocolInfo.version {
                 Text("UPDATE")
                     .font(.caption2.weight(.semibold))
@@ -233,71 +218,6 @@ extension HomeTab {
                 .foregroundStyle(.secondary)
         }
         .cardSurface()
-    }
-
-    func manualSheet(address: Binding<String>, port: Binding<String>) -> some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 18) {
-                // The name in the display face, not a navigation title: an inline title is set by iOS in the system face (as ``RemotePairingSheet`` does).
-                TabScreenHeader(String(localized: "Connect by Address"))
-
-                HStack(spacing: 10) {
-                    TextField("Mac address", text: address)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                        .textFieldStyle(.plain)
-                        .padding(12)
-                        .background(
-                            .white.opacity(0.06),
-                            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        )
-                    TextField("Port", text: port)
-                        .keyboardType(.numberPad)
-                        .textFieldStyle(.plain)
-                        .padding(12)
-                        .frame(width: 88)
-                        .background(
-                            .white.opacity(0.06),
-                            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        )
-                }
-
-                Button {
-                    model.connectToManualAddress()
-                    showsManualConnection = false
-                } label: {
-                    Label("Connect", systemImage: "arrow.right")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                }
-                .buttonStyle(.borderedProminent)
-                // Both states named: the style dims an ink fill to a grey a black label disappears into.
-                .tint(canConnect ? ColorPalette.ink : .white.opacity(0.16))
-                .foregroundStyle(canConnect ? ColorPalette.onInk : .white.opacity(0.55))
-                .disabled(!canConnect)
-            }
-            .padding(24)
-            .frame(maxHeight: .infinity, alignment: .top)
-            // Nothing in the bar but Cancel and its background off: a grey strip across the sheet read as stray iOS.
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Cancel") { showsManualConnection = false }
-                }
-            }
-            .toolbarBackground(.hidden, for: .navigationBar)
-        }
-        // Painted on the presentation rather than on the content, so it reaches behind the bar too.
-        .presentationBackground(ColorPalette.backdrop)
-        .presentationDetents([.height(268)])
-        .preferredColorScheme(.dark)
-    }
-
-    /// Named because the tint and `disabled` both read it and must not disagree.
-    var canConnect: Bool {
-        !model.isBusy && !model.manualAddress.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     func sectionLabel(_ title: String, systemImage: String) -> some View {

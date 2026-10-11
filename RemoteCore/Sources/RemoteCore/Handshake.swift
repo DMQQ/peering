@@ -27,6 +27,14 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// Honoured only for a client the Mac already trusts.
     public var resumeSource: CaptureSource?
 
+    /// Set only by a phone that dialled a Mac by its ID and holds no pin for it, so the Mac may still trust the phone's key while the phone has forgotten the Mac. Without it that pair was stuck: the Mac answered "already paired" and the phone refused to proceed. `nil` reads as no, which is every older client.
+    public var lostPairing: Bool?
+
+    /// Whether the Mac skips pairing for a client whose key it has pinned. The one place the rule lives, because the Mac cannot unit-test its handshake.
+    public static func hostTreatsAsPaired(clientKeyIsPinned: Bool, lostPairing: Bool?) -> Bool {
+        clientKeyIsPinned && lostPairing != true
+    }
+
     public init(
         clientID: String,
         clientName: String,
@@ -38,8 +46,10 @@ public struct ClientHello: Codable, Sendable, Equatable {
         supportsAgentChat: Bool? = nil,
         supportsAgentPermissionModes: Bool? = nil,
         supportsAgentUsage: Bool? = nil,
-        resumeSource: CaptureSource? = nil
+        resumeSource: CaptureSource? = nil,
+        lostPairing: Bool? = nil
     ) {
+        self.lostPairing = lostPairing
         self.clientID = clientID
         self.clientName = clientName
         self.protocolVersion = protocolVersion
