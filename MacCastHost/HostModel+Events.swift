@@ -155,9 +155,10 @@ extension HostModel {
 
     /// A brightness write where it holds, otherwise a cover window the window server keeps out of capture.
     func setPrivacyMode(_ enabled: Bool) {
-        Analytics.track(.privacyModeChanged)
+        // Counted where the mode really changes: the host also turns it off whenever a session ends, and that is not a choice.
         if enabled {
             guard !privacyModeEnabled else { return }
+            Analytics.track(.privacyModeChanged)
             // Before the cover goes up, so a display that arrives while it is up is not missed:
             // nothing else tells the host that the Mac's display list changed.
             observeDisplayChanges(true)
@@ -169,6 +170,7 @@ extension HostModel {
                 displayPrivacy.restore()
                 return
             }
+            Analytics.track(.privacyModeChanged)
             privacyModeEnabled = false
             observeDisplayChanges(false)
             displayPrivacy.restore()

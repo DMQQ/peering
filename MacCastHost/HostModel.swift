@@ -141,6 +141,9 @@ final class HostModel {
     /// pendingCaptureSource is the ask, not the answer; this is what is actually streamed.
     var capturingSource: CaptureSource?
 
+    /// The last source that was counted, so a phone replaying its source on every reconnect is not counted as a change each time.
+    @ObservationIgnored var lastCountedCaptureSource: CaptureSource?
+
     /// Kept so a source can be named rather than shown as a display ID or pid.
     var catalog: CaptureCatalog?
 

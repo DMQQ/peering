@@ -358,7 +358,10 @@ extension HostModel {
 
     /// The stream is rebuilt while the video connection is kept, so the client sees a new config and keyframe. The source is looked up at switch time, so a vanished one fails here and the failure names it.
     func applyCaptureSource(_ source: CaptureSource) {
-        Analytics.track(.captureSourceChanged)
+        if source != lastCountedCaptureSource {
+            lastCountedCaptureSource = source
+            Analytics.track(.captureSourceChanged)
+        }
         guard let coordinator else {
             // Nothing is captured, so the request is kept only for the window; a client with no video connection gets the default source.
             record("Capture source requested before any video connection")
