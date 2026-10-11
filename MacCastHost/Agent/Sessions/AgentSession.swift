@@ -22,6 +22,8 @@ final class AgentSession: @unchecked Sendable {
     var permissionMode: AgentPermissionMode
     var usage: AgentUsage?
     var lastReply: String?
+    /// Files the running turn has edited, for the notification that says it finished.
+    var turnEditedFiles: Set<String> = []
     var telemetry = AgentTurnTelemetry()
 
     init(

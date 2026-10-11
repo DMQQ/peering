@@ -10,14 +10,20 @@ public enum AgentNotificationText {
         agentName: String,
         ok: Bool,
         stopped: Bool,
-        lastReply: String?
+        lastReply: String?,
+        editedFiles: Int = 0,
+        duration: TimeInterval? = nil
     ) -> (title: String, body: String) {
         let outcome = ok ? "finished" : (stopped ? "stopped" : "failed")
+        let detail = AgentTurnDigest.detail(editedFiles: editedFiles, duration: duration)
+        let headline: String
         if let lastReply, !lastReply.isEmpty {
             let firstLine = lastReply.split(separator: "\n").first.map(String.init) ?? lastReply
-            return ("\(agentName) \(outcome)", String(firstLine.prefix(140)))
+            headline = String(firstLine.prefix(140))
+        } else {
+            headline = ok ? "The turn finished." : (stopped ? "The turn was stopped." : "The turn failed.")
         }
-        return ("\(agentName) \(outcome)", ok ? "The turn finished." : (stopped ? "The turn was stopped." : "The turn failed."))
+        return ("\(agentName) \(outcome)", detail.map { "\(headline)\n\($0)" } ?? headline)
     }
 }
 
