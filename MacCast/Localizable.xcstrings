@@ -1645,16 +1645,16 @@
     },
     "%@ Free includes %@ of relay a day. Pro removes the limit." : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ Free includes %2$@ of relay a day. Pro removes the limit."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ Kostenlos enthält %@ Relay pro Tag. Pro hebt das Limit auf."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ Free includes %2$@ of relay a day. Pro removes the limit."
           }
         },
         "es" : {
@@ -3690,16 +3690,16 @@
     },
     "%lld of %lld invites used. Your friend gets extra time, and so do you while you are on the free plan." : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$lld of %2$lld invites used. Your friend gets extra time, and so do you while you are on the free plan."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld von %lld Einladungen verwendet. Dein Freund bekommt zusätzliche Zeit, und du auch, solange du den kostenlosen Tarif nutzt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld invites used. Your friend gets extra time, and so do you while you are on the free plan."
           }
         },
         "es" : {
@@ -4459,16 +4459,16 @@
     },
     "+%lld minutes a day until %@. %lld of %lld invites used." : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "+%1$lld minutes a day until %2$@. %3$lld of %4$lld invites used."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "+%lld Minuten pro Tag bis %@. %lld von %lld Einladungen verwendet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "+%1$lld minutes a day until %2$@. %3$lld of %4$lld invites used."
           }
         },
         "es" : {
@@ -40489,6 +40489,9 @@
         }
       }
     },
+    "No" : {
+
+    },
     "No account" : {
       "localizations" : {
         "de" : {
@@ -72087,6 +72090,65 @@
         }
       }
     },
+    "That code does not match anyone. Check it and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Code gehört niemandem. Prüfe ihn und versuche es erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese código no corresponde a nadie. Compruébalo e inténtalo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce code ne correspond à personne. Vérifiez-le et réessayez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo codice non corrisponde a nessuno. Controllalo e riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このコードに該当する人がいません。確認してもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 코드와 일치하는 사용자가 없습니다. 확인 후 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esse código não corresponde a ninguém. Confira e tente de novo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Такой код никому не принадлежит. Проверьте его и повторите попытку."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有人使用这个代码。请检查后重试。"
+          }
+        }
+      }
+    },
     "That file could not be read: %@" : {
       "localizations" : {
         "de" : {
@@ -72489,6 +72551,65 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这不是配对代码。请把相机对准你的 Mac 上显示的代码。"
+          }
+        }
+      }
+    },
+    "That is your own code. Send it to a friend instead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das ist dein eigener Code. Schick ihn stattdessen einem Freund."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese es tu propio código. Envíaselo a un amigo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "C'est votre propre code. Envoyez-le plutôt à un ami."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo è il tuo codice. Mandalo a un amico."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これはあなた自身のコードです。代わりに友だちに送ってください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내 코드입니다. 대신 친구에게 보내세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esse é o seu próprio código. Envie-o a um amigo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это ваш собственный код. Отправьте его другу."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这是你自己的代码。请把它发给朋友。"
           }
         }
       }
@@ -76923,6 +77044,65 @@
         }
       }
     },
+    "The relay could not be reached. Try again in a moment." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Relay ist nicht erreichbar. Versuche es gleich noch einmal."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo conectar con el relay. Inténtalo de nuevo en un momento."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le relais est injoignable. Réessayez dans un instant."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il relay non è raggiungibile. Riprova tra un attimo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リレーに接続できませんでした。少し待ってからもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "릴레이에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível alcançar o relay. Tente de novo em instantes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось связаться с релеем. Повторите попытку через минуту."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法连接到中继。请稍后重试。"
+          }
+        }
+      }
+    },
     "The relay counted this connection against a quota your plan does not have. Try again, and tell us if it keeps happening." : {
       "localizations" : {
         "de" : {
@@ -78955,6 +79135,65 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此设备无法硬件解码 H.265。请在 Mac 上使用 H.264 以获得最佳性能。"
+          }
+        }
+      }
+    },
+    "This device could not prove who it is. Check that the clock is right and try again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Gerät konnte sich nicht ausweisen. Prüfe, ob die Uhrzeit stimmt, und versuche es erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este dispositivo no pudo demostrar quién es. Comprueba que la hora sea correcta e inténtalo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil n'a pas pu prouver son identité. Vérifiez que l'heure est correcte et réessayez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo dispositivo non è riuscito a dimostrare la propria identità. Controlla che l'ora sia corretta e riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデバイスは本人確認に失敗しました。時刻が正しいか確認して、もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기가 신원을 증명하지 못했습니다. 시계가 맞는지 확인하고 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este dispositivo não conseguiu provar quem é. Confira se o relógio está certo e tente de novo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Устройство не смогло подтвердить свою подлинность. Проверьте, что время установлено верно, и повторите попытку."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此设备无法验证身份。请检查时钟是否正确，然后重试。"
           }
         }
       }
@@ -81340,6 +81579,65 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "太大，无法发送。上限为 %@。"
+          }
+        }
+      }
+    },
+    "Too many people are doing this right now. Try again in a while." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gerade versuchen das zu viele Leute. Versuche es später erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demasiada gente está haciendo esto ahora mismo. Inténtalo de nuevo en un rato."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trop de personnes font cela en ce moment. Réessayez dans un moment."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Troppe persone lo stanno facendo in questo momento. Riprova più tardi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在アクセスが集中しています。しばらくしてからもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지금 이 작업을 하는 사람이 너무 많습니다. 잠시 후 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muita gente está fazendo isso agora. Tente de novo daqui a pouco."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сейчас это делают слишком многие. Повторите попытку через некоторое время."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前操作的人太多。请稍后再试。"
           }
         }
       }
@@ -89494,16 +89792,16 @@
     },
     "You both get %lld extra minutes a day for %lld days." : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "You both get %1$lld extra minutes a day for %2$lld days."
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ihr bekommt beide %lld zusätzliche Minuten pro Tag für %lld Tage."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "You both get %1$lld extra minutes a day for %2$lld days."
           }
         },
         "es" : {
@@ -89610,6 +89908,65 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你没有接受这台服务器的密钥。"
+          }
+        }
+      }
+    },
+    "You have already used a code on this device." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf diesem Gerät wurde bereits ein Code eingelöst."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya has usado un código en este dispositivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez déjà utilisé un code sur cet appareil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hai già usato un codice su questo dispositivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデバイスではすでにコードを使用しています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기에서는 이미 코드를 사용했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Você já usou um código neste dispositivo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На этом устройстве вы уже использовали код."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你已在此设备上使用过代码。"
           }
         }
       }
@@ -91354,360 +91711,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "缩放窗口"
-          }
-        }
-      }
-    },
-    "That code does not match anyone. Check it and try again." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dieser Code gehört niemandem. Prüfe ihn und versuche es erneut."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ese código no corresponde a nadie. Compruébalo e inténtalo de nuevo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ce code ne correspond à personne. Vérifiez-le et réessayez."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Questo codice non corrisponde a nessuno. Controllalo e riprova."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このコードに該当する人がいません。確認してもう一度お試しください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 코드와 일치하는 사용자가 없습니다. 확인 후 다시 시도하세요."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esse código não corresponde a ninguém. Confira e tente de novo."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Такой код никому не принадлежит. Проверьте его и повторите попытку."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有人使用这个代码。请检查后重试。"
-          }
-        }
-      }
-    },
-    "That is your own code. Send it to a friend instead." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das ist dein eigener Code. Schick ihn stattdessen einem Freund."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ese es tu propio código. Envíaselo a un amigo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "C'est votre propre code. Envoyez-le plutôt à un ami."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Questo è il tuo codice. Mandalo a un amico."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "これはあなた自身のコードです。代わりに友だちに送ってください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "내 코드입니다. 대신 친구에게 보내세요."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esse é o seu próprio código. Envie-o a um amigo."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Это ваш собственный код. Отправьте его другу."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这是你自己的代码。请把它发给朋友。"
-          }
-        }
-      }
-    },
-    "You have already used a code on this device." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auf diesem Gerät wurde bereits ein Code eingelöst."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ya has usado un código en este dispositivo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous avez déjà utilisé un code sur cet appareil."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hai già usato un codice su questo dispositivo."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このデバイスではすでにコードを使用しています。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 기기에서는 이미 코드를 사용했습니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Você já usou um código neste dispositivo."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "На этом устройстве вы уже использовали код."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你已在此设备上使用过代码。"
-          }
-        }
-      }
-    },
-    "This device could not prove who it is. Check that the clock is right and try again." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dieses Gerät konnte sich nicht ausweisen. Prüfe, ob die Uhrzeit stimmt, und versuche es erneut."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Este dispositivo no pudo demostrar quién es. Comprueba que la hora sea correcta e inténtalo de nuevo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cet appareil n'a pas pu prouver son identité. Vérifiez que l'heure est correcte et réessayez."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Questo dispositivo non è riuscito a dimostrare la propria identità. Controlla che l'ora sia corretta e riprova."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このデバイスは本人確認に失敗しました。時刻が正しいか確認して、もう一度お試しください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 기기가 신원을 증명하지 못했습니다. 시계가 맞는지 확인하고 다시 시도하세요."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Este dispositivo não conseguiu provar quem é. Confira se o relógio está certo e tente de novo."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Устройство не смогло подтвердить свою подлинность. Проверьте, что время установлено верно, и повторите попытку."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此设备无法验证身份。请检查时钟是否正确，然后重试。"
-          }
-        }
-      }
-    },
-    "Too many people are doing this right now. Try again in a while." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gerade versuchen das zu viele Leute. Versuche es später erneut."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Demasiada gente está haciendo esto ahora mismo. Inténtalo de nuevo en un rato."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Trop de personnes font cela en ce moment. Réessayez dans un moment."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Troppe persone lo stanno facendo in questo momento. Riprova più tardi."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "現在アクセスが集中しています。しばらくしてからもう一度お試しください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "지금 이 작업을 하는 사람이 너무 많습니다. 잠시 후 다시 시도하세요."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Muita gente está fazendo isso agora. Tente de novo daqui a pouco."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сейчас это делают слишком многие. Повторите попытку через некоторое время."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目前操作的人太多。请稍后再试。"
-          }
-        }
-      }
-    },
-    "The relay could not be reached. Try again in a moment." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das Relay ist nicht erreichbar. Versuche es gleich noch einmal."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo conectar con el relay. Inténtalo de nuevo en un momento."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le relais est injoignable. Réessayez dans un instant."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il relay non è raggiungibile. Riprova tra un attimo."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "リレーに接続できませんでした。少し待ってからもう一度お試しください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "릴레이에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Não foi possível alcançar o relay. Tente de novo em instantes."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Не удалось связаться с релеем. Повторите попытку через минуту."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法连接到中继。请稍后重试。"
           }
         }
       }
