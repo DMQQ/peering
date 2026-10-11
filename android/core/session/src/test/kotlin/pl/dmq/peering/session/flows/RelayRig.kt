@@ -10,6 +10,7 @@ import pl.dmq.peering.session.connection.ClientHandshakeState
 import pl.dmq.peering.session.connection.ClientStateMachine
 import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.ports.ReceivedDatagram
+import pl.dmq.peering.session.ports.VideoSink
 import pl.dmq.peering.session.relay.DirectPathProber
 import pl.dmq.peering.session.relay.RelayConnect
 import pl.dmq.peering.session.relay.RelaySession
@@ -44,7 +45,11 @@ import pl.dmq.peering.wire.toBase64
  * the control handshake, grants the video key, and receives whatever the test scripts onto either lane. Pumps move
  * bytes the way the platform glue would, so nothing here opens a socket.
  */
-class RelayRig(private val scope: CoroutineScope, private val scheduler: TestCoroutineScheduler) {
+class RelayRig(
+    private val scope: CoroutineScope,
+    private val scheduler: TestCoroutineScheduler,
+    private val sinkFor: (FakeVideoSink) -> VideoSink = { it },
+) {
     val signalling = FakeSignalling()
     val control = FakeControlTransport(peerKey = ScriptedPairingHost.HOST_KEY)
     val datagrams = FakeDatagramTransport()
@@ -91,7 +96,7 @@ class RelayRig(private val scope: CoroutineScope, private val scheduler: TestCor
             ),
         )
         session = RelayConnect(signalling, FakeIdentity(CLIENT_ID), clock).requestSession(HOST_ID, CLIENT_ID)
-        lanes = VideoLanes(sink, clock, session.video, session.videoTokenBytes)
+        lanes = VideoLanes(sinkFor(sink), clock, session.video, session.videoTokenBytes)
         hostSealer = VideoSealer(videoSecret, VideoDirection.HostToClient, session.videoTokenBytes)
         attachPumps()
         for (action in machine.start()) {
