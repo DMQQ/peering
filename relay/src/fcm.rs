@@ -16,11 +16,12 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
 use bytes::Bytes;
+use http::Method;
 use serde_json::{Map, Value, json};
 use tracing::warn;
 
 use crate::apns::PushRoute;
-use crate::fcm_auth::{AccessTokenCache, BoxError, Clock, HttpTokenExchange, ServiceAccount, SystemClock, TokenExchange};
+use crate::fcm_auth::{AccessTokenCache, BoxError, Clock, FCM_SCOPE, HttpTokenExchange, ServiceAccount, SystemClock, TokenExchange};
 
 const FCM_ORIGIN: &str = "https://fcm.googleapis.com";
 
@@ -80,8 +81,9 @@ impl FcmTransport for HttpsFcmTransport {
     fn post<'a>(&'a self, url: &'a str, bearer: &'a str, body: &'a str) -> BoxFuture<'a, Result<FcmReply, BoxError>> {
         Box::pin(async move {
             let authorization = format!("Bearer {bearer}");
-            let reply = https::post(
+            let reply = https::request(
                 &self.tls,
+                Method::POST,
                 url,
                 &[("authorization", authorization.as_str()), ("content-type", "application/json")],
                 Bytes::copy_from_slice(body.as_bytes()),
@@ -132,13 +134,11 @@ impl FcmClient {
     /// The client the relay runs with, built from the service account file: tokens minted from its
     /// key and sent over HTTPS. `project_id` overrides the project the file names.
     pub fn from_service_account_file(path: &Path, project_id: Option<String>) -> Result<Self, BoxError> {
-        let text = std::fs::read_to_string(path)
-            .map_err(|error| format!("could not read the FCM service account {}: {error}", path.display()))?;
-        let account = ServiceAccount::from_json(&text)?;
+        let account = ServiceAccount::from_file(path)?;
         let project_id = project_id.unwrap_or_else(|| account.project_id().to_owned());
         let tls = https::tls_config()?;
         let exchange = HttpTokenExchange::new(account.token_uri().to_owned(), Arc::clone(&tls));
-        let tokens = AccessTokenCache::new(account, exchange, SystemClock);
+        let tokens = AccessTokenCache::new(account, FCM_SCOPE, exchange, SystemClock);
         Ok(Self::new(project_id, tokens, HttpsFcmTransport { tls }))
     }
 

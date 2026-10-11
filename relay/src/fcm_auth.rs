@@ -6,6 +6,7 @@
 
 use std::future::Future;
 use std::io::BufReader;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -19,6 +20,7 @@ use serde::Deserialize;
 use serde_json::json;
 use tokio_rustls::rustls::ClientConfig;
 use bytes::Bytes;
+use http::Method;
 
 use crate::fcm::https;
 
@@ -58,6 +60,12 @@ impl ServiceAccount {
         })
     }
 
+    pub fn from_file(path: &Path) -> Result<Self, BoxError> {
+        let text = std::fs::read_to_string(path)
+            .map_err(|error| format!("could not read the service account file {}: {error}", path.display()))?;
+        Self::from_json(&text)
+    }
+
     pub fn project_id(&self) -> &str {
         &self.project_id
     }
@@ -66,12 +74,12 @@ impl ServiceAccount {
         &self.token_uri
     }
 
-    /// The signed JWT that asks Google for an access token, valid for an hour from `now`.
-    pub fn build_assertion(&self, now: u64) -> Result<String, BoxError> {
+    /// The signed JWT that asks Google for an access token with `scope`, valid for an hour from `now`.
+    pub fn build_assertion(&self, scope: &str, now: u64) -> Result<String, BoxError> {
         let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"RS256","typ":"JWT"}"#);
         let claims = json!({
             "iss": self.client_email,
-            "scope": FCM_SCOPE,
+            "scope": scope,
             "aud": self.token_uri,
             "iat": now,
             "exp": now + ASSERTION_LIFETIME_SECONDS,
@@ -160,8 +168,9 @@ impl HttpTokenExchange {
 impl TokenExchange for HttpTokenExchange {
     async fn exchange(&self, assertion: &str) -> Result<TokenReply, BoxError> {
         let form = format!("grant_type={JWT_BEARER_GRANT}&assertion={assertion}");
-        let reply = https::post(
+        let reply = https::request(
             &self.tls,
+            Method::POST,
             &self.token_uri,
             &[("content-type", "application/x-www-form-urlencoded")],
             Bytes::from(form),
@@ -180,14 +189,15 @@ struct HeldToken {
 /// if Google said it would lapse earlier.
 pub struct AccessTokenCache<C, E> {
     account: ServiceAccount,
+    scope: &'static str,
     exchange: E,
     clock: C,
     held: Mutex<Option<HeldToken>>,
 }
 
 impl<C: Clock, E: TokenExchange> AccessTokenCache<C, E> {
-    pub fn new(account: ServiceAccount, exchange: E, clock: C) -> Self {
-        Self { account, exchange, clock, held: Mutex::new(None) }
+    pub fn new(account: ServiceAccount, scope: &'static str, exchange: E, clock: C) -> Self {
+        Self { account, scope, exchange, clock, held: Mutex::new(None) }
     }
 
     pub fn account(&self) -> &ServiceAccount {
@@ -199,7 +209,7 @@ impl<C: Clock, E: TokenExchange> AccessTokenCache<C, E> {
         if let Some(token) = self.fresh_token(now) {
             return Ok(token);
         }
-        let assertion = self.account.build_assertion(now)?;
+        let assertion = self.account.build_assertion(self.scope, now)?;
         let reply = self.exchange.exchange(&assertion).await?;
         let valid_until = now + TOKEN_TTL_SECONDS.min(reply.expires_in);
         *self.held.lock().unwrap() = Some(HeldToken {
@@ -352,13 +362,13 @@ gVM0SkdAdMeNmluvfJbJz6A=
 
     #[test]
     fn the_assertion_has_three_parts() {
-        let assertion = account().build_assertion(1_000).expect("signs");
+        let assertion = account().build_assertion(FCM_SCOPE, 1_000).expect("signs");
         assert_eq!(assertion.split('.').count(), 3);
     }
 
     #[test]
     fn the_header_and_claims_are_the_ones_google_expects() {
-        let assertion = account().build_assertion(1_000).expect("signs");
+        let assertion = account().build_assertion(FCM_SCOPE, 1_000).expect("signs");
         let parts: Vec<&str> = assertion.split('.').collect();
         assert_eq!(decode_segment(parts[0]), json!({"alg": "RS256", "typ": "JWT"}));
         assert_eq!(
@@ -376,7 +386,7 @@ gVM0SkdAdMeNmluvfJbJz6A=
     #[test]
     fn the_signature_verifies_with_the_public_half_of_the_key() {
         let account = account();
-        let assertion = account.build_assertion(1_000).expect("signs");
+        let assertion = account.build_assertion(FCM_SCOPE, 1_000).expect("signs");
         let (signed, signature) = assertion.rsplit_once('.').expect("three parts");
         let signature = URL_SAFE_NO_PAD.decode(signature).expect("base64url");
         let public = UnparsedPublicKey::new(
@@ -390,7 +400,7 @@ gVM0SkdAdMeNmluvfJbJz6A=
     #[tokio::test]
     async fn a_token_is_reused_until_45_minutes_have_passed() {
         let exchange = FakeTokenExchange::replying("ya29.first", 3600);
-        let cache = AccessTokenCache::new(account(), exchange, FixedClock::at(1_000));
+        let cache = AccessTokenCache::new(account(), FCM_SCOPE, exchange, FixedClock::at(1_000));
         assert_eq!(cache.access_token().await.unwrap(), "ya29.first");
         cache.clock.advance(2_699);
         assert_eq!(cache.access_token().await.unwrap(), "ya29.first");
@@ -400,7 +410,7 @@ gVM0SkdAdMeNmluvfJbJz6A=
     #[tokio::test]
     async fn a_token_is_renewed_once_45_minutes_have_passed() {
         let exchange = FakeTokenExchange::replying("ya29.renewed", 3600);
-        let cache = AccessTokenCache::new(account(), exchange, FixedClock::at(1_000));
+        let cache = AccessTokenCache::new(account(), FCM_SCOPE, exchange, FixedClock::at(1_000));
         cache.access_token().await.unwrap();
         cache.clock.advance(2_700);
         cache.access_token().await.unwrap();
@@ -413,7 +423,7 @@ gVM0SkdAdMeNmluvfJbJz6A=
     #[tokio::test]
     async fn a_shorter_lifetime_from_google_is_respected() {
         let exchange = FakeTokenExchange::replying("ya29.short", 600);
-        let cache = AccessTokenCache::new(account(), exchange, FixedClock::at(1_000));
+        let cache = AccessTokenCache::new(account(), FCM_SCOPE, exchange, FixedClock::at(1_000));
         cache.access_token().await.unwrap();
         cache.clock.advance(600);
         cache.access_token().await.unwrap();
@@ -423,7 +433,7 @@ gVM0SkdAdMeNmluvfJbJz6A=
     #[tokio::test]
     async fn a_failed_exchange_is_reported_and_not_remembered() {
         let exchange = FakeTokenExchange::failing("invalid_grant");
-        let cache = AccessTokenCache::new(account(), exchange, FixedClock::at(1_000));
+        let cache = AccessTokenCache::new(account(), FCM_SCOPE, exchange, FixedClock::at(1_000));
         assert!(cache.access_token().await.is_err());
         assert!(cache.access_token().await.is_err());
         assert_eq!(cache.exchange.calls(), 2);

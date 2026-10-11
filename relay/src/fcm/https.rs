@@ -39,9 +39,10 @@ pub fn tls_config() -> Result<Arc<ClientConfig>, BoxError> {
     Ok(Arc::new(config))
 }
 
-/// POSTs `body` to `url` with the given headers and returns the status and the reply body.
-pub async fn post(
+/// Sends one request to `url` with the given headers and returns the status and the reply body.
+pub async fn request(
     tls: &Arc<ClientConfig>,
+    method: Method,
     url: &str,
     headers: &[(&str, &str)],
     body: Bytes,
@@ -58,14 +59,14 @@ pub async fn post(
         let _ = connection.await;
     });
 
-    let mut request = Request::builder()
-        .method(Method::POST)
+    let mut builder = Request::builder()
+        .method(method)
         .uri(uri)
         .header("content-length", body.len().to_string());
     for (name, value) in headers {
-        request = request.header(*name, *value);
+        builder = builder.header(*name, *value);
     }
-    let request = request.body(())?;
+    let request = builder.body(())?;
 
     let mut ready = h2.ready().await?;
     let (response, mut send_stream) = ready.send_request(request, false)?;
