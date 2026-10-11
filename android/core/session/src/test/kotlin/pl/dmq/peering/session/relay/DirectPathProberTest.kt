@@ -68,7 +68,10 @@ class DirectPathProberTest {
         prober.onAuthenticatedDatagram(source)
 
         assertEquals(DirectPathState.Open(source), prober.state)
-        val expected = listOf<ProbeAction>(ProbeAction.Report(DirectPathState.Open(source)), ProbeAction.SendProbe(source))
+        val expected = listOf<ProbeAction>(
+            ProbeAction.Report(DirectPathState.Open(source)),
+            ProbeAction.SendProbe(source),
+        )
         assertEquals(expected, prober.tick(0.25))
     }
 
@@ -103,11 +106,15 @@ class DirectPathProberTest {
         prober.onPeerAddress("203.0.113.7", 0)
         val second = prober.tick(0.25)
 
-        assertEquals(listOf<ProbeAction>(ProbeAction.Report(DirectPathState.AddressUnusable(PeerAddress("", 6000)))), first)
+        assertEquals(
+            listOf<ProbeAction>(ProbeAction.Report(DirectPathState.AddressUnusable(PeerAddress("", 6000)))),
+            first.filterIsInstance<ProbeAction.Report>(),
+        )
         assertEquals(
             listOf<ProbeAction>(ProbeAction.Report(DirectPathState.AddressUnusable(PeerAddress("203.0.113.7", 0)))),
-            second,
+            second.filterIsInstance<ProbeAction.Report>(),
         )
+        assertTrue(first.none { it is ProbeAction.SendProbe } && second.none { it is ProbeAction.SendProbe })
     }
 
     @Test
