@@ -1,0 +1,104 @@
+{
+ "source": "computed; hkdf, commitment and sealedDatagram were confirmed against Apple CryptoKit on 2026-10-11, the sas code is from a Swift test",
+ "sas": {
+  "source": "swift-test PairingSASTests.swift:56 for the code; bytes computed",
+  "protocolVersion": 1,
+  "clientID": "iphone-15-pro-max",
+  "serverID": "mac-studio-01",
+  "clientEphemeral": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+  "serverEphemeral": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+  "clientNonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+  "serverNonce": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+  "serverIdentity": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+  "transcript": "000000164d6163436173742d50616972696e672d5341532d7631000000020001000000116970686f6e652d31352d70726f2d6d61780000000d6d61632d73747564696f2d303100000041a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a100000041b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b200000020c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c300000020d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d400000041e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+  "code": "365357"
+ },
+ "commitment": {
+  "ephemeral": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+  "nonce": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+  "commitment": "9f1a96d5603c6b54cfd05b647cbc77fe56a74ef25f9032e231dca9742470e799"
+ },
+ "proof": {
+  "secret": "000102030405060708090a0b0c0d0e0f",
+  "transcript": "000000164d6163436173742d50616972696e672d5341532d7631000000020001000000116970686f6e652d31352d70726f2d6d61780000000d6d61632d73747564696f2d303100000041a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a100000041b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b200000020c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c300000020d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d400000041e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+  "proof": "0d8b59c204a489f845817ed175f7393f642d8868df9362ad6b3d6fa93ad47931"
+ },
+ "hkdf": {
+  "secret": "0726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8",
+  "salt": "pl.dmq.peering.video-datagram",
+  "clientToHostKey": "9ca896dfffc11c0c2c53e3dd5d8f3b469765a8fd481ae2cef287bad006db5233",
+  "hostToClientKey": "aa4403ff499f0e01fab001fb3239d9f1d59fc1280c08e9a218505b4ee39106c7"
+ },
+ "sealedDatagram": {
+  "direction": "hostToClient",
+  "token": "01080f161d242b323940474e555c636a",
+  "counter": 1,
+  "plaintextFrame": "0000000f0b7b2273657175656e6365223a317d",
+  "afterRelay": "000000000000000177770e0557ab6cdbd2bcdd7eb09e068e57f252b1a5475fb205301f21510c5429928402",
+  "asSent": "01080f161d242b323940474e555c636a000000000000000177770e0557ab6cdbd2bcdd7eb09e068e57f252b1a5475fb205301f21510c5429928402"
+ },
+ "replayWindow": {
+  "size": 64,
+  "steps": [
+   {
+    "counter": 5,
+    "accepts": true,
+    "commit": true
+   },
+   {
+    "counter": 5,
+    "accepts": false
+   },
+   {
+    "counter": 3,
+    "accepts": true,
+    "commit": true
+   },
+   {
+    "counter": 3,
+    "accepts": false
+   },
+   {
+    "counter": 70,
+    "accepts": true,
+    "commit": true
+   },
+   {
+    "counter": 5,
+    "accepts": false
+   },
+   {
+    "counter": 7,
+    "accepts": true,
+    "commit": false
+   },
+   {
+    "counter": 7,
+    "accepts": true,
+    "commit": true
+   },
+   {
+    "counter": 8,
+    "accepts": true,
+    "commit": false
+   },
+   {
+    "counter": 6,
+    "accepts": false
+   }
+  ],
+  "note": "accepts is the non-mutating check; commit says whether the datagram then authenticated and was committed. 5 is 65 behind 70, so it is refused."
+ },
+ "ecdsa": {
+  "publicKey": "04596f95e4a8d8e8014a6c37cf889c4962fe82dc3cc6534a72a93509340b02b1c4676f39ee4ee763b44e0feab90ee5475740e35c378b99f65cd398a368875ffc4c",
+  "message": "peeringd-host-registration-v1\nA1B2C3D4-0000-4000-8000-000000000001\n1760000000",
+  "derSignature": "3044022014714745a859ea285472cae85b2ad6f159c0a4b4a926b02ed996e2c905ad486f02203492bfed78e4c29b4f1534ef4af0cb7a081aa03bd943d211a7202e753009c541",
+  "hash": "sha256"
+ },
+ "relayProofPayloads": {
+  "host": "peeringd-host-registration-v1\nDEV\n1760000000",
+  "client": "peeringd-client-registration-v1\nCLI\n1760000000",
+  "referralStatus": "peeringd-referral-v1\nstatus\nCLI\n1760000000",
+  "referralRedeem": "peeringd-referral-v1\nredeem:ABCD\nCLI\n1760000000"
+ }
+}

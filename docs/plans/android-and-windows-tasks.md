@@ -90,7 +90,7 @@ Owns: `docs/protocol/vectors/messages.json`. Deps: SPEC-002.
 Done: one JSON file of `{name, kind, json}` cases covering clientHello, serverHello, every command, catalog, config, ping; literal cases copied from the Swift tests are flagged `source: swift-test`.
 Commit: Add JSON message vectors for the control channel.
 
-SPEC-007 | todo | foundation | S : crypto vectors
+SPEC-007 | done | foundation | S : crypto vectors
 Port: `PairingSAS.swift`, `VideoKeySchedule.swift`, `VideoDatagramSealer.swift`, `RelayDeviceProof.swift`; fixed values in `PairingSASTests.swift`, `VideoDatagramTests.swift`, `PairingProofTests.swift`.
 Owns: `docs/protocol/vectors/crypto.json`, `docs/protocol/vectors/README.md`. Deps: SPEC-001.
 Done: SAS code, commitment, proof, HKDF output, one sealed datagram, replay window sequence; each value either copied from a Swift test or computed by a script in `docs/protocol/vectors/tools/` and marked `source: computed, not yet confirmed by Swift`.
