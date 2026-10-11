@@ -38,6 +38,7 @@ pub mod device_bindings;
 pub mod device_proof;
 pub mod fcm;
 pub mod fcm_auth;
+pub mod playbilling;
 pub mod protocol;
 pub mod push;
 pub mod quota;
