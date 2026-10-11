@@ -1,0 +1,1 @@
+{"type":"system","subtype":"init","cwd":"/private/tmp/agentchat-capture","session_id":"2398a6db-8e32-4169-b1ca-09bcfdb80e58","model":"deepseek-flash[1m]","permissionMode":"default","capabilities":["interrupt_receipt_v1","interrupt_cancel_queued_v1"]}
