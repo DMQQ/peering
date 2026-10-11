@@ -143,6 +143,7 @@ extension ClientSession {
         let changed = lock.withLock { () -> Bool in
             guard announcedTransport != transport else { return false }
             announcedTransport = transport
+            videoDelivery.note(transport: transport)
             return true
         }
         guard changed else { return }
@@ -152,7 +153,9 @@ extension ClientSession {
 
     func note(pictureOn transport: VideoTransport) {
         lock.withLock {
-            lastPictureAt = Self.monotonicNow()
+            let now = Self.monotonicNow()
+            lastPictureAt = now
+            videoDelivery.notePicture(at: now)
             if transport == .primary { fallbackPolicy.notePrimaryPicture() }
         }
     }

@@ -1,6 +1,7 @@
 import Foundation
 import MacCastKit
 import PostHog
+import RemoteCore
 import os
 import UIKit
 
@@ -45,9 +46,16 @@ enum Analytics {
         send(accepted ? "pairing_accepted" : "pairing_declined", [:])
     }
 
-    static func sessionEnded(path: String) {
+    /// `first_picture_ms` is absent when no picture ever arrived, which on a relayed session is how a network blocking video shows up.
+    static func sessionEnded(path: String, video: VideoDeliveryRecord?) {
         context.withLock { $0.path = nil }
-        send("session_ended", ["path": path])
+        var properties: [String: Any] = ["path": path]
+        if let video {
+            properties["video_transport"] = video.transport.rawValue
+            properties["fell_back"] = video.fellBack
+            if let milliseconds = video.firstPictureMilliseconds { properties["first_picture_ms"] = milliseconds }
+        }
+        send("session_ended", properties)
     }
 
     static func onboardingCompleted() {
@@ -206,7 +214,7 @@ enum Analytics {
         SettingsObserver.shared.start()
     }
 
-    private static func send(_ event: String, _ properties: [String: String]) {
+    private static func send(_ event: String, _ properties: [String: Any]) {
         guard isEnabled, PostHogConfiguration.isConfigured else { return }
         var props: [String: Any] = properties
         props["$process_person_profile"] = false

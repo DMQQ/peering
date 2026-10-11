@@ -72,6 +72,8 @@ public final class ClientSession: @unchecked Sendable {
     var videoWatchTask: Task<Void, Never>?
     var fallbackPolicy = VideoFallbackPolicy()
     var lastPictureAt: TimeInterval?
+    /// Of the connection that was live at the end: `becomeReady` starts it again.
+    var videoDelivery = VideoDeliveryRecord()
     var lastControlReplyAt: TimeInterval?
     var readyAt: TimeInterval?
     /// When the silence watchdog last ran, and when it last found the app had been frozen. Both are `ControlSilence`'s inputs and reset with the reply time.
@@ -195,6 +197,7 @@ public final class ClientSession: @unchecked Sendable {
     /// Set with ``Phase/failed(_:)`` and cleared when a new connection begins.
     public var failureReason: FailureReason? { lock.withLock { _failureReason } }
     public var serverHello: ServerHello? { lock.withLock { _serverHello } }
+    public var videoDeliveryRecord: VideoDeliveryRecord { lock.withLock { videoDelivery } }
     public var catalog: CaptureCatalog? { lock.withLock { _catalog } }
     public var serverKey: Data? { lock.withLock { _serverKey } }
     public var isReady: Bool { lock.withLock { state == .ready } }

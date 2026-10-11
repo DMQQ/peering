@@ -71,6 +71,7 @@ extension SessionModel {
         let wasStartedAt = sessionStartedAt
         let wasPath = MacSession.activityPath(connectionPath)
         let analyticsPath = connectionPath?.rawValue ?? "unknown"
+        let videoDelivery = activeSession?.wire?.videoDeliveryRecord
 
         // Only for a deliberate end: a drop and the end iOS forces should find the session restored on return.
         if deliberate { UserDefaults.standard.set(false, forKey: Self.resumeKey) }
@@ -107,7 +108,7 @@ extension SessionModel {
         SessionPiP.shared.detach()
 
         if deliberate {
-            Analytics.sessionEnded(path: analyticsPath)
+            Analytics.sessionEnded(path: analyticsPath, video: videoDelivery)
             PostHogLog.info("session disconnect requested", attributes: [
                 "connection_path": analyticsPath,
             ])
