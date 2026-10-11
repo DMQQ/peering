@@ -64,7 +64,9 @@ extension MacSession {
                     reason: wire?.failureReason?.rawValue ?? "unknown",
                     path: (connectionPath ?? .lan).rawValue,
                     reconnectAttempt: model.reconnectAttempt,
-                    secondsIntoSession: sessionStartedAt.map { Int(Date().timeIntervalSince($0)) }
+                    secondsIntoSession: sessionStartedAt.map { Int(Date().timeIntervalSince($0)) },
+                    appState: Analytics.name(of: UIApplication.shared.applicationState),
+                    pictureInPictureActive: SessionPiP.shared.isActive
                 )
                 videoStatus = String(localized: "Stopped: \(message)")
             }

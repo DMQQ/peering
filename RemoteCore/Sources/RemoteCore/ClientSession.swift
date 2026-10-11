@@ -74,6 +74,9 @@ public final class ClientSession: @unchecked Sendable {
     var lastPictureAt: TimeInterval?
     var lastControlReplyAt: TimeInterval?
     var readyAt: TimeInterval?
+    /// When the silence watchdog last ran, and when it last found the app had been frozen. Both are `ControlSilence`'s inputs and reset with the reply time.
+    var lastSilenceCheckAt: TimeInterval?
+    var silenceRestartedAt: TimeInterval?
 
     /// The rule that turns a silent control channel into a failure. See ``ControlSilence``. Nothing else reports it: a dead path leaves the picture frozen while every layer waits for an error.
     static let controlSilence = ControlSilence()
@@ -310,6 +313,7 @@ public final class ClientSession: @unchecked Sendable {
             supportsClipboardImages: true,
             supportsTextFocus: true,
             supportsFieldState: true,
+            supportsPointerReport: true,
             supportsAgentChat: true,
             supportsAgentPermissionModes: true,
             supportsAgentUsage: true,

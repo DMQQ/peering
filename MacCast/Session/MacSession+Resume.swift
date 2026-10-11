@@ -112,6 +112,14 @@ extension MacSession {
             try? await Task.sleep(for: delay)
             guard let self, !Task.isCancelled else { return }
             self.reconnectTask = nil
+            // Coming back to the front dials: `SessionModel.enteringForeground()` runs `resumeIfNeeded()` for every Mac.
+            guard BackgroundRedial.mayDialFromTimer(
+                appIsBackground: UIApplication.shared.applicationState == .background,
+                pictureInPictureIsActive: SessionPiP.shared.isActive
+            ) else {
+                CrashLog.note("redial held until the app is in front · \(self.hostID ?? "unknown")")
+                return
+            }
             self.resumeIfNeeded()
         }
 

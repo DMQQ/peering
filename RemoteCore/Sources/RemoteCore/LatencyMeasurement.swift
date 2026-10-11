@@ -81,6 +81,16 @@ public struct ControlSilence: Sendable {
     /// Twice `VideoFallbackPolicy.controlHealthWindow`: that window only refuses to move the picture (cheap, reversible), while this one ends the session, and a handover is often a few seconds of silence.
     public static let defaultLimit: TimeInterval = 10
 
+    /// The check runs twice a second, so a longer gap since the last one means the process itself was not running.
+    public static let freezeGap: TimeInterval = 3
+
+    public enum Verdict: Equatable, Sendable {
+        case healthy
+        /// The silence is real time but the app was frozen for it: no ping went out and no pong was read, so it says nothing about the network.
+        case resumedFromFreeze
+        case expired
+    }
+
     public let limit: TimeInterval
 
     public init(limit: TimeInterval = ControlSilence.defaultLimit) {
@@ -88,14 +98,18 @@ public struct ControlSilence: Sendable {
     }
 
     /// `isReady` rather than "was ever ready", so a session that already ended is not judged again.
-    /// Baseline is the last reply, or the moment the session became ready.
-    public func hasExpired(
+    /// Baseline is the last reply, or the moment the session became ready, or the moment a freeze ended if that is later.
+    public func judge(
         isReady: Bool,
         readyAt: TimeInterval?,
         lastReplyAt: TimeInterval?,
+        restartedAt: TimeInterval?,
+        previousCheckAt: TimeInterval?,
         now: TimeInterval
-    ) -> Bool {
-        guard isReady, let since = lastReplyAt ?? readyAt else { return false }
-        return now - since > limit
+    ) -> Verdict {
+        guard isReady, let since = [lastReplyAt ?? readyAt, restartedAt].compactMap({ $0 }).max() else { return .healthy }
+        guard now - since > limit else { return .healthy }
+        if let previousCheckAt, now - previousCheckAt > Self.freezeGap { return .resumedFromFreeze }
+        return .expired
     }
 }

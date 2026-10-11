@@ -13,6 +13,8 @@ extension ClientSession {
         lastPictureAt = Self.monotonicNow()
         lastControlReplyAt = nil
         readyAt = nil
+        lastSilenceCheckAt = nil
+        silenceRestartedAt = nil
         fallbackPolicy.reset()
         guard videoWatchTask == nil else { lock.unlock(); return }
         let task = Task { [weak self] in
@@ -38,6 +40,8 @@ extension ClientSession {
         lastPictureAt = nil
         lastControlReplyAt = nil
         readyAt = nil
+        lastSilenceCheckAt = nil
+        silenceRestartedAt = nil
         videoChunks = VideoChunkReassembler()
         // A payload put back across two sessions would be made of two different Macs' pasteboards.
         clipboardChunks = ClipboardTransfer.reassembler()
@@ -62,21 +66,36 @@ extension ClientSession {
     }
 
     /// Ends a session the network has stopped carrying without saying so: after a network change nothing fails, and the picture stays on its last frame. A session that recovers within the window is left alone.
+    /// A backgrounded app is frozen by iOS with its sockets open, and the first check after it runs again would read that time as silence. Ping instead, and judge by the answer.
     func failIfControlHasGoneQuiet() {
         let now = Self.monotonicNow()
         lock.lock()
-        let expired = Self.controlSilence.hasExpired(
+        let previousCheckAt = lastSilenceCheckAt
+        let verdict = Self.controlSilence.judge(
             isReady: state == .ready,
             readyAt: readyAt,
             lastReplyAt: lastControlReplyAt,
+            restartedAt: silenceRestartedAt,
+            previousCheckAt: previousCheckAt,
             now: now
         )
+        lastSilenceCheckAt = now
+        if verdict == .resumedFromFreeze { silenceRestartedAt = now }
         let silentSince = lastControlReplyAt ?? readyAt
         lock.unlock()
 
-        guard expired, let silentSince else { return }
-        clientSessionLog.error("the control channel has not answered for \(Int(now - silentSince), privacy: .public)s; failing the session")
-        fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsive)
+        switch verdict {
+        case .healthy:
+            return
+        case .resumedFromFreeze:
+            let frozenFor = previousCheckAt.map { Int(now - $0) } ?? 0
+            clientSessionLog.notice("the app was not running for \(frozenFor, privacy: .public)s; asking the Mac instead of judging by the silence")
+            sendPing()
+        case .expired:
+            guard let silentSince else { return }
+            clientSessionLog.error("the control channel has not answered for \(Int(now - silentSince), privacy: .public)s; failing the session")
+            fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsive)
+        }
     }
 
     func evaluateVideoTransport() {

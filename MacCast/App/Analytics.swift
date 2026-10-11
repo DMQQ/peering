@@ -103,11 +103,27 @@ enum Analytics {
         send("connect_started", ["route": route.rawValue])
     }
 
-    /// `afterReady` tells a drop mid-session from a connection that never came up.
-    static func connectFailed(afterReady: Bool, reason: String, path: String, reconnectAttempt: Int, secondsIntoSession: Int?) {
-        var properties = ["after_ready": String(afterReady), "reason": reason, "path": path, "reconnect_attempt": String(reconnectAttempt)]
+    /// `afterReady` tells a drop mid-session from a connection that never came up. `appState` and `pictureInPictureActive` tell a drop the network caused from one iOS caused by freezing the app.
+    static func connectFailed(
+        afterReady: Bool, reason: String, path: String, reconnectAttempt: Int,
+        secondsIntoSession: Int?, appState: String, pictureInPictureActive: Bool
+    ) {
+        var properties = [
+            "after_ready": String(afterReady), "reason": reason, "path": path,
+            "reconnect_attempt": String(reconnectAttempt), "app_state": appState,
+            "pip_active": String(pictureInPictureActive),
+        ]
         if let secondsIntoSession { properties["seconds_into_session"] = String(secondsIntoSession) }
         send("connect_failed", properties)
+    }
+
+    static func name(of state: UIApplication.State) -> String {
+        switch state {
+        case .active: "active"
+        case .inactive: "inactive"
+        case .background: "background"
+        @unknown default: "unknown"
+        }
     }
 
     static func paywallShown(reason: String) {
