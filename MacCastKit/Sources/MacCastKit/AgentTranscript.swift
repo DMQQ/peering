@@ -143,8 +143,9 @@ public struct AgentTranscript: Equatable {
             }), case .tool(let id, var tool) = items[index] else { return }
             tool.state = ok ? .ok : .failed
             children[callID]?.state = .idle
-            tool.output = output
-            tool.truncated = truncated
+            // A second finish (a background task's notice) carries no output and must not wipe the first one's.
+            tool.output = output ?? tool.output
+            tool.truncated = output == nil ? tool.truncated : truncated
             items[index] = .tool(id: id, item: tool)
             bytes += (output ?? "").utf8.count
 
