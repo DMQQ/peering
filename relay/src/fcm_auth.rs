@@ -6,7 +6,7 @@
 
 use std::future::Future;
 use std::io::BufReader;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -17,12 +17,16 @@ use ring::signature::{RSA_PKCS1_SHA256, RsaKeyPair};
 use rustls_pki_types::PrivateKeyDer;
 use serde::Deserialize;
 use serde_json::json;
+use tokio_rustls::rustls::ClientConfig;
+use bytes::Bytes;
+
+use crate::fcm::https;
 
 pub const FCM_SCOPE: &str = "https://www.googleapis.com/auth/firebase.messaging";
 const ASSERTION_LIFETIME_SECONDS: u64 = 3600;
 const TOKEN_TTL_SECONDS: u64 = 45 * 60;
 
-type BoxError = Box<dyn std::error::Error + Send + Sync>;
+pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 #[derive(Deserialize)]
 struct KeyFile {
@@ -113,6 +117,58 @@ pub struct TokenReply {
 /// transport; tests use `FakeTokenExchange`.
 pub trait TokenExchange: Send + Sync {
     fn exchange(&self, assertion: &str) -> impl Future<Output = Result<TokenReply, BoxError>> + Send;
+}
+
+const JWT_BEARER_GRANT: &str = "urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer";
+
+#[derive(Deserialize)]
+struct TokenBody {
+    access_token: String,
+    expires_in: u64,
+}
+
+#[derive(Deserialize)]
+struct TokenErrorBody {
+    error: String,
+}
+
+/// Reads Google's answer to a token request. Only the reason a refusal names is kept, never the body.
+pub fn parse_token_reply(status: u16, body: &str) -> Result<TokenReply, BoxError> {
+    if status != 200 {
+        let reason = serde_json::from_str::<TokenErrorBody>(body)
+            .map(|parsed| parsed.error)
+            .unwrap_or_else(|_| format!("status {status}"));
+        return Err(format!("Google refused the access token request: {reason}").into());
+    }
+    let parsed: TokenBody = serde_json::from_str(body)
+        .map_err(|error| format!("Google's token reply is not the expected JSON: {error}"))?;
+    Ok(TokenReply { access_token: parsed.access_token, expires_in: parsed.expires_in })
+}
+
+/// The OAuth exchange over HTTPS, posting the assertion to the account's `token_uri`.
+pub struct HttpTokenExchange {
+    token_uri: String,
+    tls: Arc<ClientConfig>,
+}
+
+impl HttpTokenExchange {
+    pub fn new(token_uri: String, tls: Arc<ClientConfig>) -> Self {
+        Self { token_uri, tls }
+    }
+}
+
+impl TokenExchange for HttpTokenExchange {
+    async fn exchange(&self, assertion: &str) -> Result<TokenReply, BoxError> {
+        let form = format!("grant_type={JWT_BEARER_GRANT}&assertion={assertion}");
+        let reply = https::post(
+            &self.tls,
+            &self.token_uri,
+            &[("content-type", "application/x-www-form-urlencoded")],
+            Bytes::from(form),
+        )
+        .await?;
+        parse_token_reply(reply.status, &reply.body)
+    }
 }
 
 struct HeldToken {
@@ -371,5 +427,23 @@ gVM0SkdAdMeNmluvfJbJz6A=
         assert!(cache.access_token().await.is_err());
         assert!(cache.access_token().await.is_err());
         assert_eq!(cache.exchange.calls(), 2);
+    }
+
+    #[test]
+    fn a_token_reply_yields_the_token_and_its_lifetime() {
+        let reply = parse_token_reply(200, r#"{"access_token":"ya29.a","expires_in":3599,"token_type":"Bearer"}"#)
+            .expect("parses");
+        assert_eq!(reply, TokenReply { access_token: "ya29.a".into(), expires_in: 3599 });
+    }
+
+    #[test]
+    fn a_refused_exchange_names_the_reason_google_gives() {
+        let error = parse_token_reply(400, r#"{"error":"invalid_grant"}"#).unwrap_err();
+        assert!(error.to_string().contains("invalid_grant"));
+    }
+
+    #[test]
+    fn a_200_without_a_token_is_refused() {
+        assert!(parse_token_reply(200, r#"{"expires_in":3599}"#).is_err());
     }
 }

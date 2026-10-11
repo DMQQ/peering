@@ -36,6 +36,7 @@ pub mod config;
 pub mod counted_stream;
 pub mod device_bindings;
 pub mod device_proof;
+pub mod fcm;
 pub mod fcm_auth;
 pub mod protocol;
 pub mod push;
