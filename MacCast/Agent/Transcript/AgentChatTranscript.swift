@@ -14,6 +14,16 @@ struct AgentChatTranscript: View {
     let review: (AgentApproval) -> Void
     let openSubagent: (String) -> Void
 
+    /// What was already in the transcript when it appeared; nil until then, so a conversation being opened is never typed out.
+    @State private var present: Set<UUID>?
+
+    /// Only the newest reply, and only if it arrived while this screen was open.
+    private func streams(_ item: AgentTranscriptItem) -> Bool {
+        guard let present, case .reply(let id, _) = item, !present.contains(id) else { return false }
+        let lastReply = session.transcript.items.last { if case .reply = $0 { return true } else { return false } }
+        return lastReply?.id == id
+    }
+
     private func approval(for item: AgentTranscriptItem) -> AgentApproval? {
         guard case .tool(_, let tool) = item, case .awaitingApproval = tool.state else { return nil }
         return session.transcript.pendingApprovals.first { $0.call.id == tool.call.id }
@@ -48,7 +58,9 @@ struct AgentChatTranscript: View {
                             approval: approval(for: item),
                             review: review,
                             openSubagent: subagentOpener(for: item),
-                            subagentSteps: subagent(for: item)?.items.count
+                            subagentSteps: subagent(for: item)?.items.count,
+                            streams: streams(item),
+                            onReveal: { if stickToBottom { reader.scrollTo("chat-end", anchor: .bottom) } }
                         )
                         .agentRowArrival()
                     }
@@ -86,7 +98,9 @@ struct AgentChatTranscript: View {
                 guard stickToBottom else { return }
                 withAnimation(Motion.settle) { reader.scrollTo("chat-end", anchor: .bottom) }
             }
+            .onAppear { present = Set(session.transcript.items.map(\.id)) }
             .onChange(of: session.id) { _, _ in
+                present = Set(session.transcript.items.map(\.id))
                 stickToBottom = true
                 reader.scrollTo("chat-end", anchor: .bottom)
             }
