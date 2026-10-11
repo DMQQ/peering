@@ -17,6 +17,8 @@ struct TerminalHubScreen: View {
     @State var tab: HubTab = HubTab(rawValue: UserDefaults.standard.string(forKey: "Peering.hubTab") ?? "") ?? .agents
     /// Both kinds behind one alert: two alerts on one screen means one does not present.
     @State var pendingEnd: PendingEnd?
+    @AppStorage("Peering.agentsGuideSeen") var agentsGuideSeen = false
+    @AppStorage("Peering.terminalsGuideSeen") var terminalsGuideSeen = false
     @State var renaming: Renaming?
     @State var renameText = ""
 
@@ -38,8 +40,10 @@ struct TerminalHubScreen: View {
                     "Agents",
                     detail: model.agentCards.contains { $0.isLive }
                         ? String(localized: "\(model.agentCards.filter(\.isLive).count) open on your Mac")
-                        : String(localized: "Chat with a coding agent on your Mac")
+                        : String(localized: "Chat with a coding agent on your Mac"),
+                    guideSeen: $agentsGuideSeen
                 )
+                guide(.agents)
                 AgentToReviewCard()
                 chatsSection
                 agentsNotice
@@ -49,8 +53,10 @@ struct TerminalHubScreen: View {
                 pageHeading(
                     "Terminals",
                     detail: model.hostName.map { String(localized: "Shells running on \($0)") }
-                        ?? String(localized: "Shells running on your Mac")
+                        ?? String(localized: "Shells running on your Mac"),
+                    guideSeen: $terminalsGuideSeen
                 )
+                guide(.terminals)
                 terminalsSection
                 terminalHistorySection
             }

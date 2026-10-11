@@ -19,6 +19,7 @@ struct AgentEmptyChat: View {
     let pick: (String) -> Void
 
     @State private var arrived = false
+    @AppStorage("Peering.chatGuideSeen") private var guideSeen = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var ended: Bool { session.state == .exited || session.state == .failed }
@@ -72,6 +73,11 @@ struct AgentEmptyChat: View {
                 .padding(.horizontal, 12)
                 .modifier(Rise(arrived: arrived, order: 3))
             Spacer(minLength: 24)
+            if !ended, !compact, !guideSeen {
+                HubGuideCard.chat { withAnimation(Motion.settle) { guideSeen = true } }
+                    .padding(.bottom, 10)
+                    .modifier(Rise(arrived: arrived, order: 4))
+            }
             if !ended, !compact {
                 VStack(spacing: 8) {
                     ForEach(Array(AgentSuggestions.all.enumerated()), id: \.offset) { offset, suggestion in
