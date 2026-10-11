@@ -344,7 +344,7 @@ AND-132 later: keyframe request fallback by pause/resume after decode errors.
 
 ## Windows: scaffold and contracts
 
-WIN-001 | todo | foundation | S : Cargo workspace. Owns `windows/Cargo.toml`, `windows/rust-toolchain.toml`, `windows/crates/peering-wire/{Cargo.toml,src/lib.rs}`, `windows/crates/peering-core/{Cargo.toml,src/lib.rs}`, `windows/README.md`. Deps none. Done: `cd windows && cargo test -p peering-wire -p peering-core` green on a placeholder; crates have no Windows dependency. Commit: Scaffold the Windows host Cargo workspace.
+WIN-001 | done | foundation | S : Cargo workspace. Owns `windows/Cargo.toml`, `windows/rust-toolchain.toml`, `windows/crates/peering-wire/{Cargo.toml,src/lib.rs}`, `windows/crates/peering-core/{Cargo.toml,src/lib.rs}`, `windows/README.md`. Deps none. Done: `cd windows && cargo test -p peering-wire -p peering-core` green on a placeholder; crates have no Windows dependency. Commit: Scaffold the Windows host Cargo workspace.
 
 WIN-002 | todo | foundation | S : core traits. Owns `windows/crates/peering-core/src/ports/*.rs`. Deps WIN-001. Done: traits `Clock`, `SecretStore`, `Identity`, `ControlStream`, `DatagramSocket`, `Capture`, `Encoder`, `InputSink`, `Catalogue`, `Signalling` with fakes in `peering-core/src/fakes/`, one loopback test. Commit: Define the ports the host core depends on, with fakes.
 
