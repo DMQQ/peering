@@ -335,7 +335,7 @@ extension HostModel {
         defer { virtualDisplayTeardownDepth -= 1 }
         // Before the listener goes: a modifier held when Stop is pressed is as stuck as one from a crashed client, and the cancelled sessions may not report a disconnect.
         input.releaseAll()
-        setPrivacyMode(false)
+        setPrivacyMode(false, counted: false)
         // Nothing is hosted, so nobody needs the Mac held up. Released through the ordinary path, so starting again puts the keep-awake back.
         Task { await releaseKeepAwakeNow() }
         // Before the listener goes: a monitor left behind is not repairable from the window.
@@ -358,10 +358,11 @@ extension HostModel {
 
     /// The stream is rebuilt while the video connection is kept, so the client sees a new config and keyframe. The source is looked up at switch time, so a vanished one fails here and the failure names it.
     func applyCaptureSource(_ source: CaptureSource) {
-        if source != lastCountedCaptureSource {
-            lastCountedCaptureSource = source
+        // The first source of a session is the starting point, not a change.
+        if let previous = lastCountedCaptureSource, previous != source {
             Analytics.track(.captureSourceChanged)
         }
+        lastCountedCaptureSource = source
         guard let coordinator else {
             // Nothing is captured, so the request is kept only for the window; a client with no video connection gets the default source.
             record("Capture source requested before any video connection")
