@@ -13,6 +13,14 @@ enum Analytics {
     /// A foreground within this of the last one is the same sitting, not a new open.
     private static let openGap: TimeInterval = 30 * 60
 
+    /// What every `feature_used` carries, so a count can be read by connection and plan: set where a session starts and the plan is read, cleared where the session ends.
+    private struct Context {
+        var path: String?
+        var plan: String?
+    }
+
+    private static let context = OSAllocatedUnfairLock(initialState: Context())
+
     static var isEnabled: Bool {
         UserDefaults.standard.object(forKey: PreferenceKeys.analyticsEnabled) as? Bool ?? true
     }
@@ -22,10 +30,12 @@ enum Analytics {
         let last = UserDefaults.standard.double(forKey: lastOpenKey)
         guard now - last > openGap else { return }
         UserDefaults.standard.set(now, forKey: lastOpenKey)
+        context.withLock { $0.plan = plan?.rawValue }
         send("app_opened", ["plan": plan?.rawValue ?? "unknown"])
     }
 
     static func sessionStarted(path: String, plan: RelayPlan?) {
+        context.withLock { $0.path = path; $0.plan = plan?.rawValue }
         send("session_started", ["path": path, "plan": plan?.rawValue ?? "unknown"])
     }
 
@@ -34,6 +44,7 @@ enum Analytics {
     }
 
     static func sessionEnded(path: String) {
+        context.withLock { $0.path = nil }
         send("session_ended", ["path": path])
     }
 
@@ -100,8 +111,14 @@ enum Analytics {
         case remotePairingStarted, manualAddressConnect, intentRun, pipStarted
     }
 
-    static func featureUsed(_ feature: Feature) {
-        send("feature_used", ["feature": feature.rawValue])
+    /// `agent` is one of the built-in agents' ids, or `other`: the list comes from the Mac, so an id is not sent as it arrives.
+    static func featureUsed(_ feature: Feature, agent: String? = nil) {
+        var properties = ["feature": feature.rawValue]
+        let current = context.withLock { $0 }
+        if let path = current.path { properties["path"] = path }
+        if let plan = current.plan { properties["plan"] = plan }
+        if let agent { properties["agent"] = ["claude", "codex", "opencode"].contains(agent) ? agent : "other" }
+        send("feature_used", properties)
     }
 
     enum Area: String {

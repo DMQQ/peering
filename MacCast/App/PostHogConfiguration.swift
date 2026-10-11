@@ -12,6 +12,10 @@ enum PostHogConfiguration {
     }
 
     static func setup() {
+        // A debug build is the developer testing: its events were most of the project's volume. `POSTHOG_IN_DEBUG` in the scheme turns it back on for checking the pipeline itself.
+        #if DEBUG
+        guard ProcessInfo.processInfo.environment["POSTHOG_IN_DEBUG"] != nil else { return }
+        #endif
         guard let projectToken = value("PostHogProjectToken", env: "POSTHOG_PROJECT_TOKEN"),
               let host = value("PostHogHost", env: "POSTHOG_HOST")
         else { return }

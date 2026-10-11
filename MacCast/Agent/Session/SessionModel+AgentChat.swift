@@ -45,12 +45,12 @@ extension SessionModel {
             paywallReason = .feature(.moreAgents)
             return
         }
-        Analytics.featureUsed(.agentChatStarted)
+        Analytics.featureUsed(.agentChatStarted, agent: agentID)
         activeSession?.startAgentChat(agentID: agentID, directory: directory)
     }
 
     func sendAgentPrompt(_ text: String, to id: UUID) {
-        Analytics.featureUsed(.agentPromptSent)
+        Analytics.featureUsed(.agentPromptSent, agent: agentCards.first { $0.id == id }?.agentID)
         activeSession?.sendAgentPrompt(text, to: id)
     }
 
