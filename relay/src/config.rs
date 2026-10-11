@@ -171,6 +171,12 @@ pub struct Config {
     /// `PEERINGD_APNS_KEY`: path to the `.p8` private key file downloaded from the Apple
     /// Developer portal.
     pub apns_key: Option<PathBuf>,
+    /// `PEERINGD_FCM_SERVICE_ACCOUNT`: path to the Google service account JSON that sends pushes to
+    /// Android devices. Unset means FCM is disabled.
+    pub fcm_service_account: Option<PathBuf>,
+    /// `PEERINGD_FCM_PROJECT_ID`: the Firebase project to send to. Unset means the project named in
+    /// the service account file.
+    pub fcm_project_id: Option<String>,
 }
 
 /// Sessions at once, unless `PEERINGD_MAX_SESSIONS` says otherwise. See the field for why 1000.
@@ -343,6 +349,8 @@ impl Config {
             apns_team_id: get("PEERINGD_APNS_TEAM_ID"),
             apns_bundle_id: get("PEERINGD_APNS_BUNDLE_ID"),
             apns_key: get("PEERINGD_APNS_KEY").map(PathBuf::from),
+            fcm_service_account: get("PEERINGD_FCM_SERVICE_ACCOUNT").map(PathBuf::from),
+            fcm_project_id: get("PEERINGD_FCM_PROJECT_ID"),
         })
     }
 }
@@ -651,5 +659,30 @@ mod tests {
         }
 
         assert!(configured(&[]).unwrap().stale_video_ports.is_none());
+    }
+
+    #[test]
+    fn fcm_is_disabled_when_no_service_account_is_named() {
+        let config = configured(&[]).unwrap();
+        assert!(config.fcm_service_account.is_none());
+        assert!(config.fcm_project_id.is_none());
+    }
+
+    #[test]
+    fn the_fcm_service_account_and_project_are_read_from_the_environment() {
+        let config = configured(&[
+            ("PEERINGD_FCM_SERVICE_ACCOUNT", "/etc/peeringd/fcm.json"),
+            ("PEERINGD_FCM_PROJECT_ID", "peering-prod"),
+        ])
+        .unwrap();
+        assert_eq!(config.fcm_service_account, Some(PathBuf::from("/etc/peeringd/fcm.json")));
+        assert_eq!(config.fcm_project_id.as_deref(), Some("peering-prod"));
+    }
+
+    #[test]
+    fn an_empty_fcm_setting_counts_as_unset() {
+        let config = configured(&[("PEERINGD_FCM_SERVICE_ACCOUNT", ""), ("PEERINGD_FCM_PROJECT_ID", "")]).unwrap();
+        assert!(config.fcm_service_account.is_none());
+        assert!(config.fcm_project_id.is_none());
     }
 }

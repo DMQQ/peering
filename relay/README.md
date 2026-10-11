@@ -69,6 +69,8 @@ video, and serves signalling in plaintext. That is exactly right for pointing bo
 | `PEERINGD_REFERRAL_BONUS_MINUTES` | `30` | Minutes one running invite grant adds to each window's free allowance |
 | `PEERINGD_REFERRAL_DAYS` | `7` | How long a grant runs from the redemption |
 | `PEERINGD_REFERRAL_MAX_INVITES` | `5` | Redemptions of one code that earn its owner a grant. The redeemer is always granted; zero means owners never earn |
+| `PEERINGD_FCM_SERVICE_ACCOUNT` | unset | Path to the Google service account JSON that sends pushes to Android devices through FCM HTTP v1. Unset means FCM is disabled, and the startup log says so. The key file is a secret: keep it out of the repository |
+| `PEERINGD_FCM_PROJECT_ID` | the project named in the service account file | Firebase project the pushes are sent to. Optional |
 
 ### Invites
 

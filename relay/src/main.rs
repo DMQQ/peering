@@ -10,6 +10,7 @@ use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
 use peeringd::apns::ApnsClient;
+use peeringd::fcm::FcmClient;
 use peeringd::config::{Config, TlsFiles};
 use peeringd::quota::QuotaTracker;
 use peeringd::referrals::Referrals;
@@ -227,6 +228,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => None,
     };
 
+    let fcm = match &config.fcm_service_account {
+        Some(path) => match FcmClient::from_service_account_file(path, config.fcm_project_id.clone()) {
+            Ok(client) => {
+                info!("FCM client ready");
+                Some(Arc::new(client))
+            }
+            Err(e) => {
+                warn!(error = %e, "FCM client failed to initialise; Android pushes will not work");
+                None
+            }
+        },
+        None => {
+            info!("FCM disabled: PEERINGD_FCM_SERVICE_ACCOUNT is not set");
+            None
+        }
+    };
+
     let settings = Settings {
         host: config.public_host.clone(),
         // Falls back to the bound port, which is right whenever nothing is forwarded.
@@ -245,6 +263,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         handshake_timeout: config.handshake_timeout,
         idle_timeout: config.idle_timeout,
         apns,
+        fcm,
     };
 
     tokio::select! {

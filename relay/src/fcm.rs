@@ -11,6 +11,7 @@ pub(crate) mod https;
 mod tests;
 
 use std::future::Future;
+use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
@@ -128,8 +129,13 @@ impl FcmClient {
         }
     }
 
-    /// The client the relay runs with: tokens minted from the service account and sent over HTTPS.
-    pub fn production(project_id: String, account: ServiceAccount) -> Result<Self, BoxError> {
+    /// The client the relay runs with, built from the service account file: tokens minted from its
+    /// key and sent over HTTPS. `project_id` overrides the project the file names.
+    pub fn from_service_account_file(path: &Path, project_id: Option<String>) -> Result<Self, BoxError> {
+        let text = std::fs::read_to_string(path)
+            .map_err(|error| format!("could not read the FCM service account {}: {error}", path.display()))?;
+        let account = ServiceAccount::from_json(&text)?;
+        let project_id = project_id.unwrap_or_else(|| account.project_id().to_owned());
         let tls = https::tls_config()?;
         let exchange = HttpTokenExchange::new(account.token_uri().to_owned(), Arc::clone(&tls));
         let tokens = AccessTokenCache::new(account, exchange, SystemClock);

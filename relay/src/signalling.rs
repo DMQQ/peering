@@ -32,6 +32,8 @@ use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
 use crate::apns::{ApnsClient, PushAction, PushRoute};
+use crate::fcm::FcmClient;
+use crate::push::{self, PushTarget};
 
 /// The only categories a Mac may name: the ones the phone registers for an agent approval, and for
 /// the notice that a turn finished.
@@ -89,6 +91,23 @@ pub struct Settings {
     /// APNs client, when the relay has been given a key. `None` means push notifications are
     /// not available; `NotifyDevice` messages from registered hosts are silently dropped.
     pub apns: Option<Arc<ApnsClient>>,
+    /// FCM client, when the relay has been given a service account. `None` drops Android pushes.
+    pub fcm: Option<Arc<FcmClient>>,
+}
+
+/// An action needs all three parts, and a category only the app registered: anything else is
+/// dropped rather than forwarded under the phone's name.
+fn push_action<'a>(
+    category: Option<&'a str>,
+    session_id: Option<&'a str>,
+    approval_id: Option<&'a str>,
+) -> Option<PushAction<'a>> {
+    match (category, session_id, approval_id) {
+        (Some(category), Some(session_id), Some(approval_id)) if is_agent_category(category) => {
+            Some(PushAction { category, session_id, approval_id })
+        }
+        _ => None,
+    }
 }
 
 /// What one signalling connection carries from message to message.
@@ -881,25 +900,32 @@ async fn dispatch(
             {
                 return Some(ServerMessage::error("invalid", "field too long"));
             }
-            if let Some(apns) = settings.apns.as_ref().map(Arc::clone) {
-                tokio::spawn(async move {
-                    // The Mac's ID is the relay's own record of who asked, not something the Mac
-                    // says about itself, so a tap can only ever open the Mac that sent it.
-                    // An action needs all three parts, and a category only the app registered: anything
-                    // else is dropped rather than forwarded under the phone's name.
-                    let action = match (category.as_deref(), session_id.as_deref(), approval_id.as_deref()) {
-                        (Some(category), Some(session_id), Some(approval_id))
-                            if is_agent_category(category) =>
-                        {
-                            Some(PushAction { category, session_id, approval_id })
-                        }
-                        _ => None,
-                    };
-                    let route = PushRoute { host_id: &host_id, source: source.as_deref(), action };
-                    if let Err(e) = apns.send(&device_token, &title, &body, Some(route)).await {
-                        warn!(error = %e, "APNs notification failed");
+            // The Mac's ID is the relay's own record of who asked, not something the Mac says about
+            // itself, so a tap can only ever open the Mac that sent it. A token's kind decides which
+            // service carries it; a service that is not configured drops the push, as it always has.
+            match push::target_for(&device_token) {
+                PushTarget::Fcm(token) => {
+                    if let Some(fcm) = settings.fcm.as_ref().map(Arc::clone) {
+                        tokio::spawn(async move {
+                            let action = push_action(category.as_deref(), session_id.as_deref(), approval_id.as_deref());
+                            let route = PushRoute { host_id: &host_id, source: source.as_deref(), action };
+                            if let Err(e) = fcm.send(&token, &title, &body, Some(route)).await {
+                                warn!(error = %e, "FCM notification failed");
+                            }
+                        });
                     }
-                });
+                }
+                PushTarget::Apns(_) => {
+                    if let Some(apns) = settings.apns.as_ref().map(Arc::clone) {
+                        tokio::spawn(async move {
+                            let action = push_action(category.as_deref(), session_id.as_deref(), approval_id.as_deref());
+                            let route = PushRoute { host_id: &host_id, source: source.as_deref(), action };
+                            if let Err(e) = apns.send(&device_token, &title, &body, Some(route)).await {
+                                warn!(error = %e, "APNs notification failed");
+                            }
+                        });
+                    }
+                }
             }
             None
         }
@@ -1154,6 +1180,7 @@ mod tests {
             handshake_timeout: Duration::from_secs(10),
             idle_timeout: Duration::from_secs(90),
             apns: None,
+            fcm: None,
         }
     }
 
