@@ -96,7 +96,7 @@ Owns: `docs/protocol/vectors/crypto.json`, `docs/protocol/vectors/README.md`. De
 Done: SAS code, commitment, proof, HKDF output, one sealed datagram, replay window sequence; each value either copied from a Swift test or computed by a script in `docs/protocol/vectors/tools/` and marked `source: computed, not yet confirmed by Swift`.
 Commit: Add crypto and pairing test vectors.
 
-SPEC-008 | todo | foundation | S : wire vectors
+SPEC-008 | done | foundation | S : wire vectors
 Port: `Framing.swift`, `VideoWire.swift`, `VideoFallback.swift`.
 Owns: `docs/protocol/vectors/wire.json`. Deps: SPEC-003.
 Done: framed bytes (hex) for several kinds, split and coalesced delivery cases, video frame header, audio header, chunk sequences with loss and reordering.
