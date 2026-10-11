@@ -430,3 +430,29 @@ fn pin_store_received_the_client_name_and_clock_time() {
     assert_eq!(device.name, CLIENT_NAME);
     assert_eq!(device.last_seen_unix, UNIX_NOW);
 }
+
+#[test]
+fn server_hello_announces_the_windows_host_platform() {
+    let mut session = session_with(paired_pins(), Some(CLIENT_KEY.to_vec()));
+    let actions = open_with_hello(&mut session, client_hello_json(PROTOCOL_VERSION, CLIENT_ID, ""));
+    assert_eq!(server_hello_of(&actions).host_platform.as_deref(), Some("windows"));
+}
+
+#[test]
+fn session_keeps_the_client_platform_and_codec_list() {
+    let mut session = unpaired();
+    let extra = r#","clientPlatform":"android","videoCodecs":["h264","hevc"]"#;
+    open_with_hello(&mut session, client_hello_json(PROTOCOL_VERSION, CLIENT_ID, extra));
+    assert_eq!(session.client_platform(), Some("android"));
+    assert_eq!(session.video_codecs(), Some(["h264".to_owned(), "hevc".to_owned()].as_slice()));
+}
+
+#[test]
+fn a_client_that_sends_no_platform_or_codec_list_still_pairs() {
+    let mut session = unpaired();
+    let actions = open_with_hello(&mut session, client_hello_json(PROTOCOL_VERSION, CLIENT_ID, ""));
+    assert_eq!(session.client_platform(), None);
+    assert_eq!(session.video_codecs(), None);
+    assert_eq!(session.state(), HandshakeState::AwaitingClientCommit);
+    assert!(server_hello_of(&actions).host_platform.is_some());
+}

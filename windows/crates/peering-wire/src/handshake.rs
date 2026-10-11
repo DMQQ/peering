@@ -63,6 +63,12 @@ pub struct ClientHello {
     pub resume_source: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lost_pairing: Option<bool>,
+    /// Such as `android`. Absent from a client that predates the field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_platform: Option<String>,
+    /// Codec names the client decodes, such as `h264`. Absent means the client takes only H.264.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_codecs: Option<Vec<String>>,
 }
 
 impl ClientHello {
@@ -86,6 +92,9 @@ pub struct ServerHello {
     pub capabilities: ServerCapabilities,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_chat_agents: Option<Vec<String>>,
+    /// `windows` from this host. Absent from a host that predates the field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host_platform: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -228,6 +237,31 @@ mod tests {
     }
 
     #[test]
+    fn a_hello_with_the_platform_and_codec_list_round_trips() {
+        let json = r#"{"clientID":"c","clientName":"p","protocolVersion":20,"wantsPairing":false,"clientPlatform":"android","videoCodecs":["h264","hevc"]}"#;
+        let hello: ClientHello = serde_json::from_str(json).unwrap();
+        assert_eq!(hello.client_platform.as_deref(), Some("android"));
+        assert_eq!(hello.video_codecs, Some(vec!["h264".to_owned(), "hevc".to_owned()]));
+        assert_eq!(serde_json::to_value(&hello).unwrap(), serde_json::from_str::<Value>(json).unwrap());
+    }
+
+    #[test]
+    fn a_hello_from_an_older_client_has_no_platform_or_codec_list() {
+        let json = r#"{"clientID":"c","clientName":"p","protocolVersion":20,"wantsPairing":false}"#;
+        let hello: ClientHello = serde_json::from_str(json).unwrap();
+        assert_eq!(hello.client_platform, None);
+        assert_eq!(hello.video_codecs, None);
+    }
+
+    #[test]
+    fn a_server_hello_carries_the_host_platform_when_it_is_set() {
+        let json = r#"{"serverID":"s","hostName":"h","protocolVersion":20,"alreadyPaired":false,"hostPlatform":"windows"}"#;
+        let server: ServerHello = serde_json::from_str(json).unwrap();
+        assert_eq!(server.host_platform.as_deref(), Some("windows"));
+        assert_eq!(serde_json::to_value(&server).unwrap(), serde_json::from_str::<Value>(json).unwrap());
+    }
+
+    #[test]
     fn unset_flags_are_absent_when_serialised() {
         let hello = ClientHello {
             client_id: "c".into(),
@@ -237,6 +271,8 @@ mod tests {
             capabilities: ClientCapabilities::default(),
             resume_source: None,
             lost_pairing: None,
+            client_platform: None,
+            video_codecs: None,
         };
         let value = serde_json::to_value(&hello).unwrap();
         let keys: Vec<&str> = value.as_object().unwrap().keys().map(String::as_str).collect();
@@ -252,6 +288,7 @@ mod tests {
             mac_addresses: None,
             capabilities: ServerCapabilities::default(),
             agent_chat_agents: None,
+            host_platform: None,
         };
         let value = serde_json::to_value(&server).unwrap();
         assert_eq!(value.as_object().unwrap().len(), 4);

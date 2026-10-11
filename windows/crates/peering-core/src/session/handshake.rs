@@ -19,6 +19,7 @@ pub use super::deps::{PairedDevice, PinStore, Random};
 
 pub const PROTOCOL_VERSION: u16 = 20;
 pub const MAX_CONTROL_PAYLOAD: usize = 64 * 1024;
+const HOST_PLATFORM: &str = "windows";
 const MAX_IDENTIFIER_BYTES: usize = 256;
 
 pub struct HostConfig {
@@ -51,6 +52,8 @@ pub struct HostSession {
     state: HandshakeState,
     client_id: String,
     client_name: String,
+    client_platform: Option<String>,
+    video_codecs: Option<Vec<String>>,
     peer_key: Vec<u8>,
     exchange: Option<Exchange>,
     verification: Option<Verification>,
@@ -64,6 +67,8 @@ impl HostSession {
             state: HandshakeState::AwaitingRole,
             client_id: String::new(),
             client_name: String::new(),
+            client_platform: None,
+            video_codecs: None,
             peer_key: Vec::new(),
             exchange: None,
             verification: None,
@@ -80,6 +85,15 @@ impl HostSession {
 
     pub fn client_name(&self) -> &str {
         &self.client_name
+    }
+
+    pub fn client_platform(&self) -> Option<&str> {
+        self.client_platform.as_deref()
+    }
+
+    /// The codecs the client decodes, or `None` when it did not say.
+    pub fn video_codecs(&self) -> Option<&[String]> {
+        self.video_codecs.as_deref()
     }
 
     pub fn on_frame(&mut self, frame: Frame) -> Vec<SessionAction> {
@@ -150,6 +164,8 @@ impl HostSession {
 
         self.client_id = hello.client_id;
         self.client_name = hello.client_name;
+        self.client_platform = hello.client_platform;
+        self.video_codecs = hello.video_codecs;
         self.peer_key = peer_key;
         out.push(SessionAction::Emit(HostEvent::ClientConnected {
             client_id: self.client_id.clone(),
@@ -177,6 +193,7 @@ impl HostSession {
             mac_addresses: already_paired.then(|| self.config.mac_addresses.clone()),
             capabilities: ServerCapabilities { supports_video_pause: Some(true), ..ServerCapabilities::default() },
             agent_chat_agents: None,
+            host_platform: Some(HOST_PLATFORM.to_owned()),
         }
     }
 
