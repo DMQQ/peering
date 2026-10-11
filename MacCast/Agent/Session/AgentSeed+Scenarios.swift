@@ -120,12 +120,39 @@ extension MacSession {
         refreshAgentCards()
     }
 
+    /// Answers a listing the way the Mac would: a request naming no path is the home folder.
+    func answerSeededListing(_ path: String?, sessionID id: UUID) {
+        let resolved = path ?? "/Users/demo"
+        let folder = { (name: String) in
+            RemoteDirectoryEntry(name: name, isDirectory: true, isSymlink: false, size: 0, permissions: "drwxr-xr-x", modified: nil)
+        }
+        let file = { (name: String) in
+            RemoteDirectoryEntry(name: name, isDirectory: false, isSymlink: false, size: 2048, permissions: "-rw-r--r--", modified: nil)
+        }
+        let entries = resolved == "/Users/demo"
+            ? [folder("Documents"), folder("Downloads"), folder("Projects"), file("notes.txt")]
+            : [folder("orders-service"), file("README.md")]
+        let listing = RemoteDirectory(entries: entries, isTruncated: false)
+        directories[RemoteDirectoryKey(terminalID: id, path: path)] = listing
+        directories[RemoteDirectoryKey(terminalID: id, path: resolved)] = listing
+        if browsingPaths[id] == nil { browsingPaths[id] = resolved }
+    }
+
+    /// A file whose first line is far wider than the screen, so wrapping can be told from scrolling.
+    func answerSeededPreview(_ path: String, sessionID id: UUID) {
+        let wide = "const readings = [" + (1...40).map { "\($0 * 137)" }.joined(separator: ", ") + "];"
+        let text = (["// notes", wide] + (1...60).map { "line \($0): some ordinary text" }).joined(separator: "\n")
+        let data = Data(text.utf8)
+        filePreview = RemoteFilePreview(terminalID: id, path: path, totalBytes: data.count, data: data, isComplete: true)
+    }
+
     /// A Mac that is only a name and a set of capabilities.
     func becomeSeededMac() {
         phase = .ready
         hasBeenReady = true
         hostName = "Demo Mac"
         hostSupportsAgentList = true
+        hostSupportsFileBrowser = true
         hostSupportsAgentChat = true
         hostSupportsAgentModelPicker = true
         hostSupportsAgentPermissionModes = true

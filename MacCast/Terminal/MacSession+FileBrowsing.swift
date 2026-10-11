@@ -26,6 +26,9 @@ extension MacSession {
     }
 
     func listDirectory(_ path: String?, sessionID id: UUID) {
+#if DEBUG
+        if AgentSeed.wantsFakeMac { return answerSeededListing(path, sessionID: id) }
+#endif
         let key = RemoteDirectoryKey(terminalID: id, path: path)
         pendingDirectories.insert(key)
         browseFailures.removeValue(forKey: key)
@@ -33,6 +36,9 @@ extension MacSession {
     }
 
     func previewFile(_ path: String, sessionID id: UUID) {
+#if DEBUG
+        if AgentSeed.wantsFakeMac { return answerSeededPreview(path, sessionID: id) }
+#endif
         filePreview = RemoteFilePreview(terminalID: id, path: path)
         wire?.sendTerminal(.readFile(sessionID: id, path: path))
     }
