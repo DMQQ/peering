@@ -58,10 +58,11 @@ struct AgentPreviewSheet: View {
 
     // MARK: Address
 
+    /// One capsule: back and reload sit inside it instead of beside it as three separate controls.
     private var addressBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
             if browser?.canGoBack == true {
-                barButton("chevron.backward", label: "Back") { browser?.goBack() }
+                fieldButton("chevron.backward", label: "Back") { browser?.goBack() }
             }
             TextField("localhost:3000", text: $typed)
                 .textInputAutocapitalization(.never)
@@ -70,24 +71,25 @@ struct AgentPreviewSheet: View {
                 .submitLabel(.go)
                 .focused($addressFocused)
                 .font(.system(size: 15, design: .monospaced))
-                .padding(.horizontal, 14)
-                .frame(height: 38)
-                .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
+                .padding(.leading, browser?.canGoBack == true ? 2 : 12)
                 .onSubmit { open() }
-            barButton("arrow.clockwise", label: "Reload") { browser?.reload() }
+            fieldButton("arrow.clockwise", label: "Reload") { browser?.reload() }
                 .disabled(browser?.phase == .idle)
         }
+        .padding(.horizontal, 4)
+        .frame(height: 42)
+        .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
     }
 
-    private func barButton(_ symbol: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+    private func fieldButton(_ symbol: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(ColorPalette.ink)
-                .frame(width: 38, height: 38)
-                .overlay(Circle().strokeBorder(.white.opacity(0.16)))
+                .frame(width: 36, height: 36)
+                .contentShape(Circle())
         }
         .accessibilityLabel(Text(label))
     }
@@ -103,7 +105,13 @@ struct AgentPreviewSheet: View {
         if let browser {
             switch browser.phase {
             case .idle:
-                start(notice: browser.notice)
+                AgentPreviewStart(
+                    detected: detected,
+                    isProbing: isProbing,
+                    notice: browser.notice,
+                    open: { typed = "localhost:\($0)"; open() },
+                    lookAgain: { Task { await detect() } }
+                )
             case .failed(let reason):
                 failure(reason, browser: browser)
             case .loading, .loaded:
@@ -116,98 +124,46 @@ struct AgentPreviewSheet: View {
 
     private func page(_ browser: PreviewBrowser) -> some View {
         VStack(spacing: 0) {
-            ZStack(alignment: .top) {
-                PreviewWebView(browser: browser)
-                if browser.phase == .loading { ProgressView().padding(.top, 12) }
-            }
-            if let notice = browser.notice { footnote(notice) }
-            footnote(String(localized: "Live reload over WebSocket is not carried here. Reload to see changes."))
-        }
-    }
-
-    private func footnote(_ text: String) -> some View {
-        Text(text)
-            .font(.caption)
-            .foregroundStyle(.tertiary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 6)
-    }
-
-    private func start(notice: String?) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Open a server running on your Mac")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(ColorPalette.ink)
-                Text("Type a port, or pick one that is answering now. Only localhost and 127.0.0.1 on the Mac can be opened.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                portChips
-                if let notice {
-                    Text(notice).font(.footnote).foregroundStyle(ColorPalette.caution)
-                }
-                Text("Live reload over WebSocket is not carried here. Reload to see changes.")
+            // A line under the bar says a page is on its way; a spinner floating over the page hid its top.
+            ProgressView()
+                .progressViewStyle(.linear)
+                .tint(.white.opacity(0.6))
+                .opacity(browser.phase == .loading ? 1 : 0)
+                .animation(Motion.settle, value: browser.phase == .loading)
+            PreviewWebView(browser: browser)
+            if let notice = browser.notice {
+                Text(verbatim: notice)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
-            }
-            .cardSurface()
-            .padding(16)
-        }
-    }
-
-    private var portChips: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Text(detected.isEmpty && !isProbing ? "Nothing found on the usual ports" : "On the Mac now")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if isProbing { ProgressView().controlSize(.mini) }
-                Spacer()
-                Button("Look again") { Task { await detect() } }
-                    .font(.caption.weight(.medium))
-                    .disabled(isProbing)
-            }
-            HStack(spacing: 8) {
-                ForEach(detected, id: \.self) { port in
-                    Button { typed = "localhost:\(port)"; open() } label: {
-                        Text(verbatim: ":\(port)")
-                            .font(.system(size: 14, weight: .medium, design: .monospaced))
-                            .foregroundStyle(ColorPalette.ink)
-                            .padding(.horizontal, 14)
-                            .frame(height: 34)
-                            .overlay(Capsule().strokeBorder(.white.opacity(0.3)))
-                    }
-                }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
             }
         }
     }
 
     private func failure(_ reason: PreviewFailure, browser: PreviewBrowser) -> some View {
-        VStack(spacing: 14) {
+        VStack {
             Spacer()
-            Image(systemName: "bolt.horizontal.circle")
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(.secondary)
-            Text(Self.title(reason))
-                .font(.headline)
-                .foregroundStyle(ColorPalette.ink)
-            Text(Self.explanation(reason))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button { browser.reload() } label: {
-                Text("Try again")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(ColorPalette.ink)
-                    .padding(.horizontal, 22)
-                    .frame(height: 40)
-                    .overlay(Capsule().strokeBorder(.white.opacity(0.3)))
+            PreviewEmptyState(
+                symbol: "bolt.horizontal",
+                title: Self.title(reason),
+                detail: Self.explanation(reason)
+            ) {
+                Button { browser.reload() } label: {
+                    Text("Try again")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(ColorPalette.onInk)
+                        .padding(.horizontal, 26)
+                        .frame(height: 42)
+                        .background(ColorPalette.ink, in: Capsule())
+                }
+                .padding(.top, 6)
             }
             Spacer()
+            Spacer()
         }
-        .padding(.horizontal, 32)
-        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 20)
     }
 
     private static func title(_ reason: PreviewFailure) -> String {
