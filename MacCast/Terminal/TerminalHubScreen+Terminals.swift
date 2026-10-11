@@ -3,14 +3,21 @@ import RemoteCore
 import SwiftUI
 
 extension TerminalHubScreen {
+    /// A shell an agent was launched in belongs to the Agents page, where it shows in History while it runs: listing it here too made one agent appear in both tabs.
+    private var shellCards: [TerminalCardDigest] {
+        let agentShells = Set(AgentHistory.load().compactMap(\.terminalID))
+        return model.terminalCards.filter { !agentShells.contains($0.id) }
+    }
+
     var terminalsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if model.terminalCards.isEmpty {
+        let shells = shellCards
+        return VStack(alignment: .leading, spacing: 12) {
+            if shells.isEmpty {
                 TerminalEmptyState(canCreate: model.canOpenAnotherShellFromCards) {
                     path.append(.terminalFolder(nil))
                 }
             } else {
-                ForEach(Array(model.terminalCards.enumerated()), id: \.element.id) { index, terminal in
+                ForEach(Array(shells.enumerated()), id: \.element.id) { index, terminal in
                     terminalRow(terminal, index: index)
                 }
             }
