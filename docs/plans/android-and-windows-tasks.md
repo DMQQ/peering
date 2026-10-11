@@ -250,19 +250,19 @@ AND-041 | done | S : liveness. Port `ClientSession+Liveness.swift`, `LatencyMeas
 
 AND-042 | done | S : session ready actions and commands. Port `ClientSession+Commands.swift`. Owns `core/session/.../connection/SessionCommands.kt`. Deps AND-040, AND-024. Done: first quality send, catalogue handling, capability guarded sending (no command without declared flag). Commit: Send commands only when the host declared support.
 
-AND-043 | todo | S : video lane manager. Port `ClientSession+Video.swift`, `+VideoFrames.swift`, `+VideoWatch.swift`, `VideoDeliveryRecord.swift`. Owns `core/session/.../video/VideoLanes.kt`. Deps AND-018, AND-020, AND-021, AND-040. Done: key request/grant, open datagrams, route frames from two lanes with independent reassemblers, fallback requests, return to primary; fake lanes. Commit: Manage the primary and control video lanes with fallback.
+AND-043 | done | S : video lane manager. Port `ClientSession+Video.swift`, `+VideoFrames.swift`, `+VideoWatch.swift`, `VideoDeliveryRecord.swift`. Owns `core/session/.../video/VideoLanes.kt`. Deps AND-018, AND-020, AND-021, AND-040. Done: key request/grant, open datagrams, route frames from two lanes with independent reassemblers, fallback requests, return to primary; fake lanes. Commit: Manage the primary and control video lanes with fallback.
 
-AND-044 | todo | S : relay connect flow. Port `ClientSession+Connect.swift`, `RelaySignalling.swift`. Owns `core/session/.../relay/RelayConnect.kt`. Deps AND-022, AND-023, AND-040. Done: request session, quota error mapping, host offline, token write then TLS handoff through the port; fake signalling. Commit: Open a relayed session through signalling.
+AND-044 | done | S : relay connect flow. Port `ClientSession+Connect.swift`, `RelaySignalling.swift`. Owns `core/session/.../relay/RelayConnect.kt`. Deps AND-022, AND-023, AND-040. Done: request session, quota error mapping, host offline, token write then TLS handoff through the port; fake signalling. Commit: Open a relayed session through signalling.
 
-AND-045 | todo | S : direct path prober. Port `ClientSession+DirectPath.swift`, `VideoDatagramSocket+Addressing.swift`. Owns `core/session/.../relay/DirectPath.kt`. Deps AND-043, AND-044. Done: cadence 250 ms x12 then 5 s, rediscovery every 12, state reporting, authenticated source becomes the peer. Commit: Probe for a direct path to the host.
+AND-045 | done | S : direct path prober. Port `ClientSession+DirectPath.swift`, `VideoDatagramSocket+Addressing.swift`. Owns `core/session/.../relay/DirectPath.kt`. Deps AND-043, AND-044. Done: cadence 250 ms x12 then 5 s, rediscovery every 12, state reporting, authenticated source becomes the peer. Commit: Probe for a direct path to the host.
 
-AND-046 | todo | S : source switching state. Port `ChosenSource.swift`, `MacSession+Picture.swift`. Owns `core/session/.../video/SourceSelection.kt`. Deps AND-014, AND-042. Done: choose, resume source on reconnect, config updates owed by pixel size, input transform from the active source. Commit: Track the chosen capture source across switches.
+AND-046 | done | S : source switching state. Port `ChosenSource.swift`, `MacSession+Picture.swift`. Owns `core/session/.../video/SourceSelection.kt`. Deps AND-014, AND-042. Done: choose, resume source on reconnect, config updates owed by pixel size, input transform from the active source. Commit: Track the chosen capture source across switches.
 
-AND-047 | todo | S : agent chat state holder. Port `SessionModel+AgentChat.swift`, `MacSession+Agent*.swift`. Owns `core/session/.../agent/AgentChat.kt`. Deps AND-032..034. Done: list, start, prompt, history/replay requests, approval, interrupt, close through a fake channel. Commit: Drive agent chats from a session state holder.
+AND-047 | done | S : agent chat state holder. Port `SessionModel+AgentChat.swift`, `MacSession+Agent*.swift`. Owns `core/session/.../agent/AgentChat.kt`. Deps AND-032..034. Done: list, start, prompt, history/replay requests, approval, interrupt, close through a fake channel. Commit: Drive agent chats from a session state holder.
 
-AND-048 | todo | S : files state holder. Port `SessionModel+FileBrowser.swift`. Owns `core/session/.../files/FileBrowser.kt`. Deps AND-035, AND-036. Done: open scope, list, navigate up, preview request, failure display states with a fake channel. Commit: Drive the file browser from a session state holder.
+AND-048 | done | S : files state holder. Port `SessionModel+FileBrowser.swift`. Owns `core/session/.../files/FileBrowser.kt`. Deps AND-035, AND-036. Done: open scope, list, navigate up, preview request, failure display states with a fake channel. Commit: Drive the file browser from a session state holder.
 
-AND-049 | todo | S : session history and last-activity records. Port `SessionHistory.swift`, `SessionActivity.swift`. Owns `core/session/.../history/SessionHistory.kt`. Deps AND-040. Done: records appended on connect and end, bounded list, serialisation. Commit: Record finished sessions for the Sessions tab.
+AND-049 | done | S : session history and last-activity records. Port `SessionHistory.swift`, `SessionActivity.swift`. Owns `core/session/.../history/SessionHistory.kt`. Deps AND-040. Done: records appended on connect and end, bounded list, serialisation. Commit: Record finished sessions for the Sessions tab.
 
 ## Android: platform glue (core:platform, app), thin, no logic
 
@@ -308,14 +308,14 @@ AND-076 | todo | integration | S : wire the app graph. Owns `app/.../AppGraph.kt
 
 ## Android: flow tests (JVM, fake transports, vectors; no UI)
 
-AND-080 | todo | S : pairing flow. Owns `core/session/src/test/.../PairingFlowTest.kt`. Deps AND-040. Done: scripted fake host: SAS match, SAS mismatch, QR secret proof, host refusal, pin recorded only after success. Run `./gradlew :core:session:test --tests '*PairingFlow*'`. Commit: Test the pairing flow end to end with a fake host.
-AND-081 | todo | S : connect and reconnect flow. Owns `.../ConnectFlowTest.kt`. Deps AND-040, AND-041, AND-028. Done: LAN connect, drop and ladder, network change, host stopped code stops reconnecting. Commit: Test connect and reconnect behaviour.
+AND-080 | done | S : pairing flow. Owns `core/session/src/test/.../PairingFlowTest.kt`. Deps AND-040. Done: scripted fake host: SAS match, SAS mismatch, QR secret proof, host refusal, pin recorded only after success. Run `./gradlew :core:session:test --tests '*PairingFlow*'`. Commit: Test the pairing flow end to end with a fake host.
+AND-081 | done | S : connect and reconnect flow. Owns `.../ConnectFlowTest.kt`. Deps AND-040, AND-041, AND-028. Done: LAN connect, drop and ladder, network change, host stopped code stops reconnecting. Commit: Test connect and reconnect behaviour.
 AND-082 | todo | S : relay fallback and direct path flow. Owns `.../RelayFlowTest.kt`. Deps AND-043..045. Done: relayed session, silent datagram lane triggers control fallback, host decline repeats, direct path opens and fallback returns. Commit: Test relay fallback and direct path switching.
 AND-083 | todo | S : session start and stop flow. Owns `.../SessionLifecycleTest.kt`. Deps AND-042, AND-049. Done: start, pause picture, resume, stop, history recorded. Commit: Test session start and stop.
 AND-084 | todo | S : source switching flow. Owns `.../SourceSwitchTest.kt`. Deps AND-046. Done: switch display, config update owed, input transform follows, resume source on reconnect. Commit: Test display switching.
 AND-085 | todo | S : agent chat turn with approval flow. Owns `.../AgentTurnFlowTest.kt`. Deps AND-047. Done: start, prompt, stream, approval, allow, turn finished, interrupt, replay after reconnect. Commit: Test an agent turn with an approval.
 AND-086 | todo | S : file browse and transfer flow. Owns `.../FilesFlowTest.kt`. Deps AND-048. Done: list, preview, ranged download, failure, upload chunks. Commit: Test file browsing and transfer.
-AND-087 | todo | S : permission and error paths. Owns `.../ErrorPathsTest.kt`. Deps AND-040, AND-044. Done: version mismatch message, quotaExceeded, host offline, malformed frames, oversize payload, unknown enum case does not kill the session. Commit: Test error and refusal paths.
+AND-087 | done | S : permission and error paths. Owns `.../ErrorPathsTest.kt`. Deps AND-040, AND-044. Done: version mismatch message, quotaExceeded, host offline, malformed frames, oversize payload, unknown enum case does not kill the session. Commit: Test error and refusal paths.
 
 ## Android: integration
 
@@ -390,16 +390,16 @@ WIN-047 | done | S : relay registration loop. Port `RelayHostRegistration.swift`
 WIN-048 | done | S : relayed session dial (token write, then TLS server handoff). Owns `peering-core/src/relay/dial.rs`. Deps WIN-047. Done: fake stream shows token written first. Commit: Dial the relay control port when a session is ready.
 WIN-049 | done | S : direct path knocking. Port `VideoDatagramLane.swift` probe parts. Owns `peering-core/src/video/direct.rs`. Deps WIN-046. Done: cadence tests. Commit: Knock for a direct path from the host side.
 WIN-050 | done | S : host settings model (port, quality, autostart flag). Owns `peering-core/src/settings.rs`. Deps none. Done: defaults and clamps. Commit: Model host settings.
-WIN-051 | todo | S : push token registry. Port `PushTokenStore.swift`. Owns `peering-core/src/push_tokens.rs`. Deps WIN-029. Done: hex of bytes, empty forgets. Commit: Store the push tokens clients register.
-WIN-052 | todo | S : file browse service on a fake filesystem with POSIX style virtual paths. Port `TerminalSessionManager+FileBrowsing.swift`, `DirectoryListing.swift`. Owns `peering-core/src/files/browse.rs`. Deps WIN-029. Done: `/` lists drives, `/C:/Users`, `ls` permission string synthesis, read limits, errors. Commit: Serve directory listings and file reads.
+WIN-051 | done | S : push token registry. Port `PushTokenStore.swift`. Owns `peering-core/src/push_tokens.rs`. Deps WIN-029. Done: hex of bytes, empty forgets. Commit: Store the push tokens clients register.
+WIN-052 | done | S : file browse service on a fake filesystem with POSIX style virtual paths. Port `TerminalSessionManager+FileBrowsing.swift`, `DirectoryListing.swift`. Owns `peering-core/src/files/browse.rs`. Deps WIN-029. Done: `/` lists drives, `/C:/Users`, `ls` permission string synthesis, read limits, errors. Commit: Serve directory listings and file reads.
 
 ## Windows: agent (peering-agent), no Windows API in the logic
 
-WIN-053 | todo | S : Claude stream-json parser. Port `MacCastKit AgentClaudeStream.swift`. Owns `peering-agent/src/claude_stream.rs`, fixtures in `peering-agent/tests/fixtures/claude/`. Deps WIN-028. Done: recorded transcripts produce the events the Swift parser produces (fixtures taken from MacCastKit tests). Commit: Parse Claude Code stream output into agent events.
-WIN-054 | todo | S : Claude adapter (spawn args, stdin protocol, approvals over stdio, interrupt). Port `ClaudeCodeAdapter.swift`. Owns `peering-agent/src/claude_adapter.rs`. Deps WIN-053. Done: against a fake child process script; approval round trip. Commit: Drive Claude Code as a child process.
-WIN-055 | todo | S : session manager (list, start, history, replay, close, limits). Port `AgentSessionManager*.swift`, `AgentSession.swift`. Owns `peering-agent/src/manager.rs`. Deps WIN-054. Done: fake adapters; snapshot, replay with isLast, three chat limit not enforced. Commit: Manage agent sessions and replay.
-WIN-056 | todo | S : agent directory browse. Port `AgentDirectoryBrowser.swift`. Owns `peering-agent/src/browse.rs`. Deps WIN-052. Done: tests. Commit: Browse folders for starting an agent.
-WIN-057 | todo | S : binary lookup and environment on Windows. Port `AgentEnvironment.swift`. Owns `peering-agent/src/environment.rs`. Deps none. Done: PATH search with `.exe`/`.cmd` shims on a temp dir tree; cmd shim wrapping rule. Commit: Find agent CLIs on Windows.
+WIN-053 | done | S : Claude stream-json parser. Port `MacCastKit AgentClaudeStream.swift`. Owns `peering-agent/src/claude_stream.rs`, fixtures in `peering-agent/tests/fixtures/claude/`. Deps WIN-028. Done: recorded transcripts produce the events the Swift parser produces (fixtures taken from MacCastKit tests). Commit: Parse Claude Code stream output into agent events.
+WIN-054 | done | S : Claude adapter (spawn args, stdin protocol, approvals over stdio, interrupt). Port `ClaudeCodeAdapter.swift`. Owns `peering-agent/src/claude_adapter.rs`. Deps WIN-053. Done: against a fake child process script; approval round trip. Commit: Drive Claude Code as a child process.
+WIN-055 | done | S : session manager (list, start, history, replay, close, limits). Port `AgentSessionManager*.swift`, `AgentSession.swift`. Owns `peering-agent/src/manager.rs`. Deps WIN-054. Done: fake adapters; snapshot, replay with isLast, three chat limit not enforced. Commit: Manage agent sessions and replay.
+WIN-056 | done | S : agent directory browse. Port `AgentDirectoryBrowser.swift`. Owns `peering-agent/src/browse.rs`. Deps WIN-052. Done: tests. Commit: Browse folders for starting an agent.
+WIN-057 | done | S : binary lookup and environment on Windows. Port `AgentEnvironment.swift`. Owns `peering-agent/src/environment.rs`. Deps none. Done: PATH search with `.exe`/`.cmd` shims on a temp dir tree; cmd shim wrapping rule. Commit: Find agent CLIs on Windows.
 
 ## Windows: platform (peering-platform and host), Windows API; tests only for pure mappers
 
