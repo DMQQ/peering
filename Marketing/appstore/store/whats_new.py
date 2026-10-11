@@ -55,7 +55,7 @@ N = {
 • 一些细节修复和优化。""",
 }
 P = {
-"en-US": "Your Mac in your pocket, with your coding agents. Chat with Claude Code, Codex and OpenCode, approve their requests, and see the screen from anywhere. No account.",
+"en-US": "Approve Claude Code, Codex and OpenCode from your phone, then take over your Mac's screen and terminal when you need to. Free on your own network. No account.",
 "de-DE": "Dein Mac in der Hosentasche, mit deinen Coding-Agenten. Chatte mit Claude Code, Codex und OpenCode, genehmige Anfragen und sieh den Bildschirm von überall. Ohne Konto.",
 "es-ES": "Tu Mac en el bolsillo, con tus agentes de código. Chatea con Claude Code, Codex y OpenCode, aprueba sus solicitudes y mira la pantalla desde cualquier lugar. Sin cuenta.",
 "fr-FR": "Ton Mac dans ta poche, avec tes agents de code. Discute avec Claude Code, Codex et OpenCode, approuve leurs demandes et vois l'écran de n'importe où. Sans compte.",
