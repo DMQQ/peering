@@ -160,10 +160,15 @@ async fn handle(
     // reported as one that ran out of allowance, which is a distinction the log line below exists
     // to make. Polling the work before the clock is also the order the two matter in.
     let mut spent = false;
+    let mut control_bytes: Option<(u64, u64)> = None;
+    let spliced_at = std::time::Instant::now();
     loop {
         tokio::select! {
             biased;
-            _ = &mut splice => break,
+            copied = &mut splice => {
+                control_bytes = copied.ok();
+                break;
+            }
             _ = ticks.tick() => {
                 // **Said on every tick, not once at the start.** The sweep retires a session whose
                 // registry entry has not been touched for the TTL, and the only thing that used to
@@ -183,7 +188,7 @@ async fn handle(
 
     // Released so the token cannot be presented again. Without this a token stays valid for the
     // rest of its TTL, and a leaked one could hold a splice open.
-    registry.release(&token).await;
+    let video = registry.release(&token).await;
 
     // The last stretch, which is whatever has passed since the previous charge. Taken here rather
     // than left to the meter's own drop so that the number billed is the number on the line below;
@@ -205,6 +210,22 @@ async fn handle(
             client_id = meter.client_id(),
             remaining_secs = ?left,
             "relay usage recorded"
+        );
+    }
+
+    // One line per relayed session, kept at info: a session whose picture never crossed the video
+    // socket is how a network that blocks UDP shows up here, and nothing else in the log says so.
+    // `control_bytes` is large when the picture travelled on the control channel instead.
+    if let Some(video) = video {
+        let (to_peer, from_peer) = control_bytes.unwrap_or_default();
+        info!(
+            seconds = spliced_at.elapsed().as_secs(),
+            video_over_udp = video.from_host_datagrams > 0,
+            video_datagrams_from_host = video.from_host_datagrams,
+            video_bytes_from_host = video.from_host_bytes,
+            video_datagrams_from_client = video.from_client_datagrams,
+            control_bytes = to_peer + from_peer,
+            "relayed session ended"
         );
     }
 

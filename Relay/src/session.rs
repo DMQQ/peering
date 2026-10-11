@@ -106,6 +106,21 @@ struct Route {
     /// because a session has not gone quiet while either end is still talking — see
     /// [`Table::has_gone_quiet`].
     last_active: Option<Instant>,
+    /// Datagrams with a payload that were forwarded from this end, and their payload bytes. Bare
+    /// tokens and datagrams with nowhere to go are not counted: this answers "did a picture cross".
+    datagrams: u64,
+    bytes: u64,
+}
+
+/// What crossed the video socket for one session, read when the session ends. A relayed session
+/// whose `from_host_datagrams` is zero had its picture carried some other way (the control
+/// channel) or not at all.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct VideoUsage {
+    pub from_client_datagrams: u64,
+    pub from_client_bytes: u64,
+    pub from_host_datagrams: u64,
+    pub from_host_bytes: u64,
 }
 
 /// What the routing table made of one datagram's token.
@@ -186,6 +201,8 @@ impl VideoRoutes {
                     peer: tokens[1 - slot],
                     addr: None,
                     last_active: None,
+                    datagrams: 0,
+                    bytes: 0,
                 },
             );
         }
@@ -199,11 +216,20 @@ impl VideoRoutes {
     /// outlives every session instead of in a socket that died with one. That is why teardown is a
     /// call here rather than a dropped handle somewhere, and why every path that removes a session
     /// from the registry calls it.
-    pub fn close(&self, tokens: &[Token; 2]) {
+    pub fn close(&self, tokens: &[Token; 2]) -> VideoUsage {
         let mut inner = lock(&self.inner);
-        for token in tokens {
-            inner.routes.remove(token);
+        let mut usage = VideoUsage::default();
+        for (slot, token) in tokens.iter().enumerate() {
+            let Some(route) = inner.routes.remove(token) else { continue };
+            if slot == CLIENT_SLOT {
+                usage.from_client_datagrams = route.datagrams;
+                usage.from_client_bytes = route.bytes;
+            } else {
+                usage.from_host_datagrams = route.datagrams;
+                usage.from_host_bytes = route.bytes;
+            }
         }
+        usage
     }
 
     /// Routes one datagram's token, binding the address it arrived from as it goes.
@@ -214,6 +240,12 @@ impl VideoRoutes {
     /// stream that stops with nothing to reconnect, because datagrams have no connection to
     /// re-establish.
     pub fn route(&self, token: &Token, from: SocketAddr) -> Routed {
+        self.route_sized(token, from, 0)
+    }
+
+    /// [`route`](Self::route) for a datagram carrying `payload_len` bytes after its token, which
+    /// are counted towards the session's [`VideoUsage`] when they have somewhere to go.
+    pub fn route_sized(&self, token: &Token, from: SocketAddr, payload_len: usize) -> Routed {
         let mut inner = lock(&self.inner);
         let Some(route) = inner.routes.get(token).copied() else {
             return Routed::Dropped;
@@ -235,9 +267,14 @@ impl VideoRoutes {
         // because the two ways of being wrong are not equal: a router that panicked would take
         // every session's video with it, and this one would at worst drop a binding that the
         // sender's next datagram makes again.
+        let forwarded = peer.is_some() && payload_len > 0;
         if let Some(route) = inner.routes.get_mut(token) {
             route.addr = Some(from);
             route.last_active = Some(Instant::now());
+            if forwarded {
+                route.datagrams += 1;
+                route.bytes += payload_len as u64;
+            }
         }
 
         match peer {
@@ -581,12 +618,10 @@ impl Registry {
     /// Retires the session's video routes with it. A session that is gone but still routable is a
     /// token that forwards for a phone that has hung up — and on the shared socket there is no
     /// socket closing behind it to make that harmless.
-    pub async fn release(&self, token: &Token) {
+    pub async fn release(&self, token: &Token) -> Option<VideoUsage> {
         let mut inner = self.inner.lock().await;
-        let retired = inner.sessions.remove(token).map(|session| session.video_tokens);
-        if let Some(tokens) = retired {
-            self.routes.close(&tokens);
-        }
+        let retired = inner.sessions.remove(token).map(|session| session.video_tokens)?;
+        Some(self.routes.close(&retired))
     }
 
     /// Says that a session's own splice is still running.
@@ -889,6 +924,36 @@ mod tests {
         assert_eq!(table.route(&HOST, addr(2, 6000)), Routed::NoPeer);
         assert_eq!(table.route(&CLIENT, addr(1, 5000)), Routed::Peer(addr(2, 6000)));
         assert_eq!(table.route(&HOST, addr(2, 6000)), Routed::Peer(addr(1, 5000)));
+    }
+
+    #[test]
+    fn closing_a_session_reports_the_payload_each_end_sent() {
+        let table = routes();
+        table.open(&[CLIENT, HOST]);
+
+        table.route_sized(&CLIENT, addr(1, 5000), 0);
+        table.route_sized(&HOST, addr(2, 6000), 1200);
+        table.route_sized(&HOST, addr(2, 6000), 800);
+        table.route_sized(&CLIENT, addr(1, 5000), 40);
+
+        assert_eq!(
+            table.close(&[CLIENT, HOST]),
+            VideoUsage {
+                from_client_datagrams: 1,
+                from_client_bytes: 40,
+                from_host_datagrams: 2,
+                from_host_bytes: 2000,
+            }
+        );
+    }
+
+    #[test]
+    fn datagrams_with_nowhere_to_go_are_not_counted() {
+        let table = routes();
+        table.open(&[CLIENT, HOST]);
+
+        assert_eq!(table.route_sized(&HOST, addr(2, 6000), 1200), Routed::NoPeer);
+        assert_eq!(table.close(&[CLIENT, HOST]), VideoUsage::default());
     }
 
     #[test]
