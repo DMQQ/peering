@@ -14,7 +14,7 @@ extension MacSession {
         case .snapshot(let infos):
             // Transcripts already read are kept: the listing says which sessions exist and the conversation arrives in the replay after each top-up.
             let previous = agentSessions
-            agentHistoryRequested = []
+            agentHistoryRequests.removeAll()
             agentSessions = infos.map { info in
                 var session = RemoteAgentSession(info)
                 if let known = previous.first(where: { $0.id == info.id }) {
@@ -80,7 +80,7 @@ extension MacSession {
                 agentSessions[index].transcript.markTruncatedAtFront()
             }
             agentSessions[index].isLoaded = true
-            agentHistoryRequested.insert(id)
+            agentHistoryRequests.markAnswered(id)
             // A turn can end while the phone is away, and the replay is the only news of it.
             flushAgentQueue(id, state: agentSessions[index].transcript.state)
 

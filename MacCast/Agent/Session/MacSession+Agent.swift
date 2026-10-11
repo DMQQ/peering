@@ -29,8 +29,8 @@ extension MacSession {
 
     /// A chat the Mac already had when this phone connected is listed but empty: nothing else asks for its conversation.
     func ensureAgentHistory(_ id: UUID) {
-        guard wire != nil, let session = agentSessions.first(where: { $0.id == id }),
-              !session.isLoaded, agentHistoryRequested.insert(id).inserted
+        guard let session = agentSessions.first(where: { $0.id == id }),
+              agentHistoryRequests.claim(id, isLoaded: session.isLoaded, wireIsUp: wire != nil)
         else { return }
         loadAgentHistory(id, since: 0)
     }

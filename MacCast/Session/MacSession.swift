@@ -59,6 +59,7 @@ final class MacSession: Identifiable {
     var datagramCounts: ClientSession.DatagramCounts?
 
     var latencyMilliseconds: Double?
+    var badConnectionWarning = BadConnectionWarning()
 
     /// ``latencyMilliseconds`` stays the relay's even then: the control connection carries input and always goes the long way.
     var pathLatencyMilliseconds: Double?
@@ -102,7 +103,6 @@ final class MacSession: Identifiable {
     var connectTask: Task<Void, Never>?
     var sourceToResume: CaptureSource? {
         if activeSourceID?.hasPrefix("mosaic:") == true {
-            guard model.storeManager.access.includes(.mosaic) else { return nil }
             return askedMosaicLayout.map { .mosaic($0) }
         }
         return catalog?.all.first { $0.id == activeSourceID }?.source
@@ -306,7 +306,7 @@ final class MacSession: Identifiable {
     var terminalCards: [TerminalCardDigest] = []
     @ObservationIgnored var terminalCardsTask: Task<Void, Never>?
     /// Chats whose full history has been asked for, so a stream of events does not ask again for each one.
-    var agentHistoryRequested: Set<UUID> = []
+    var agentHistoryRequests = AgentHistoryRequests()
     var selectedAgentSessionID: UUID?
 
     var newAgentSessionID: UUID?
