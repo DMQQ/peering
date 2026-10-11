@@ -50,12 +50,20 @@ enum Analytics {
     static func sessionEnded(path: String, video: VideoDeliveryRecord?) {
         context.withLock { $0.path = nil }
         var properties: [String: Any] = ["path": path]
-        if let video {
-            properties["video_transport"] = video.transport.rawValue
-            properties["fell_back"] = video.fellBack
-            if let milliseconds = video.firstPictureMilliseconds { properties["first_picture_ms"] = milliseconds }
-        }
+        properties.merge(videoProperties(video)) { _, new in new }
         send("session_ended", properties)
+    }
+
+    /// `video_recorded` is false when the session had no wire to ask, which is not the same as a wire that never delivered a picture.
+    private static func videoProperties(_ video: VideoDeliveryRecord?) -> [String: Any] {
+        guard let video else { return ["video_recorded": false] }
+        var properties: [String: Any] = [
+            "video_recorded": true,
+            "video_transport": video.transport.rawValue,
+            "fell_back": video.fellBack,
+        ]
+        if let milliseconds = video.firstPictureMilliseconds { properties["first_picture_ms"] = milliseconds }
+        return properties
     }
 
     static func onboardingCompleted() {
@@ -111,17 +119,18 @@ enum Analytics {
         send("connect_started", ["route": route.rawValue])
     }
 
-    /// `afterReady` tells a drop mid-session from a connection that never came up. `appState` and `pictureInPictureActive` tell a drop the network caused from one iOS caused by freezing the app.
+    /// `afterReady` tells a drop mid-session from a connection that never came up, and `video` is what the dropped session's picture went through, since a drop is how a network that blocks video usually ends. `appState` and `pictureInPictureActive` tell a drop the network caused from one iOS caused by freezing the app.
     static func connectFailed(
         afterReady: Bool, reason: String, path: String, reconnectAttempt: Int,
-        secondsIntoSession: Int?, appState: String, pictureInPictureActive: Bool
+        secondsIntoSession: Int?, appState: String, pictureInPictureActive: Bool, video: VideoDeliveryRecord?
     ) {
-        var properties = [
+        var properties: [String: Any] = [
             "after_ready": String(afterReady), "reason": reason, "path": path,
             "reconnect_attempt": String(reconnectAttempt), "app_state": appState,
             "pip_active": String(pictureInPictureActive),
         ]
         if let secondsIntoSession { properties["seconds_into_session"] = String(secondsIntoSession) }
+        properties.merge(videoProperties(video)) { _, new in new }
         send("connect_failed", properties)
     }
 

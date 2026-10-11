@@ -66,7 +66,8 @@ extension MacSession {
                     reconnectAttempt: model.reconnectAttempt,
                     secondsIntoSession: sessionStartedAt.map { Int(Date().timeIntervalSince($0)) },
                     appState: Analytics.name(of: UIApplication.shared.applicationState),
-                    pictureInPictureActive: SessionPiP.shared.isActive
+                    pictureInPictureActive: SessionPiP.shared.isActive,
+                    video: wire?.videoDeliveryRecord
                 )
                 videoStatus = String(localized: "Stopped: \(message)")
             }
