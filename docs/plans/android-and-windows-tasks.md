@@ -352,21 +352,21 @@ WIN-002 | todo | foundation | S : core traits. Owns `windows/crates/peering-core
 
 WIN-010 | done | S : frame codec. Owns `peering-wire/src/framing.rs`. Deps SPEC-008. Done: split/coalesced/oversize/unknown kind vectors pass in `cargo test -p peering-wire`. Commit: Add the frame codec with the 16 MiB guard.
 WIN-011 | done | S : Swift enum serde helpers. Owns `peering-wire/src/swift_enum.rs`. Deps SPEC-006. Done: (de)serialize `{"case":{...}}`, `_0`, empty payload, optional omit, base64, uppercase UUID, reference-date. Commit: Add serde helpers for Swift Codable enums.
-WIN-012 | todo | S : handshake models. Owns `peering-wire/src/handshake.rs`. Deps WIN-011. Done: vectors round trip. Commit: Add handshake and pairing message models.
-WIN-013 | todo | S : command models. Owns `peering-wire/src/command.rs`. Deps WIN-011. Done: every command case from vectors; unknown case returns a typed error not a panic. Commit: Add the remote command model.
-WIN-014 | todo | S : catalogue and source models. Owns `peering-wire/src/source.rs`. Deps WIN-011. Done: encode catalogue with displays only and `CGSize` array. Commit: Add capture source and catalogue models.
-WIN-015 | todo | S : video and audio wire. Owns `peering-wire/src/video.rs`. Deps SPEC-008. Done: header encode/decode and errors. Commit: Add the video and audio frame wire format.
+WIN-012 | done | S : handshake models. Owns `peering-wire/src/handshake.rs`. Deps WIN-011. Done: vectors round trip. Commit: Add handshake and pairing message models.
+WIN-013 | done | S : command models. Owns `peering-wire/src/command.rs`. Deps WIN-011. Done: every command case from vectors; unknown case returns a typed error not a panic. Commit: Add the remote command model.
+WIN-014 | done | S : catalogue and source models. Owns `peering-wire/src/source.rs`. Deps WIN-011. Done: encode catalogue with displays only and `CGSize` array. Commit: Add capture source and catalogue models.
+WIN-015 | done | S : video and audio wire. Owns `peering-wire/src/video.rs`. Deps SPEC-008. Done: header encode/decode and errors. Commit: Add the video and audio frame wire format.
 WIN-016 | done | S : SAS maths. Owns `peering-wire/src/sas.rs`. Deps SPEC-007. Done: crypto vectors. Commit: Implement short authentication string pairing maths.
-WIN-017 | todo | S : pairing payload encoder (QR strings). Owns `peering-wire/src/pairing_payload.rs`. Deps none. Done: host link uppercase UUID, code link with hex secret. Commit: Encode pairing QR payloads.
+WIN-017 | done | S : pairing payload encoder (QR strings). Owns `peering-wire/src/pairing_payload.rs`. Deps none. Done: host link uppercase UUID, code link with hex secret. Commit: Encode pairing QR payloads.
 WIN-018 | done | S : key schedule, sealer, opener. Owns `peering-wire/src/sealing.rs`. Deps SPEC-007. Done: vectors, tamper, counter monotonic. Commit: Seal and open video datagrams.
 WIN-019 | done | S : replay window. Owns `peering-wire/src/replay.rs`. Deps SPEC-007. Done: same table as Android. Commit: Add the datagram replay window.
 WIN-020 | done | S : chunk encoder and reassembler. Owns `peering-wire/src/chunks.rs`. Deps SPEC-008. Done: loss, reorder, newer frame wins. Commit: Add video chunking and reassembly.
 WIN-021 | todo | S : fallback host side rules (decline when nothing produced, rate cap, probe keyframes every 4 s). Port `VideoStreamer.use(transport:controlPeer:)`, `VideoFallback.swift`. Owns `peering-wire/src/fallback.rs`. Deps SPEC-008. Done: table tests. Commit: Port the host side of video fallback.
-WIN-022 | todo | S : relay messages. Owns `peering-wire/src/relay_messages.rs`. Deps SPEC-009. Done: byte equal vectors. Commit: Add relay signalling messages.
-WIN-023 | todo | S : relay proof payloads. Owns `peering-wire/src/relay_proof.rs`. Deps SPEC-007. Done: vectors. Commit: Build relay device proof payloads.
-WIN-024 | todo | S : keymap macOS to scancode and VK, modifier mapping. Owns `peering-wire/src/keymap.rs`. Deps SPEC-005. Done: table vectors, Command to Ctrl rule. Commit: Map macOS keycodes to Windows scancodes.
+WIN-022 | done | S : relay messages. Owns `peering-wire/src/relay_messages.rs`. Deps SPEC-009. Done: byte equal vectors. Commit: Add relay signalling messages.
+WIN-023 | done | S : relay proof payloads. Owns `peering-wire/src/relay_proof.rs`. Deps SPEC-007. Done: vectors. Commit: Build relay device proof payloads.
+WIN-024 | done | S : keymap macOS to scancode and VK, modifier mapping. Owns `peering-wire/src/keymap.rs`. Deps SPEC-005. Done: table vectors, Command to Ctrl rule. Commit: Map macOS keycodes to Windows scancodes.
 WIN-025 | todo | S : normalised point to desktop coordinates. Port `InputTransform.swift`. Owns `peering-wire/src/transform.rs`. Deps none. Done: negative origins, DPI scale, clamp. Commit: Map normalised points onto the virtual desktop.
-WIN-026 | todo | S : Annex-B to AVCC and parameter set extraction. Owns `peering-wire/src/annexb.rs`. Deps WIN-015. Done: NAL splitting, SPS/PPS lift, 3 and 4 byte start codes, keyframe detection. Commit: Convert encoder output to length prefixed frames.
+WIN-026 | done | S : Annex-B to AVCC and parameter set extraction. Owns `peering-wire/src/annexb.rs`. Deps WIN-015. Done: NAL splitting, SPS/PPS lift, 3 and 4 byte start codes, keyframe detection. Commit: Convert encoder output to length prefixed frames.
 WIN-027 | todo | S : quality limits and bitrate default. Port `StreamQualityLimits.swift`, `VideoEncoder.swift:444`. Owns `peering-wire/src/quality.rs`. Deps none. Done: clamps and default formula. Commit: Port stream quality limits.
 WIN-028 | todo | S : agent wire models. Owns `peering-wire/src/agent.rs`. Deps WIN-011. Done: vectors. Commit: Add the agent chat wire models.
 WIN-029 | todo | S : terminal and file wire models. Owns `peering-wire/src/files.rs`, `terminal.rs`. Deps WIN-011. Done: vectors. Commit: Add terminal and file wire models.
