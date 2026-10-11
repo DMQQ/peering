@@ -189,6 +189,11 @@ public struct AgentClaudeStream {
             duration: (json["duration_ms"] as? Double).map { $0 / 1000 },
             model: (json["modelUsage"] as? [String: Any])?.keys.first ?? model
         )
+        // The reason a turn failed (a full context, an expired login) is in `result`, and without it the turn only reads as failed.
+        if !summary.ok, !summary.stopped,
+           let reason = (json["result"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !reason.isEmpty {
+            return [.notice(text: AgentLimits.trimmed(reason, to: 600).0), .turnFinished(summary: summary)]
+        }
         return [.turnFinished(summary: summary)]
     }
 
