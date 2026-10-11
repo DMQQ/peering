@@ -130,7 +130,7 @@ CI-003 | later | S : add `docs/protocol/**` to `swift.yml` paths. Owns `.github/
 
 ## Relay (REL)
 
-REL-001 | todo | parallel-safe | S : raise the notify token limit
+REL-001 | done | parallel-safe | S : raise the notify token limit
 Port: `relay/src/signalling.rs:871`. Owns: that check and a test in `relay/tests/` (new file `notify_limits.rs`). Deps: none.
 Done: a 330 hex character token passes, a 2000 character one is refused with `invalid`; `cd relay && cargo test --locked` green.
 Commit: Allow longer device tokens so FCM tokens fit in notifyDevice.

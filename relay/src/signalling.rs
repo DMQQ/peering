@@ -42,6 +42,9 @@ fn unix_now() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
 }
 
+/// Hex characters. An APNs token is 64; an FCM token is about 160 characters before it is hex encoded behind a `fcm:` prefix.
+const MAX_DEVICE_TOKEN_HEX: usize = 1024;
+
 fn is_agent_category(category: &str) -> bool {
     category.starts_with(AGENT_APPROVAL_CATEGORY_PREFIX) || category == AGENT_FINISHED_CATEGORY
 }
@@ -868,7 +871,7 @@ async fn dispatch(
                 ));
             };
             // Refuse absurdly large fields before they reach the APNs payload builder.
-            if device_token.len() > 128
+            if device_token.len() > MAX_DEVICE_TOKEN_HEX
                 || title.len() > 256
                 || body.len() > 512
                 || source.as_ref().is_some_and(|s| s.len() > 128)
@@ -967,6 +970,13 @@ async fn dispatch(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_device_token_limit_leaves_room_for_an_fcm_token() {
+        let fcm_hex_len = ("fcm:".len() + 170) * 2;
+        assert!(fcm_hex_len <= super::MAX_DEVICE_TOKEN_HEX);
+        assert!(64 <= super::MAX_DEVICE_TOKEN_HEX, "an APNs token still fits");
+    }
+
     use super::*;
     use crate::config::PlanAllowances;
 
