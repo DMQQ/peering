@@ -174,7 +174,7 @@ REL-009 | later | S : extract `relay-proto` crate shared with the Windows host. 
 
 ## Android: scaffold and contracts
 
-AND-001 | todo | foundation | S : Gradle scaffold
+AND-001 | done | foundation | S : Gradle scaffold
 Owns: `android/settings.gradle.kts`, `android/build.gradle.kts`, `android/gradle/libs.versions.toml`, `android/gradle.properties`, `android/core/wire/build.gradle.kts`, `android/core/session/build.gradle.kts`, `android/README.md` (build commands only). Deps: none.
 Done: modules `core:wire`, `core:session` as Kotlin/JVM with kotlinx-serialization, coroutines-test, Turbine; a placeholder test passes; `cd android && ./gradlew :core:wire:test :core:session:test` green (the `app` and `core:platform` modules are added by AND-002 and AND-060).
 Commit: Scaffold the Android Gradle project with pure Kotlin core modules.
