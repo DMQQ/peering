@@ -3081,7 +3081,64 @@
         }
       }
     },
-    "Counts of which screens and features are used, and crash reports. Never your screen, files, commands or names, and nothing that identifies you or this Mac." : {},
+    "Counts of which screens and features are used, and crash reports. Never your screen, files, commands or names, and nothing that identifies you or this Mac." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zählungen, welche Bildschirme und Funktionen genutzt werden, sowie Absturzberichte. Niemals dein Bildschirm, deine Dateien, Befehle oder Namen und nichts, was dich oder diesen Mac identifiziert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recuentos de qué pantallas y funciones se usan, e informes de fallos. Nunca tu pantalla, archivos, comandos ni nombres, ni nada que te identifique a ti o a este Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comptages des écrans et fonctions utilisés, et rapports de plantage. Jamais votre écran, vos fichiers, vos commandes ou vos noms, ni rien qui vous identifie, vous ou ce Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conteggi delle schermate e delle funzioni usate e segnalazioni di arresti anomali. Mai il tuo schermo, i file, i comandi o i nomi, e nulla che identifichi te o questo Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "どの画面や機能が使われたかの集計と、クラッシュレポートです。画面、ファイル、コマンド、名前は一切含まれず、あなたやこのMacを特定できる情報もありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "어떤 화면과 기능이 사용되는지에 대한 집계와 충돌 보고서입니다. 화면, 파일, 명령어, 이름은 절대 포함되지 않으며, 사용자나 이 Mac을 식별할 수 있는 정보도 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contagens de quais telas e recursos são usados, e relatórios de falhas. Nunca sua tela, arquivos, comandos ou nomes, e nada que identifique você ou este Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подсчёт того, какие экраны и функции используются, и отчёты о сбоях. Никогда не передаются ваш экран, файлы, команды или имена, и ничего, что позволяло бы определить вас или этот Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "统计使用了哪些界面和功能，以及崩溃报告。绝不包含你的屏幕、文件、命令或名称，也没有任何能识别你或这台 Mac 的信息。"
+          }
+        }
+      }
+    },
     "Deletes /etc/sudoers.d/peering-sleep and lets this Mac sleep normally again, in one administrator prompt." : {
       "localizations" : {
         "de" : {
@@ -9234,7 +9291,64 @@
         }
       }
     },
-    "Port %u · protocol v%u" : {},
+    "Port %u · protocol v%u" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port %u · Protokoll v%u"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puerto %u · protocolo v%u"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Port %u · protocole v%u"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Porta %u · protocollo v%u"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ポート %u · プロトコル v%u"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "포트 %u · 프로토콜 v%u"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Porta %u · protocolo v%u"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Порт %u · протокол v%u"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端口 %u · 协议 v%u"
+          }
+        }
+      }
+    },
     "Press Start first: a Mac that is not hosting cannot be reached by this code." : {
       "localizations" : {
         "de" : {
@@ -11269,7 +11383,64 @@
         }
       }
     },
-    "Share anonymous usage statistics" : {},
+    "Share anonymous usage statistics" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anonyme Nutzungsstatistiken teilen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir estadísticas de uso anónimas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager des statistiques d'utilisation anonymes"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Condividi statistiche d'uso anonime"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匿名の使用統計を共有"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "익명 사용 통계 공유"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartilhar estatísticas de uso anônimas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Делиться анонимной статистикой использования"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享匿名使用统计"
+          }
+        }
+      }
+    },
     "Show the live preview" : {
       "localizations" : {
         "de" : {
@@ -14631,6 +14802,655 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "批准"
+          }
+        }
+      }
+    },
+    "Answer Claude Code from your phone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code vom iPhone aus beantworten"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Responder a Claude Code desde tu iPhone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Répondre à Claude Code depuis votre iPhone"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rispondi a Claude Code dal tuo iPhone"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneから Claude Code に応答"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone에서 Claude Code에 응답"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Responder ao Claude Code pelo iPhone"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отвечать Claude Code с iPhone"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 iPhone 上回应 Claude Code"
+          }
+        }
+      }
+    },
+    "When Claude Code asks permission in any terminal or editor on this Mac, your phone gets Allow and Deny buttons. Adds two hooks to Claude Code's settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn Claude Code in einem Terminal oder Editor auf diesem Mac um Erlaubnis bittet, bekommt dein iPhone die Tasten „Erlauben“ und „Ablehnen“. Fügt zwei Hooks zu den Einstellungen von Claude Code hinzu."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuando Claude Code pide permiso en cualquier terminal o editor de este Mac, tu iPhone recibe los botones Permitir y Denegar. Añade dos hooks a los ajustes de Claude Code."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quand Claude Code demande une autorisation dans un terminal ou un éditeur de ce Mac, votre iPhone reçoit les boutons Autoriser et Refuser. Ajoute deux hooks aux réglages de Claude Code."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quando Claude Code chiede un permesso in qualsiasi terminale o editor su questo Mac, il tuo iPhone riceve i pulsanti Consenti e Nega. Aggiunge due hook alle impostazioni di Claude Code."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMac上のどのターミナルやエディタでも Claude Code が許可を求めると、iPhone に「許可」と「拒否」のボタンが届きます。Claude Code の設定にフックを2つ追加します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac의 어떤 터미널이나 편집기에서든 Claude Code가 권한을 요청하면 iPhone에 허용 및 거부 버튼이 표시됩니다. Claude Code 설정에 훅 두 개를 추가합니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quando o Claude Code pede permissão em qualquer terminal ou editor neste Mac, seu iPhone recebe os botões Permitir e Negar. Adiciona dois hooks às configurações do Claude Code."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Когда Claude Code запрашивает разрешение в любом терминале или редакторе на этом Mac, на iPhone появляются кнопки «Разрешить» и «Отклонить». Добавляет два хука в настройки Claude Code."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当 Claude Code 在这台 Mac 的任何终端或编辑器中请求权限时，你的 iPhone 会收到“允许”和“拒绝”按钮。这会在 Claude Code 的设置中添加两个钩子。"
+          }
+        }
+      }
+    },
+    "Let Peering answer Claude Code from your phone?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soll Peering Claude Code von deinem iPhone aus beantworten lassen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Permitir que Peering responda a Claude Code desde tu iPhone?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laisser Peering répondre à Claude Code depuis votre iPhone ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vuoi permettere a Peering di rispondere a Claude Code dal tuo iPhone?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneから Claude Code に応答できるようにしますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering이 iPhone에서 Claude Code에 응답하도록 허용할까요?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deixar o Peering responder ao Claude Code pelo seu iPhone?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Разрешить Peering отвечать Claude Code с вашего iPhone?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "允许 Peering 让你在 iPhone 上回应 Claude Code 吗？"
+          }
+        }
+      }
+    },
+    "Peering will add a PermissionRequest hook and a Notification hook to ~/.claude/settings.json, and a small script next to the app's data.\n\nWhen Claude Code asks permission in any terminal or editor, your phone gets a notification with Allow and Deny. Nothing else in the file changes, and a copy of the original is kept as settings.json.peering-backup.\n\nTurn this off here at any time to take the hooks out again." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering fügt einen PermissionRequest-Hook und einen Notification-Hook zu ~/.claude/settings.json hinzu, dazu ein kleines Skript neben den Daten der App.\n\nWenn Claude Code in einem Terminal oder Editor um Erlaubnis bittet, bekommt dein iPhone eine Mitteilung mit „Erlauben“ und „Ablehnen“. Sonst ändert sich nichts in der Datei, und eine Kopie des Originals bleibt als settings.json.peering-backup erhalten.\n\nSchalte das hier jederzeit aus, um die Hooks wieder zu entfernen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering añadirá un hook PermissionRequest y un hook Notification a ~/.claude/settings.json, y un pequeño script junto a los datos de la app.\n\nCuando Claude Code pide permiso en cualquier terminal o editor, tu iPhone recibe una notificación con Permitir y Denegar. Nada más cambia en el archivo, y se guarda una copia del original como settings.json.peering-backup.\n\nDesactívalo aquí en cualquier momento para quitar los hooks."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering ajoutera un hook PermissionRequest et un hook Notification à ~/.claude/settings.json, ainsi qu'un petit script à côté des données de l'app.\n\nQuand Claude Code demande une autorisation dans un terminal ou un éditeur, votre iPhone reçoit une notification avec Autoriser et Refuser. Rien d'autre ne change dans le fichier, et une copie de l'original est conservée sous le nom settings.json.peering-backup.\n\nDésactivez cette option ici à tout moment pour retirer les hooks."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering aggiungerà un hook PermissionRequest e un hook Notification a ~/.claude/settings.json, più un piccolo script accanto ai dati dell'app.\n\nQuando Claude Code chiede un permesso in qualsiasi terminale o editor, il tuo iPhone riceve una notifica con Consenti e Nega. Nient'altro cambia nel file, e una copia dell'originale viene conservata come settings.json.peering-backup.\n\nDisattiva l'opzione qui in qualsiasi momento per rimuovere di nuovo gli hook."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering は ~/.claude/settings.json に PermissionRequest フックと Notification フックを追加し、アプリのデータの隣に小さなスクリプトを置きます。\n\nターミナルやエディタで Claude Code が許可を求めると、iPhone に「許可」と「拒否」付きの通知が届きます。ファイルのそれ以外の部分は変わらず、元のファイルは settings.json.peering-backup として残ります。\n\nここでいつでもオフにして、フックを取り除けます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering이 ~/.claude/settings.json에 PermissionRequest 훅과 Notification 훅을 추가하고, 앱 데이터 옆에 작은 스크립트를 둡니다.\n\n어떤 터미널이나 편집기에서든 Claude Code가 권한을 요청하면 iPhone에 허용 및 거부 버튼이 있는 알림이 표시됩니다. 파일의 다른 부분은 바뀌지 않으며, 원본은 settings.json.peering-backup으로 보관됩니다.\n\n언제든 여기서 끄면 훅이 다시 제거됩니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Peering vai adicionar um hook PermissionRequest e um hook Notification a ~/.claude/settings.json, e um pequeno script ao lado dos dados do app.\n\nQuando o Claude Code pede permissão em qualquer terminal ou editor, seu iPhone recebe uma notificação com Permitir e Negar. Nada mais muda no arquivo, e uma cópia do original é mantida como settings.json.peering-backup.\n\nDesative aqui a qualquer momento para remover os hooks novamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering добавит хук PermissionRequest и хук Notification в ~/.claude/settings.json, а также небольшой скрипт рядом с данными приложения.\n\nКогда Claude Code запрашивает разрешение в любом терминале или редакторе, на iPhone приходит уведомление с кнопками «Разрешить» и «Отклонить». Остальное в файле не меняется, а копия оригинала сохраняется как settings.json.peering-backup.\n\nВ любой момент отключите это здесь, чтобы снова убрать хуки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering 会在 ~/.claude/settings.json 中添加一个 PermissionRequest 钩子和一个 Notification 钩子，并在应用数据旁放置一个小脚本。\n\n当 Claude Code 在任何终端或编辑器中请求权限时，你的 iPhone 会收到带有“允许”和“拒绝”的通知。文件中的其他内容不会改变，原文件的副本会保存为 settings.json.peering-backup。\n\n你可以随时在这里关闭，以再次移除这些钩子。"
+          }
+        }
+      }
+    },
+    "Add Hooks" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hooks hinzufügen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir hooks"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter les hooks"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi hook"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フックを追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "훅 추가"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar hooks"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавить хуки"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加钩子"
+          }
+        }
+      }
+    },
+    "Not Now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht jetzt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora no"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas maintenant"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non ora"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今はしない"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "나중에"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agora não"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не сейчас"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂不"
+          }
+        }
+      }
+    },
+    "Claude Code's settings.json is not valid JSON, so Peering left it alone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die settings.json von Claude Code ist kein gültiges JSON, daher hat Peering sie nicht angerührt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El settings.json de Claude Code no es un JSON válido, así que Peering no lo ha tocado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le fichier settings.json de Claude Code n'est pas un JSON valide, Peering n'y a donc pas touché."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il settings.json di Claude Code non è un JSON valido, quindi Peering non l'ha modificato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code の settings.json が有効な JSON ではないため、Peering は何も変更しませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code의 settings.json이 올바른 JSON이 아니어서 Peering이 건드리지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O settings.json do Claude Code não é um JSON válido, então o Peering não mexeu nele."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файл settings.json в Claude Code не является корректным JSON, поэтому Peering его не тронул."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code 的 settings.json 不是有效的 JSON，因此 Peering 没有改动它。"
+          }
+        }
+      }
+    },
+    "Claude Code's settings.json has an unexpected “%@”, so Peering left it alone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die settings.json von Claude Code enthält ein unerwartetes „%@“, daher hat Peering sie nicht angerührt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El settings.json de Claude Code tiene un “%@” inesperado, así que Peering no lo ha tocado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le fichier settings.json de Claude Code contient un « %@ » inattendu, Peering n'y a donc pas touché."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il settings.json di Claude Code ha un “%@” inatteso, quindi Peering non l'ha modificato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code の settings.json に想定外の「%@」があるため、Peering は何も変更しませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code의 settings.json에 예상치 못한 “%@”이(가) 있어 Peering이 건드리지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O settings.json do Claude Code tem um “%@” inesperado, então o Peering não mexeu nele."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В settings.json в Claude Code есть неожиданный «%@», поэтому Peering его не тронул."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code 的 settings.json 中有意外的“%@”，因此 Peering 没有改动它。"
+          }
+        }
+      }
+    },
+    "Peering could not listen for Claude Code: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering konnte nicht auf Claude Code warten: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering no pudo escuchar a Claude Code: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering n'a pas pu écouter Claude Code : %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering non è riuscito ad ascoltare Claude Code: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering は Claude Code を待ち受けできませんでした: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering이 Claude Code를 수신하지 못했습니다: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Peering não conseguiu escutar o Claude Code: %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering не удалось начать приём от Claude Code: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering 无法监听 Claude Code：%@"
+          }
+        }
+      }
+    },
+    "Stop sharing this Mac?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Teilen dieses Macs beenden?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Dejar de compartir este Mac?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrêter de partager ce Mac ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vuoi smettere di condividere questo Mac?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacの共有を停止しますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac 공유를 중지할까요?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parar de compartilhar este Mac?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прекратить доступ к этому Mac?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止共享这台 Mac？"
+          }
+        }
+      }
+    },
+    "A connected device will be disconnected." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein verbundenes Gerät wird getrennt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se desconectará un dispositivo conectado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un appareil connecté sera déconnecté."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un dispositivo connesso verrà disconnesso."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続中のデバイスは切断されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결된 기기의 연결이 끊어집니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um dispositivo conectado será desconectado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключённое устройство будет отключено."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已连接的设备将被断开。"
           }
         }
       }
