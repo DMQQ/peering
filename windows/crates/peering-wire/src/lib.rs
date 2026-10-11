@@ -4,4 +4,5 @@ pub mod chunks;
 pub mod framing;
 pub mod replay;
 pub mod sas;
+pub mod sealing;
 pub mod vectors_dir;

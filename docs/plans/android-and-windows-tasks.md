@@ -358,7 +358,7 @@ WIN-014 | todo | S : catalogue and source models. Owns `peering-wire/src/source.
 WIN-015 | todo | S : video and audio wire. Owns `peering-wire/src/video.rs`. Deps SPEC-008. Done: header encode/decode and errors. Commit: Add the video and audio frame wire format.
 WIN-016 | done | S : SAS maths. Owns `peering-wire/src/sas.rs`. Deps SPEC-007. Done: crypto vectors. Commit: Implement short authentication string pairing maths.
 WIN-017 | todo | S : pairing payload encoder (QR strings). Owns `peering-wire/src/pairing_payload.rs`. Deps none. Done: host link uppercase UUID, code link with hex secret. Commit: Encode pairing QR payloads.
-WIN-018 | todo | S : key schedule, sealer, opener. Owns `peering-wire/src/sealing.rs`. Deps SPEC-007. Done: vectors, tamper, counter monotonic. Commit: Seal and open video datagrams.
+WIN-018 | done | S : key schedule, sealer, opener. Owns `peering-wire/src/sealing.rs`. Deps SPEC-007. Done: vectors, tamper, counter monotonic. Commit: Seal and open video datagrams.
 WIN-019 | done | S : replay window. Owns `peering-wire/src/replay.rs`. Deps SPEC-007. Done: same table as Android. Commit: Add the datagram replay window.
 WIN-020 | done | S : chunk encoder and reassembler. Owns `peering-wire/src/chunks.rs`. Deps SPEC-008. Done: loss, reorder, newer frame wins. Commit: Add video chunking and reassembly.
 WIN-021 | todo | S : fallback host side rules (decline when nothing produced, rate cap, probe keyframes every 4 s). Port `VideoStreamer.use(transport:controlPeer:)`, `VideoFallback.swift`. Owns `peering-wire/src/fallback.rs`. Deps SPEC-008. Done: table tests. Commit: Port the host side of video fallback.
