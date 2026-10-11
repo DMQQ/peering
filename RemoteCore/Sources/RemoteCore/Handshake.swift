@@ -106,6 +106,10 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// and the usage sheet is offered only on an explicit `true`.
     public var supportsAgentUsage: Bool?
 
+    /// Whether this Mac lists and continues conversations started in a terminal. Optional and
+    /// additive: `nil` reads as no, and the list is offered only on an explicit `true`.
+    public var supportsAgentSessionImport: Bool?
+
     public init(
         serverID: String,
         hostName: String,
@@ -125,7 +129,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsAgentModelPicker: Bool? = nil,
         agentChatAgents: [String]? = nil,
         supportsAgentPermissionModes: Bool? = nil,
-        supportsAgentUsage: Bool? = nil
+        supportsAgentUsage: Bool? = nil,
+        supportsAgentSessionImport: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -145,6 +150,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.agentChatAgents = agentChatAgents
         self.supportsAgentPermissionModes = supportsAgentPermissionModes
         self.supportsAgentUsage = supportsAgentUsage
+        self.supportsAgentSessionImport = supportsAgentSessionImport
         self.pushesTerminalAlertsWhileConnected = pushesTerminalAlertsWhileConnected
     }
 }

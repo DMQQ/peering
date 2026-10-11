@@ -100,7 +100,7 @@ enum Analytics {
     }
 
     enum Feature: String {
-        case macro, agentChatStarted, agentPromptSent, fileUpload, sourceSelected, clipboardPush, sshConnected
+        case macro, agentChatStarted, agentChatResumed, agentPromptSent, fileUpload, sourceSelected, clipboardPush, sshConnected
         case pointerSpeedChanged, observeOnlyChanged, privacyModeChanged, macLocked, lockScreenShown
         case mosaicShown, mosaicTileResized, mosaicTileRemoved, applicationLaunched, keyboardModeChanged
         case autoQualityChanged, qualityChanged

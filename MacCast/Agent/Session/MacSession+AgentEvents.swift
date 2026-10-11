@@ -107,6 +107,9 @@ extension MacSession {
             agentGitBusy[id] = nil
             agentGitResults[id] = result
 
+        case .resumable(let sessions):
+            resumableSessions = sessions
+
         case .closed(let id):
             agentSessions.removeAll { $0.id == id }
             if selectedAgentSessionID == id {

@@ -144,7 +144,8 @@ extension HostSession {
             // Which agents, since the set grows and a phone cannot guess it from the version.
             agentChatAgents: AgentSessionManager.chatAgents.keys.sorted(),
             supportsAgentPermissionModes: true,
-            supportsAgentUsage: true
+            supportsAgentUsage: true,
+            supportsAgentSessionImport: true
         ))
         if alreadyPaired, let source = hello.resumeSource {
             onCommand?(.setCaptureSource(source))

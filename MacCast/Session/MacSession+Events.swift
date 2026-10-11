@@ -174,6 +174,7 @@ extension MacSession {
             hostSupportsAgentModelPicker = hello.supportsAgentModelPicker == true
             hostSupportsAgentPermissionModes = hello.supportsAgentPermissionModes == true
             hostSupportsAgentUsage = hello.supportsAgentUsage == true
+            hostSupportsAgentSessionImport = hello.supportsAgentSessionImport == true
             hostChatAgents = Set(hello.agentChatAgents ?? ["claude", "codex"])
             UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
             // Also the name the widget and Lock Screen card show, as the only one that came from the Mac itself; a first pairing by ID knows no name until this arrives.

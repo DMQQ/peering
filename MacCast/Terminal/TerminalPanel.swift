@@ -9,6 +9,7 @@ enum TerminalFlowStep: Hashable {
     case files(String?)
     case terminalFolder(String?)
     case filePreview(String)
+    case resumable
 }
 
 /// Where the remote screen's navigation stack is: the hub is the first page, and everything the hub opens is a step above it.
@@ -59,14 +60,14 @@ struct TerminalPanel: View {
         switch page {
         case .files(let folder): folder ?? model.browserPath
         case .folder(_, let folder), .terminalFolder(let folder): folder ?? model.agentPicker.path ?? home
-        case .terminal, .chat, .filePreview: nil
+        case .terminal, .chat, .filePreview, .resumable: nil
         }
     }
 
     private static func concreteFolder(of page: TerminalFlowStep, home: String?) -> String? {
         switch page {
         case .folder(_, let folder), .files(let folder), .terminalFolder(let folder): folder ?? home
-        case .terminal, .chat, .filePreview: nil
+        case .terminal, .chat, .filePreview, .resumable: nil
         }
     }
 
@@ -128,6 +129,8 @@ struct TerminalPanel: View {
                 // The picker stays up while the Mac opens the chat, so the way in is one push.
                 model.startAgentChat(agentID: agent.id, directory: directory)
             }
+        case .resumable:
+            AgentResumeScreen()
         case .files(let directory):
             MacFilesScreen(path: directory, push: { openFolder($0) { .files($0) } }, close: { path = [] }, preview: { path.append(.filePreview($0)) })
         case .filePreview(let file):

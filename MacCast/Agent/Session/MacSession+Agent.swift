@@ -40,6 +40,17 @@ extension MacSession {
         for session in agentSessions where !session.isLoaded { ensureAgentHistory(session.id) }
     }
 
+    func refreshResumableSessions() {
+        guard hostSupportsAgentChat, hostSupportsAgentSessionImport else { return }
+        wire?.sendAgent(.listResumable)
+    }
+
+    func resumeAgentSession(_ session: AgentResumableSession) {
+        guard hostSupportsAgentSessionImport else { return }
+        AgentFolderHistory.record(directory: session.directory, agentID: session.agentID, macName: model.hostName)
+        wire?.sendAgent(.resume(agentID: session.agentID, cliSessionID: session.cliSessionID))
+    }
+
     func startAgentChat(agentID: String, directory: String?) {
         AgentFolderHistory.record(directory: directory, agentID: agentID, macName: model.hostName)
         #if DEBUG

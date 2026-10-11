@@ -324,6 +324,14 @@ public enum AgentRequest: Codable, Equatable, Sendable {
     case commit(sessionID: UUID, paths: [String], message: String)
     /// Push the current branch to its own upstream and nothing else; the Mac refuses a detached HEAD or a branch with no upstream.
     case push(sessionID: UUID)
+    /// The CLI conversations on this Mac that were not started from this app. Answered with ``AgentEvent/resumable(_:)``.
+    ///
+    /// Sent only to a Mac that declared ``ServerHello/supportsAgentSessionImport``.
+    case listResumable
+    /// A new chat that continues one of ``listResumable``'s conversations, with its past read back from the CLI's own file. Answered with ``AgentEvent/created(_:)``.
+    ///
+    /// Sent only to a Mac that declared ``ServerHello/supportsAgentSessionImport``.
+    case resume(agentID: String, cliSessionID: String)
 }
 
 public enum AgentEvent: Codable, Equatable, Sendable {
@@ -350,6 +358,8 @@ public enum AgentEvent: Codable, Equatable, Sendable {
     /// ``ClientHello/supportsAgentUsage``.
     case usageChanged(sessionID: UUID, usage: AgentUsage)
     case failed(sessionID: UUID?, message: String)
+    /// The answer to ``AgentRequest/listResumable``, newest first.
+    case resumable([AgentResumableSession])
 }
 
 /// Whether agent chat traffic may cross a session, in both directions.

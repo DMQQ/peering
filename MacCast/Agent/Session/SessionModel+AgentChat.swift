@@ -49,6 +49,21 @@ extension SessionModel {
         activeSession?.startAgentChat(agentID: agentID, directory: directory)
     }
 
+    var hostSupportsAgentSessionImport: Bool { activeSession?.hostSupportsAgentSessionImport ?? false }
+
+    var resumableSessions: [AgentResumableSession]? { activeSession?.resumableSessions }
+
+    func refreshResumableSessions() { activeSession?.refreshResumableSessions() }
+
+    func resumeAgentSession(_ session: AgentResumableSession) {
+        guard AgentChatLimit.allowsAnother(openChats: agentCards.filter(\.isLive).count, access: storeManager.access) else {
+            paywallReason = .feature(.moreAgents)
+            return
+        }
+        Analytics.featureUsed(.agentChatResumed, agent: session.agentID)
+        activeSession?.resumeAgentSession(session)
+    }
+
     func sendAgentPrompt(_ text: String, to id: UUID) {
         Analytics.featureUsed(.agentPromptSent, agent: agentCards.first { $0.id == id }?.agentID)
         activeSession?.sendAgentPrompt(text, to: id)

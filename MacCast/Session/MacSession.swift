@@ -174,6 +174,7 @@ final class MacSession: Identifiable {
     var hostSupportsAgentModelPicker = false
     var hostSupportsAgentPermissionModes = false
     var hostSupportsAgentUsage = false
+    var hostSupportsAgentSessionImport = false
 
     /// A Mac from before the list chats with the first two.
     var hostChatAgents: Set<String> = ["claude", "codex"]
@@ -309,6 +310,8 @@ final class MacSession: Identifiable {
 
     var newAgentSessionID: UUID?
     var agentPicker = AgentPickerState()
+    /// Nil until the Mac has answered; the terminal conversations it offers to continue.
+    var resumableSessions: [AgentResumableSession]?
     /// What git said about each chat's folder, and the chats still waiting for that answer.
     var agentChanges: [UUID: AgentChangesReport] = [:]
     var agentChangesLoading: Set<UUID> = []
