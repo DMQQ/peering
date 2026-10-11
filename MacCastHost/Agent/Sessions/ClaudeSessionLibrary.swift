@@ -14,10 +14,9 @@ enum ClaudeSessionLibrary {
     /// A file is megabytes; the last of it is the recent conversation, and the buffer that holds it keeps no more than that anyway.
     private static let conversationBytes = 8 * 1024 * 1024
     private static let maximumAge: TimeInterval = 60 * 24 * 3600
-    private static let openElsewhereWindow: TimeInterval = 120
 
     /// Newest first. Chats this app already holds are left out: they live in the same folder and would list twice.
-    static func list(excluding known: Set<String>, limit: Int = 30, now: Date = Date()) -> [AgentResumableSession] {
+    static func list(excluding known: Set<String>, releasedAt: [String: Date] = [:], limit: Int = 30, now: Date = Date()) -> [AgentResumableSession] {
         var found: [AgentResumableSession] = []
         for file in files().sorted(by: { $0.modified > $1.modified }) {
             guard found.count < limit, now.timeIntervalSince(file.modified) < maximumAge else { break }
@@ -31,7 +30,7 @@ enum ClaudeSessionLibrary {
                 directory: summary.directory,
                 title: summary.title,
                 modifiedAt: file.modified,
-                mayBeOpenElsewhere: now.timeIntervalSince(file.modified) < openElsewhereWindow
+                mayBeOpenElsewhere: ConversationOpenElsewhere.isLikely(modified: file.modified, now: now, releasedAt: releasedAt[file.id])
             ))
         }
         return found

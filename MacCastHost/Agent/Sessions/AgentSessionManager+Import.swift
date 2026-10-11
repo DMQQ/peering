@@ -7,10 +7,10 @@ import RemoteCore
 extension AgentSessionManager {
     func listResumable(clientID: String, sink: @escaping Sink) {
         agentLog.notice("resumable conversations asked for")
-        let known = lock.withLock { Set(sessions.values.compactMap(\.cliSessionID)) }
+        let (known, released) = lock.withLock { (Set(sessions.values.compactMap(\.cliSessionID)), releasedConversations) }
         // Off the connection's queue: this reads the heads and tails of up to a month of files.
         DispatchQueue.global(qos: .userInitiated).async {
-            let sessions = ClaudeSessionLibrary.list(excluding: known)
+            let sessions = ClaudeSessionLibrary.list(excluding: known, releasedAt: released)
             agentLog.notice("resumable conversations listed · \(sessions.count)")
             sink(.resumable(sessions))
             // After the list is sent: the question parks until someone answers it on the Mac, and the list should not wait for that.

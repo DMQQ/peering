@@ -153,7 +153,10 @@ extension AgentSessionManager {
 
     func remove(_ session: AgentSession) {
         adapter(of: session).stop()
-        lock.withLock { sessions[session.id] = nil }
+        lock.withLock {
+            sessions[session.id] = nil
+            if let id = session.cliSessionID { releasedConversations[id] = Date() }
+        }
         forget(session.id)
         refreshActivity()
     }

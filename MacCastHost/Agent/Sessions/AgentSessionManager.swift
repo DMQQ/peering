@@ -18,6 +18,8 @@ final class AgentSessionManager: @unchecked Sendable {
     var sessions: [UUID: AgentSession] = [:]
     var sinks: [String: Sink] = [:]
     var wasActive = false
+    /// When each conversation this app closed was last ours, by CLI session id. Guarded by `lock`.
+    var releasedConversations: [String: Date] = [:]
 
     let store: AgentSessionDiskStore
     let persistQueue = DispatchQueue(label: "pl.dmq.peering.host.agent.persist", qos: .utility)
