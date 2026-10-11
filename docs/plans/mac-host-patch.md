@@ -1,4 +1,6 @@
-# Proposed Mac host patch: platform and codec hints
+# Mac host patch: platform and codec hints (APPLIED)
+
+Status: applied by the owner in commit a50f539 (`apple/RemoteCore`, `apple/MacCastHost`, and the paragraph in `docs/protocol.md`). The text below is the original proposal; the commit is the source of truth.
 
 For the owner to review and apply. Nothing under `apple/` was changed. Additive only: no change to existing fields, no
 `ProtocolInfo.version` bump. Shipped iPhone builds ignore unknown keys, so a host that sends the new fields stays compatible with
