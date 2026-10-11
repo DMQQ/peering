@@ -135,6 +135,43 @@ class HandshakeTest {
     }
 
     @Test
+    fun platformAndCodecFieldsAreSentWhenSet() {
+        val hello = ClientHello(
+            clientID = "c",
+            clientName = "p",
+            protocolVersion = 20,
+            wantsPairing = false,
+            clientPlatform = "android",
+            videoCodecs = listOf("hevc", "h264"),
+        )
+        assertEquals(
+            """{"clientID":"c","clientName":"p","protocolVersion":20,"wantsPairing":false,""" +
+                """"clientPlatform":"android","videoCodecs":["hevc","h264"]}""",
+            WireJson.encodeToString(hello),
+        )
+    }
+
+    @Test
+    fun platformAndCodecFieldsAreAbsentWhenNull() {
+        val hello = ClientHello(clientID = "c", clientName = "p", protocolVersion = 20, wantsPairing = false)
+        val encoded = WireJson.encodeToString(hello)
+        assertFalse(encoded.contains("clientPlatform"))
+        assertFalse(encoded.contains("videoCodecs"))
+    }
+
+    @Test
+    fun hostPlatformDecodesFromTheServerHello() {
+        val server = WireJson.decodeFromString<ServerHello>(
+            """{"serverID":"s","hostName":"h","protocolVersion":20,"alreadyPaired":true,"hostPlatform":"macos"}""",
+        )
+        assertEquals("macos", server.hostPlatform)
+        val legacy = WireJson.decodeFromString<ServerHello>(
+            """{"serverID":"s","hostName":"h","protocolVersion":20,"alreadyPaired":true}""",
+        )
+        assertNull(legacy.hostPlatform)
+    }
+
+    @Test
     fun transportNamesAreLowercaseOnTheWire() {
         val request = WireJson.decodeFromString<VideoTransportRequest>("""{"reason":"r","transport":"control"}""")
         assertEquals(VideoTransportKind.CONTROL, request.transport)

@@ -20,6 +20,9 @@ data class ClientHello(
     val supportsAgentUsage: Boolean? = null,
     val lostPairing: Boolean? = null,
     val resumeSource: JsonElement? = null,
+    val clientPlatform: String? = null,
+    /** Codec names this phone decodes, best first. Absent means the phone decodes both. */
+    val videoCodecs: List<String>? = null,
 ) {
     companion object {
         /** The host skips pairing for a pinned key unless the phone says it lost the pin for this Mac. */
@@ -50,6 +53,7 @@ data class ServerHello(
     val supportsAgentUsage: Boolean? = null,
     val supportsAgentSessionImport: Boolean? = null,
     val supportsAgentPause: Boolean? = null,
+    val hostPlatform: String? = null,
 )
 
 @Serializable
