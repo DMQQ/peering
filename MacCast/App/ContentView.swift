@@ -17,7 +17,6 @@ struct ContentView: View {
         guard hasSeenWelcome, !hasDismissedFirstConnection else { return false }
         switch model.phase {
         case .confirming: return true
-        case .connecting, .handshaking: return model.pins.isEmpty
         default: return model.pins.isEmpty
         }
     }
