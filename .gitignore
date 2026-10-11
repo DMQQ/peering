@@ -76,8 +76,8 @@ wiki/
 /.agents/
 /skills-lock.json
 /posthog-error-tracking-report.md
-/marketing/appstore/debug/
-/marketing/appstore/raw/
+/marketing/appstore/debug/*-fail.png
+/marketing/appstore/raw/chat.png
 /marketing/social/carousel/
 /marketing/social/film/
 /marketing/social/motion/
