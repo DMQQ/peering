@@ -102,6 +102,7 @@ struct AgentChatScreen: View {
             model.ensureAgentHistory(currentID)
             model.prefetchAgentChanges(currentID)
             InAppBanner.shared.onScreen = .chat(currentID)
+            model.noteOpenedChat(currentID)
         }
         .onChange(of: session?.transcript.state) { old, new in
             if new == .idle, old == .working { model.prefetchAgentChanges(currentID) }

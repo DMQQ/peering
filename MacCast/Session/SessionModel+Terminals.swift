@@ -91,5 +91,9 @@ extension SessionModel {
         activeSession?.resizeTerminal(id, columns: columns, rows: rows)
     }
 
-    func closeTerminal(_ id: UUID) { Analytics.featureUsed(.terminalClosed); activeSession?.closeTerminal(id) }
+    func closeTerminal(_ id: UUID) {
+        Analytics.featureUsed(.terminalClosed)
+        LastActivity.clear(id)
+        activeSession?.closeTerminal(id)
+    }
 }

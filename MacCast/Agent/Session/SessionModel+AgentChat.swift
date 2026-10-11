@@ -97,7 +97,10 @@ extension SessionModel {
 
     func ensureAgentPreviews() { activeSession?.ensureAgentPreviews() }
 
-    func closeAgentSession(_ id: UUID) { activeSession?.closeAgentSession(id) }
+    func closeAgentSession(_ id: UUID) {
+        LastActivity.clear(id)
+        activeSession?.closeAgentSession(id)
+    }
 
     func closeAgentSessionIfUnused(_ id: UUID) { activeSession?.closeAgentSessionIfUnused(id) }
 
