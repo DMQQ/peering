@@ -351,3 +351,20 @@ pub fn dispatch_context<'a>(
         source,
     }
 }
+
+pub const RELAY_TOKEN_HEX: &str = "00112233445566778899aabbccddeeff";
+
+pub fn relay_token() -> peering_wire::relay_messages::Token {
+    peering_wire::relay_messages::Token::parse(RELAY_TOKEN_HEX).expect("a 32 digit token")
+}
+
+/// A picture whose first one is a keyframe, carrying `size` bytes of data.
+pub fn picture(sequence: u8, size: usize) -> peering_wire::video::EncodedVideoFrame {
+    peering_wire::video::EncodedVideoFrame {
+        is_keyframe: sequence == 1,
+        pixel_width: 1920,
+        pixel_height: 1080,
+        presentation_time: peering_wire::video::VideoTimestamp { value: i64::from(sequence), timescale: 60 },
+        data: vec![sequence; size],
+    }
+}
