@@ -19,6 +19,9 @@ struct AgentEmptyChat: View {
     let pick: (String) -> Void
 
     @State private var arrived = false
+    @State var templates = PromptTemplates.load()
+    @State var addingTemplate = false
+    @State var templateDraft = ""
     @AppStorage("Peering.chatGuideSeen") private var guideSeen = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -40,6 +43,13 @@ struct AgentEmptyChat: View {
         }
         .background(alignment: .top) { aurora }
         .onAppear { arrived = true }
+        .alert("Save a prompt", isPresented: $addingTemplate) {
+            TextField("What should the agent do?", text: $templateDraft)
+            Button("Save") { saveTemplate() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("It appears with the suggestions in every new chat.")
+        }
     }
 
     private var content: some View {
@@ -84,6 +94,8 @@ struct AgentEmptyChat: View {
                         row(suggestion)
                             .modifier(Rise(arrived: arrived, order: 4 + offset))
                     }
+                    templateRows
+                        .modifier(Rise(arrived: arrived, order: 7))
                 }
                 .padding(.bottom, 10)
                 .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
@@ -171,7 +183,7 @@ struct AgentEmptyChat: View {
         .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
     }
 
-    private func row(_ suggestion: (symbol: String, text: String, detail: String)) -> some View {
+    func row(_ suggestion: (symbol: String, text: String, detail: String)) -> some View {
         Button { pick(suggestion.text) } label: {
             HStack(spacing: 12) {
                 Image(systemName: suggestion.symbol)
@@ -183,6 +195,7 @@ struct AgentEmptyChat: View {
                     Text(suggestion.text)
                         .font(.system(size: 14.5, weight: .semibold))
                         .foregroundStyle(ColorPalette.ink)
+                        .lineLimit(1)
                     Text(suggestion.detail)
                         .font(.system(size: 12))
                         .foregroundStyle(.white.opacity(0.5))
