@@ -4,7 +4,21 @@
 
   ],
   "products" : [
-
+    {
+      "displayPrice" : "39.99",
+      "familyShareable" : false,
+      "internalID" : "6741000020",
+      "localizations" : [
+        {
+          "description" : "Everything in Pro for one payment, with no renewal. Yours for as long as Peering is available.",
+          "displayName" : "Peering Pro (Once)",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "pl.dmq.peering.iap.pro.lifetime1",
+      "referenceName" : "Peering Pro Lifetime",
+      "type" : "NonConsumable"
+    }
   ],
   "settings" : {
     "_failTransactionsEnabled" : false,

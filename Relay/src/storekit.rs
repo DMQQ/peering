@@ -126,7 +126,12 @@ const PRODUCTS: &[(&str, Plan)] = &[
     ("pl.dmq.peering.iap.relay.year", Plan::Relay),
     ("pl.dmq.peering.iap.pro.monthly", Plan::Pro),
     ("pl.dmq.peering.iap.pro.year", Plan::Pro),
+    (LIFETIME_PRODUCT, Plan::Pro),
 ];
+
+/// The one product that is bought once. Apple signs it with no `expiresDate`, which for every other
+/// product is the mark of something that is not a subscription.
+const LIFETIME_PRODUCT: &str = "pl.dmq.peering.iap.pro.lifetime1";
 
 /// Apple's marker extension on a signing certificate, from the Apple WWDR Certificate Practice
 /// Statement (section 4.11.10, Mac App Store Receipt Signing Certificates) and from the
@@ -486,10 +491,7 @@ impl StoreKitVerifier {
         }) {
             return Err(Rejection::NotARealPurchase);
         }
-        let expires = transaction.expires_date.ok_or(Rejection::NoExpiry)?;
-        if expires <= unix_millis(now) {
-            return Err(Rejection::Expired);
-        }
+        check_expiry(product, transaction.expires_date, unix_millis(now))?;
 
         Ok(*plan)
     }
@@ -689,6 +691,17 @@ fn parse_certificate(
         .map_err(|_| Rejection::BadCertificateChain)
 }
 
+/// A subscription must name a future expiry; the lifetime product has none and never lapses (a
+/// refund still arrives as a `revocationDate`, checked before this).
+fn check_expiry(product: &str, expires_date: Option<i64>, now_millis: i64) -> Result<(), Rejection> {
+    match expires_date {
+        None if product == LIFETIME_PRODUCT => Ok(()),
+        None => Err(Rejection::NoExpiry),
+        Some(expires) if expires <= now_millis => Err(Rejection::Expired),
+        Some(_) => Ok(()),
+    }
+}
+
 /// Milliseconds since the epoch, which is the unit the payload's dates are in.
 fn unix_millis(time: SystemTime) -> i64 {
     time.duration_since(UNIX_EPOCH)
@@ -793,6 +806,31 @@ mod tests {
     const _: () = assert!(MAX_JWS_BYTES >= 8 * 1024, "a real receipt is a few kilobytes");
 
     // MARK: - Resolution
+
+    #[test]
+    fn a_lifetime_purchase_needs_no_expiry() {
+        assert_eq!(check_expiry(LIFETIME_PRODUCT, None, 1_000), Ok(()));
+    }
+
+    #[test]
+    fn a_subscription_without_an_expiry_is_still_refused() {
+        assert_eq!(
+            check_expiry("pl.dmq.peering.iap.pro.year", None, 1_000),
+            Err(Rejection::NoExpiry)
+        );
+    }
+
+    #[test]
+    fn a_lapsed_subscription_is_refused_and_a_live_one_is_not() {
+        let product = "pl.dmq.peering.iap.relay.monthly";
+        assert_eq!(check_expiry(product, Some(1_000), 1_000), Err(Rejection::Expired));
+        assert_eq!(check_expiry(product, Some(1_001), 1_000), Ok(()));
+    }
+
+    #[test]
+    fn the_lifetime_product_buys_pro() {
+        assert!(PRODUCTS.contains(&(LIFETIME_PRODUCT, Plan::Pro)));
+    }
 
     fn verifier(trust_claims: bool) -> StoreKitVerifier {
         StoreKitVerifier::new(APPLE_ROOT_CA_G3, APP_BUNDLE_ID, trust_claims)
