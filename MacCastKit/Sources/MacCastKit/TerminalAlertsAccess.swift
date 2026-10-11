@@ -6,4 +6,9 @@ public enum TerminalAlertsAccess {
         guard let plan = access.plan else { return false }
         return plan.includes(.terminalAlerts)
     }
+
+    /// The banner the phone raises itself is free on the home network: a LAN session needs no relay, so nothing metered carries it. The push through the Mac, which reaches a phone with no session open, stays on the paid plan.
+    public static func allowsBanner(planIncluded: Bool, onLAN: Bool) -> Bool {
+        planIncluded || onLAN
+    }
 }

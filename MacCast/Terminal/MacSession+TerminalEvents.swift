@@ -99,7 +99,8 @@ extension MacSession {
                     message,
                     sessionID: id,
                     name: terminals.first { $0.id == id }?.name,
-                    macName: hostName
+                    macName: hostName,
+                    onLAN: connectionPath == .lan
                 )
             }
         case .commandFinished(let id, let command, let duration, _):
@@ -113,7 +114,8 @@ extension MacSession {
                     message,
                     sessionID: id,
                     name: terminals.first { $0.id == id }?.name,
-                    macName: hostName
+                    macName: hostName,
+                    onLAN: connectionPath == .lan
                 )
             }
         case .exited(let id, let status):

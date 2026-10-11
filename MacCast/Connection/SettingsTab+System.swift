@@ -66,9 +66,9 @@ extension SettingsTab {
             String(localized: "Notifications"),
             footer: included
                 ? String(localized: "A shell that stops for an answer puts a banner up while Peering is not in front of you, on this device and through the Mac when no session is open. iOS carries the permission under Settings, Notifications, Peering.")
-                : String(localized: "Being told when a terminal needs you is part of \(PlanCapability.terminalAlerts.minimumPlan.name), with sound from the Mac, Picture in Picture and files that move both ways.")
+                : String(localized: "On your home network, a shell that stops for an answer puts a banner up while Peering is in the background. Everywhere else, and when no session is open, it is part of \(PlanCapability.terminalAlerts.minimumPlan.name).")
         ) {
-            PlanLocked(capability: .terminalAlerts, title: String(localized: "Told when a shell needs you")) {
+            PlanLocked(capability: .terminalAlerts, title: String(localized: "Told when a shell needs you"), isIncluded: true) {
                 Controls.row(String(localized: "Terminal needs you"), systemImage: "bell.badge") {
                     Text(model.notificationsAuthorized ? "On" : "Off")
                         .font(.subheadline)

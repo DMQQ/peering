@@ -14,4 +14,16 @@ final class TerminalAlertsAccessTests: XCTestCase {
         XCTAssertTrue(TerminalAlertsAccess.canNotify(access: .known(.relay)))
         XCTAssertTrue(TerminalAlertsAccess.canNotify(access: .known(.pro)))
     }
+
+    func testFreePlanIsToldOnTheHomeNetwork() {
+        XCTAssertTrue(TerminalAlertsAccess.allowsBanner(planIncluded: false, onLAN: true))
+    }
+
+    func testFreePlanIsNotToldOverTheRelay() {
+        XCTAssertFalse(TerminalAlertsAccess.allowsBanner(planIncluded: false, onLAN: false))
+    }
+
+    func testPaidPlanIsToldOnAnyPath() {
+        XCTAssertTrue(TerminalAlertsAccess.allowsBanner(planIncluded: true, onLAN: false))
+    }
 }

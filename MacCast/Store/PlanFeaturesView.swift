@@ -280,7 +280,7 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "bell.badge",
                 title: String(localized: "Told when a shell needs you"),
-                detail: String(localized: "A banner when a shell on the Mac or on one of your servers stops and waits for you, on this device while the session is open and through the Mac when it is not. The terminal and the mark on its own tab are on every plan."),
+                detail: String(localized: "A banner when a shell stops and waits for you, over any connection and when no session is open, and for shells on your servers. Over your home network it is free on every plan while a session is open. The terminal and its own attention mark are on every plan."),
                 capability: .terminalAlerts
             ),
             PlanFeature(

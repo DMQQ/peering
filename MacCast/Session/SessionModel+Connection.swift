@@ -361,7 +361,8 @@ extension SessionModel {
                     kind,
                     name: terminal.name,
                     sessionID: terminal.id,
-                    macName: session.hostName
+                    macName: session.hostName,
+                    onLAN: session.connectionPath == .lan
                 )
             }
         }

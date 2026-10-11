@@ -94,7 +94,7 @@ extension PaywallView {
             case .virtualDisplays:
                 return String(localized: "A screen the Mac does not physically have, made from this phone and looked at from it: somewhere else for its windows to go, named and taken away from the same list.")
             case .terminalAlerts:
-                return String(localized: "A banner when a shell on the Mac or on one of your servers stops and waits for you, on this device while it is open and through the Mac when it is not. The terminal and its own attention mark are on every plan.")
+                return String(localized: "A banner when a shell stops and waits for you, over any connection and when no session is open, and for shells on your servers. Over your home network it is free on every plan while a session is open. The terminal and its own attention mark are on every plan.")
             case .fileTransfer:
                 return String(localized: "Takes what you are looking at off a machine and hands it to Files or the share sheet, and puts a file from the phone into the folder you are looking at, up to 2 GB.")
             case .moreAgents:
