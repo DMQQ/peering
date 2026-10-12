@@ -51,10 +51,11 @@ class SessionController(
     private var reconnect = ReconnectSupervisor(ports.clock)
     private var job: Job? = null
     private var pictureEnabled = true
+    private var backgrounded = false
     private val recorder = SessionRecorder(ports, history)
     private val prompt = PairingPrompt(target, ::update)
     private val services: SessionServices = SessionServices(ports) { runner.link }
-    private val runner = LinkRunner(target, ports, selection, services, recorder, prompt, ::update, ::pictureArrived, ::publish)
+    private val runner = LinkRunner(target, ports, selection, services, recorder, prompt, ::update, ::pictureArrived, ::publish) { backgrounded }
     private val handover = LanHandover(target, ports)
     private val link: ConnectedLink? get() = runner.link
 
@@ -131,6 +132,15 @@ class SessionController(
         live.retryPicture()
         publish(live)
         return true
+    }
+
+    /**
+     * Tells the host the phone left or returned to the foreground. Sent only while a session is ready and the host declared
+     * it; the last state is also sent to a link that becomes ready later, so a reconnect while away stays quiet.
+     */
+    fun clientBackgrounded(background: Boolean) {
+        backgrounded = background
+        link?.reportBackground(background)
     }
 
     /** Applies the stream quality to the live session. False when no session is running. */

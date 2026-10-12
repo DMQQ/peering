@@ -31,6 +31,7 @@ enum class HostCapability {
     VirtualDisplayManagement,
     SourceThumbnails,
     DeviceOrientation,
+    ClientState,
 
     /** Locking, privacy mode, Spaces, launching apps and window actions, and the joystick: a Mac does these and a Windows host does not. */
     MacControls;
@@ -42,6 +43,7 @@ enum class HostCapability {
         VirtualDisplayManagement -> hello.supportsVirtualDisplayManagement
         SourceThumbnails -> hello.supportsSourceThumbnails
         DeviceOrientation -> hello.supportsDeviceOrientation
+        ClientState -> hello.supportsClientState
         MacControls -> hello.hostPlatform == null || hello.hostPlatform == MAC_PLATFORM
     } == true
 

@@ -10,6 +10,7 @@ import pl.dmq.peering.session.clipboard.ClipboardDirection
 import pl.dmq.peering.session.clipboard.ClipboardHistory
 import pl.dmq.peering.session.clipboard.ClipboardImageFrames
 import pl.dmq.peering.session.clipboard.ClipboardPush
+import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.session.connection.LivenessMonitor
 import pl.dmq.peering.session.connection.SessionCommands
 import pl.dmq.peering.session.files.FileBrowser
@@ -25,7 +26,10 @@ import pl.dmq.peering.session.video.LanVideoLane
 import pl.dmq.peering.session.video.SourceSelection
 import pl.dmq.peering.session.video.VideoLanes
 import pl.dmq.peering.wire.AutoQualityPolicy
+import pl.dmq.peering.wire.ClientStatePayload
 import pl.dmq.peering.wire.Frame
+import pl.dmq.peering.wire.MessageKind
+import pl.dmq.peering.wire.WireJson
 import pl.dmq.peering.wire.ServerHello
 import pl.dmq.peering.wire.QualityTier
 import pl.dmq.peering.wire.SetStreamQuality
@@ -132,6 +136,14 @@ internal class ConnectedLink(
             commands.send(SetVideoEnabled(true))?.let(writer::enqueue)
         }
         picture.restart()
+    }
+
+    /** Tells the host the phone left or returned to the foreground. False when the host did not declare that it understands. */
+    fun reportBackground(background: Boolean): Boolean {
+        if (!HostCapability.ClientState.declaredBy(hello)) return false
+        val payload = WireJson.encodeToString(ClientStatePayload.serializer(), ClientStatePayload(background))
+        writer.enqueue(Frame(MessageKind.ClientState, payload.toByteArray(Charsets.UTF_8)))
+        return true
     }
 
     fun enqueue(frame: Frame) = writer.enqueue(frame)

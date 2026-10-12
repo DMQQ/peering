@@ -12,6 +12,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import pl.dmq.peering.session.flows.ScriptedPairingHost
+import pl.dmq.peering.wire.MessageKind
 import pl.dmq.peering.wire.MouseButton
 import pl.dmq.peering.wire.MouseDown
 import pl.dmq.peering.wire.MouseMove
@@ -81,6 +82,47 @@ class CommandSendingTest {
 
         assertEquals(listOf<RemoteCommand>(SetVideoEnabled(false)), rig.mac.connections.single().phoneFrames.commands().filterIsInstance<SetVideoEnabled>())
         assertEquals(PictureState.Paused, rig.controller.state.value.picture)
+    }
+
+    @Test
+    fun backgroundingIsSentOnlyToAHostThatDeclaredClientState() = runTest {
+        val rig = lanRig(ScriptedMac())
+        rig.controller.connect()
+        settle()
+
+        rig.controller.clientBackgrounded(true)
+        settle()
+
+        assertTrue(rig.mac.connections.single().phoneFrames.ofKind(MessageKind.ClientState).isEmpty())
+    }
+
+    @Test
+    fun backgroundingAndReturningAreSentToAHostThatDeclaredClientState() = runTest {
+        val rig = lanRig(ScriptedMac(declare = { it.copy(supportsClientState = true) }))
+        rig.controller.connect()
+        settle()
+
+        rig.controller.clientBackgrounded(true)
+        rig.controller.clientBackgrounded(false)
+        settle()
+
+        assertEquals(
+            listOf("""{"background":true}""", """{"background":false}"""),
+            rig.mac.connections.single().phoneFrames.ofKind(MessageKind.ClientState).map { it.payload.decodeToString() },
+        )
+    }
+
+    @Test
+    fun backgroundingBeforeTheSessionIsReadyIsSentOnceItIs() = runTest {
+        val rig = lanRig(ScriptedMac(declare = { it.copy(supportsClientState = true) }))
+        rig.controller.clientBackgrounded(true)
+        rig.controller.connect()
+        settle()
+
+        assertEquals(
+            listOf("""{"background":true}"""),
+            rig.mac.connections.single().phoneFrames.ofKind(MessageKind.ClientState).map { it.payload.decodeToString() },
+        )
     }
 
     private fun TestScope.lanRig(mac: ScriptedMac): ControllerRig = ControllerRig(
