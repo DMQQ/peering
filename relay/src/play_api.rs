@@ -175,8 +175,11 @@ pub struct PlayVerifier {
     timeout: Duration,
     /// The last good verdict per purchase for the whole process, so a Google outage does not
     /// demote every paying client to free as its socket reconnects.
-    last_good: Mutex<HashMap<(String, String, Option<String>), GoodVerdict>>,
+    last_good: Mutex<HashMap<VerdictKey, GoodVerdict>>,
 }
+
+/// Purchase token, product, and the device key the verdict was bound to.
+type VerdictKey = (String, String, Option<String>);
 
 #[derive(Clone, Copy)]
 struct GoodVerdict {
@@ -242,7 +245,7 @@ impl PlayVerifier {
         }
     }
 
-    fn remember(&self, key: (String, String, Option<String>), verdict: PlayVerdict, expiry_unix: Option<u64>) {
+    fn remember(&self, key: VerdictKey, verdict: PlayVerdict, expiry_unix: Option<u64>) {
         let mut last_good = self.last_good.lock().unwrap();
         match verdict {
             PlayVerdict::Active(_) => {
@@ -257,7 +260,7 @@ impl PlayVerifier {
         }
     }
 
-    fn stale_or_unavailable(&self, key: &(String, String, Option<String>), now: u64) -> PlayVerdict {
+    fn stale_or_unavailable(&self, key: &VerdictKey, now: u64) -> PlayVerdict {
         let held = self.last_good.lock().unwrap().get(key).copied();
         match held {
             Some(good) if good.at.elapsed() < STALE_IF_ERROR && good.expiry_unix.is_none_or(|expiry| expiry > now) => {

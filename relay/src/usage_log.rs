@@ -26,6 +26,9 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
+/// Client id to (window, seconds used in it).
+pub(crate) type Totals = HashMap<String, (u64, u64)>;
+
 #[derive(Serialize, Deserialize)]
 struct UsageLine {
     /// The client's device id.
@@ -97,7 +100,7 @@ impl UsageLog {
     /// Opens the log and reads back what it already held. The parent directory is created if it
     /// is missing: the likeliest reason a configured path does not exist yet is that the operator
     /// has just written the line into the environment file.
-    fn open(path: PathBuf, now_window: u64) -> io::Result<(Self, HashMap<String, (u64, u64)>)> {
+    fn open(path: PathBuf, now_window: u64) -> io::Result<(Self, Totals)> {
         if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
             fs::create_dir_all(parent)?;
         }
@@ -328,7 +331,7 @@ impl Flusher {
 }
 
 impl UsageLogWriter {
-    pub fn open(path: PathBuf, now_window: u64) -> io::Result<(Self, HashMap<String, (u64, u64)>)> {
+    pub fn open(path: PathBuf, now_window: u64) -> io::Result<(Self, Totals)> {
         let (log, usage) = UsageLog::open(path, now_window)?;
         let (queue, messages) = mpsc::sync_channel(QUEUE_DEPTH);
         let thread = thread::Builder::new()

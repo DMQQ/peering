@@ -252,10 +252,9 @@ impl Referrals {
                 return Err(ReferralError::Busy);
             }
             let network = peer.map(network_of);
-            if let Some(network) = network {
-                if inner.by_address.get(&network).is_some_and(|(d, count)| *d == day && *count >= MAX_REDEMPTIONS_PER_ADDRESS_PER_DAY) {
-                    return Err(ReferralError::NetworkLimit);
-                }
+            let over = |(d, count): &(u64, u32)| *d == day && *count >= MAX_REDEMPTIONS_PER_ADDRESS_PER_DAY;
+            if network.is_some_and(|network| inner.by_address.get(&network).is_some_and(over)) {
+                return Err(ReferralError::NetworkLimit);
             }
             let mut lines = Vec::new();
             if let Some(line) = inner.ensure_code(identity, MAX_CODES)? {
