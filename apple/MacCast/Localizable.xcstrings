@@ -2502,6 +2502,64 @@
         }
       }
     },
+    "Damaged pairings" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beschädigte Kopplungen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Emparejamientos dañados"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Associations endommagées"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abbinamenti danneggiati"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "破損したペアリング"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "손상된 페어링"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pareamentos danificados"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Повреждённые связывания"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已损坏的配对"
+          }
+        }
+      }
+    },
     "End this session?" : {
       "localizations" : {
         "de" : {
@@ -3372,6 +3430,64 @@
         }
       }
     },
+    "Paired Macs were reset. Pair each Mac again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die gekoppelten Macs wurden zurückgesetzt. Koppele jeden Mac erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se restablecieron los Macs emparejados. Vuelve a emparejar cada Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les Mac associés ont été réinitialisés. Associez chaque Mac à nouveau."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I Mac abbinati sono stati ripristinati. Abbina di nuovo ogni Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリング済みのMacをリセットしました。各Macをもう一度ペアリングしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링된 Mac이 초기화되었습니다. 각 Mac을 다시 페어링하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os Macs pareados foram redefinidos. Pareie cada Mac de novo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Связанные Mac сброшены. Свяжите каждый Mac заново."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已重置已配对的 Mac。请重新配对每台 Mac。"
+          }
+        }
+      }
+    },
     "Part of that path is not a folder." : {
       "localizations" : {
         "de" : {
@@ -3774,6 +3890,122 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已将 %@ 重命名为 %@"
+          }
+        }
+      }
+    },
+    "Reset paired Macs" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gekoppelte Macs zurücksetzen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer Macs emparejados"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réinitialiser les Mac associés"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristina i Mac abbinati"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリング済みのMacをリセット"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링된 Mac 초기화"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redefinir Macs pareados"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сбросить связанные Mac"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置已配对的 Mac"
+          }
+        }
+      }
+    },
+    "Reset paired Macs?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gekoppelte Macs zurücksetzen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Restablecer los Macs emparejados?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réinitialiser les Mac associés ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristinare i Mac abbinati?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリング済みのMacをリセットしますか?"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링된 Mac을 초기화할까요?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redefinir os Macs pareados?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сбросить связанные Mac?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要重置已配对的 Mac 吗？"
           }
         }
       }
@@ -8704,6 +8936,122 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "配对成功，但此设备无法保存。请确认钥匙串可用。"
+          }
+        }
+      }
+    },
+    "The pairings saved on this iPhone are damaged and cannot be recovered. Resetting deletes them, and you will pair each Mac again. Nothing on your Macs is changed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die auf diesem iPhone gespeicherten Kopplungen sind beschädigt und lassen sich nicht wiederherstellen. Beim Zurücksetzen werden sie gelöscht, und du koppelst jeden Mac erneut. An deinen Macs wird nichts geändert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los emparejamientos guardados en este iPhone están dañados y no se pueden recuperar. Al restablecerlos se eliminan y tendrás que emparejar cada Mac de nuevo. No se cambia nada en tus Macs."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les associations enregistrées sur cet iPhone sont endommagées et ne peuvent pas être récupérées. La réinitialisation les supprime, et vous associerez chaque Mac à nouveau. Rien n'est modifié sur vos Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gli abbinamenti salvati su questo iPhone sono danneggiati e non possono essere recuperati. Il ripristino li elimina e dovrai abbinare di nuovo ogni Mac. Non viene modificato nulla sui tuoi Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このiPhoneに保存されているペアリング情報は破損しており、復元できません。リセットすると削除されるため、各Macをもう一度ペアリングする必要があります。Mac側は変更されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 iPhone에 저장된 페어링 정보가 손상되어 복구할 수 없습니다. 초기화하면 삭제되며, 각 Mac을 다시 페어링해야 합니다. Mac에는 아무 변경도 가해지지 않습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os pareamentos salvos neste iPhone estão danificados e não podem ser recuperados. Redefinir os exclui, e você vai parear cada Mac de novo. Nada é alterado nos seus Macs."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Связывания, сохранённые на этом iPhone, повреждены и не могут быть восстановлены. Сброс удалит их, и каждый Mac придётся связать заново. На ваших Mac ничего не изменится."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 iPhone 上保存的配对信息已损坏，无法恢复。重置会将其删除，之后需要重新配对每台 Mac。你的 Mac 上不会有任何更改。"
+          }
+        }
+      }
+    },
+    "The pairings saved on this iPhone are damaged and cannot be read. Reset them to pair your Macs again. No new pairing is saved until then." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die auf diesem iPhone gespeicherten Kopplungen sind beschädigt und lassen sich nicht lesen. Setze sie zurück, um deine Macs erneut zu koppeln. Bis dahin wird keine neue Kopplung gespeichert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los emparejamientos guardados en este iPhone están dañados y no se pueden leer. Restablécelos para volver a emparejar tus Macs. Hasta entonces no se guarda ningún emparejamiento nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les associations enregistrées sur cet iPhone sont endommagées et illisibles. Réinitialisez-les pour associer à nouveau vos Mac. Aucune nouvelle association n'est enregistrée d'ici là."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gli abbinamenti salvati su questo iPhone sono danneggiati e non possono essere letti. Ripristinali per abbinare di nuovo i tuoi Mac. Fino ad allora non viene salvato nessun nuovo abbinamento."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このiPhoneに保存されているペアリング情報は破損していて読み取れません。リセットしてMacをもう一度ペアリングしてください。それまでは新しいペアリングは保存されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 iPhone에 저장된 페어링 정보가 손상되어 읽을 수 없습니다. 초기화한 다음 Mac을 다시 페어링하세요. 그때까지는 새 페어링이 저장되지 않습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os pareamentos salvos neste iPhone estão danificados e não podem ser lidos. Redefina-os para parear seus Macs de novo. Até lá, nenhum pareamento novo é salvo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Связывания, сохранённые на этом iPhone, повреждены и не читаются. Сбросьте их, чтобы связать Mac заново. До этого новые связывания не сохраняются."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 iPhone 上保存的配对信息已损坏，无法读取。请重置后重新配对你的 Mac。在此之前不会保存新的配对。"
           }
         }
       }

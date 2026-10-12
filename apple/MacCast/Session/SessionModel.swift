@@ -148,6 +148,9 @@ final class SessionModel {
     /// Raised once when the saved pairings could not be read; ``HostPickerView`` shows a card until it is dismissed.
     var pinsUnreadableNoticeShown = false
 
+    /// True while the saved pairings are damaged beyond reading, the one unreadable state ``resetPairedMacs()`` may cure.
+    var pinsNeedReset = false
+
     // MARK: - User choices
 
     /// Remembered but deliberately not used to reconnect: a stored IP goes stale exactly when a network changes. Kept so a Mac on a custom port is not retyped each launch.

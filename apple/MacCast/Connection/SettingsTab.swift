@@ -52,6 +52,7 @@ struct SettingsTab: View {
                         if shows(.liveActivity) { liveActivitySection }
                         if shows(.notifications) { notificationsSection }
                         if !model.pairedHostIDs.isEmpty, shows(.trustedMacs) { trustedMacsSection }
+                        if model.pinsNeedReset { damagedPairingsSection }
                         if shows(.identity) { identitySection }
 #if DEBUG
                         if shows(.developer) { developerSection }
@@ -70,6 +71,7 @@ struct SettingsTab: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {
+                model.refreshPinRepairState()
                 if !deviceNameFocused {
                     deviceNameDraft = model.device.name
                 }
