@@ -5,6 +5,7 @@
 use super::sys::{self, Session};
 use super::{frame_duration, frame_time, h264_config, video_timestamp, ConfigTracker, EncoderSettings};
 use crate::convert::Nv12Converter;
+use crate::gpu::GpuContext;
 use crate::handoff::{FrameHandoff, Pipeline};
 use peering_core::ports::capture::RawFrame;
 use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
@@ -44,14 +45,14 @@ impl MftEncoder {
         })
     }
 
-    /// Converts a captured texture to NV12 at the session size and stages it for the next `encode`. Call it before the
-    /// capture is polled again, because the texture is released by that poll.
-    pub fn accept_capture(&mut self, captured: FrameHandoff<ID3D11Texture2D>) -> Result<(), EncodeError> {
+    /// Converts a captured texture to NV12 at the session size and stages it for the next `encode`. `gpu` must be the device
+    /// this encoder was created on. Call it before the capture is polled again, because the texture is released by that poll.
+    pub fn accept_capture(&mut self, captured: FrameHandoff<ID3D11Texture2D>, gpu: &GpuContext) -> Result<(), EncodeError> {
         let session = self.session.as_ref().ok_or(EncodeError::NotConfigured)?;
         let size = (session.settings.width, session.settings.height);
         let converter = &mut self.converter;
         self.pipeline.accept_capture(captured, |input| {
-            converter.convert(&input, size).map_err(|error| failed("converting the capture to NV12", error))
+            converter.convert(&input, size, gpu).map_err(|error| failed("converting the capture to NV12", error))
         })
     }
 }

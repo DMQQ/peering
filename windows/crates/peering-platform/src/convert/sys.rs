@@ -17,6 +17,7 @@ use windows::Win32::Graphics::Direct3D11::{
 };
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_NV12, DXGI_RATIONAL, DXGI_SAMPLE_DESC};
 
+use crate::gpu::GpuContext;
 use crate::handoff::FrameHandoff;
 
 /// Colour space bit layout: YCbCr matrix at bit 2 (1 = BT.709), nominal range at bits 4 to 5.
@@ -45,23 +46,24 @@ impl Nv12Converter {
         Self { stage: None }
     }
 
-    /// Converts `input` into an NV12 frame of `output_size`, rounded to even sides, with the same sequence. The returned
-    /// texture is reused by the next call, so the consumer must finish with it before converting again.
+    /// Converts `input`, a texture of `gpu`'s device, into an NV12 frame of `output_size`, rounded to even sides, with the
+    /// same sequence. The returned texture is reused by the next call, so the consumer must finish with it before converting
+    /// again.
     pub fn convert(
         &mut self,
         input: &FrameHandoff<ID3D11Texture2D>,
         output_size: (u32, u32),
+        gpu: &GpuContext,
     ) -> Result<FrameHandoff<ID3D11Texture2D>> {
         let input_size = texture_size(&input.texture)?;
         let output_size = even_size(output_size.0, output_size.1);
-        let device = device_of(&input.texture)?;
         let reusable = self.stage.as_ref().is_some_and(|stage| {
             stage.input_size == input_size
                 && stage.output_size == output_size
-                && Interface::as_raw(&stage.device) == Interface::as_raw(&device)
+                && Interface::as_raw(&stage.device) == Interface::as_raw(&gpu.device)
         });
         if !reusable {
-            self.stage = Some(Stage::build(device, input_size, output_size)?);
+            self.stage = Some(Stage::build(gpu, input_size, output_size)?);
         }
         let stage = self.stage.as_ref().ok_or_else(|| Error::from(E_FAIL))?;
         stage.blit(&input.texture)?;
@@ -75,11 +77,10 @@ impl Nv12Converter {
 }
 
 impl Stage {
-    fn build(device: ID3D11Device, input_size: (u32, u32), output_size: (u32, u32)) -> Result<Self> {
+    fn build(gpu: &GpuContext, input_size: (u32, u32), output_size: (u32, u32)) -> Result<Self> {
+        let device = gpu.device.clone();
         let video_device: ID3D11VideoDevice = device.cast()?;
-        // SAFETY: the device is live; the call only returns a new reference to its immediate context.
-        let immediate = unsafe { device.GetImmediateContext()? };
-        let video_context: ID3D11VideoContext = immediate.cast()?;
+        let video_context: ID3D11VideoContext = gpu.context.cast()?;
         let content = D3D11_VIDEO_PROCESSOR_CONTENT_DESC {
             InputFrameFormat: D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE,
             InputFrameRate: DXGI_RATIONAL { Numerator: 60, Denominator: 1 },
@@ -191,7 +192,3 @@ fn texture_size(texture: &ID3D11Texture2D) -> Result<(u32, u32)> {
     Ok((desc.Width, desc.Height))
 }
 
-fn device_of(texture: &ID3D11Texture2D) -> Result<ID3D11Device> {
-    // SAFETY: the texture is live; the call only returns a new reference to its device.
-    unsafe { texture.GetDevice() }
-}

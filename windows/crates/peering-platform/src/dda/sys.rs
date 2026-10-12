@@ -8,21 +8,27 @@ use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame}
 use windows::core::{Interface, HRESULT};
 use windows::Win32::Graphics::Direct3D11::{ID3D11Texture2D, D3D11_TEXTURE2D_DESC};
 use windows::Win32::Graphics::Dxgi::{
-    IDXGIResource, DXGI_ERROR_ACCESS_LOST, DXGI_ERROR_WAIT_TIMEOUT, DXGI_OUTDUPL_FRAME_INFO,
+    IDXGIOutputDuplication, IDXGIResource, DXGI_ERROR_ACCESS_LOST, DXGI_ERROR_WAIT_TIMEOUT, DXGI_OUTDUPL_FRAME_INFO,
 };
 
 use crate::dda::{classify, CaptureState, Classification, HresultKind};
+use crate::gpu::GpuContext;
 use crate::handoff::FrameHandoff;
 use crate::monitors;
-use open::{open_session, Session};
+use open::open_duplication;
 
 const ACQUIRE_TIMEOUT_MS: u32 = 2;
+
+// SAFETY: the duplication and its device are used from one thread only, the one the host moves the capture to before use;
+// see `SharedLink` in `services.rs`.
+unsafe impl Send for DesktopDuplicationCapture {}
 
 pub struct DesktopDuplicationCapture {
     started: Instant,
     state: CaptureState,
     target_device_name: Option<String>,
-    session: Option<Session>,
+    gpu: Option<GpuContext>,
+    duplication: Option<IDXGIOutputDuplication>,
     frame_held: bool,
     captured: Option<FrameHandoff<ID3D11Texture2D>>,
     sequence: u64,
@@ -34,7 +40,8 @@ impl DesktopDuplicationCapture {
             started: Instant::now(),
             state: CaptureState::Idle,
             target_device_name: None,
-            session: None,
+            gpu: None,
+            duplication: None,
             frame_held: false,
             captured: None,
             sequence: 0,
@@ -45,6 +52,11 @@ impl DesktopDuplicationCapture {
     /// which releases the desktop frame it came from, so the consumer converts it before polling again.
     pub fn take_captured(&mut self) -> Option<FrameHandoff<ID3D11Texture2D>> {
         self.captured.take()
+    }
+
+    /// The device the duplication runs on. It is kept across stops, so a restart on the same adapter reuses it.
+    pub fn gpu(&self) -> Option<GpuContext> {
+        self.gpu.clone()
     }
 
     pub fn access_losses(&self) -> u32 {
@@ -58,9 +70,9 @@ impl DesktopDuplicationCapture {
     fn release_frame(&mut self) {
         self.captured = None;
         if std::mem::take(&mut self.frame_held) {
-            if let Some(session) = &self.session {
+            if let Some(duplication) = &self.duplication {
                 // SAFETY: `frame_held` means a frame was acquired on this duplication and not yet released.
-                let _ = unsafe { session.duplication.ReleaseFrame() };
+                let _ = unsafe { duplication.ReleaseFrame() };
             }
         }
     }
@@ -69,9 +81,10 @@ impl DesktopDuplicationCapture {
         let Some(device_name) = self.target_device_name.clone() else {
             return;
         };
-        match open_session(&device_name) {
-            Ok(session) => {
-                self.session = Some(session);
+        match open_duplication(&device_name, self.gpu.as_ref()) {
+            Ok((gpu, duplication)) => {
+                self.gpu = Some(gpu);
+                self.duplication = Some(duplication);
                 self.state.reacquired();
             }
             Err(_) => self.state.reacquire_failed(now),
@@ -79,11 +92,11 @@ impl DesktopDuplicationCapture {
     }
 
     fn acquire(&mut self, now: f64) -> Option<RawFrame> {
-        let session = self.session.as_ref()?;
+        let duplication = self.duplication.as_ref()?;
         let mut info = DXGI_OUTDUPL_FRAME_INFO::default();
         let mut resource: Option<IDXGIResource> = None;
         // SAFETY: both out pointers are live locals; `poll_frame` releases any earlier frame before calling this.
-        let result = unsafe { session.duplication.AcquireNextFrame(ACQUIRE_TIMEOUT_MS, &mut info, &mut resource) };
+        let result = unsafe { duplication.AcquireNextFrame(ACQUIRE_TIMEOUT_MS, &mut info, &mut resource) };
         match result {
             Ok(()) => {
                 self.frame_held = true;
@@ -122,11 +135,11 @@ impl DesktopDuplicationCapture {
         match classify(kind) {
             Classification::NewFrame | Classification::NoNewFrame => {}
             Classification::AccessLost => {
-                self.session = None;
+                self.duplication = None;
                 self.state.access_lost(now);
             }
             Classification::Fatal => {
-                self.session = None;
+                self.duplication = None;
                 self.state.fail();
             }
         }
@@ -158,9 +171,10 @@ impl Capture for DesktopDuplicationCapture {
     fn start(&mut self, display_id: u32) -> Result<(), CaptureError> {
         self.stop();
         let device_name = device_name_for(display_id).ok_or(CaptureError::DisplayNotFound(display_id))?;
-        match open_session(&device_name) {
-            Ok(session) => {
-                self.session = Some(session);
+        match open_duplication(&device_name, self.gpu.as_ref()) {
+            Ok((gpu, duplication)) => {
+                self.gpu = Some(gpu);
+                self.duplication = Some(duplication);
                 self.target_device_name = Some(device_name);
                 self.state.start();
                 Ok(())
@@ -174,7 +188,7 @@ impl Capture for DesktopDuplicationCapture {
 
     fn stop(&mut self) {
         self.release_frame();
-        self.session = None;
+        self.duplication = None;
         self.target_device_name = None;
         self.state.stop();
     }

@@ -1,27 +1,31 @@
-//! Opens a duplication on the adapter that owns one monitor, which is the only adapter that can duplicate it on hybrid GPU laptops.
+//! Opens a duplication on the adapter that owns one monitor, which is the only adapter that can duplicate it on hybrid GPU
+//! laptops. The device is kept while the adapter stays the same: the encoder is bound to it, so a new device would mean a new
+//! encoder.
 
 use windows::core::{Interface, Result};
 use windows::Win32::Foundation::{E_FAIL, HMODULE};
 use windows::Win32::Graphics::Direct3D::D3D_DRIVER_TYPE_UNKNOWN;
 use windows::Win32::Graphics::Direct3D11::{
-    D3D11CreateDevice, ID3D11Device, D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_SDK_VERSION,
+    D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_SDK_VERSION,
 };
 use windows::Win32::Graphics::Dxgi::{
     CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory1, IDXGIOutput, IDXGIOutput1, IDXGIOutputDuplication,
 };
 
-pub struct Session {
-    /// Held only to keep the device alive while the duplication uses it.
-    pub _device: ID3D11Device,
-    pub duplication: IDXGIOutputDuplication,
-}
+use crate::gpu::GpuContext;
+use crate::link::pack_luid;
 
-pub fn open_session(device_name: &str) -> Result<Session> {
+pub fn open_duplication(device_name: &str, reuse: Option<&GpuContext>) -> Result<(GpuContext, IDXGIOutputDuplication)> {
     let (adapter, output) = find_output(device_name)?.ok_or_else(|| windows::core::Error::from(E_FAIL))?;
-    let device = create_device(&adapter)?;
+    // SAFETY: GetDesc1 only reads the live adapter.
+    let luid = unsafe { adapter.GetDesc1()? }.AdapterLuid;
+    let gpu = match reuse {
+        Some(gpu) if gpu.adapter == pack_luid(luid.HighPart, luid.LowPart) => gpu.clone(),
+        _ => create_gpu(&adapter, luid)?,
+    };
     // SAFETY: `output` is a live IDXGIOutput of the adapter the device was created on, so the duplication matches it.
-    let duplication = unsafe { output.cast::<IDXGIOutput1>()?.DuplicateOutput(&device)? };
-    Ok(Session { _device: device, duplication })
+    let duplication = unsafe { output.cast::<IDXGIOutput1>()?.DuplicateOutput(&gpu.device)? };
+    Ok((gpu, duplication))
 }
 
 fn find_output(device_name: &str) -> Result<Option<(IDXGIAdapter1, IDXGIOutput)>> {
@@ -53,8 +57,9 @@ fn find_output_on(adapter: &IDXGIAdapter1, device_name: &str) -> Result<Option<I
     Ok(None)
 }
 
-fn create_device(adapter: &IDXGIAdapter1) -> Result<ID3D11Device> {
+fn create_gpu(adapter: &IDXGIAdapter1, luid: windows::Win32::Foundation::LUID) -> Result<GpuContext> {
     let mut device: Option<ID3D11Device> = None;
+    let mut context: Option<ID3D11DeviceContext> = None;
     // SAFETY: an explicit adapter requires DRIVER_TYPE_UNKNOWN; BGRA support is what desktop duplication textures need.
     unsafe {
         D3D11CreateDevice(
@@ -66,8 +71,11 @@ fn create_device(adapter: &IDXGIAdapter1) -> Result<ID3D11Device> {
             D3D11_SDK_VERSION,
             Some(&mut device),
             None,
-            None,
+            Some(&mut context),
         )?
     };
-    device.ok_or_else(|| windows::core::Error::from(E_FAIL))
+    let device = device.ok_or_else(|| windows::core::Error::from(E_FAIL))?;
+    let context = context.ok_or_else(|| windows::core::Error::from(E_FAIL))?;
+    Ok(GpuContext::new(device, context, luid))
 }
+

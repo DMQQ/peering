@@ -7,7 +7,12 @@ pub mod dda;
 pub mod dpapi;
 pub mod handoff;
 pub mod keyboard;
+pub mod link;
 pub mod mft;
 pub mod monitors;
 pub mod mouse;
 pub mod session_state;
+#[cfg(windows)]
+pub mod gpu;
+#[cfg(windows)]
+pub mod services;
