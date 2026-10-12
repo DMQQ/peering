@@ -203,6 +203,11 @@ final class HostServer: @unchecked Sendable {
         activityPublisher.directPathChanged(open)
     }
 
+    /// For quitting: the cards are ended without stopping the listener, which the process exit takes down.
+    func endLiveActivities(completion: @escaping @Sendable () -> Void) {
+        activityPublisher.hostStopping(completion: completion)
+    }
+
     func registeredPushTokens() -> [String] {
         terminalManager.registeredPushTokens()
     }
@@ -224,7 +229,7 @@ final class HostServer: @unchecked Sendable {
             self?.onAgentActivity?(active)
         }
         agentManager.onChatStateChanged = { [weak self] clientID in
-            self?.activityPublisher.chatsChanged(clientID: clientID)
+            self?.activityPublisher.changed(clientID: clientID)
         }
         let presence = presence
         agentManager.presence = { presence.presence(of: $0) }
@@ -280,8 +285,9 @@ final class HostServer: @unchecked Sendable {
         self.reaper = reaper
     }
 
-    func stop() {
-        activityPublisher.hostStopping()
+    /// `afterLiveActivitiesEnd` runs once the end events for the phones' cards have left, or after a short timeout, on no particular thread; the relay link is closed from it so they are not cut off.
+    func stop(afterLiveActivitiesEnd: @escaping @Sendable () -> Void = {}) {
+        activityPublisher.hostStopping(completion: afterLiveActivitiesEnd)
         // Strong capture: HostModel sets server = nil right after calling stop(), which can
         // deallocate the server before this block runs, and a weak capture would skip
         // listener?.cancel(), leaving the port held so the next start() cannot bind.
@@ -446,7 +452,7 @@ final class HostServer: @unchecked Sendable {
         session.onClientBackground = { [weak self, weak session] background in
             guard let self, let session else { return }
             presence.backgroundChanged(clientID: session.clientID, session: session.sessionID, background: background)
-            activityPublisher.presenceChanged(clientID: session.clientID)
+            activityPublisher.changed(clientID: session.clientID)
         }
         session.onActivityToken = { [weak self, weak session] tokens in
             guard let self, let session else { return }

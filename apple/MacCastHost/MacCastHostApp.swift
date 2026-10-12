@@ -40,6 +40,14 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Waits for the cards' end events to leave, bounded by the publisher's own timeout, so quitting does not strand a Lock Screen card.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let waiting = model.endLiveActivitiesForTermination {
+            DispatchQueue.main.async { NSApp.reply(toApplicationShouldTerminate: true) }
+        }
+        return waiting ? .terminateLater : .terminateNow
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         model.prepareForTermination()
     }

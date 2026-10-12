@@ -368,9 +368,14 @@ extension HostModel {
         // Before the listener goes: a monitor left behind is not repairable from the window.
         virtualDisplayCreationGeneration &+= 1
         removeAllManagedVirtualDisplays()
-        server?.stop()
+        let registration = relayRegistration
+        if let server {
+            // The relay link outlives the listener until the cards' end events have left through it.
+            server.stop(afterLiveActivitiesEnd: { registration?.stop() })
+        } else {
+            registration?.stop()
+        }
         server = nil
-        relayRegistration?.stop()
         relayRegistration = nil
         nativeTerminalWatcher?.stop()
         nativeTerminalWatcher = nil
