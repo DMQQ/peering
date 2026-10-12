@@ -54,9 +54,12 @@ class RelayMessagesTest {
         "error" to Error(code = "quotaExceeded", message = "relay allowance exhausted for this period"),
     )
 
+    /** Vectors for messages only a computer sends or receives: the phone has no typed model for them. */
+    private val hostOnlyVectors = setOf("notifyActivity update", "activityRefused")
+
     private fun vectorEntries(section: String) = relay.getValue(section).jsonArray.map {
         it.jsonObject.getValue("name").jsonPrimitive.content to it.jsonObject.getValue("json").jsonPrimitive.content
-    }
+    }.filter { it.first !in hostOnlyVectors }
 
     @Test
     fun everyClientVectorIsProducedExactlyByItsTypedMessage() {
