@@ -6,6 +6,8 @@ mod client_verifier;
 use std::sync::Arc;
 
 use rustls::crypto::ring::default_provider;
+use rustls::crypto::ring::sign::any_supported_type;
+use rustls::sign::{CertifiedKey, SingleCertAndKey};
 use rustls::version::TLS13;
 use rustls::{ServerConfig, ServerConnection};
 use rustls_pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
@@ -39,13 +41,15 @@ pub struct HostTls {
 impl HostTls {
     pub fn new(identity: &HostIdentity) -> Result<Self, TlsError> {
         let certificate = CertificateDer::from(identity.certificate_der().to_vec());
-        let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(identity.private_key_pkcs8().to_vec()));
+        // Borrowed, so no second copy of the private key is left behind that nothing would wipe.
+        let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(identity.private_key_pkcs8()));
+        let signing_key = any_supported_type(&key).map_err(|error| TlsError::Configuration(error.to_string()))?;
+        let certified = CertifiedKey::new(vec![certificate], signing_key);
         let config = ServerConfig::builder_with_provider(Arc::new(default_provider()))
             .with_protocol_versions(&[&TLS13])
             .map_err(|error| TlsError::Configuration(error.to_string()))?
             .with_client_cert_verifier(Arc::new(AnyClientCertificate::new()))
-            .with_single_cert(vec![certificate], key)
-            .map_err(|error| TlsError::Configuration(error.to_string()))?;
+            .with_cert_resolver(Arc::new(SingleCertAndKey::from(certified)));
         Ok(Self {
             acceptor: TlsAcceptor::from(Arc::new(config)),
         })

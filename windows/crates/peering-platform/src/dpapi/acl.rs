@@ -18,9 +18,21 @@ use windows::Win32::Security::{
 /// created inside.
 const OWNER_AND_SYSTEM_ONLY: &str = "D:P(A;OICI;FA;;;OW)(A;OICI;FA;;;SY)";
 
-pub fn restrict_to_owner(directory: &Path) -> io::Result<()> {
-    let descriptor_text: Vec<u16> = OWNER_AND_SYSTEM_ONLY.encode_utf16().chain(once(0)).collect();
-    let path: Vec<u16> = directory.as_os_str().encode_wide().chain(once(0)).collect();
+/// The same for a single file, which has nothing to inherit to.
+const FILE_OWNER_AND_SYSTEM_ONLY: &str = "D:P(A;;FA;;;OW)(A;;FA;;;SY)";
+
+pub fn restrict_directory_to_owner(directory: &Path) -> io::Result<()> {
+    restrict(directory, OWNER_AND_SYSTEM_ONLY)
+}
+
+/// A file made before its directory was restricted keeps the permissions it was made with until this runs.
+pub fn restrict_file_to_owner(file: &Path) -> io::Result<()> {
+    restrict(file, FILE_OWNER_AND_SYSTEM_ONLY)
+}
+
+fn restrict(target: &Path, descriptor_sddl: &str) -> io::Result<()> {
+    let descriptor_text: Vec<u16> = descriptor_sddl.encode_utf16().chain(once(0)).collect();
+    let path: Vec<u16> = target.as_os_str().encode_wide().chain(once(0)).collect();
     let mut descriptor = PSECURITY_DESCRIPTOR::default();
     // SAFETY: `descriptor_text` is a NUL terminated UTF-16 string that outlives the call, and `descriptor` is a live out
     // parameter. On success the OS allocates the descriptor, which is freed below.

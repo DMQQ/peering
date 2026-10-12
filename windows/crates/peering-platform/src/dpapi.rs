@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use peering_core::ports::secret_store::{SecretStore, StoreError};
+use zeroize::Zeroizing;
 
 #[cfg(windows)]
 mod acl;
@@ -21,12 +22,25 @@ const DIRECTORY_NAME: &str = "Peering Host";
 /// Seals and opens secret bytes. `None` means the operation failed and nothing was written or returned.
 pub trait Protector {
     fn protect(&self, plain: &[u8]) -> Option<Vec<u8>>;
-    fn unprotect(&self, sealed: &[u8]) -> Option<Vec<u8>>;
+    fn unprotect(&self, sealed: &[u8]) -> Option<Opened>;
 
     /// Called before the first secret is written into `directory`, to limit who can open it.
     fn prepare_directory(&self, _directory: &Path) -> io::Result<()> {
         Ok(())
     }
+
+    /// Called for each file already in `directory` when it is prepared, because limiting a directory does not change
+    /// the files made inside it earlier.
+    fn prepare_file(&self, _file: &Path) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+/// A secret that was opened. `current` is false when it was sealed the way an earlier version did, so the store seals it
+/// again the current way.
+pub struct Opened {
+    pub plain: Zeroizing<Vec<u8>>,
+    pub current: bool,
 }
 
 /// One sealed file per secret name inside `directory`. A write goes to a temporary file that is renamed over the
@@ -50,11 +64,20 @@ impl<P: Protector> SecretFiles<P> {
         if self.directory_prepared.load(Ordering::Acquire) {
             return true;
         }
-        if self.protector.prepare_directory(&self.directory).is_err() {
+        if self.protector.prepare_directory(&self.directory).is_err() || !self.prepare_existing_files() {
             return false;
         }
         self.directory_prepared.store(true, Ordering::Release);
         true
+    }
+}
+
+impl<P: Protector> SecretFiles<P> {
+    fn prepare_existing_files(&self) -> bool {
+        let Ok(entries) = fs::read_dir(&self.directory) else {
+            return false;
+        };
+        entries.flatten().filter(|entry| entry.path().is_file()).all(|entry| self.protector.prepare_file(&entry.path()).is_ok())
     }
 }
 
@@ -79,7 +102,12 @@ impl<P: Protector> SecretStore for SecretFiles<P> {
             Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
             Err(_) => return Err(StoreError),
         };
-        self.protector.unprotect(&sealed).map(Some).ok_or(StoreError)
+        let mut opened = self.protector.unprotect(&sealed).ok_or(StoreError)?;
+        if !opened.current {
+            // A failed re-seal leaves the old file readable, so it is tried again on the next read.
+            let _resealed = self.write(name, &opened.plain);
+        }
+        Ok(Some(std::mem::take(&mut *opened.plain)))
     }
 
     fn write(&self, name: &str, value: &[u8]) -> bool {
@@ -128,7 +156,10 @@ mod tests {
     use super::*;
 
     /// Reverses the bytes and tags them, so a sealed value is visibly different from the plain one.
+    const LEGACY_TAG: u8 = 0xBB;
+
     struct ReversingProtector {
+        prepared_files: Arc<std::sync::Mutex<Vec<PathBuf>>>,
         refuse_protect: bool,
         prepared: Arc<AtomicUsize>,
         refuse_directory: bool,
@@ -144,9 +175,16 @@ mod tests {
             Some(sealed)
         }
 
-        fn unprotect(&self, sealed: &[u8]) -> Option<Vec<u8>> {
+        fn unprotect(&self, sealed: &[u8]) -> Option<Opened> {
             let (last, body) = sealed.split_last()?;
-            (*last == 0xAA).then(|| body.iter().rev().copied().collect())
+            let current = *last == 0xAA;
+            (current || *last == LEGACY_TAG)
+                .then(|| Opened { plain: Zeroizing::new(body.iter().rev().copied().collect()), current })
+        }
+
+        fn prepare_file(&self, file: &Path) -> io::Result<()> {
+            self.prepared_files.lock().expect("the list is not poisoned").push(file.to_path_buf());
+            Ok(())
         }
 
         fn prepare_directory(&self, _directory: &Path) -> io::Result<()> {
@@ -170,13 +208,13 @@ mod tests {
         fn store(&self, refuse_protect: bool) -> SecretFiles<ReversingProtector> {
             SecretFiles::new(
                 self.0.clone(),
-                ReversingProtector { refuse_protect, prepared: Arc::new(AtomicUsize::new(0)), refuse_directory: false },
+                ReversingProtector { refuse_protect, prepared: Arc::new(AtomicUsize::new(0)), refuse_directory: false, prepared_files: Arc::default() },
             )
         }
 
         fn store_counting_preparations(&self, refuse_directory: bool) -> (SecretFiles<ReversingProtector>, Arc<AtomicUsize>) {
             let prepared = Arc::new(AtomicUsize::new(0));
-            let protector = ReversingProtector { refuse_protect: false, prepared: prepared.clone(), refuse_directory };
+            let protector = ReversingProtector { refuse_protect: false, prepared: prepared.clone(), refuse_directory, prepared_files: Arc::default() };
             (SecretFiles::new(self.0.clone(), protector), prepared)
         }
     }
@@ -286,5 +324,26 @@ mod tests {
         let (store, _prepared) = dir.store_counting_preparations(true);
         assert!(!store.write("host-key", b"secret"));
         assert!(!dir.0.join("host-key").exists());
+    }
+
+    #[test]
+    fn a_secret_sealed_the_old_way_is_sealed_again_when_it_is_read() {
+        let dir = TestDirectory::new("reseal");
+        fs::create_dir_all(&dir.0).expect("the directory is made");
+        fs::write(dir.0.join("host-key"), [b'y', b'e', b'k', LEGACY_TAG]).expect("an old file is written");
+        let store = dir.store(false);
+        assert_eq!(store.read("host-key"), Ok(Some(b"key".to_vec())));
+        assert_eq!(fs::read(dir.0.join("host-key")).expect("the file is still there"), vec![b'y', b'e', b'k', 0xAA]);
+    }
+
+    #[test]
+    fn files_already_in_the_directory_are_restricted_with_it() {
+        let dir = TestDirectory::new("existing-files");
+        fs::create_dir_all(&dir.0).expect("the directory is made");
+        fs::write(dir.0.join("older"), b"x").expect("an older secret exists");
+        let store = dir.store(false);
+        assert!(store.write("newer", b"1"));
+        let prepared = store.protector.prepared_files.lock().expect("the list is not poisoned").clone();
+        assert_eq!(prepared, vec![dir.0.join("older")]);
     }
 }
