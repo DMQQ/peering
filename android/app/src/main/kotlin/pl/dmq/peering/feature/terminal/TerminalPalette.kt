@@ -3,11 +3,11 @@ package pl.dmq.peering.feature.terminal
 import androidx.compose.ui.graphics.Color
 import pl.dmq.peering.session.terminal.screen.TerminalColor
 
-/** The 256-colour palette on the app's dark backdrop. The first sixteen are chosen to read on near black. */
+/** The xterm defaults, not the app's palette: `LS_COLORS` and `--color=auto` output is written against these sixteen values. */
 object TerminalPalette {
     private val ansi = longArrayOf(
-        0xFF2B2B30, 0xFFFA7366, 0xFF5CD182, 0xFFF7BF59, 0xFF5AA9FF, 0xFFD58CF0, 0xFF5FD4D4, 0xFFD8D8DE,
-        0xFF6B6B73, 0xFFFF9A8F, 0xFF86E6A5, 0xFFFFD98A, 0xFF8CC4FF, 0xFFE6B3F7, 0xFF8FE8E8, 0xFFFFFFFF,
+        0xFF000000, 0xFFCD0000, 0xFF00CD00, 0xFFCDCD00, 0xFF0000EE, 0xFFCD00CD, 0xFF00CDCD, 0xFFE5E5E5,
+        0xFF7F7F7F, 0xFFFF0000, 0xFF00FF00, 0xFFFFFF00, 0xFF5C5CFF, 0xFFFF00FF, 0xFF00FFFF, 0xFFFFFFFF,
     )
     private val cubeSteps = intArrayOf(0, 95, 135, 175, 215, 255)
 

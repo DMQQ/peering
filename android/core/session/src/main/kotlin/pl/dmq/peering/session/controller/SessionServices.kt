@@ -1,5 +1,8 @@
 package pl.dmq.peering.session.controller
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.files.FileBrowser
@@ -24,9 +27,12 @@ internal class SessionServices(private val ports: SessionPorts, private val curr
 
     fun attach(hello: ServerHello) {
         if (terminals == null) {
-            terminals = TerminalSessions(send = { request ->
-                currentLink()?.enqueue(Frame(MessageKind.TerminalRequest, request.toJson().toByteArray(Charsets.UTF_8)))
-            })
+            terminals = TerminalSessions(
+                send = { request ->
+                    currentLink()?.enqueue(Frame(MessageKind.TerminalRequest, request.toJson().toByteArray(Charsets.UTF_8)))
+                },
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            )
         }
         if (hello.supportsAgentChat == true && agentChat == null) {
             agentChat = AgentChat(AgentCapabilities.declaredBy(hello)) { request ->

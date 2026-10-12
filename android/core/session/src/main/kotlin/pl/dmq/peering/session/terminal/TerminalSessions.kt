@@ -1,5 +1,9 @@
 package pl.dmq.peering.session.terminal
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,13 +18,20 @@ import pl.dmq.peering.wire.toBase64
 /**
  * The shells of one computer, driven by its events and the user's intents. Events arrive on the reader thread and
  * intents on the main one, so tabs and screens change together under one lock; requests are sent after it is released.
+ *
+ * Output is parsed on the reader thread. With a [scope], the picture of each changed screen is built there too, at most
+ * once per [FRAME_MILLIS], and published through [frames]; without one every output publishes at once.
  */
 class TerminalSessions(
     private val send: (TerminalRequest) -> Unit,
     private val newEmulator: (columns: Int, rows: Int) -> TerminalEmulator = ::VtScreen,
+    private val scope: CoroutineScope? = null,
 ) {
     private val lock = Any()
     private val screens = HashMap<String, TerminalEmulator>()
+    private val frames = HashMap<String, MutableStateFlow<ScreenSnapshot>>()
+    private val dirty = HashSet<String>()
+    private var pendingFrame: Job? = null
     private val mutableState = MutableStateFlow(TerminalsState())
 
     val state: StateFlow<TerminalsState> = mutableState.asStateFlow()
@@ -51,7 +62,8 @@ class TerminalSessions(
             val grown = maxOf(tab.rows, rows.coerceAtLeast(1))
             val wide = columns.coerceIn(1, MAX_DIMENSION)
             screens[id]?.resize(wide, grown)
-            update(id) { it.copy(columns = wide, rows = grown, revision = it.revision + 1) }
+            update(id) { it.copy(columns = wide, rows = grown) }
+            markChanged(id)
             TerminalRequest.Resize(id, wide, grown.coerceAtMost(MAX_DIMENSION))
         }
         send(request)
@@ -60,6 +72,9 @@ class TerminalSessions(
     fun close(id: String) = send(TerminalRequest.Close(id))
 
     fun rename(id: String, name: String) = send(TerminalRequest.Rename(id, name))
+
+    /** The picture of one shell's screen, republished as its output arrives. Reading it never touches the emulator. */
+    fun frames(id: String): StateFlow<ScreenSnapshot> = synchronized(lock) { frameFlow(id) }
 
     /** The picture of one shell's screen as of now. */
     fun snapshot(id: String): ScreenSnapshot = synchronized(lock) { screens[id]?.snapshot() } ?: ScreenSnapshot.EMPTY
@@ -77,7 +92,7 @@ class TerminalSessions(
                 select(event.sessionID)
             }
             is TerminalEvent.Exited -> update(event.sessionID) {
-                it.copy(isRunning = false, exitStatus = event.status, revision = it.revision + 1)
+                it.copy(isRunning = false, exitStatus = event.status)
             }
             is TerminalEvent.Closed -> onClosed(event.sessionID)
             is TerminalEvent.Failed -> onFailed(event)
@@ -93,9 +108,11 @@ class TerminalSessions(
             val columns = before?.columns ?: info.columns ?: DEFAULT_COLUMNS
             val rows = before?.rows ?: info.rows ?: DEFAULT_ROWS
             screens[info.id] = newEmulator(columns, rows)
+            frameFlow(info.id).value = ScreenSnapshot.EMPTY
             TerminalTab(info.id, info.name, info.isRunning, columns, rows, exitStatus = before?.exitStatus?.takeIf { !info.isRunning })
         }
         screens.keys.retainAll(tabs.map { it.id }.toSet())
+        frames.keys.retainAll(screens.keys)
         val selected = mutableState.value.selectedID?.takeIf { id -> tabs.any { it.id == id } } ?: tabs.firstOrNull()?.id
         mutableState.value = TerminalsState(tabs, selected, loaded = true)
     }
@@ -104,6 +121,7 @@ class TerminalSessions(
         val columns = info.columns ?: DEFAULT_COLUMNS
         val rows = info.rows ?: DEFAULT_ROWS
         screens[info.id] = newEmulator(columns, rows)
+        frameFlow(info.id).value = ScreenSnapshot.EMPTY
         val tab = TerminalTab(info.id, info.name, info.isRunning, columns, rows)
         val current = mutableState.value
         mutableState.value = current.copy(tabs = current.tabs.filter { it.id != info.id } + tab, selectedID = info.id, loaded = true)
@@ -112,11 +130,40 @@ class TerminalSessions(
     private fun onOutput(event: TerminalEvent.Output) {
         val screen = screens[event.sessionID] ?: return
         screen.feed(event.dataBytes)
-        update(event.sessionID) { it.copy(attention = null, failure = null, revision = it.revision + 1) }
+        val tab = mutableState.value.tabs.firstOrNull { it.id == event.sessionID }
+        if (tab != null && (tab.attention != null || tab.failure != null)) {
+            update(event.sessionID) { it.copy(attention = null, failure = null) }
+        }
+        markChanged(event.sessionID)
+    }
+
+    private fun frameFlow(id: String): MutableStateFlow<ScreenSnapshot> =
+        frames.getOrPut(id) { MutableStateFlow(screens[id]?.snapshot() ?: ScreenSnapshot.EMPTY) }
+
+    private fun markChanged(id: String) {
+        if (scope == null) {
+            screens[id]?.let { frameFlow(id).value = it.snapshot() }
+            return
+        }
+        dirty += id
+        if (pendingFrame == null) {
+            pendingFrame = scope.launch {
+                delay(FRAME_MILLIS)
+                publishDirty()
+            }
+        }
+    }
+
+    private fun publishDirty() = synchronized(lock) {
+        pendingFrame = null
+        dirty.forEach { id -> screens[id]?.let { frameFlow(id).value = it.snapshot() } }
+        dirty.clear()
     }
 
     private fun onClosed(id: String) {
         screens.remove(id)
+        frames.remove(id)
+        dirty.remove(id)
         val current = mutableState.value
         val tabs = current.tabs.filter { it.id != id }
         val selected = current.selectedID?.takeIf { it != id } ?: tabs.firstOrNull()?.id
@@ -139,6 +186,7 @@ class TerminalSessions(
     }
 
     private companion object {
+        const val FRAME_MILLIS = 16L
         const val DEFAULT_COLUMNS = 80
         const val DEFAULT_ROWS = 24
         const val MAX_DIMENSION = 65_535

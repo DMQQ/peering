@@ -38,7 +38,8 @@ class TerminalPreferences(val quickCommands: QuickCommands, val textSize: Termin
 /**
  * The shells of one computer, laid out as the iPhone does: a strip of tabs, the output, the key deck and the command
  * line. [connected] is true while the session is live; each time it becomes true the list is asked for again, which
- * also replays the output after a reconnect.
+ * also replays the output after a reconnect. A [hosted] screen sits under a switcher that already names it and closes
+ * it, so it draws no bar of its own: a tab carries each shell's name, rename and end.
  */
 @Composable
 fun TerminalRoute(
@@ -47,6 +48,7 @@ fun TerminalRoute(
     connected: Boolean,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    hosted: Boolean = false,
 ) {
     val state by sessions.state.collectAsState()
     val selected = state.selected
@@ -76,7 +78,7 @@ fun TerminalRoute(
         }
     }
 
-    fun hasOutput(tab: TerminalTab) = sessions.snapshot(tab.id).lines.any { it.text.isNotBlank() }
+    fun hasOutput(tab: TerminalTab) = sessions.frames(tab.id).value.hasPrinted()
     fun requestEnd(tab: TerminalTab) {
         if (tab.isRunning || hasOutput(tab)) pendingEnd = tab else sessions.close(tab.id)
     }
@@ -98,9 +100,16 @@ fun TerminalRoute(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             Column {
-                TerminalTopBar(selected, onBack, onRename = { renaming = it }, onEnd = ::requestEnd)
+                if (!hosted) TerminalTopBar(selected, onBack, onRename = { renaming = it }, onEnd = ::requestEnd)
                 if (state.tabs.isNotEmpty()) {
-                    TerminalTabStrip(state.tabs, state.selectedID, ::hasOutput, tabActions, onNew = sessions::open, newEnabled = connected)
+                    TerminalTabStrip(
+                        state.tabs,
+                        state.selectedID,
+                        { rememberHasPrinted(sessions, it.id).value },
+                        tabActions,
+                        onNew = sessions::open,
+                        newEnabled = connected,
+                    )
                 }
             }
         },
@@ -183,11 +192,10 @@ fun TerminalRoute(
 
 @Composable
 private fun TerminalOutput(sessions: TerminalSessions, tab: TerminalTab, fontSize: Int, onTap: () -> Unit) {
-    val snapshot = remember(tab.id, tab.revision) { sessions.snapshot(tab.id) }
-    val printed = snapshot.lines.any { it.text.isNotBlank() }
+    val printed by rememberHasPrinted(sessions, tab.id)
     Box(Modifier.fillMaxSize()) {
         TerminalCanvas(
-            snapshot = snapshot,
+            frames = sessions.frames(tab.id),
             onGrid = { columns, rows -> sessions.resize(tab.id, columns, rows) },
             onTap = onTap,
             fontSize = fontSize,

@@ -45,5 +45,5 @@ internal fun TerminalHost(active: ActiveSession, onBack: () -> Unit) {
         val store = PreferencesKeyValueStore(context.getSharedPreferences("peering_terminal", Context.MODE_PRIVATE))
         TerminalPreferences(QuickCommands(store), TerminalTextSizeSetting(store))
     }
-    TerminalRoute(sessions = sessions, preferences = preferences, connected = phase.phase is SessionPhase.Ready, onBack = onBack)
+    TerminalRoute(sessions = sessions, preferences = preferences, connected = phase.phase is SessionPhase.Ready, onBack = onBack, hosted = true)
 }

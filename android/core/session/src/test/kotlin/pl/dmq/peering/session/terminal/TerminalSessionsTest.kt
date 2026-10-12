@@ -4,8 +4,10 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import pl.dmq.peering.session.terminal.screen.ScreenSnapshot
 import pl.dmq.peering.wire.TerminalAttentionKind
 import pl.dmq.peering.wire.TerminalEvent
 import pl.dmq.peering.wire.TerminalRequest
@@ -57,14 +59,22 @@ class TerminalSessionsTest {
         sessions.onEvent(output("b", "there"))
         assertEquals(listOf("hi"), text("a"))
         assertEquals(listOf("there"), text("b"))
-        assertEquals(1, sessions.state.value.tabs[0].revision)
+        assertEquals(listOf("hi"), sessions.frames("a").value.lines.map { it.text }.dropLastWhile { it.isEmpty() })
+    }
+
+    @Test
+    fun outputLeavesTheTabsAloneWhenNothingAboutThemChanged() {
+        open("a")
+        val before = sessions.state.value
+        sessions.onEvent(output("a", "hi"))
+        assertSame(before, sessions.state.value)
     }
 
     @Test
     fun outputForAnUnknownShellIsIgnored() {
         open("a")
         sessions.onEvent(output("ghost", "boo"))
-        assertEquals(0, sessions.state.value.tabs.single().revision)
+        assertEquals(ScreenSnapshot.EMPTY, sessions.frames("ghost").value)
     }
 
     @Test

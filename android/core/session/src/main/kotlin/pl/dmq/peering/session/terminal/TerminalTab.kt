@@ -2,7 +2,7 @@ package pl.dmq.peering.session.terminal
 
 import pl.dmq.peering.wire.TerminalAttentionKind
 
-/** One shell as the phone shows it. [revision] moves whenever its screen changes, so a view knows to redraw. */
+/** One shell as the phone shows it. The screen is not here: it changes with every output and is published by `frames`. */
 data class TerminalTab(
     val id: String,
     val name: String,
@@ -12,7 +12,6 @@ data class TerminalTab(
     val exitStatus: Int? = null,
     val failure: String? = null,
     val attention: TerminalAttentionKind? = null,
-    val revision: Int = 0,
 )
 
 data class TerminalsState(

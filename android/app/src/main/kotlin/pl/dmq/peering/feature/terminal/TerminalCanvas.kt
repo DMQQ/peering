@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -29,30 +30,32 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.flow.StateFlow
 import pl.dmq.peering.session.terminal.screen.ScreenSnapshot
 import pl.dmq.peering.session.terminal.screen.StyledRun
 import pl.dmq.peering.ui.theme.PeeringColors
 
 private fun styleFor(fontSize: Int) =
-    TextStyle(fontFamily = FontFamily.Monospace, fontSize = fontSize.sp, lineHeight = (fontSize * 1.3f).sp, color = PeeringColors.ink)
+    TextStyle(fontFamily = FontFamily.Monospace, fontSize = fontSize.sp, lineHeight = (fontSize * 1.2f).sp, color = PeeringColors.ink)
 private const val DIM_ALPHA = 0.6f
-private const val CURSOR_ALPHA = 0.6f
 private const val WIDTH_SAMPLE = 20
 private const val TEXT_CACHE = 512
 
 /**
- * Draws a screen in monospaced text. It reports the grid that fits so the shell can be told, shows the tail of the
- * screen when there is more than fits (the cursor is at the bottom), and scrolls back through history on a vertical
+ * Draws a screen in monospaced text, 12 dp in from every edge like the iPhone's log. The frame is read only while
+ * drawing, so output redraws this canvas and recomposes nothing. It reports the grid that fits so the shell can be
+ * told, shows the tail of the screen when there is more than fits, and scrolls back through history on a vertical
  * drag. A tap is for the caller, which usually raises the keyboard.
  */
 @Composable
 fun TerminalCanvas(
-    snapshot: ScreenSnapshot,
+    frames: StateFlow<ScreenSnapshot>,
     onGrid: (columns: Int, rows: Int) -> Unit,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
     fontSize: Int = TerminalTextSize.REGULAR.points,
 ) {
+    val frame = frames.collectAsState()
     val cellStyle = remember(fontSize) { styleFor(fontSize) }
     val measurer = rememberTextMeasurer(cacheSize = TEXT_CACHE)
     val cell = remember(measurer, cellStyle) {
@@ -60,7 +63,7 @@ fun TerminalCanvas(
         Size(measured.width / WIDTH_SAMPLE.toFloat(), measured.height.toFloat())
     }
     var size by remember { mutableStateOf(IntSize.Zero) }
-    var back by remember { mutableIntStateOf(0) }
+    val back = remember { mutableIntStateOf(0) }
     var dragged by remember { mutableFloatStateOf(0f) }
     val columns = (size.width / cell.width).toInt()
     val rows = (size.height / cell.height).toInt()
@@ -68,27 +71,26 @@ fun TerminalCanvas(
     LaunchedEffect(columns, rows) {
         if (columns > 0 && rows > 0) onGrid(columns, rows)
     }
-    LaunchedEffect(snapshot.lines.size) { back = back.coerceAtMost((snapshot.lines.size - rows).coerceAtLeast(0)) }
 
     Canvas(
         modifier = modifier
             .fillMaxSize()
-            .pointerInput(cell, snapshot.lines.size, rows) {
-                val limit = (snapshot.lines.size - rows).coerceAtLeast(0)
+            .pointerInput(cell, rows) {
                 detectVerticalDragGestures { _, amount ->
                     dragged += amount
                     val lines = (dragged / cell.height).toInt()
                     if (lines != 0) {
                         dragged -= lines * cell.height
-                        back = (back + lines).coerceIn(0, limit)
+                        val limit = (frame.value.lines.size - rows).coerceAtLeast(0)
+                        back.intValue = (back.intValue + lines).coerceIn(0, limit)
                     }
                 }
             }
             .pointerInput(onTap) { detectTapGestures(onTap = { onTap() }) }
-            .padding(horizontal = 8.dp)
+            .padding(12.dp)
             .onSizeChanged { size = it },
     ) {
-        drawScreen(snapshot, measurer, cell, cellStyle, rows, back)
+        drawScreen(frame.value, measurer, cell, cellStyle, rows, back.intValue)
     }
 }
 
@@ -98,9 +100,10 @@ private fun DrawScope.drawScreen(
     cell: Size,
     cellStyle: TextStyle,
     rows: Int,
-    back: Int,
+    requestedBack: Int,
 ) {
     val total = snapshot.lines.size
+    val back = requestedBack.coerceAtMost((total - rows).coerceAtLeast(0))
     val end = total - back
     val first = (end - rows).coerceAtLeast(0)
     for (index in first until end) {
@@ -111,14 +114,6 @@ private fun DrawScope.drawScreen(
             drawRun(run, measurer, cellStyle, Offset(x, y), Size(width, cell.height))
             x += width
         }
-    }
-    val cursorRow = snapshot.cursorLine - first
-    if (back == 0 && cursorRow in 0 until rows) {
-        drawRect(
-            PeeringColors.accent.copy(alpha = CURSOR_ALPHA),
-            topLeft = Offset(snapshot.cursorColumn * cell.width, cursorRow * cell.height),
-            size = cell,
-        )
     }
 }
 

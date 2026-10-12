@@ -46,6 +46,7 @@ import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.PeeringMenu
 import pl.dmq.peering.ui.kit.PeeringMenuItem
 import pl.dmq.peering.ui.kit.PeeringSpinner
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 
 /** What a tab can be asked to do besides being selected. */
@@ -64,7 +65,7 @@ class TerminalTabActions(
 fun TerminalTabStrip(
     tabs: List<TerminalTab>,
     selectedID: String?,
-    hasOutput: (TerminalTab) -> Boolean,
+    hasOutput: @Composable (TerminalTab) -> Boolean,
     actions: TerminalTabActions,
     onNew: () -> Unit,
     newEnabled: Boolean,
@@ -108,7 +109,7 @@ private fun TerminalTabChip(tab: TerminalTab, selected: Boolean, mark: TerminalM
             ),
         ) {
             Row(
-                Modifier.height(32.dp).widthIn(min = 88.dp, max = 190.dp).padding(start = 10.dp),
+                Modifier.height(32.dp).widthIn(min = 88.dp, max = 190.dp).padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TerminalMarkGlyph(mark)
@@ -123,13 +124,12 @@ private fun TerminalTabChip(tab: TerminalTab, selected: Boolean, mark: TerminalM
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                IconButton(onClick = { actions.onClose(tab) }, modifier = Modifier.size(width = 32.dp, height = 32.dp)) {
-                    Icon(
-                        AppIcons.close,
-                        stringResource(R.string.terminal_close_named, tab.name),
-                        tint = PeeringColors.muted,
-                        modifier = Modifier.size(11.dp),
-                    )
+                val closeLabel = stringResource(R.string.terminal_close_named, tab.name)
+                Box(
+                    Modifier.size(width = 22.dp, height = 32.dp).tappable({ actions.onClose(tab) }),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(AppIcons.close, closeLabel, tint = PeeringColors.muted, modifier = Modifier.size(10.dp))
                 }
             }
             Box(
@@ -178,5 +178,5 @@ private fun TerminalMarkGlyph(mark: TerminalMark) {
 
 @Composable
 private fun MarkIcon(icon: ImageVector, tint: Color) {
-    Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(13.dp))
+    Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(12.dp))
 }
