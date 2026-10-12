@@ -12,11 +12,12 @@ extension MacSession {
             // A failure during a resume is retried, not shown: when this Mac had reached Ready it is one step of the reconnect ladder (see ``SessionModel/isResuming``). A cold-launch restoration's first failure is terminal, shown once, and clears the persisted request.
             if case .failed = phase, model.isResuming {
                 model.isResuming = false
+                let failedReason = wire?.failureReason
                 // The attempt is over: `resumeIfNeeded` refuses to start while a wire is held, which is true from `connect(to:)` until the attempt fails.
                 connectTask?.cancel()
                 connectTask = nil
                 wire = nil
-                switch SessionResume.failureAction(hasBeenReady: hasBeenReady) {
+                switch SessionResume.failureAction(hasBeenReady: hasBeenReady, reason: failedReason) {
                 case .retrySilently:
                     scheduleReconnect()
                     return
