@@ -44,6 +44,7 @@ extension ClientSession {
             // will come from and what to bind with, and there is no second chance to
             // ask: the signalling socket is closed the moment the session is returned.
             relaySession = allocation
+            connectStage = .connecting
             return true
         }
         guard installed else {
@@ -71,6 +72,9 @@ extension ClientSession {
             state = .idle
             _phase = .connecting
             _failureReason = nil
+            _failureDiagnosis = nil
+            _millisecondsToReady = nil
+            connectStartedAt = Self.monotonicNow()
             return connectGeneration
         default:
             return nil

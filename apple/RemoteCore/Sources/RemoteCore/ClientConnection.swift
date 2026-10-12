@@ -53,6 +53,7 @@ public final class ClientConnection: @unchecked Sendable {
     private var observed: TLSConfig.ObservedKey?
     private var _observedServerKey: Data?
     private var _tlsVersion = "None"
+    private var _errorDetail: TransportErrorDetail?
 
     private var _onFrame: (@Sendable (Frame) -> Void)?
     private var _onClose: (@Sendable (Failure) -> Void)?
@@ -72,6 +73,14 @@ public final class ClientConnection: @unchecked Sendable {
     public var observedServerKey: Data? { lock.withLock { _observedServerKey } }
 
     public var negotiatedTLSVersion: String { lock.withLock { _tlsVersion } }
+
+    /// The Network.framework error that ended this connection, if one did. Kept apart from ``Failure`` so that case stays a message.
+    public var errorDetail: TransportErrorDetail? { lock.withLock { _errorDetail } }
+
+    private func noteErrorDetail(_ error: Error) {
+        guard let detail = TransportErrorDetail(error) else { return }
+        lock.withLock { _errorDetail = detail }
+    }
 
 /// The address this connection was made to. A Bonjour endpoint carries the interface the host was
 /// discovered on, which resolving it would lose.
@@ -166,6 +175,7 @@ public final class ClientConnection: @unchecked Sendable {
                     case .failed(let error):
                         transportLog.error("connection failed: \(String(describing: error), privacy: .public)")
                         let failure = Failure.transport(NetworkFailureText.describe(error))
+                        self.noteErrorDetail(error)
                         self.cancelTimeout()
                         self.resumeReady(.failure(failure))
                         self.finish(failure)
@@ -179,6 +189,7 @@ public final class ClientConnection: @unchecked Sendable {
                         // tapped a Mac in a list is a hang.
                         transportLog.error("connection waiting: \(String(describing: error), privacy: .public)")
                         let failure = Failure.transport(NetworkFailureText.describe(error))
+                        self.noteErrorDetail(error)
                         self.cancelTimeout()
                         self.resumeReady(.failure(failure))
                         self.finish(failure)
@@ -260,6 +271,7 @@ public final class ClientConnection: @unchecked Sendable {
 
             if let error {
                 transportLog.error("receive failed: \(String(describing: error), privacy: .public)")
+                noteErrorDetail(error)
                 finish(.transport(NetworkFailureText.describe(error)))
                 return
             }

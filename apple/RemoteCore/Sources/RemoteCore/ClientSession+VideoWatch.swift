@@ -156,6 +156,7 @@ extension ClientSession {
             let now = Self.monotonicNow()
             lastPictureAt = now
             videoDelivery.notePicture(at: now)
+            if connectStage == .ready { connectStage = .streaming }
             if transport == .primary { fallbackPolicy.notePrimaryPicture() }
         }
     }

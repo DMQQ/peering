@@ -76,6 +76,11 @@ public final class ClientSession: @unchecked Sendable {
     var videoDelivery = VideoDeliveryRecord()
     var lastControlReplyAt: TimeInterval?
     var readyAt: TimeInterval?
+    /// The last stage entered, for ``FailureDiagnosis``.
+    var connectStage: ConnectStage = .resolving
+    var connectStartedAt: TimeInterval?
+    var _millisecondsToReady: Int?
+    var _failureDiagnosis: FailureDiagnosis?
     /// When the silence watchdog last ran, and when it last found the app had been frozen. Both are `ControlSilence`'s inputs and reset with the reply time.
     var lastSilenceCheckAt: TimeInterval?
     var silenceRestartedAt: TimeInterval?
@@ -196,6 +201,10 @@ public final class ClientSession: @unchecked Sendable {
     public var phase: Phase { lock.withLock { _phase } }
     /// Set with ``Phase/failed(_:)`` and cleared when a new connection begins.
     public var failureReason: FailureReason? { lock.withLock { _failureReason } }
+    /// Set with ``failureReason`` and cleared with it.
+    public var failureDiagnosis: FailureDiagnosis? { lock.withLock { _failureDiagnosis } }
+    /// From the dial to ``Phase/ready``, `nil` before the session is ready.
+    public var millisecondsToReady: Int? { lock.withLock { _millisecondsToReady } }
     public var serverHello: ServerHello? { lock.withLock { _serverHello } }
     public var videoDeliveryRecord: VideoDeliveryRecord { lock.withLock { videoDelivery } }
     public var catalog: CaptureCatalog? { lock.withLock { _catalog } }
@@ -219,7 +228,10 @@ public final class ClientSession: @unchecked Sendable {
             if case .relayPairing(let hostID, _, _) = target { return pins.pin(for: hostID) }
             return nil
         }()
-        lock.withLock { pairingHostID = target.isFirstPairing ? target.hostID : nil }
+        lock.withLock {
+            pairingHostID = target.isFirstPairing ? target.hostID : nil
+            connectStage = target.startingStage
+        }
 
         let connection = ClientConnection(label: "pl.dmq.peering.client.control")
         connection.onFrame = { [weak self] frame in self?.handle(frame) }
@@ -327,6 +339,7 @@ public final class ClientSession: @unchecked Sendable {
         lock.withLock {
             state = .awaitingServerHello
             _phase = .handshaking
+            connectStage = .handshake
         }
         emit(.phase(.handshaking))
         coalescer.start()

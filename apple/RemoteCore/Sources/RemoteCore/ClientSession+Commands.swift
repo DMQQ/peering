@@ -13,6 +13,7 @@ extension ClientSession {
             // The watchdog's baseline until the first pong arrives. Without it, a session whose
             // first pong is late would be judged against a silence that began before it existed.
             readyAt = Self.monotonicNow()
+            noteReadyLocked(at: readyAt ?? 0)
             videoDelivery = VideoDeliveryRecord(readyAt: readyAt)
         }
         emit(.phase(.ready))

@@ -88,6 +88,7 @@ extension ClientSession {
             self.ephemeral = ephemeral
             self.nonce = nonce
             state = .awaitingServerCommit
+            connectStage = .pairing
         }
 
         let commitment = PairingSAS.commitment(
