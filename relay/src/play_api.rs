@@ -25,9 +25,11 @@ mod parse;
 #[cfg(test)]
 mod tests;
 
+use std::collections::HashMap;
+use std::fmt;
 use std::path::Path;
-use std::sync::Arc;
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use ring::digest::{SHA256, digest};
 
@@ -44,6 +46,26 @@ const API_ORIGIN: &str = "https://androidpublisher.googleapis.com/androidpublish
 const MAX_CLIENT_KEY_HEX: usize = 130;
 /// How long Google gets to answer before the purchase is treated as unverifiable.
 pub const PLAY_TIMEOUT: Duration = Duration::from_secs(2);
+/// How long a verdict that was good when Google last answered may stand in for Google being down.
+const STALE_IF_ERROR: Duration = Duration::from_secs(24 * 60 * 60);
+const MAX_REMEMBERED_VERDICTS: usize = 1024;
+
+/// Google answered, and the answer is final: this purchase is not there to be read. Anything else
+/// that goes wrong (a timeout, a 5xx, a dropped socket) says nothing about the purchase.
+#[derive(Debug)]
+struct LookupRefused(u16);
+
+impl fmt::Display for LookupRefused {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Google Play refused the purchase lookup with status {}", self.0)
+    }
+}
+
+impl std::error::Error for LookupRefused {}
+
+fn is_final_refusal(status: u16) -> bool {
+    (400..500).contains(&status) && !matches!(status, 408 | 429)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PurchaseState {
@@ -136,7 +158,7 @@ impl PlayApi for GooglePlayApi {
             let url = purchase_url(package, product_id, token);
             let reply = self.transport.get(&url, &bearer).await?;
             if reply.status != 200 {
-                return Err(format!("Google Play refused the purchase lookup with status {}", reply.status).into());
+                return Err(BoxError::from(LookupRefused(reply.status)));
             }
             parse::purchase(product_id, is_one_time(product_id), &reply.body)
         })
@@ -151,6 +173,16 @@ pub struct PlayVerifier {
     package: String,
     api: Box<dyn PlayApi>,
     timeout: Duration,
+    /// The last good verdict per purchase for the whole process, so a Google outage does not
+    /// demote every paying client to free as its socket reconnects.
+    last_good: Mutex<HashMap<(String, String, Option<String>), GoodVerdict>>,
+}
+
+#[derive(Clone, Copy)]
+struct GoodVerdict {
+    verdict: PlayVerdict,
+    at: Instant,
+    expiry_unix: Option<u64>,
 }
 
 impl PlayVerifier {
@@ -159,7 +191,7 @@ impl PlayVerifier {
     }
 
     pub fn with_timeout(package: String, api: impl PlayApi + 'static, timeout: Duration) -> Self {
-        Self { package, api: Box::new(api), timeout }
+        Self { package, api: Box::new(api), timeout, last_good: Mutex::new(HashMap::new()) }
     }
 
     pub fn from_service_account_file(package: String, path: &Path) -> Result<Self, BoxError> {
@@ -188,16 +220,51 @@ impl PlayVerifier {
 
     async fn ask(&self, product_id: &str, purchase_token: &str, client_key: Option<&str>, now: u64) -> PlayVerdict {
         let lookup = self.api.purchase_state(&self.package, product_id, purchase_token);
+        let key = (purchase_token.to_owned(), product_id.to_owned(), client_key.map(str::to_owned));
         match tokio::time::timeout(self.timeout, lookup).await {
-            Ok(Ok(purchase)) => verdict(&purchase, product_id, client_key, now),
+            Ok(Ok(purchase)) => {
+                let verdict = verdict(&purchase, product_id, client_key, now);
+                self.remember(key, verdict, purchase.expiry_unix);
+                verdict
+            }
             Ok(Err(error)) => {
                 warn!(error = %error, "Play purchase lookup failed");
-                PlayVerdict::Rejected(PlayRejection::Unavailable)
+                if error.downcast_ref::<LookupRefused>().is_some_and(|refused| is_final_refusal(refused.0)) {
+                    self.last_good.lock().unwrap().remove(&key);
+                    return PlayVerdict::Rejected(PlayRejection::Unavailable);
+                }
+                self.stale_or_unavailable(&key, now)
             }
             Err(_) => {
                 warn!("Play purchase lookup timed out");
-                PlayVerdict::Rejected(PlayRejection::Unavailable)
+                self.stale_or_unavailable(&key, now)
             }
+        }
+    }
+
+    fn remember(&self, key: (String, String, Option<String>), verdict: PlayVerdict, expiry_unix: Option<u64>) {
+        let mut last_good = self.last_good.lock().unwrap();
+        match verdict {
+            PlayVerdict::Active(_) => {
+                if last_good.len() >= MAX_REMEMBERED_VERDICTS && !last_good.contains_key(&key) {
+                    last_good.clear();
+                }
+                last_good.insert(key, GoodVerdict { verdict, at: Instant::now(), expiry_unix });
+            }
+            PlayVerdict::Rejected(_) => {
+                last_good.remove(&key);
+            }
+        }
+    }
+
+    fn stale_or_unavailable(&self, key: &(String, String, Option<String>), now: u64) -> PlayVerdict {
+        let held = self.last_good.lock().unwrap().get(key).copied();
+        match held {
+            Some(good) if good.at.elapsed() < STALE_IF_ERROR && good.expiry_unix.is_none_or(|expiry| expiry > now) => {
+                warn!("Play lookup failed, serving the last good verdict");
+                good.verdict
+            }
+            _ => PlayVerdict::Rejected(PlayRejection::Unavailable),
         }
     }
 }
