@@ -121,6 +121,10 @@ impl SystemActions for BoxedSystem {
     fn lock_workstation(&mut self) -> Result<(), SystemError> {
         self.0.lock_workstation()
     }
+
+    fn session_notice(&self) -> Option<peering_wire::handshake::NoticePayload> {
+        self.0.session_notice()
+    }
 }
 
 pub struct BoxedInput(pub Box<dyn InputSink + Send>);

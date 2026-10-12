@@ -6,6 +6,7 @@ pub mod dispatch;
 pub mod handshake;
 pub mod held_input;
 pub mod liveness;
+pub mod slots;
 pub mod state;
 
 #[cfg(any(test, feature = "testing"))]

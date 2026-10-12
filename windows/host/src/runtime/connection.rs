@@ -9,6 +9,7 @@ use peering_core::session::deps::{HostDeps, Random};
 use peering_core::ports::input::InputSink;
 use peering_core::session::handshake::{HostConfig, HostSession};
 use peering_core::session::liveness::{LivenessTracker, Verdict};
+use peering_core::session::slots::{client_has_other_session, newest_session_for_key};
 use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
 use peering_wire::handshake::{ClientHello, ServerHello};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -43,6 +44,7 @@ pub(super) struct Connection {
     pub(super) supports_agent_chat: bool,
     pub(super) agent: Option<peering_agent::manager::AgentSessionManager<StdLauncher>>,
     pub(super) video_for_session: Option<u64>,
+    pub(super) registered: bool,
 }
 
 /// Serves one connection until the peer leaves, the core closes it, or the framing breaks.
@@ -80,6 +82,7 @@ where
         supports_agent_chat: false,
         agent: None,
         video_for_session: None,
+        registered: false,
     };
     connection.run(&mut reader).await;
     connection.finish();
@@ -145,7 +148,16 @@ impl Connection {
         self.profile.clock.now_seconds()
     }
 
+    /// True once the host has removed this connection's session, by forgetting the device or stopping hosting.
+    fn evicted(&self) -> bool {
+        let session = self.video_for_session.unwrap_or(self.session_id);
+        (self.registered || self.video_for_session.is_some()) && !self.shared.lock().sessions.contains_key(&session)
+    }
+
     fn on_frame(&mut self, frame: Frame) -> Flow {
+        if self.evicted() {
+            return Flow::Closed;
+        }
         self.liveness.heard(self.now());
         if self.video_for_session.is_some() {
             // A video connection only carries frames out; key and transport requests are answered on the control connection.
@@ -165,8 +177,12 @@ impl Connection {
     }
 
     fn on_tick(&mut self) -> Flow {
+        if self.evicted() {
+            return Flow::Closed;
+        }
         let now = self.now();
-        if self.liveness.verdict(now, self.session.state().phase()) == Verdict::End || !self.shared.lock().hosting {
+        let verdict = self.liveness.verdict_for(now, self.session.state().phase(), self.video_for_session.is_some());
+        if verdict == Verdict::End || !self.shared.lock().hosting {
             return Flow::Closed;
         }
         let events = self.agent.as_mut().map(|manager| manager.poll()).unwrap_or_default();
@@ -233,12 +249,16 @@ impl Connection {
             return Flow::Closed;
         };
         let mut guard = self.shared.lock();
-        let Some((session_id, slot)) = guard.sessions.iter_mut().find(|(_, slot)| slot.peer_key.as_deref() == Some(key.as_slice()))
-        else {
+        let candidates = guard.sessions.iter().map(|(id, slot)| (*id, slot.peer_key.as_deref()));
+        let Some(session_id) = newest_session_for_key(candidates, &key) else {
+            return Flow::Closed;
+        };
+        let Some(slot) = guard.sessions.get_mut(&session_id) else {
             return Flow::Closed;
         };
         slot.video_outbound = Some(self.outbound.clone());
-        self.video_for_session = Some(*session_id);
+        self.video_for_session = Some(session_id);
+        guard.video.request_resync();
         Flow::Open
     }
 
@@ -247,13 +267,17 @@ impl Connection {
         let state = &mut *guard;
         if let Some(session_id) = self.video_for_session.take() {
             if let Some(slot) = state.sessions.get_mut(&session_id) {
-                slot.video_outbound = None;
+                if slot.video_outbound.as_ref().is_some_and(|sender| sender.same_channel(&self.outbound)) {
+                    slot.video_outbound = None;
+                }
             }
         }
         if let Some(slot) = state.sessions.remove(&self.session_id) {
-            state.video.detach(&slot.client_id);
-            state.input.release_all();
-            if !state.sessions.values().any(|other| other.client_id == slot.client_id) {
+            let siblings = state.sessions.iter().map(|(id, other)| (*id, other.client_id.as_str()));
+            if !client_has_other_session(siblings, &slot.client_id, self.session_id) {
+                state.video.detach(&slot.client_id);
+                state.video.stop_when_idle();
+                state.input.release_all();
                 state.terminals.disconnect(&slot.client_id);
             }
         }

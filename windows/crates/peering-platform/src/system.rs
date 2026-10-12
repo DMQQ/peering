@@ -2,6 +2,9 @@
 //! elevation is needed.
 
 use peering_core::ports::system::{SystemActions, SystemError};
+use peering_wire::handshake::NoticePayload;
+
+use crate::session_state::{current_state, notice_for};
 use windows::Win32::System::Shutdown::LockWorkStation;
 
 #[derive(Debug, Default)]
@@ -15,5 +18,10 @@ impl SystemActions for WindowsSystem {
     fn lock_workstation(&mut self) -> Result<(), SystemError> {
         // SAFETY: LockWorkStation takes no arguments and only asks the window station to lock.
         unsafe { LockWorkStation() }.map_err(|error| SystemError::LockFailed(error.to_string()))
+    }
+
+    fn session_notice(&self) -> Option<NoticePayload> {
+        // Lost frames are not counted here: that state has no notice, so the signals alone decide.
+        notice_for(current_state(0))
     }
 }

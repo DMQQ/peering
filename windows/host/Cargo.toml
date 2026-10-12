@@ -41,3 +41,4 @@ embed-resource = "3"
 
 [dev-dependencies]
 peering-core = { path = "../crates/peering-core", features = ["testing"] }
+tokio = { version = "1", features = ["test-util"] }

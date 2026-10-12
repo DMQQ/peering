@@ -169,6 +169,8 @@ async fn dial(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, sess
     let Ok(mut tcp) = TcpStream::connect((plan.host.as_str(), plan.port)).await else {
         return;
     };
+    // Only latency suffers when the option cannot be set, so the connection is still served.
+    let _nagle = peering_net::socket::disable_nagle(&tcp);
     if tcp.write_all(&first_bytes(&plan)).await.is_err() {
         return;
     }

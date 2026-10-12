@@ -2,4 +2,5 @@
 
 pub mod identity;
 pub mod mdns;
+pub mod socket;
 pub mod tls;

@@ -325,3 +325,108 @@ fn the_time_of_the_last_encoded_frame_is_recorded() {
     coordinator.pump(3.5).unwrap();
     assert_eq!(coordinator.last_frame_produced_at(), Some(3.5));
 }
+
+#[test]
+fn a_late_resync_request_repeats_the_config_and_forces_a_keyframe() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1, 2]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.request_resync();
+    push(&mut coordinator, &[3]);
+    let outputs = coordinator.pump(0.2).unwrap();
+    assert_eq!(configs(&outputs).len(), 1);
+    assert!(frames(&outputs)[0].is_keyframe);
+}
+
+#[test]
+fn a_client_with_no_running_source_starts_the_primary_display() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.ensure_capturing(0.0).unwrap();
+    assert_eq!(coordinator.running_source(), Some(&display_source(1)));
+    assert_eq!(coordinator.chosen_source(), None);
+}
+
+#[test]
+fn the_default_display_is_the_first_one_when_none_is_primary() {
+    let capture = FakeCapture::new(vec![display(4, false), display(5, false)]);
+    let mut coordinator = VideoCoordinator::new(capture, FakeEncoder::default());
+    coordinator.ensure_capturing(0.0).unwrap();
+    assert_eq!(coordinator.running_source(), Some(&display_source(4)));
+}
+
+#[test]
+fn ensure_capturing_leaves_a_running_source_alone() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(2), 0.0).unwrap();
+    coordinator.ensure_capturing(1.0).unwrap();
+    assert_eq!(coordinator.running_source(), Some(&display_source(2)));
+    assert_eq!(coordinator.chosen_source(), Some(&display_source(2)));
+}
+
+#[test]
+fn a_host_with_no_display_reports_a_capture_failure() {
+    let mut coordinator = VideoCoordinator::new(FakeCapture::new(Vec::new()), FakeEncoder::default());
+    assert!(matches!(coordinator.ensure_capturing(0.0), Err(CoordinatorError::Capture(_))));
+}
+
+#[test]
+fn the_last_client_leaving_stops_capture_and_forgets_the_choice() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(2), 0.0).unwrap();
+    coordinator.detach("phone");
+    coordinator.stop_when_idle();
+    assert_eq!(coordinator.running_source(), None);
+    assert_eq!(coordinator.chosen_source(), None);
+    assert_eq!(coordinator.capture.running_display(), None);
+}
+
+#[test]
+fn capture_keeps_running_while_another_client_remains() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.attach("tablet");
+    coordinator.set_source(display_source(2), 0.0).unwrap();
+    coordinator.detach("phone");
+    coordinator.stop_when_idle();
+    assert_eq!(coordinator.running_source(), Some(&display_source(2)));
+}
+
+#[test]
+fn a_restarted_capture_gets_a_fresh_first_frame_grace() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.detach("phone");
+    coordinator.stop_when_idle();
+    coordinator.attach("phone");
+    coordinator.ensure_capturing(100.0).unwrap();
+    assert!(!coordinator.watchdog_expired(101.0));
+    assert!(coordinator.watchdog_expired(106.0));
+}
+
+#[test]
+fn a_capture_that_never_delivers_is_reported_once_per_start() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    assert!(!coordinator.take_watchdog_report(4.0));
+    assert!(coordinator.take_watchdog_report(5.0));
+    assert!(!coordinator.take_watchdog_report(6.0));
+    coordinator.set_source(display_source(2), 10.0).unwrap();
+    assert!(coordinator.take_watchdog_report(15.0));
+}
+
+#[test]
+fn a_capture_that_delivered_a_frame_is_never_reported() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    assert!(!coordinator.take_watchdog_report(60.0));
+}

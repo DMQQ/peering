@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
+use peering_core::notice::NoticeTracker;
 use peering_core::pairing::PairingService;
 use peering_core::session::deps::PinStore;
 use peering_core::terminal::manager::TerminalSessionManager;
@@ -52,6 +53,8 @@ pub struct HostState {
     pub sessions: HashMap<u64, SessionSlot>,
     pub next_session: u64,
     pub catalog_checked_at: Option<f64>,
+    pub notices: NoticeTracker,
+    pub notice_checked_at: Option<f64>,
     pub hosting: bool,
     pub relay: RelayStatus,
 }

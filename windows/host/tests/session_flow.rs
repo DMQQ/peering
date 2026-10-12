@@ -85,6 +85,35 @@ fn a_folder_listing_request_is_answered_from_the_file_system() {
 }
 
 #[test]
+fn an_upload_a_rename_and_a_delete_each_get_a_failure_reply_instead_of_silence() {
+    run(async {
+        use peering_wire::files::RemoteFileOperation;
+        use peering_wire::terminal::{TerminalEvent, TerminalRequest};
+
+        let harness = harness();
+        let mut phone = paired_phone(&harness.runtime).await;
+        let session = "browse-1".to_owned();
+        phone.send_json(MessageKind::TerminalRequest, &TerminalRequest::StartBrowser { id: session.clone() }).await;
+        let upload = TerminalRequest::BeginWrite {
+            session_id: session.clone(),
+            path: "/C:/Users/me/new.bin".to_owned(),
+            total_bytes: 4,
+        };
+        phone.send_json(MessageKind::TerminalRequest, &upload).await;
+        let event: TerminalEvent = decode_json(&phone.next_of(MessageKind::TerminalEvent).await);
+        assert!(matches!(event, TerminalEvent::WriteFailure { .. }));
+
+        let delete = TerminalRequest::ChangeFile {
+            session_id: session,
+            operation: RemoteFileOperation::Delete { path: "/C:/Users/me/notes.txt".to_owned() },
+        };
+        phone.send_json(MessageKind::TerminalRequest, &delete).await;
+        let event: TerminalEvent = decode_json(&phone.next_of(MessageKind::TerminalEvent).await);
+        assert!(matches!(event, TerminalEvent::FileOperationFailure { .. }));
+    });
+}
+
+#[test]
 fn a_video_connection_without_an_authorised_control_session_is_refused() {
     run(async {
         let harness = harness();

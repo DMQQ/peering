@@ -70,3 +70,10 @@ fn an_empty_ping_from_an_old_client_gets_an_empty_pong() {
     let pong = pong_for(&Frame::empty(MessageKind::Ping));
     assert_eq!(pong, Frame::empty(MessageKind::Pong));
 }
+
+#[test]
+fn a_video_connection_is_kept_however_long_it_is_silent() {
+    let tracker = LivenessTracker::started_at(0.0);
+    assert_eq!(tracker.verdict_for(3600.0, HostPhase::Unauthenticated, true), Verdict::Keep);
+    assert_eq!(tracker.verdict_for(3600.0, HostPhase::Unauthenticated, false), Verdict::End);
+}

@@ -18,6 +18,9 @@ use std::sync::PoisonError;
 use tokio::task::spawn_local;
 use tokio::time::interval;
 
+use peering_core::notice::notice_frame;
+
+use super::ready::error_frame;
 use super::services::{BoxedEncoder, SharedCapture};
 use super::control::{publish_if_due, take_commands};
 use super::shared::{HostState, Shared};
@@ -25,6 +28,8 @@ use super::HostProfile;
 
 const PUMP_INTERVAL: Duration = Duration::from_millis(16);
 const CATALOGUE_CHECK_SECONDS: f64 = 1.0;
+const NOTICE_CHECK_SECONDS: f64 = 0.5;
+const NO_FRAMES_MESSAGE: &str = "The screen capture produced no frames.";
 
 /// A frame bound for one connection, sent after the state lock is released.
 pub struct Outgoing {
@@ -116,6 +121,26 @@ impl HostState {
         transform_for(&displays, self.video.running_source())
     }
 
+    /// The notice frames due now: a change in what keeps the screen from being captured, and the report of a capture that
+    /// never produced a frame. A standing notice already explains an empty picture, so it suppresses that report.
+    fn session_notices(&mut self, now: f64) -> Vec<Outgoing> {
+        let mut frames = Vec::new();
+        if self.notice_checked_at.is_none_or(|checked| now - checked >= NOTICE_CHECK_SECONDS) {
+            self.notice_checked_at = Some(now);
+            if let Some(payload) = self.notices.update(self.system.session_notice()) {
+                frames.push(notice_frame(&payload));
+            }
+        }
+        if self.notices.standing().is_none() && self.video.take_watchdog_report(now) {
+            frames.push(error_frame("sourceUnavailable", NO_FRAMES_MESSAGE));
+        }
+        let mut outgoing = Vec::new();
+        for frame in frames {
+            outgoing.extend(self.sessions.values().map(|slot| Outgoing { to: slot.outbound.clone(), frame: frame.clone() }));
+        }
+        outgoing
+    }
+
     /// One pass of the pump: refresh the catalogue when due, capture and encode, and route each output to the lanes.
     pub fn pump_video(&mut self, now: f64) -> Result<Vec<Outgoing>, CoordinatorError> {
         let mut outgoing = Vec::new();
@@ -130,6 +155,7 @@ impl HostState {
                 }
             }
         }
+        outgoing.extend(self.session_notices(now));
         for output in self.video.pump(now)? {
             for slot in self.sessions.values_mut() {
                 let Ok(sends) = slot.lane.send(&output, now) else {

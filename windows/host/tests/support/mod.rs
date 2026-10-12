@@ -110,6 +110,10 @@ impl SystemActions for SharedSystem {
     fn lock_workstation(&mut self) -> Result<(), SystemError> {
         locked(&self.0).lock_workstation()
     }
+
+    fn session_notice(&self) -> Option<peering_wire::handshake::NoticePayload> {
+        locked(&self.0).session_notice()
+    }
 }
 
 pub struct Harness {
@@ -360,5 +364,15 @@ pub fn mouse_move(x: f64, y: f64) -> RemoteCommand {
 /// Runs a test body on a current-thread runtime with a local task set, as the host does.
 pub fn run<F: std::future::Future<Output = ()>>(body: F) {
     let executor = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("an executor starts");
+    tokio::task::LocalSet::new().block_on(&executor, body);
+}
+
+/// Like `run`, with tokio's clock paused: a wait for the host's one-second tick completes at once.
+pub fn run_paused<F: std::future::Future<Output = ()>>(body: F) {
+    let executor = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .start_paused(true)
+        .build()
+        .expect("an executor starts");
     tokio::task::LocalSet::new().block_on(&executor, body);
 }

@@ -1,6 +1,7 @@
 //! Control messages of the handshake and pairing exchange (protocol.md sections 5, 6 and 9).
 //! Field names are the exact Swift JSON keys; `clientID` and `serverID` keep their capital ID.
 
+use crate::framing::{Frame, MessageKind};
 use crate::swift_enum::{base64_bytes, base64_bytes_option};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -161,6 +162,12 @@ pub struct ErrorPayload {
 impl ErrorPayload {
     /// The user pressed Stop on the host. The client must not reconnect.
     pub const HOST_STOPPED_CODE: &'static str = "hostStopped";
+
+    /// The frame that tells a client hosting stopped, so it ends instead of reconnecting in a loop.
+    pub fn host_stopped_frame() -> Frame {
+        let payload = Self { code: Self::HOST_STOPPED_CODE.to_owned(), message: "Hosting stopped on this PC.".to_owned() };
+        Frame::new(MessageKind::Error, serde_json::to_vec(&payload).expect("an error payload always serialises"))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -194,6 +201,14 @@ mod tests {
         let original: Value = serde_json::from_str(json).expect("vector is JSON");
         let parsed: T = serde_json::from_str(json).expect("vector decodes into the model");
         assert_eq!(serde_json::to_value(&parsed).expect("model encodes"), original);
+    }
+
+    #[test]
+    fn the_host_stopped_frame_is_an_error_with_the_code_clients_must_not_retry_on() {
+        let frame = ErrorPayload::host_stopped_frame();
+        assert_eq!(frame.kind, MessageKind::Error);
+        let payload: ErrorPayload = serde_json::from_slice(&frame.payload).expect("the payload decodes");
+        assert_eq!(payload.code, "hostStopped");
     }
 
     #[test]
