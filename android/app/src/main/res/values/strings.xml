@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Peering</string>
+    <string name="nav_connect">Connect</string>
+    <string name="nav_sessions">Sessions</string>
+    <string name="nav_settings">Settings</string>
 </resources>
