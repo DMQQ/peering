@@ -2,6 +2,8 @@ package pl.dmq.peering.wire
 
 const val MAX_FRAME_LENGTH: Long = 16L * 1024 * 1024
 
+const val MAX_CONTROL_PAYLOAD: Int = 64 * 1024
+
 enum class MessageKind(val byte: Int) {
     ConnectionRole(0x01),
     ClientHello(0x02),
@@ -53,6 +55,17 @@ enum class ConnectionRole(val byte: Int) {
         fun fromByte(byte: Int): ConnectionRole? = entries.firstOrNull { it.byte == byte }
     }
 }
+
+/** Whether a receiver drops [frame] for being a control message over [MAX_CONTROL_PAYLOAD]. Picture and sound frames are exempt. */
+fun exceedsControlLimit(frame: Frame): Boolean = frame.payload.size > MAX_CONTROL_PAYLOAD && frame.kind !in BULK_KINDS
+
+private val BULK_KINDS = setOf(
+    MessageKind.VideoConfig,
+    MessageKind.VideoFrame,
+    MessageKind.VideoChunk,
+    MessageKind.AudioConfig,
+    MessageKind.AudioFrame,
+)
 
 class Frame(val kind: MessageKind, val payload: ByteArray) {
     override fun equals(other: Any?): Boolean =

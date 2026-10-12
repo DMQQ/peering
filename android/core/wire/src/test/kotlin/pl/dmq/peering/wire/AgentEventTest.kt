@@ -45,6 +45,21 @@ class AgentEventTest {
     }
 
     @Test
+    fun aReplaySkipsAnEventWhoseCaseItDoesNotKnowAndKeepsTheRest() {
+        val replay = AgentEvent.parse(
+            """{"replay":{"sessionID":"$sessionID","events":[{"index":1,"payload":{"userPrompt":{"text":"hi"}}},{"index":2,"payload":{"futureCase":{}}},{"index":3,"payload":{"turnStarted":{}}}],"isLast":true,"truncatedAtFront":false}}""",
+        )
+
+        val events = (replay as AgentEvent.Replay).events
+        assertEquals(listOf(1L, 3L), events.map { it.index })
+    }
+
+    @Test
+    fun unknownEventCaseIsASerializationException() {
+        assertThrows(kotlinx.serialization.SerializationException::class.java) { AgentEvent.parse("""{"teleport":{}}""") }
+    }
+
+    @Test
     fun unknownEventCaseThrows() {
         assertThrows(SwiftEnumException::class.java) { AgentEvent.parse("""{"teleport":{}}""") }
     }

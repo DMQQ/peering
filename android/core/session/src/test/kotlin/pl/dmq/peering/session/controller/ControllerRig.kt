@@ -36,6 +36,9 @@ class ControllerRig(
 ) {
     val routes = mutableListOf<ControlRoute>()
 
+    /** Whether discovery lists the host; a test sets it to move the host onto the phone's network. */
+    var hostVisible = !nobodyDiscovered
+
     /** What the controller reported to its debug log. */
     val logged = mutableListOf<String>()
 
@@ -80,7 +83,7 @@ class ControllerRig(
             mac.newConnection()
         },
         discovery = object : Discovery {
-            override fun hosts(): Flow<DiscoveredHost> = if (nobodyDiscovered) {
+            override fun hosts(): Flow<DiscoveredHost> = if (!hostVisible) {
                 flow { awaitCancellation() }
             } else {
                 flow {

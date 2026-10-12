@@ -142,6 +142,40 @@ class PairedDialTest {
         assertTrue(rig.logged.any { "192.0.2.10" in it })
     }
 
+    @Test
+    fun aRelayedSessionMovesToTheLocalNetworkWhenTheNetworkChangesAndTheHostIsThere() = runTest {
+        val rig = rig(nobodyDiscovered = true)
+        rig.signalling.grantSession()
+        rig.controller.connect()
+        advanceTimeBy(4_000)
+        runCurrent()
+        assertEquals(SessionRecord.Path.RELAY, (rig.controller.state.value.phase as SessionPhase.Ready).path)
+
+        rig.hostVisible = true
+        rig.controller.networkChanged()
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertEquals(ControlRoute.Direct(ControllerRig.LAN_ADDRESS), rig.controlRoutes.last())
+        assertEquals(SessionRecord.Path.LAN, (rig.controller.state.value.phase as SessionPhase.Ready).path)
+    }
+
+    @Test
+    fun aRelayedSessionStaysPutWhenTheNetworkChangesAndTheHostIsNotOnIt() = runTest {
+        val rig = rig(nobodyDiscovered = true)
+        rig.signalling.grantSession()
+        rig.controller.connect()
+        advanceTimeBy(4_000)
+        runCurrent()
+
+        rig.controller.networkChanged()
+        advanceTimeBy(6_000)
+        runCurrent()
+
+        assertEquals(1, rig.controlRoutes.size)
+        assertEquals(SessionRecord.Path.RELAY, (rig.controller.state.value.phase as SessionPhase.Ready).path)
+    }
+
     private fun TestScope.rig(
         discovered: PeerAddress? = null,
         remembered: PeerAddress? = null,

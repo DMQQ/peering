@@ -15,7 +15,9 @@ import pl.dmq.peering.wire.LockScreen
 import pl.dmq.peering.wire.MessageKind
 import pl.dmq.peering.wire.MouseMove
 import pl.dmq.peering.wire.NormalizedPoint
+import pl.dmq.peering.wire.LaunchApplication
 import pl.dmq.peering.wire.OpenNewWindow
+import pl.dmq.peering.wire.PerformWindowAction
 import pl.dmq.peering.wire.PushClipboardImage
 import pl.dmq.peering.wire.QualityTier
 import pl.dmq.peering.wire.RefreshSourceThumbnails
@@ -26,6 +28,10 @@ import pl.dmq.peering.wire.ReportDeviceOrientation
 import pl.dmq.peering.wire.Scroll
 import pl.dmq.peering.wire.ServerHello
 import pl.dmq.peering.wire.SetCaptureSource
+import pl.dmq.peering.wire.SetPrivacyMode
+import pl.dmq.peering.wire.SpaceDirection
+import pl.dmq.peering.wire.SwitchSpace
+import pl.dmq.peering.wire.WindowAction
 import pl.dmq.peering.wire.SetStreamQuality
 import pl.dmq.peering.wire.SetVideoEnabled
 import pl.dmq.peering.wire.WatchSourceThumbnails
@@ -196,6 +202,36 @@ class SessionCommandsTest {
         assertNull(commands.onCatalog(Frame(MessageKind.Ping, "{}".toByteArray())))
         assertNull(commands.onCatalog(Frame(MessageKind.Catalog, "not json".toByteArray())))
         assertNull(commands.latestCatalog)
+    }
+
+    private fun macOnlyCommands(): List<RemoteCommand> = listOf(
+        LockScreen,
+        SetPrivacyMode(true),
+        SwitchSpace(SpaceDirection.LEFT),
+        LaunchApplication("com.apple.Safari"),
+        PerformWindowAction(7, WindowAction.CLOSE),
+        OpenNewWindow("com.apple.Safari"),
+        JoystickMove(0.5, 0.0),
+    )
+
+    @Test
+    fun aWindowsHostRefusesEveryMacOnlyCommandAndNamesTheMissingCapability() {
+        val commands = SessionCommands(bareHost.copy(hostPlatform = "windows"))
+
+        macOnlyCommands().forEach { command ->
+            assertNull(command::class.simpleName, commands.send(command))
+            commands.offer(command)
+        }
+        assertEquals(macOnlyCommands().size * 2, commands.takeRejections().count { it.missing == HostCapability.MacControls })
+        assertTrue(commands.drain().isEmpty())
+    }
+
+    @Test
+    fun aMacAndAHostThatNamesNoPlatformAcceptEveryMacOnlyCommand() {
+        listOf("macos", null).forEach { platform ->
+            val commands = SessionCommands(bareHost.copy(hostPlatform = platform))
+            macOnlyCommands().forEach { assertNotNull(it::class.simpleName, commands.send(it)) }
+        }
     }
 
     @Test

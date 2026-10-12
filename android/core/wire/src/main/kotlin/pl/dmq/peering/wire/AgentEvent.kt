@@ -24,7 +24,7 @@ sealed class AgentEvent {
     @Serializable
     data class Replay(
         val sessionID: String,
-        val events: List<AgentStreamEvent>,
+        @Serializable(with = AgentStreamEventsSerializer::class) val events: List<AgentStreamEvent>,
         val isLast: Boolean,
         val truncatedAtFront: Boolean,
     ) : AgentEvent()

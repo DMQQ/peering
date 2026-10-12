@@ -26,7 +26,7 @@ private class LoopbackServer(identity: PeerCredentials) : AutoCloseable {
         val keys = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply {
             init(store, PeerCredentials.PASSWORD.toCharArray())
         }
-        init(keys.keyManagers, arrayOf(PinningTrustManager(pin = null)), null)
+        init(keys.keyManagers, arrayOf(PinningTrustManager(pin = null, firstPairing = true)), null)
     }
     private val socket: SSLServerSocket = context.serverSocketFactory
         .createServerSocket(0, 1, InetAddress.getLoopbackAddress()) as SSLServerSocket
@@ -66,7 +66,7 @@ class TlsFactoryLoopbackTest {
         LoopbackServer(server).use { loopback ->
             val accepted = loopback.acceptOnce()
 
-            val transport = TlsFactory(client).open("127.0.0.1", loopback.port, pin = null, timeoutMs = timeoutMs)
+            val transport = TlsFactory(client).open("127.0.0.1", loopback.port, pin = null, firstPairing = true, timeoutMs = timeoutMs)
             accepted.get(timeoutMs.toLong(), TimeUnit.MILLISECONDS)
 
             assertArrayEquals(server.point, transport.peerPublicKey())
@@ -81,7 +81,7 @@ class TlsFactoryLoopbackTest {
         LoopbackServer(server).use { loopback ->
             val accepted = loopback.acceptOnce()
 
-            val transport = TlsFactory(client).open("127.0.0.1", loopback.port, pin = server.point, timeoutMs = timeoutMs)
+            val transport = TlsFactory(client).open("127.0.0.1", loopback.port, pin = server.point, firstPairing = false, timeoutMs = timeoutMs)
             accepted.get(timeoutMs.toLong(), TimeUnit.MILLISECONDS)
 
             assertArrayEquals(server.point, transport.peerPublicKey())
@@ -98,8 +98,17 @@ class TlsFactoryLoopbackTest {
             loopback.acceptOnce()
 
             assertThrows(SSLHandshakeException::class.java) {
-                TlsFactory(client).open("127.0.0.1", loopback.port, pin = server.point, timeoutMs = timeoutMs)
+                TlsFactory(client).open("127.0.0.1", loopback.port, pin = server.point, firstPairing = false, timeoutMs = timeoutMs)
             }
+        }
+    }
+
+    @Test
+    fun aMissingPinWithoutTheFirstPairingFlagFailsBeforeAnyConnection() {
+        val client = PeerCredentials.generate(folder.root, "phone")
+
+        assertThrows(IllegalArgumentException::class.java) {
+            TlsFactory(client).open("127.0.0.1", 1, pin = null, firstPairing = false, timeoutMs = timeoutMs)
         }
     }
 }

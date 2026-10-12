@@ -6,10 +6,11 @@ import pl.dmq.peering.session.history.ByteTally
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.FrameDecoder
 import pl.dmq.peering.wire.FramingException
+import pl.dmq.peering.wire.exceedsControlLimit
 
 /**
  * Cuts the control byte stream into frames and passes them on in order. The frame channel is closed when the stream ends
- * or fails, so whoever reads frames sees the connection end as a closed channel. A malformed frame is reported to
+ * or fails, so whoever reads frames sees the connection end as a closed channel. A control payload over 64 KiB is dropped, not fatal. A malformed frame is reported to
  * [onMalformed] before the channel closes, so the end is known by the time a reader sees the closed channel.
  */
 internal class ReaderLoop(
@@ -26,7 +27,7 @@ internal class ReaderLoop(
                 decoder.push(chunk)
                 while (true) {
                     val frame = decoder.next() ?: break
-                    frames.send(frame)
+                    if (!exceedsControlLimit(frame)) frames.send(frame)
                 }
             }
         } catch (malformed: FramingException) {

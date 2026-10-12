@@ -1,5 +1,6 @@
 package pl.dmq.peering.ui.wiring
 
+import kotlinx.coroutines.Job
 import pl.dmq.peering.platform.net.UdpLane
 import pl.dmq.peering.session.controller.ConnectTarget
 import pl.dmq.peering.session.controller.SessionController
@@ -10,9 +11,11 @@ internal class ActiveSession(
     val controller: SessionController,
     private val lane: UdpLane?,
     val downloads: SessionDownloads,
+    private val networkWatch: Job? = null,
 ) {
     fun close() {
         controller.disconnect()
+        networkWatch?.cancel()
         lane?.close()
         downloads.close()
     }

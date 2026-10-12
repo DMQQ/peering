@@ -1,6 +1,7 @@
 package pl.dmq.peering.wire
 
 import java.util.Base64
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -15,7 +16,8 @@ val WireJson = Json {
     encodeDefaults = false
 }
 
-class SwiftEnumException(message: String) : Exception(message)
+/** A SerializationException, so a decode that meets a case from a newer host fails like any other unreadable payload. */
+class SwiftEnumException(message: String) : SerializationException(message)
 
 /** A Swift enum case with associated values: `{"name":{"label":value}}`. A case without values passes no fields. */
 fun swiftCase(name: String, fields: JsonObject = JsonObject(emptyMap())): JsonObject = JsonObject(mapOf(name to fields))

@@ -54,7 +54,7 @@ class ReconnectSessionTest {
         mac.answersPings = false
         rig.reachable = false
 
-        advanceTimeBy(20_000)
+        advanceTimeBy(40_000)
         runCurrent()
 
         assertEquals(

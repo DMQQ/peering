@@ -12,10 +12,14 @@ private const val P256_FIELD_BITS = 256
 
 /**
  * Trust is decided by the pin, not by a certificate authority, so the chain is never validated. The leaf key is
- * recorded before the pin is compared, so first pairing can read it. Without a pin every peer is accepted; nothing
- * is trusted until the caller pins the recorded key.
+ * recorded before the pin is compared, so first pairing can read it. Without a pin every peer is accepted, which is
+ * allowed only when the caller says it is [firstPairing]; nothing is trusted until the caller pins the recorded key.
  */
-class PinningTrustManager(private val pin: ByteArray?) : X509TrustManager {
+class PinningTrustManager(private val pin: ByteArray?, firstPairing: Boolean = false) : X509TrustManager {
+    init {
+        require(pin != null || firstPairing) { "a connection without a pin must be marked as first pairing" }
+    }
+
     private val observed = AtomicReference<ByteArray?>(null)
 
     /** The 65-byte key of the leaf the peer presented, or null before a handshake has reached certificate checks. */

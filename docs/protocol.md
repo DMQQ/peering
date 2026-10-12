@@ -238,7 +238,7 @@ JSON of `RemoteCommand` (`RemoteCommand.swift:75-132`). A command is never sent 
 | refreshSpacePreviews, refreshSourceThumbnails | `{"refreshSourceThumbnails":{}}` | `supportsSourceThumbnails` for the latter |
 | watchSourceThumbnails | `{"watchSourceThumbnails":{"_0":true}}` | `supportsSourceThumbnails` |
 | setPrivacyMode | `{"setPrivacyMode":{"enabled":true}}` | host support |
-| lockScreen | `{"lockScreen":{}}` | `supportsLockScreen` in the ServerHello, sent only by a host that can lock |
+| lockScreen | `{"lockScreen":{}}` | `hostPlatform` in the ServerHello: a Mac (`"macos"`, or absent from a host that predates the field) can lock, a Windows host cannot; no `supportsLockScreen` flag exists |
 | requestClipboard | `{"requestClipboard":{}}` | none |
 | pushClipboard | `{"pushClipboard":{"text":"x"}}` | none |
 | pushClipboardImage | `{"pushClipboardImage":{"png":"<base64>"}}` | `supportsClipboardImages` |
