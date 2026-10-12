@@ -44,9 +44,9 @@ final class InAppBanner {
     var cardFrame: CGRect = .zero
     /// Taken (set back to nil) by the screen that opens it.
     var openRequest: InAppBannerTarget? {
-        didSet { openRequestedAt = openRequest == nil ? nil : Date() }
+        didSet { openRequestedAt = openRequest == nil ? nil : MonotonicStamp() }
     }
-    private var openRequestedAt: Date?
+    private var openRequestedAt: MonotonicStamp?
     /// What the person is reading now: news about it is not news.
     var onScreen: InAppBannerTarget? {
         didSet {
@@ -56,7 +56,7 @@ final class InAppBanner {
 
     /// A request nobody took (the connection it waited for never came up) must not open a screen minutes later.
     var freshOpenRequest: InAppBannerTarget? {
-        guard let openRequestedAt, Date().timeIntervalSince(openRequestedAt) < 60 else { return nil }
+        guard let openRequestedAt, openRequestedAt.isWithin(seconds: 60) else { return nil }
         return openRequest
     }
 

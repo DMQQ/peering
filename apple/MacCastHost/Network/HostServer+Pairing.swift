@@ -14,7 +14,7 @@ extension HostServer {
     func installPairingPrompt(on session: HostSession, address: String) {
         session.claimPairingPrompt = { [weak self, weak session] in
             guard let self, let session else { return .anotherPairingInProgress }
-            return connections.claimPairingPrompt(session: session.id, address: address, now: Date())
+            return connections.claimPairingPrompt(session: session.id, address: address, now: .now)
         }
         session.releasePairingPrompt = { [weak self, weak session] in
             guard let self, let session else { return false }

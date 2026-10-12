@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import MacCastKit
 import os
 
 private let virtualDisplayLog = Logger(subsystem: "pl.dmq.peering.host", category: "capture")

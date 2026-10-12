@@ -8,17 +8,17 @@ public struct ReconnectPolicy: Sendable {
     public static let jitterRange: ClosedRange<Double> = 0.2...0.5
 
     private var attempt = 0
-    private var registeredSince: Date?
+    private var registeredSince: ContinuousClock.Instant?
 
     public init() {}
 
-    public mutating func registered(at now: Date) {
+    public mutating func registered(at now: ContinuousClock.Instant) {
         if registeredSince == nil { registeredSince = now }
     }
 
     /// - Parameter jitter: a value in 0...1 that picks a point in ``jitterRange``.
-    public mutating func delayAfterEnd(at now: Date, jitter: Double) -> TimeInterval {
-        if let since = registeredSince, now.timeIntervalSince(since) >= Self.stableAfter {
+    public mutating func delayAfterEnd(at now: ContinuousClock.Instant, jitter: Double) -> TimeInterval {
+        if let since = registeredSince, now - since >= .seconds(Self.stableAfter) {
             attempt = 0
         }
         registeredSince = nil

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Everything that can fail before a phone is involved: the string catalogs, package tests, then a compile of both apps.
+# Everything that can fail before a phone is involved: the string catalogs, package tests, then a compile of both apps and both probes.
 #
 #   Tools/check.sh           # tests and both builds
 #   Tools/check.sh --quick   # package tests only
@@ -42,6 +42,12 @@ if [ "${1:-}" != "--quick" ]; then
     step "Mac host builds" xcodebuild -project MacCast.xcodeproj -scheme MacCastHost \
         -configuration Debug -destination 'platform=macOS' \
         -derivedDataPath "$DERIVED_DATA_DIR" CODE_SIGNING_ALLOWED=NO build
+
+    # The probes compile the host's own sources, so a host change can break them without touching the apps.
+    # A scratch path outside the package keeps the probe's own .build, and the signature run-probe.sh pins, untouched.
+    for probe in MacCastProbe CaptureProbe; do
+        step "$probe builds" swift build --package-path "Tools/$probe" --scratch-path "$DERIVED_DATA_DIR/$probe"
+    done
 fi
 
 rm -f "$LOG"

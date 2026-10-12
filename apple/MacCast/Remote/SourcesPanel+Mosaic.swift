@@ -149,7 +149,7 @@ extension SourcesPanel {
         let isPendingRemoval = pendingVirtualDisplayRemovalIDs.contains(descriptor.id)
 
         return Button {
-            guard Date().timeIntervalSince(windowControlsShownAt) > 0.6 else { return }
+            guard !(windowControlsShownAt?.isWithin(seconds: 0.6) ?? false) else { return }
             if windowControlsFor != nil {
                 withAnimation(Motion.tap) { windowControlsFor = nil }
                 return
@@ -216,7 +216,7 @@ extension SourcesPanel {
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.45).onEnded { _ in
                 guard !controls.isEmpty, !buildingMosaic else { return }
-                windowControlsShownAt = Date()
+                windowControlsShownAt = MonotonicStamp()
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 withAnimation(Motion.morph) { windowControlsFor = descriptor.id }
             }

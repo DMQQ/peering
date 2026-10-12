@@ -37,6 +37,12 @@ public enum ControlTextPolicy {
         return bytes <= maximumEncodedBytes ? .fits : .tooLong(bytes: bytes, limit: maximumEncodedBytes)
     }
 
+    /// The paths and the message travel in one request, so it is the pair that has to fit.
+    public static func verdict(forCommitOf paths: [String], message: String) -> Verdict {
+        let bytes = encodedSize(AgentRequest.commit(sessionID: envelopeID, paths: paths, message: message))
+        return bytes <= maximumEncodedBytes ? .fits : .tooLong(bytes: bytes, limit: maximumEncodedBytes)
+    }
+
     public static func verdict(forTerminalInput data: Data) -> Verdict {
         data.count <= maximumTerminalBytes ? .fits : .tooLong(bytes: data.count, limit: maximumTerminalBytes)
     }

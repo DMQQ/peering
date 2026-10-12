@@ -190,7 +190,7 @@ public final class VideoDatagramSocket: @unchecked Sendable {
 
     // MARK: - All on `queue`
 
-    var lastPeerAt: Date?
+    var lastPeerAt: MonotonicStamp?
 
 
 }

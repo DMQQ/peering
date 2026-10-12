@@ -74,7 +74,7 @@ final class RelayHostRegistration: @unchecked Sendable {
     func notifyDevice(token: String, title: String, body: String, source: String? = nil, action: RelayPushAction? = nil) {
         let item = PendingNotification(token: token, title: title, body: body, source: source, action: action)
         let outcome = lock.withLock { () -> (dropped: Int?, batch: (RelaySignallingConnection, [NotificationHoldQueue<PendingNotification>.Entry])?) in
-            let now = Date()
+            let now = ContinuousClock.now
             let dropped = pending.add(item, token: token, source: source, answerable: action != nil, now: now)
             guard dropped != nil, let connection else { return (dropped, nil) }
             return (dropped, (connection, pending.drain(now: now)))
@@ -137,7 +137,7 @@ final class RelayHostRegistration: @unchecked Sendable {
     }
 
     private func flush(over connection: RelaySignallingConnection) {
-        let items = lock.withLock { pending.drain(now: Date()) }
+        let items = lock.withLock { pending.drain(now: .now) }
         send(items, over: connection)
     }
 
@@ -195,10 +195,10 @@ final class RelayHostRegistration: @unchecked Sendable {
             }
 
             if takeReconnectRequest() {
-                _ = policy.delayAfterEnd(at: Date(), jitter: 0)
+                _ = policy.delayAfterEnd(at: .now, jitter: 0)
                 continue
             }
-            let delay = policy.delayAfterEnd(at: Date(), jitter: Double.random(in: 0...1))
+            let delay = policy.delayAfterEnd(at: .now, jitter: Double.random(in: 0...1))
             try? await Task.sleep(for: .seconds(delay))
         }
     }
@@ -250,7 +250,7 @@ final class RelayHostRegistration: @unchecked Sendable {
             case .registered:
                 if !registered {
                     registered = true
-                    policy.registered(at: Date())
+                    policy.registered(at: .now)
                     onStatus("Registered with getpeering.app")
                     // Anything held while there was no relay goes now, in the order it was
                     // raised. See ``notifyDevice(token:title:body:)``.

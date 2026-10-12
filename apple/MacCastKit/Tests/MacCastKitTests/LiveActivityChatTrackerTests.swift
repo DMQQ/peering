@@ -6,7 +6,7 @@ import Testing
 
 @Suite("Live Activity chat tracker")
 struct LiveActivityChatTrackerTests {
-    private let t0 = Date(timeIntervalSince1970: 1_000_000)
+    private let t0 = ContinuousClock.now
 
     private func observe(_ tracker: inout LiveActivityChatTracker, _ states: [(String, AgentSessionState)], at offset: TimeInterval = 0) -> [LiveActivityChat] {
         tracker.observe(states.map { .init(id: $0.0, state: $0.1) }, symbol: "s", now: t0.addingTimeInterval(offset))

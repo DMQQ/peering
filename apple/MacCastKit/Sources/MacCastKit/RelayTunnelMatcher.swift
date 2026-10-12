@@ -8,7 +8,7 @@ public struct RelayTunnelMatcher: Sendable {
 
     private struct Entry {
         let id: UUID
-        let createdAt: Date
+        let createdAt: ContinuousClock.Instant
     }
 
     private var pending: [Entry] = []
@@ -18,7 +18,7 @@ public struct RelayTunnelMatcher: Sendable {
     public var pendingIDs: [UUID] { pending.map(\.id) }
 
     /// - Returns: whether the tunnel was taken; at the cap it is refused rather than a pending one evicted.
-    public mutating func add(_ id: UUID, now: Date) -> Bool {
+    public mutating func add(_ id: UUID, now: ContinuousClock.Instant) -> Bool {
         guard pending.count < Self.maximumPending else { return false }
         pending.append(Entry(id: id, createdAt: now))
         return true
@@ -29,8 +29,8 @@ public struct RelayTunnelMatcher: Sendable {
     }
 
     /// The tunnels that never produced a connection in time, removed here for the caller to close.
-    public mutating func expire(now: Date) -> [UUID] {
-        let expired = pending.filter { now.timeIntervalSince($0.createdAt) > Self.pendingLifetime }
+    public mutating func expire(now: ContinuousClock.Instant) -> [UUID] {
+        let expired = pending.filter { now - $0.createdAt > .seconds(Self.pendingLifetime) }
         pending.removeAll { entry in expired.contains { $0.id == entry.id } }
         return expired.map(\.id)
     }
@@ -38,9 +38,9 @@ public struct RelayTunnelMatcher: Sendable {
     /// - Parameters:
     ///   - loopbackPort: the arriving connection's source port when it came from loopback, nil when it came from anywhere else.
     ///   - knownPorts: the source port each tunnel's socket has reported so far; a tunnel can be accepted before it has learned its own.
-    public mutating func claim(loopbackPort: UInt16?, knownPorts: [UUID: UInt16], now: Date) -> UUID? {
+    public mutating func claim(loopbackPort: UInt16?, knownPorts: [UUID: UInt16], now: ContinuousClock.Instant) -> UUID? {
         guard let loopbackPort else { return nil }
-        let live = pending.filter { now.timeIntervalSince($0.createdAt) <= Self.pendingLifetime }
+        let live = pending.filter { now - $0.createdAt <= .seconds(Self.pendingLifetime) }
         let match = live.first { knownPorts[$0.id] == loopbackPort }
             ?? live.first { knownPorts[$0.id] == nil }
         guard let match else { return nil }

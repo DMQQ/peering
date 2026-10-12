@@ -2138,6 +2138,7 @@ final class HostCollector: @unchecked Sendable {
         switch event {
         case .updated(let hosts): _hosts = hosts
         case .failed(let message): _failure = message
+        case .denied: _failure = "Local Network access is refused or not yet answered."
         case .started: break
         }
         lock.unlock()

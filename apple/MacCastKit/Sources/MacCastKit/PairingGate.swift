@@ -1,7 +1,7 @@
 import Foundation
 
 /// Who may have the Mac's one unauthenticated pairing prompt, and how often that may be asked for.
-/// Confined to the host's server queue; every method takes the time so tests need no clock.
+/// Confined to the host's server queue; every method takes a monotonic instant, so a clock change cannot shorten or stretch a window, and tests need no real clock.
 public struct PairingGate: Sendable {
     public enum Refusal: Sendable, Equatable {
         case anotherPairingInProgress
@@ -20,12 +20,12 @@ public struct PairingGate: Sendable {
 
     private struct Attempt {
         let address: String
-        let at: Date
+        let at: ContinuousClock.Instant
     }
 
     private let limits: Limits
     private var holder: UUID?
-    private var heldSince = Date.distantPast
+    private var heldSince: ContinuousClock.Instant?
     private var attempts: [Attempt] = []
 
     public init(limits: Limits = Limits()) {
@@ -33,12 +33,12 @@ public struct PairingGate: Sendable {
     }
 
     /// Takes the prompt for `session`, or says why it cannot have it. A session that already holds it keeps it without counting again.
-    public mutating func claim(session: UUID, address: String, now: Date) -> Refusal? {
+    public mutating func claim(session: UUID, address: String, now: ContinuousClock.Instant) -> Refusal? {
         if holder == session { return nil }
         if holder != nil { return .anotherPairingInProgress }
 
         let window = limits.window
-        attempts.removeAll { now.timeIntervalSince($0.at) >= window }
+        attempts.removeAll { now - $0.at >= .seconds(window) }
         let fromAddress = attempts.filter { $0.address == address }.count
         guard fromAddress < limits.attemptsPerAddress, attempts.count < limits.attemptsInTotal else {
             return .tooManyAttempts
@@ -58,13 +58,15 @@ public struct PairingGate: Sendable {
     public mutating func release(session: UUID) -> Bool {
         guard holder == session else { return false }
         holder = nil
+        heldSince = nil
         return true
     }
 
     /// The holder that has kept the prompt past its limit, freed here for the caller to end.
-    public mutating func evictStaleHolder(now: Date) -> UUID? {
-        guard let stale = holder, now.timeIntervalSince(heldSince) > limits.holdLimit else { return nil }
+    public mutating func evictStaleHolder(now: ContinuousClock.Instant) -> UUID? {
+        guard let stale = holder, let since = heldSince, now - since > .seconds(limits.holdLimit) else { return nil }
         holder = nil
+        heldSince = nil
         return stale
     }
 }

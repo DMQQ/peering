@@ -41,11 +41,11 @@ extension HostServer {
 
     /// Runs on the reaper: closes relay tunnels that no connection claimed in time, and frees a pairing prompt held too long.
     func reapStalePairingAndTunnels() {
-        for tunnel in connections.expireUnclaimedTunnels(now: Date()) {
+        for tunnel in connections.expireUnclaimedTunnels(now: .now) {
             admissionLog.notice("a relay tunnel expired before a connection claimed it")
             tunnel.bridge.cancel()
         }
-        if let stale = connections.evictStalePairingHolder(now: Date()) {
+        if let stale = connections.evictStalePairingHolder(now: .now) {
             emit(.pairingAbandoned(sessionID: stale))
             connections.session(id: stale)?.cancel()
         }

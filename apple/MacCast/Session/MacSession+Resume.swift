@@ -156,7 +156,7 @@ extension MacSession {
         isComingBack = false
         // Running out is when the app stops behaving like a session coming back: this flag turns the remote screen over to the picker. The banner is not re-posted because `SessionAwareness` refuses a repeat of the phase it is in.
         hasGivenUpResuming = true
-        gaveUpAt = Date()
+        gaveUpAt = MonotonicStamp()
         // A dial still in flight is ended here; it reports `.disconnected`, which the guard at the top of ``scheduleReconnect()`` stops from arming another rung.
         connectTask?.cancel()
         connectTask = nil

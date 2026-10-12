@@ -56,7 +56,7 @@ struct HostConnections {
 
     // MARK: - Pairing prompt
 
-    mutating func claimPairingPrompt(session: UUID, address: String, now: Date) -> PairingGate.Refusal? {
+    mutating func claimPairingPrompt(session: UUID, address: String, now: ContinuousClock.Instant) -> PairingGate.Refusal? {
         pairingGate.claim(session: session, address: address, now: now)
     }
 
@@ -68,14 +68,14 @@ struct HostConnections {
         pairingGate.holds(session)
     }
 
-    mutating func evictStalePairingHolder(now: Date) -> UUID? {
+    mutating func evictStalePairingHolder(now: ContinuousClock.Instant) -> UUID? {
         pairingGate.evictStaleHolder(now: now)
     }
 
     // MARK: - Relay tunnels
 
     /// False when too many tunnels are already waiting for a connection.
-    mutating func reserveTunnel(_ id: UUID, now: Date) -> Bool {
+    mutating func reserveTunnel(_ id: UUID, now: ContinuousClock.Instant) -> Bool {
         tunnelMatcher.add(id, now: now)
     }
 
@@ -84,7 +84,7 @@ struct HostConnections {
     }
 
     /// The tunnel an inbound loopback connection belongs to, now moved from waiting to carrying.
-    mutating func claimTunnel(loopbackPort: UInt16?, now: Date) -> RelayTunnel? {
+    mutating func claimTunnel(loopbackPort: UInt16?, now: ContinuousClock.Instant) -> RelayTunnel? {
         let ports = Dictionary(uniqueKeysWithValues: pendingTunnels.compactMap { tunnel in
             tunnel.bridge.localSourcePort.map { (tunnel.id, $0) }
         })
@@ -97,7 +97,7 @@ struct HostConnections {
     }
 
     /// Tunnels no connection claimed in time, removed here for the caller to close.
-    mutating func expireUnclaimedTunnels(now: Date) -> [RelayTunnel] {
+    mutating func expireUnclaimedTunnels(now: ContinuousClock.Instant) -> [RelayTunnel] {
         let expired = tunnelMatcher.expire(now: now)
         let unclaimed = pendingTunnels.filter { expired.contains($0.id) }
         pendingTunnels.removeAll { expired.contains($0.id) }

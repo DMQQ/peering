@@ -20,7 +20,7 @@ extension HostServer {
 
     func accept(_ connection: NWConnection) {
         let origin = ConnectionOrigin(connection)
-        let tunnel = connections.claimTunnel(loopbackPort: origin.loopbackPort, now: Date())
+        let tunnel = connections.claimTunnel(loopbackPort: origin.loopbackPort, now: .now)
         let address = tunnel.map { "relay-\($0.id)" } ?? origin.address
         guard admitBeforeAuthentication(address: address) else {
             connection.cancel()

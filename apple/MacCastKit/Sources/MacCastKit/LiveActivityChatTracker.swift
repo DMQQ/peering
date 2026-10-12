@@ -16,11 +16,11 @@ public struct LiveActivityChatTracker: Sendable {
     }
 
     private var previous: [String: AgentSessionState] = [:]
-    private var settled: [String: (state: LiveActivityChat.State, at: Date)] = [:]
+    private var settled: [String: (state: LiveActivityChat.State, at: ContinuousClock.Instant)] = [:]
 
     public init() {}
 
-    public mutating func observe(_ sessions: [Observed], symbol: String, now: Date) -> [LiveActivityChat] {
+    public mutating func observe(_ sessions: [Observed], symbol: String, now: ContinuousClock.Instant) -> [LiveActivityChat] {
         var busy: [LiveActivityChat] = []
         for session in sessions {
             let before = previous[session.id]
@@ -42,7 +42,7 @@ public struct LiveActivityChatTracker: Sendable {
         }
         let present = Set(sessions.map(\.id))
         previous = previous.filter { present.contains($0.key) }
-        settled = settled.filter { present.contains($0.key) && now.timeIntervalSince($0.value.at) < LiveActivityPushPlanner.finishedLinger }
+        settled = settled.filter { present.contains($0.key) && now - $0.value.at < .seconds(LiveActivityPushPlanner.finishedLinger) }
 
         let stopped = settled
             .sorted { $0.value.at > $1.value.at }

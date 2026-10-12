@@ -10,6 +10,10 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
     private var menuBar: MenuBarController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        CaptureHostHooks.install(
+            failure: { Analytics.failed($0, in: .capture) },
+            encoderRestarted: { HostSessionFacts.shared.noteEncoderRestart() }
+        )
         menuBar = MenuBarController(model: model, updater: updater)
         PostHogConfiguration.setup()
         Analytics.observeSettings()

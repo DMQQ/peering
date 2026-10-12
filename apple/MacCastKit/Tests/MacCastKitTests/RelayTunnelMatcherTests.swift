@@ -4,7 +4,7 @@ import Testing
 @testable import MacCastKit
 
 struct RelayTunnelMatcherTests {
-    private let start = Date(timeIntervalSince1970: 2_000)
+    private let start = ContinuousClock.now
 
     @Test func aConnectionFromTheNetworkNeverMatchesATunnel() {
         var matcher = RelayTunnelMatcher()

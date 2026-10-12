@@ -36,7 +36,7 @@ struct ScrollWheelView: View {
     @State private var lastSampleAt: Date?
     @State private var velocity: Double = 0
     @State private var spinTask: Task<Void, Never>?
-    @State private var lastDetentAt: Date?
+    @State private var lastDetentAt: MonotonicStamp?
     /// A counter of its own rather than the notch count: a coast fires many detents for one roll call, and the haptic trigger counts feedback.
     @State private var detents = 0
 
@@ -186,7 +186,7 @@ struct ScrollWheelView: View {
         guard !isGauge, launch > WheelSpin.stalling else { return }
         spinTask?.cancel()
 
-        let started = Date()
+        let started = MonotonicStamp()
         let duration = WheelSpin.duration(launch)
         spinTask = Task { @MainActor in
             while !Task.isCancelled {
@@ -194,7 +194,7 @@ struct ScrollWheelView: View {
                 // A cancelled sleep returns at once, and without this the loop would emit one more
                 // roll after the wheel had been caught.
                 guard !Task.isCancelled else { return }
-                let elapsed = Date().timeIntervalSince(started)
+                let elapsed = started.elapsedSeconds()
                 guard elapsed < duration else { return }
                 emit(wheel.roll(notches: WheelSpin.rate(launch, after: elapsed) * Self.spinHz),
                      spinning: true)
@@ -222,11 +222,10 @@ struct ScrollWheelView: View {
 
     /// Rate-limited while coasting: at the cap this asks for 120 impacts a second and the Taptic Engine saturates into one continuous buzz. Twenty a second reads as the rattle of a spinning-down wheel.
     private func detent(spinning: Bool) {
-        let now = Date()
-        if spinning, let last = lastDetentAt, now.timeIntervalSince(last) < Self.detentInterval {
+        if spinning, let last = lastDetentAt, last.isWithin(seconds: Self.detentInterval) {
             return
         }
-        lastDetentAt = now
+        lastDetentAt = MonotonicStamp()
         detents += 1
     }
 

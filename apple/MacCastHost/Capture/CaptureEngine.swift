@@ -86,6 +86,7 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     private var _onStop: (@Sendable (CaptureError) -> Void)?
     private var _onAudio: (@Sendable (CMSampleBuffer) -> Void)?
     private var capturesAudio = false
+    private let pacer = StreamPacer()
 
 /// No frames and no idle samples is a stream never really started (usually denied Screen Recording, with no error). Idle samples mean a working stream over a still display. An idle sample can become a frame (see ``CursorOverlay/redraw(_:)``), so `idle` can be high alongside healthy frames.
     struct Statistics: Sendable, Equatable {
@@ -193,7 +194,7 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         do {
             try await stream.startCapture()
         } catch {
-            Analytics.failed(error, in: .capture)
+            CaptureHostHooks.reportFailure(error)
             lock.withLock { self.stream = nil }
             throw CaptureError.from(error)
         }
@@ -207,6 +208,8 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
             try? stream.removeStreamOutput(self, type: .audio)
             return
         }
+
+        pacer.attach(stream: stream, configuration: configuration)
 
         engineLog.notice("""
             capture started · \(configuration.width, privacy: .public)×\
@@ -237,12 +240,18 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         try await stream.updateConfiguration(configuration)
     }
 
+    /// Nil, or a rate at or above the one the stream started at, restores it.
+    func limitFrameRate(to framesPerSecond: Int?) {
+        pacer.limit(to: framesPerSecond)
+    }
+
     func stop() async {
         let stream = lock.withLock { () -> SCStream? in
             let current = self.stream
             self.stream = nil
             return current
         }
+        pacer.detach()
         guard let stream else { return }
 
         do {
@@ -312,6 +321,7 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         let mapped = CaptureError.from(error)
         engineLog.error("stream stopped: \(mapped.errorDescription ?? "unknown", privacy: .public)")
+        pacer.detach()
         lock.withLock { self.stream = nil }
         onStop?(mapped)
     }

@@ -80,6 +80,19 @@ extension SettingsTab {
         }
     }
 
+    var damagedPairingsSection: some View {
+        Controls.card(
+            String(localized: "Paired Macs"),
+            footer: String(localized: "The pairings saved on this iPhone are damaged and cannot be read. Reset them to pair your Macs again. No new pairing is saved until then.")
+        ) {
+            Controls.row(String(localized: "Damaged pairings"), systemImage: "exclamationmark.triangle") {
+                ResetPairedMacsButton(model: model)
+                    .font(.subheadline)
+                    .foregroundStyle(ColorPalette.danger)
+            }
+        }
+    }
+
     var identitySection: some View {
         Controls.card(
             String(localized: "Device identity"),

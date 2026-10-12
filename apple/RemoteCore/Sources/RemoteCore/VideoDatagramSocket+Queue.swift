@@ -24,7 +24,7 @@ extension VideoDatagramSocket {
     /// fallback to the relay is automatic rather than a recovery path somebody has to trigger.
     var directPathIsLive: Bool {
         guard peerAddress != nil, let last = lastPeerAt else { return false }
-        return Date().timeIntervalSince(last) < Self.directPathIdleTimeout
+        return last.isWithin(seconds: Self.directPathIdleTimeout)
     }
 
     /// The loop is what makes one read source serve a burst: a dispatch source fires once when the
@@ -72,7 +72,7 @@ extension VideoDatagramSocket {
                 _received += 1
                 if fromPeer { _receivedFromPeer += 1 }
             }
-            if fromPeer { lastPeerAt = Date() }
+            if fromPeer { lastPeerAt = MonotonicStamp() }
             onDatagram?(Data(buffer[0..<read]), source)
         }
     }

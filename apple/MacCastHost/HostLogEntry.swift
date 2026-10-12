@@ -1,4 +1,5 @@
 import Foundation
+import MacCastKit
 import SwiftUI
 
 struct HostLogEntry: Identifiable, Sendable, Equatable {
@@ -78,14 +79,5 @@ extension Array where Element == HostLogEntry {
 extension HostLogEntry {
     var text: Text {
         localizedMessage.map { Text($0) } ?? Text(verbatim: message)
-    }
-}
-
-extension LocalizedStringResource {
-    /// The source-language sentence, whatever language the Mac is set to.
-    var englishText: String {
-        var english = self
-        english.locale = Locale(identifier: "en")
-        return String(localized: english)
     }
 }

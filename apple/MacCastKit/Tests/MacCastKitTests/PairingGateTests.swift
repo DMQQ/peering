@@ -4,7 +4,7 @@ import Testing
 @testable import MacCastKit
 
 struct PairingGateTests {
-    private let start = Date(timeIntervalSince1970: 1_000)
+    private let start = ContinuousClock.now
 
     @Test func theFirstSessionGetsThePrompt() {
         var gate = PairingGate()
