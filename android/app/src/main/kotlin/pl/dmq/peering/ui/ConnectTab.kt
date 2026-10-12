@@ -25,7 +25,7 @@ import pl.dmq.peering.ui.wiring.rememberAppProtection
 import pl.dmq.peering.ui.wiring.findActivity
 import pl.dmq.peering.feature.connect.ConnectPresenter
 import pl.dmq.peering.feature.connect.ConnectRoute
-import pl.dmq.peering.feature.connect.FirstConnectionScreen
+import pl.dmq.peering.feature.connect.FirstConnectionRoute
 import pl.dmq.peering.feature.connect.rememberConnectActions
 import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.feature.onboarding.OnboardingRoute
@@ -58,6 +58,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
     var pairing by remember { mutableStateOf<PairingCodePresenter?>(null) }
     var pairingSession by remember { mutableStateOf<ActiveSession?>(null) }
     var pairingHostName by remember { mutableStateOf<String?>(null) }
+    var pairingInline by remember { mutableStateOf(false) }
     val hostNames = remember { mutableMapOf<String, String>() }
     var firstConnectionDismissed by rememberSaveable { mutableStateOf(false) }
     var showingSession by rememberSaveable { mutableStateOf(false) }
@@ -78,6 +79,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             onPair = { hostId ->
                 val session = wiring.startPairing(hostId)
                 pairingHostName = hostNames[hostId]
+                pairingInline = !firstConnectionDismissed && (wiring.lastConnectState?.listing?.paired?.isEmpty() ?: true)
                 pairingSession = session
                 pairing = PairingCodePresenter(ControllerPairingSession(session.controller, scope), scope)
                 onboarding = false
@@ -87,6 +89,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             onConnectAddress = { address ->
                 val session = wiring.startPairingByAddress(PeerAddress(address.host, address.port))
                 pairingHostName = null
+                pairingInline = !firstConnectionDismissed && (wiring.lastConnectState?.listing?.paired?.isEmpty() ?: true)
                 pairingSession = session
                 pairing = PairingCodePresenter(ControllerPairingSession(session.controller, scope), scope)
                 onboarding = false
@@ -114,12 +117,13 @@ internal fun ConnectTab(wiring: FeatureWiring) {
     val stage = when {
         scanning != null -> ConnectStage.Scanner
         onboarding -> ConnectStage.Onboarding
+        presenting != null && pairingInline -> ConnectStage.FirstConnection
         presenting != null -> ConnectStage.Pairing
         showingSession && session != null -> ConnectStage.Session
         firstConnection -> ConnectStage.FirstConnection
         else -> ConnectStage.Hosts
     }
-    if (stage.fullScreen) HideNavigationBar()
+    if (stage.fullScreen || presenting != null) HideNavigationBar()
     ConnectBridge(
         stage = stage.name,
         onboarding = onboarding,
@@ -176,10 +180,17 @@ internal fun ConnectTab(wiring: FeatureWiring) {
                     },
                 )
             }
-            ConnectStage.FirstConnection -> FirstConnectionScreen(
+            ConnectStage.FirstConnection -> FirstConnectionRoute(
                 state = connectState,
                 actions = rememberConnectActions(connect) { scanning = ScanPurpose.FindMac },
+                pairing = presenting,
                 onSkip = { firstConnectionDismissed = true },
+                onPairingFinished = {
+                    if (presenting?.state?.value?.keepsConnection != true && active === pairingSession) wiring.holder.end()
+                    pairing = null
+                },
+                onScanCodeRequested = { scanning = ScanPurpose.ConfirmCode },
+                hostName = pairingHostName,
             )
             ConnectStage.Hosts -> ConnectRoute(
                 presenter = connect,

@@ -59,3 +59,13 @@ lists use `listItemMotion()` and nothing animates on a screen's first compositio
 | `PeeringSpinner` | Material `CircularProgressIndicator` | system | system control | kept |
 | Hub activity open, close and back | system activity transition | system | correct | kept |
 | `TerminalTabStrip`, `TranscriptList` `animateScrollToItem` | default scroll spring | default | follows content | kept |
+
+## Pushed pages: Activity or navigation transition
+
+Decision, not yet built: the pushed pages (pairing, agent chat, Settings subpages, Sessions detail) are states inside a
+tab, not routes, and they share live controller, draft and scroll state with the page below them. Moving one to an
+Activity would need that state handed across a process-wide holder, as the hub does for a session. The shared axis in
+`DepthTransition` already matches the platform's motion; what it lacks is the back-gesture preview. The next step is a
+`PredictiveBackHandler` driving a `SeekableTransitionState` inside `DepthTransition`, which means removing each
+caller's own `BackHandler` first. The video session route stays where it is: a new Activity needs a new surface, and
+`SurfaceReturn` shows the picture does not survive that without a keyframe request.

@@ -119,7 +119,7 @@ private fun Steps(screen: PairingCodeScreen, actions: PairingActions, hostName: 
 }
 
 @Composable
-private fun ColumnScope.EnteringCode(screen: PairingCodeScreen.EnteringCode, actions: PairingActions, hostName: String?) {
+internal fun ColumnScope.EnteringCode(screen: PairingCodeScreen.EnteringCode, actions: PairingActions, hostName: String?) {
     StepDetail(hostName?.let { stringResource(R.string.pairing_code_detail_named, it) } ?: stringResource(R.string.pairing_code_detail))
     PairingCodeCells(attempts = screen.attempts, wrong = screen.error != null, onComplete = actions.onDigitsEntered)
     if (screen.error != null) {
@@ -144,7 +144,7 @@ private fun ColumnScope.EnteringCode(screen: PairingCodeScreen.EnteringCode, act
 }
 
 @Composable
-private fun Failure(screen: PairingCodeScreen.Failed, actions: PairingActions) {
+internal fun Failure(screen: PairingCodeScreen.Failed, actions: PairingActions) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         IconTile(AppIcons.warning, size = 56.dp)
         FailureNotice(screen.message.text(), screen.details)
