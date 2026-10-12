@@ -367,7 +367,7 @@
     <string name="paywall_try_again">Try again</string>
     <string name="paywall_buy">Continue</string>
     <string name="paywall_contacting_store">Contacting the store…</string>
-    <string name="paywall_purchase_pending">Waiting for approval. Nothing is charged until whoever has to approve it does.</string>
+    <string name="paywall_purchase_pending">Waiting for approval. This plan starts as soon as whoever has to approve it does, and nothing is charged until then.</string>
     <string name="paywall_purchase_done">Thanks. Unlimited relay time is on for this device.</string>
     <string name="paywall_purchase_failed">The purchase did not go through. Try again.</string>
     <string name="paywall_restore">Restore purchases</string>
@@ -377,11 +377,11 @@
     <string name="paywall_renewal_note">The subscription renews every month until cancelled, and you can cancel any time in your store settings. Lifetime is a single payment that does not renew.</string>
     <string name="paywall_not_now">Not now</string>
     <string name="paywall_title_upgrade">Connect from anywhere</string>
-    <string name="paywall_title_spent">Your free relay time is used up</string>
+    <string name="paywall_title_spent">Keep going from anywhere</string>
     <string name="paywall_title_low">Running low on relay time</string>
-    <string name="paywall_detail_upgrade">Reaching a computer away from your own network is metered. Free includes %1$s of relay a day. Paid removes the limit.</string>
-    <string name="paywall_detail_spent">Free includes %1$s of relay a day, and today it is spent. Paid removes the limit.</string>
-    <string name="paywall_detail_low">%1$s left today. When it runs out, reaching a computer on another network stops until the allowance comes back.</string>
+    <string name="paywall_detail_upgrade">Reaching a computer away from your own network is metered. Free includes %1$s of relay a day. Pro removes the limit.</string>
+    <string name="paywall_detail_spent">Your free relay time for today is used up. Upgrade to connect from anywhere without limits.</string>
+    <string name="paywall_detail_low">%1$s left today. When it runs out, reaching a computer on another network stops until the allowance comes back. Pro removes the limit.</string>
     <string name="paywall_offer_subscription">Subscription</string>
     <string name="paywall_offer_subscription_detail">Unlimited relay, renewed every month</string>
     <string name="paywall_offer_lifetime">Lifetime</string>

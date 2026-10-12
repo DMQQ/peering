@@ -1,32 +1,44 @@
 package pl.dmq.peering.feature.paywall
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.annotation.StringRes
 import pl.dmq.peering.R
 import pl.dmq.peering.billing.BillingUnavailable
-import pl.dmq.peering.ui.theme.OutlinedPanel
-import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.feature.onboarding.PlanOfferCards
+import pl.dmq.peering.feature.onboarding.buttonTitle
+import pl.dmq.peering.ui.kit.PeeringSpinner
 import pl.dmq.peering.ui.kit.QuietButton
+import pl.dmq.peering.ui.kit.WelcomePrimaryButton
+import pl.dmq.peering.ui.kit.tappable
+import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.PeeringText
+import pl.dmq.peering.ui.theme.peeringBackdrop
 
-/** The plans: why the paywall opened, every offer the store lists, buying and restoring. */
+/**
+ * The plans (PaywallView.swift): header, plan rows and the renewal note in a scroll, the buy button and the three
+ * links in a bar pinned under it.
+ */
 @Composable
 fun PaywallScreen(
     presenter: PaywallPresenter,
@@ -35,146 +47,113 @@ fun PaywallScreen(
     modifier: Modifier = Modifier,
 ) {
     val ui by presenter.ui.collectAsState()
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        ReasonHeader(reason)
-        Text(stringResource(R.string.paywall_free_promise), style = MaterialTheme.typography.bodyMedium, color = PeeringColors.muted)
-        when {
-            ui.entitled -> Text(stringResource(R.string.paywall_already_unlimited), style = MaterialTheme.typography.titleSmall, color = PeeringColors.added)
-            ui.loading -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            ui.loadFailed || ui.products.isEmpty() -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.paywall_prices_unavailable), style = MaterialTheme.typography.titleSmall, color = PeeringColors.ink)
-                ui.unavailable?.let { reason ->
-                    Text(stringResource(reason.explanationRes()), style = MaterialTheme.typography.bodyMedium, color = PeeringColors.muted)
-                }
-                Text(
-                    stringResource(R.string.paywall_try_again),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = PeeringColors.ink,
-                    modifier = Modifier.clickable(onClick = presenter::load),
-                )
-            }
-            else -> ui.products.forEach { product ->
-                OfferRow(product, selected = product.offer == ui.selected, onClick = { presenter.select(product.offer) })
-            }
+    Column(modifier.fillMaxSize().peeringBackdrop()) {
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 18.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            PaywallHeader(reason)
+            Plans(ui, presenter)
+            Footer(ui)
         }
-        if (!ui.entitled && ui.products.isNotEmpty()) {
-            Button(
+        BuyBar(ui, presenter, onDismiss)
+    }
+}
+
+@Composable
+private fun Plans(ui: PaywallUi, presenter: PaywallPresenter) {
+    when {
+        ui.entitled -> Text(stringResource(R.string.paywall_already_unlimited), style = PeeringText.subheadlineSemibold, color = PeeringColors.added)
+        ui.loading -> Row(Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalArrangement = Arrangement.Center) {
+            PeeringSpinner(color = PeeringColors.ink)
+        }
+        ui.products.isEmpty() -> Unavailable(ui.unavailable, presenter::load)
+        else -> PlanOfferCards(ui.products, ui.selected, presenter::select)
+    }
+}
+
+@Composable
+private fun Unavailable(reason: BillingUnavailable?, onRetry: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(stringResource(R.string.paywall_prices_unavailable), style = PeeringText.subheadlineSemibold, color = PeeringColors.ink)
+        Text(
+            stringResource(reason?.explanationRes() ?: R.string.paywall_unavailable_body),
+            style = PeeringText.caption,
+            color = PeeringColors.muted,
+        )
+        QuietButton(onClick = onRetry) { Text(stringResource(R.string.paywall_try_again), style = PeeringText.footnoteMedium) }
+    }
+}
+
+@Composable
+private fun Footer(ui: PaywallUi) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        val note = when {
+            ui.purchase == PurchaseState.FAILED -> R.string.paywall_purchase_failed to PeeringColors.danger
+            ui.restore == RestoreState.NOTHING_TO_RESTORE -> R.string.paywall_restore_nothing to PeeringColors.muted
+            ui.restore == RestoreState.FAILED -> R.string.paywall_restore_failed to PeeringColors.danger
+            else -> null
+        }
+        if (note != null) Text(stringResource(note.first), style = PeeringText.caption, color = note.second, textAlign = TextAlign.Center)
+        Text(
+            stringResource(R.string.paywall_renewal_note),
+            style = PeeringText.caption2,
+            color = PeeringColors.tertiary,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun BuyBar(ui: PaywallUi, presenter: PaywallPresenter, onDismiss: () -> Unit) {
+    val uri = LocalUriHandler.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(PeeringColors.backdrop.copy(alpha = 0.92f))
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        val product = ui.products.firstOrNull { it.offer == ui.selected }
+        if (ui.entitled) {
+            WelcomePrimaryButton(stringResource(R.string.tour_start_using), onDismiss)
+        } else if (product != null) {
+            val purchasing = ui.purchase == PurchaseState.PURCHASING
+            WelcomePrimaryButton(
+                title = if (purchasing) stringResource(R.string.paywall_contacting_store) else product.buttonTitle(),
                 onClick = presenter::buy,
                 enabled = ui.canBuy,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = PeeringColors.ink, contentColor = PeeringColors.onInk),
-            ) {
-                Text(
-                    stringResource(if (ui.purchase == PurchaseState.PURCHASING) R.string.paywall_contacting_store else R.string.paywall_buy),
-                    style = MaterialTheme.typography.labelLarge,
-                )
+            )
+            if (ui.purchase == PurchaseState.AWAITING_APPROVAL) {
+                Text(stringResource(R.string.paywall_purchase_pending), style = PeeringText.caption, color = PeeringColors.muted)
             }
         }
-        PurchaseMessage(ui.purchase)
-        RestoreRow(ui.restore, onRestore = presenter::restore)
-        Text(stringResource(R.string.paywall_renewal_note), style = MaterialTheme.typography.bodySmall, color = PeeringColors.faint)
-        QuietButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.paywall_not_now))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterHorizontally)) {
+            BarLink(stringResource(R.string.paywall_restore), enabled = ui.restore != RestoreState.RESTORING, onClick = presenter::restore)
+            BarLink(stringResource(R.string.tour_privacy)) { uri.openUri("https://getpeering.app/privacy") }
+            BarLink(stringResource(R.string.tour_terms)) { uri.openUri("https://getpeering.app/terms") }
         }
+        Text(
+            stringResource(R.string.paywall_not_now),
+            style = PeeringText.footnoteMedium,
+            color = PeeringColors.muted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().tappable(onDismiss).padding(vertical = 6.dp),
+        )
     }
 }
 
 @Composable
-private fun ReasonHeader(reason: PaywallReason) {
-    val freeLimit = remainingText(RemainingLabel.of(FREE_DAILY_RELAY_SECONDS))
+private fun BarLink(title: String, enabled: Boolean = true, onClick: () -> Unit) {
     Text(
-        stringResource(
-            when (reason) {
-                PaywallReason.Upgrade -> R.string.paywall_title_upgrade
-                PaywallReason.RelayTimeSpent -> R.string.paywall_title_spent
-                is PaywallReason.RunningLow -> R.string.paywall_title_low
-            },
-        ),
-        style = MaterialTheme.typography.headlineSmall,
-        color = PeeringColors.ink,
+        title,
+        style = PeeringText.caption,
+        color = PeeringColors.muted,
+        modifier = Modifier.tappable(onClick, enabled = enabled).padding(vertical = 4.dp),
     )
-    val detail = when (reason) {
-        PaywallReason.Upgrade -> stringResource(R.string.paywall_detail_upgrade, freeLimit)
-        PaywallReason.RelayTimeSpent -> stringResource(R.string.paywall_detail_spent, freeLimit)
-        is PaywallReason.RunningLow -> stringResource(
-            R.string.paywall_detail_low,
-            remainingText(RemainingLabel.of(reason.remainingSeconds)),
-        )
-    }
-    Text(detail, style = MaterialTheme.typography.bodyMedium, color = PeeringColors.muted)
-}
-
-@Composable
-private fun OfferRow(product: PaywallProduct, selected: Boolean, onClick: () -> Unit) {
-    OutlinedPanel(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-    ) {
-        Text(
-            stringResource(product.offer.titleRes()),
-            style = MaterialTheme.typography.titleMedium,
-            color = if (selected) PeeringColors.accent else PeeringColors.ink,
-        )
-        Text(product.displayPrice, style = MaterialTheme.typography.bodyMedium, color = PeeringColors.ink)
-        Text(stringResource(product.offer.detailRes()), style = MaterialTheme.typography.bodySmall, color = PeeringColors.muted)
-    }
-}
-
-@StringRes
-private fun PlanOffer.titleRes(): Int = when (this) {
-    PlanOffer.MONTHLY -> R.string.paywall_offer_monthly
-    PlanOffer.YEARLY -> R.string.paywall_offer_yearly
-    PlanOffer.LIFETIME -> R.string.paywall_offer_lifetime
-}
-
-@StringRes
-private fun PlanOffer.detailRes(): Int = when (this) {
-    PlanOffer.MONTHLY -> R.string.paywall_offer_monthly_detail
-    PlanOffer.YEARLY -> R.string.paywall_offer_yearly_detail
-    PlanOffer.LIFETIME -> R.string.paywall_offer_lifetime_detail
-}
-
-@StringRes
-internal fun BillingUnavailable.explanationRes(): Int = when (this) {
-    BillingUnavailable.NotSupported -> R.string.paywall_unavailable_not_supported
-    BillingUnavailable.StoreUnreachable -> R.string.paywall_unavailable_unreachable
-    BillingUnavailable.NotConfigured -> R.string.paywall_unavailable_not_configured
-    is BillingUnavailable.Refused -> R.string.paywall_unavailable_refused
-}
-
-@Composable
-private fun PurchaseMessage(state: PurchaseState) {
-    val message = when (state) {
-        PurchaseState.IDLE, PurchaseState.PURCHASING, PurchaseState.CANCELLED -> return
-        PurchaseState.AWAITING_APPROVAL -> R.string.paywall_purchase_pending
-        PurchaseState.PURCHASED -> R.string.paywall_purchase_done
-        PurchaseState.FAILED -> R.string.paywall_purchase_failed
-    }
-    Text(stringResource(message), style = MaterialTheme.typography.bodySmall, color = PeeringColors.muted)
-}
-
-@Composable
-private fun RestoreRow(state: RestoreState, onRestore: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            stringResource(R.string.paywall_restore),
-            style = MaterialTheme.typography.labelLarge,
-            color = PeeringColors.ink,
-            modifier = Modifier.clickable(enabled = state != RestoreState.RESTORING, onClick = onRestore),
-        )
-        val message = when (state) {
-            RestoreState.IDLE, RestoreState.RESTORING -> null
-            RestoreState.RESTORED -> R.string.paywall_restore_done
-            RestoreState.NOTHING_TO_RESTORE -> R.string.paywall_restore_nothing
-            RestoreState.FAILED -> R.string.paywall_restore_failed
-        }
-        message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = PeeringColors.muted) }
-    }
 }

@@ -7,7 +7,10 @@ import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.AllInclusive
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.filled.CheckCircle as CheckCircleFilled
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -87,6 +90,9 @@ object AppIcons {
     val copy: ImageVector get() = Icons.Outlined.ContentCopy
     val check: ImageVector get() = Icons.Outlined.Check
     val checkCircle: ImageVector get() = Icons.Outlined.CheckCircle
+    val checkCircleFilled: ImageVector get() = Icons.Filled.CheckCircleFilled
+    val circle: ImageVector get() = Icons.Outlined.RadioButtonUnchecked
+    val clockAlert: ImageVector get() = Icons.Outlined.Schedule
     val download: ImageVector get() = Icons.Outlined.Download
     val warning: ImageVector get() = Icons.Outlined.Warning
     val qrScanner: ImageVector get() = Icons.Outlined.QrCodeScanner

@@ -29,9 +29,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.kit.PrimaryButton
+import pl.dmq.peering.ui.kit.WelcomePrimaryButton
 import pl.dmq.peering.ui.kit.tappable
-import pl.dmq.peering.ui.kit.rememberSheen
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringMotion
 import pl.dmq.peering.ui.theme.PeeringText
@@ -81,7 +80,8 @@ internal fun WelcomeLanding(onStart: () -> Unit, onSkip: () -> Unit, modifier: M
             ) {
                 Text(
                     stringResource(R.string.welcome_title),
-                    style = PeeringText.display(size = 40f, tracking = -1.4f, lineHeight = 42f).copy(brush = rememberSheen()),
+                    style = PeeringText.display(size = 40f, tracking = -1.4f, lineHeight = 42f),
+                    color = PeeringColors.ink,
                 )
                 Text(stringResource(R.string.welcome_body), style = PeeringText.body, color = PeeringColors.muted)
             }
@@ -93,7 +93,7 @@ internal fun WelcomeLanding(onStart: () -> Unit, onSkip: () -> Unit, modifier: M
                     .padding(start = 22.dp, end = 22.dp, top = 14.dp, bottom = 18.dp)
                     .graphicsLayer { alpha = action.value },
             ) {
-                PrimaryButton(stringResource(R.string.welcome_start), onStart)
+                WelcomePrimaryButton(stringResource(R.string.welcome_start), onStart)
             }
         }
         SkipButton(onSkip, Modifier.align(Alignment.TopEnd))
