@@ -41,3 +41,13 @@ and virtual POSIX paths for Windows hosts (`/C:/Users/me`) through `FilePath`.
 
 Limits chosen for the phone: uploads are capped at 64 MiB because the outgoing queue holds the whole file as frames
 (the host accepts 2 GiB). Downloads stay at the shared 512 MiB cap.
+
+## Result
+
+Closed: path bar, search, sort, hidden filter, type icons with mode, size and date, pull to refresh, loading, empty,
+permission, not found and offline states, text (wrap toggle, line numbers for code), image and markdown preview, download
+of files and folder zips with progress and cancel, share, upload with progress and cancel, new folder and file, rename,
+delete with confirmation, multi-select, and the reusable FolderPicker (FolderPickerPresenter over the file browser).
+
+Still open: edit and save, remembered folder, home floor, svg, pdf and video preview, folder upload, and a swap of the
+Agents hub own picker for FolderPicker (that feature belongs to another change).
