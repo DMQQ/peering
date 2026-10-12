@@ -5,4 +5,5 @@ pub mod firewall;
 pub mod hooks;
 pub mod runtime;
 pub mod strings;
+pub mod tools;
 pub mod ui;

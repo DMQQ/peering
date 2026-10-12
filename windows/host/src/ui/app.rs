@@ -8,9 +8,10 @@ use eframe::egui;
 
 use std::path::PathBuf;
 
+use super::jobs::Jobs;
 use super::model::{settings_command, MenuAction, MenuModel, UiModel};
 use super::pairing;
-use super::settings::{FirewallOutcome, SettingsChoice, SettingsState};
+use super::settings::{SettingsChoice, SettingsJob, SettingsState};
 use super::settings_view;
 use super::tray::Tray;
 use crate::autostart;
@@ -30,8 +31,10 @@ pub fn run(handle: HostHandle) -> Result<(), eframe::Error> {
         Box::new(move |_creation| {
             let model = MenuModel::new(handle.snapshot());
             let tray = Tray::new(&model.entries())?;
-            let settings = SettingsState::new(autostart::is_enabled());
-            Ok(Box::new(HostApp { handle, tray, window_open: false, settings }))
+            // `reg` can take seconds, so the box starts unticked and a worker reads the Run entry.
+            let jobs = Jobs::default();
+            let _unread = jobs.spawn("read-autostart", || SettingsJob::AutostartRead(autostart::is_enabled()));
+            Ok(Box::new(HostApp { handle, tray, window_open: false, settings: SettingsState::new(false), jobs }))
         }),
     )
 }
@@ -41,6 +44,7 @@ struct HostApp {
     tray: Tray,
     window_open: bool,
     settings: SettingsState,
+    jobs: Jobs<SettingsJob>,
 }
 
 impl eframe::App for HostApp {
@@ -48,6 +52,9 @@ impl eframe::App for HostApp {
         if ctx.input(|input| input.viewport().close_requested()) {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.hide_window(ctx);
+        }
+        for finished in self.jobs.collect() {
+            self.settings.apply(finished);
         }
         let snapshot = self.handle.snapshot();
         let menu = MenuModel::new(snapshot.clone());
@@ -111,26 +118,41 @@ impl HostApp {
         }
     }
 
-    /// Carries out a settings choice. Start at login and the firewall run here, on the window's thread; the frame rate goes
-    /// to the host.
+    /// Carries out a settings choice. Start at login and the firewall shell out and can take seconds, so they run on a worker
+    /// and the result is applied by a later frame; the frame rate goes to the host.
     fn apply_choice(&mut self, ctx: &egui::Context, choice: SettingsChoice) {
         match &choice {
             SettingsChoice::StartAtLogin(wanted) => {
-                let result = program_path().and_then(|path| {
-                    if *wanted {
-                        autostart::write_run_key(&path)
-                    } else {
-                        autostart::remove_run_key()
-                    }
+                if !self.settings.begin_autostart() {
+                    return;
+                }
+                let wanted = *wanted;
+                let started = self.jobs.spawn("autostart", move || {
+                    let result = program_path().and_then(|path| {
+                        if wanted {
+                            autostart::write_run_key(&path)
+                        } else {
+                            autostart::remove_run_key()
+                        }
+                    });
+                    SettingsJob::AutostartWritten { wanted, result: result.map_err(|error| error.to_string()) }
                 });
-                self.settings.record_autostart(*wanted, result.map_err(|error| error.to_string()));
+                if let Err(error) = started {
+                    self.settings.apply(SettingsJob::AutostartWritten { wanted, result: Err(error.to_string()) });
+                }
             }
             SettingsChoice::FixFirewall => {
-                let outcome = match program_path().and_then(|path| firewall::request_rule_elevated(&path, DEFAULT_PORT)) {
-                    Ok(()) => FirewallOutcome::Requested,
-                    Err(error) => FirewallOutcome::Refused(error.to_string()),
-                };
-                self.settings.record_firewall(outcome);
+                if !self.settings.begin_firewall() {
+                    return;
+                }
+                let started = self.jobs.spawn("firewall", || match program_path() {
+                    Ok(path) => SettingsJob::Firewall(firewall::request_rule_elevated(&path, DEFAULT_PORT)),
+                    Err(error) => SettingsJob::Firewall(firewall::HelperResult::CouldNotStart(error.to_string())),
+                });
+                if let Err(error) = started {
+                    self.settings
+                        .apply(SettingsJob::Firewall(firewall::HelperResult::CouldNotStart(error.to_string())));
+                }
             }
             SettingsChoice::FrameRate(_) => {
                 if let Some(command) = settings_command(&choice) {
