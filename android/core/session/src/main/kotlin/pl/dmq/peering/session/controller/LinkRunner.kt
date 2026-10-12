@@ -1,8 +1,14 @@
 package pl.dmq.peering.session.controller
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.coroutineScope
@@ -26,6 +32,7 @@ internal class LinkRunner(
     private val update: ((SessionUiState) -> SessionUiState) -> Unit,
     private val onPicture: () -> Unit,
     private val publish: (ConnectedLink) -> Unit,
+    private val onReady: () -> Unit,
     private val phoneBackgrounded: () -> Boolean,
 ) {
     /** The session being served, or null between links. */
@@ -38,6 +45,8 @@ internal class LinkRunner(
 
     private var activeHandshake: SessionHandshake? = null
     private var currentEnd: CompletableDeferred<LinkEnd>? = null
+    private var dialling: Deferred<OpenedRoute>? = null
+    private var addressesStale = false
 
     fun forgetReadiness() {
         everReady = false
@@ -55,10 +64,22 @@ internal class LinkRunner(
         currentEnd?.complete(end)
     }
 
+    /**
+     * The network moved: the addresses learned on the old one are not trusted again, and a dial in flight is abandoned
+     * so [run] reports [LinkOutcome.Redial].
+     */
+    fun networkMoved() {
+        addressesStale = true
+        dialling?.cancel()
+    }
+
     /** One attempt at a control connection, from opening the route until the link ends. */
     suspend fun run(): LinkOutcome = coroutineScope {
         val route = try {
-            RouteOpener(target, ports, recorder::note).open()
+            dial()
+        } catch (failure: CancellationException) {
+            currentCoroutineContext().ensureActive()
+            return@coroutineScope LinkOutcome.Redial
         } catch (failure: ConnectFailure) {
             return@coroutineScope if (failure.failure.canRetry) {
                 LinkOutcome.Unreachable(failure.failure)
@@ -77,6 +98,18 @@ internal class LinkRunner(
             currentEnd = null
             services.preview?.failAll()
             route.transport.close()
+        }
+    }
+
+    /** A failure of the dial must not cancel the caller, so it runs under a supervisor and is awaited. */
+    private suspend fun dial(): OpenedRoute = supervisorScope {
+        val reuseDiscovered = !everReady && !addressesStale
+        val attempt = async { RouteOpener(target, ports, recorder::note, reuseDiscovered).open() }
+        dialling = attempt
+        try {
+            attempt.await().also { addressesStale = false }
+        } finally {
+            dialling = null
         }
     }
 
@@ -175,6 +208,7 @@ internal class LinkRunner(
         )
         link = live
         everReady = true
+        onReady()
         if (phoneBackgrounded()) live.reportBackground(true)
         recorder.note("session ready with ${hello.hostName} over ${route.path}")
         if (route.path == SessionRecord.Path.LAN) ports.lanReached(hello.serverID, route.videoPeer)

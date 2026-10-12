@@ -55,7 +55,7 @@ class SessionController(
     private val recorder = SessionRecorder(ports, history)
     private val prompt = PairingPrompt(target, ::update)
     private val services: SessionServices = SessionServices(ports) { runner.link }
-    private val runner = LinkRunner(target, ports, selection, services, recorder, prompt, ::update, ::pictureArrived, ::publish) { backgrounded }
+    private val runner = LinkRunner(target, ports, selection, services, recorder, prompt, ::update, ::pictureArrived, ::publish, { reconnect.linkReady() }) { backgrounded }
     private val handover = LanHandover(target, ports)
     private val link: ConnectedLink? get() = runner.link
 
@@ -151,12 +151,14 @@ class SessionController(
     }
 
     /**
-     * The network moved, so the reconnect ladder starts again from its shortest step. A session on the relay is dialled
+     * The network moved, so the reconnect ladder starts again from its shortest step and a dial in flight starts over
+     * on the new network. A session on the relay is dialled
      * again when the host turns out to be on this network, so the picture moves to the local path.
      */
     fun networkChanged() {
         reconnect.networkChanged()
         ports.relay?.signalling?.drop()
+        runner.networkMoved()
         val live = link ?: return
         scope.launch {
             if (handover.worthMovingFrom(live.path) && link === live) {
@@ -190,6 +192,7 @@ class SessionController(
         while (true) {
             when (val outcome = runner.run()) {
                 LinkOutcome.Cancelled -> return
+                LinkOutcome.Redial -> continue
                 is LinkOutcome.Refused -> return fail(outcome.failure)
                 is LinkOutcome.Unreachable -> if (!runner.everReady) return fail(outcome.failure)
                 is LinkOutcome.Ended -> when (val end = outcome.end) {

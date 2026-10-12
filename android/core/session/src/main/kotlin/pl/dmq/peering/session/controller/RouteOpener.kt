@@ -9,6 +9,7 @@ import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.ports.SessionLog
 import pl.dmq.peering.session.relay.RelayConnect
 import pl.dmq.peering.session.relay.RelaySessionException
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /** Turns a [ConnectTarget] into an open control connection, asking the relay or the local network as the target needs. */
@@ -16,14 +17,17 @@ internal class RouteOpener(
     private val target: ConnectTarget,
     private val ports: SessionPorts,
     private val log: SessionLog = ports.log,
+    private val reuseDiscovered: Boolean = true,
 ) {
-    suspend fun open(): OpenedRoute = when (target) {
+    suspend fun open(): OpenedRoute = guarded { openRoute() }
+
+    private suspend fun openRoute(): OpenedRoute = when (target) {
         is ConnectTarget.Lan -> direct(target.hostId?.let { fresh(it) } ?: target.address)
-        is ConnectTarget.Pairing -> direct(guarded { discover(target.hostId) })
+        is ConnectTarget.Pairing -> direct(discover(target.hostId))
         is ConnectTarget.Relay -> raced(DialInputs(null, null, relayAllowed = true, pairElsewhere = true))
         is ConnectTarget.Paired -> raced(
             DialInputs(
-                discovered = target.discovered ?: seenSoon(target),
+                discovered = target.discovered.takeIf { reuseDiscovered } ?: seenSoon(target),
                 remembered = target.remembered,
                 relayAllowed = target.relayAllowed && ports.relay != null,
             ),
@@ -46,9 +50,7 @@ internal class RouteOpener(
 
     /** With nothing known about where the host is, discovery gets a moment before the relay is dialled past a host on this network. */
     private suspend fun seenSoon(target: ConnectTarget.Paired): PeerAddress? =
-        if (target.remembered != null) null else withTimeoutOrNull(LOCAL_GRACE) {
-            ports.discovery.hosts().first { it.id == target.hostId }
-        }?.address
+        if (reuseDiscovered && target.remembered != null) null else lookUp(target.hostId, LOCAL_GRACE)
 
     private suspend fun direct(address: PeerAddress): OpenedRoute {
         log.log("dialling ${address.host}:${address.port} on the local network")
@@ -73,9 +75,17 @@ internal class RouteOpener(
     }
 
     /** The address [hostId] has on the network right now, or null when it was not seen in time. Never a remembered one. */
-    private suspend fun fresh(hostId: String): PeerAddress? = withTimeoutOrNull(FRESH_TIMEOUT) {
-        ports.discovery.hosts().first { it.id == hostId }
-    }?.address
+    private suspend fun fresh(hostId: String): PeerAddress? = lookUp(hostId, FRESH_TIMEOUT)
+
+    /** Discovery that cannot start reads as a host that was not seen, so the dial falls back to the next route. */
+    private suspend fun lookUp(hostId: String, timeout: Duration): PeerAddress? = try {
+        withTimeoutOrNull(timeout) { ports.discovery.hosts().first { it.id == hostId } }?.address
+    } catch (failure: CancellationException) {
+        throw failure
+    } catch (failure: Exception) {
+        log.log("discovery failed: ${ConnectFailureKind.describe(failure)}")
+        null
+    }
 
     private suspend fun relayed(hostId: String): OpenedRoute {
         val relay = checkNotNull(ports.relay) { "a relay target needs the relay ports" }
@@ -89,13 +99,10 @@ internal class RouteOpener(
     }
 
     private suspend fun discover(hostId: String): PeerAddress {
-        val found = withTimeoutOrNull(DISCOVERY_TIMEOUT) {
-            ports.discovery.hosts().first { it.id == hostId }
-        } ?: run {
+        return lookUp(hostId, DISCOVERY_TIMEOUT) ?: run {
             log.log("host $hostId not seen on the local network in $DISCOVERY_TIMEOUT")
             throw ConnectFailure(SessionFailure.HostNotFound)
         }
-        return found.address
     }
 
     /** Every failure leaves here as a [ConnectFailure], so the caller maps one type and never a raw exception. */
