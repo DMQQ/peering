@@ -44,6 +44,7 @@ class TranscriptPresenter(
         val rows = chatState.transcriptRows
         val state = selected?.state
         return TranscriptUi(
+            sessionID = selected?.id,
             rows = rows,
             queuedPrompts = chatState.queuedPrompts,
             expandedToolIDs = expanded,

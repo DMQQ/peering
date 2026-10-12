@@ -5,6 +5,7 @@ import pl.dmq.peering.session.agent.TranscriptRow
 import pl.dmq.peering.wire.AgentTurnSummary
 
 data class TranscriptUi(
+    val sessionID: String?,
     val rows: List<TranscriptRow>,
     val queuedPrompts: List<String>,
     val expandedToolIDs: Set<Long>,

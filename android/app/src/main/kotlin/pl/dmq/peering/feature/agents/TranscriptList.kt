@@ -25,12 +25,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import pl.dmq.peering.R
+import pl.dmq.peering.session.agent.ApprovalStatus
+import pl.dmq.peering.session.agent.PendingApproval
 import pl.dmq.peering.session.agent.TranscriptRow
 import pl.dmq.peering.ui.theme.PeeringColors
 
 /** The selected chat's conversation. It follows new rows to the bottom until the user scrolls away from it. */
 @Composable
-fun TranscriptList(presenter: TranscriptPresenter, modifier: Modifier = Modifier) {
+fun TranscriptList(presenter: TranscriptPresenter, port: AgentsPort, modifier: Modifier = Modifier) {
     val ui by presenter.ui.collectAsState()
     val listState = rememberLazyListState()
     val lastIndex = ui.rows.size + ui.queuedPrompts.size - 1
@@ -71,6 +73,8 @@ fun TranscriptList(presenter: TranscriptPresenter, modifier: Modifier = Modifier
                 items(ui.rows, key = { it.id }) { row ->
                     TranscriptRowView(
                         row = row,
+                        sessionID = ui.sessionID,
+                        port = port,
                         expanded = row.id in ui.expandedToolIDs,
                         onToggleTool = { presenter.toggleTool(row.id) },
                     )
@@ -94,7 +98,13 @@ fun TranscriptList(presenter: TranscriptPresenter, modifier: Modifier = Modifier
 }
 
 @Composable
-private fun TranscriptRowView(row: TranscriptRow, expanded: Boolean, onToggleTool: () -> Unit) {
+private fun TranscriptRowView(
+    row: TranscriptRow,
+    sessionID: String?,
+    port: AgentsPort,
+    expanded: Boolean,
+    onToggleTool: () -> Unit,
+) {
     when (row) {
         is TranscriptRow.User -> UserBubble(row.text)
         is TranscriptRow.AssistantText -> MarkdownText(row.text)
@@ -104,7 +114,7 @@ private fun TranscriptRowView(row: TranscriptRow, expanded: Boolean, onToggleToo
         is TranscriptRow.TurnSummary -> TurnSummaryPill(TurnSummaryUi.of(row.summary))
         is TranscriptRow.Notice -> Text(row.text, style = MaterialTheme.typography.bodySmall, color = PeeringColors.muted)
         is TranscriptRow.Failure -> Text(row.message, style = MaterialTheme.typography.bodyMedium, color = PeeringColors.danger)
-        is TranscriptRow.Approval -> Text(row.call.title, style = MaterialTheme.typography.bodyMedium, color = PeeringColors.caution)
+        is TranscriptRow.Approval -> ApprovalRowView(row, sessionID, port)
     }
 }
 
@@ -112,4 +122,18 @@ private fun LazyListState.isAtEnd(): Boolean {
     val info = layoutInfo
     val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: return true
     return lastVisible >= info.totalItemsCount - 1
+}
+
+@Composable
+private fun ApprovalRowView(row: TranscriptRow.Approval, sessionID: String?, port: AgentsPort) {
+    val pending = row.status == ApprovalStatus.Pending
+    if (pending && sessionID != null) {
+        ApprovalCard(port, sessionID, PendingApproval(row.approvalID, row.call, row.reason))
+    } else {
+        Text(
+            stringResource(if (row.status is ApprovalStatus.Answered) R.string.approval_answered else R.string.approval_cancelled),
+            style = MaterialTheme.typography.bodySmall,
+            color = PeeringColors.muted,
+        )
+    }
 }
