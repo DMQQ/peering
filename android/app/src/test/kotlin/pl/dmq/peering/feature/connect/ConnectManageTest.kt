@@ -29,6 +29,27 @@ class ConnectManageTest {
     }
 
     @Test
+    fun aTrustedComputerIsConnectedToInsteadOfPaired() = runTest(UnconfinedTestDispatcher()) {
+        val connected = mutableListOf<String>()
+        val paired = mutableListOf<String>()
+        val presenter = ConnectPresenter(
+            hosts = FakeHostSource(paired = listOf(PairedHost("B1", "Studio"))),
+            presence = FakePresenceSource(),
+            qrSource = FakeQrSource(),
+            onConnect = { connected += it },
+            onPair = { paired += it },
+            onConnectAddress = { _ -> },
+            scope = backgroundScope,
+        )
+
+        presenter.pair("B1")
+        presenter.pair("N1")
+
+        assertEquals(listOf("B1"), connected)
+        assertEquals(listOf("N1"), paired)
+    }
+
+    @Test
     fun aNewNameIsTrimmedBeforeItIsStored() = runTest(UnconfinedTestDispatcher()) {
         val hosts = FakeHostSource()
         val presenter = presenter(hosts, backgroundScope)

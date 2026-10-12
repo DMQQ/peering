@@ -24,7 +24,7 @@ class ConnectPresenter(
     network: NetworkSource = NetworkSource.Always,
     private val searchWindowMillis: Long = SEARCH_WINDOW_MILLIS,
 ) {
-    val entry = HostIdEntryPresenter(qrSource, scope, onAccepted = onPair)
+    val entry = HostIdEntryPresenter(qrSource, scope, onAccepted = { pair(it) })
 
     private val pendingForgetId = MutableStateFlow<String?>(null)
     private val message = MutableStateFlow<ConnectMessage?>(null)
@@ -75,8 +75,9 @@ class ConnectPresenter(
         message.value = null
     }
 
+    /** A computer that is already trusted is connected to; pairing is only for one that is not. */
     fun pair(hostId: String) {
-        onPair(hostId)
+        if (state.value.listing.paired.any { it.id == hostId }) onConnect(hostId) else onPair(hostId)
     }
 
     /** Dials a computer by the typed address. Fields that are not an address are ignored: the sheet keeps its button off for them. */
