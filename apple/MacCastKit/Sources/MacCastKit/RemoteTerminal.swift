@@ -21,6 +21,14 @@ public struct RemoteTerminal: Identifiable, Equatable {
         screenFeed.screen(for: output, columns: columns, rows: rows)
     }
 
+    /// Keeps the newest `limit` bytes. The feed is told how much went, as every trim must (see ``TerminalScreenFeed``).
+    public mutating func trimOutput(keeping limit: Int) {
+        guard output.count > limit else { return }
+        let dropped = output.count - limit
+        output = Data(output.dropFirst(dropped))
+        screenFeed.discardFront(dropped)
+    }
+
     public static func == (left: Self, right: Self) -> Bool {
         left.id == right.id
             && left.name == right.name

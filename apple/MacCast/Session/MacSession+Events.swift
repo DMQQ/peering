@@ -174,15 +174,18 @@ extension MacSession {
             hostChatAgents = Set(hello.agentChatAgents ?? ["claude", "codex"])
             UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
             // Also the name the widget and Lock Screen card show, as the only one that came from the Mac itself; a first pairing by ID knows no name until this arrives.
-            UserDefaults.standard.set(hello.hostName, forKey: SessionModel.lastHostNameKey)
-            SharedStore.lastHostName = hello.hostName
-            if model.hostNames[hello.serverID] != hello.hostName {
-                model.hostNames[hello.serverID] = hello.hostName
+            UserDefaults.standard.set(HostRecordLimits.clippedName(hello.hostName), forKey: SessionModel.lastHostNameKey)
+            SharedStore.lastHostName = HostRecordLimits.clippedName(hello.hostName)
+            let hostName = HostRecordLimits.clippedName(hello.hostName)
+            if model.hostNames[hello.serverID] != hostName {
+                model.hostNames[hello.serverID] = hostName
+                model.hostNames = HostRecordLimits.pruned(model.hostNames, keeping: Set(model.pairedHostIDs))
                 UserDefaults.standard.set(model.hostNames, forKey: SessionModel.hostNamesKey)
                 model.publishKnownMacs()
             }
             if let macs = hello.macAddresses, !macs.isEmpty {
-                model.hostMACAddresses[hello.serverID] = macs
+                model.hostMACAddresses[hello.serverID] = HostRecordLimits.clippedMACAddresses(macs)
+                model.hostMACAddresses = HostRecordLimits.pruned(model.hostMACAddresses, keeping: Set(model.pairedHostIDs))
                 if let data = try? JSONEncoder().encode(model.hostMACAddresses) {
                     UserDefaults.standard.set(data, forKey: "hostMACAddresses")
                 }

@@ -48,6 +48,7 @@ struct MacCastApp: App {
     /// Owned here also because an intent has no view hierarchy and "open a shell on prod" arrives before any screen exists.
     @State private var servers = SSHModel()
     @State private var quickCommands = QuickCommands()
+    @State private var router = URLCommandRouter()
     @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = false
 
     @Environment(\.scenePhase) private var scenePhase
@@ -67,16 +68,33 @@ struct MacCastApp: App {
         AgentApprovalNotifier.shared.registerCategories()
     }
 
+    private var confirmingBinding: Binding<Bool> {
+        Binding(get: { router.confirming != nil }, set: { if !$0 { router.confirming = nil } })
+    }
+
     var body: some Scene {
         WindowGroup {
-            SecuredRootView {
+            SecuredRootView(onLockChange: { router.setLocked($0, model: model, servers: servers) }) {
                 ContentView()
             }
+                .alert(router.confirmationTitle, isPresented: confirmingBinding) {
+                    Button("End", role: .destructive) { router.confirm(model: model, servers: servers) }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text(router.confirmationMessage)
+                }
                 // Sideways, a screen may only move if it has somewhere to go: iOS bounces a vertical scroll view on both axes. `.basedOnSize` rather than `.never` so the tour's pages and the terminal, which scroll sideways, keep it. On the root because the value travels through the environment to every scroll view, sheets included.
                 .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
                 .environment(model)
                 .environment(servers)
                 .environment(quickCommands)
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
+                    model.memoryWarningReceived()
+                    servers.trimMemory()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
+                    model.powerStateChanged()
+                }
                 .task {
                     for await _ in NotificationCenter.default.notifications(
                         named: SessionNotifier.remoteTokenChangedName
@@ -135,46 +153,7 @@ struct MacCastApp: App {
                         model.openHostLink(hostID: hostID)
                         return
                     }
-                    guard url.scheme == "peering" else { return }
-                    switch url.host {
-                    case "connect":
-                        // The medium widget names a Mac per row, so the URL carries which; without an id (the small tile) it is the Mac used last.
-                        let requested = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                            .queryItems?
-                            .first { $0.name == "id" }?
-                            .value
-                        if let requested, model.pairedHostIDs.contains(requested) {
-                            model.connectToTrusted(hostID: requested)
-                        } else {
-                            model.reconnectToLastHost()
-                        }
-                    case "chat":
-                        // A chat lives on its Mac: that Mac is opened first, and the chat is asked for once its screen is up (see `InAppBanner.openRequest`).
-                        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
-                        guard let chatID = items?.first(where: { $0.name == "id" })?.value.flatMap(UUID.init(uuidString:)) else { return }
-                        if let hostID = items?.first(where: { $0.name == "host" })?.value {
-                            model.openFromNotification(hostID: hostID, sourceID: nil)
-                        }
-                        InAppBanner.shared.openRequest = .chat(chatID)
-                    case PairingPayload.codeHost:
-                        model.pairingLink = (url, Date())
-                        // The code belongs to a Mac that is asking right now; with none asking it is held for a minute and the person is told what to do, since nothing on screen changes otherwise.
-                        if case .confirming = model.phase { break }
-                        InAppBanner.shared.post(InAppBannerItem(
-                            symbol: "qrcode.viewfinder",
-                            title: String(localized: "Pairing code"),
-                            summary: String(localized: "Choose your Mac under Nearby first"),
-                            body: String(localized: "Tap your Mac in the list, and this code is used as soon as it asks. It stays valid for a minute."),
-                            needsYou: false,
-                            target: nil
-                        ))
-                    case "disconnect":
-                        model.disconnect()
-                    case "end-shells":
-                        servers.closeAllShells()
-                    default:
-                        break
-                    }
+                    router.handle(url, model: model, servers: servers)
                 }
                 .preferredColorScheme(.dark)
         }

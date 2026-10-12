@@ -9,7 +9,7 @@ extension ClientSession {
         headers: [PreviewHeader],
         body: Data?
     ) -> AsyncStream<PreviewProxyEvent> {
-        AsyncStream { continuation in
+        AsyncStream(bufferingPolicy: .bufferingOldest(PreviewRequestTable.maximumBufferedEvents)) { continuation in
             guard isReady, let connection = connection() else {
                 continuation.yield(.failure(id: 0, reason: .disconnected))
                 continuation.finish()

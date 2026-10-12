@@ -10,6 +10,9 @@ public enum AgentLimits {
     /// How much of the conversation the Mac keeps for a phone that comes back.
     public static let maximumTranscriptBytes = 512 * 1024
 
+    /// What a conversation keeps after the system warns about memory.
+    public static let memoryPressureTranscriptBytes = 64 * 1024
+
     /// Text cut to a byte budget, on a character boundary.
     public static func trimmed(_ text: String, to limit: Int) -> (text: String, truncated: Bool) {
         guard text.utf8.count > limit else { return (text, false) }
