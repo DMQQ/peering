@@ -84,4 +84,36 @@ class RouteRaceTest {
 
         assertSame(last, thrown)
     }
+
+    @Test
+    fun aRefusedQuotaIsThrownEvenWhenAnotherRouteTimedOutAfterIt() = runTest {
+        val refused = ConnectFailure(SessionFailure.Quota)
+
+        val thrown = runCatching {
+            RouteRace(
+                listOf(
+                    RouteRace.Attempt(0.milliseconds) { delay(500); throw timedOut() },
+                    RouteRace.Attempt(100.milliseconds) { throw refused },
+                ),
+            ).run()
+        }.exceptionOrNull()
+
+        assertSame(refused, thrown)
+    }
+
+    @Test
+    fun aRouteThatOpenedBehindTheWinnerIsClosed() = runTest {
+        val winner = route(SessionRecord.Path.LAN)
+        val behind = route(SessionRecord.Path.RELAY)
+
+        val won = RouteRace(
+            listOf(
+                RouteRace.Attempt(0.milliseconds) { winner },
+                RouteRace.Attempt(0.milliseconds) { behind },
+            ),
+        ).run()
+
+        assertSame(winner, won)
+        assertTrue((behind.transport as ScriptedMac.MacConnection).closed)
+    }
 }
