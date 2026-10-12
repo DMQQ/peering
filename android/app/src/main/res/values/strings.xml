@@ -214,6 +214,23 @@
     <string name="approval_answered">Answered</string>
     <string name="approval_cancelled">Cancelled, the turn ended first</string>
 
+    <string name="remote_pointer_trackpad">Trackpad</string>
+    <string name="remote_pointer_touch">Touch</string>
+    <string name="remote_pointer_to_touch">Switch to touch pointer</string>
+    <string name="remote_pointer_to_trackpad">Switch to trackpad pointer</string>
+    <string name="remote_fit">Fit</string>
+    <string name="remote_fit_description">Fit the picture to the screen</string>
+    <string name="remote_zoom_percent">%1$d%%</string>
+    <string name="remote_show_controls">Show controls</string>
+    <string name="remote_computer_fallback">Computer</string>
+    <string name="remote_disconnect_description">Disconnect from the computer</string>
+    <string name="remote_leave_title">Leave this session?</string>
+    <string name="remote_leave_message">The connection to %1$s ends and you return to Connect.</string>
+    <string name="remote_leave_confirm">Leave</string>
+    <string name="remote_leave_cancel">Stay</string>
+    <string name="remote_reconnecting">Reconnecting to %1$s</string>
+    <string name="remote_reconnecting_detail">The picture resumes when the link is back.</string>
+    <string name="overlay_picture_live">Live</string>
     <string name="remote_keyboard">Keyboard</string>
     <string name="remote_menu">Menu</string>
     <string name="hub_title">Session</string>
@@ -229,7 +246,7 @@
     <string name="overlay_path_lan_description">Connected over the local network</string>
     <string name="overlay_path_relay_description">Connected through the relay</string>
     <string name="overlay_path_direct_description">Connected directly, without the relay</string>
-    <string name="overlay_picture_waiting">Waiting for the picture</string>
+    <string name="overlay_picture_waiting">Connecting</string>
     <string name="overlay_picture_stalled">Still waiting for the picture</string>
     <string name="overlay_picture_failed">No picture from the computer</string>
     <string name="overlay_picture_retry">Retry</string>

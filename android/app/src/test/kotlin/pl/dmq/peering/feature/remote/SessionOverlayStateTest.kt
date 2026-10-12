@@ -8,7 +8,7 @@ import pl.dmq.peering.session.history.SessionRecord
 class SessionOverlayStateTest {
     @Test
     fun `a relay session with few minutes left shows a low notice with the minutes`() {
-        val state = SessionOverlayState.of(42, SessionRecord.Path.RELAY, PictureState.LIVE, relayMinutesLeft = 3)
+        val state = SessionOverlayState.of(null, 42, SessionRecord.Path.RELAY, PictureState.LIVE, reconnecting = false, relayMinutesLeft = 3)
 
         assertEquals(QuotaNotice.Low(3), state.quota)
         assertEquals(42, state.latencyMs)
@@ -17,7 +17,7 @@ class SessionOverlayStateTest {
 
     @Test
     fun `a relay session with no minutes left shows the exhausted notice`() {
-        val state = SessionOverlayState.of(null, SessionRecord.Path.RELAY, PictureState.LIVE, relayMinutesLeft = 0)
+        val state = SessionOverlayState.of(null, null, SessionRecord.Path.RELAY, PictureState.LIVE, reconnecting = false, relayMinutesLeft = 0)
 
         assertEquals(QuotaNotice.Exhausted, state.quota)
     }
@@ -40,7 +40,7 @@ class SessionOverlayStateTest {
 
     @Test
     fun `the picture state and an unknown path pass through unchanged`() {
-        val state = SessionOverlayState.of(latencyMs = null, path = null, picture = PictureState.PAUSED, relayMinutesLeft = null)
+        val state = SessionOverlayState.of(null, latencyMs = null, path = null, picture = PictureState.PAUSED, reconnecting = false, relayMinutesLeft = null)
 
         assertEquals(PictureState.PAUSED, state.picture)
         assertNull(state.path)

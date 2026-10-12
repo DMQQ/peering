@@ -32,6 +32,8 @@ class RemoteStatesTest {
         assertEquals(pixels, state.picturePixels)
         assertEquals(capabilities, state.capabilities)
         assertEquals(12, state.relayMinutesLeft)
+        assertEquals("Studio", state.hostName)
+        assertEquals(false, state.reconnecting)
     }
 
     @Test
@@ -41,6 +43,7 @@ class RemoteStatesTest {
         val state = remoteUiState(session, null, HubCapabilities.NONE, InputMode.TRACKPAD, relayMinutesLeft = null)
 
         assertEquals(null, state.path)
+        assertEquals(true, state.reconnecting)
         assertEquals(PictureState.WAITING, state.pictureState)
     }
 

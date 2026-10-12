@@ -112,6 +112,50 @@ class RemoteCanvasPresenterTest {
     }
 
     @Test
+    fun `a two finger tap right clicks in trackpad mode`() {
+        presenter.onPointerDown(1, 400.0, 500.0, timeMs = 0)
+        presenter.onPointerDown(2, 600.0, 500.0, timeMs = 10)
+        presenter.onPointerUp(2, 600.0, 500.0, timeMs = 90)
+        presenter.onPointerUp(1, 400.0, 500.0, timeMs = 100)
+
+        assertEquals(listOf(MouseDown(MouseButton.RIGHT), MouseUp(MouseButton.RIGHT)), sink.sent)
+    }
+
+    @Test
+    fun `a long press then a move drags with the left button held in trackpad mode`() {
+        presenter.onPointerDown(1, 500.0, 500.0, timeMs = 0)
+        presenter.onPointerMove(1, 520.0, 500.0, timeMs = 500)
+        presenter.onPointerUp(1, 520.0, 500.0, timeMs = 600)
+
+        assertEquals(MouseDown(MouseButton.LEFT), sink.sent.first())
+        assertEquals(MouseUp(MouseButton.LEFT), sink.sent.last())
+        assertTrue(sink.sent.any { it is MouseMove })
+    }
+
+    @Test
+    fun `a tap clicks nothing in direct mode beyond its own press and release`() {
+        presenter.setMode(InputMode.DIRECT)
+        presenter.onPictureChanged(PixelSize(1000.0, 1000.0))
+        presenter.onPointerDown(1, 500.0, 500.0, timeMs = 0)
+        presenter.onPointerUp(1, 500.0, 500.0, timeMs = 80)
+
+        assertEquals(1, sink.sent.count { it == MouseDown(MouseButton.LEFT) })
+        assertEquals(1, sink.sent.count { it == MouseUp(MouseButton.LEFT) })
+    }
+
+    @Test
+    fun `switching to touch mid pinch keeps the zoom`() {
+        presenter.onPointerDown(1, 400.0, 500.0, timeMs = 0)
+        presenter.onPointerDown(2, 600.0, 500.0, timeMs = 0)
+        presenter.onPointerMove(2, 700.0, 500.0, timeMs = 10)
+        val zoom = presenter.state.value.viewport.zoom
+        presenter.setMode(InputMode.DIRECT)
+
+        assertEquals(zoom, presenter.state.value.viewport.zoom, EPSILON)
+        assertTrue(zoom > 1.0)
+    }
+
+    @Test
     fun `two fingers moving together scroll the Mac in direct mode by their midpoint`() {
         presenter.setMode(InputMode.DIRECT)
         presenter.onPointerDown(1, 400.0, 500.0, timeMs = 0)

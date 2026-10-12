@@ -1,37 +1,83 @@
 package pl.dmq.peering.feature.remote
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.chipSurface
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.peeringShapes
 
-/** The status line over the top of the picture: latency, the path, the picture state and any relay notice. */
+/**
+ * The status pill over the top of the picture: the computer's name and a dot for the link, the route, the latency
+ * and the picture state, a zoom chip that fits the picture, and the disconnect button. Retry shows when the picture
+ * stalled or failed; a relay notice sits under the pill.
+ */
 @Composable
-fun SessionOverlay(state: SessionOverlayState, onRetry: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            state.latencyMs?.let {
+fun SessionOverlay(
+    state: SessionOverlayState,
+    zoomPercent: Int?,
+    onFit: () -> Unit,
+    onRetry: () -> Unit,
+    onDisconnect: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Row(
+            modifier = Modifier.chipSurface(peeringShapes.extraLarge).padding(start = 16.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatusDot(statusColor(state))
+            Column(modifier = Modifier.weight(1f, fill = false).padding(vertical = 6.dp, horizontal = 2.dp)) {
                 Text(
-                    text = stringResource(R.string.overlay_latency, it),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = PeeringColors.muted,
+                    text = state.hostName ?: stringResource(R.string.remote_computer_fallback),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = PeeringColors.ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    state.path?.let { PathBadge(it) }
+                    state.latencyMs?.let { LabelText(stringResource(R.string.overlay_latency, it)) }
+                    LabelText(stringResource(state.pictureLabel()))
+                }
             }
-            state.path?.let { path -> PathBadge(path) }
-            state.picture.labelRes()?.let {
-                Text(
-                    text = stringResource(it),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = PeeringColors.muted,
+            zoomPercent?.let {
+                TextButton(onClick = onFit) {
+                    Text(stringResource(R.string.remote_zoom_percent, it), color = PeeringColors.accent)
+                }
+            }
+            IconButton(onClick = onDisconnect) {
+                Icon(
+                    imageVector = AppIcons.power,
+                    contentDescription = stringResource(R.string.remote_disconnect_description),
+                    tint = PeeringColors.danger,
                 )
             }
         }
@@ -52,10 +98,27 @@ fun SessionOverlay(state: SessionOverlayState, onRetry: () -> Unit, modifier: Mo
     }
 }
 
-private fun PictureState.labelRes(): Int? = when (this) {
+@Composable
+private fun LabelText(text: String) {
+    Text(text = text, style = MaterialTheme.typography.labelMedium, color = PeeringColors.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+}
+
+@Composable
+private fun StatusDot(color: Color) {
+    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
+}
+
+private fun statusColor(state: SessionOverlayState): Color = when {
+    state.reconnecting || state.picture == PictureState.STALLED || state.picture == PictureState.PAUSED -> PeeringColors.caution
+    state.picture == PictureState.FAILED -> PeeringColors.danger
+    state.picture == PictureState.LIVE -> PeeringColors.added
+    else -> PeeringColors.muted
+}
+
+private fun SessionOverlayState.pictureLabel(): Int = when (picture) {
     PictureState.WAITING -> R.string.overlay_picture_waiting
+    PictureState.LIVE -> R.string.overlay_picture_live
     PictureState.PAUSED -> R.string.overlay_picture_paused
     PictureState.STALLED -> R.string.overlay_picture_stalled
     PictureState.FAILED -> R.string.overlay_picture_failed
-    PictureState.LIVE -> null
 }

@@ -27,6 +27,8 @@ internal fun remoteUiState(
         pictureState = session.picture.toScreenPicture(),
         relayMinutesLeft = relayMinutesLeft,
         capabilities = capabilities,
+        hostName = ready?.hostName,
+        reconnecting = session.phase is SessionPhase.Reconnecting,
         inputMode = inputMode,
     )
 }

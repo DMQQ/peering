@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.DesktopWindows
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.FitScreen
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.KeyboardCommandKey
@@ -23,6 +24,8 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Laptop
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Mouse
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.NotificationsActive
@@ -31,12 +34,14 @@ import androidx.compose.material.icons.outlined.PersonOff
 import androidx.compose.material.icons.outlined.PhonelinkLock
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
+import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Sensors
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Tag
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.VerifiedUser
@@ -93,4 +98,9 @@ object AppIcons {
     val help: ImageVector get() = Icons.AutoMirrored.Outlined.HelpOutline
     val delete: ImageVector get() = Icons.Outlined.Delete
     val camera: ImageVector get() = Icons.Outlined.PhotoCamera
+    val fit: ImageVector get() = Icons.Outlined.FitScreen
+    val menu: ImageVector get() = Icons.Outlined.Menu
+    val trackpad: ImageVector get() = Icons.Outlined.Mouse
+    val power: ImageVector get() = Icons.Outlined.PowerSettingsNew
+    val tune: ImageVector get() = Icons.Outlined.Tune
 }

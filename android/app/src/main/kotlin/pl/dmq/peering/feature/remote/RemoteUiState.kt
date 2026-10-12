@@ -17,6 +17,9 @@ data class RemoteUiState(
     /** Relay minutes left today, or null when the plan has no limit. */
     val relayMinutesLeft: Int?,
     val capabilities: HubCapabilities,
+    /** The computer's name while the session is ready, else null. */
+    val hostName: String?,
+    val reconnecting: Boolean,
     val inputMode: InputMode,
 ) {
     companion object {
@@ -29,6 +32,8 @@ data class RemoteUiState(
             pictureState = PictureState.WAITING,
             relayMinutesLeft = null,
             capabilities = HubCapabilities.NONE,
+            hostName = null,
+            reconnecting = false,
             inputMode = InputMode.TRACKPAD,
         )
     }
