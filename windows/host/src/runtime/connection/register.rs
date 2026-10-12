@@ -3,9 +3,9 @@
 
 use peering_core::video::lane::VideoLane;
 use peering_wire::sealing::TOKEN_SIZE;
-use tokio::sync::mpsc;
 use tokio::task::spawn_local;
 
+use super::super::outbound::outbound;
 use super::super::relay_lane;
 use super::super::shared::SessionSlot;
 use super::super::VideoEndpoint;
@@ -16,7 +16,7 @@ impl Connection {
         self.pre_auth = None;
         let client_id = self.session.client_id().to_owned();
         let video_token = self.peer.video_token.unwrap_or([0u8; TOKEN_SIZE]);
-        let relay_lane = self.relay_video().map(|(endpoint, token)| (endpoint, token, mpsc::unbounded_channel::<Vec<u8>>()));
+        let relay_lane = self.relay_video().map(|(endpoint, token)| (endpoint, token, outbound::<Vec<u8>>()));
         let frames = {
             let mut guard = self.shared.lock();
             let state = &mut *guard;

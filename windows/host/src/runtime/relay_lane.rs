@@ -13,9 +13,10 @@ use peering_core::video::lane::VideoLane;
 use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::sealing::MAX_DATAGRAM_SIZE;
 use tokio::net::{lookup_host, UdpSocket};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use tokio::time::interval;
 
+use super::outbound::OutboundReceiver;
 use super::shared::Shared;
 use super::{HostProfile, VideoEndpoint};
 use route::{arrival_path, route, Path};
@@ -29,7 +30,7 @@ pub async fn run(
     session_id: u64,
     endpoint: VideoEndpoint,
     token: [u8; 16],
-    mut outbound: UnboundedReceiver<Vec<u8>>,
+    mut outbound: OutboundReceiver<Vec<u8>>,
 ) {
     let Some(relay) = resolve(&endpoint).await else {
         return;

@@ -10,11 +10,11 @@ use peering_core::session::deps::PinStore;
 use peering_core::terminal::manager::TerminalSessionManager;
 use peering_core::video::coordinator::VideoCoordinator;
 use peering_core::video::lane::VideoLane;
-use peering_wire::framing::Frame;
 use peering_wire::relay_messages::RelayClientMessage;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 
 use super::control::{ControlChannel, RelayStatus};
+use super::outbound::{FrameSender, Outbound};
 use super::peer_address::PeerAddressRouter;
 use super::services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
 
@@ -23,9 +23,9 @@ use super::services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, Shar
 pub struct SessionSlot {
     pub client_id: String,
     pub peer_key: Option<Vec<u8>>,
-    pub outbound: mpsc::UnboundedSender<Frame>,
-    pub video_outbound: Option<mpsc::UnboundedSender<Frame>>,
-    pub datagram_outbound: Option<mpsc::UnboundedSender<Vec<u8>>>,
+    pub outbound: FrameSender,
+    pub video_outbound: Option<FrameSender>,
+    pub datagram_outbound: Option<Outbound<Vec<u8>>>,
     pub lane: VideoLane,
 }
 

@@ -16,11 +16,11 @@ use peering_agent::environment::find_binary;
 use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::relay_messages::RelayClientMessage;
 use peering_wire::terminal::{TerminalEvent, TerminalRequest};
-use tokio::sync::mpsc;
 use tokio::task::spawn_local;
 
 use super::agent::{search_env, DiskExists};
 use super::connection::{Connection, Flow};
+use super::outbound::FrameSender;
 use super::random::SystemRandomSource;
 use super::services::{SharedFileSystem, TerminalServices};
 use super::shared::HostState;
@@ -128,7 +128,7 @@ impl Connection {
 
 /// Runs a disk request off the runtime thread. A drive that never answers costs the client one failure, not every
 /// session a frozen host.
-fn answer_browse(browser: Arc<FileBrowser<SharedFileSystem>>, request: TerminalRequest, outbound: mpsc::UnboundedSender<Frame>) {
+fn answer_browse(browser: Arc<FileBrowser<SharedFileSystem>>, request: TerminalRequest, outbound: FrameSender) {
     spawn_local(async move {
         let asked = request.clone();
         let work = tokio::task::spawn_blocking(move || browser.answer(&request));

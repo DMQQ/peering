@@ -14,6 +14,7 @@ mod control;
 mod files;
 mod listener;
 mod peer_address;
+mod outbound;
 mod pins;
 mod pre_auth;
 mod random;

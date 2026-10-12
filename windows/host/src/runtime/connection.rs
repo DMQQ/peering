@@ -12,13 +12,14 @@ use peering_core::session::liveness::{counts_as_life, LivenessTracker, Verdict};
 use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
 use peering_wire::handshake::{ClientHello, ServerHello};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 use tokio::task::spawn_local;
 use tokio::time::interval;
 
 mod register;
 
 use super::agent::StdLauncher;
+use super::outbound::{outbound, FrameSender, OutboundReceiver};
 use super::pre_auth::PreAuthPermit;
 use super::random::SystemRandomSource;
 use super::shared::Shared;
@@ -37,7 +38,7 @@ pub(super) struct Connection {
     pub(super) shared: Shared,
     pub(super) profile: Arc<HostProfile>,
     pub(super) peer: PeerInfo,
-    pub(super) outbound: mpsc::UnboundedSender<Frame>,
+    pub(super) outbound: FrameSender,
     pub(super) session: HostSession,
     pub(super) session_id: u64,
     pub(super) liveness: LivenessTracker,
@@ -62,7 +63,7 @@ where
     S: AsyncRead + AsyncWrite + Unpin + 'static,
 {
     let (mut reader, writer) = tokio::io::split(stream);
-    let (outbound, frames) = mpsc::unbounded_channel();
+    let (outbound, frames) = outbound();
     spawn_local(write_frames(writer, frames));
 
     let session_id = shared.lock().allocate_session();
@@ -97,9 +98,15 @@ where
     connection.finish();
 }
 
-async fn write_frames<W: AsyncWrite + Unpin>(mut writer: W, mut frames: mpsc::UnboundedReceiver<Frame>) {
+async fn write_frames<W: AsyncWrite + Unpin>(mut writer: W, mut frames: OutboundReceiver<Frame>) {
     while let Some(frame) = frames.recv().await {
-        if writer.write_all(&frame.encode()).await.is_err() {
+        // A peer that has stopped reading blocks the write; the queue passing its high-water mark is what ends it.
+        let bytes = frame.encode();
+        let written = tokio::select! {
+            written = writer.write_all(&bytes) => written.is_ok(),
+            () = frames.overflowed() => false,
+        };
+        if !written {
             break;
         }
     }
@@ -134,6 +141,7 @@ impl Connection {
                         }
                     }
                 }
+                () = self.outbound.overflowed() => return,
                 _ = ticks.tick() => {
                     if self.on_tick() == Flow::Closed {
                         return;
