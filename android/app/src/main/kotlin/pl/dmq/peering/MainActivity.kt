@@ -1,11 +1,13 @@
 package pl.dmq.peering
 
 import android.graphics.Color
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -18,11 +20,13 @@ import pl.dmq.peering.ui.theme.PeeringTheme
 import pl.dmq.peering.ui.wiring.AppLock
 import pl.dmq.peering.ui.wiring.DeviceUnlock
 import pl.dmq.peering.ui.wiring.PreferencesFirstRunStore
+import pl.dmq.peering.widget.WidgetLink
 
 /** A FragmentActivity because the system's unlock prompt is hosted by one. */
 class MainActivity : FragmentActivity() {
     private lateinit var appLock: AppLock
     private var locked by mutableStateOf(false)
+    private var connectRequests by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -40,15 +44,28 @@ class MainActivity : FragmentActivity() {
         appLock = AppLock(preferences)
         locked = appLock.isEnabled() && DeviceUnlock.isAvailable(this)
         val preview = if (BuildConfig.DEBUG) intent.getStringExtra(PREVIEW_EXTRA) else null
+        if (savedInstanceState == null) openWidgetLink(intent)
         setContent {
             PeeringTheme {
                 when {
                     preview != null -> DebugPreview(preview)
                     locked -> LockScreen(onUnlock = ::requestUnlock)
-                    else -> PeeringScaffold()
+                    else -> PeeringScaffold(connectRequests)
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openWidgetLink(intent)
+    }
+
+    private fun openWidgetLink(intent: Intent) {
+        val link = WidgetLink.parse(intent.dataString) ?: return
+        (application as PeeringApplication).wiring?.openFromWidget(link)
+        connectRequests++
     }
 
     override fun onStart() {

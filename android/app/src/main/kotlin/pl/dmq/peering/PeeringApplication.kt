@@ -15,6 +15,10 @@ class PeeringApplication : Application() {
     internal var hubDependencies: HubDependencies? = null
         private set
 
+    /** The wiring the screens share; null until [onCreate] has built it. */
+    internal var wiring: FeatureWiring? = null
+        private set
+
     /** Whether the hub is on top of the main activity, which then stays unlocked when it stops. */
     internal var hubOpen = false
 
@@ -23,6 +27,7 @@ class PeeringApplication : Application() {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         val preferences = getSharedPreferences(MainActivity.PREFERENCES_NAME, Context.MODE_PRIVATE)
         val wiring = FeatureWiring(graph, scope, preferences)
+        this.wiring = wiring
         wiring.install()
         hubDependencies = HubDependencies(wiring.holder.active, wiring.drafts, wiring.folderRecents, wiring.clock)
     }

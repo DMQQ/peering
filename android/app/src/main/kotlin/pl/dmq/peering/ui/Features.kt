@@ -10,7 +10,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import pl.dmq.peering.AppGraph
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import pl.dmq.peering.widget.WidgetLink
+import pl.dmq.peering.widget.WidgetPublisher
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -105,8 +108,14 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
         scope,
     )
     val presence = SessionPresence(holder, relayPresence)
+    private val pins = graph.sessions.pins
+
+    /** Set by a widget tap that asked for a session; the Connect tab shows it and clears the flag. */
+    val pendingSessionView = MutableStateFlow(false)
 
     init {
+        WidgetPublisher(graph.applicationContext, scope, clock)
+            .start(trusted.trustedHosts(), presence.connectedHostId(), presence.onlineHostIds(), holder.active)
         scope.launch {
             holder.active
                 .flatMapLatest { session -> session?.controller?.state?.map { it.phase } ?: flowOf(null) }
@@ -128,6 +137,14 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
         val phase = live?.controller?.state?.value?.phase
         val running = phase != null && phase !is SessionPhase.Failed && phase != SessionPhase.Ended
         if (live?.target?.hostId != hostId || !running) connectPaired(hostId)
+    }
+
+    /** Opens the computer a widget tap named, or the one last used. Only a paired computer is dialled: the link comes from outside the app. */
+    fun openFromWidget(link: WidgetLink) {
+        val hostId = link.targetHostId ?: holder.active.value?.target?.hostId ?: return
+        if (hostId !in pins.hostIds()) return
+        connectOrResume(hostId)
+        pendingSessionView.value = true
     }
 
     /** Dials a paired Mac over the one route the user chose. */

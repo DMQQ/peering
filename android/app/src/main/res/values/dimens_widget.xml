@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="widget_corner_container">24dp</dimen>
+    <dimen name="widget_corner_row">14dp</dimen>
+    <dimen name="widget_corner_tile">8dp</dimen>
+    <dimen name="widget_dot_size">7dp</dimen>
+    <dimen name="widget_min_size">110dp</dimen>
+    <dimen name="widget_min_resize">110dp</dimen>
+</resources>
