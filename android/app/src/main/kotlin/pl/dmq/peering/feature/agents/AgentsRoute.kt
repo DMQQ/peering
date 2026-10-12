@@ -26,6 +26,7 @@ fun AgentsRoute(
     modelPickerSupported: Boolean,
     draftStore: ComposerDraftStore,
     clock: Clock,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -66,6 +67,7 @@ fun AgentsRoute(
         } else {
             HubScreen(
                 presenter = hub,
+                onBack = onBack,
                 folders = folders,
                 onSessionOpened = { showingChat = true },
                 onChatStarted = { sessionsBeforeStart = chatState.sessions.map { it.id }.toSet() },

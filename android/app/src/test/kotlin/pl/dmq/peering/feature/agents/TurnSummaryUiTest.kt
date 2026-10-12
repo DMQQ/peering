@@ -32,6 +32,13 @@ class TurnSummaryUiTest {
     }
 
     @Test
+    fun tokensInAndOutAreCarriedWhenTheCliReportsThem() {
+        val ui = TurnSummaryUi.of(AgentTurnSummary(ok = true, stopped = false, inputTokens = 1200, outputTokens = 340))
+        assertEquals(1200L, ui.inputTokens)
+        assertEquals(340L, ui.outputTokens)
+    }
+
+    @Test
     fun durationRoundsToTheNearestSecond() {
         assertEquals(13L, TurnSummaryUi.of(AgentTurnSummary(ok = true, stopped = false, duration = 12.5)).durationSeconds)
     }

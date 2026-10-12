@@ -1,66 +1,143 @@
 package pl.dmq.peering.feature.agents
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.theme.EmptyState
-import pl.dmq.peering.ui.theme.OutlinedPanel
+import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.InkButton
+import pl.dmq.peering.ui.kit.cardBackground
+import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.PeeringText
+import pl.dmq.peering.ui.theme.peeringShapes
 
-private class Suggestion(val title: Int, val detail: Int)
+private class Suggestion(val icon: ImageVector, val title: Int, val detail: Int)
 
 private val suggestions = listOf(
-    Suggestion(R.string.agents_suggestion_overview, R.string.agents_suggestion_overview_detail),
-    Suggestion(R.string.agents_suggestion_tests, R.string.agents_suggestion_tests_detail),
-    Suggestion(R.string.agents_suggestion_review, R.string.agents_suggestion_review_detail),
+    Suggestion(AppIcons.document, R.string.agents_suggestion_overview, R.string.agents_suggestion_overview_detail),
+    Suggestion(AppIcons.checkCircle, R.string.agents_suggestion_tests, R.string.agents_suggestion_tests_detail),
+    Suggestion(AppIcons.code, R.string.agents_suggestion_review, R.string.agents_suggestion_review_detail),
 )
 
-/** A chat before its first message: the mascot, a question, and three ways to begin. An ended chat only says so. */
+/**
+ * A new chat before its first message: who is on the other end, "What are we working on?", the guide until it is read,
+ * and three ways to begin. An ended chat only says so.
+ */
 @Composable
 fun EmptyChat(ui: ChatUi, onSuggest: (String) -> Unit, modifier: Modifier = Modifier) {
+    var guideSeen by rememberSaveable { mutableStateOf(false) }
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        EmptyState(
-            icon = null,
-            title = stringResource(R.string.agents_empty_chat_title),
-            body = if (ui.ended) stringResource(R.string.agents_empty_chat_ended) else ui.directory,
-            mascot = true,
+        AgentTile(ui.agentID)
+        Text(
+            stringResource(if (ui.ended) R.string.agents_chat_ended_title else R.string.agents_empty_chat_title),
+            style = PeeringText.display(size = 30f, tracking = -0.9f),
+            color = PeeringColors.ink,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp),
         )
-        if (!ui.ended) {
-            suggestions.forEach { suggestion ->
-                val title = stringResource(suggestion.title)
-                SuggestionRow(title, stringResource(suggestion.detail)) { onSuggest(title) }
+        if (ui.ended) {
+            Text(
+                stringResource(R.string.agents_empty_chat_ended),
+                style = PeeringText.footnote,
+                color = PeeringColors.muted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 14.dp, start = 12.dp, end = 12.dp),
+            )
+        } else {
+            Column(Modifier.padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!guideSeen) ChatGuide { guideSeen = true }
+                suggestions.forEach { suggestion ->
+                    val title = stringResource(suggestion.title)
+                    SuggestionRow(suggestion.icon, title, stringResource(suggestion.detail)) { onSuggest(title) }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SuggestionRow(title: String, detail: String, onClick: () -> Unit) {
-    OutlinedPanel(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(MaterialTheme.shapes.large).clickable(onClick = onClick),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+private fun AgentTile(agentID: String) {
+    val shape = peeringShapes.large
+    Box(
+        modifier = Modifier
+            .size(88.dp)
+            .clip(shape)
+            .background(PeeringColors.ink.copy(alpha = 0.14f))
+            .border(1.dp, PeeringColors.ink.copy(alpha = 0.3f), shape),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = PeeringColors.ink)
-        Text(detail, style = MaterialTheme.typography.bodySmall, color = PeeringColors.muted)
+        Icon(AgentBrand.of(agentID).icon(), contentDescription = null, tint = PeeringColors.ink, modifier = Modifier.size(38.dp))
+    }
+}
+
+@Composable
+private fun ChatGuide(onDismiss: () -> Unit) {
+    Column(Modifier.fillMaxWidth().cardBackground().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(stringResource(R.string.agents_chat_guide_title), style = PeeringText.display(size = 22f, tracking = -0.5f), color = PeeringColors.ink)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+            IconTile(AgentIcons.hand, size = 34.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(stringResource(R.string.agents_chat_guide_asks), style = PeeringText.subheadlineSemibold, color = PeeringColors.ink)
+                Text(stringResource(R.string.agents_chat_guide_asks_detail), style = PeeringText.footnote, color = PeeringColors.muted)
+            }
+        }
+        InkButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.agents_guide_got_it)) }
+    }
+}
+
+@Composable
+private fun SuggestionRow(icon: ImageVector, title: String, detail: String, onClick: () -> Unit) {
+    val shape = peeringShapes.small
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 62.dp)
+            .clip(shape)
+            .border(1.dp, PeeringColors.hairline, shape)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        IconTile(icon, size = 34.dp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = PeeringText.subheadlineSemibold.copy(fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold), color = PeeringColors.ink, maxLines = 1)
+            Text(detail, style = PeeringText.caption, color = PeeringColors.ink.copy(alpha = 0.5f), maxLines = 1)
+        }
+        Icon(AgentIcons.upLeft, contentDescription = null, tint = PeeringColors.ink.copy(alpha = 0.35f), modifier = Modifier.size(12.dp))
     }
 }

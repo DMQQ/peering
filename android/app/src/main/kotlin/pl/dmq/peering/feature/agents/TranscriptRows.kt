@@ -1,7 +1,14 @@
 package pl.dmq.peering.feature.agents
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,147 +17,188 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import java.util.Locale
+import kotlin.math.sin
 import pl.dmq.peering.R
-import pl.dmq.peering.session.agent.TranscriptRow
-import pl.dmq.peering.ui.theme.OutlinedPanel
+import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.PeeringMenu
+import pl.dmq.peering.ui.kit.PeeringMenuItem
 import pl.dmq.peering.ui.theme.PeeringColors
-import pl.dmq.peering.wire.AgentPlanStep
-import pl.dmq.peering.wire.AgentPlanStepStatus
+import pl.dmq.peering.ui.theme.PeeringText
+import pl.dmq.peering.ui.theme.peeringShapes
+import pl.dmq.peering.ui.theme.PillShape
 
+private val bubbleShape get() = peeringShapes.extraSmall
+
+/** What you said: right aligned in a tinted bubble. A long press copies it or asks it again. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun UserBubble(text: String) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = PeeringColors.ink,
-            modifier = Modifier
-                .clip(MaterialTheme.shapes.medium)
-                .background(PeeringColors.surface)
-                .border(1.dp, PeeringColors.hairline, MaterialTheme.shapes.medium)
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-        )
+fun UserBubble(text: String, canAskAgain: Boolean, onAskAgain: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
+    var menuOpen by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Box(Modifier.padding(start = 40.dp)) {
+            Text(
+                text = text,
+                style = PeeringText.body.copy(fontSize = 16.sp),
+                color = PeeringColors.ink,
+                modifier = Modifier
+                    .clip(bubbleShape)
+                    .background(PeeringColors.ink.copy(alpha = 0.07f))
+                    .border(1.dp, PeeringColors.ink.copy(alpha = 0.07f), bubbleShape)
+                    .combinedClickable(onClick = { menuOpen = true }, onLongClick = { menuOpen = true })
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+            )
+            PeeringMenu(menuOpen, { menuOpen = false }) {
+                PeeringMenuItem(stringResource(R.string.agents_copy), icon = AppIcons.copy, onClick = {
+                    menuOpen = false
+                    clipboard.setText(AnnotatedString(text))
+                })
+                if (canAskAgain) {
+                    PeeringMenuItem(stringResource(R.string.agents_ask_again), icon = AgentIcons.replay, onClick = {
+                        menuOpen = false
+                        onAskAgain()
+                    })
+                }
+            }
+        }
     }
 }
 
+/** A message waiting behind the running turn: dashed, dimmed, with a clock pill saying when it starts. */
 @Composable
-fun QueuedPromptRow(text: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            stringResource(R.string.agents_queued_label),
-            style = MaterialTheme.typography.labelMedium,
-            color = PeeringColors.faint,
-            modifier = Modifier.padding(end = 8.dp),
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = PeeringColors.muted,
-            modifier = Modifier
-                .clip(MaterialTheme.shapes.medium)
-                .border(1.dp, PeeringColors.hairline, MaterialTheme.shapes.medium)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-        )
-    }
-}
-
-@Composable
-fun PlanCard(steps: List<AgentPlanStep>) {
-    OutlinedPanel(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            stringResource(R.string.agents_plan_label),
-            style = MaterialTheme.typography.labelMedium,
-            color = PeeringColors.muted,
-        )
-        Column(modifier = Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            steps.forEach { step -> PlanStepLine(step) }
+fun QueuedPromptRow(text: String, position: Int, total: Int) {
+    val label = if (total > 1) stringResource(R.string.agents_queued_position, position, total) else stringResource(R.string.agents_queued_next)
+    val dash = PathEffect.dashPathEffect(floatArrayOf(12f, 9f))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Column(Modifier.padding(start = 40.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(
+                text,
+                style = PeeringText.body.copy(fontSize = 16.sp),
+                color = PeeringColors.ink.copy(alpha = 0.6f),
+                modifier = Modifier
+                    .drawBehind {
+                        drawRoundRect(
+                            color = Color.White.copy(alpha = 0.2f),
+                            cornerRadius = CornerRadius(12.dp.toPx()),
+                            style = Stroke(width = 1.dp.toPx(), pathEffect = dash),
+                        )
+                    }
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+            )
+            Row(
+                modifier = Modifier
+                    .clip(PillShape)
+                    .background(PeeringColors.ink.copy(alpha = 0.08f))
+                    .border(1.dp, PeeringColors.ink.copy(alpha = 0.14f), PillShape)
+                    .padding(horizontal = 9.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Icon(AgentIcons.clock, contentDescription = null, tint = PeeringColors.ink.copy(alpha = 0.7f), modifier = Modifier.size(11.dp))
+                Text(label, style = PeeringText.caption2.copy(fontSize = 11.sp), color = PeeringColors.ink.copy(alpha = 0.7f))
+            }
         }
     }
 }
 
 @Composable
-private fun PlanStepLine(step: AgentPlanStep) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(
-                    when (step.status) {
-                        AgentPlanStepStatus.COMPLETED -> PeeringColors.added
-                        AgentPlanStepStatus.IN_PROGRESS -> PeeringColors.ink
-                        AgentPlanStepStatus.PENDING -> PeeringColors.faint
-                    },
-                ),
-        )
-        Text(
-            step.text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (step.status == AgentPlanStepStatus.PENDING) PeeringColors.muted else PeeringColors.ink,
-        )
+fun NoticeLine(text: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(AgentIcons.info, contentDescription = null, tint = PeeringColors.ink.copy(alpha = 0.5f), modifier = Modifier.size(13.dp))
+        Text(text, style = PeeringText.footnote, color = PeeringColors.ink.copy(alpha = 0.5f))
     }
 }
 
 @Composable
-fun SubagentStrip(row: TranscriptRow.Subagent) {
-    val steps = row.transcript.rows.size
-    val latest = row.transcript.rows.filterIsInstance<TranscriptRow.ToolCall>().lastOrNull()?.call?.title
-    OutlinedPanel(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            stringResource(R.string.agents_subagent_label),
-            style = MaterialTheme.typography.labelMedium,
-            color = PeeringColors.muted,
-        )
-        Text(
-            pluralStringResource(R.plurals.agents_subagent_steps, steps, steps),
-            style = MaterialTheme.typography.bodySmall,
-            color = PeeringColors.faint,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-        latest?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = PeeringColors.ink, modifier = Modifier.padding(top = 6.dp))
-        }
+fun FailureLine(text: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(AppIcons.warning, contentDescription = null, tint = PeeringColors.danger, modifier = Modifier.size(13.dp))
+        Text(text, style = PeeringText.footnote, color = PeeringColors.danger)
     }
 }
 
+/** What the turn cost, in monospace and quiet: Stopped or Failed first, then cost, tokens and time. */
 @Composable
 fun TurnSummaryPill(summary: TurnSummaryUi) {
-    val status = stringResource(
+    val parts = buildList {
         when (summary.status) {
-            TurnStatus.DONE -> R.string.agents_turn_done
-            TurnStatus.STOPPED -> R.string.agents_turn_stopped
-            TurnStatus.FAILED -> R.string.agents_turn_failed
-        },
+            TurnStatus.STOPPED -> add(stringResource(R.string.agents_turn_stopped))
+            TurnStatus.FAILED -> add(stringResource(R.string.agents_turn_failed))
+            TurnStatus.DONE -> Unit
+        }
+        summary.costUSD?.let { add(stringResource(R.string.agents_turn_cost, String.format(Locale.US, "%.2f", it))) }
+        val input = summary.inputTokens
+        val output = summary.outputTokens
+        if (input != null && output != null) add(stringResource(R.string.agents_turn_tokens, input, output))
+        summary.durationSeconds?.let { add(stringResource(R.string.agents_turn_duration, it)) }
+    }
+    if (parts.isEmpty()) return
+    Text(
+        parts.joinToString("  "),
+        style = PeeringText.caption2Monospaced,
+        color = if (summary.status == TurnStatus.FAILED) PeeringColors.danger else PeeringColors.ink.copy(alpha = 0.45f),
+        modifier = Modifier.padding(top = 2.dp),
     )
-    val parts = listOfNotNull(
-        status,
-        summary.durationSeconds?.let { pluralStringResource(R.plurals.agents_turn_seconds, it.toInt(), it) },
-        summary.costUSD?.let { stringResource(R.string.agents_turn_cost, formatCost(it)) },
-    )
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-        Text(
-            parts.joinToString(" · "),
-            style = MaterialTheme.typography.labelMedium,
-            color = if (summary.status == TurnStatus.FAILED) PeeringColors.danger else PeeringColors.muted,
-            modifier = Modifier
-                .clip(CircleShape)
-                .border(1.dp, PeeringColors.hairline, CircleShape)
-                .padding(horizontal = 12.dp, vertical = 5.dp),
-        )
+}
+
+/** Three dots passing a wave along, then the word, while the agent works. */
+@Composable
+fun ThinkingRow() {
+    val label = stringResource(R.string.agents_state_working)
+    Row(
+        modifier = Modifier.padding(vertical = 4.dp).semantics { contentDescription = label },
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Dots()
+        Text(label, style = PeeringText.footnote, color = PeeringColors.ink.copy(alpha = 0.5f))
     }
 }
 
-private fun formatCost(usd: Double): String = String.format(java.util.Locale.US, "%.2f", usd)
+@Composable
+private fun Dots() {
+    val transition = rememberInfiniteTransition(label = "thinking")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            tween(1200, easing = LinearEasing),
+        ),
+        label = "wave",
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        repeat(3) { index ->
+            val wave = (sin(phase - index * 0.9f) + 1f) / 2f
+            Box(
+                Modifier
+                    .size(5.dp)
+                    .padding(bottom = (3 * wave).dp)
+                    .background(PeeringColors.ink.copy(alpha = 0.3f + 0.6f * wave), CircleShape),
+            )
+        }
+    }
+}
+

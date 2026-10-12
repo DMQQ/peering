@@ -113,22 +113,60 @@ class AgentsHubPresenterTest {
     }
 
     @Test
-    fun newChatStartsWithAgentChoiceAndFolderListingForThatAgent() = runTest {
+    fun newChatAsksForAnAgentWhileNoneIsSelectedAndThenListsFoldersForIt() = runTest {
         val port = FakeAgentsPort()
         val harness = Harness(port)
         harness.presenter.beginNewChat()
         assertEquals(NewChatStep.ChoosingAgent, harness.presenter.ui.value.newChat)
         harness.presenter.chooseAgent("codex")
+        assertEquals(NewChatStep.Closed, harness.presenter.ui.value.newChat)
+        assertEquals("codex", harness.presenter.ui.value.selectedAgentID)
+        harness.presenter.beginNewChat()
         assertEquals(NewChatStep.ChoosingFolder("codex"), harness.presenter.ui.value.newChat)
         assertEquals(listOf<String?>(null), harness.folderRequests)
+    }
+
+    @Test
+    fun theOnlyAgentIsSelectedFromTheStart() = runTest {
+        val harness = Harness(FakeAgentsPort(), declared = listOf("claude"))
+        assertEquals("claude", harness.presenter.ui.value.selectedAgentID)
+        harness.presenter.beginNewChat()
+        assertEquals(NewChatStep.ChoosingFolder("claude"), harness.presenter.ui.value.newChat)
+    }
+
+    @Test
+    fun holdingTheDockReopensTheAgentChoiceWhenSeveralAreOffered() = runTest {
+        val harness = Harness(FakeAgentsPort())
+        harness.presenter.chooseAgent("claude")
+        harness.presenter.openAgentPicker()
+        assertEquals(NewChatStep.ChoosingAgent, harness.presenter.ui.value.newChat)
+    }
+
+    @Test
+    fun newChatHereStartsTheSameAgentInTheSameFolder() = runTest {
+        val port = FakeAgentsPort(AgentChatState(sessions = listOf(AgentChatSession(info("S1", directory = "/Users/me/api")))))
+        Harness(port).presenter.newChatHere("S1")
+        assertEquals(listOf("start:claude:/Users/me/api"), port.calls)
+    }
+
+    @Test
+    fun cardPreviewIsTheLatestReplyAndAgentUsageCountsLiveChats() = runTest {
+        val transcript = TranscriptState(rows = listOf(TranscriptRow.AssistantText(1, "  Done, tests pass.  ")))
+        val session = AgentChatSession(info("S1", AgentSessionState.WORKING), transcript = transcript)
+        val ui = Harness(FakeAgentsPort(AgentChatState(sessions = listOf(session)))).presenter.ui.value
+        assertEquals("Done, tests pass.", ui.sessions.single().preview)
+        val usage = ui.agentUsage.first { it.agentID == "claude" }
+        assertEquals(1, usage.working)
+        assertEquals(1, usage.open)
+        assertEquals(null, ui.agentUsage.first { it.agentID == "codex" }.lastUsedUnix)
     }
 
     @Test
     fun startingWaitsForAFolderListingThenSendsTheChosenPath() = runTest {
         val port = FakeAgentsPort()
         val harness = Harness(port)
-        harness.presenter.beginNewChat()
         harness.presenter.chooseAgent("claude")
+        harness.presenter.beginNewChat()
         harness.presenter.startInChosenFolder()
         assertTrue(port.calls.isEmpty())
         harness.folders.onEvent(AgentEvent.Directory("/Users/me", emptyList(), truncated = false))
@@ -138,12 +176,17 @@ class AgentsHubPresenterTest {
     }
 
     @Test
-    fun backFromFolderReturnsToTheAgentChoice() = runTest {
-        val harness = Harness(FakeAgentsPort())
-        harness.presenter.beginNewChat()
+    fun aRecentFolderStartsTheChatAtOnceButAnArbitraryPathDoesNot() = runTest {
+        val port = FakeAgentsPort()
+        val harness = Harness(port)
         harness.presenter.chooseAgent("claude")
-        harness.presenter.backToAgents()
-        assertEquals(NewChatStep.ChoosingAgent, harness.presenter.ui.value.newChat)
+        harness.presenter.beginNewChat()
+        harness.folders.onEvent(AgentEvent.Directory("/Users/me", emptyList(), truncated = false))
+        harness.presenter.startInChosenFolder()
+        harness.presenter.beginNewChat()
+        assertEquals(false, harness.presenter.startInRecentFolder("/elsewhere"))
+        assertEquals(true, harness.presenter.startInRecentFolder("/Users/me"))
+        assertEquals(listOf("start:claude:/Users/me", "start:claude:/Users/me"), port.calls)
     }
 
     @Test
@@ -152,6 +195,7 @@ class AgentsHubPresenterTest {
         harness.presenter.beginNewChat()
         harness.presenter.chooseAgent("gemini")
         assertEquals(NewChatStep.ChoosingAgent, harness.presenter.ui.value.newChat)
+        assertEquals(null, harness.presenter.ui.value.selectedAgentID)
         assertTrue(harness.folderRequests.isEmpty())
     }
 
@@ -172,8 +216,8 @@ class AgentsHubPresenterTest {
     @Test
     fun startingReportsWhetherAChatWasRequested() = runTest {
         val harness = Harness(FakeAgentsPort())
-        harness.presenter.beginNewChat()
         harness.presenter.chooseAgent("claude")
+        harness.presenter.beginNewChat()
         assertEquals(false, harness.presenter.startInChosenFolder())
         harness.folders.onEvent(AgentEvent.Directory("/Users/me", emptyList(), truncated = false))
         assertEquals(true, harness.presenter.startInChosenFolder())
@@ -183,8 +227,8 @@ class AgentsHubPresenterTest {
     fun cancellingTheNewChatClosesItWithoutStarting() = runTest {
         val port = FakeAgentsPort()
         val harness = Harness(port)
-        harness.presenter.beginNewChat()
         harness.presenter.chooseAgent("claude")
+        harness.presenter.beginNewChat()
 
         harness.presenter.cancelNewChat()
 

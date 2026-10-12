@@ -20,6 +20,9 @@ data class ResumableCard(
     val openElsewhere: Boolean,
 )
 
+/** What one agent is doing across the open chats, for its card in the picker. [lastUsedUnix] is null when it has no chat. */
+data class AgentUsage(val agentID: String, val working: Int, val needsYou: Int, val open: Int, val lastUsedUnix: Long?)
+
 data class HubUi(
     val sessions: List<SessionCard>,
     val history: List<SessionCard>,
@@ -27,6 +30,8 @@ data class HubUi(
     val canImport: Boolean,
     val selectedSessionID: String?,
     val agents: List<AgentOption>,
+    val agentUsage: List<AgentUsage>,
+    val selectedAgentID: String?,
     val newChat: NewChatStep,
     val failure: String?,
     val recentFolders: List<String>,

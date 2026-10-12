@@ -27,6 +27,8 @@ data class TurnSummaryUi(
     val status: TurnStatus,
     val durationSeconds: Long?,
     val costUSD: Double?,
+    val inputTokens: Long?,
+    val outputTokens: Long?,
 ) {
     companion object {
         fun of(summary: AgentTurnSummary): TurnSummaryUi = TurnSummaryUi(
@@ -37,6 +39,8 @@ data class TurnSummaryUi(
             },
             durationSeconds = summary.duration?.roundToLong(),
             costUSD = summary.costUSD,
+            inputTokens = summary.inputTokens,
+            outputTokens = summary.outputTokens,
         )
     }
 }
