@@ -20,6 +20,7 @@ import pl.dmq.peering.ui.theme.PeeringTheme
 import pl.dmq.peering.ui.wiring.AppLock
 import pl.dmq.peering.ui.wiring.DeviceUnlock
 import pl.dmq.peering.ui.wiring.PreferencesFirstRunStore
+import pl.dmq.peering.widget.LockedLinkQueue
 import pl.dmq.peering.widget.WidgetLink
 
 /** A FragmentActivity because the system's unlock prompt is hosted by one. */
@@ -27,6 +28,7 @@ class MainActivity : FragmentActivity() {
     private lateinit var appLock: AppLock
     private var locked by mutableStateOf(false)
     private var connectRequests by mutableIntStateOf(0)
+    private val lockedLinks = LockedLinkQueue()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -64,6 +66,10 @@ class MainActivity : FragmentActivity() {
 
     private fun openWidgetLink(intent: Intent) {
         val link = WidgetLink.parse(intent.dataString) ?: return
+        act(lockedLinks.admit(link, locked) ?: return)
+    }
+
+    private fun act(link: WidgetLink) {
         (application as PeeringApplication).wiring?.openFromWidget(link)
         connectRequests++
     }
@@ -80,7 +86,12 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun requestUnlock() {
-        DeviceUnlock.prompt(this, getString(R.string.connect_unlock_title)) { unlocked -> if (unlocked) locked = false }
+        DeviceUnlock.prompt(this, getString(R.string.connect_unlock_title)) { unlocked ->
+            if (unlocked) {
+                locked = false
+                lockedLinks.release()?.let(::act)
+            }
+        }
     }
 
     companion object {
