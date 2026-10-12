@@ -116,3 +116,7 @@ Rule since this audit: no empty lambda and no no-op default in production UI cod
 ## Debug previews
 
 `ui/debug/DebugPreview.kt` rendered screens with `{}` actions. They now log what was tapped, so a preview tap is visible in logcat under `PeeringPreview`.
+
+## Device checks (debug build, RF8NC0J9BQB)
+
+Run with the first-run flag cleared through `--ez reset_first_run true` (debug builds only). Landing, seven Next taps and the plans page, Restore purchases ("No purchases to restore"), Retry text, and Start using Peering reaching Connect were walked in order. After that: the address sheet and its back dismiss, the device ID sheet, the trusted host menu, the FAQ tab and an expanded row, Settings, See the plans and its back, and the tab bar. The flag was left true, as it was found. Not done on the phone: pairing and cancel against a Mac (a stray tap connected a session to the owner's Mac once and was left by Back), forgetting a host, scanner, session hub, agents and files, and paid plan purchase (Play lists no products for this app).
