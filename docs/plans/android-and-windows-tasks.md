@@ -288,7 +288,7 @@ AND-059 | todo | parallel-safe | S : billing gateway interface and Play adapter.
 
 ## Android: UI (parallel-safe, built against fakes, no UI tests)
 
-AND-060 | todo | foundation | S : app module, Peering theme (tokens from the design rule), navigation shell. Owns `android/app/*` build files, `MainActivity.kt`, `theme/*`, `nav/*`. Deps AND-001. Done: `./gradlew :app:assembleDebug` builds; bottom nav Connect, Sessions, Settings; dynamic color. Commit: Add the Android app shell with Material 3 navigation.
+AND-060 | done | foundation | S : app module, Peering theme (tokens from the design rule), navigation shell. Owns `android/app/*` build files, `MainActivity.kt`, `theme/*`, `nav/*`. Deps AND-001. Done: `./gradlew :app:assembleDebug` builds; bottom nav Connect, Sessions, Settings; dynamic color. Commit: Add the Android app shell with Material 3 navigation.
 AND-061 | todo | S : connect screen (hosts list, presence, add by id). Port `HostPickerView*.swift`. Owns `feature/connect/ConnectScreen.kt`, `ConnectViewModel.kt`. Deps AND-060, AND-040. Done: view model unit test over fakes (list ordering, presence); builds. Commit: Add the Connect screen with discovered and paired hosts.
 AND-062 | todo | S : pairing screens (code entry, scanner, confirm digits). Port `PairingCode*.swift`, `PairingPrompt.swift`. Owns `feature/pairing/*`. Deps AND-060, AND-040, AND-017. Done: view model tests for digit comparison and cancel; builds. Commit: Add the pairing screens with code comparison.
 AND-063 | todo | S : remote canvas and gestures. Port `Remote/RemoteCanvas.swift`, `RemoteScreen+Gestures.swift`. Owns `feature/remote/RemoteScreen.kt`, `GestureLayer.kt`. Deps AND-057, AND-026. Done: feeds AND-026 model; builds. Commit: Add the remote screen with touch input.
@@ -304,7 +304,7 @@ AND-072 | todo | S : file preview UI (text, image). Port `Files/FilePreviewPanel
 AND-073 | todo | S : settings screen. Port `SettingsTab*.swift` (quality, trusted hosts, identity reset, about). Owns `feature/settings/*`. Deps AND-060, AND-052. Done: view model test for forget host; builds. Commit: Add the settings screen with trusted hosts.
 AND-074 | todo | S : paywall UI. Port `Store/Paywall*.swift`, `AllowanceSpentView.swift`. Owns `feature/paywall/*`. Deps AND-059. Done: view model test of states; builds. Commit: Add the paywall and relay allowance screens.
 AND-075 | todo | S : first run and FAQ. Port `Onboarding/FAQView.swift`, `FirstConnectionScreen.swift` (minimal). Owns `feature/onboarding/*`. Deps AND-060. Done: builds. Commit: Add minimal first run and FAQ screens.
-AND-076 | todo | integration | S : wire the app graph. Owns `app/.../AppGraph.kt`. Deps AND-050..055, AND-061. Done: app builds with real platform classes behind the ports. Commit: Assemble the Android dependency graph.
+AND-076 | done | integration | S : wire the app graph. Owns `app/.../AppGraph.kt`. Deps AND-050..055, AND-061. Done: app builds with real platform classes behind the ports. Commit: Assemble the Android dependency graph.
 
 ## Android: flow tests (JVM, fake transports, vectors; no UI)
 
@@ -403,22 +403,22 @@ WIN-057 | done | S : binary lookup and environment on Windows. Port `AgentEnviro
 
 ## Windows: platform (peering-platform and host), Windows API; tests only for pure mappers
 
-WIN-060 | todo | S : identity and certificate. Owns `peering-platform/src/identity.rs`. Deps WIN-002. Done: P-256 key, `rcgen` cert with the Swift template (CN, O, EKU, validity), point export, DER signature; runs on Linux CI for the portable part. Commit: Create the host identity and certificate.
-WIN-061 | todo | S : rustls server config with custom client verifier. Owns `peering-platform/src/tls.rs`. Deps WIN-060. Done: TLS 1.3 only; in-process client test accepts any client cert and exposes its point. Commit: Serve pinned mutual TLS 1.3.
-WIN-062 | todo | S : DPAPI secret store. Owns `peering-platform/src/dpapi_store.rs`. Deps WIN-002. Done: round trip (Windows CI job only). Commit: Protect keys and pins with DPAPI.
-WIN-063 | todo | S : mDNS advertisement. Owns `peering-platform/src/mdns.rs`. Deps WIN-001. Done: TXT record builder tested; advertise on a loopback in a test. Commit: Advertise the host on the local network.
-WIN-064 | todo | S : monitor enumeration and stable ids. Owns `peering-platform/src/monitors.rs`. Deps WIN-014. Done: pure id/rect mapping tested; enumeration on Windows. Commit: List monitors with stable ids.
-WIN-065 | todo | S : desktop duplication capture. Owns `peering-platform/src/capture/dda.rs`. Deps WIN-064. Done: grabs frames from a chosen output as D3D11 textures; access-lost recovery; manual run on a Windows machine. Commit: Capture a monitor with desktop duplication.
-WIN-066 | todo | S : BGRA to NV12 conversion. Owns `peering-platform/src/encode/convert.rs`. Deps WIN-065. Done: GPU video processor path with a CPU reference test for the maths. Commit: Convert captured frames to NV12 on the GPU.
-WIN-067 | todo | S : Media Foundation H.264 encoder. Owns `peering-platform/src/encode/mft.rs`. Deps WIN-066, WIN-026. Done: hardware first then software, low latency attributes, forced keyframe, bitrate change; produces AVCC and config via WIN-026; manual run. Commit: Encode H.264 with Media Foundation at low latency.
-WIN-068 | todo | S : SendInput mouse and wheel. Owns `peering-platform/src/input/mouse.rs`. Deps WIN-025. Done: pure event builder tested; injection on Windows. Commit: Inject mouse and wheel input.
-WIN-069 | todo | S : SendInput keyboard, Unicode text, release all. Owns `peering-platform/src/input/keyboard.rs`. Deps WIN-024. Done: builder tests, held key tracker releases all on disconnect. Commit: Inject keyboard and text input.
+WIN-060 | done | S : identity and certificate. Owns `peering-platform/src/identity.rs`. Deps WIN-002. Done: P-256 key, `rcgen` cert with the Swift template (CN, O, EKU, validity), point export, DER signature; runs on Linux CI for the portable part. Commit: Create the host identity and certificate.
+WIN-061 | done | S : rustls server config with custom client verifier. Owns `peering-platform/src/tls.rs`. Deps WIN-060. Done: TLS 1.3 only; in-process client test accepts any client cert and exposes its point. Commit: Serve pinned mutual TLS 1.3.
+WIN-062 | done | S : DPAPI secret store. Owns `peering-platform/src/dpapi_store.rs`. Deps WIN-002. Done: round trip (Windows CI job only). Commit: Protect keys and pins with DPAPI.
+WIN-063 | done | S : mDNS advertisement. Owns `peering-platform/src/mdns.rs`. Deps WIN-001. Done: TXT record builder tested; advertise on a loopback in a test. Commit: Advertise the host on the local network.
+WIN-064 | done | S : monitor enumeration and stable ids. Owns `peering-platform/src/monitors.rs`. Deps WIN-014. Done: pure id/rect mapping tested; enumeration on Windows. Commit: List monitors with stable ids.
+WIN-065 | done | S : desktop duplication capture. Owns `peering-platform/src/capture/dda.rs`. Deps WIN-064. Done: grabs frames from a chosen output as D3D11 textures; access-lost recovery; manual run on a Windows machine. Commit: Capture a monitor with desktop duplication.
+WIN-066 | done | S : BGRA to NV12 conversion. Owns `peering-platform/src/encode/convert.rs`. Deps WIN-065. Done: GPU video processor path with a CPU reference test for the maths. Commit: Convert captured frames to NV12 on the GPU.
+WIN-067 | done | S : Media Foundation H.264 encoder. Owns `peering-platform/src/encode/mft.rs`. Deps WIN-066, WIN-026. Done: hardware first then software, low latency attributes, forced keyframe, bitrate change; produces AVCC and config via WIN-026; manual run. Commit: Encode H.264 with Media Foundation at low latency.
+WIN-068 | done | S : SendInput mouse and wheel. Owns `peering-platform/src/input/mouse.rs`. Deps WIN-025. Done: pure event builder tested; injection on Windows. Commit: Inject mouse and wheel input.
+WIN-069 | done | S : SendInput keyboard, Unicode text, release all. Owns `peering-platform/src/input/keyboard.rs`. Deps WIN-024. Done: builder tests, held key tracker releases all on disconnect. Commit: Inject keyboard and text input.
 WIN-070 | todo | S : DPI awareness manifest and rc. Owns `host/build.rs`, `host/app.manifest`. Deps none. Done: manifest declares Per-Monitor-V2. Commit: Declare per-monitor DPI awareness.
 WIN-071 | todo | S : host binary wiring (tokio runtime, listener, services). Owns `host/src/main.rs`, `host/src/runtime.rs`. Deps WIN-040..048, WIN-061. Done: starts, listens on 51515, advertises. Commit: Wire the host runtime together.
 WIN-072 | todo | S : tray icon and menu. Owns `host/src/tray.rs`. Deps WIN-071. Done: builds on Windows. Commit: Add the tray menu.
 WIN-073 | todo | S : pairing window (QR, code, devices). Owns `host/src/ui/pairing.rs`. Deps WIN-041, WIN-017. Done: builds. Commit: Show the pairing code and QR.
 WIN-074 | todo | S : autostart and firewall helper. Owns `host/src/autostart.rs`, `host/src/firewall.rs`. Deps WIN-071. Done: pure command builders tested. Commit: Start at login and offer a firewall fix.
-WIN-075 | todo | S : secure desktop notice. Owns `peering-platform/src/session_state.rs`. Deps WIN-065. Done: detect access lost and lock state, emits the `notice` payload. Commit: Tell the client when the secure desktop blocks capture.
+WIN-075 | done | S : secure desktop notice. Owns `peering-platform/src/session_state.rs`. Deps WIN-065. Done: detect access lost and lock state, emits the `notice` payload. Commit: Tell the client when the secure desktop blocks capture.
 
 ## Windows: flow tests (service level, fake ports, vectors)
 
@@ -437,8 +437,14 @@ WIN-098 | todo | integration | S : iPhone to the Windows host over LAN (mileston
 AND-134 | todo | S : map framing errors (unknown kind, oversize frame) from the decoder to a session failure in the connection layer. Owns `core/session/.../connection/` new file. Done: ErrorPathsTest asserts the failure reason, `./gradlew :core:session:test`.
 AND-135 | todo | S : call `CodecDecoder.flush()` on keyframe loss and declare manifest permissions (INTERNET, ACCESS_NETWORK_STATE, CHANGE_WIFI_MULTICAST_STATE) for the platform module. Owns `core/platform` manifest and a small policy class with a test.
 AND-136 | todo | S : AND-022b is done (relay proof fields on connectToHost and registerHost, RelayConnect sends the client proof); this entry records it.
-WIN-134 | todo | S : a disconnect path that calls `InputSink::release_all` (the ignored lifecycle flow test names it). Owns `peering-core/src/session/` new file and un-ignores that test.
-WIN-135 | todo | S : export the scripted launcher and pin store fakes behind a `testing` feature so flows stop re-implementing them. Owns `peering-agent/src/claude_adapter/fake.rs` exposure and `peering-core/src/session/test_support.rs`.
+WIN-134 | done | S : a disconnect path that calls `InputSink::release_all` (the ignored lifecycle flow test names it). Owns `peering-core/src/session/` new file and un-ignores that test.
+WIN-135 | done | S : export the scripted launcher and pin store fakes behind a `testing` feature so flows stop re-implementing them. Owns `peering-agent/src/claude_adapter/fake.rs` exposure and `peering-core/src/session/test_support.rs`.
+AND-137 | todo | S : SessionController, the coroutine orchestrator tying transport, state machine, lanes, reconnect, chat and files together (core:session/controller). Added because no task owned the glue. Being built in wave 7.
+AND-138 | todo | integration | S : wire the feature presenters to SessionController and register the routes (ScreenRegistry) in the app module. Owns `app/.../ui/Features.kt`. Done: `./gradlew :app:assembleDebug`; the connect, pairing, remote, agents, files, settings, paywall routes open with the real graph.
+AND-139 | todo | S : camera QR scanner source (`QrSource` implementation with CameraX and ML Kit or ZXing). Needs a device to verify.
+WIN-136 | todo | S : change the `SecretStore::read` port to `Result<Option<Vec<u8>>, StoreError>` so a failed read is not mistaken for an absent key (identity would mint a new key and un-pair every device); update the DPAPI store, fakes and the identity test (the failed-read test is currently missing). Owns `peering-core/src/ports/secret_store.rs`, fakes, `peering-net/src/identity.rs`, `peering-platform/src/dpapi*`.
+WIN-137 | todo | S : texture handoff between capture, convert and the MFT encoder (the Encoder port carries no pixels; `MftEncoder::stage_texture` is called today). Define a `FrameSource` handoff in peering-platform and wire DDA -> NV12 -> MFT.
+WIN-138 | todo | integration | S : host runtime wiring (WIN-071 expanded): tokio runtime, TCP listener on 51515 with rustls, relay registration, session loops over the core state machines, capture to encode to lane. Owns `host/src/runtime*`.
 
 ## Windows: LATER and SKIP
 
