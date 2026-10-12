@@ -43,3 +43,34 @@ fn switching_hosting_off_from_the_window_ends_the_connected_phones() {
         while phone.try_next().await.is_some() {}
     });
 }
+
+#[test]
+fn forgetting_a_device_ends_its_live_session_and_releases_its_input() {
+    run_paused(async {
+        let harness = harness();
+        let mut phone = paired_phone(&harness.runtime).await;
+        harness.runtime.start_pump();
+        let released_before = harness.input.lock().expect("the input is not poisoned").release_all_count();
+
+        assert!(harness.runtime.handle().send(RuntimeCommand::Forget(CLIENT_ID.to_owned())));
+        while phone.try_next().await.is_some() {}
+
+        assert!(harness.input.lock().expect("the input is not poisoned").release_all_count() > released_before);
+        assert!(harness.runtime.snapshot().devices.is_empty());
+        assert_eq!(harness.runtime.snapshot().connected_clients, 0);
+    });
+}
+
+#[test]
+fn forgetting_another_device_leaves_the_session_alone() {
+    run_paused(async {
+        let harness = harness();
+        let mut phone = paired_phone(&harness.runtime).await;
+        harness.runtime.start_pump();
+
+        assert!(harness.runtime.handle().send(RuntimeCommand::Forget("someone-else".to_owned())));
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+        phone.sync().await;
+    });
+}

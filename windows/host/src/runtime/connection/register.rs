@@ -14,6 +14,7 @@ use super::Connection;
 
 impl Connection {
     pub(super) fn register(&mut self) {
+        self.registered = true;
         let client_id = self.session.client_id().to_owned();
         let video_token = self.peer.video_token.unwrap_or([0u8; TOKEN_SIZE]);
         let relay_lane = self.relay_video().map(|(endpoint, token)| (endpoint, token, mpsc::unbounded_channel::<Vec<u8>>()));

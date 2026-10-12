@@ -362,3 +362,13 @@ pub fn run<F: std::future::Future<Output = ()>>(body: F) {
     let executor = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("an executor starts");
     tokio::task::LocalSet::new().block_on(&executor, body);
 }
+
+/// Like `run`, with tokio's clock paused: a wait for the host's one-second tick completes at once.
+pub fn run_paused<F: std::future::Future<Output = ()>>(body: F) {
+    let executor = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .start_paused(true)
+        .build()
+        .expect("an executor starts");
+    tokio::task::LocalSet::new().block_on(&executor, body);
+}

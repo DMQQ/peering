@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use peering_core::pairing::ApprovalDecision;
 use peering_core::ports::input::InputSink;
+use peering_core::session::slots::sessions_of_client;
 use peering_wire::pairing_payload;
 
 use super::shared::HostState;
@@ -125,6 +126,19 @@ impl HostState {
         }
     }
 
+    /// Ends every session of a client that was removed: a pin revoked under a live session would otherwise leave the
+    /// phone its picture and its input. Each connection notices its slot is gone and closes.
+    fn end_client_sessions(&mut self, client_id: &str) {
+        let siblings = self.sessions.iter().map(|(id, slot)| (*id, slot.client_id.as_str()));
+        for id in sessions_of_client(siblings, client_id) {
+            self.sessions.remove(&id);
+        }
+        self.video.detach(client_id);
+        self.video.stop_when_idle();
+        self.input.release_all();
+        self.terminals.disconnect(client_id);
+    }
+
     /// Stops the sessions when hosting is switched off: their outbound channels close, which ends each connection.
     fn stop_sessions(&mut self) {
         for (_, slot) in self.sessions.drain() {
@@ -156,6 +170,7 @@ impl HostState {
                 RuntimeCommand::Decline(id) => decisions.extend(self.pairing.decline(id)),
                 RuntimeCommand::Forget(client_id) => {
                     self.pairing.revoke(&client_id);
+                    self.end_client_sessions(&client_id);
                 }
                 RuntimeCommand::SetFrameRate(fps) => self.video.set_frame_rate(fps),
             }

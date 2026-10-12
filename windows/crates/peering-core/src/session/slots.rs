@@ -11,6 +11,11 @@ pub fn client_has_other_session<'a>(sessions: impl IntoIterator<Item = (u64, &'a
     sessions.into_iter().any(|(id, other)| id != except && other == client_id)
 }
 
+/// Every session that belongs to `client_id`, for ending them all when the device is removed.
+pub fn sessions_of_client<'a>(sessions: impl IntoIterator<Item = (u64, &'a str)>, client_id: &str) -> Vec<u64> {
+    sessions.into_iter().filter(|(_, other)| *other == client_id).map(|(id, _)| id).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -34,5 +39,13 @@ mod tests {
         let sessions = vec![(1, "phone"), (2, "phone"), (3, "tablet")];
         assert!(client_has_other_session(sessions.clone(), "phone", 1));
         assert!(!client_has_other_session(sessions, "tablet", 3));
+    }
+
+    #[test]
+    fn every_session_of_a_removed_client_is_listed() {
+        let sessions = vec![(1, "phone"), (2, "tablet"), (3, "phone")];
+        let mut found = sessions_of_client(sessions, "phone");
+        found.sort_unstable();
+        assert_eq!(found, vec![1, 3]);
     }
 }

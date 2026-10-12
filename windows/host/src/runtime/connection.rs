@@ -44,6 +44,7 @@ pub(super) struct Connection {
     pub(super) supports_agent_chat: bool,
     pub(super) agent: Option<peering_agent::manager::AgentSessionManager<StdLauncher>>,
     pub(super) video_for_session: Option<u64>,
+    pub(super) registered: bool,
 }
 
 /// Serves one connection until the peer leaves, the core closes it, or the framing breaks.
@@ -81,6 +82,7 @@ where
         supports_agent_chat: false,
         agent: None,
         video_for_session: None,
+        registered: false,
     };
     connection.run(&mut reader).await;
     connection.finish();
@@ -146,7 +148,16 @@ impl Connection {
         self.profile.clock.now_seconds()
     }
 
+    /// True once the host has removed this connection's session, by forgetting the device or stopping hosting.
+    fn evicted(&self) -> bool {
+        let session = self.video_for_session.unwrap_or(self.session_id);
+        (self.registered || self.video_for_session.is_some()) && !self.shared.lock().sessions.contains_key(&session)
+    }
+
     fn on_frame(&mut self, frame: Frame) -> Flow {
+        if self.evicted() {
+            return Flow::Closed;
+        }
         self.liveness.heard(self.now());
         if self.video_for_session.is_some() {
             // A video connection only carries frames out; key and transport requests are answered on the control connection.
@@ -166,6 +177,9 @@ impl Connection {
     }
 
     fn on_tick(&mut self) -> Flow {
+        if self.evicted() {
+            return Flow::Closed;
+        }
         let now = self.now();
         let verdict = self.liveness.verdict_for(now, self.session.state().phase(), self.video_for_session.is_some());
         if verdict == Verdict::End || !self.shared.lock().hosting {
