@@ -133,6 +133,13 @@ public final class ClientSession: @unchecked Sendable {
     }
     var _resumeSource: CaptureSource?
 
+    /// Sent in the hello so the Mac can tag its own events with the phone's. See ``ClientHello/sessionRef``.
+    public var sessionRef: String? {
+        get { lock.withLock { _sessionRef } }
+        set { lock.withLock { _sessionRef = newValue } }
+    }
+    var _sessionRef: String?
+
     /// The device ID a first pairing was dialled by, checked against the Mac's answer.
     var pairingHostID: String?
 
@@ -335,7 +342,8 @@ public final class ClientSession: @unchecked Sendable {
             supportsAgentPermissionModes: true,
             supportsAgentUsage: true,
             resumeSource: knowsHost ? resumeSource : nil,
-            lostPairing: hostID != nil && !knowsHost ? true : nil
+            lostPairing: hostID != nil && !knowsHost ? true : nil,
+            sessionRef: sessionRef
         ))
 
         lock.withLock {

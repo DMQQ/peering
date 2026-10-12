@@ -39,6 +39,9 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// The codecs this client decodes, best first (`"hevc"`, `"h264"`). Optional and additive: `nil` is a client from before this field, which decodes both.
     public var videoCodecs: [String]?
 
+    /// A random tag for this connection attempt, kept across automatic resumes, so analytics on the phone and the Mac can be joined. Optional and additive: `nil` is a client from before this field, and a host that does not know it ignores the key.
+    public var sessionRef: String?
+
     /// Whether the Mac skips pairing for a client whose key it has pinned. The one place the rule lives, because the Mac cannot unit-test its handshake.
     public static func hostTreatsAsPaired(clientKeyIsPinned: Bool, lostPairing: Bool?) -> Bool {
         clientKeyIsPinned && lostPairing != true
@@ -59,8 +62,10 @@ public struct ClientHello: Codable, Sendable, Equatable {
         resumeSource: CaptureSource? = nil,
         lostPairing: Bool? = nil,
         clientPlatform: String? = nil,
-        videoCodecs: [String]? = nil
+        videoCodecs: [String]? = nil,
+        sessionRef: String? = nil
     ) {
+        self.sessionRef = sessionRef
         self.lostPairing = lostPairing
         self.clientPlatform = clientPlatform
         self.videoCodecs = videoCodecs

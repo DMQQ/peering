@@ -90,6 +90,7 @@ public final class ClientPinStore: @unchecked Sendable {
             // Mac would silently become a stranger and the user would be asked to pair again.
             if status != errSecItemNotFound {
                 transportLog.error("could not read client pins: OSStatus \(status, privacy: .public)")
+                PinStoreAlarm.raise(status: status)
             }
             return [:]
         }
@@ -98,6 +99,7 @@ public final class ClientPinStore: @unchecked Sendable {
               let decoded = try? JSONDecoder().decode([String: Data].self, from: data)
         else {
             transportLog.error("client pin store exists but could not be decoded; treating as empty")
+            PinStoreAlarm.raise(status: nil)
             return [:]
         }
         return decoded
