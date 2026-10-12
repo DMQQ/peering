@@ -9,6 +9,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.filled.CheckCircle as CheckCircleFilled
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Edit
@@ -131,4 +132,5 @@ object AppIcons {
     val code: ImageVector get() = Icons.Outlined.Code
     val archive: ImageVector get() = Icons.Outlined.FolderZip
     val document: ImageVector get() = Icons.Outlined.Description
+    val privacy: ImageVector get() = Icons.Outlined.PanTool
 }

@@ -30,6 +30,8 @@ class SettingsActions(
     val onGetHostApp: () -> Unit,
     val onShowIntroduction: () -> Unit,
     val onReportIssue: () -> Unit,
+    val onOpenWebPage: (String) -> Unit,
+    val onCopyDiagnostics: (SettingsUiState) -> Unit,
     val protection: AppProtection,
 )
 
@@ -81,7 +83,7 @@ private fun SectionCard(section: SettingsSection, state: SettingsUiState, presen
         SettingsSection.Security -> SecurityCard(actions.protection)
         SettingsSection.Trusted -> TrustedHostsCard(state.trustedHosts, presenter::requestForget)
         SettingsSection.Identity -> IdentityCard(state.deviceId, state.trustedHosts.size)
-        SettingsSection.More -> MoreCard(actions)
-        SettingsSection.Legal -> LegalCard(actions.onOpenLegal)
+        SettingsSection.More -> MoreCard(actions, state)
+        SettingsSection.Legal -> LegalCard(actions.onOpenLegal, actions.onOpenWebPage)
     }
 }

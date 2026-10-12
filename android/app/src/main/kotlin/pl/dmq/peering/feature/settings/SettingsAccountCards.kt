@@ -3,6 +3,15 @@ package pl.dmq.peering.feature.settings
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import kotlinx.coroutines.delay
+import pl.dmq.peering.ui.kit.tappable
+import pl.dmq.peering.ui.theme.peeringShapes
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,22 +79,46 @@ internal fun IdentityCard(deviceId: String, pairedCount: Int) {
 }
 
 @Composable
-internal fun MoreCard(actions: SettingsActions) {
+internal fun MoreCard(actions: SettingsActions, state: SettingsUiState) {
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(COPIED_SHOWN_MILLIS)
+            copied = false
+        }
+    }
     ControlsCard(stringResource(R.string.settings_more_heading)) {
         ControlLink(stringResource(R.string.settings_more_host_app), AppIcons.download, actions.onGetHostApp, external = true)
         ControlsDivider()
         ControlLink(stringResource(R.string.settings_more_introduction), SessionIcons.introduction, actions.onShowIntroduction)
         ControlsDivider()
         ControlLink(stringResource(R.string.settings_more_report), SessionIcons.mail, actions.onReportIssue, external = true)
+        ControlsDivider()
+        ControlRow(
+            stringResource(R.string.settings_more_copy_diagnostics),
+            if (copied) AppIcons.check else AppIcons.copy,
+            Modifier.clip(peeringShapes.extraSmall).tappable({
+                actions.onCopyDiagnostics(state)
+                copied = true
+            }),
+        ) {
+            if (copied) Text(stringResource(R.string.settings_more_copied), style = PeeringText.captionSemibold, color = PeeringColors.accent)
+        }
     }
 }
 
 @Composable
-internal fun LegalCard(onOpen: (LegalDocument) -> Unit) {
+internal fun LegalCard(onOpen: (LegalDocument) -> Unit, onOpenWebPage: (String) -> Unit) {
     ControlsCard(stringResource(R.string.settings_legal_heading)) {
         LegalDocument.entries.forEachIndexed { index, document ->
-            ControlLink(stringResource(document.labelRes()), AppIcons.document, { onOpen(document) })
+            val web = document.webUrl()
+            val open = if (web != null) ({ onOpenWebPage(web) }) else ({ onOpen(document) })
+            ControlLink(stringResource(document.labelRes()), document.icon(), open, external = web != null)
             if (index < LegalDocument.entries.lastIndex) ControlsDivider()
         }
     }
 }
+
+private const val COPIED_SHOWN_MILLIS = 2_000L
+
+private fun LegalDocument.icon() = if (this == LegalDocument.Privacy) AppIcons.privacy else AppIcons.document

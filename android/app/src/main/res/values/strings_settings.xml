@@ -59,6 +59,8 @@
     <string name="settings_more_heading">More</string>
     <string name="settings_more_host_app">Peering for the computer</string>
     <string name="settings_more_introduction">Show introduction again</string>
+    <string name="settings_more_copy_diagnostics">Copy diagnostics</string>
+    <string name="settings_more_copied">Copied</string>
     <string name="settings_more_report">Report an issue</string>
     <string name="settings_report_subject">Peering issue</string>
     <string name="settings_report_body">What happened:\n\n\nWhat I expected:\n\n\nPeering %1$s\nAndroid %2$s</string>

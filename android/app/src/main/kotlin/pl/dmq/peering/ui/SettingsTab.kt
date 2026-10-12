@@ -9,7 +9,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.res.stringResource
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.onboarding.DOWNLOAD_URL
@@ -20,6 +22,7 @@ import pl.dmq.peering.feature.settings.LegalPageScreen
 import pl.dmq.peering.feature.settings.SettingsActions
 import pl.dmq.peering.feature.settings.SettingsPresenter
 import pl.dmq.peering.feature.settings.SettingsRoute
+import pl.dmq.peering.feature.settings.diagnosticsText
 import pl.dmq.peering.ui.kit.DepthTransition
 import pl.dmq.peering.ui.nav.LocalRootChrome
 import pl.dmq.peering.ui.nav.PeeringDestination
@@ -37,6 +40,7 @@ internal fun SettingsTab(wiring: FeatureWiring) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val chrome = LocalRootChrome.current
+    val clipboard = LocalClipboardManager.current
     var legal by rememberSaveable { mutableStateOf<LegalDocument?>(null) }
     var plans by rememberSaveable { mutableStateOf(false) }
     val version = remember(context) { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty() }
@@ -62,6 +66,11 @@ internal fun SettingsTab(wiring: FeatureWiring) {
             chrome.open(PeeringDestination.Connect)
         },
         onReportIssue = { context.composeEmail(SUPPORT_ADDRESS, reportSubject, reportBody) },
+        onOpenWebPage = { context.openWebPage(it) },
+        onCopyDiagnostics = { state ->
+            val text = diagnosticsText(version, Build.VERSION.RELEASE, Build.MODEL, state.deviceId, state.trustedHosts.size, state.prefs.allowsRelay, state.relayUnlimited)
+            clipboard.setText(AnnotatedString(text))
+        },
         protection = rememberAppProtection(),
     )
     BackHandler(enabled = legal != null) { legal = null }
