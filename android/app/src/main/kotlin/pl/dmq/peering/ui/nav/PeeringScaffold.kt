@@ -3,6 +3,7 @@ package pl.dmq.peering.ui.nav
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -37,7 +38,7 @@ fun PeeringScaffold(navController: NavHostController = rememberNavController()) 
                 }
             },
         ) { innerPadding ->
-            PeeringNavHost(navController = navController, modifier = Modifier.padding(innerPadding))
+            PeeringNavHost(navController = navController, modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding))
         }
     }
 }

@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.pairing
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -26,6 +27,9 @@ fun PairingCodeRoute(
             onFinished = onFinished,
             onScan = onScanRequested,
         )
+    }
+    BackHandler {
+        if (screen is PairingCodeScreen.Failed || screen is PairingCodeScreen.Done) onFinished() else presenter.cancel()
     }
     PairingCodeContent(screen = screen, actions = actions, modifier = modifier)
 }

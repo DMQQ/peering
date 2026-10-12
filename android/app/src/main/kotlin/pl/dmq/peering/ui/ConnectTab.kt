@@ -1,5 +1,7 @@
 package pl.dmq.peering.ui
 
+import androidx.compose.animation.AnimatedContent
+import pl.dmq.peering.ui.theme.fadeThrough
 import pl.dmq.peering.ui.nav.HideNavigationBar
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,6 +37,10 @@ import pl.dmq.peering.ui.nav.SessionScreens
 
 /** Where a scan goes: a Mac to pair with, or the six digits being compared on this screen. */
 private enum class ScanPurpose { FindMac, ConfirmCode }
+
+private enum class ConnectStage(val fullScreen: Boolean) {
+    Scanner(true), Onboarding(true), Pairing(true), Session(true), FirstConnection(false), Hosts(false)
+}
 
 /** The Connect tab: first run, then the hosts, pairing, and the session a connect opened. */
 @Composable
@@ -88,45 +94,61 @@ internal fun ConnectTab(wiring: FeatureWiring) {
     val firstConnection = !firstConnectionDismissed && connectState.listing.paired.isEmpty()
     val session = active
     val presenting = pairing
-    val fullScreen = scanning != null || onboarding || presenting != null || (showingSession && session != null)
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (fullScreen) HideNavigationBar()
-        when {
-            scanning != null -> QrScannerRoute(
+    val stage = when {
+        scanning != null -> ConnectStage.Scanner
+        onboarding -> ConnectStage.Onboarding
+        presenting != null -> ConnectStage.Pairing
+        showingSession && session != null -> ConnectStage.Session
+        firstConnection -> ConnectStage.FirstConnection
+        else -> ConnectStage.Hosts
+    }
+    if (stage.fullScreen) HideNavigationBar()
+    AnimatedContent(
+        targetState = stage,
+        modifier = Modifier.fillMaxSize(),
+        transitionSpec = { fadeThrough() },
+        label = "connectStage",
+    ) { shown ->
+        when (shown) {
+            ConnectStage.Scanner -> QrScannerRoute(
                 onCode = { text -> scanned(scanning, text, wiring.qrSource, presenting) },
                 onClose = { scanning = null },
             )
-            onboarding -> OnboardingRoute(
+            ConnectStage.Onboarding -> OnboardingRoute(
                 store = wiring.firstRun,
                 billing = StorePaywallBilling(wiring.billing) { context.findActivity() },
                 onFinished = { onboarding = false },
             )
-            presenting != null -> PairingCodeRoute(
-                presenter = presenting,
-                onFinished = { pairing = null },
-                onScanRequested = { scanning = ScanPurpose.ConfirmCode },
-            )
-            showingSession && session != null -> SessionScreens(
-                active = session,
-                picture = wiring.picture,
-                drafts = wiring.drafts,
-                folderRecents = wiring.folderRecents,
-                settings = wiring.settings,
-                billing = wiring.billing,
-                relayAllowance = wiring.relayAllowance,
-                clock = wiring.clock,
-                onClose = { showingSession = false },
-                onDisconnect = {
-                    showingSession = false
-                    wiring.holder.end()
-                },
-            )
-            firstConnection -> FirstConnectionScreen(
+            ConnectStage.Pairing -> presenting?.let { current ->
+                PairingCodeRoute(
+                    presenter = current,
+                    onFinished = { pairing = null },
+                    onScanRequested = { scanning = ScanPurpose.ConfirmCode },
+                )
+            }
+            ConnectStage.Session -> session?.let { current ->
+                SessionScreens(
+                    active = current,
+                    picture = wiring.picture,
+                    drafts = wiring.drafts,
+                    folderRecents = wiring.folderRecents,
+                    settings = wiring.settings,
+                    billing = wiring.billing,
+                    relayAllowance = wiring.relayAllowance,
+                    clock = wiring.clock,
+                    onClose = { showingSession = false },
+                    onDisconnect = {
+                        showingSession = false
+                        wiring.holder.end()
+                    },
+                )
+            }
+            ConnectStage.FirstConnection -> FirstConnectionScreen(
                 state = connectState,
                 actions = rememberConnectActions(connect) { scanning = ScanPurpose.FindMac },
                 onSkip = { firstConnectionDismissed = true },
             )
-            else -> ConnectRoute(
+            ConnectStage.Hosts -> ConnectRoute(
                 presenter = connect,
                 onScanRequested = { scanning = ScanPurpose.FindMac },
             )

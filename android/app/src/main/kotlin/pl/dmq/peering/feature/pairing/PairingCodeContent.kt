@@ -1,5 +1,10 @@
 package pl.dmq.peering.feature.pairing
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -43,17 +48,21 @@ import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.arrive
 import pl.dmq.peering.ui.theme.peeringBackdrop
 
-/** The pairing as the iPhone's PairingPrompt lays it out: four steps down one column, the code entry living inside the second. */
+/** The pairing: four steps down one column, the code entry living inside the second. */
 @Composable
 fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().peeringBackdrop().windowInsetsPadding(WindowInsets.statusBars).imePadding()) {
+        val leaves = screen is PairingCodeScreen.Failed || screen is PairingCodeScreen.Done
+        IconButton(onClick = if (leaves) actions.onFinished else actions.onCancel, modifier = Modifier.padding(start = 4.dp, top = 4.dp)) {
+            Icon(AppIcons.back, contentDescription = stringResource(R.string.pairing_code_cancel))
+        }
         Column(
-            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(top = 48.dp, bottom = 24.dp),
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(top = 12.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
             Text(
                 stringResource(if (screen is PairingCodeScreen.Done) R.string.pairing_code_done_title else R.string.pairing_code_title),
-                style = PeeringText.display(size = 30f, tracking = -1f, lineHeight = 34f),
+                style = MaterialTheme.typography.headlineMedium,
                 color = PeeringColors.ink,
                 modifier = Modifier.arrive(),
             )
@@ -143,11 +152,7 @@ private fun Failure(screen: PairingCodeScreen.Failed, actions: PairingActions) {
 
 @Composable
 private fun FooterLink(text: String, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).height(44.dp).padding(bottom = 8.dp).tappable(onClick),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text, style = PeeringText.footnote.copy(fontWeight = FontWeight.Medium), color = PeeringColors.muted)
+    Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 8.dp), contentAlignment = Alignment.Center) {
+        TextButton(onClick = onClick, colors = ButtonDefaults.textButtonColors(contentColor = PeeringColors.muted)) { Text(text) }
     }
 }

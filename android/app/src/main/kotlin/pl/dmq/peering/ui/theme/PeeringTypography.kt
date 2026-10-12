@@ -6,7 +6,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-/** The iPhone's text styles at its default size, named as UIKit names them. The body face is the system sans (SF is not licensed for Android). */
+/** Fixed-size text styles for the places that size text by hand. The body face is the system sans. */
 object PeeringText {
     val body = TextStyle(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Normal)
     val headline = TextStyle(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
@@ -21,7 +21,7 @@ object PeeringText {
     val caption2 = TextStyle(fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Normal)
     val caption2Monospaced = caption2.copy(fontFamily = FontFamily.Monospace)
 
-    /** The display face at [size], tracked as the iPhone tracks it. */
+    /** The display face at [size]. */
     fun display(size: Float, tracking: Float = 0f, lineHeight: Float = size * 1.08f) = TextStyle(
         fontFamily = displayFamily,
         fontWeight = FontWeight.Bold,

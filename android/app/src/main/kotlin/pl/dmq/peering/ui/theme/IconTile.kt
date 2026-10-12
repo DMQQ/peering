@@ -13,7 +13,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** One glyph in a rounded tile; the corner (0.286) and the glyph scale with [size] as on the iPhone. */
+/** One glyph in a rounded tile; the corner (0.286) and the glyph scale with [size]. */
 @Composable
 fun IconTile(icon: ImageVector, modifier: Modifier = Modifier, size: Dp = 42.dp, tint: Color = PeeringColors.ink) {
     Box(

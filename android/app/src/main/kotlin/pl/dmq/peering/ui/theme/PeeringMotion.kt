@@ -1,5 +1,11 @@
 package pl.dmq.peering.ui.theme
 
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -17,9 +23,10 @@ import kotlinx.coroutines.delay
 
 /** DESIGN.md's motion tokens, as springs. `arrive` is the only critically damped one: an entrance must not give. */
 object PeeringMotion {
-    val arrive: FiniteAnimationSpec<Float> = spring(dampingRatio = 1f, stiffness = 146f)
-    val settle: FiniteAnimationSpec<Float> = spring(dampingRatio = 0.84f, stiffness = 340f)
+    val arrive: FiniteAnimationSpec<Float> = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+    val settle: FiniteAnimationSpec<Float> = tween(durationMillis = 250, easing = FastOutSlowInEasing)
     val tap: FiniteAnimationSpec<Float> = tween(durationMillis = 180)
+    val sharedAxis: FiniteAnimationSpec<IntOffset> = tween(durationMillis = 300, easing = FastOutSlowInEasing)
     val fadeThroughIn: FiniteAnimationSpec<Float> = tween(durationMillis = 210, delayMillis = 90, easing = FastOutSlowInEasing)
     val fadeThroughOut: FiniteAnimationSpec<Float> = tween(durationMillis = 90, easing = FastOutLinearInEasing)
     const val PRESSED_SCALE = 0.98f
@@ -40,3 +47,8 @@ fun Modifier.arrive(delayMillis: Int = 0, key: Any = Unit): Modifier = composed 
         translationY = rise * (1f - progress.value)
     }
 }
+
+/** Material's fade through between two peers: the old content fades out, then the new fades and scales in. */
+fun fadeThrough(): ContentTransform =
+    (fadeIn(PeeringMotion.fadeThroughIn) + scaleIn(PeeringMotion.fadeThroughIn, initialScale = 0.92f)) togetherWith
+        fadeOut(PeeringMotion.fadeThroughOut)

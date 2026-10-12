@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.onboarding
 
+import pl.dmq.peering.ui.theme.PeeringMotion
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -40,13 +41,10 @@ fun OnboardingRoute(
         targetState = ui.step == OnboardingStep.LANDING,
         modifier = modifier,
         transitionSpec = {
-            val toTour = !targetState
-            if (toTour) {
-                (slideInHorizontally(tween(520)) { it } + fadeIn(tween(520))) togetherWith
-                    (slideOutHorizontally(tween(520)) { -it } + fadeOut(tween(520)))
-            } else {
-                fadeIn(tween(200)) togetherWith fadeOut(tween(200))
-            }
+            val forward = !targetState
+            val sign = if (forward) 1 else -1
+            (fadeIn(PeeringMotion.fadeThroughIn) + slideInHorizontally(PeeringMotion.sharedAxis) { sign * it / 10 }) togetherWith
+                (fadeOut(PeeringMotion.fadeThroughOut) + slideOutHorizontally(PeeringMotion.sharedAxis) { -sign * it / 10 })
         },
         label = "welcome",
     ) { onLanding ->

@@ -1,6 +1,7 @@
 package pl.dmq.peering.ui.kit
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.AllInclusive
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DesktopWindows
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.KeyboardCommandKey
@@ -60,6 +62,8 @@ object AppIcons {
     val nearby: ImageVector get() = Icons.Outlined.Sensors
     val refresh: ImageVector get() = Icons.Outlined.Refresh
     val more: ImageVector get() = Icons.Outlined.MoreVert
+    val expand: ImageVector get() = Icons.Outlined.ExpandMore
+    val back: ImageVector get() = Icons.AutoMirrored.Outlined.ArrowBack
     val close: ImageVector get() = Icons.Outlined.Close
     val chevronRight: ImageVector get() = Icons.Outlined.ChevronRight
     val openExternal: ImageVector get() = Icons.Outlined.OpenInNew

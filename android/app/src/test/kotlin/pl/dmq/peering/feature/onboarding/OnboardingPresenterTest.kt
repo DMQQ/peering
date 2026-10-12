@@ -85,4 +85,13 @@ class OnboardingPresenterTest {
         presenter.goTo(OnboardingStep.LANDING)
         assertEquals(OnboardingStep.LANDING, presenter.ui.value.step)
     }
+
+    @Test
+    fun backFromTheFirstTourPageReturnsToTheLandingAndFromTheLandingDoesNothing() {
+        val presenter = OnboardingPresenter(FakeFirstRunStore())
+        presenter.next()
+        assertTrue(presenter.back())
+        assertEquals(OnboardingStep.LANDING, presenter.ui.value.step)
+        assertFalse(presenter.back())
+    }
 }

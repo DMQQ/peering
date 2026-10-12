@@ -6,7 +6,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
@@ -38,7 +38,7 @@ import kotlin.math.sin
 /** [y] is a fraction of the field's height, measured to the chip's top edge. */
 data class FloatingChip(val symbol: ImageVector, val title: String, val atEnd: Boolean, val y: Float)
 
-/** Glass chips hung on the edges of the box they fill, each popping in on a spring and then drifting on its own phase. */
+/** Chips hung on the edges of the box they fill, each fading in and then drifting on its own phase. */
 @Composable
 fun FloatingChips(chips: List<FloatingChip>, modifier: Modifier = Modifier) {
     val drift = rememberInfiniteTransition(label = "drift").animateFloat(
@@ -52,7 +52,7 @@ fun FloatingChips(chips: List<FloatingChip>, modifier: Modifier = Modifier) {
             val arrived = remember(chip.title) { Animatable(0f) }
             LaunchedEffect(chip.title) {
                 delay(50L + 120L + index * 90L)
-                arrived.animateTo(1f, spring(dampingRatio = 0.72f, stiffness = 158f))
+                arrived.animateTo(1f, tween(durationMillis = 300, easing = FastOutSlowInEasing))
             }
             Row(
                 modifier = Modifier

@@ -28,6 +28,15 @@ class OnboardingPresenter(
         model.update { it.copy(step = step) }
     }
 
+    /** One step back, the first tour page returning to the landing. False on the landing, where back leaves the first run's screen. */
+    fun back(): Boolean {
+        val current = model.value
+        val earlier = current.step.previous()
+        if (current.completed || earlier == null) return false
+        model.update { it.copy(step = earlier) }
+        return true
+    }
+
     /** From the landing it leaves the first run; inside the tour it jumps to the plans, the page every route ends on. */
     fun skip() {
         val step = model.value.step

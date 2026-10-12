@@ -13,7 +13,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import pl.dmq.peering.R
 
-/** The root tabs, in the order the iPhone's bar shows them (it also has Servers, which this app has no SSH client for). */
+/** The root tabs, in the order the iPhone's tabs show them (it also has Servers, which this app has no SSH client for). */
 enum class PeeringDestination(
     val route: String,
     @StringRes val labelRes: Int,

@@ -1,7 +1,7 @@
 package pl.dmq.peering.ui.kit
 
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -16,12 +16,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.ui.theme.PeeringColors
 
-/** The tour's indicator: 6 point dots, the current one a 24 point capsule, springing between. */
+/** The tour's indicator: 6 point dots, the current one a 24 point capsule, sliding between. */
 @Composable
 fun PageDots(count: Int, current: Int, modifier: Modifier = Modifier) {
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(count) { index ->
-            val width by animateDpAsState(if (index == current) 24.dp else 6.dp, spring(dampingRatio = 0.8f, stiffness = 340f), label = "dot")
+            val width by animateDpAsState(if (index == current) 24.dp else 6.dp, tween(durationMillis = 200), label = "dot")
             Row(
                 Modifier
                     .width(width)

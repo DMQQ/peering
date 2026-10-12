@@ -1,5 +1,7 @@
 package pl.dmq.peering.feature.connect
 
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -92,13 +94,11 @@ fun FirstConnectionScreen(state: ConnectUiState, actions: ConnectActions, onSkip
                 GuideStepRow(5, GuideStepState.Pending, stringResource(R.string.pairing_step_approve), Modifier.arrive(300), isLast = true) {}
             }
         }
-        Row(
-            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).heightIn(min = 44.dp).padding(bottom = 8.dp).tappable(onSkip),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(stringResource(R.string.first_later), style = PeeringText.footnote.copy(fontWeight = FontWeight.Medium), color = PeeringColors.muted)
-        }
+        TextButton(
+            onClick = onSkip,
+            modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 8.dp),
+            colors = ButtonDefaults.textButtonColors(contentColor = PeeringColors.muted),
+        ) { Text(stringResource(R.string.first_later)) }
     }
     if (entryOpen) {
         HostIdEntrySheet(

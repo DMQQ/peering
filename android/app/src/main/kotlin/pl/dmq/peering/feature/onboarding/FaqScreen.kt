@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.onboarding
 
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,7 +32,6 @@ import pl.dmq.peering.ui.kit.ControlsDivider
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
-import pl.dmq.peering.ui.theme.PeeringMotion
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.ScreenHeader
 import pl.dmq.peering.ui.theme.arrive
@@ -60,7 +60,7 @@ fun FaqScreen(modifier: Modifier = Modifier, bottomClearance: Dp = 24.dp) {
 @Composable
 private fun FaqRow(item: FaqItem) {
     var open by rememberSaveable(item.questionRes) { mutableStateOf(false) }
-    val turn by animateFloatAsState(if (open) 90f else 0f, PeeringMotion.settle, label = "chevron")
+    val turn by animateFloatAsState(if (open) 180f else 0f, tween(durationMillis = 200), label = "chevron")
     Column(Modifier.fillMaxWidth().animateContentSize()) {
         Row(
             Modifier.fillMaxWidth().tappable({ open = !open }).padding(vertical = 11.dp),
@@ -72,7 +72,7 @@ private fun FaqRow(item: FaqItem) {
                 color = PeeringColors.ink,
                 modifier = Modifier.weight(1f),
             )
-            Icon(AppIcons.chevronRight, null, tint = PeeringColors.tertiary, modifier = Modifier.size(14.dp).rotate(turn))
+            Icon(AppIcons.expand, null, tint = PeeringColors.tertiary, modifier = Modifier.size(14.dp).rotate(turn))
         }
         if (open) {
             Text(stringResource(item.answerRes), style = PeeringText.footnote.copy(fontSize = PeeringText.subheadline.fontSize), color = PeeringColors.muted, modifier = Modifier.padding(bottom = 12.dp))

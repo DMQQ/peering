@@ -1,5 +1,7 @@
 package pl.dmq.peering.ui.nav
 
+import androidx.compose.animation.AnimatedContent
+import pl.dmq.peering.ui.theme.fadeThrough
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -98,17 +100,19 @@ internal fun SessionScreens(
     BackHandler(enabled = route != SessionRoute.REMOTE || onClose != null) {
         if (route != SessionRoute.REMOTE) route = SessionRoute.REMOTE else onClose?.invoke()
     }
-    when (route) {
-        SessionRoute.REMOTE -> RemoteWithNotice(remote, session.phase)
-        SessionRoute.AGENTS -> AgentsScreen(active, drafts, folderRecents, clock) { route = SessionRoute.REMOTE }
-        SessionRoute.FILES -> FilesScreen(active) { route = SessionRoute.REMOTE }
-        SessionRoute.PAYWALL -> PaywallRoute(
-            billing = StorePaywallBilling(billing) { context.findActivity() },
-            allowance = relayAllowance.allowance,
-            reason = if (spentPaywall) PaywallReason.RelayTimeSpent else PaywallReason.Upgrade,
-            startsWithAllowanceNotice = false,
-            onDismiss = { route = SessionRoute.REMOTE },
-        )
+    AnimatedContent(targetState = route, transitionSpec = { fadeThrough() }, label = "sessionRoute") { shown ->
+        when (shown) {
+            SessionRoute.REMOTE -> RemoteWithNotice(remote, session.phase)
+            SessionRoute.AGENTS -> AgentsScreen(active, drafts, folderRecents, clock) { route = SessionRoute.REMOTE }
+            SessionRoute.FILES -> FilesScreen(active) { route = SessionRoute.REMOTE }
+            SessionRoute.PAYWALL -> PaywallRoute(
+                billing = StorePaywallBilling(billing) { context.findActivity() },
+                allowance = relayAllowance.allowance,
+                reason = if (spentPaywall) PaywallReason.RelayTimeSpent else PaywallReason.Upgrade,
+                startsWithAllowanceNotice = false,
+                onDismiss = { route = SessionRoute.REMOTE },
+            )
+        }
     }
 }
 

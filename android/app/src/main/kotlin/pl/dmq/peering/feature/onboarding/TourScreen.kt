@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.onboarding
 
+import androidx.activity.compose.BackHandler
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
@@ -74,6 +75,9 @@ internal fun TourScreen(
         snapshotFlow { pager.currentPage }.collect { presenter.goTo(tourPages[it].step) }
     }
     LaunchedEffect(paywall.purchase) { if (paywall.purchase == PurchaseState.PURCHASED) onFinished() }
+    BackHandler {
+        if (pager.currentPage > 0) scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } else presenter.back()
+    }
     val current = tourPages[pager.currentPage]
     val onPlans = current.content is TourContent.Plans
 
