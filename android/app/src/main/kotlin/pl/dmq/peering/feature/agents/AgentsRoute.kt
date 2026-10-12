@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import pl.dmq.peering.feature.remote.HubTab
 import pl.dmq.peering.feature.remote.ReportHubPage
+import pl.dmq.peering.session.agent.PromptTemplateStore
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.ui.kit.DepthTransition
 import pl.dmq.peering.session.ports.KeyValueStore
@@ -41,6 +42,7 @@ fun AgentsRoute(
     }
     val guide = remember(guideStore) { HubGuidePresenter(guideStore) }
     val chat = remember(port) { ChatPresenter(port, scope) }
+    val templates = remember(guideStore) { PromptTemplatesPresenter(PromptTemplateStore(guideStore)) }
     val transcript = remember(port) { TranscriptPresenter(port.chats, scope) }
     val composer = remember(port, modelPickerSupported) {
         ComposerPresenter(port, draftStore, port.chats, modelPickerSupported, scope)
@@ -71,6 +73,7 @@ fun AgentsRoute(
                     chat = chat,
                     transcript = transcript,
                     composer = composer,
+                    templates = templates,
                     port = port,
                     onBackToList = { showingChat = false },
                 )

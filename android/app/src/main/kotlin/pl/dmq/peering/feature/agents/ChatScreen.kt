@@ -35,12 +35,14 @@ fun ChatScreen(
     chat: ChatPresenter,
     transcript: TranscriptPresenter,
     composer: ComposerPresenter,
+    templates: PromptTemplatesPresenter,
     port: AgentsPort,
     onBackToList: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ui by chat.ui.collectAsState()
     val transcriptUi by transcript.ui.collectAsState()
+    val saved by templates.templates.collectAsState()
     var showingUsage by remember { mutableStateOf(false) }
     var showingChanges by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
@@ -63,7 +65,13 @@ fun ChatScreen(
             Box(Modifier.weight(1f)) {
                 when {
                     transcriptUi.loadingHistory && transcriptUi.rows.isEmpty() -> HistoryLoading()
-                    ui.showEmptyState -> EmptyChat(ui = ui, onSuggest = chat::suggest)
+                    ui.showEmptyState -> EmptyChat(
+                        ui = ui,
+                        templates = saved.entries,
+                        onSuggest = chat::suggest,
+                        onSaveTemplate = templates::add,
+                        onRemoveTemplate = templates::remove,
+                    )
                     else -> TranscriptList(
                         presenter = transcript,
                         onAskAgain = {

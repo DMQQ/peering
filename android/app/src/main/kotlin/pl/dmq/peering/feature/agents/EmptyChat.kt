@@ -1,6 +1,8 @@
 package pl.dmq.peering.feature.agents
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -30,11 +33,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.session.agent.PromptTemplate
 import pl.dmq.peering.ui.kit.InkButton
+import pl.dmq.peering.ui.kit.PeeringMenu
+import pl.dmq.peering.ui.kit.PeeringMenuItem
 import pl.dmq.peering.ui.kit.cardBackground
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -54,8 +61,16 @@ private val suggestions = listOf(
  * and three ways to begin. An ended chat only says so.
  */
 @Composable
-fun EmptyChat(ui: ChatUi, onSuggest: (String) -> Unit, modifier: Modifier = Modifier) {
+fun EmptyChat(
+    ui: ChatUi,
+    templates: List<PromptTemplate>,
+    onSuggest: (String) -> Unit,
+    onSaveTemplate: (String) -> Unit,
+    onRemoveTemplate: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var guideSeen by rememberSaveable { mutableStateOf(false) }
+    var addingTemplate by remember { mutableStateOf(false) }
     Column(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -82,10 +97,42 @@ fun EmptyChat(ui: ChatUi, onSuggest: (String) -> Unit, modifier: Modifier = Modi
                 if (!guideSeen) ChatGuide { guideSeen = true }
                 suggestions.forEach { suggestion ->
                     val title = stringResource(suggestion.title)
-                    SuggestionRow(suggestion.icon, title, stringResource(suggestion.detail)) { onSuggest(title) }
+                    SuggestionRow(suggestion.icon, title, stringResource(suggestion.detail), onClick = { onSuggest(title) })
                 }
+                templates.forEach { template ->
+                    SuggestionRow(
+                        AgentIcons.savedPrompt,
+                        template.text,
+                        stringResource(R.string.agents_template_yours),
+                        onClick = { onSuggest(template.text) },
+                        removeLabel = stringResource(R.string.agents_template_remove),
+                        onRemove = { onRemoveTemplate(template.id) },
+                    )
+                }
+                AddTemplateButton { addingTemplate = true }
             }
         }
+    }
+    if (addingTemplate) {
+        SaveTemplateDialog(
+            onSave = {
+                onSaveTemplate(it)
+                addingTemplate = false
+            },
+            onDismiss = { addingTemplate = false },
+        )
+    }
+}
+
+@Composable
+private fun AddTemplateButton(onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+    ) {
+        Icon(AgentIcons.plus, contentDescription = null, tint = PeeringColors.ink.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+        Text(stringResource(R.string.agents_template_add), style = PeeringText.subheadlineMedium, color = PeeringColors.ink.copy(alpha = 0.7f))
     }
 }
 
@@ -119,25 +166,49 @@ private fun ChatGuide(onDismiss: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SuggestionRow(icon: ImageVector, title: String, detail: String, onClick: () -> Unit) {
+private fun SuggestionRow(
+    icon: ImageVector,
+    title: String,
+    detail: String,
+    onClick: () -> Unit,
+    removeLabel: String? = null,
+    onRemove: (() -> Unit)? = null,
+) {
     val shape = peeringShapes.small
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 62.dp)
-            .clip(shape)
-            .border(1.dp, PeeringColors.hairline, shape)
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        IconTile(icon, size = 34.dp)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, style = PeeringText.subheadlineSemibold.copy(fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold), color = PeeringColors.ink, maxLines = 1)
-            Text(detail, style = PeeringText.caption, color = PeeringColors.ink.copy(alpha = 0.5f), maxLines = 1)
+    var menuOpen by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 62.dp)
+                .clip(shape)
+                .border(1.dp, PeeringColors.hairline, shape)
+                .combinedClickable(role = Role.Button, onClick = onClick, onLongClick = if (onRemove != null) ({ menuOpen = true }) else null)
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            IconTile(icon, size = 34.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, style = PeeringText.subheadlineSemibold.copy(fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold), color = PeeringColors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(detail, style = PeeringText.caption, color = PeeringColors.ink.copy(alpha = 0.5f), maxLines = 1)
+            }
+            Icon(AgentIcons.upLeft, contentDescription = null, tint = PeeringColors.ink.copy(alpha = 0.35f), modifier = Modifier.size(12.dp))
         }
-        Icon(AgentIcons.upLeft, contentDescription = null, tint = PeeringColors.ink.copy(alpha = 0.35f), modifier = Modifier.size(12.dp))
+        if (onRemove != null && removeLabel != null) {
+            PeeringMenu(menuOpen, { menuOpen = false }) {
+                PeeringMenuItem(
+                    title = removeLabel,
+                    icon = AppIcons.delete,
+                    destructive = true,
+                    onClick = {
+                        menuOpen = false
+                        onRemove()
+                    },
+                )
+            }
+        }
     }
 }

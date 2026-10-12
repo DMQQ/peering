@@ -3,4 +3,10 @@
     <string name="agents_rename">Rename</string>
     <string name="agents_rename_field">Name</string>
     <string name="agents_rename_save">Save</string>
+    <string name="agents_template_save_title">Save a prompt</string>
+    <string name="agents_template_field">What should the agent do?</string>
+    <string name="agents_template_message">It appears with the suggestions in every new chat.</string>
+    <string name="agents_template_add">Save your own prompt</string>
+    <string name="agents_template_yours">Your prompt</string>
+    <string name="agents_template_remove">Remove</string>
 </resources>

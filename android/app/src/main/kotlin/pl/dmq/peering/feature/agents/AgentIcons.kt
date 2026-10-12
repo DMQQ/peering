@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Difference
 import androidx.compose.material.icons.outlined.Bolt
@@ -36,6 +37,7 @@ internal object AgentIcons {
     val chats: ImageVector get() = Icons.AutoMirrored.Outlined.Chat
     val hand: ImageVector get() = Icons.Outlined.PanTool
     val history: ImageVector get() = Icons.Outlined.History
+    val savedPrompt: ImageVector get() = Icons.Outlined.BookmarkBorder
     val changes: ImageVector get() = Icons.Outlined.Difference
     val review: ImageVector get() = Icons.Outlined.Checklist
     val send: ImageVector get() = Icons.Outlined.ArrowUpward
