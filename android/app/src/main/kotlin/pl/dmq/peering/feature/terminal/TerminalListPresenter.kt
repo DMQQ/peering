@@ -3,6 +3,7 @@ package pl.dmq.peering.feature.terminal
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import pl.dmq.peering.feature.agents.FolderRecents
 import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.session.terminal.TerminalTab
 import pl.dmq.peering.session.terminal.TerminalsState
@@ -33,8 +34,12 @@ class TerminalListPresenter(
     private val history: AgentLaunchHistory,
     private val computerName: () -> String = { "" },
     private val nowMillis: () -> Long = System::currentTimeMillis,
+    private val canChooseFolder: Boolean = false,
+    private val recents: FolderRecents? = null,
 ) {
     private val shell = MutableStateFlow(false)
+    private val folderStep = MutableStateFlow(false)
+    private var directoryForNewShell: String? = null
     private var knownBeforeCreate: Set<String>? = null
     private var commandForNewShell: String? = null
 
@@ -48,6 +53,25 @@ class TerminalListPresenter(
 
     fun back() {
         shell.value = false
+    }
+
+    /** True while the folder page is up over the list. */
+    val choosingFolder: StateFlow<Boolean> = folderStep.asStateFlow()
+
+    /** New terminal: asks for a folder first when the computer can browse, else opens a shell in its login folder. */
+    fun beginNewTerminal() {
+        if (canChooseFolder) folderStep.value = true else create()
+    }
+
+    fun cancelFolder() {
+        folderStep.value = false
+    }
+
+    fun startIn(folder: String) {
+        folderStep.value = false
+        recents?.record(folder)
+        directoryForNewShell = folder
+        create()
     }
 
     fun create() {
@@ -77,12 +101,15 @@ class TerminalListPresenter(
         val created = before?.let { known -> state.tabs.firstOrNull { it.id !in known } }
         if (created != null) {
             knownBeforeCreate = null
+            directoryForNewShell?.let { sessions.input(created.id, ShellPath.changeDirectory(it)) }
+            directoryForNewShell = null
             commandForNewShell?.let { sessions.input(created.id, it + "\r") }
             commandForNewShell = null
             open(created.id)
         } else if (state.failure != null) {
             knownBeforeCreate = null
             commandForNewShell = null
+            directoryForNewShell = null
         } else if (shell.value && state.loaded && state.tabs.isEmpty()) {
             shell.value = false
         }

@@ -94,7 +94,7 @@ fun TerminalListScreen(
             }
         }
         TerminalDock(
-            onNew = presenter::create,
+            onNew = presenter::beginNewTerminal,
             newEnabled = connected,
             onFiles = onFiles,
             modifier = Modifier.align(Alignment.BottomCenter),

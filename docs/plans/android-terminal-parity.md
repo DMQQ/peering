@@ -38,7 +38,7 @@ The previous version of this file claimed a match and listed rows that were not 
 
 | Element | iPhone | Why it remains |
 |---------|--------|----------------|
-| Terminals list page: folder picker on New terminal, per-shell folder and age, terminal history | The page, cards, guide, empty state and dock are built to the Swift values. The wire's create request carries no folder and the tab no start time, so New terminal starts a shell directly and a card says "on your computer" and "Running" (the Swift fallbacks). Cursor on a card is static (no looping animation) | 
+| Terminals list page: per-shell folder and age, terminal history (the folder picker on New terminal is built: it sends a `cd` as the shell's first line, as the iPhone does) | The page, cards, guide, empty state and dock are built to the Swift values. The wire's create request carries no folder and the tab no start time, so New terminal starts a shell directly and a card says "on your computer" and "Running" (the Swift fallbacks). Cursor on a card is static (no looping animation) | 
 | Files toggle in the terminal bar | Browses the shell's folder | Android keeps files on its own tab |
 | Tour tips and the end-of-line "Done" accessory | iOS first-run tours, keyboard accessory | No equivalent on Android, the hide-keyboard key in the capsule covers Done |
 | Error and warning word tint on uncoloured lines | `TerminalStyledLine.kind` tints lines that look like errors | The Android emulator does not classify lines |

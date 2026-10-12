@@ -7,6 +7,7 @@
     <string name="terminal_title">Terminal</string>
     <string name="terminal_back">Back to terminals</string>
     <string name="terminal_new">New terminal</string>
+    <string name="terminal_folder_recents">Recent folders</string>
     <string name="terminal_end_named">End %1$s</string>
     <string name="terminal_close_named">Close %1$s</string>
     <string name="terminal_rename">Rename</string>
