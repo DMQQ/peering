@@ -1,6 +1,6 @@
 package pl.dmq.peering.ui.wiring
 
-import android.util.Log
+import pl.dmq.peering.DebugLog
 import java.net.InetSocketAddress
 import java.net.Socket
 import kotlinx.coroutines.CancellationException
@@ -32,11 +32,11 @@ internal class ControlSockets(private val tls: TlsFactory) : ControlConnector {
     }
 
     private fun openDirect(address: PeerAddress): ControlTransport {
-        Log.d(TAG, "connecting to ${address.host}:${address.port}")
+        DebugLog.d(TAG) { "connecting directly" }
         return try {
             tls.open(address.host, address.port, pin = null, timeoutMs = TIMEOUT_MS)
         } catch (failure: Exception) {
-            Log.w(TAG, "connecting to ${address.host}:${address.port} failed: ${failure.javaClass.simpleName}")
+            DebugLog.w(TAG, { "connecting directly failed" })
             throw failure
         }
     }

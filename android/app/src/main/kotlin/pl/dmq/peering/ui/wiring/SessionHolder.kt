@@ -1,6 +1,6 @@
 package pl.dmq.peering.ui.wiring
 
-import android.util.Log
+import pl.dmq.peering.DebugLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,7 +41,7 @@ internal class SessionHolder(
                 .filterIsInstance<SessionPhase.Ready>()
                 .distinctUntilChanged()
                 .collect { ready ->
-                    Log.i(TAG, "session ready on ${ready.path}")
+                    DebugLog.d(TAG) { "session ready on ${ready.path}" }
                     target.hostId?.let { directory.remember(it, ready.hostName, ready.path) }
                 }
         }
@@ -50,14 +50,14 @@ internal class SessionHolder(
                 .map { it.phase }
                 .filterIsInstance<SessionPhase.Failed>()
                 .distinctUntilChanged()
-                .collect { failed -> Log.w(TAG, "session failed: ${failed.reason.javaClass.simpleName}, ${failed.reason.cause}") }
+                .collect { failed -> DebugLog.w(TAG, { "session failed: ${failed.reason.javaClass.simpleName}" }) }
         }
         session.controller.connect()
         return session
     }
 
     fun end() {
-        Log.i(TAG, "session ended by the user")
+        DebugLog.d(TAG) { "session ended by the user" }
         current.value?.close()
         naming?.cancel()
         naming = null

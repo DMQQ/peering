@@ -1,7 +1,7 @@
 package pl.dmq.peering.ui.wiring
 
 import android.content.SharedPreferences
-import android.util.Log
+import pl.dmq.peering.DebugLog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,7 +37,7 @@ internal class PersistedSessionRecords(
                 try {
                     SessionHistory.fromJson(stored)
                 } catch (failure: SerializationException) {
-                    Log.w(TAG, "the stored session history could not be read, starting again", failure)
+                    DebugLog.w(TAG, { "the stored session history could not be read, starting again" }, failure)
                     SessionHistory()
                 }
             }

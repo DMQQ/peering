@@ -1,7 +1,7 @@
 package pl.dmq.peering.widget
 
 import android.content.Context
-import android.util.Log
+import pl.dmq.peering.DebugLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -98,7 +98,7 @@ class WidgetPublisher internal constructor(
         try {
             update()
         } catch (failure: IllegalStateException) {
-            Log.w(TAG, "widget update failed", failure)
+            DebugLog.w(TAG, { "widget update failed" }, failure)
         }
     }
 

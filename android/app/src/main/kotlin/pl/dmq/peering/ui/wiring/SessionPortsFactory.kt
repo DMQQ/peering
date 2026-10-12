@@ -1,6 +1,6 @@
 package pl.dmq.peering.ui.wiring
 
-import android.util.Log
+import pl.dmq.peering.DebugLog
 import kotlinx.coroutines.CoroutineScope
 import pl.dmq.peering.SessionFactory
 import pl.dmq.peering.platform.net.UdpLane
@@ -44,7 +44,7 @@ internal class SessionPortsFactory(
             relay = relay,
             quality = quality,
             videoCodecs = codecSupport(),
-            log = { message -> Log.d(TAG, message) },
+            log = { message -> DebugLog.d(TAG) { message } },
             lanReached = lanAddresses::remember,
             clipboardHistory = clipboardHistory,
         )
