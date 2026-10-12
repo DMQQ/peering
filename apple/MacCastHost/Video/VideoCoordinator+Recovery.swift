@@ -39,16 +39,16 @@ extension VideoCoordinator {
         case .giveUp(let attempts):
             coordinatorLog.error("capture could not be restored after \(attempts, privacy: .public) tries")
             onFailure?(Self.giveUpError(for: error, attempts: attempts))
-        case .schedule(let delay):
+        case .schedule(let delay, let token):
             coordinatorLog.notice("capture will be rebuilt in \(Int(delay), privacy: .public)s · \(String(describing: cause), privacy: .public)")
             onStatus?(String(localized: "Capture stopped · restarting"))
             let task = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(delay))
                 guard !Task.isCancelled, let self else { return }
-                self.recovery.attemptStarted()
+                guard self.recovery.attemptStarted(token: token) else { return }
                 self.lock.withLock { self.scheduleLifecycleLocked { [weak self] in await self?.rebuildCapture() } }
             }
-            recovery.hold(task)
+            recovery.hold(task, token: token)
         }
     }
 
