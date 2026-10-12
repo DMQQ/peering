@@ -1,0 +1,108 @@
+package pl.dmq.peering.feature.remote
+
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import pl.dmq.peering.wire.KeyDown
+import pl.dmq.peering.wire.KeyRoute
+import pl.dmq.peering.wire.KeyUp
+import pl.dmq.peering.wire.Modifiers
+import pl.dmq.peering.wire.RemoteCommand
+import pl.dmq.peering.wire.TextInput
+import pl.dmq.peering.wire.routeKey
+
+/**
+ * Turns keyboard input into commands: printable text is typed as text, other keys are pressed by their macOS keycode.
+ * A latched modifier is held for the key that follows it. Not thread safe.
+ */
+class KeyboardPresenter(private val sink: CommandSink) {
+    private val sticky = StickyModifiers()
+    private val latchStates = MutableStateFlow(sticky.latches())
+    val latches: StateFlow<Map<StickyModifier, ModifierLatch>> = latchStates.asStateFlow()
+
+    fun onModifierTap(modifier: StickyModifier, timeMs: Long) {
+        send(sticky.tap(modifier, timeMs))
+    }
+
+    fun onFunctionKey(key: FunctionKey) {
+        pressKey(key.macKeyCode)
+    }
+
+    /** Text committed by the soft keyboard. */
+    fun onSoftKeyboardText(text: String) {
+        if (text.isEmpty()) return
+        typeText(text)
+    }
+
+    /** A delete from the soft keyboard, which is the Backspace key. */
+    fun onSoftKeyboardDelete() {
+        pressKey(BACKSPACE_KEY)
+    }
+
+    /** Returns true when the event was sent, so the caller can keep it from the field it came from. */
+    fun onKey(input: KeyInput): Boolean =
+        when (val route = routeKey(input.unicodeChar, input.androidKeyCode, input.metaState)) {
+            is KeyRoute.Text -> {
+                if (input.isDown) typeText(String(Character.toChars(route.codepoint)))
+                true
+            }
+            is KeyRoute.Key -> {
+                routeKeyEvent(route, input.isDown)
+                true
+            }
+            KeyRoute.Ignored -> false
+        }
+
+    private fun routeKeyEvent(route: KeyRoute.Key, isDown: Boolean) {
+        val modifiers = Modifiers(route.modifiers or sticky.activeModifiers().bits)
+        if (isDown) {
+            sink.send(KeyDown(route.macKeyCode, modifiers))
+            if (route.macKeyCode !in MODIFIER_KEY_CODES) endKeyPress()
+        } else {
+            sink.send(KeyUp(route.macKeyCode, modifiers))
+        }
+    }
+
+    private fun typeText(text: String) {
+        if (!sticky.hasActive()) {
+            sink.send(TextInput(text))
+            return
+        }
+        text.codePoints().forEach { codepoint ->
+            val macKeyCode = macKeyForCharacter(codepoint)
+            if (macKeyCode == null) {
+                sink.send(TextInput(String(Character.toChars(codepoint))))
+            } else {
+                pressKeyWithoutRelease(macKeyCode)
+            }
+        }
+        endKeyPress()
+    }
+
+    private fun pressKey(macKeyCode: Int) {
+        pressKeyWithoutRelease(macKeyCode)
+        endKeyPress()
+    }
+
+    private fun pressKeyWithoutRelease(macKeyCode: Int) {
+        val modifiers = sticky.activeModifiers()
+        sink.send(KeyDown(macKeyCode, modifiers))
+        sink.send(KeyUp(macKeyCode, modifiers))
+    }
+
+    private fun endKeyPress() {
+        send(sticky.afterKey())
+    }
+
+    private fun send(commands: List<RemoteCommand>) {
+        commands.forEach(sink::send)
+        latchStates.value = sticky.latches()
+    }
+
+    private companion object {
+        const val BACKSPACE_KEY = 51
+
+        /** Left and right Shift, Control, Option, Command, Caps Lock is not one of them. */
+        val MODIFIER_KEY_CODES = setOf(54, 55, 56, 58, 59, 60, 61, 62)
+    }
+}

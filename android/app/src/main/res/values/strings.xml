@@ -31,6 +31,25 @@
     <string name="pairing_error_code_instead_of_id">That is the six digit code. Enter the Mac\'s device ID instead.</string>
     <string name="pairing_error_not_pairing_code">That QR code is not a Peering pairing code.</string>
     <string name="pairing_error_not_identifier">That is not a Mac\'s device ID.</string>
+    <string name="pairing_code_title">Check the code</string>
+    <string name="pairing_code_detail">Your Mac shows the same six digits. Confirm they match before pairing.</string>
+    <string name="pairing_code_match">Match</string>
+    <string name="pairing_code_mismatch">Don\'t match</string>
+    <string name="pairing_code_waiting">Waiting for the Mac to finish pairing.</string>
+    <string name="pairing_code_done">Paired.</string>
+    <string name="pairing_code_back">Back</string>
+    <string name="pairing_code_cancel">Cancel pairing</string>
+    <string name="pairing_failed_unexpected">The Mac sent a message the pairing did not expect. Try again.</string>
+    <string name="pairing_failed_malformed">The Mac sent a message this app could not read. Update both apps and try again.</string>
+    <string name="pairing_failed_protocol">This Mac runs a different version of Peering. Update the app or the Mac.</string>
+    <string name="pairing_failed_host_id">The Mac answered as a different device than the one you chose.</string>
+    <string name="pairing_failed_pin">This Mac\'s key has changed since you paired it. Forget it before pairing again.</string>
+    <string name="pairing_failed_no_pin">The Mac says it is paired, but this device has no record of it. Pair it again.</string>
+    <string name="pairing_failed_commitment">The pairing could not be verified. Try again.</string>
+    <string name="pairing_failed_refused">The Mac refused the pairing.</string>
+    <string name="pairing_failed_refused_reason">The Mac refused the pairing: %1$s</string>
+    <string name="pairing_failed_declined">The codes did not match, so the pairing was stopped.</string>
+    <string name="pairing_failed_not_saved">The Mac approved the pairing, but this device could not save it. Try again.</string>
     <string name="agents_title">Agents</string>
     <string name="agents_new_chat">New chat</string>
     <string name="agents_unsupported">This Mac does not offer agent chats yet.</string>
@@ -68,4 +87,35 @@
         <item quantity="one">%d approval waiting</item>
         <item quantity="other">%d approvals waiting</item>
     </plurals>
+
+    <string name="remote_modifier_shift">Shift</string>
+    <string name="remote_modifier_control">Ctrl</string>
+    <string name="remote_modifier_option">Alt</string>
+    <string name="remote_modifier_command">Cmd</string>
+    <string name="remote_modifier_latched">Held for the next key</string>
+    <string name="remote_modifier_locked">Locked</string>
+    <string name="remote_function_keys">Function keys</string>
+    <string name="agents_history_loading">Loading the conversation</string>
+    <string name="agents_history_truncated">The start of this conversation is no longer on the Mac.</string>
+    <string name="agents_jump_to_latest">Jump to latest, %1$d new</string>
+    <string name="agents_queued_label">Queued</string>
+    <string name="agents_plan_label">Plan</string>
+    <string name="agents_subagent_label">Sub-agent</string>
+    <plurals name="agents_subagent_steps">
+        <item quantity="one">%d step</item>
+        <item quantity="other">%d steps</item>
+    </plurals>
+    <string name="agents_turn_done">Done</string>
+    <string name="agents_turn_stopped">Stopped</string>
+    <string name="agents_turn_failed">Failed</string>
+    <plurals name="agents_turn_seconds">
+        <item quantity="one">%d s</item>
+        <item quantity="other">%d s</item>
+    </plurals>
+    <string name="agents_turn_cost">US$ %1$s</string>
+    <string name="agents_output_truncated">The output was shortened on the Mac.</string>
+    <string name="agents_tool_running">Running</string>
+    <string name="agents_tool_denied">Denied</string>
+    <string name="agents_tool_done">Done</string>
+    <string name="agents_tool_failed">Failed</string>
 </resources>
