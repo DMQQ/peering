@@ -26,6 +26,8 @@ private const val TAB_IN_MS = 150
 private const val AXIS_MS = 300
 private const val MODAL_IN_MS = 280
 private const val MODAL_OUT_MS = 200
+private const val PUSH_IN_MS = 300
+private const val PUSH_OUT_MS = 240
 private const val CROSSFADE_MS = 120
 private val axisDistance = 30.dp
 
@@ -45,6 +47,9 @@ fun motionTransition(kind: MotionKind, axisDistancePx: Int): ContentTransform = 
         fadeIn(tween(MODAL_IN_MS, easing = FastOutSlowInEasing)) +
             slideInVertically(tween(MODAL_IN_MS, easing = FastOutSlowInEasing)) { it }
         ).togetherWith(ExitTransition.None).apply { targetContentZIndex = 1f }
+    MotionKind.PUSH_IN -> slideInHorizontally(tween(PUSH_IN_MS, easing = FastOutSlowInEasing)) { it }
+        .togetherWith(ExitTransition.None).apply { targetContentZIndex = 1f }
+    MotionKind.PUSH_OUT -> EnterTransition.None togetherWith slideOutHorizontally(tween(PUSH_OUT_MS, easing = FastOutLinearInEasing)) { it }
     MotionKind.MODAL_DOWN -> EnterTransition.None togetherWith (
         fadeOut(tween(MODAL_OUT_MS, easing = FastOutLinearInEasing)) +
             slideOutVertically(tween(MODAL_OUT_MS, easing = FastOutLinearInEasing)) { it }

@@ -2,6 +2,7 @@ package pl.dmq.peering.ui.nav
 
 import androidx.compose.animation.AnimatedContent
 import pl.dmq.peering.ui.kit.modalMotion
+import pl.dmq.peering.ui.kit.pushMotion
 import pl.dmq.peering.ui.kit.motionTransition
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -115,7 +116,12 @@ internal fun SessionScreens(
     AnimatedContent(
         targetState = route,
         transitionSpec = {
-            motionTransition(modalMotion(initialState != SessionRoute.REMOTE, targetState != SessionRoute.REMOTE), 0)
+            val kind = if (initialState == SessionRoute.HUB || targetState == SessionRoute.HUB) {
+                pushMotion(initialState == SessionRoute.HUB, targetState == SessionRoute.HUB)
+            } else {
+                modalMotion(initialState != SessionRoute.REMOTE, targetState != SessionRoute.REMOTE)
+            }
+            motionTransition(kind, 0)
         },
         label = "sessionRoute",
     ) { shown ->

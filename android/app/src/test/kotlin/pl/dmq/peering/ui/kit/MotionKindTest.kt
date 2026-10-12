@@ -33,4 +33,11 @@ class MotionKindTest {
         assertEquals(MotionKind.MODAL_DOWN, modalMotion(fromModal = true, toModal = false))
         assertEquals(MotionKind.CROSSFADE, modalMotion(fromModal = true, toModal = true))
     }
+
+    @Test
+    fun aPageOverLiveVideoSlidesInFromTheRightAndBackOut() {
+        assertEquals(MotionKind.PUSH_IN, pushMotion(fromPage = false, toPage = true))
+        assertEquals(MotionKind.PUSH_OUT, pushMotion(fromPage = true, toPage = false))
+        assertEquals(MotionKind.CROSSFADE, pushMotion(fromPage = false, toPage = false))
+    }
 }
