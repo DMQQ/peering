@@ -9,6 +9,7 @@ import pl.dmq.peering.session.history.SessionHistory
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.feature.scan.CameraQrSource
 import pl.dmq.peering.ui.nav.ScreenRegistry
+import pl.dmq.peering.ui.wiring.ConnectivityNetworkSource
 import pl.dmq.peering.ui.wiring.DiscoveryHostSource
 import pl.dmq.peering.ui.wiring.PinTrustedHosts
 import pl.dmq.peering.ui.wiring.PreferencesComposerDrafts
@@ -34,6 +35,7 @@ import pl.dmq.peering.session.relay.PresenceWatch
 internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences: SharedPreferences) {
     val picture = SurfacePicture()
     val qrSource = CameraQrSource()
+    val network = ConnectivityNetworkSource(graph.applicationContext)
     val clock: Clock = graph.sessions.clock
     val drafts = PreferencesComposerDrafts(preferences)
     val folderRecents = PreferencesFolderRecents(preferences)

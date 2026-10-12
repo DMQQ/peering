@@ -1,6 +1,9 @@
 package pl.dmq.peering.feature.connect
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,12 +18,17 @@ class ConnectPresenter(
     qrSource: QrSource,
     private val onConnect: (String) -> Unit,
     private val onPair: (String) -> Unit,
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
+    network: NetworkSource = NetworkSource.Always,
+    private val searchWindowMillis: Long = SEARCH_WINDOW_MILLIS,
 ) {
     val entry = HostIdEntryPresenter(qrSource, scope, onAccepted = onPair)
 
     private val pendingForgetId = MutableStateFlow<String?>(null)
     private val message = MutableStateFlow<ConnectMessage?>(null)
+
+    private val searching = MutableStateFlow(true)
+    private var searchTimer: Job? = null
 
     private val listing = combine(
         hosts.nearbyHosts(),
@@ -34,14 +42,20 @@ class ConnectPresenter(
         pendingForgetId,
         message,
         entry.state,
-    ) { current, pending, failure, entryState ->
+        combine(network.onLocalNetwork(), searching, ::Pair),
+    ) { current, pending, failure, entryState, (onNetwork, stillSearching) ->
         ConnectUiState(
             listing = current,
+            nearbyPhase = NearbyPhase.of(onNetwork, current.nearby.size, stillSearching),
             forgetTarget = current.paired.firstOrNull { it.id == pending },
             message = failure,
             entry = entryState,
         )
     }.stateIn(scope, SharingStarted.Eagerly, ConnectUiState(entry = entry.state.value))
+
+    init {
+        startSearchWindow()
+    }
 
     fun connect(hostId: String) {
         onConnect(hostId)
@@ -67,5 +81,20 @@ class ConnectPresenter(
 
     fun searchAgain() {
         hosts.restartSearch()
+        searching.value = true
+        startSearchWindow()
+    }
+
+    /** Discovery never says it is done, so "searching" lasts a fixed window and then gives way to "none found". */
+    private fun startSearchWindow() {
+        searchTimer?.cancel()
+        searchTimer = scope.launch {
+            delay(searchWindowMillis)
+            searching.value = false
+        }
+    }
+
+    private companion object {
+        const val SEARCH_WINDOW_MILLIS = 6_000L
     }
 }

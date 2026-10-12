@@ -117,3 +117,27 @@ class HostIdEntryPresenterTest {
         assertEquals(HostIdError.NotPairingCode, presenter.state.value.error)
     }
 }
+
+class HostIdEntryUntouchedTest {
+    @Test
+    fun anUntouchedFieldHasNoErrorAndCannotBeSubmitted() = runTest(UnconfinedTestDispatcher()) {
+        val presenter = HostIdEntryPresenter(FakeQrSource(), backgroundScope) {}
+
+        assertNull(presenter.state.value.error)
+        assertEquals(false, presenter.state.value.canSubmit)
+    }
+
+    @Test
+    fun typingAnInvalidValueShowsNoErrorUntilItIsSubmitted() = runTest(UnconfinedTestDispatcher()) {
+        val presenter = HostIdEntryPresenter(FakeQrSource(), backgroundScope) {}
+
+        presenter.onTextChanged("zzz")
+        assertNull(presenter.state.value.error)
+
+        presenter.submit()
+        assertEquals(HostIdError.NotAnIdentifier, presenter.state.value.error)
+
+        presenter.onTextChanged("zzzz")
+        assertNull(presenter.state.value.error)
+    }
+}

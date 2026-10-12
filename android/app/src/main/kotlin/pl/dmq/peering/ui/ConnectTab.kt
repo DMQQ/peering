@@ -53,6 +53,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
                 wiring.firstRun.markComplete()
             },
             scope = scope,
+            network = wiring.network,
         )
     }
     DisposableEffect(wiring) {

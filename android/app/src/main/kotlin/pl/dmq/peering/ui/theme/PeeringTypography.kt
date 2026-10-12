@@ -9,7 +9,7 @@ val wordmarkStyle = TextStyle(
     fontFamily = displayFamily,
     fontWeight = FontWeight.Bold,
     fontSize = 56.sp,
-    lineHeight = 60.sp,
+    lineHeight = 52.sp,
     letterSpacing = (-2.2).sp,
 )
 
