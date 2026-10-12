@@ -2,9 +2,9 @@ package pl.dmq.peering.session.controller
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import pl.dmq.peering.session.flows.ScriptedPairingHost
 import pl.dmq.peering.session.flows.TestSchedulerClock
@@ -32,8 +32,15 @@ class ControllerRig(
     val pins: FakePinStore = FakePinStore(mapOf(ScriptedPairingHost.HOST_ID to ScriptedPairingHost.HOST_KEY)),
     val entitlement: RelayEntitlement = RelayEntitlement(),
     nobodyDiscovered: Boolean = false,
+    discoveryDelayMillis: Long = 0,
 ) {
     val routes = mutableListOf<ControlRoute>()
+
+    /** What the controller reported to its debug log. */
+    val logged = mutableListOf<String>()
+
+    /** The local addresses the controller reported reaching hosts at. */
+    val reachedOnLan = mutableMapOf<String, PeerAddress>()
 
     /** The routes dialled for control connections: every one except the picture lane. */
     val controlRoutes: List<ControlRoute> get() = routes.filter { it !is ControlRoute.Video }
@@ -76,12 +83,17 @@ class ControllerRig(
             override fun hosts(): Flow<DiscoveredHost> = if (nobodyDiscovered) {
                 flow { awaitCancellation() }
             } else {
-                flowOf(DiscoveredHost(ScriptedPairingHost.HOST_ID, HOST_NAME, protocolVersion = 1, address = LAN_ADDRESS))
+                flow {
+                    delay(discoveryDelayMillis)
+                    emit(DiscoveredHost(ScriptedPairingHost.HOST_ID, HOST_NAME, protocolVersion = 1, address = LAN_ADDRESS))
+                }
             }
         },
         sink = sink,
         downloads = DownloadWriter { offset, bytes -> downloads[offset] = bytes },
         relay = RelayPorts(signalling, datagrams) { entitlement },
+        log = { logged += it },
+        lanReached = { hostId, address -> reachedOnLan[hostId] = address },
     )
 
     val controller = SessionController(scope, target, ports, history)

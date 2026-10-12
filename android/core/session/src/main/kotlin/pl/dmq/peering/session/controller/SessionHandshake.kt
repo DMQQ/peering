@@ -26,8 +26,8 @@ internal sealed interface HandshakeOutcome {
 
     data class Refused(val reason: FailureReason) : HandshakeOutcome
 
-    /** The connection closed, or the host stopped answering, before the handshake finished. */
-    data object Lost : HandshakeOutcome
+    /** The connection closed, or the host stopped answering, before the handshake finished. [detail] says which and where. */
+    data class Lost(val detail: String) : HandshakeOutcome
 
     /** The user cancelled. Any decline the host needed to hear is already queued. */
     data object Cancelled : HandshakeOutcome
@@ -94,7 +94,7 @@ internal class SessionHandshake(
                 }
                 Event.Closed, null -> {
                     decision?.cancel()
-                    return HandshakeOutcome.Lost
+                    return HandshakeOutcome.Lost(lostDetail(silent = event == null))
                 }
             }
         }
@@ -106,6 +106,17 @@ internal class SessionHandshake(
             if (decision != null) decision.onAwait { Event.Decided(it) }
             cancelRequest.onAwait { Event.Cancelled }
         }
+    }
+
+    private fun lostDetail(silent: Boolean): String {
+        val what = if (silent) "The host stopped answering" else "The host closed the connection"
+        val stage = when (machine.state) {
+            ClientHandshakeState.AwaitingUserConfirmation -> "while the pairing code was being entered"
+            ClientHandshakeState.AwaitingPairResult -> "while waiting for the Mac to approve the pairing"
+            ClientHandshakeState.AwaitingServerCommit, ClientHandshakeState.AwaitingServerReveal -> "during pairing"
+            else -> "during the handshake"
+        }
+        return "$what $stage"
     }
 
     private fun limit(): Duration = when (machine.state) {

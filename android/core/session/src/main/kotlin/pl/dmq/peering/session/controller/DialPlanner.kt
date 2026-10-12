@@ -12,8 +12,12 @@ object DialPlanner {
     /** A remembered address may be stale, so it is given less time. */
     val REMEMBERED_TIMEOUT: Duration = 3.seconds
 
-    /** A remembered address is dialled with the relay racing behind it after this head start. */
-    val RELAY_HEAD_START: Duration = 300.milliseconds
+    /**
+     * A remembered address is dialled with the relay racing behind it after this head start. A phone that has just
+     * woken its radio can take a second to open a socket on the same network, and a relay that wins that race keeps
+     * the whole session off the local network.
+     */
+    val RELAY_HEAD_START: Duration = 1500.milliseconds
 
     /** The steps to try, in order. Empty when no route is allowed, which the caller reports as the host not being found. */
     fun plan(inputs: DialInputs): List<DialStep> {

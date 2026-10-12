@@ -144,7 +144,18 @@ class SessionController(
     }
 
     /** Ends the session now. The phone does not reconnect afterwards. */
-    fun disconnect() {
+    fun disconnect() = stop(SessionPhase.Ended)
+
+    /**
+     * Abandons a connection or pairing that has not become a session: the host is told when it waits on this phone, the
+     * connection is closed, and the phase returns to [SessionPhase.Idle]. Does nothing once a session is ready or failed.
+     */
+    fun cancelPairing() {
+        val phase = state.value.phase
+        if (phase is SessionPhase.Connecting || phase is SessionPhase.EnteringPairingCode) stop(SessionPhase.Idle)
+    }
+
+    private fun stop(phase: SessionPhase) {
         if (job?.isActive != true) return
         val pairing = activeHandshake
         if (pairing != null) {
@@ -154,7 +165,7 @@ class SessionController(
             job?.cancel()
         }
         endHistory(SessionRecord.EndReason.USER_ENDED)
-        update { it.copy(phase = SessionPhase.Ended) }
+        update { it.copy(phase = phase) }
     }
 
     private suspend fun lifecycle() {
@@ -186,6 +197,8 @@ class SessionController(
                 LinkOutcome.Refused(failure.failure)
             }
         }
+        ports.log.log("control connection open over ${route.path}")
+        update { if (it.phase is SessionPhase.Connecting) it.copy(phase = SessionPhase.Connecting(route.path)) else it }
         val ended = CompletableDeferred<LinkEnd>()
         val frames = Channel<Frame>(Channel.UNLIMITED)
         val writer = WriterLoop(route.transport)
@@ -206,8 +219,8 @@ class SessionController(
                     writer.flush()
                     return@coroutineScope LinkOutcome.Cancelled
                 }
-                HandshakeOutcome.Lost -> return@coroutineScope terminalEnd(ended)?.let(LinkOutcome::Ended)
-                    ?: LinkOutcome.Unreachable(SessionFailure.ConnectionFailed(ConnectFailureKind.Closed, "The host closed the connection or stopped answering during the handshake"))
+                is HandshakeOutcome.Lost -> return@coroutineScope terminalEnd(ended)?.let(LinkOutcome::Ended)
+                    ?: LinkOutcome.Unreachable(SessionFailure.ConnectionFailed(ConnectFailureKind.Closed, result.detail))
             }
             val live = startSession(hello, route, writer, frames)
             with(live) { serve(ended) { publish(live) } }
@@ -225,7 +238,7 @@ class SessionController(
         writer: WriterLoop,
         frames: ReceiveChannel<Frame>,
     ): HandshakeOutcome {
-        val serverKey = route.transport.peerPublicKey() ?: return HandshakeOutcome.Lost
+        val serverKey = route.transport.peerPublicKey() ?: return HandshakeOutcome.Lost("The host closed the connection before it identified itself")
         val config = ClientConfig(
             clientId = ports.identity.clientId,
             clientName = ports.clientName,
@@ -297,6 +310,7 @@ class SessionController(
         )
         link = live
         everReady = true
+        if (route.path == SessionRecord.Path.LAN) ports.lanReached(hello.serverID, route.videoPeer)
         if (historyId == null) {
             historyId = history.begin(hello.serverID, hello.hostName, route.path, nowMillis())
         }

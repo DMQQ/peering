@@ -82,7 +82,7 @@ class PairedDialTest {
         val rig = rig(relayAllowed = true, nobodyDiscovered = true)
         rig.signalling.grantSession()
         rig.controller.connect()
-        advanceTimeBy(2_000)
+        advanceTimeBy(4_000)
         runCurrent()
 
         assertTrue(rig.controlRoutes.single() is ControlRoute.Relayed)
@@ -92,10 +92,54 @@ class PairedDialTest {
     fun withTheRelayForbiddenAndNobodyAroundTheHostIsNotFound() = runTest {
         val rig = rig(relayAllowed = false, nobodyDiscovered = true)
         rig.controller.connect()
-        advanceTimeBy(2_000)
+        advanceTimeBy(4_000)
         runCurrent()
 
         assertEquals(SessionFailure.HostNotFound, (rig.controller.state.value.phase as SessionPhase.Failed).reason)
+    }
+
+    @Test
+    fun aHostThatDiscoveryResolvesSlowlyIsStillReachedOverTheLocalNetwork() = runTest {
+        val rig = rig(discoveryDelayMillis = 2_500)
+        rig.signalling.grantSession()
+        rig.controller.connect()
+        advanceTimeBy(3_000)
+        runCurrent()
+
+        assertTrue(rig.controlRoutes.single() is ControlRoute.Direct)
+        assertEquals(SessionRoute.Direct, rig.controller.state.value.route)
+        assertTrue(rig.signalling.sent.isEmpty())
+    }
+
+    @Test
+    fun aLocalSessionReportsTheAddressItReachedSoTheNextDialCanStartThere() = runTest {
+        val rig = rig(discovered = ControllerRig.LAN_ADDRESS)
+        rig.controller.connect()
+        settle()
+
+        assertEquals(ControllerRig.LAN_ADDRESS, rig.reachedOnLan[ScriptedPairingHost.HOST_ID])
+    }
+
+    @Test
+    fun aRelayedSessionReportsNoLocalAddressAndTheRelayRoute() = runTest {
+        val rig = rig(relayAllowed = true, nobodyDiscovered = true)
+        rig.signalling.grantSession()
+        rig.controller.connect()
+        advanceTimeBy(4_000)
+        runCurrent()
+
+        assertTrue(rig.reachedOnLan.isEmpty())
+        assertEquals(SessionRoute.Relay, rig.controller.state.value.route)
+    }
+
+    @Test
+    fun theRouteIsKnownWhileConnectingAndTheDialIsLogged() = runTest {
+        val rig = rig(discovered = ControllerRig.LAN_ADDRESS)
+        rig.controller.connect()
+
+        assertEquals(SessionRoute.Direct, rig.controller.state.value.route)
+        settle()
+        assertTrue(rig.logged.any { "192.0.2.10" in it })
     }
 
     private fun TestScope.rig(
@@ -103,10 +147,12 @@ class PairedDialTest {
         remembered: PeerAddress? = null,
         relayAllowed: Boolean = true,
         nobodyDiscovered: Boolean = false,
+        discoveryDelayMillis: Long = 0,
     ) = ControllerRig(
         backgroundScope,
         testScheduler,
         ConnectTarget.Paired(ScriptedPairingHost.HOST_ID, discovered, remembered, relayAllowed),
         nobodyDiscovered = nobodyDiscovered,
+        discoveryDelayMillis = discoveryDelayMillis,
     )
 }

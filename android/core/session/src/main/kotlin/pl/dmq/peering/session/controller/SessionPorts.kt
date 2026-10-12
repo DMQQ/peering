@@ -4,13 +4,16 @@ import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.session.ports.DeviceIdentity
 import pl.dmq.peering.session.ports.Discovery
 import pl.dmq.peering.session.ports.PinStore
+import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.ports.Random
+import pl.dmq.peering.session.ports.SessionLog
 import pl.dmq.peering.session.ports.VideoSink
 
 /**
  * Everything a [SessionController] reaches outside itself. [relay] is needed only for relay targets, and [discovery] only
  * for pairing, since a QR code names a host but not where it is. [videoCodecs] are the codecs this device decodes, best first; null
- * declares none, which the host reads as both.
+ * declares none, which the host reads as both. [lanReached] hears the address of each host a session
+ * opened to on the local network, so the next dial can start there before discovery has answered.
  */
 class SessionPorts(
     val identity: DeviceIdentity,
@@ -25,4 +28,6 @@ class SessionPorts(
     val relay: RelayPorts? = null,
     val quality: QualitySource = QualitySource.Default,
     val videoCodecs: List<String>? = null,
+    val log: SessionLog = SessionLog.None,
+    val lanReached: (hostId: String, address: PeerAddress) -> Unit = { _, _ -> },
 )
