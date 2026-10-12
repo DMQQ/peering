@@ -1,4 +1,5 @@
-# Tests the Windows host, builds the unsigned installer, and on a windows-v* tag publishes it as a release.
+# Tests the Windows host and builds the unsigned installer. The release workflow (windows-release.yml) calls this one on a
+# windows-v* tag and publishes what it builds.
 #
 # The logic crates have no Windows API dependency, so they are tested on Linux where runs are cheap. The Windows job builds
 # everything, including the host binary and the Windows API adapters, which cannot be compiled on another OS.
@@ -9,7 +10,6 @@ name: windows
 on:
   push:
     branches: [main, monorepo]
-    tags: ["windows-v*"]
     paths:
       - "windows/**"
       - "docs/protocol/**"
@@ -20,6 +20,12 @@ on:
       - "docs/protocol/**"
       - ".github/workflows/windows.yml"
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "The windows-v* tag being released. Its version is passed to the installer build."
+        type: string
+        default: ""
 
 jobs:
   logic:
@@ -62,7 +68,14 @@ jobs:
           if (-not $found) { choco install innosetup --no-progress -y }
       - name: Build the unsigned installer
         shell: pwsh
-        run: ./installer/build.ps1
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if ($env:RELEASE_TAG) {
+            ./installer/build.ps1 -Version ($env:RELEASE_TAG -replace '^windows-v', '')
+          } else {
+            ./installer/build.ps1
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: peering-host-windows
@@ -70,23 +83,3 @@ jobs:
             windows/target/release/peering-host.exe
             windows/dist/PeeringHostSetup.exe
           if-no-files-found: error
-
-  release:
-    if: startsWith(github.ref, 'refs/tags/windows-v')
-    needs: [logic, build]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: peering-host-windows
-          path: out
-      - name: Attach the unsigned installer to the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${{ github.ref_name }}" out/dist/PeeringHostSetup.exe out/target/release/peering-host.exe \
-            --repo "${{ github.repository }}" \
-            --title "Peering Host for Windows ${{ github.ref_name }}" \
-            --notes "Unsigned build. Windows SmartScreen shows a warning on first run. Choose More info, then Run anyway."
