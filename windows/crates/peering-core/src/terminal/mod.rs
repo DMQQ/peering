@@ -5,6 +5,7 @@
 pub mod attention;
 pub mod fake;
 pub mod finish;
+pub mod hooks;
 pub mod manager;
 pub mod push;
 pub mod pty;
