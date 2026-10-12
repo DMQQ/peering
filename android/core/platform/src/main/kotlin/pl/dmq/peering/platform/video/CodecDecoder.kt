@@ -19,7 +19,7 @@ import pl.dmq.peering.wire.avccToAnnexB
 class CodecDecoder(private val surface: Surface) : VideoSink {
     private var codec: MediaCodec? = null
     private var current: VideoStreamConfig? = null
-    private var awaitingKeyframe = true
+    private val keyframes = KeyframeLossPolicy()
     private val info = MediaCodec.BufferInfo()
 
     override fun onConfig(config: VideoStreamConfig) {
@@ -34,26 +34,19 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
         created.start()
         codec = created
         current = config
-        awaitingKeyframe = true
+        keyframes.onConfigChanged()
     }
 
     override fun onFrame(frame: EncodedVideoFrame) {
         val decoder = codec ?: return
-        if (awaitingKeyframe) {
-            if (!frame.isKeyframe) return
-            awaitingKeyframe = false
+        if (!keyframes.admit(frame.isKeyframe)) return
+        try {
+            val queued = queue(decoder, avccToAnnexB(frame.data), presentationMicros(frame))
+            if (!queued && keyframes.onInputDropped()) decoder.flush()
+            drain(decoder)
+        } catch (error: MediaCodec.CodecException) {
+            if (keyframes.onDecodeError()) decoder.flush()
         }
-        val annexB = avccToAnnexB(frame.data)
-        val queued = queue(decoder, annexB, presentationMicros(frame))
-        if (!queued) awaitingKeyframe = true
-        drain(decoder)
-    }
-
-    /** Drops everything queued and waits for a keyframe; the caller uses it when frames were lost. */
-    fun flush() {
-        val decoder = codec ?: return
-        decoder.flush()
-        awaitingKeyframe = true
     }
 
     override fun onStop() {
