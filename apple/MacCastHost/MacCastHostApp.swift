@@ -6,8 +6,11 @@ import SwiftUI
 @MainActor
 final class HostAppDelegate: NSObject, NSApplicationDelegate {
     let model = HostModel()
+    let updater = Updater()
+    private var menuBar: MenuBarController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        menuBar = MenuBarController(model: model, updater: updater)
         PostHogConfiguration.setup()
         Analytics.observeSettings()
         Analytics.hostLaunched()
@@ -50,7 +53,7 @@ struct MacCastHostApp: App {
 
     @NSApplicationDelegateAdaptor(HostAppDelegate.self) private var appDelegate
 
-    @State private var updater = Updater()
+    private var updater: Updater { appDelegate.updater }
 
     private var model: HostModel { appDelegate.model }
 
@@ -60,6 +63,7 @@ struct MacCastHostApp: App {
                 .environment(model)
                 .environment(updater)
                 .onOpenURL { model.handleWidgetCommand($0) }
+                .captureOpenWindow()
                 // Dark by fiat, not by preference. The palette is fixed rather than semantic —
                 // see `HostPalette` — so the appearance has to be pinned too, or every control
                 // the system draws for us (fields, toggles, segmented pickers, sheets, the
@@ -68,17 +72,6 @@ struct MacCastHostApp: App {
         }
         .defaultSize(width: 1200, height: 870)
         .windowResizability(.contentSize)
-
-        // The connection state is read here rather than inside the label because an
-        // `@Observable` read in a scene body is what invalidates the scene.
-        MenuBarExtra {
-            HostMenuBarContent()
-                .environment(model)
-                .environment(updater)
-        } label: {
-            HostMenuBarLabel(state: model.menuBarState)
-        }
-        .menuBarExtraStyle(.window)
 
         .commands {
             CommandGroup(after: .appInfo) {
