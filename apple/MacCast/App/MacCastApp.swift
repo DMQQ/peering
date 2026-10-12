@@ -76,7 +76,7 @@ struct MacCastApp: App {
     }
 
     private var confirmingBinding: Binding<Bool> {
-        Binding(get: { router.confirming != nil }, set: { if !$0 { router.confirming = nil } })
+        Binding(get: { router.confirming != nil }, set: { if !$0 { router.cancelConfirmation() } })
     }
 
     var body: some Scene {
