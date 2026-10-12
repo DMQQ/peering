@@ -430,7 +430,7 @@ pub async fn serve(
         let peer = Some(peer_address.ip());
         let Some(ip_permit) = admit_peer(&settings.limiter, peer) else {
             TALLY.refused(Refusal::PerIpLimit);
-            debug!(peer = %peer_address.ip(), "refused a signalling connection: this address is at its limit");
+            debug!("refused a signalling connection: this address is at its limit");
             drop(stream);
             continue;
         };
@@ -586,7 +586,7 @@ async fn handle<S>(
             Some(slot) => Some(slot),
             None => {
                 TALLY.refused(Refusal::PerIpLimit);
-                debug!(%ip, "refused a forwarded signalling connection: this address is at its limit");
+                debug!("refused a forwarded signalling connection: this address is at its limit");
                 return;
             }
         },
