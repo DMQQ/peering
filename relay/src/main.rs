@@ -219,7 +219,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // without a `site` directory is a perfectly good relay, and should not refuse to start over a
     // missing landing page.
     if let Some((listener, root)) = web::bind(config.web_addr, config.web_root.clone()).await {
-        tokio::spawn(web::serve(listener, Arc::new(root), Arc::clone(&health)));
+        tasks.spawn("web", web::serve(listener, Arc::new(root), Arc::clone(&health)));
     }
 
     let apns = match (
