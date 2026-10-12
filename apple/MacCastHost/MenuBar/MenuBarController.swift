@@ -19,7 +19,7 @@ final class MenuBarController: NSObject {
         guard let button = statusItem.button else { return }
         button.target = self
         button.action = #selector(toggle)
-        button.setAccessibilityLabel("Peering")
+        button.setAccessibilityLabel(String(localized: "Peering"))
 
         let label = PassthroughHostingView(rootView: MenuBarStatusLabel().environment(model))
         label.translatesAutoresizingMaskIntoConstraints = false
