@@ -5,6 +5,7 @@ import pl.dmq.peering.session.connection.HandshakeFrames
 import pl.dmq.peering.session.connection.LivenessMonitor
 import pl.dmq.peering.session.connection.SessionCommands
 import pl.dmq.peering.session.files.FileBrowser
+import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.session.video.SourceSelection
 import pl.dmq.peering.session.video.VideoLanes
 import pl.dmq.peering.wire.AgentEvent
@@ -22,6 +23,7 @@ internal class FrameRouter(
     private val selection: SourceSelection,
     private val agent: AgentChat?,
     private val files: FileBrowser?,
+    private val terminals: TerminalSessions?,
 ) {
     fun route(frame: Frame): List<SessionEvent> = when (frame.kind) {
         MessageKind.Pong -> {
@@ -60,8 +62,9 @@ internal class FrameRouter(
     }
 
     private fun routeTerminal(frame: Frame) {
-        val browser = files ?: return
-        HandshakeFrames.parsed { TerminalEvent.parse(frame.payload.decodeToString()) }?.let(browser::onEvent)
+        val event = HandshakeFrames.parsed { TerminalEvent.parse(frame.payload.decodeToString()) } ?: return
+        files?.onEvent(event)
+        terminals?.onEvent(event)
     }
 
     private fun onError(frame: Frame): List<SessionEvent> {
