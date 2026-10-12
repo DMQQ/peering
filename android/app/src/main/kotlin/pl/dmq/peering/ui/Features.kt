@@ -19,6 +19,7 @@ import pl.dmq.peering.ui.wiring.SessionPresence
 import pl.dmq.peering.ui.wiring.SurfacePicture
 import pl.dmq.peering.ui.wiring.pairedTarget
 import pl.dmq.peering.session.controller.ConnectTarget
+import pl.dmq.peering.session.relay.PresenceWatch
 
 /** The adapters the screens share, built once for the process. [install] points the tab slots at the real screens. */
 internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences: SharedPreferences) {
@@ -32,7 +33,13 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val trusted = PinTrustedHosts(graph.sessions.pins)
     val discovery = DiscoveryHostSource(graph.sessions.discovery, graph.sessions.pins, scope)
     val holder = SessionHolder(SessionPortsFactory(graph.sessions, picture, SessionHistory.fromJson(EMPTY_HISTORY)), scope)
-    val presence = SessionPresence(holder)
+    private val relayPresence = PresenceWatch(
+        relay = graph.sessions.newRelayConnect(graph.sessions.newRelaySignalling()),
+        hostIds = { graph.sessions.pins.hostIds() },
+        clock = graph.sessions.clock,
+        scope = scope,
+    )
+    val presence = SessionPresence(holder, relayPresence)
 
     /** Starts a session with a paired Mac, over the local network when it is seen there. */
     fun connectPaired(hostId: String) {
