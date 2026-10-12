@@ -16,14 +16,22 @@ private const val RELAY_TOKEN_SIZE = 16
  */
 class TlsFactory(private val credentials: TlsCredentials) {
     fun open(host: String, port: Int, pin: ByteArray?, timeoutMs: Int): ControlTransport {
-        val raw = Socket()
+        val trust = PinningTrustManager(pin)
+        val context = SSLContext.getInstance(PROTOCOL)
+        context.init(arrayOf(ClientKeyManager(credentials)), arrayOf(trust), SecureRandom())
+        val socket = context.socketFactory.createSocket() as SSLSocket
         try {
-            raw.connect(InetSocketAddress(host, port), timeoutMs)
+            socket.tcpNoDelay = true
+            socket.enabledProtocols = arrayOf(PROTOCOL)
+            socket.connect(InetSocketAddress(host, port), timeoutMs)
+            socket.soTimeout = timeoutMs
+            socket.startHandshake()
+            socket.soTimeout = 0
+            return TlsControlTransport(socket, trust)
         } catch (failure: Exception) {
-            raw.close()
+            socket.close()
             throw failure
         }
-        return layerTls(raw, host, port, pin, timeoutMs)
     }
 
     /** Writes the relay token on the raw socket first, then starts TLS, so the relay routes the bytes to the host. */
