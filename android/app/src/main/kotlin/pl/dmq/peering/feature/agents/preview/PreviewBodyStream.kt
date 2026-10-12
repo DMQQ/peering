@@ -4,14 +4,19 @@ import java.io.IOException
 import java.io.InputStream
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import pl.dmq.peering.wire.PreviewProxyEvent
 
 /**
  * A response body read as the computer sends it. [read] blocks for the next piece, which is what a web view's loading
  * thread expects. A body that stops short fails the read, so the page sees a broken reply instead of a short one, and
- * closing the stream tells the computer to stop sending.
+ * closing the stream tells the computer to stop sending. A piece that takes longer than [chunkTimeoutMillis] counts as
+ * the body being cut short.
  */
-class PreviewBodyStream(private val events: ReceiveChannel<PreviewProxyEvent>) : InputStream() {
+class PreviewBodyStream(
+    private val events: ReceiveChannel<PreviewProxyEvent>,
+    private val chunkTimeoutMillis: Long,
+) : InputStream() {
     private var piece = ByteArray(0)
     private var offset = 0
     private var finished = false
@@ -39,7 +44,7 @@ class PreviewBodyStream(private val events: ReceiveChannel<PreviewProxyEvent>) :
     }
 
     private fun advance() {
-        when (val event = runBlocking { events.receiveCatching().getOrNull() }) {
+        when (val event = runBlocking { withTimeoutOrNull(chunkTimeoutMillis) { events.receiveCatching().getOrNull() } }) {
             is PreviewProxyEvent.Body -> {
                 piece = event.bytes
                 offset = 0
@@ -47,6 +52,7 @@ class PreviewBodyStream(private val events: ReceiveChannel<PreviewProxyEvent>) :
             is PreviewProxyEvent.End -> finished = true
             is PreviewProxyEvent.Failure, null -> {
                 finished = true
+                events.cancel()
                 throw IOException("the preview's reply was cut short")
             }
             is PreviewProxyEvent.Head -> Unit

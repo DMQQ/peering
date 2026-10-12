@@ -63,9 +63,17 @@ class PreviewRequestHandlerTest {
     }
 
     @Test
-    fun aRequestForAnotherHostIsLeftToTheWebView() {
-        assertNull(handle("https://cdn.example.com/lib.js", main = false))
+    fun aRequestForAnotherHostIsRefusedInsteadOfReachingThePhonesNetwork() {
+        assertEquals(403, handle("https://cdn.example.com/lib.js", main = false)!!.status)
+        assertEquals(403, handle("http://192.168.1.5/x", main = false)!!.status)
         assertTrue(asked.isEmpty())
+        assertTrue(pageFailures.isEmpty())
+    }
+
+    @Test
+    fun aSchemeThatCannotLeaveTheWebViewIsLeftAlone() {
+        assertNull(handle("data:text/plain,hi", main = false))
+        assertNull(handle("about:blank"))
     }
 
     @Test
@@ -168,5 +176,28 @@ class PreviewRequestHandlerTest {
         val reply = PreviewRequestHandler(fetchForever, scope) { }.handle("http://localhost:3000/", "GET", emptyMap(), true)!!
         reply.body.close()
         assertTrue(cancelled)
+    }
+
+    @Test
+    fun aComputerThatNeverAnswersEndsInDisconnectedInsteadOfBlocking() {
+        val silent: PreviewFetch = { _, _, _, _ -> flow { kotlinx.coroutines.awaitCancellation() } }
+        val quick = PreviewRequestHandler(silent, scope, firstByteTimeoutMillis = 50, chunkTimeoutMillis = 50) { pageFailures += it }
+        assertEquals(503, quick.handle("http://localhost:3000/", "GET", emptyMap(), true)!!.status)
+        assertEquals(listOf(PreviewFailure.DISCONNECTED), pageFailures)
+    }
+
+    @Test
+    fun aBodyThatStallsBreaksTheReadInsteadOfBlocking() {
+        val stalls: PreviewFetch = { _, _, _, _ ->
+            flow {
+                emit(PreviewProxyEvent.Head(1, 200))
+                emit(PreviewProxyEvent.Body(1, byteArrayOf(7).toBase64()))
+                kotlinx.coroutines.awaitCancellation()
+            }
+        }
+        val quick = PreviewRequestHandler(stalls, scope, firstByteTimeoutMillis = 1000, chunkTimeoutMillis = 50) { }
+        val body = quick.handle("http://localhost:3000/a.bin", "GET", emptyMap(), false)!!.body
+        assertEquals(7, body.read())
+        assertThrows(IOException::class.java) { body.read() }
     }
 }

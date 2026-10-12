@@ -22,7 +22,7 @@ import pl.dmq.peering.wire.PreviewFailure
 @SuppressLint("SetJavaScriptEnabled")
 class PreviewWeb(context: Context, private val presenter: PreviewPresenter, fetch: PreviewFetch) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val handler = PreviewRequestHandler(fetch, scope, presenter::pageFailed)
+    private val handler = PreviewRequestHandler(fetch, scope, onPageFailure = presenter::pageFailed)
 
     val view: WebView = WebView(context).apply {
         settings.javaScriptEnabled = true
