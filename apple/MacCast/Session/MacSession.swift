@@ -94,12 +94,6 @@ final class MacSession: Identifiable {
     var videoPoll: Task<Void, Never>?
     /// Retained so ending or replacing the session also cancels an in-flight relay WebSocket, not only the TCP socket.
     var connectTask: Task<Void, Never>?
-    var sourceToResume: CaptureSource? {
-        if activeSourceID?.hasPrefix("mosaic:") == true {
-            return askedMosaicLayout.map { .mosaic($0) }
-        }
-        return catalog?.all.first { $0.id == activeSourceID }?.source
-    }
 
     var dialRace: DialRace?
 
@@ -108,9 +102,6 @@ final class MacSession: Identifiable {
     var userEndedDeliberately = false
 
     // MARK: - Coming back after a drop
-
-    /// Not `phase.holdsSession` alone: a dropped Mac being retried is still open. `hasBeenReady` stops a dial that failed before its handshake, which arms the same ladder, from counting as an open Mac and spending the free plan's allowance.
-    var isLive: Bool { phase.holdsSession || (hasBeenReady && isReconnecting) }
 
     /// Set when the retry ladder runs out; cleared when a session is up again.
     var hasGivenUpResuming = false
@@ -184,15 +175,11 @@ final class MacSession: Identifiable {
     /// Set whenever the session reaches `.ready`, including a reconnect: the fresh capture pipeline remembers nothing, and the Mac gives a new client about a second to say what it wants before defaulting to a display of its own (`VideoCoordinator.firstAskGrace`), so a mosaic not re-asked is replaced by a plain desktop. Consumed by the next catalogue. See ``MacSession/apply(_:)``.
     var pendingSourceReassertion = false
 
-    var mosaicTileAspect: Double { tileAspect(for: mosaicChoices) }
-
     /// Recorded when the Mac answers, not when the app asks: it takes a second or two to build the new tiles, and everything drawn over the picture must agree with it. See ``MacSession/apply(video:)``.
     var pictureMosaicLayout: MosaicLayout?
 
     /// Frozen because ``mosaicLayout`` is rebuilt from the live screen and catalogue on every read, so reading it when the Mac answers could record an arrangement it never built. Set by ``SessionModel/selectSource(_:)``.
     var askedMosaicLayout: MosaicLayout?
-
-    var isShowingMosaic: Bool { pictureMosaicLayout != nil }
 
     /// Never assumed, more than anywhere else: an un-updated Mac cannot decode a capture source and sending it ends the session. See ``MosaicSupport/maySend(hostDeclared:)``.
     var hostSupportsMosaic = false
@@ -231,19 +218,6 @@ final class MacSession: Identifiable {
 
     /// Held as the record's identity and totals, not its index: the list moves under anything positional. See ``SessionContinuation``.
     var activeSessionContinuation: SessionContinuation?
-
-    var isActive: Bool { model.activeSessionID == id }
-
-    /// The second half is why this is not ``SessionModel/isSessionOnScreen``: a Picture in Picture window is somebody still watching from outside the app, so stepping back to the picker must not freeze it. See ``SessionModel/stepAwayFromSession()``.
-    var isWatched: Bool { model.isSessionOnScreen || SessionPiP.shared.isActive }
-
-    /// Being the Mac on screen decides whose sound plays, else two Macs open at once are two audio engines into one pair of ears (a Mac behind the one on screen is silent). Being watched decides whether anything is heard: a session the user stepped away from is still connected with its player. See ``isWatched``.
-    var shouldPlayAudio: Bool { isActive && isWatched && model.playsHostAudio }
-
-    /// Called when a config arrives and when the active Mac changes: a player built for the Mac on screen keeps playing after the user looks away unless told.
-    func refreshAudioMuteState() {
-        audioPlayer?.isMuted = !shouldPlayAudio
-    }
 
     // MARK: - Clipboard
 
@@ -319,15 +293,6 @@ final class MacSession: Identifiable {
     /// A terminal has no id until the Mac says it made one, so the command is remembered until ``apply(terminal:)`` sees the shell. One at a time: a second tap in that window means the second file, not both.
     var pendingRun: String?
 
-    struct FileWrite: Equatable {
-        /// A save reads the file back so the editor shows what is on disk; an upload asks for the folder again so the file appears. Otherwise the same operation, hence one record.
-        enum Door { case save, upload }
-
-        let door: Door
-        /// What the Mac's answer is matched on, since it names the file it wrote.
-        let path: String
-    }
-
     /// By terminal, not one flag: two can be in the air at once and a single flag hands the first answer to whichever transfer asked second.
     var writes: [UUID: FileWrite] = [:]
 
@@ -337,13 +302,6 @@ final class MacSession: Identifiable {
 
     /// The send window of the transfer in the air per terminal, kept so the cancel button can reach it.
     var uploadWindows: [UUID: SendWindow] = [:]
-
-    struct FileChange: Equatable {
-        /// Held rather than only the path: the answer says what happened but not what was asked, and a rename's path is built from both.
-        let operation: RemoteFileOperation
-        /// The file's own path for a rename, not the one it becomes: the Mac's answer echoes what it was sent, and is matched on this.
-        let path: String
-    }
 
     /// A folder is a sequence of the existing operations; the protocol does not know about folders. One per shell, since the Mac answers an operation by naming the path it was given.
     var folderUploads: [UUID: FolderUpload] = [:]
@@ -359,8 +317,4 @@ final class MacSession: Identifiable {
 
     /// Not in ``uploadFailures`` or ``browseFailures``: a browse failure replaces the list with a full-panel state, which a failed rename must not do; this one is drawn above the list.
     var changeFailures: [UUID: String] = [:]
-
-    // MARK: - Quality
-
-    var isAutomaticQuality: Bool { model.streamQuality == .auto }
 }

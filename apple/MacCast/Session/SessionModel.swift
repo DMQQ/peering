@@ -39,11 +39,6 @@ final class SessionModel {
 
     var activeSessionID: UUID?
 
-    var activeSession: MacSession? {
-        guard let activeSessionID else { return nil }
-        return sessions.first { $0.id == activeSessionID }
-    }
-
     /// A session that is open and one being watched are two things. While this is set, the control channel, shells, clipboard and sleep assertion stay and only the picture stops (see `setPicturePaused(_:)`).
     /// Put back by every route that shows a session: ``returnToSession()``, ``activateSession(_:)``,
     /// ``connect(to:replacing:)`` and ``disconnect(deliberate:)``.
@@ -51,14 +46,6 @@ final class SessionModel {
 
     /// Held apart from `picturePaused` so coming back does not undo a pause somebody asked for. Internal so the end of a session can clear it.
     var pausedBySteppingAway = false
-
-    /// Not `sessions`: an ended session is kept until the next arrives so its failure can be read, and it is not a tab.
-    var openSessions: [MacSession] { sessions.filter(\.isLive) }
-
-    var hasOpenSession: Bool { !openSessions.isEmpty }
-
-    /// A ceiling on the phone: each open Mac costs a control connection, a keepalive and a sleep assertion.
-    static let sessionCeiling = 4
 
     // MARK: - Connection state
 
@@ -78,11 +65,6 @@ final class SessionModel {
     var lastLANHosts: [String: DiscoveredHost] = RememberedLANHosts.load() {
         didSet { RememberedLANHosts.save(lastLANHosts) }
     }
-
-    static let standardConnectTimeout: TimeInterval = 10
-
-    /// Short, because it is the one dial whose address may be wrong.
-    static let rememberedPathTimeout: TimeInterval = 3
 
     /// Three states, so not a `Set`: an absent key is nobody having found out.
     var relayPresence: [String: Bool] = [:]
@@ -131,14 +113,6 @@ final class SessionModel {
         return decoded
     }()
 
-    /// The phase carries it, and the picker needs it: otherwise an instantly failed connection looks like a button that did nothing.
-    var failureCause: ClientSession.FailureCause? { activeSession?.failureCause }
-
-    var failureMessage: String? {
-        if case .failed(let message) = phase { return message }
-        return nil
-    }
-
     /// Kept apart from `hostNames`, which is rewritten from `ServerHello` on every connect, so a rename stored there would silently revert.
     var customHostNames: [String: String] = [:]
 
@@ -161,18 +135,6 @@ final class SessionModel {
         didSet { UserDefaults.standard.set(manualPort, forKey: Self.manualPortKey) }
     }
 
-    static let manualAddressKey = "Peering.manualAddress"
-
-    static var defaultDeviceName: String {
-        // UIDevice.current.name needs Apple approval for the custom name entitlement on iOS 16+, so
-        // fall back to a recognisable-enough label until the user sets one in Settings.
-        let name = UIDevice.current.name
-        if name.lowercased() == "iphone" || name.lowercased() == "ipad" {
-            return UIDevice.current.localizedModel + " (" + UIDevice.current.systemVersion + ")"
-        }
-        return name
-    }
-    static let manualPortKey = "Peering.manualPort"
     var keyboardMode: KeyboardMode = KeyboardMode(
         rawValue: UserDefaults.standard.string(forKey: PreferenceKeys.keyboardMode) ?? "unicode"
     ) ?? .unicode
@@ -231,14 +193,6 @@ final class SessionModel {
     /// The relay's own count of what is left today, as of the last relayed session it set up or refused. Outranks ``relaySecondsRemainingEstimate`` wherever a screen would claim the allowance is spent.
     var relayRemainingSecondsFromRelay: RelayRemainingReport?
 
-    /// Closing alone is not enough: a failed attempt during a resume is swallowed, so the phase can be left on a connecting state with nothing behind it.
-    func dismissSpentAllowance() {
-        spentAllowance = nil
-        if phase.holdsSession, phase != .ready {
-            disconnect()
-        }
-    }
-
     // MARK: - Collaborators
 
     let renderer = VideoRenderer()
@@ -291,15 +245,6 @@ final class SessionModel {
     /// A hero transition's cue to drop its frozen snapshot: the renderer runs off the main actor and is not observable, so a plain read cannot say the picture is decoded.
     var frameArrived = 0
 
-    /// The size identifies the stream, as the order a frame and its config reach the main actor cannot be relied on.
-    func isReadyToPlace(of size: CGSize) -> Bool {
-        let snapshot = renderer.currentSnapshot
-        return snapshot.configGeneration > 0
-            && snapshot.readyGeneration == snapshot.configGeneration
-            && snapshot.pixelWidth == Int(size.width)
-            && snapshot.pixelHeight == Int(size.height)
-    }
-
     // MARK: - Push token
 
     /// Held here because reading it is an `await` on the system.
@@ -320,27 +265,12 @@ final class SessionModel {
 
     var pendingHostID: String?
 
-    var isWaitingForHost: Bool { pendingHostID != nil }
-
-    /// The one thing that can turn a feature off outright: it promises the Mac's device ID and connection times never reach a server, keepable only if this gates every dial (`connectToTrusted`, `reconnectToLastHost`, `resumeIfNeeded`, `pairWithRemoteMac`).
-    /// Read through `object(forKey:)` so unset is distinguishable from off: the default is on.
-    var allowsRelay: Bool {
-        UserDefaults.standard.object(forKey: PreferenceKeys.allowRelay) as? Bool ?? true
-    }
-
-    static let lastHostNameKey = "Peering.lastHostName"
-    static let lastHostIDKey = "Peering.lastHostID"
-
-    static let resumeKey = "Peering.resumeWhenReachable"
-
     /// Coming back to the foreground races the teardown of the session that just ended: its cancelled socket is not finished with, so the connect aborts before it starts. It clears within a second and nobody asked for this attempt, so nobody is told.
     var isResuming = false
 
     var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     var backgroundNotice = BackgroundNoticeDebounce()
     var backgroundNoticeTask: Task<Void, Never>?
-
-    var thisDeviceDescription: String { "\(device.name) · \(device.id)" }
 
     // MARK: - Input
 
@@ -351,8 +281,6 @@ final class SessionModel {
         }
         return decoded
     }()
-
-    var allMacros: [Macro] { Macro.defaults + customMacros }
 
     // MARK: - Commands to the active Mac
 
