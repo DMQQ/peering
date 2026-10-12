@@ -11,6 +11,8 @@ use std::time::Duration;
 
 use tracing::info;
 
+use crate::activity::ActivityRefusal;
+
 /// How often the summary line is written.
 pub const SUMMARY_PERIOD: Duration = Duration::from_secs(600);
 
@@ -175,6 +177,48 @@ impl Refusal {
 }
 
 /// Counters since the last summary, plus the one gauge (active splices) that survives it.
+/// What became of each Live Activity push a host asked for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActivityOutcome {
+    Sent,
+    DroppedRate,
+    RefusedInvalid,
+    RefusedToken,
+    RefusedRejected,
+    RefusedUnavailable,
+}
+
+impl ActivityOutcome {
+    const ALL: [Self; 6] = [
+        Self::Sent,
+        Self::DroppedRate,
+        Self::RefusedInvalid,
+        Self::RefusedToken,
+        Self::RefusedRejected,
+        Self::RefusedUnavailable,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Sent => "activity_push_sent",
+            Self::DroppedRate => "activity_push_dropped_rate",
+            Self::RefusedInvalid => "activity_push_refused_invalid",
+            Self::RefusedToken => "activity_push_refused_token",
+            Self::RefusedRejected => "activity_push_refused_rejected",
+            Self::RefusedUnavailable => "activity_push_refused_unavailable",
+        }
+    }
+
+    pub fn refused(refusal: ActivityRefusal) -> Self {
+        match refusal {
+            ActivityRefusal::InvalidPayload => Self::RefusedInvalid,
+            ActivityRefusal::InvalidToken => Self::RefusedToken,
+            ActivityRefusal::Rejected => Self::RefusedRejected,
+            ActivityRefusal::Unavailable => Self::RefusedUnavailable,
+        }
+    }
+}
+
 pub struct Tally {
     allocated: AtomicU64,
     started: AtomicU64,
@@ -182,6 +226,7 @@ pub struct Tally {
     ended: [AtomicU64; EndReason::ALL.len()],
     refused: [AtomicU64; Refusal::ALL.len()],
     udp_unclaimed: AtomicU64,
+    activity: [AtomicU64; ActivityOutcome::ALL.len()],
 }
 
 /// The process-wide tally every module records into.
@@ -196,6 +241,7 @@ pub struct Summary {
     pub ended: [u64; EndReason::ALL.len()],
     pub refused: [u64; Refusal::ALL.len()],
     pub udp_unclaimed: u64,
+    pub activity: [u64; ActivityOutcome::ALL.len()],
 }
 
 impl Summary {
@@ -205,6 +251,10 @@ impl Summary {
 
     pub fn refused_for(&self, reason: Refusal) -> u64 {
         self.refused[reason as usize]
+    }
+
+    pub fn activity_count(&self, outcome: ActivityOutcome) -> u64 {
+        self.activity[outcome as usize]
     }
 
     pub fn log(&self) {
@@ -227,6 +277,12 @@ impl Summary {
             refused_malformed_message = self.refused_for(Refusal::MalformedMessage),
             failed_udp_bind_unclaimed = self.refused_for(Refusal::UdpBindUnclaimed),
             udp_datagrams_unclaimed = self.udp_unclaimed,
+            activity_push_sent = self.activity_count(ActivityOutcome::Sent),
+            activity_push_dropped_rate = self.activity_count(ActivityOutcome::DroppedRate),
+            activity_push_refused_invalid = self.activity_count(ActivityOutcome::RefusedInvalid),
+            activity_push_refused_token = self.activity_count(ActivityOutcome::RefusedToken),
+            activity_push_refused_rejected = self.activity_count(ActivityOutcome::RefusedRejected),
+            activity_push_refused_unavailable = self.activity_count(ActivityOutcome::RefusedUnavailable),
             "relay summary since the last one"
         );
     }
@@ -241,6 +297,7 @@ impl Tally {
             ended: [const { AtomicU64::new(0) }; EndReason::ALL.len()],
             refused: [const { AtomicU64::new(0) }; Refusal::ALL.len()],
             udp_unclaimed: AtomicU64::new(0),
+            activity: [const { AtomicU64::new(0) }; ActivityOutcome::ALL.len()],
         }
     }
 
@@ -271,6 +328,10 @@ impl Tally {
         self.refused[reason as usize].fetch_add(1, Ordering::Relaxed);
     }
 
+    pub fn activity(&self, outcome: ActivityOutcome) {
+        self.activity[outcome as usize].fetch_add(1, Ordering::Relaxed);
+    }
+
     pub fn udp_unclaimed(&self) {
         self.udp_unclaimed.fetch_add(1, Ordering::Relaxed);
     }
@@ -284,6 +345,7 @@ impl Tally {
             ended: std::array::from_fn(|i| self.ended[i].swap(0, Ordering::Relaxed)),
             refused: std::array::from_fn(|i| self.refused[i].swap(0, Ordering::Relaxed)),
             udp_unclaimed: self.udp_unclaimed.swap(0, Ordering::Relaxed),
+            activity: std::array::from_fn(|i| self.activity[i].swap(0, Ordering::Relaxed)),
         }
     }
 }
@@ -385,6 +447,22 @@ mod tests {
     }
 
     #[test]
+    fn activity_outcomes_are_counted_per_kind_and_reset_by_a_summary() {
+        let tally = Tally::new();
+        tally.activity(ActivityOutcome::Sent);
+        tally.activity(ActivityOutcome::Sent);
+        tally.activity(ActivityOutcome::DroppedRate);
+        tally.activity(ActivityOutcome::refused(ActivityRefusal::InvalidToken));
+
+        let first = tally.take_summary();
+        assert_eq!(first.activity_count(ActivityOutcome::Sent), 2);
+        assert_eq!(first.activity_count(ActivityOutcome::DroppedRate), 1);
+        assert_eq!(first.activity_count(ActivityOutcome::RefusedToken), 1);
+        assert_eq!(first.activity_count(ActivityOutcome::RefusedInvalid), 0);
+        assert_eq!(tally.take_summary().activity_count(ActivityOutcome::Sent), 0);
+    }
+
+    #[test]
     fn shutting_down_ends_every_running_splice_as_a_shutdown() {
         let tally = Tally::new();
         tally.splice_started();
@@ -408,6 +486,7 @@ mod tests {
     fn every_reason_has_a_distinct_name() {
         let mut names: Vec<_> = Refusal::ALL.iter().map(|r| r.as_str()).collect();
         names.extend(EndReason::ALL.iter().map(|r| r.as_str()));
+        names.extend(ActivityOutcome::ALL.iter().map(|r| r.as_str()));
         let count = names.len();
         names.sort_unstable();
         names.dedup();

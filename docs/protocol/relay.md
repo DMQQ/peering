@@ -28,6 +28,7 @@ that is not a string counts as absent.
 | `referralStatus` | `clientId`, `publicKey`, `proof`, `proofTime` |
 | `redeemReferral` | `clientId`, `code`, `publicKey`, `proof`, `proofTime` |
 | `notifyDevice` | registered hosts only: `deviceToken` (hex), `title`, `body`, optional `source`, `category`, `sessionId`, `approvalId` |
+| `notifyActivity` | registered hosts only: `activityToken` (hex), `activity` (`session`, `agentChat`, `terminal`), `event` (`start`, `update`, `end`), `contentState` (JSON object), optional `staleSeconds`, `priority` (5 or 10), `attributesType`, `attributes`, `alertTitle`, `alertBody`, `environment` (`production`, `sandbox`) |
 
 Limits (`signalling.rs`): `deviceId`, `name`, `hostId`, `clientId`, `apiKey` at most 256 bytes; `deviceToken` at most 128
 characters today (raised for FCM by REL-001), `title` 256, `body` 512, `source`/`category`/`sessionId` 128, `approvalId` 256.
@@ -91,6 +92,33 @@ bind and is not forwarded. Everything after the token is ciphertext. See [video.
 `notifyDevice` is sent by a registered host with the token its client registered (`registerPushToken`). Today the relay sends
 APNs only. With REL-005 a token whose decoded bytes begin with the ASCII `fcm:` goes to Firebase Cloud Messaging with the
 remaining bytes as the FCM registration token.
+
+### Live Activity pushes (`notifyActivity`)
+
+Sent by a registered host to keep an iOS Live Activity moving while the phone's app is suspended. Additive, no protocol
+version change: an older relay answers `error` with code `protocol`. `activityToken` is the per-activity push token, or a
+push-to-start token for `event: start`. Always APNs, never FCM.
+
+```json
+{"type":"notifyActivity","activityToken":"0a1b2c","activity":"session","event":"update","contentState":{"status":"live"},"staleSeconds":120}
+```
+
+The relay sends `apns-push-type: liveactivity`, `apns-topic: <bundle id>.push-type.liveactivity`, `apns-priority`
+(`priority`, else 5 for update and 10 for start and end), and `apns-expiration` equal to the stale date when
+`staleSeconds` is given. The body is `{"aps":{"timestamp":now,"event":...,"content-state":...}}` plus `stale-date` (now +
+`staleSeconds`), `dismissal-date` (now + 4 hours, `end` only) and `alert` (`title`, `body`, only when both are sent).
+`start` additionally requires `attributesType`, a non-empty `attributes` object and both alert fields, and carries
+`attributes-type` and `attributes`; both are ignored for other events.
+
+`contentState` must be a JSON object of at most 3500 bytes serialised; the whole body is capped at 4096. The relay passes
+it through unread. `environment` picks the APNs host to try first; when absent the relay tries production, retries a
+`BadDeviceToken` on sandbox, and remembers the answer, as `notifyDevice` does.
+
+A push that is not sent is answered with `{"type":"activityRefused","reason":R}` where R is one of `invalidPayload`
+(unusable message), `invalidToken` (malformed, or APNs said `BadDeviceToken`, `Unregistered` or `ExpiredToken`: forget
+the token), `rejected` (any other APNs refusal) or `unavailable` (no APNs credentials, or Apple unreachable). An
+unregistered sender gets `error` with code `unauthorized`. Each connection may send 5 pushes at once per token and then 1
+per second; the rest are dropped and counted (`activity_push_dropped_rate`) with no reply.
 
 ## 6. Proposed additions (additive, not shipped)
 

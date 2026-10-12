@@ -31,6 +31,7 @@
 //! can see" is a claim that has to stay true as this code grows, and the way to keep it true is to
 //! keep this process too stupid to break it.
 
+pub mod activity;
 pub mod apns;
 pub mod config;
 pub mod counted_stream;
