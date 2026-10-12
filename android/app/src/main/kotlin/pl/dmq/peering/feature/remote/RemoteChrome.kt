@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SmallFloatingActionButton
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,23 +27,21 @@ import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.PeeringColors
-import pl.dmq.peering.ui.theme.peeringShapes
 
-/** Everything drawn over the picture: the status pill, the connection banner, the toolbar and the keyboard rows. */
+/** Everything drawn over the picture: the picture status, the top bar, the reconnect snackbar, the keyboard panel and the action bar. */
 @Composable
 fun RemoteChrome(
     shown: Boolean,
     overlay: SessionOverlayState,
     zoomPercent: Int?,
-    toolbar: List<ToolbarAction>,
+    actions: List<ToolbarAction>,
     keyboardShown: Boolean,
-    mode: InputMode,
     latches: Map<StickyModifier, ModifierLatch>,
     onReveal: () -> Unit,
     onFit: () -> Unit,
     onRetry: () -> Unit,
     onDisconnect: () -> Unit,
-    onToolbar: (ToolbarAction) -> Unit,
+    onAction: (ToolbarAction) -> Unit,
     onFunctionKey: (FunctionKey) -> Unit,
     onEditingKey: (EditingKey) -> Unit,
     onModifier: (StickyModifier) -> Unit,
@@ -53,20 +50,14 @@ fun RemoteChrome(
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val insets = WindowInsets.systemBars.union(WindowInsets.displayCutout)
     Box(modifier = modifier.fillMaxSize().windowInsetsPadding(insets).padding(8.dp)) {
+        PictureStatus(overlay.picture, onRetry, Modifier.align(Alignment.Center))
         AnimatedVisibility(
             visible = shown,
             modifier = Modifier.align(Alignment.TopCenter),
             enter = fadeIn() + slideInVertically { -it / 2 },
             exit = fadeOut() + slideOutVertically { -it / 2 },
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SessionOverlay(
-                    state = overlay,
-                    zoomPercent = zoomPercent,
-                    onFit = onFit,
-                    onDisconnect = onDisconnect,
-                )
-            }
+            SessionTopBar(state = overlay, zoomPercent = zoomPercent, onFit = onFit, onDisconnect = onDisconnect)
         }
         AnimatedVisibility(
             visible = !shown,
@@ -82,28 +73,19 @@ fun RemoteChrome(
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
-            SessionToolbar(toolbar, keyboardShown, mode, vertical = true, onAction = onToolbar)
+            SessionActionBar(actions, keyboardShown, vertical = true, onAction = onAction)
         }
         Column(
             modifier = Modifier.align(Alignment.BottomCenter),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            SessionSnackbar(state = overlay, onRetry = onRetry)
+            SessionSnackbar(state = overlay)
             if (keyboardShown) {
-                Surface(shape = peeringShapes.large, color = PeeringColors.containerHigh, shadowElevation = 6.dp) {
-                    Column(
-                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        FunctionKeyRow(onKey = onFunctionKey, onEditingKey = onEditingKey)
-                        ModifierBar(latches = latches, onTap = onModifier)
-                    }
-                }
+                KeyboardPanel(latches, onFunctionKey, onEditingKey, onModifier)
             }
             AnimatedVisibility(visible = shown && !landscape, enter = fadeIn(), exit = fadeOut()) {
-                SessionToolbar(toolbar, keyboardShown, mode, vertical = false, onAction = onToolbar)
+                SessionActionBar(actions, keyboardShown, vertical = false, onAction = onAction)
             }
         }
     }

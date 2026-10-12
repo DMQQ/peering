@@ -1,14 +1,21 @@
 package pl.dmq.peering.feature.remote
 
-/** Decides which controls the toolbar offers. Fit appears only while the picture is zoomed. */
+/** Decides which buttons the bottom bar offers and what each one does. Agents and Files appear only when the computer supports them. */
 class ToolbarPresenter {
-    fun actions(zoomed: Boolean): List<ToolbarAction> = buildList {
+    fun actions(capabilities: HubCapabilities): List<ToolbarAction> = buildList {
         add(ToolbarAction.KEYBOARD)
-        add(ToolbarAction.POINTER_MODE)
-        if (zoomed) add(ToolbarAction.FIT)
         add(ToolbarAction.SOURCES)
-        add(ToolbarAction.QUALITY)
-        add(ToolbarAction.MENU)
+        if (capabilities.agentChat) add(ToolbarAction.AGENTS)
+        if (capabilities.fileBrowser) add(ToolbarAction.FILES)
+        add(ToolbarAction.MORE)
+    }
+
+    fun effect(action: ToolbarAction): ToolbarEffect = when (action) {
+        ToolbarAction.KEYBOARD -> ToolbarEffect.ToggleKeyboard
+        ToolbarAction.SOURCES -> ToolbarEffect.OpenSources
+        ToolbarAction.AGENTS -> ToolbarEffect.OpenHub(HubEntry.AGENTS)
+        ToolbarAction.FILES -> ToolbarEffect.OpenHub(HubEntry.FILES)
+        ToolbarAction.MORE -> ToolbarEffect.OpenMore
     }
 
     fun otherMode(mode: InputMode): InputMode =

@@ -16,14 +16,26 @@ import pl.dmq.peering.ui.kit.PeeringSheet
 import pl.dmq.peering.ui.theme.PeeringColors
 
 
-/** The session menu: one list item per entry the Mac supports. Disconnect is last, after a divider, in the error colour. */
+/** The More sheet: the pointer mode, then one list item per entry. Disconnect is last, after a divider, in the error colour. */
 @Composable
 fun HubSheet(
     entries: List<HubEntry>,
+    mode: InputMode,
+    onToggleMode: () -> Unit,
     onSelect: (HubEntry) -> Unit,
     onDismiss: () -> Unit,
 ) {
     PeeringSheet(onDismiss = onDismiss, title = stringResource(R.string.hub_title)) {
+        PeeringListItem(
+            headline = stringResource(R.string.remote_pointer_title),
+            supporting = stringResource(
+                if (mode == InputMode.TRACKPAD) R.string.remote_pointer_trackpad else R.string.remote_pointer_touch,
+            ),
+            onClick = onToggleMode,
+            role = Role.Button,
+            bleed = false,
+            leading = { Icon(if (mode == InputMode.TRACKPAD) AppIcons.trackpad else AppIcons.tap, contentDescription = null) },
+        )
         entries.forEach { entry ->
             if (entry == HubEntry.DISCONNECT) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = PeeringColors.hairline)
             val tint = if (entry == HubEntry.DISCONNECT) PeeringColors.danger else PeeringColors.ink

@@ -36,30 +36,59 @@ class ToolbarPresenterTest {
     private val presenter = ToolbarPresenter()
 
     @Test
-    fun `fit is offered only while zoomed`() {
-        assertFalse(ToolbarAction.FIT in presenter.actions(zoomed = false))
-        assertTrue(ToolbarAction.FIT in presenter.actions(zoomed = true))
+    fun `a computer with no optional features gets keyboard, sources and more`() {
+        assertEquals(
+            listOf(ToolbarAction.KEYBOARD, ToolbarAction.SOURCES, ToolbarAction.MORE),
+            presenter.actions(HubCapabilities.NONE),
+        )
     }
 
     @Test
-    fun `keyboard, pointer mode, sources, quality and menu are always offered`() {
-        val actions = presenter.actions(zoomed = false)
+    fun `agents and files appear between sources and more when supported`() {
         assertEquals(
-            listOf(
-                ToolbarAction.KEYBOARD,
-                ToolbarAction.POINTER_MODE,
-                ToolbarAction.SOURCES,
-                ToolbarAction.QUALITY,
-                ToolbarAction.MENU,
-            ),
-            actions,
+            listOf(ToolbarAction.KEYBOARD, ToolbarAction.SOURCES, ToolbarAction.AGENTS, ToolbarAction.FILES, ToolbarAction.MORE),
+            presenter.actions(HubCapabilities(agentChat = true, fileBrowser = true)),
         )
+        assertFalse(ToolbarAction.FILES in presenter.actions(HubCapabilities(agentChat = true, fileBrowser = false)))
+        assertFalse(ToolbarAction.AGENTS in presenter.actions(HubCapabilities(agentChat = false, fileBrowser = true)))
+    }
+
+    @Test
+    fun `every action maps to its effect`() {
+        assertEquals(ToolbarEffect.ToggleKeyboard, presenter.effect(ToolbarAction.KEYBOARD))
+        assertEquals(ToolbarEffect.OpenSources, presenter.effect(ToolbarAction.SOURCES))
+        assertEquals(ToolbarEffect.OpenHub(HubEntry.AGENTS), presenter.effect(ToolbarAction.AGENTS))
+        assertEquals(ToolbarEffect.OpenHub(HubEntry.FILES), presenter.effect(ToolbarAction.FILES))
+        assertEquals(ToolbarEffect.OpenMore, presenter.effect(ToolbarAction.MORE))
     }
 
     @Test
     fun `the pointer toggle swaps between trackpad and touch`() {
         assertEquals(InputMode.DIRECT, presenter.otherMode(InputMode.TRACKPAD))
         assertEquals(InputMode.TRACKPAD, presenter.otherMode(InputMode.DIRECT))
+    }
+}
+
+class RouteHealthTest {
+    private fun health(picture: PictureState, reconnecting: Boolean = false) =
+        RouteHealth.of(SessionOverlayState.of(null, null, null, picture, reconnecting, null))
+
+    @Test
+    fun `a live picture is good and a failed one is broken`() {
+        assertEquals(RouteHealth.GOOD, health(PictureState.LIVE))
+        assertEquals(RouteHealth.BROKEN, health(PictureState.FAILED))
+    }
+
+    @Test
+    fun `a stall, a pause or a reconnect is degraded`() {
+        assertEquals(RouteHealth.DEGRADED, health(PictureState.STALLED))
+        assertEquals(RouteHealth.DEGRADED, health(PictureState.PAUSED))
+        assertEquals(RouteHealth.DEGRADED, health(PictureState.LIVE, reconnecting = true))
+    }
+
+    @Test
+    fun `waiting for the first picture is unknown`() {
+        assertEquals(RouteHealth.UNKNOWN, health(PictureState.WAITING))
     }
 }
 

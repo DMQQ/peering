@@ -9,4 +9,7 @@ class HubPresenter {
         add(HubEntry.QUALITY)
         add(HubEntry.DISCONNECT)
     }
+
+    /** What the More sheet lists beyond the bar's own buttons. */
+    fun moreEntries(): List<HubEntry> = listOf(HubEntry.QUALITY, HubEntry.DISCONNECT)
 }
