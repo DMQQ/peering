@@ -154,11 +154,20 @@ extension HostModel {
         }
     }
 
-    func record(_ message: String, level: HostLogEntry.Level = .info) {
+    func record(_ message: LocalizedStringResource, level: HostLogEntry.Level = .info) {
+        append(HostLogEntry(level: level, message: message))
+    }
+
+    /// For text that is already a finished sentence, such as a system error.
+    func record(verbatim message: String, level: HostLogEntry.Level = .info) {
+        append(HostLogEntry(level: level, verbatim: message))
+    }
+
+    private func append(_ entry: HostLogEntry) {
         // `.public` because these lines are the diagnostics, and the one sensitive value, the
-        // pairing code, is deliberately never in them.
-        hostLog.notice("\(message, privacy: .public)")
-        log.append(HostLogEntry(level: level, message: message))
+        // pairing code, is deliberately never in them. Always English, whatever the Mac's language.
+        hostLog.notice("\(entry.message, privacy: .public)")
+        log.append(entry)
         if log.count > Self.maxEvents {
             log.removeFirst(log.count - Self.maxEvents)
         }
@@ -212,10 +221,7 @@ extension HostModel {
         }
         // Said as what happened rather than as a success: a Mac with one third-party monitor dims
         // nothing at all and is still private, and a Mac where the cover failed is not.
-        record("""
-            Privacy Mode on \(total) display\(total == 1 ? "" : "s") \
-            (\(dimmed.count) dimmed, \(covered.covered.count) covered)
-            """)
+        record("Privacy Mode on, displays: \(total) (\(dimmed.count) dimmed, \(covered.covered.count) covered)")
         reportUncovered(covered.refused)
     }
 

@@ -103,7 +103,7 @@ extension HostModel {
                 self?.pendingCaptureSource = nil
             } catch {
                 Analytics.failed(error, in: .capture)
-                let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                let message = HostFailureText.resource(for: error)
                 self?.record("Could not switch capture source: \(message)", level: .failure)
                 // And the Mac stops offering it: a window that closed or one ScreenCaptureKit lists but will not render would otherwise stay in the picker as a dead row. Windows and applications only. See CaptureSourceResolver/markUncapturable(_:).
                 if let capture = error as? CaptureError, case .sourceUnavailable = capture {

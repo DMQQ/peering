@@ -22,16 +22,16 @@ impl fmt::Display for Tag {
 }
 
 /// A hasher with its own key, so tests can have more than one.
-pub struct Redactor {
+pub(crate) struct Redactor {
     key: RandomState,
 }
 
 impl Redactor {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { key: RandomState::new() }
     }
 
-    pub fn tag(&self, identifier: &str) -> Tag {
+    pub(crate) fn tag(&self, identifier: &str) -> Tag {
         Tag(self.key.hash_one(identifier) as u32)
     }
 }

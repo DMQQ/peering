@@ -72,7 +72,7 @@ extension AgentSessionManager {
             session.state = .awaitingApproval
             // Reaches the user even with the socket open: the phone may be suspended behind Picture in Picture.
             if token != nil {
-                let text = AgentNotificationText.approval(agentName: name, reason: reason, detail: call.detail)
+                let text = AgentNotificationText.approval(agentName: name, reason: reason, detail: call.detail, words: .localized)
                 applied.push = (text.title, text.body, RelayPushAction(
                     category: AgentApprovalNotification.pushCategory(for: call),
                     sessionID: session.id.uuidString,
@@ -100,7 +100,7 @@ extension AgentSessionManager {
             if PushPolicy.shouldPush(presence: presence, hasToken: token != nil) {
                 let text = AgentNotificationText.finished(
                     agentName: name, ok: summary.ok, stopped: summary.stopped, lastReply: session.lastReply,
-                    editedFiles: session.turnEditedFiles.count, duration: summary.duration
+                    editedFiles: session.turnEditedFiles.count, duration: summary.duration, words: .localized
                 )
                 applied.push = (text.title, text.body, summary.ok ? RelayPushAction(
                     category: AgentFinishedNotification.category,

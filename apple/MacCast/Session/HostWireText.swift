@@ -9,7 +9,17 @@ import MacCastKit
 /// code that branches on the sentence (see `HostPickerView.failurePresentation`).
 enum HostWireText {
     static func localized(_ text: String) -> String {
-        connection(text) ?? files(text) ?? terminal(text) ?? patterned(text) ?? text
+        sentence(text) ?? firstLineWithTail(text) ?? text
+    }
+
+    private static func sentence(_ text: String) -> String? {
+        connection(text) ?? handshake(text) ?? files(text) ?? terminal(text) ?? agentLine(text) ?? ssh(text) ?? patterned(text)
+    }
+
+    /// A sentence followed by what a tool printed after it: the sentence is the Mac's, the rest is not.
+    private static func firstLineWithTail(_ text: String) -> String? {
+        guard let newline = text.firstIndex(of: "\n"), let head = sentence(String(text[..<newline])) else { return nil }
+        return head + text[newline...]
     }
 
     static func localized(_ text: String?) -> String? {

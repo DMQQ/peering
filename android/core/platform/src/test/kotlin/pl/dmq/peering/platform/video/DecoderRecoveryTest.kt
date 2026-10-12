@@ -21,14 +21,28 @@ class DecoderRecoveryTest {
     }
 
     @Test
-    fun aDecodedPictureClearsTheCount() {
+    fun aSustainedRunOfPicturesClearsTheCount() {
         val recovery = DecoderRecovery(maxRebuilds = 1)
         assertTrue(recovery.onFatal(config))
 
-        recovery.onPictureDecoded()
+        repeat(DecoderRecovery.SUSTAINED_PICTURES) { recovery.onPictureDecoded() }
 
         assertTrue(recovery.onFatal(config))
         assertFalse(recovery.failed)
+    }
+
+    @Test
+    fun aStreamThatDecodesOnePictureThenFailsEveryTimeReachesTheCap() {
+        val recovery = DecoderRecovery(maxRebuilds = 3)
+
+        assertTrue(recovery.onFatal(config))
+        recovery.onPictureDecoded()
+        assertTrue(recovery.onFatal(config))
+        recovery.onPictureDecoded()
+        assertTrue(recovery.onFatal(config))
+        recovery.onPictureDecoded()
+        assertFalse(recovery.onFatal(config))
+        assertTrue(recovery.failed)
     }
 
     @Test

@@ -1,6 +1,8 @@
 package pl.dmq.peering.imaging
 
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
 private const val MAX_AGE_MILLIS = 24L * 60 * 60 * 1000
@@ -20,9 +22,20 @@ internal object SharedFiles {
         val name = nameFor(bytes, extension)
         prune(directory, keep = name, now = now)
         val file = File(directory, name)
-        if (!file.exists() || file.length() != bytes.size.toLong()) file.writeBytes(bytes)
+        if (!file.exists() || file.length() != bytes.size.toLong()) publish(file, bytes)
         file.setLastModified(now)
         return file
+    }
+
+    /** Another app may open the file at any moment, so it appears whole or not at all. */
+    private fun publish(file: File, bytes: ByteArray) {
+        val temporary = File.createTempFile("write", ".tmp", file.parentFile)
+        try {
+            temporary.writeBytes(bytes)
+            Files.move(temporary.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } finally {
+            temporary.delete()
+        }
     }
 
     /** Deletes files older than a day, then the oldest ones until the folder is under its size budget. [keep] is never deleted. */

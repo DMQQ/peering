@@ -80,8 +80,7 @@ extension HostModel {
             confirmManagedDisplayThroughCatalogue(display)
         } catch {
             Analytics.failed(error, in: .display)
-            let message = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
-            record("Could not add a display: \(message)", level: .failure)
+            record("Could not add a display: \(HostFailureText.resource(for: error))", level: .failure)
         }
     }
 
@@ -119,8 +118,7 @@ extension HostModel {
                 try await coordinator.switchSource(.display(fallbackID))
             } catch {
                 Analytics.failed(error, in: .display)
-                let message = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
-                record("Could not move the picture before removing the display: \(message)", level: .failure)
+                record("Could not move the picture before removing the display: \(HostFailureText.resource(for: error))", level: .failure)
                 return false
             }
         }

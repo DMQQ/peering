@@ -47,10 +47,10 @@ struct PhoneFailureTests {
     }
 
     @Test func pairingInputMistakesHaveOneReasonEach() {
-        #expect(PhoneFailure.pairingReason(.empty) == "empty")
-        #expect(PhoneFailure.pairingReason(.shortAuthenticationCode) == "pairingCodeNotAnID")
-        #expect(PhoneFailure.pairingReason(.unrecognisedCode) == "notAPairingCode")
-        #expect(PhoneFailure.pairingReason(.notAnIdentifier("my own text")) == "notAnID")
+        #expect(PhoneFailure.pairingReason(.empty) == .empty)
+        #expect(PhoneFailure.pairingReason(.shortAuthenticationCode) == .pairingCodeNotAnID)
+        #expect(PhoneFailure.pairingReason(.unrecognisedCode) == .notAPairingCode)
+        #expect(PhoneFailure.pairingReason(.notAnIdentifier("my own text")) == .notAnID)
     }
 
     @Test func aRefusedPairingIsAConfirmFailureAndAnUnsavedPinIsAPinStoreFailure() {
@@ -61,7 +61,7 @@ struct PhoneFailureTests {
     @Test func aHandshakeFailureWhilePairingReadsAsACodeMismatchAndOutsideItIsNotPairing() {
         let inside = PhoneFailure.pairingFailure(reason: .handshake, stage: .pairing)
         #expect(inside?.stage == .commit)
-        #expect(inside?.reason == "codeMismatch")
+        #expect(inside?.reason == .codeMismatch)
         #expect(PhoneFailure.pairingFailure(reason: .timedOut, stage: .connecting) == nil)
     }
 

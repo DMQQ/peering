@@ -47,6 +47,7 @@ class ControllerRig(
 
     /** What the controller reported to its debug log. */
     val logged = mutableListOf<String>()
+    val remainingReported = mutableListOf<Long>()
 
     /** The local addresses the controller reported reaching hosts at. */
     val reachedOnLan = mutableMapOf<String, PeerAddress>()
@@ -62,6 +63,9 @@ class ControllerRig(
 
     /** When false, a picture connection cannot be opened, as when the host refuses it. */
     var videoReachable = true
+
+    /** The key the picture connection presents; a test sets another to stand for a spoofed address. */
+    var videoPeerKey: ByteArray = ScriptedPairingHost.HOST_KEY
 
     /** The picture connections opened so far, in order. */
     val videoConnections = mutableListOf<ScriptedVideoConnection>()
@@ -82,7 +86,7 @@ class ControllerRig(
             routes += route
             if (route is ControlRoute.Video) {
                 check(videoReachable) { "the picture connection is refused" }
-                return@ControlConnector ScriptedVideoConnection().also { videoConnections += it }
+                return@ControlConnector ScriptedVideoConnection(videoPeerKey).also { videoConnections += it }
             }
             check(reachable) { "the host is not reachable" }
             if (route is ControlRoute.Direct && route.address in refusing) throw java.net.ConnectException("refused")
@@ -102,7 +106,7 @@ class ControllerRig(
         },
         sink = sink,
         downloads = DownloadWriter { offset, bytes -> downloads[offset] = bytes },
-        relay = RelayPorts(signalling, datagrams) { entitlement },
+        relay = RelayPorts(signalling, datagrams, onRemainingSeconds = { remainingReported += it }) { entitlement },
         log = { logged += it },
         lanReached = { hostId, address -> reachedOnLan[hostId] = address },
     )

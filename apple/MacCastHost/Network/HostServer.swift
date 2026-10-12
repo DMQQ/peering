@@ -51,12 +51,12 @@ final class HostServer: @unchecked Sendable {
         case invalidPort(UInt16)
         case listenerFailed(String)
 
-        var errorDescription: String? {
+        var errorDescription: String? { message.englishText }
+
+        var message: LocalizedStringResource {
             switch self {
-            case .invalidPort(let port):
-                return "Port \(port) is not a usable TCP port."
-            case .listenerFailed(let reason):
-                return "The listener could not start: \(reason)"
+            case .invalidPort(let port): "Port \(Int(port)) is not a usable TCP port."
+            case .listenerFailed(let reason): "The listener could not start: \(reason)"
             }
         }
     }
@@ -118,7 +118,7 @@ final class HostServer: @unchecked Sendable {
             case .ready:
                 emit(.listening(port: listener.port?.rawValue ?? port))
             case .failed(let error):
-                emit(.failed(error.localizedDescription))
+                emit(.failed(verbatim: error.localizedDescription))
                 stop()
             case .cancelled:
                 emit(.stopped)

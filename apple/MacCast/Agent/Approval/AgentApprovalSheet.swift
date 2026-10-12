@@ -42,8 +42,8 @@ struct AgentApprovalSheet: View {
             }
             if options.isEmpty {
                 HStack(spacing: 10) {
-                    side("Deny", filled: false) { answer(.deny) }
-                    side("Allow", filled: true) { answer(.allow) }
+                    side(String(localized: "Deny"), filled: false) { answer(.deny) }
+                    side(String(localized: "Allow"), filled: true) { answer(.allow) }
                 }
             } else {
                 VStack(spacing: 8) {

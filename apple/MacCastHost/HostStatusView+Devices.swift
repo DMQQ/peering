@@ -235,7 +235,7 @@ extension HostStatusView {
                 .frame(width: 20, height: 20)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(entry.message)
+                entry.text
                     .font(.system(size: 12.5, weight: entry.level == .info ? .regular : .medium))
                     .foregroundStyle(entry.level == .info ? HostPalette.ink : colour(for: entry.level))
                     .textSelection(.enabled)
@@ -318,11 +318,7 @@ extension HostStatusView {
     }
 
     private func hostDuration(_ seconds: TimeInterval) -> String {
-        let total = Int(max(0, seconds).rounded())
-        let hours = total / 3_600
-        let minutes = (total % 3_600) / 60
-        if hours > 0 { return minutes == 0 ? "\(hours)h" : "\(hours)h \(minutes)m" }
-        return minutes > 0 ? "\(minutes)m" : "\(total)s"
+        TerminalCommandFinishDetector.spokenDuration(seconds)
     }
 
     private func hostBytes(_ bytes: Int64) -> String {

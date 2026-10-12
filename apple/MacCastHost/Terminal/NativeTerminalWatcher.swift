@@ -280,14 +280,15 @@ private final class TerminalAppWatch: @unchecked Sendable {
         }
         guard lock.withLock({ awaiting.insert(key).inserted }) else { return }
 
-        let noun = kind == .password ? "a password" : "confirmation"
         // The banner quotes the question alone: "[sudo] password for damian:" or Claude's "Do you
         // want to proceed?" says what is being asked, and a window name in front of it only pushed
         // that out of the line. The sentence, with the window, is the fallback for a question that
         // cannot be read.
         let who = title.map { "\(appName) \u{201C}\($0)\u{201D}" } ?? appName
         let message = TerminalAttentionDetector.question(inPlainText: text)
-            ?? "\(who) is waiting for \(noun)."
+            ?? (kind == .password
+                ? String(localized: "\(who) is waiting for a password.")
+                : String(localized: "\(who) is waiting for confirmation."))
         nativeTermLog.notice("\(message as String, privacy: .public)")
         onAttention(message, windowID)
     }

@@ -7,7 +7,7 @@
 use std::future::Future;
 use std::io::BufReader;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -220,7 +220,7 @@ impl<C: Clock, E: TokenExchange> AccessTokenCache<C, E> {
         let assertion = self.account.build_assertion(self.scope, now)?;
         let reply = self.exchange.exchange(&assertion).await?;
         let valid_until = now + TOKEN_TTL_SECONDS.min(reply.expires_in);
-        *self.held.lock().unwrap() = Some(HeldToken {
+        *self.held.lock().unwrap_or_else(PoisonError::into_inner) = Some(HeldToken {
             token: reply.access_token.clone(),
             valid_until,
         });
@@ -228,7 +228,7 @@ impl<C: Clock, E: TokenExchange> AccessTokenCache<C, E> {
     }
 
     fn fresh_token(&self, now: u64) -> Option<String> {
-        let held = self.held.lock().unwrap();
+        let held = self.held.lock().unwrap_or_else(PoisonError::into_inner);
         held.as_ref()
             .filter(|held| now < held.valid_until)
             .map(|held| held.token.clone())

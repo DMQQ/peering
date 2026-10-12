@@ -25,6 +25,7 @@ const END_DISMISSAL_SECONDS: u64 = 4 * 60 * 60;
 const BURST: f64 = 5.0;
 const REFILL_PER_SECOND: f64 = 1.0;
 const MAX_TRACKED_TOKENS: usize = 64;
+const MAX_TRACKED_TOKENS_PER_PROCESS: usize = 4096;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -97,7 +98,7 @@ pub struct ActivityPush {
     pub request_id: Option<String>,
 }
 
-pub const MAX_REQUEST_ID_BYTES: usize = 64;
+pub const MAX_REQUEST_ID_CHARS: usize = 64;
 
 /// Why a push was not sent, as the host is told. A closed set: the host acts on it, so it must
 /// never carry text from Apple or from the host's own payload.
@@ -107,6 +108,7 @@ pub enum ActivityRefusal {
     /// The message itself is unusable: a missing start field, an oversized or non-object state.
     InvalidPayload,
     /// Malformed, or APNs said BadDeviceToken, Unregistered or ExpiredToken. The host should forget it.
+    /// `DeviceTokenNotForTopic` is `Rejected` instead: the token may be valid for another build.
     InvalidToken,
     /// APNs refused it for another reason.
     Rejected,
@@ -138,7 +140,7 @@ pub enum ActivityFailure {
 
 impl ActivityFailure {
     pub fn from_refusal(refusal: &ApnsRefusal) -> Self {
-        const DEAD_TOKEN: [&str; 4] = ["BadDeviceToken", "Unregistered", "ExpiredToken", "DeviceTokenNotForTopic"];
+        const DEAD_TOKEN: [&str; 3] = ["BadDeviceToken", "Unregistered", "ExpiredToken"];
         if refusal.is_throttle() {
             Self::Throttled
         } else if refusal.is_server_side() {
@@ -171,6 +173,21 @@ pub struct ActivityRequest {
     pub body: String,
 }
 
+/// The refusal for a `notifyActivity` that did not decode, so the host is told which push failed
+/// instead of getting a generic protocol error. `None` when the message is some other kind.
+pub fn refusal_for_undecodable(text: &str) -> Option<(ActivityRefusal, Option<String>)> {
+    let value: Value = serde_json::from_str(text).ok()?;
+    if value.get("type")?.as_str()? != "notifyActivity" {
+        return None;
+    }
+    let request_id = value
+        .get("requestId")
+        .and_then(Value::as_str)
+        .filter(|id| id.chars().count() <= MAX_REQUEST_ID_CHARS)
+        .map(str::to_owned);
+    Some((ActivityRefusal::InvalidPayload, request_id))
+}
+
 fn within(text: &str, limit: usize) -> bool {
     text.len() <= limit
 }
@@ -191,7 +208,7 @@ pub fn build(push: &ActivityPush, now: u64) -> Result<ActivityRequest, ActivityR
         return Err(ActivityRefusal::InvalidPayload);
     }
 
-    if push.request_id.as_deref().is_some_and(|id| !within(id, MAX_REQUEST_ID_BYTES)) {
+    if push.request_id.as_deref().is_some_and(|id| id.chars().count() > MAX_REQUEST_ID_CHARS) {
         return Err(ActivityRefusal::InvalidPayload);
     }
 
@@ -207,7 +224,8 @@ pub fn build(push: &ActivityPush, now: u64) -> Result<ActivityRequest, ActivityR
             }
             Some(json!({ "title": title, "body": body }))
         }
-        _ => None,
+        (None, None) => None,
+        _ => return Err(ActivityRefusal::InvalidPayload),
     };
 
     let stale = push.stale_seconds.map(|seconds| now.saturating_add(u64::from(seconds)));
@@ -250,17 +268,42 @@ pub fn build(push: &ActivityPush, now: u64) -> Result<ActivityRequest, ActivityR
 ///
 /// Apple throttles Live Activity pushes per activity, and a push over its budget is dropped there
 /// without telling anyone, so spending the budget here costs nothing a retry would not.
-#[derive(Default)]
 pub struct ActivityLimiter {
     buckets: HashMap<String, (f64, Instant)>,
+    capacity: usize,
+}
+
+impl Default for ActivityLimiter {
+    fn default() -> Self {
+        Self::with_capacity(MAX_TRACKED_TOKENS)
+    }
+}
+
+/// The same budget shared by every connection, so a token cannot be hammered through many sockets.
+pub struct SharedActivityBudget(std::sync::Mutex<ActivityLimiter>);
+
+impl Default for SharedActivityBudget {
+    fn default() -> Self {
+        Self(std::sync::Mutex::new(ActivityLimiter::with_capacity(MAX_TRACKED_TOKENS_PER_PROCESS)))
+    }
+}
+
+impl SharedActivityBudget {
+    pub fn allow(&self, token: &str, now: Instant) -> bool {
+        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).allow(token, now)
+    }
 }
 
 impl ActivityLimiter {
+    fn with_capacity(capacity: usize) -> Self {
+        Self { buckets: HashMap::new(), capacity }
+    }
+
     pub fn allow(&mut self, token: &str, now: Instant) -> bool {
-        if !self.buckets.contains_key(token) && self.buckets.len() >= MAX_TRACKED_TOKENS {
+        if !self.buckets.contains_key(token) && self.buckets.len() >= self.capacity {
             let refilled = Duration::from_secs_f64(BURST / REFILL_PER_SECOND);
             self.buckets.retain(|_, (_, last)| now.saturating_duration_since(*last) < refilled);
-            if self.buckets.len() >= MAX_TRACKED_TOKENS {
+            if self.buckets.len() >= self.capacity {
                 return false;
             }
         }
@@ -425,9 +468,14 @@ mod tests {
     }
 
     #[test]
-    fn an_alert_needs_both_halves_and_otherwise_is_left_out() {
-        let half = ActivityPush { alert_title: Some("Only a title".into()), ..push(ActivityEvent::Update) };
-        assert!(body(&build(&half, NOW).unwrap())["aps"].get("alert").is_none());
+    fn an_alert_needs_both_halves_and_a_half_is_refused() {
+        for event in [ActivityEvent::Update, ActivityEvent::End] {
+            let title_only = ActivityPush { alert_title: Some("Only a title".into()), ..push(event) };
+            assert_eq!(build(&title_only, NOW), Err(ActivityRefusal::InvalidPayload));
+            let body_only = ActivityPush { alert_body: Some("Only a body".into()), ..push(event) };
+            assert_eq!(build(&body_only, NOW), Err(ActivityRefusal::InvalidPayload));
+        }
+        assert!(body(&build(&push(ActivityEvent::Update), NOW).unwrap())["aps"].get("alert").is_none());
         let both = ActivityPush { alert_title: Some("T".into()), alert_body: Some("B".into()), ..push(ActivityEvent::Update) };
         assert_eq!(body(&build(&both, NOW).unwrap())["aps"]["alert"], json!({ "title": "T", "body": "B" }));
     }
@@ -473,10 +521,13 @@ mod tests {
 
     #[test]
     fn apns_reasons_for_a_dead_token_are_told_apart_from_the_rest() {
-        for (status, reason) in [(400, "BadDeviceToken"), (410, "Unregistered"), (410, "ExpiredToken"), (400, "DeviceTokenNotForTopic")] {
+        for (status, reason) in [(400, "BadDeviceToken"), (410, "Unregistered"), (410, "ExpiredToken")] {
             let refusal = ApnsRefusal { status, reason: Some(reason.into()) };
             assert_eq!(ActivityFailure::from_refusal(&refusal), ActivityFailure::TokenRejected);
         }
+        let wrong_topic = ApnsRefusal { status: 400, reason: Some("DeviceTokenNotForTopic".into()) };
+        assert_eq!(ActivityFailure::from_refusal(&wrong_topic), ActivityFailure::Rejected);
+        assert_eq!(ActivityFailure::Rejected.refusal(), ActivityRefusal::Rejected);
         let throttle = ApnsRefusal { status: 429, reason: Some("TooManyRequests".into()) };
         assert_eq!(ActivityFailure::from_refusal(&throttle), ActivityFailure::Throttled);
         assert_eq!(ActivityFailure::Throttled.refusal(), ActivityRefusal::Unavailable);
@@ -541,5 +592,56 @@ mod tests {
         assert!(serde_json::from_str::<crate::protocol::ClientMessage>(minimal).is_ok());
         let unknown = minimal.replace("terminal", "pizza");
         assert!(serde_json::from_str::<crate::protocol::ClientMessage>(&unknown).is_err());
+    }
+
+    #[test]
+    fn a_request_id_is_limited_by_characters_not_bytes() {
+        let sixty_four_characters = "é".repeat(64);
+        let fits = ActivityPush { request_id: Some(sixty_four_characters), ..push(ActivityEvent::Update) };
+        assert!(build(&fits, NOW).is_ok());
+        let too_long = ActivityPush { request_id: Some("é".repeat(65)), ..push(ActivityEvent::Update) };
+        assert_eq!(build(&too_long, NOW), Err(ActivityRefusal::InvalidPayload));
+    }
+
+    #[test]
+    fn an_undecodable_notify_activity_is_refused_with_its_request_id() {
+        let cases = [
+            r#"{"type":"notifyActivity","activityToken":"ab","activity":"session","event":"update","contentState":{},"priority":300,"requestId":"r1"}"#,
+            r#"{"type":"notifyActivity","activityToken":"ab","activity":"session","event":"update","contentState":{},"staleSeconds":-5,"requestId":"r1"}"#,
+            r#"{"type":"notifyActivity","activityToken":"ab","activity":"session","event":"explode","contentState":{},"requestId":"r1"}"#,
+        ];
+        for text in cases {
+            assert!(serde_json::from_str::<crate::protocol::ClientMessage>(text).is_err(), "{text}");
+            assert_eq!(refusal_for_undecodable(text), Some((ActivityRefusal::InvalidPayload, Some("r1".into()))));
+        }
+    }
+
+    #[test]
+    fn an_undecodable_notify_activity_without_a_readable_request_id_is_still_refused() {
+        let text = r#"{"type":"notifyActivity","event":"explode","requestId":7}"#;
+        assert_eq!(refusal_for_undecodable(text), Some((ActivityRefusal::InvalidPayload, None)));
+        let long = format!(r#"{{"type":"notifyActivity","requestId":"{}"}}"#, "x".repeat(65));
+        assert_eq!(refusal_for_undecodable(&long), Some((ActivityRefusal::InvalidPayload, None)));
+    }
+
+    #[test]
+    fn other_undecodable_messages_are_not_taken_for_activity_pushes() {
+        assert_eq!(refusal_for_undecodable(r#"{"type":"nonsense"}"#), None);
+        assert_eq!(refusal_for_undecodable("not json"), None);
+        assert_eq!(refusal_for_undecodable(r#"{"requestId":"r"}"#), None);
+    }
+
+    #[test]
+    fn the_shared_budget_is_spent_across_every_connection_that_uses_a_token() {
+        let budget = SharedActivityBudget::default();
+        let now = Instant::now();
+        let allowed = (0..20)
+            .filter(|_| {
+                let mut connection = ActivityLimiter::default();
+                connection.allow("token", now) && budget.allow("token", now)
+            })
+            .count();
+        assert_eq!(allowed, 5, "a fresh connection each time does not buy a fresh burst");
+        assert!(budget.allow("another", now), "other tokens have their own budget");
     }
 }

@@ -35,6 +35,25 @@ class SharedFilesTest {
     }
 
     @Test
+    fun aWriteLeavesOnlyTheContentNamedFile() {
+        val file = SharedFiles.write(directory, byteArrayOf(1, 2, 3), "png", now = 1_000)
+
+        assertEquals(listOf(file.name), directory.list()!!.toList())
+        assertEquals(listOf<Byte>(1, 2, 3), file.readBytes().toList())
+    }
+
+    @Test
+    fun aTruncatedFileOfTheSameNameIsReplacedWhole() {
+        val bytes = byteArrayOf(1, 2, 3)
+        File(directory, SharedFiles.nameFor(bytes, "png")).writeBytes(byteArrayOf(1))
+
+        val file = SharedFiles.write(directory, bytes, "png", now = 1_000)
+
+        assertEquals(bytes.toList(), file.readBytes().toList())
+        assertEquals(1, directory.listFiles()!!.size)
+    }
+
+    @Test
     fun filesOlderThanADayArePruned() {
         val old = File(directory, "old.png").apply { writeBytes(byteArrayOf(1)); setLastModified(1_000) }
 

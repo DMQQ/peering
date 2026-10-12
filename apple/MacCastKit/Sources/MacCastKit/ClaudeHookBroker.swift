@@ -13,6 +13,7 @@ public final class ClaudeHookBroker: @unchecked Sendable {
     private let tokens: @Sendable () -> [String]
     private let push: Push
     private let schedule: Schedule
+    private let words: AgentNotificationWords
 
     private let lock = NSLock()
     /// Guarded by `lock`.
@@ -23,8 +24,10 @@ public final class ClaudeHookBroker: @unchecked Sendable {
         push: @escaping Push,
         schedule: @escaping Schedule = { seconds, work in
             DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + .seconds(seconds), execute: work)
-        }
+        },
+        words: AgentNotificationWords = .english
     ) {
+        self.words = words
         self.tokens = tokens
         self.push = push
         self.schedule = schedule
@@ -36,7 +39,7 @@ public final class ClaudeHookBroker: @unchecked Sendable {
         case .permissionRequest:
             permissionRequest(event, devices: devices, reply: reply)
         case .notification:
-            let body = event.message ?? "Claude Code is waiting for you."
+            let body = event.message ?? words.claudeCodeWaiting
             for token in devices { push(token, title(for: event), body, nil) }
             reply(nil)
         case .other:
@@ -68,7 +71,7 @@ public final class ClaudeHookBroker: @unchecked Sendable {
         let category = AgentApprovalNotification.pushCategory(for: call)
         let holds = event.canBeAnsweredFromANotification && category == AgentApprovalNotification.toolCategory
 
-        let text = AgentNotificationText.approval(agentName: title(for: event), reason: nil, detail: event.detail)
+        let text = AgentNotificationText.approval(agentName: title(for: event), reason: nil, detail: event.detail, words: words)
         let action = RelayPushAction(
             category: category,
             sessionID: (UUID(uuidString: event.sessionID) ?? UUID()).uuidString,
@@ -87,6 +90,6 @@ public final class ClaudeHookBroker: @unchecked Sendable {
     }
 
     private func title(for event: ClaudeHookEvent) -> String {
-        event.projectName.map { "Claude Code in \($0)" } ?? "Claude Code"
+        event.projectName.map(words.claudeCodeIn) ?? words.claudeCode
     }
 }

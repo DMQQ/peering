@@ -9,7 +9,7 @@ import pl.dmq.peering.wire.FrameDecoder
 import pl.dmq.peering.wire.FrameEncoder
 
 /** The Mac's end of a LAN picture connection: it records what the phone wrote and streams what a test delivers. */
-class ScriptedVideoConnection : ControlTransport {
+class ScriptedVideoConnection(private val peerKey: ByteArray) : ControlTransport {
     private val inbound = Channel<ByteArray>(Channel.UNLIMITED)
     private val decoder = FrameDecoder()
 
@@ -31,7 +31,7 @@ class ScriptedVideoConnection : ControlTransport {
         inbound.close()
     }
 
-    override fun peerPublicKey(): ByteArray = byteArrayOf()
+    override fun peerPublicKey(): ByteArray = peerKey
 
     fun deliver(frame: Frame) {
         inbound.trySend(FrameEncoder.encode(frame.kind, frame.payload))

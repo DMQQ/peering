@@ -15,7 +15,7 @@ extension HostModel {
             identity = try SelfSignedIdentity.loadOrCreate(role: .server, commonName: device.name)
         } catch {
             Analytics.failed(error, in: .network)
-            let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            let message = HostFailureText.resource(for: error)
             status = .failed(message)
             record("Identity unavailable: \(message)", level: .failure)
             return nil
@@ -65,7 +65,7 @@ extension HostModel {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 HostTelemetry.capture(error)
-                self.apply(.failed(error.localizedDescription))
+                self.apply(.failed(verbatim: error.localizedDescription))
                 self.announceCaptureProblem(error)
             }
         }
@@ -167,7 +167,7 @@ extension HostModel {
             server.externalApprovalResolver = terminalHooks.resolver
         } catch {
             Analytics.failed(error, in: .network)
-            let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            let message = HostFailureText.resource(for: error)
             status = .failed(message)
             record(message)
             Analytics.serverStartFailed()

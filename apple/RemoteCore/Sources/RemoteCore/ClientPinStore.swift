@@ -17,6 +17,11 @@ public final class ClientPinStore: @unchecked Sendable {
     private var pins: [String: Data] = [:]
     private var unreadable = false
     private var unreadableReported = false
+    private let alarm: PinStoreAlarm
+    /// Set under the lock when the store first turns unreadable, raised once the lock is released so a handler may call back in.
+    private var alarmDue: UnreadableAlarm?
+
+    private struct UnreadableAlarm { let status: Int32? }
 
     public static let standard = ClientPinStore(service: "pl.dmq.peering.client.pins")
 
@@ -24,16 +29,17 @@ public final class ClientPinStore: @unchecked Sendable {
         self.init(backing: KeychainClientPinBacking(service: service, account: account))
     }
 
-    init(backing: any ClientPinBacking) {
+    init(backing: any ClientPinBacking, alarm: PinStoreAlarm = .shared) {
         self.backing = backing
-        _ = reload()
+        self.alarm = alarm
+        _ = locked { reload() }
     }
 
     public var hostIDs: [String] { readable { $0.keys.sorted() } }
     public var isEmpty: Bool { readable { $0.isEmpty } }
 
     /// True while the Keychain cannot be read. Pins then look absent, which is not the same as the Mac being unpaired.
-    public var isUnreadable: Bool { lock.withLock { retryIfUnreadable(); return unreadable } }
+    public var isUnreadable: Bool { locked { retryIfUnreadable(); return unreadable } }
 
     public func pin(for hostID: String) -> Data? { readable { $0[hostID] } }
 
@@ -43,7 +49,7 @@ public final class ClientPinStore: @unchecked Sendable {
 
     /// Once per launch, so the user is told when pins could not be read and not on every connection attempt.
     public func takeUnreadableNotice() -> Bool {
-        lock.withLock {
+        locked {
             retryIfUnreadable()
             guard unreadable, !unreadableReported else { return false }
             unreadableReported = true
@@ -68,8 +74,19 @@ public final class ClientPinStore: @unchecked Sendable {
         change { $0.removeAll() }
     }
 
+    /// Runs `body` under the lock and raises the alarm it asked for after the lock is released.
+    private func locked<T>(_ body: () -> T) -> T {
+        let (result, due) = lock.withLock { () -> (T, UnreadableAlarm?) in
+            let result = body()
+            defer { alarmDue = nil }
+            return (result, alarmDue)
+        }
+        if let due { alarm.raise(status: due.status) }
+        return result
+    }
+
     private func readable<T>(_ body: ([String: Data]) -> T) -> T {
-        lock.withLock {
+        locked {
             retryIfUnreadable()
             return body(pins)
         }
@@ -80,7 +97,7 @@ public final class ClientPinStore: @unchecked Sendable {
     }
 
     private func change(_ edit: (inout [String: Data]) -> Void) -> Bool {
-        lock.withLock {
+        locked {
             guard reload() else { return false }
             var next = pins
             edit(&next)
@@ -105,7 +122,7 @@ public final class ClientPinStore: @unchecked Sendable {
             unreadable = false
             return true
         case .unreadable(let status):
-            if !unreadable { PinStoreAlarm.raise(status: status) }
+            if !unreadable { alarmDue = UnreadableAlarm(status: status) }
             unreadable = true
             return false
         }
@@ -113,13 +130,16 @@ public final class ClientPinStore: @unchecked Sendable {
 
     private enum Loaded { case pins([String: Data]), absent, unreadable(status: Int32?) }
 
+    /// A blob that exists but will not decode is not an empty store: treating it as one would let the next pairing overwrite it.
     private static func load(_ backing: any ClientPinBacking) -> Loaded {
+        var primaryUndecodable = false
         switch backing.read(.primary) {
         case .unavailable(let status):
             return .unreadable(status: status)
         case .found(let data):
             if let decoded = decode(data) { return .pins(decoded) }
             transportLog.error("client pin store could not be decoded; trying the backup")
+            primaryUndecodable = true
         case .notFound:
             break
         }
@@ -127,11 +147,11 @@ public final class ClientPinStore: @unchecked Sendable {
         case .unavailable(let status):
             return .unreadable(status: status)
         case .found(let data):
-            guard let decoded = decode(data) else { return .absent }
+            guard let decoded = decode(data) else { return .unreadable(status: nil) }
             transportLog.error("client pins restored from the backup item")
             return .pins(decoded)
         case .notFound:
-            return .absent
+            return primaryUndecodable ? .unreadable(status: nil) : .absent
         }
     }
 

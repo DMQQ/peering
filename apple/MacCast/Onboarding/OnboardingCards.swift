@@ -11,7 +11,7 @@ struct NotificationBanner: View {
         Example(
             title: String(localized: "Build finished"),
             body: String(localized: "Damian's MacBook Pro: `xcodebuild` completed successfully."),
-            age: "now"
+            age: String(localized: "now")
         ),
         Example(
             title: String(localized: "Terminal needs you"),

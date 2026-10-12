@@ -45,7 +45,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 struct MacCastApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     /// Owned here, not by a view: a connection outlives any screen, and a model created by `HostPickerView` would be destroyed when the picker left the hierarchy, which is when the connection starts being used.
-    @State private var model = SessionModel()
+    @State private var model = MacCastApp.makeModel()
     /// Owned here also because an intent has no view hierarchy and "open a shell on prod" arrives before any screen exists.
     @State private var servers = SSHModel()
     @State private var quickCommands = QuickCommands()
@@ -57,7 +57,6 @@ struct MacCastApp: App {
     init() {
         PostHogConfiguration.setup()
         Analytics.observeSettings()
-        PinStoreAlarm.install { status in Task { @MainActor in Analytics.pinStoreUnreadable(status: status) } }
 
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "Peering.clearDelivered") {
@@ -70,8 +69,14 @@ struct MacCastApp: App {
         AgentApprovalNotifier.shared.registerCategories()
     }
 
+    /// The pin store is read when the model is built, which happens before `init` runs, so the alarm is wired here.
+    private static func makeModel() -> SessionModel {
+        PinStoreAlarm.install { status in Task { @MainActor in Analytics.pinStoreUnreadable(status: status) } }
+        return SessionModel()
+    }
+
     private var confirmingBinding: Binding<Bool> {
-        Binding(get: { router.confirming != nil }, set: { if !$0 { router.confirming = nil } })
+        Binding(get: { router.confirming != nil }, set: { if !$0 { router.cancelConfirmation() } })
     }
 
     var body: some Scene {
@@ -132,7 +137,7 @@ struct MacCastApp: App {
                         model.enteringForeground()
                         Analytics.appOpened(plan: model.storeManager.access.plan)
                     case .inactive:
-                        model.leavingForeground()
+                        model.becameInactive()
                     case .background:
                         CrashLog.setForeground(false)
                         model.leavingForeground()

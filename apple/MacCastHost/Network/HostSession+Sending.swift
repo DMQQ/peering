@@ -48,8 +48,9 @@ extension HostSession {
     func fail(_ error: any Error) {
         guard state != .failed else { return }
         state = .failed
+        // The Mac's window words it in the Mac's language; the peer is sent the English.
         let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-        emit(.failed(message))
+        emit(.failed(because: error))
 
         // Cancel only once the explanation has been handed to the transport: cancelling right
         // after `send` discards the queued frame and the peer sees a bare disconnect with no

@@ -27,8 +27,8 @@ nine translations in state `translated`.
 
 | Catalog | be87fd01 | before audit | now | added by audit |
 | --- | --- | --- | --- | --- |
-| MacCast/Localizable.xcstrings | 1615 | 1632 | 1732 | 100 |
-| MacCastHost/Localizable.xcstrings | 276 | 286 | 299 | 13 |
+| MacCast/Localizable.xcstrings | 1615 | 1632 | 1813 | 181 |
+| MacCastHost/Localizable.xcstrings | 276 | 286 | 435 | 149 |
 | MacCastWidget/Localizable.xcstrings | 46 | 46 | 47 | 1 |
 | MacCastHostWidget/Localizable.xcstrings | 13 | 13 | 13 | 0 |
 | MacCast/AppShortcuts.xcstrings | 9 | 9 | 9 | 0 |
@@ -104,50 +104,115 @@ Mapped (about 100 sentences, all in the phone catalog):
 | Remote notice | `HostModel+Sessions.swift`, `HostModel+Events.swift` | locked, display disconnected, screen asleep, Privacy Mode could not darken or cover |
 | SSH browse | `SSHCore` | "The server did not answer in time." |
 
-Wire text that is not mapped, with the reason:
+Wire text that is still not mapped, with the reason:
 
 - `ErrorPayload.message` for any code other than the ones above and the capture-recovery notice
-  (owned by another agent).
-- `RemoteCore` handshake internals: "The Mac's hello could not be read.", the commitment and reveal
-  sentences, "Expected X from the Mac, got Y.", the protocol mismatch sentence, "This device's
-  identity could not be loaded: ...". Developer-grade, rare.
-- Relay messages: "The relay refused the session: ...", "That Mac is not currently registered with
-  the relay." (matched in English by the failure card, which has its own localized replacement),
-  `RelayProtocolError`.
-- Agent git and changes text: `AgentGitRefusal.text` (MacCastKit), `AgentGitActions` messages,
-  `AgentChangesReader` failures other than the not-a-repository pair. Pre-existing, not in the diff.
-- `PerTurnAdapter` and `ClaudeCodeAdapter` composed messages (`\(message)\n\(tail)`) and the
-  "A line from the agent was too long to read and was skipped." transcript notice.
-- Mosaic placeholder text drawn into the video by the Mac ("This window has closed", "Nothing to
-  show"). It is part of the picture, so it follows the Mac's language, and it is English now.
-- SSHCore sentences other than the timeout: the file service messages in `SSHFileService*.swift`
-  and `SSHSession.swift` (about 20, none changed in the diff).
+  (owned by another agent), and the relay sentences ("The relay refused the session: ...",
+  `RelayProtocolError`, relay `timedOut`), which another agent is working on.
+- `CaptureError.errorDescription` ("macOS is not letting this app record the screen...", the stream
+  and encoder failures). It feeds the capture-recovery notice, so it stays with that mapping.
+- The text of operating system and library errors that is interpolated into a sentence
+  (`error.localizedDescription`, NIO, Citadel and the output of `pmset` and `sudo`). It is shown as the
+  system wrote it, inside the localized sentence around it.
 
 Texts that reach the phone as operating system notifications cannot be mapped there. They are
-written on the Mac, so they now follow the Mac's language: terminal pushes, the Live Activity
-alerts (`LiveActivityPushBuilder.alertText`, passed as plain strings to the relay) and the test push.
-A phone and Mac set to different languages will see the Mac's. Fixing that needs a locale or a
-`loc-key` on the registration or the relay payload, which is a protocol change, so it is left.
-`AgentNotificationText` (agent approval and finish pushes: "Claude Code asks", "Needs your
-approval.", "The turn finished.") and `AgentTurnDigest` are still English only; they are pure
-functions in `MacCastKit` with English assertions in their tests, not part of this diff.
+written on the Mac, so they follow the Mac's language: terminal pushes, the Live Activity alerts
+(`LiveActivityPushBuilder.alertText`, passed as plain strings to the relay), the test push, and now
+the agent approval and finish pushes (see below). A phone and Mac set to different languages will see
+the Mac's. Fixing that needs a locale or a `loc-key` on the registration or the relay payload, which
+is a protocol change, so it is left.
 
-## What remains
+## Second pass: what the first audit left English
 
-1. The Mac host Activity feed (`HostModel.record(...)`, about 40 call sites in `HostModel+Events`,
-   `+Lifecycle`, `+Sessions`, `RelayHostRegistration`, `HostServer`, `VideoCoordinator`). It is shown in
-   the host window and also copied to the unified log and the diagnostics report. It was English
-   before this range and is left English: translating it would make support reports unreadable.
-   Decide whether it counts as user-visible.
-2. `HostSession.clientName = "Unknown device"` before the hello arrives.
-3. The strings in "Wire text that is not mapped" above.
-4. `SessionPiP.lastAttempt` and `lastRefusal` (four `String(localized:)` words and two English
-   multi-line strings) are written and never displayed; they are marked do-not-translate in the
-   catalog. Delete them or show them.
-5. The `Stop ${applicationName}` phrase in the Disconnect App Shortcut set exists in English only;
-   other languages have one phrase per shortcut.
-6. Quotation marks around a command in the terminal-finished sentence are always curly English
-   quotes (`“ls”`), also in German or Japanese.
+Every item the first audit listed under "What remains" is fixed, confirmed, or listed under "Confirmed and left".
+
+### Mac host Activity feed
+
+`HostModel.record(_:level:)` now takes a `LocalizedStringResource`; `record(verbatim:)` is for text
+that is already a finished sentence from the system. `HostLogEntry` keeps the resource for the window
+and an English copy (`message`, computed with the resource's locale set to `en`). The window resolves
+the resource at display time, in the Mac's current language (`HostLogEntry.text`). The unified log,
+the diagnostics report and the copied log all use the English copy, so support reads English whatever
+the Mac is set to. Nested resources localize with the outer sentence (`"... \(reason)"` where
+`reason` is itself a resource), which is how a refused Privacy Mode cover and a failed display add
+carry a translated reason.
+
+The feed comes from about 70 call sites. They are keyed in the host catalog: 136 new entries,
+including the relay registration lines, the `VideoCoordinator` status lines (the `onStatus` callbacks
+now carry a resource), `HostEvent.failed` (a resource, with `failed(verbatim:)` and
+`failed(because:)`), the handshake errors of `HostServer.Failure`, `HostSession.SessionError` and
+`VirtualDisplay.Failure` (each has `message` for the window and keeps `errorDescription` in English
+for the log and for the error frame sent to the peer), and the sleep prevention lines.
+
+Also found and fixed on the way (all English `String` values reaching `Text`): the host status line
+("Starting...", "Waiting for a device"), the test push result, the lid-close explanation alert, the
+daily wake caption, the "waiting for a password" push fallback, the administrator prompt texts, the
+session duration helpers (now `TerminalCommandFinishDetector.spokenDuration`), "Unknown device",
+"Measuring...", the lid-close row title in the menu bar, and a pairing sentence whose first branch
+fell back to `String` because its sibling branch was `String(localized:)`.
+
+### Agent pushes
+
+`MacCastKit` cannot have strings extracted, so `AgentNotificationText.approval/finished`,
+`AgentTurnDigest.detail` and `ClaudeHookBroker` take an `AgentNotificationWords` value
+(`AgentNotificationWords.swift`). `.english` is the default and what the tests assert; the host builds
+`AgentNotificationWords.localized` (`AgentNotificationWords+Localized.swift`) from the host catalog and
+passes it where it composes a push. "N files changed" has plural variations (one and other in en, de,
+es, fr, it, pt-BR; one, few, many and other in ru; other in ja, ko, zh-Hans). The duration uses
+`spokenDuration`. New tests: `AgentNotificationWordsTests`.
+
+### Agent text shown on the phone
+
+The chat transcript keeps English (`AgentPause.isPaused` reads the pause notice), so the phone maps at
+display with `HostWireText.agentLine`: pause and expiry notices, the folder access notes, the adapter
+exit and "too long" lines (with the CLI's stderr tail kept after the first line), git outcomes,
+`AgentGitRefusal` and `AgentGitLocator.missingMessage`. `HostWireText.localized` now also maps a
+sentence followed by a tail. Display sites wrapped: transcript notice and failure rows, the chat
+failure line, the Changes message, the commit sheet result and push reason, the Live Activity banner
+body. `AgentRecap` (the opening message of a replacement chat) is a prompt for the agent and stays
+English.
+
+### SSHCore and RemoteCore sentences
+
+`HostWireText+SSH.swift` maps the file service sentences, the key and port forward errors and the
+forwarder statuses by exact text or `SentenceTemplate`; `forwardSummary` replaces `SSHForwardState.summary`
+in the forwards sheet. `HostWireText+Handshake.swift` maps the handshake internals (hello, commitment,
+reveal, result, certificate, secure random bytes, lost state, protocol mismatch, "Expected X from the
+Mac, got Y.", identity). `errorDescription` is untouched, so logs stay English. `pinsUnreadable`,
+`handshakeTimedOut`, relay `timedOut` and the capture-recovery notice mapping were left to the other
+agent.
+
+### Mosaic placeholder
+
+The five texts drawn into the picture go through `String(localized:)`, so the card follows the Mac's
+language.
+
+### Missed by the first audit (the same method, a better detector)
+
+The detector compares each source literal with the catalog and with the strings Xcode extracted for
+that line (`.stringsdata`). A literal that is a catalog key but was not extracted is a `String` that
+SwiftUI shows verbatim. 34 of them are fixed: Deny and Allow in the approval sheet, the file browser
+create and delete titles and its default names, the on-screen key labels (Tab, Copy, Paste, Enter,
+Delete, the arrows, Escape, End) and their accessibility labels, the remote status chips (Lock,
+Connect, Mosaic, Connected), "Path" and "None" in Settings, the Servers, History and FAQ headers,
+"Next" in onboarding, "now" in the notification card example, and the sample prompts in the empty
+chat. The terminal card age and the turn summary duration used "4m 12s" style English abbreviations
+and now use `spokenDuration`.
+
+### Confirmed and left
+
+- `SessionPiP.lastAttempt` and `lastRefusal`: written and logged, never shown. Left as they are.
+- `HostDiagnostics`, `Diagnostics` and the copied activity log: English on purpose, for support.
+- The Developer section of Settings is `#if DEBUG` and not in any build a user receives; its footer is
+  not in the catalog.
+- Virtual display names ("Peering Display 2", "Peering Phone Display") are what macOS and the phone list
+  as the display's name and are persisted by the window server, so they stay a stable English name.
+- Quotation marks around a command in the terminal-finished sentence are still always curly English
+  quotes, and the `Stop ${applicationName}` App Shortcut phrase exists in English only.
+- `HostPickerView+HomeCards` matches English wire text on purpose (see the first pass).
+- The accessibility label of the recent sessions summary is three joined fragments; each fragment is
+  translated with its own punctuation, so it reads correctly, but a single sentence would let a
+  language reorder the parts.
 
 ## Stale and unreferenced entries (reported, not deleted)
 
@@ -199,7 +264,35 @@ Least sure, in order:
 7. German, Spanish and Portuguese: lowest risk; "Durchlauf" for turn (existing catalog term) and
    "vez" in pt-BR are the only unusual picks.
 
+Second pass, in the same order of doubt:
+
+1. **Technical vocabulary kept loose in all nine**: "window server" (Window-Server, servidor de
+   ventanas, serveur de fenêtres, window server, ウインドウサーバ, 윈도 서버, servidor de janelas,
+   оконный сервер, 窗口服务器), "commitment" and "reveal" of the pairing handshake (Commitment,
+   compromiso, engagement, impegno, コミットメント, 커밋먼트, compromisso, обязательство, 承诺值; and
+   Offenlegung, revelación, révélation, rivelazione, 公開値, 공개 값, revelação, раскрытие, 披露值), "power
+   assertion" (left as `power assertion` in Russian), "listener" (Listener, listener, écoute,
+   listener, リスナー, 리스너, listener, прослушивание, 监听器).
+2. **Mission Control shortcut names** quoted in the desktop switch warning ("Move left a space" and
+   "Move right a space"): written to match macOS in each language from memory, not checked against a
+   Mac set to that language. zh-Hans uses 调度中心 for Mission Control; the others keep the English name.
+3. **Plural forms** of "N files changed" in Russian (few and many) and the unit nouns in ja and ko.
+4. **Push tone**: "Needs your approval.", "%@ asks", "The turn finished." in the Mac's language;
+   the same turn vocabulary as the first pass (Durchlauf, turno, tour, ターン, 차례, vez, ход, 轮).
+5. **Activity feed lines** are short event notes; the ones with two clauses use a semicolon, which ja,
+   ko and zh-Hans render with their own punctuation or a plain stop.
+6. **Desktop** as a Mission Control space: Schreibtisch, Escritorio, Bureau, Scrivania, デスクトップ,
+   데스크탑, Mesa, рабочий стол, 桌面. pt-BR "Mesa" follows the existing Finder-folder term and may read
+   oddly next to a number.
+
 Strings worth a native read because the meaning is easy to flip:
+
+- "The Mac has no saved credential for this remote, and git cannot ask for one from here."
+- "Sleep was still disabled by Peering from a previous run; this Mac sleeps on a closed lid again."
+- "Battery is down to %lld%%, so this Mac sleeps normally again. Kept awake with the lid shut it would have
+  run the battery flat rather than sleeping through the last of it."
+- "This Mac was already set to stay up with the lid closed, and not by Peering; it is being left as it
+  was found."
 
 - "Something at this address is not the Mac you paired with (%@)..." and "This iPhone has no
   pairing on file for that Mac (%@)..." (the security explanation on an identity change).

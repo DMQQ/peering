@@ -37,24 +37,26 @@ final class HostSession: @unchecked Sendable {
         case noPeerCertificate
         case randomFailure
 
-        var errorDescription: String? {
+        var errorDescription: String? { message.englishText }
+
+        var message: LocalizedStringResource {
             switch self {
             case .unexpectedFirstFrame(let kind):
-                return "Expected a connection-role frame first, got \(kind)."
+                "Expected a connection-role frame first, got \(String(describing: kind))."
             case .unexpectedMessage(let kind):
-                return "Received \(kind) at this point in the handshake."
+                "Received \(String(describing: kind)) at this point in the handshake."
             case .protocolMismatch(let client, let host):
-                return "Client speaks protocol v\(client), this host speaks v\(host)."
+                "Client speaks protocol v\(Int(client)), this host speaks v\(Int(host))."
             case .malformedPayload(let kind, let error):
-                return "Malformed \(kind) payload: \(error)"
+                "Malformed \(String(describing: kind)) payload: \(String(describing: error))"
             case .clientKeyMismatch(let clientID):
-                return "A client claiming to be \(clientID) presented a different key."
+                "A client claiming to be \(clientID) presented a different key."
             case .commitmentMismatch:
-                return "Pairing commitment did not match the revealed value."
+                "Pairing commitment did not match the revealed value."
             case .noPeerCertificate:
-                return "Peer presented no certificate, so it cannot be identified."
+                "Peer presented no certificate, so it cannot be identified."
             case .randomFailure:
-                return "Could not obtain secure random bytes."
+                "Could not obtain secure random bytes."
             }
         }
     }
@@ -116,7 +118,7 @@ final class HostSession: @unchecked Sendable {
 
     var state: State = .awaitingRole
     var clientID = ""
-    var clientName = "Unknown device"
+    var clientName = String(localized: "Unknown device")
     var peerPublicKey: Data?
     /// Whether `.clientConnected` has been emitted, so a disconnect is only ever reported
     /// for a connection the UI was told about in the first place.

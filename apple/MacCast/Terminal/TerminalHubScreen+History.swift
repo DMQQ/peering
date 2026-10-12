@@ -40,7 +40,7 @@ extension TerminalHubScreen {
         if !entries.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Controls.sectionLabel("History", systemImage: "clock.arrow.circlepath")
+                    Controls.sectionLabel(String(localized: "History"), systemImage: "clock.arrow.circlepath")
                     Spacer(minLength: 8)
                     if !history.isEmpty {
                         Button("Clear") {
@@ -129,7 +129,7 @@ extension TerminalHubScreen {
         if !folders.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Controls.sectionLabel("History", systemImage: "clock.arrow.circlepath")
+                    Controls.sectionLabel(String(localized: "History"), systemImage: "clock.arrow.circlepath")
                     Spacer(minLength: 8)
                     Button("Clear") {
                         AgentFolderHistory.clear(agentID: AgentFolderHistory.terminalAgentID)

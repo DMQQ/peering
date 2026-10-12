@@ -41,7 +41,7 @@ extension VideoCoordinator {
             onFailure?(Self.giveUpError(for: error, attempts: attempts))
         case .schedule(let delay, let token):
             coordinatorLog.notice("capture will be rebuilt in \(Int(delay), privacy: .public)s · \(String(describing: cause), privacy: .public)")
-            onStatus?(String(localized: "Capture stopped · restarting"))
+            onStatus?("Capture stopped · restarting")
             let task = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(delay))
                 guard !Task.isCancelled, let self else { return }

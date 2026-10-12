@@ -45,6 +45,7 @@ async fn start(fcm: Option<Arc<FcmClient>>) -> u16 {
         play: None,
         limiter: Arc::new(peeringd::limits::PeerLimiter::default()),
         require_proven_hosts: false,
+        activity_budget: Default::default(),
     };
     tokio::spawn(signalling::serve(
         signal,

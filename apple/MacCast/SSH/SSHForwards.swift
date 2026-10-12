@@ -84,7 +84,7 @@ struct SSHForwardEditor: View {
                     }
 
                     if isTouched, case .failure(let problem) = reading {
-                        Text(problem.message)
+                        Text(HostWireText.localized(problem.message))
                             .font(.caption)
                             .foregroundStyle(ColorPalette.danger)
                             .fixedSize(horizontal: false, vertical: true)
@@ -294,7 +294,7 @@ struct SSHForwardsSheet: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 // The state on its own line, since it answers the only question the user came with.
-                Text(state.summary)
+                Text(HostWireText.forwardSummary(state))
                     .font(.caption2)
                     .foregroundStyle(tint(state))
                     .fixedSize(horizontal: false, vertical: true)

@@ -61,7 +61,7 @@ struct SettingsPanel: View {
             SectionLabel(String(localized: "Session"))
             info("Mac", model.shownHostName ?? String(localized: "None"))
             info(String(localized: "State"), stateDescription)
-            info("Path", model.connectionPath?.rawValue ?? "None")
+            info(String(localized: "Path"), model.connectionPath?.rawValue ?? String(localized: "None"))
             // Only when worth reading: a direct session has nothing to explain.
             if !model.usedDirectPath {
                 info(String(localized: "Direct path"), model.directPathStatus.summary)

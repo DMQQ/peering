@@ -84,12 +84,10 @@ class SessionController(
     }
 
     /** The six digits the user typed. Ignored, and read as a mismatch, when no code is awaited. */
-    fun submitPairingCode(digits: String): CodeCheck = submitCode(digits, null)
+    fun submitPairingCode(digits: String): CodeCheck = prompt.submit(digits, null)
 
     /** The code read from the Mac's QR code, with the secret it carried. */
-    fun submitScannedPairingCode(code: String, secret: ByteArray?): CodeCheck = submitCode(code, secret)
-
-    private fun submitCode(entry: String, secret: ByteArray?): CodeCheck = prompt.submit(entry, secret)
+    fun submitScannedPairingCode(code: String, secret: ByteArray?): CodeCheck = prompt.submit(code, secret)
 
     /** Sends [command] to the host. False when the session is not ready or the host did not declare what it needs. */
     fun send(command: RemoteCommand): Boolean {

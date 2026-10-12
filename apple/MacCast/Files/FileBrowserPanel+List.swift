@@ -241,7 +241,7 @@ extension FileBrowserPanel {
     /// The mode bits, size and date, as `ls -l` orders them; the mode bits are terminal output so they use the terminal's face. A symlink says what it is, since its size is the length of its path. The `ls` fallback has neither mode nor size, so it gets no invented numbers.
     func detail(for entry: RemoteDirectoryEntry) -> Text {
         guard !entry.permissions.isEmpty else {
-            let word = entry.isSymlink ? String(localized: "Symbolic link") : (entry.isDirectory ? String(localized: "Folder") : "File")
+            let word = entry.isSymlink ? String(localized: "Symbolic link") : (entry.isDirectory ? String(localized: "Folder") : String(localized: "File"))
             return Text(word).font(.caption)
         }
 

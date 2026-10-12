@@ -491,7 +491,7 @@ struct OnboardingView: View {
     var showsPlans: Bool { isLast && !store.isPro }
 
     var primaryTitle: String {
-        guard showsPlans else { return isLast ? String(localized: "Get started") : "Next" }
+        guard showsPlans else { return isLast ? String(localized: "Get started") : String(localized: "Next") }
 
         guard let chosen, let title = store.buttonTitle(for: chosen) else { return String(localized: "Start using Peering") }
 

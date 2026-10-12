@@ -2,7 +2,7 @@ package pl.dmq.peering.platform.discovery
 
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
-import android.util.Log
+import android.os.Build
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
@@ -16,6 +16,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import pl.dmq.peering.platform.PlatformLog
 import pl.dmq.peering.session.ports.DiscoveredHost
 import pl.dmq.peering.session.ports.Discovery
 import pl.dmq.peering.session.ports.DiscoveryEvent
@@ -39,29 +40,29 @@ class NsdDiscovery(
         val changes = Channel<ServiceChange>(Channel.UNLIMITED)
         val listener = object : NsdManager.DiscoveryListener {
             override fun onDiscoveryStarted(serviceType: String) {
-                Log.d(TAG, "browse started for $serviceType")
+                PlatformLog.d(TAG) { "browse started for $serviceType" }
             }
 
             override fun onDiscoveryStopped(serviceType: String) {
-                Log.d(TAG, "browse stopped")
+                PlatformLog.d(TAG) { "browse stopped" }
             }
 
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
-                Log.w(TAG, "stopping the browse failed, code $errorCode")
+                PlatformLog.w(TAG, { "stopping the browse failed, code $errorCode" })
             }
 
             override fun onServiceFound(serviceInfo: NsdServiceInfo) {
-                Log.d(TAG, "service found: ${serviceInfo.serviceName}")
+                PlatformLog.d(TAG) { "service found: ${serviceInfo.serviceName}" }
                 changes.trySend(ServiceChange.Found(serviceInfo))
             }
 
             override fun onServiceLost(serviceInfo: NsdServiceInfo) {
-                Log.d(TAG, "service lost: ${serviceInfo.serviceName}")
+                PlatformLog.d(TAG) { "service lost: ${serviceInfo.serviceName}" }
                 changes.trySend(ServiceChange.Lost(serviceInfo.serviceName))
             }
 
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
-                Log.w(TAG, "starting the browse failed, code $errorCode")
+                PlatformLog.w(TAG, { "starting the browse failed, code $errorCode" })
                 close(IOException("NSD discovery failed with code $errorCode"))
             }
         }
@@ -71,7 +72,7 @@ class NsdDiscovery(
             nsd.discoverServices(HostMapper.SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
             true
         } catch (failure: RuntimeException) {
-            Log.w(TAG, "starting the browse threw", failure)
+            PlatformLog.w(TAG, { "starting the browse threw" }, failure)
             close(IOException("NSD discovery could not start", failure))
             false
         }
@@ -86,7 +87,7 @@ class NsdDiscovery(
                     is ServiceChange.Lost -> roster.lost(change.serviceName)
                 }
                 for (event in events) {
-                    Log.d(TAG, "emit ${describe(event)}")
+                    PlatformLog.d(TAG) { "emit ${describe(event)}" }
                     send(event)
                 }
             }
@@ -99,7 +100,7 @@ class NsdDiscovery(
                 try {
                     nsd.stopServiceDiscovery(listener)
                 } catch (failure: RuntimeException) {
-                    Log.w(TAG, "stopping the browse threw", failure)
+                    PlatformLog.w(TAG, { "stopping the browse threw" }, failure)
                 }
             }
             multicast.release()
@@ -113,7 +114,7 @@ class NsdDiscovery(
         while (!settled) {
             when (val result = withTimeoutOrNull(RESOLVE_TIMEOUT_MILLIS) { resolveOnce(info) }) {
                 null -> {
-                    Log.w(TAG, "resolve of ${info.serviceName} timed out")
+                    PlatformLog.w(TAG, { "resolve of ${info.serviceName} timed out" })
                     settled = true
                 }
                 is ResolveResult.Resolved -> {
@@ -122,7 +123,7 @@ class NsdDiscovery(
                 }
                 is ResolveResult.Failed -> {
                     val wait = ResolvePolicy.retryDelayMillis(result.code, attempt)
-                    Log.w(TAG, "resolve of ${info.serviceName} failed, code ${result.code}, retry in ${wait ?: "never"}")
+                    PlatformLog.w(TAG, { "resolve of ${info.serviceName} failed, code ${result.code}, retry in ${wait ?: "never"}" })
                     if (wait == null) settled = true else delay(wait)
                     attempt++
                 }
@@ -132,19 +133,32 @@ class NsdDiscovery(
     }
 
     private suspend fun resolveOnce(info: NsdServiceInfo): ResolveResult = suspendCancellableCoroutine { continuation ->
-        try {
-            nsd.resolveService(info, object : NsdManager.ResolveListener {
-                override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                    if (continuation.isActive) continuation.resume(ResolveResult.Failed(errorCode))
-                }
+        val listener = object : NsdManager.ResolveListener {
+            override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+                if (continuation.isActive) continuation.resume(ResolveResult.Failed(errorCode))
+            }
 
-                override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
-                    if (continuation.isActive) continuation.resume(ResolveResult.Resolved(serviceInfo))
-                }
-            })
+            override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
+                if (continuation.isActive) continuation.resume(ResolveResult.Resolved(serviceInfo))
+            }
+        }
+        try {
+            nsd.resolveService(info, listener)
         } catch (failure: RuntimeException) {
-            Log.w(TAG, "resolving ${info.serviceName} threw", failure)
+            PlatformLog.w(TAG, { "resolving ${info.serviceName} threw" }, failure)
             continuation.resume(ResolveResult.Failed(THREW))
+            return@suspendCancellableCoroutine
+        }
+        continuation.invokeOnCancellation { unregister(listener) }
+    }
+
+    /** A resolve that timed out stays registered with NsdManager, which allows few at once. Only Android 14 can cancel it. */
+    private fun unregister(listener: NsdManager.ResolveListener) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        try {
+            nsd.stopServiceResolution(listener)
+        } catch (failure: RuntimeException) {
+            PlatformLog.w(TAG, { "cancelling a resolve threw" }, failure)
         }
     }
 
@@ -152,7 +166,7 @@ class NsdDiscovery(
         val address = resolved.host?.hostAddress ?: return null
         val attributes = HostMapper.decodeAttributes(resolved.attributes)
         val host = HostMapper.map(resolved.serviceName, attributes, PeerAddress(address, resolved.port))
-        Log.d(TAG, "resolved ${resolved.serviceName} to $address:${resolved.port}, ours: ${host != null}")
+        PlatformLog.d(TAG) { "resolved ${resolved.serviceName} to $address:${resolved.port}, ours: ${host != null}" }
         return host
     }
 

@@ -74,7 +74,7 @@ pub async fn serve_limited(
 
                 let Some(peer_slot) = limiter.admit_control(peer.ip()) else {
                     TALLY.refused(Refusal::PerIpLimit);
-                    debug!(peer = %peer.ip(), "refused a control connection: this address is at its limit");
+                    debug!("refused a control connection: this address is at its limit");
                     continue;
                 };
 

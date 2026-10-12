@@ -3,6 +3,7 @@ package pl.dmq.peering.ui.wiring
 import android.content.ContentResolver
 import android.net.Uri
 import android.provider.DocumentsContract
+import pl.dmq.peering.DebugLog
 import pl.dmq.peering.feature.files.DownloadSink
 import java.io.IOException
 import java.io.OutputStream
@@ -20,8 +21,13 @@ internal class SafDownloadSink private constructor(
     override fun discard() {
         try {
             output.close()
-        } finally {
+        } catch (failure: Exception) {
+            DebugLog.w(TAG, { "closing the discarded download failed" }, failure)
+        }
+        try {
             DocumentsContract.deleteDocument(resolver, uri)
+        } catch (failure: Exception) {
+            DebugLog.w(TAG, { "deleting the discarded download failed" }, failure)
         }
     }
 
@@ -33,3 +39,5 @@ internal class SafDownloadSink private constructor(
         }
     }
 }
+
+private const val TAG = "PeeringDownload"

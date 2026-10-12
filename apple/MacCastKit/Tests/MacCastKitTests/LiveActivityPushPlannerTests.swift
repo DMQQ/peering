@@ -109,13 +109,51 @@ struct LiveActivityPushPlannerTests {
         #expect(planner.observe(truth(), presence: .background, now: t0.addingTimeInterval(20)).count == 1)
     }
 
-    @Test("a session ended from the Mac sends end at once, even inside the gap")
+    @Test("a session ended from the Mac sends end once the gap allows, and not again")
     func endImmediate() {
         var planner = planner()
         _ = planner.observe(truth(), presence: .background, now: t0)
-        let sent = planner.observe(truth(.ended), presence: .gone, now: t0.addingTimeInterval(0.1))
+        let sent = planner.observe(truth(.ended), presence: .gone, now: t0.addingTimeInterval(1))
         #expect(sent.first?.event == .end)
         #expect(planner.observe(truth(.ended), presence: .gone, now: t0.addingTimeInterval(5)).isEmpty)
+    }
+
+    @Test("an end inside the gap waits for it, and the host stopping sends it at once")
+    func endObeysGap() {
+        var held = planner()
+        _ = held.observe(truth(), presence: .background, now: t0)
+        #expect(held.observe(truth(.ended), presence: .gone, now: t0.addingTimeInterval(0.1)).isEmpty)
+        #expect(held.nextDue == t0.addingTimeInterval(1))
+        #expect(held.due(now: t0.addingTimeInterval(1)).first?.event == .end)
+        var stopping = planner()
+        _ = stopping.observe(truth(), presence: .background, now: t0)
+        let sent = stopping.observe(truth(.ended), presence: .gone, now: t0.addingTimeInterval(0.1), ignoringGap: true)
+        #expect(sent.first?.event == .end)
+    }
+
+    @Test("a finished card's end waits out the gap without asking to be woken again at once")
+    func lingerEndHonoursGap() {
+        var planner = planner(.agentChat)
+        let state = truth(chats: [chat("c", .finished)])
+        _ = planner.observe(state, presence: .background, now: t0)
+        let due = t0.addingTimeInterval(30 * 60)
+        let ending = planner.observe(truth(chats: [chat("c", .working)]), presence: .background, now: due)
+        #expect(ending.count == 1)
+        _ = planner.observe(state, presence: .background, now: due.addingTimeInterval(2))
+        #expect(planner.nextDue == due.addingTimeInterval(2 + 30 * 60))
+    }
+
+    @Test("the gap belongs to the token, so two cards on one token share it and two tokens do not")
+    func gapPerToken() {
+        var shared = LiveActivityPushPlanner()
+        shared.tokensChanged(tokens(.session, token: "same"))
+        shared.tokensChanged(tokens(.agentChat, token: "same"))
+        let first = shared.observe(truth(chats: [chat("c", .working)]), presence: .background, now: t0)
+        #expect(first.count == 1)
+        var separate = LiveActivityPushPlanner()
+        separate.tokensChanged(tokens(.session, token: "one"))
+        separate.tokensChanged(tokens(.agentChat, token: "two"))
+        #expect(separate.observe(truth(chats: [chat("c", .working)]), presence: .background, now: t0).count == 2)
     }
 
     @Test("a connection lost without anyone ending it pushes the dropped state")
@@ -204,16 +242,16 @@ struct LiveActivityPushPlannerTests {
         #expect(planner.due(now: due.addingTimeInterval(-1)).isEmpty)
         let ended = planner.due(now: due)
         #expect(ended.first?.event == .end)
-        #expect(ended.first?.dismissalSeconds == 1800)
+        #expect(ended.first?.dismissalSeconds == 0)
         #expect(planner.due(now: due.addingTimeInterval(60)).isEmpty)
         #expect(planner.nextDue == nil)
     }
 
-    @Test("a failed chat's card is also taken down with a thirty minute dismissal, and a session card leaves it to the relay")
+    @Test("a failed chat's card is also taken down at once when its thirty minutes are up, and a session card leaves it to the relay")
     func dismissalSecondsOnEnd() {
         var chats = planner(.agentChat)
         _ = chats.observe(truth(chats: [chat("c", .failed)]), presence: .background, now: t0)
-        #expect(chats.due(now: t0.addingTimeInterval(30 * 60)).first?.dismissalSeconds == 1800)
+        #expect(chats.due(now: t0.addingTimeInterval(30 * 60)).first?.dismissalSeconds == 0)
         var session = planner(.session)
         _ = session.observe(truth(), presence: .background, now: t0)
         let ended = session.observe(truth(.ended), presence: .background, now: t0.addingTimeInterval(5))
