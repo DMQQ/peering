@@ -46,6 +46,11 @@ sealed interface SessionFailure {
         override val canRetry: Boolean get() = true
     }
 
+    /** The host sent bytes that are not a frame this phone can read, so the stream cannot be trusted any further. */
+    data object MalformedFrame : SessionFailure {
+        override val canRetry: Boolean get() = true
+    }
+
     /** Reconnecting used every step of the ladder without a handshake that completed. */
     data object ConnectionLost : SessionFailure {
         override val canRetry: Boolean get() = true

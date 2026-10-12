@@ -1,16 +1,25 @@
 package pl.dmq.peering.session.flows
 
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import pl.dmq.peering.session.connection.ClientAction
 import pl.dmq.peering.session.connection.ClientConfig
 import pl.dmq.peering.session.connection.ClientHandshakeState
 import pl.dmq.peering.session.connection.ClientStateMachine
 import pl.dmq.peering.session.connection.FailureReason
+import pl.dmq.peering.session.controller.ConnectTarget
+import pl.dmq.peering.session.controller.ControllerRig
+import pl.dmq.peering.session.controller.ScriptedMac
+import pl.dmq.peering.session.controller.SessionFailure
+import pl.dmq.peering.session.controller.SessionPhase
+import pl.dmq.peering.session.controller.grantSession
+import pl.dmq.peering.session.controller.settle
 import pl.dmq.peering.session.relay.RelayConnect
 import pl.dmq.peering.session.relay.RelaySessionException
 import pl.dmq.peering.session.testing.FakeClock
@@ -118,6 +127,35 @@ class ErrorPathsTest {
     }
 
     @Test
+    fun aMalformedFrameAfterTheHandshakeEndsTheSessionWithAFailureTheUserCanRead() = runTest {
+        val mac = ScriptedMac()
+        val rig = lanRig(mac)
+        rig.controller.connect()
+        settle()
+        assertTrue(rig.controller.state.value.phase is SessionPhase.Ready)
+
+        mac.connections.single().deliverBytes(byteArrayOf(0, 0, 0, 1, UNKNOWN_KIND_BYTE))
+        settle()
+
+        assertEquals(
+            SessionPhase.Failed(SessionFailure.MalformedFrame, canRetry = true),
+            rig.controller.state.value.phase,
+        )
+    }
+
+    @Test
+    fun aMalformedFrameDuringTheHandshakeEndsTheSessionWithTheSameFailure() = runTest {
+        val rig = lanRig(ScriptedMac(garbledHandshake = true))
+        rig.controller.connect()
+        settle()
+
+        assertEquals(
+            SessionPhase.Failed(SessionFailure.MalformedFrame, canRetry = true),
+            rig.controller.state.value.phase,
+        )
+    }
+
+    @Test
     fun aMalformedHandshakeBodyEndsTheSessionAndLaterFramesAreIgnored() {
         val machine = phone()
         machine.start()
@@ -155,6 +193,13 @@ class ErrorPathsTest {
         assertEquals(ClientHandshakeState.Ready, machine.state)
         assertNull(link.actions.filterIsInstance<ClientAction.Failed>().singleOrNull())
     }
+
+    private fun TestScope.lanRig(mac: ScriptedMac): ControllerRig = ControllerRig(
+        backgroundScope,
+        testScheduler,
+        ConnectTarget.Lan(ControllerRig.LAN_ADDRESS, ScriptedPairingHost.HOST_ID),
+        mac,
+    )
 
     private companion object {
         const val CLIENT_ID = "11111111-2222-4333-8444-555555555555"

@@ -25,6 +25,7 @@ class ScriptedMac(
     private val alreadyPaired: Boolean = true,
     private val qrSecret: ByteArray? = null,
     private val refusal: String? = null,
+    private val garbledHandshake: Boolean = false,
 ) {
     val connections = mutableListOf<MacConnection>()
 
@@ -65,15 +66,25 @@ class ScriptedMac(
 
         /** Writes [frame] from the Mac to the phone, as the host would. */
         fun deliver(frame: Frame) {
-            inbound.trySend(FrameEncoder.encode(frame.kind, frame.payload))
+            deliverBytes(FrameEncoder.encode(frame.kind, frame.payload))
+        }
+
+        /** Writes bytes that are not a well-formed frame, as a broken host would. */
+        fun deliverBytes(bytes: ByteArray) {
+            inbound.trySend(bytes)
         }
 
         private fun answer(frame: Frame) {
             when (frame.kind) {
                 MessageKind.Ping -> if (answersPings) deliver(Frame(MessageKind.Pong, frame.payload))
                 MessageKind.VideoKeyRequest -> deliver(videoKey())
-                else -> host.receive(FrameEncoder.encode(frame.kind, frame.payload)).forEach { deliver(declared(it)) }
+                MessageKind.ClientHello -> if (garbledHandshake) deliverBytes(UNKNOWN_KIND_FRAME) else relayHandshake(frame)
+                else -> relayHandshake(frame)
             }
+        }
+
+        private fun relayHandshake(frame: Frame) {
+            host.receive(FrameEncoder.encode(frame.kind, frame.payload)).forEach { deliver(declared(it)) }
         }
 
         private fun declared(frame: Frame): Frame {
@@ -88,3 +99,6 @@ class ScriptedMac(
         }
     }
 }
+
+/** A frame whose kind byte no phone knows, so the reader must refuse it. */
+private val UNKNOWN_KIND_FRAME = byteArrayOf(0, 0, 0, 1, 0xEE.toByte())

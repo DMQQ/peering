@@ -156,11 +156,16 @@ class SessionController(
         val writer = WriterLoop(route.transport)
         try {
             launchLinkTask(ended) { writer.run() }
-            launchLinkTask(ended) { ReaderLoop(route.transport.received, frames).run() }
+            launchLinkTask(ended) {
+                ReaderLoop(route.transport.received, frames) {
+                    ended.complete(LinkEnd.Terminal(SessionFailure.MalformedFrame))
+                }.run()
+            }
             val hello = when (val result = handshake(route, writer, frames)) {
                 is HandshakeOutcome.Ready -> result.hello
                 is HandshakeOutcome.Refused -> return@coroutineScope LinkOutcome.Refused(SessionFailure.Handshake(result.reason))
-                HandshakeOutcome.Lost -> return@coroutineScope LinkOutcome.Unreachable(SessionFailure.Unreachable)
+                HandshakeOutcome.Lost -> return@coroutineScope terminalEnd(ended)?.let(LinkOutcome::Ended)
+                    ?: LinkOutcome.Unreachable(SessionFailure.Unreachable)
             }
             val live = startSession(hello, route, writer, frames)
             with(live) { serve(ended) { publish(live) } }
@@ -197,6 +202,10 @@ class SessionController(
             awaitDecision = ::awaitPairing,
         ).run()
     }
+
+    /** The end a link reached through a malformed frame, which closes the frames before the handshake can read that. */
+    private fun terminalEnd(ended: CompletableDeferred<LinkEnd>): LinkEnd.Terminal? =
+        if (ended.isCompleted) ended.getCompleted() as? LinkEnd.Terminal else null
 
     private suspend fun awaitPairing(code: String): Boolean {
         update { it.copy(phase = SessionPhase.ConfirmingPairing(code)) }
