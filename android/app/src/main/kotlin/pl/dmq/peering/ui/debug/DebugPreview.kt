@@ -17,6 +17,8 @@ import pl.dmq.peering.feature.pairing.PairingMessage
 import pl.dmq.peering.feature.scan.ScanMessage
 import pl.dmq.peering.session.controller.PairingCodeError
 import androidx.compose.ui.Modifier
+import pl.dmq.peering.feature.onboarding.OnboardingRoute
+import pl.dmq.peering.feature.onboarding.OnboardingStep
 import pl.dmq.peering.feature.connect.ConnectActions
 import pl.dmq.peering.feature.connect.ConnectScreen
 import pl.dmq.peering.feature.connect.ConnectUiState
@@ -58,6 +60,15 @@ fun DebugPreview(name: String) {
                 text = stringResource(R.string.scan_denied),
                 action = stringResource(R.string.scan_open_settings),
             )
+            "onboarding_landing" -> sampleOnboarding(OnboardingStep.LANDING)
+            "onboarding_1" -> sampleOnboarding(OnboardingStep.INSTALL)
+            "onboarding_2" -> sampleOnboarding(OnboardingStep.PAIR)
+            "onboarding_3" -> sampleOnboarding(OnboardingStep.SOURCES)
+            "onboarding_4" -> sampleOnboarding(OnboardingStep.CONTROLS)
+            "onboarding_5" -> sampleOnboarding(OnboardingStep.FOLLOWS)
+            "onboarding_6" -> sampleOnboarding(OnboardingStep.MOSAIC)
+            "onboarding_7" -> sampleOnboarding(OnboardingStep.NOTIFICATIONS)
+            "onboarding_8" -> sampleOnboarding(OnboardingStep.PLANS)
             "connect_nonetwork" -> connect(NearbyPhase.NoNetwork, HostListing(samplePaired.take(1), emptyList()))
         }
     }
@@ -66,4 +77,9 @@ fun DebugPreview(name: String) {
 @Composable
 private fun connect(phase: NearbyPhase, listing: HostListing) {
     ConnectScreen(ConnectUiState(listing = listing, nearbyPhase = phase), ConnectActions(onScan = {}))
+}
+
+@Composable
+private fun sampleOnboarding(step: OnboardingStep) {
+    OnboardingRoute(store = SampleFirstRun, billing = SampleBilling, onFinished = {}, startAt = step)
 }

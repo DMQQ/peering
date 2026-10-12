@@ -6,13 +6,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * The minimal first run: three steps in order, and a flag in [store] set once the user finishes or skips them. A
- * completed first run stays completed, so a later launch does not show it again.
+ * The first run: a landing and a tour that ends on the plans, and a flag in [store] set once the user finishes or skips
+ * it. A completed first run stays completed, so a later launch does not show it again.
  */
 class OnboardingPresenter(
     private val store: FirstRunStore,
+    startAt: OnboardingStep = OnboardingStep.LANDING,
 ) {
-    private val model = MutableStateFlow(OnboardingUi(step = OnboardingStep.WHAT_IS_PEERING, completed = store.isComplete()))
+    private val model = MutableStateFlow(OnboardingUi(step = startAt, completed = store.isComplete()))
     val ui: StateFlow<OnboardingUi> = model.asStateFlow()
 
     fun next() {
@@ -22,14 +23,18 @@ class OnboardingPresenter(
         if (following == null) finish() else model.update { it.copy(step = following) }
     }
 
-    fun back() {
-        val previous = model.value.step.previous() ?: return
-        model.update { it.copy(step = previous) }
+    fun goTo(step: OnboardingStep) {
+        if (model.value.completed || !step.isTourPage) return
+        model.update { it.copy(step = step) }
     }
 
-    fun skip() = finish()
+    /** From the landing it leaves the first run; inside the tour it jumps to the plans, the page every route ends on. */
+    fun skip() {
+        val step = model.value.step
+        if (step == OnboardingStep.LANDING || step == OnboardingStep.PLANS) finish() else goTo(OnboardingStep.PLANS)
+    }
 
-    private fun finish() {
+    fun finish() {
         if (model.value.completed) return
         store.markComplete()
         model.update { it.copy(completed = true) }

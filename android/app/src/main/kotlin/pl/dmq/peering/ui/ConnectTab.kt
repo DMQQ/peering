@@ -12,6 +12,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import pl.dmq.peering.ui.wiring.StorePaywallBilling
+import pl.dmq.peering.ui.wiring.findActivity
 import pl.dmq.peering.feature.connect.ConnectPresenter
 import pl.dmq.peering.feature.connect.ConnectRoute
 import pl.dmq.peering.feature.onboarding.OnboardingRoute
@@ -31,6 +34,7 @@ private enum class ScanPurpose { FindMac, ConfirmCode }
 @Composable
 internal fun ConnectTab(wiring: FeatureWiring) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val active by wiring.holder.active.collectAsState()
     var onboarding by remember { mutableStateOf(!wiring.firstRun.isComplete()) }
     var pairing by remember { mutableStateOf<PairingCodePresenter?>(null) }
@@ -70,7 +74,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             )
             onboarding -> OnboardingRoute(
                 store = wiring.firstRun,
-                onScanPairingCode = { scanning = ScanPurpose.FindMac },
+                billing = StorePaywallBilling(wiring.billing) { context.findActivity() },
                 onFinished = { onboarding = false },
             )
             presenting != null -> PairingCodeRoute(

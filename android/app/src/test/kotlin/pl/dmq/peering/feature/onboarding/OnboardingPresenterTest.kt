@@ -8,42 +8,37 @@ import org.junit.Test
 
 class OnboardingPresenterTest {
     @Test
-    fun startsOnTheWhatIsPeeringStepWithNothingCompleted() {
+    fun startsOnTheLandingWithNothingCompleted() {
         val ui = OnboardingPresenter(FakeFirstRunStore()).ui.value
-        assertEquals(OnboardingStep.WHAT_IS_PEERING, ui.step)
-        assertEquals(1, ui.stepNumber)
-        assertEquals(3, ui.stepCount)
-        assertFalse(ui.canGoBack)
+        assertEquals(OnboardingStep.LANDING, ui.step)
         assertFalse(ui.completed)
     }
 
     @Test
-    fun nextMovesThroughTheStepsInOrder() {
+    fun nextWalksTheTourInOrderAndEndsOnThePlans() {
         val presenter = OnboardingPresenter(FakeFirstRunStore())
-        presenter.next()
-        assertEquals(OnboardingStep.INSTALL_HOST, presenter.ui.value.step)
-        presenter.next()
-        assertEquals(OnboardingStep.SCAN_CODE, presenter.ui.value.step)
-        assertTrue(presenter.ui.value.isLastStep)
+        val seen = mutableListOf(presenter.ui.value.step)
+        repeat(OnboardingStep.pageCount) {
+            presenter.next()
+            seen += presenter.ui.value.step
+        }
+        assertEquals(OnboardingStep.entries, seen)
+        assertTrue(presenter.ui.value.isLast)
     }
 
     @Test
-    fun backReturnsOneStepAndNotBeforeTheFirst() {
-        val presenter = OnboardingPresenter(FakeFirstRunStore())
-        presenter.back()
-        assertEquals(OnboardingStep.WHAT_IS_PEERING, presenter.ui.value.step)
-        presenter.next()
-        presenter.back()
-        assertEquals(OnboardingStep.WHAT_IS_PEERING, presenter.ui.value.step)
+    fun thePlansPageIsTheEighthPageAndLandingHasNoPageIndex() {
+        assertEquals(8, OnboardingStep.pageCount)
+        assertEquals(7, OnboardingStep.PLANS.pageIndex)
+        assertEquals(0, OnboardingStep.INSTALL.pageIndex)
+        assertNull(OnboardingStep.LANDING.pageIndex)
     }
 
     @Test
-    fun finishingTheLastStepSetsThePersistenceFlagOnce() {
+    fun finishingTheLastPageSetsThePersistenceFlagOnce() {
         val store = FakeFirstRunStore()
         val presenter = OnboardingPresenter(store)
-        presenter.next()
-        presenter.next()
-        presenter.next()
+        repeat(OnboardingStep.entries.size) { presenter.next() }
         assertTrue(presenter.ui.value.completed)
         assertTrue(store.isComplete())
         presenter.next()
@@ -52,7 +47,7 @@ class OnboardingPresenterTest {
     }
 
     @Test
-    fun skippingAtAnyStepCompletesTheFirstRun() {
+    fun skippingTheLandingCompletesTheFirstRun() {
         val store = FakeFirstRunStore()
         val presenter = OnboardingPresenter(store)
         presenter.skip()
@@ -61,17 +56,33 @@ class OnboardingPresenterTest {
     }
 
     @Test
+    fun skippingInsideTheTourJumpsToThePlansWithoutCompleting() {
+        val store = FakeFirstRunStore()
+        val presenter = OnboardingPresenter(store)
+        presenter.next()
+        presenter.next()
+        presenter.skip()
+        assertEquals(OnboardingStep.PLANS, presenter.ui.value.step)
+        assertFalse(presenter.ui.value.completed)
+        presenter.skip()
+        assertTrue(presenter.ui.value.completed)
+    }
+
+    @Test
     fun aFirstRunThatWasFinishedBeforeStaysCompleted() {
         val presenter = OnboardingPresenter(FakeFirstRunStore(complete = true))
         assertTrue(presenter.ui.value.completed)
         presenter.next()
-        assertEquals(OnboardingStep.WHAT_IS_PEERING, presenter.ui.value.step)
+        assertEquals(OnboardingStep.LANDING, presenter.ui.value.step)
     }
 
     @Test
-    fun theStepsKnowTheirNeighbours() {
-        assertNull(OnboardingStep.WHAT_IS_PEERING.previous())
-        assertEquals(OnboardingStep.SCAN_CODE, OnboardingStep.INSTALL_HOST.next())
-        assertNull(OnboardingStep.SCAN_CODE.next())
+    fun stepsKnowTheirNeighboursAndTheLandingIsNotATourPageToReturnTo() {
+        assertNull(OnboardingStep.LANDING.previous())
+        assertEquals(OnboardingStep.PAIR, OnboardingStep.INSTALL.next())
+        assertNull(OnboardingStep.PLANS.next())
+        val presenter = OnboardingPresenter(FakeFirstRunStore())
+        presenter.goTo(OnboardingStep.LANDING)
+        assertEquals(OnboardingStep.LANDING, presenter.ui.value.step)
     }
 }
