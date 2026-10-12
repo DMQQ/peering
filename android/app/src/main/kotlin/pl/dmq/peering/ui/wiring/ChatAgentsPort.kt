@@ -7,6 +7,7 @@ import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.session.agent.ApprovalAnswer
+import pl.dmq.peering.session.agent.changes.AgentChangesByChat
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentResumableSession
@@ -23,6 +24,8 @@ internal class ChatAgentsPort(private val chat: AgentChat) : AgentsPort {
     override val resumable: StateFlow<List<AgentResumableSession>?> get() = chat.resumable
 
     override val browseEvents: Flow<AgentEvent> get() = chat.browseEvents
+
+    override val changes: StateFlow<AgentChangesByChat> get() = chat.changes
 
     override fun list() = chat.list()
 
@@ -61,4 +64,11 @@ internal class ChatAgentsPort(private val chat: AgentChat) : AgentsPort {
     override fun setModel(sessionID: String, model: String?) = chat.setModel(sessionID, model)
 
     override fun browse(path: String?) = chat.browse(path)
+
+    override fun loadChanges(sessionID: String) = chat.loadChanges(sessionID)
+
+    override fun commitChanges(sessionID: String, paths: List<String>, message: String) =
+        chat.commitChanges(sessionID, paths, message)
+
+    override fun pushChanges(sessionID: String) = chat.pushChanges(sessionID)
 }

@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import pl.dmq.peering.session.agent.changes.AgentChangesByChat
+import pl.dmq.peering.session.agent.changes.AgentChangesReducer
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentRequest
@@ -26,7 +28,12 @@ class AgentChat(
 
     private val mutableResumable = MutableStateFlow<List<AgentResumableSession>?>(null)
 
+    private val mutableChanges = MutableStateFlow<AgentChangesByChat>(emptyMap())
+
     val state: StateFlow<AgentChatState> = mutableState.asStateFlow()
+
+    /** What git says about each chat's folder, and the commit or push in flight. */
+    val changes: StateFlow<AgentChangesByChat> = mutableChanges.asStateFlow()
 
     /** Conversations started on the computer that a chat can continue; null until the host has listed them. */
     val resumable: StateFlow<List<AgentResumableSession>?> = mutableResumable.asStateFlow()
@@ -40,6 +47,12 @@ class AgentChat(
             mutableResumable.value = event.decoded()
             return
         }
+        AgentChangesReducer.onEvent(mutableChanges.value, event)?.let {
+            mutableChanges.value = it
+            return
+        }
+        if (event is AgentEvent.Failed && refuseChangesWork(event)) return
+        if (event is AgentEvent.Closed) mutableChanges.value = AgentChangesReducer.forget(mutableChanges.value, event.sessionID)
         if (event.isBrowseEvent()) {
             mutableBrowse.tryEmit(event)
             return
@@ -80,6 +93,32 @@ class AgentChat(
 
     /** Asks the Mac to list [path], or its home folder when null. */
     fun browse(path: String?) = ifDeclared(capabilities.chat) { send(AgentRequest.Browse(path)) }
+
+    /** Asks for the folder's git state; the answer arrives as an event. */
+    fun loadChanges(sessionID: String) = ifDeclared(capabilities.chat) {
+        mutableChanges.value = AgentChangesReducer.askedForChanges(mutableChanges.value, sessionID)
+        send(AgentRequest.Changes(sessionID))
+    }
+
+    /** Commits exactly [paths] (relative to the chat's folder); one commit or push runs at a time per chat. */
+    fun commitChanges(sessionID: String, paths: List<String>, message: String) = ifDeclared(capabilities.chat) {
+        val next = AgentChangesReducer.askedToCommit(mutableChanges.value, sessionID) ?: return@ifDeclared
+        mutableChanges.value = next
+        send(AgentRequest.Commit(sessionID, paths, message))
+    }
+
+    fun pushChanges(sessionID: String) = ifDeclared(capabilities.chat) {
+        val next = AgentChangesReducer.askedToPush(mutableChanges.value, sessionID) ?: return@ifDeclared
+        mutableChanges.value = next
+        send(AgentRequest.Push(sessionID))
+    }
+
+    private fun refuseChangesWork(event: AgentEvent.Failed): Boolean {
+        val sessionID = event.sessionID ?: return false
+        val next = AgentChangesReducer.refused(mutableChanges.value, sessionID, event.message) ?: return false
+        mutableChanges.value = next
+        return true
+    }
 
     private fun commit(step: AgentChatStep) {
         mutableState.value = step.state

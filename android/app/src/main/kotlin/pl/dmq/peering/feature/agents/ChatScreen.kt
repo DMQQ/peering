@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.feature.agents.changes.ChangesOverlay
 import pl.dmq.peering.session.agent.pendingApprovals
 import pl.dmq.peering.ui.kit.PeeringAlert
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -41,34 +42,39 @@ fun ChatScreen(
     val ui by chat.ui.collectAsState()
     val transcriptUi by transcript.ui.collectAsState()
     var showingUsage by remember { mutableStateOf(false) }
+    var showingChanges by remember { mutableStateOf(false) }
     var confirmingClose by remember { mutableStateOf(false) }
     val pending = remember(transcriptUi.rows) { pendingApprovals(transcriptUi.rows) }
     var reviewingID by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(pending.firstOrNull()?.approvalID) { reviewingID = pending.firstOrNull()?.approvalID }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        ChatTopBar(
-            ui = ui,
-            onBack = onBackToList,
-            onShowUsage = { showingUsage = true },
-            onPause = { if (chat.pause()) onBackToList() },
-            onClose = { confirmingClose = true },
-        )
-        Box(Modifier.weight(1f)) {
-            when {
-                transcriptUi.loadingHistory && transcriptUi.rows.isEmpty() -> HistoryLoading()
-                ui.showEmptyState -> EmptyChat(ui = ui, onSuggest = chat::suggest)
-                else -> TranscriptList(
-                    presenter = transcript,
-                    onAskAgain = {
-                        transcript.followLatest()
-                        chat.suggest(it)
-                    },
-                    onReview = { reviewingID = it },
-                )
+    Box(modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            ChatTopBar(
+                ui = ui,
+                onBack = onBackToList,
+                onShowUsage = { showingUsage = true },
+                onShowChanges = { showingChanges = true },
+                onPause = { if (chat.pause()) onBackToList() },
+                onClose = { confirmingClose = true },
+            )
+            Box(Modifier.weight(1f)) {
+                when {
+                    transcriptUi.loadingHistory && transcriptUi.rows.isEmpty() -> HistoryLoading()
+                    ui.showEmptyState -> EmptyChat(ui = ui, onSuggest = chat::suggest)
+                    else -> TranscriptList(
+                        presenter = transcript,
+                        onAskAgain = {
+                            transcript.followLatest()
+                            chat.suggest(it)
+                        },
+                        onReview = { reviewingID = it },
+                    )
+                }
             }
+            Composer(composer, ui.chip, onShowUsage = { showingUsage = true }, modifier = Modifier.navigationBarsPadding().imePadding())
         }
-        Composer(composer, ui.chip, onShowUsage = { showingUsage = true }, modifier = Modifier.navigationBarsPadding().imePadding())
+        if (showingChanges) ui.sessionID?.let { ChangesOverlay(port, it, onClose = { showingChanges = false }) }
     }
     if (showingUsage) UsageSheet(usage = ui.usage, agentName = ui.agentName, onDismiss = { showingUsage = false })
     pending.firstOrNull { it.approvalID == reviewingID }?.let { approval ->
