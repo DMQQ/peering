@@ -45,6 +45,20 @@ impl<F: FileSystem> FileBrowser<F> {
         }
     }
 
+    /// The event that tells the client a request it made could not be served in time.
+    pub fn failure(request: &TerminalRequest, message: &str) -> Option<TerminalEvent> {
+        match request {
+            TerminalRequest::ListDirectory { session_id, path } => {
+                Some(browse_failure(session_id, path.as_deref().unwrap_or("/"), message))
+            }
+            TerminalRequest::ReadFile { session_id, path } => Some(browse_failure(session_id, path, message)),
+            TerminalRequest::ReadRange { session_id, path, .. } | TerminalRequest::ArchiveFolder { session_id, path } => {
+                Some(transfer_failure(session_id, path, message))
+            }
+            _ => None,
+        }
+    }
+
     fn list_directory(&self, session_id: &str, requested: Option<&str>) -> TerminalEvent {
         let requested = requested.map_or_else(|| path::virtual_of(&self.home_directory), str::to_owned);
         match path::parse(&requested) {

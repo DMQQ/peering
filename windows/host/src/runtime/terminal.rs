@@ -3,7 +3,9 @@
 
 use std::collections::VecDeque;
 use std::sync::Arc;
+use std::time::Duration;
 
+use peering_core::files::browse::FileBrowser;
 use peering_core::ports::clock::Clock;
 use peering_core::ports::secret_store::{SecretStore, StoreError};
 use peering_core::push_tokens::PushTokenStore;
@@ -14,16 +16,21 @@ use peering_agent::environment::find_binary;
 use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::relay_messages::RelayClientMessage;
 use peering_wire::terminal::{TerminalEvent, TerminalRequest};
+use tokio::sync::mpsc;
+use tokio::task::spawn_local;
 
 use super::agent::{search_env, DiskExists};
 use super::connection::{Connection, Flow};
 use super::random::SystemRandomSource;
-use super::services::TerminalServices;
+use super::services::{SharedFileSystem, TerminalServices};
 use super::shared::HostState;
 use super::video::Outgoing;
 
 /// Alerts held for a relay that is not reachable. Older ones are dropped first: a prompt answered long ago is stale.
 const MAXIMUM_WAITING_NOTIFICATIONS: usize = 20;
+
+const BROWSE_TIMEOUT: Duration = Duration::from_secs(10);
+const BROWSE_TIMED_OUT: &str = "This PC took too long to read that.";
 
 pub(super) fn manager(
     services: TerminalServices,
@@ -102,18 +109,38 @@ impl Connection {
             return Flow::Closed;
         };
         let client_id = self.session.client_id().to_owned();
-        let events = {
+        let (events, browser) = {
             let mut state = self.shared.lock();
             match state.terminals.handle(&client_id, &request) {
-                Outcome::Events(events) => events,
-                Outcome::Browse => state.files.answer(&request).into_iter().collect(),
+                Outcome::Events(events) => (events, None),
+                Outcome::Browse => (Vec::new(), Some(state.files.clone())),
             }
         };
         for event in &events {
             self.send(event_frame(event));
         }
+        if let Some(browser) = browser {
+            answer_browse(browser, request, self.outbound.clone());
+        }
         Flow::Open
     }
+}
+
+/// Runs a disk request off the runtime thread. A drive that never answers costs the client one failure, not every
+/// session a frozen host.
+fn answer_browse(browser: Arc<FileBrowser<SharedFileSystem>>, request: TerminalRequest, outbound: mpsc::UnboundedSender<Frame>) {
+    spawn_local(async move {
+        let asked = request.clone();
+        let work = tokio::task::spawn_blocking(move || browser.answer(&request));
+        let event = match tokio::time::timeout(BROWSE_TIMEOUT, work).await {
+            Ok(Ok(event)) => event,
+            Ok(Err(_)) | Err(_) => FileBrowser::<SharedFileSystem>::failure(&asked, BROWSE_TIMED_OUT),
+        };
+        if let Some(event) = event {
+            // The connection may have closed meanwhile; there is then nobody to tell.
+            let _queued = outbound.send(event_frame(&event));
+        }
+    });
 }
 
 impl HostState {

@@ -296,3 +296,11 @@ fn requests_for_other_features_are_not_answered_here() {
     let request = TerminalRequest::List {};
     assert!(browser().answer(&request).is_none());
 }
+
+#[test]
+fn a_request_that_timed_out_is_answered_with_the_failure_that_fits_it() {
+    let list = TerminalRequest::ListDirectory { session_id: "s".to_owned(), path: Some("/C:".to_owned()) };
+    let range = TerminalRequest::ReadRange { session_id: "s".to_owned(), path: "/C:/a".to_owned(), offset: 0 };
+    assert!(matches!(FileBrowser::<InMemoryFileSystem>::failure(&list, "slow"), Some(TerminalEvent::BrowseFailure { .. })));
+    assert!(matches!(FileBrowser::<InMemoryFileSystem>::failure(&range, "slow"), Some(TerminalEvent::TransferFailure { .. })));
+}

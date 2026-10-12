@@ -45,7 +45,8 @@ pub struct HostState {
     pub video: VideoCoordinator<SharedCapture, BoxedEncoder>,
     pub input: BoxedInput,
     pub system: BoxedSystem,
-    pub files: FileBrowser<SharedFileSystem>,
+    /// Shared so a request runs on the blocking pool with the state lock released.
+    pub files: Arc<FileBrowser<SharedFileSystem>>,
     pub terminals: TerminalSessionManager,
     /// Push notifications for the relay to send once the host is registered with it, oldest first.
     pub notifications: VecDeque<RelayClientMessage>,

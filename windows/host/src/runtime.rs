@@ -161,7 +161,7 @@ impl HostRuntime {
             video: VideoCoordinator::new(capture, BoxedEncoder(encoder)),
             input: BoxedInput(input),
             system: BoxedSystem(system),
-            files: FileBrowser::new(SharedFileSystem(files), home_directory),
+            files: Arc::new(FileBrowser::new(SharedFileSystem(files), home_directory)),
             terminals,
             notifications: VecDeque::new(),
             sessions: HashMap::new(),
