@@ -9,8 +9,17 @@ const SECRET_BYTE: u8 = 0x11;
 struct FixedRandom(u8);
 
 impl Random for FixedRandom {
-    fn fill(&mut self, buffer: &mut [u8]) {
+    fn fill(&mut self, buffer: &mut [u8]) -> bool {
         buffer.fill(self.0);
+        true
+    }
+}
+
+struct FailingRandom;
+
+impl Random for FailingRandom {
+    fn fill(&mut self, _buffer: &mut [u8]) -> bool {
+        false
     }
 }
 
@@ -228,9 +237,34 @@ fn client_datagrams_are_ignored_before_a_key_exists() {
 }
 
 #[test]
-fn the_bind_is_sent_at_once_and_then_every_ten_seconds() {
+fn the_bind_is_sent_at_once_and_then_every_five_seconds() {
     let mut lane = VideoLane::new(TOKEN);
     assert_eq!(lane.bind_if_due(0.0), Some(TOKEN.to_vec()));
-    assert_eq!(lane.bind_if_due(9.9), None);
-    assert_eq!(lane.bind_if_due(10.0), Some(TOKEN.to_vec()));
+    assert_eq!(lane.bind_if_due(4.9), None);
+    assert_eq!(lane.bind_if_due(5.0), Some(TOKEN.to_vec()));
+}
+
+#[test]
+fn a_key_is_not_granted_when_the_random_source_fails() {
+    let mut lane = VideoLane::new(TOKEN);
+    assert!(matches!(lane.answer_key_request(&mut FailingRandom), Err(LaneError::RandomUnavailable)));
+    let sends = lane.send(&video(true, 64), 1.0).unwrap();
+    assert!(matches!(sends.as_slice(), [LaneSend::ControlFrames(_)]));
+}
+
+#[test]
+fn replies_are_sealed_on_the_host_key_with_the_token_in_front() {
+    let mut lane = keyed_lane();
+    let datagrams = lane.seal_datagrams(MessageKind::Pong, b"ping body");
+    let datagram = datagrams.first().expect("one reply");
+    assert_eq!(&datagram[..TOKEN_SIZE], &TOKEN);
+    let frame = client_opener().open(&datagram[TOKEN_SIZE..]).unwrap().expect("the reply opens");
+    assert_eq!(frame.kind, MessageKind::Pong);
+    assert_eq!(frame.payload, b"ping body");
+}
+
+#[test]
+fn no_reply_is_sealed_before_a_key_exists() {
+    let mut lane = VideoLane::new(TOKEN);
+    assert!(lane.seal_datagrams(MessageKind::Pong, b"x").is_empty());
 }

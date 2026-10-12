@@ -18,8 +18,9 @@ use peering_wire::sealing::{Direction, Opener, TOKEN_SIZE};
 struct RepeatingBytes(u8);
 
 impl Random for RepeatingBytes {
-    fn fill(&mut self, buffer: &mut [u8]) {
+    fn fill(&mut self, buffer: &mut [u8]) -> bool {
         buffer.fill(self.0);
+        true
     }
 }
 

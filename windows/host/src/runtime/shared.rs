@@ -13,15 +13,25 @@ use peering_wire::framing::Frame;
 use tokio::sync::{broadcast, mpsc};
 
 use super::control::{ControlChannel, RelayStatus};
+use super::peer_address::PeerAddressRouter;
 use super::services::{BoxedEncoder, BoxedInput, SharedCapture, SharedFileSystem};
 
 /// One authorised control connection. `video_outbound` is set while a direct video connection for the same client is open.
+/// `datagram_outbound` feeds the session's relayed UDP lane; it is set only for a session that has one.
 pub struct SessionSlot {
     pub client_id: String,
     pub peer_key: Option<Vec<u8>>,
     pub outbound: mpsc::UnboundedSender<Frame>,
     pub video_outbound: Option<mpsc::UnboundedSender<Frame>>,
+    pub datagram_outbound: Option<mpsc::UnboundedSender<Vec<u8>>>,
     pub lane: VideoLane,
+}
+
+impl SessionSlot {
+    /// True while the session's relayed lane task is running, so a key granted now has a lane to send on.
+    pub fn has_relay_lane(&self) -> bool {
+        self.datagram_outbound.as_ref().is_some_and(|sender| !sender.is_closed())
+    }
 }
 
 pub struct HostState {
@@ -55,10 +65,15 @@ pub struct Shared {
     pub state: Arc<Mutex<HostState>>,
     pub approvals: ApprovalSender,
     pub control: Arc<Mutex<ControlChannel>>,
+    pub peer_addresses: Arc<Mutex<PeerAddressRouter>>,
 }
 
 impl Shared {
     pub fn lock(&self) -> MutexGuard<'_, HostState> {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    pub fn peer_addresses(&self) -> MutexGuard<'_, PeerAddressRouter> {
+        self.peer_addresses.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }

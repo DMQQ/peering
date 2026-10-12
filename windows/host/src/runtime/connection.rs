@@ -9,18 +9,18 @@ use peering_core::session::deps::{HostDeps, Random};
 use peering_core::ports::input::InputSink;
 use peering_core::session::handshake::{HostConfig, HostSession};
 use peering_core::session::liveness::{LivenessTracker, Verdict};
-use peering_core::video::lane::VideoLane;
 use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
 use peering_wire::handshake::{ClientHello, ServerHello};
-use peering_wire::sealing::TOKEN_SIZE;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::{broadcast, mpsc};
 use tokio::task::spawn_local;
 use tokio::time::interval;
 
+mod register;
+
 use super::agent::StdLauncher;
 use super::random::SystemRandomSource;
-use super::shared::{SessionSlot, Shared};
+use super::shared::Shared;
 use super::{HostProfile, PeerInfo};
 
 const READ_CHUNK_BYTES: usize = 16 * 1024;
@@ -223,30 +223,6 @@ impl Connection {
         hello.capabilities.supports_file_browser = Some(true);
         hello.agent_chat_agents = Some(peering_agent::manager::agent_chat_agents());
         Frame::new(MessageKind::ServerHello, serde_json::to_vec(&hello).expect("a hello always serialises"))
-    }
-
-    fn register(&mut self) {
-        let client_id = self.session.client_id().to_owned();
-        let video_token = self.peer.video_token.unwrap_or([0u8; TOKEN_SIZE]);
-        let frames = {
-            let mut guard = self.shared.lock();
-            let state = &mut *guard;
-            state.sessions.insert(
-                self.session_id,
-                SessionSlot {
-                    client_id: client_id.clone(),
-                    peer_key: self.peer.public_key.clone(),
-                    outbound: self.outbound.clone(),
-                    video_outbound: None,
-                    lane: VideoLane::new(video_token),
-                },
-            );
-            state.video.attach(&client_id);
-            state.catalogue_frames_for(self.session_id)
-        };
-        for frame in frames {
-            self.send(frame);
-        }
     }
 
     fn attach_video(&mut self) -> Flow {

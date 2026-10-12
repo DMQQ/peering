@@ -132,8 +132,12 @@ impl HostState {
                         LaneSend::ControlFrames(frames) => {
                             outgoing.extend(frames.into_iter().map(|frame| Outgoing { to: to.clone(), frame }));
                         }
-                        // Keys are never granted yet, so the lane produces no datagrams and this arm is not reached.
-                        LaneSend::Datagram(_) => {}
+                        LaneSend::Datagram(bytes) => {
+                            // Only a session with a relayed lane is granted a key, so its lane task is there to send it.
+                            if let Some(datagrams) = &slot.datagram_outbound {
+                                let _queued = datagrams.send(bytes);
+                            }
+                        }
                     }
                 }
             }

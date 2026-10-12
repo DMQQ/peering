@@ -12,6 +12,12 @@ pub struct SystemRandomSource;
 
 /// A failed generator returns an empty value. The pairing then fails on the client's length check instead of
 /// proceeding with a value anyone could predict.
+impl peering_core::video::lane::Random for SystemRandomSource {
+    fn fill(&mut self, buffer: &mut [u8]) -> bool {
+        SystemRandom::new().fill(buffer).is_ok()
+    }
+}
+
 impl Random for SystemRandomSource {
     fn ephemeral_public_key(&mut self) -> Vec<u8> {
         EphemeralPrivateKey::generate(&ECDH_P256, &SystemRandom::new())

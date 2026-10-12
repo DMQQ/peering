@@ -32,7 +32,12 @@ pub async fn serve_listener(shared: Shared, profile: Arc<HostProfile>, tls: Arc<
             let Ok(accepted) = tls.accept(stream).await else {
                 return;
             };
-            let peer = PeerInfo { public_key: Some(accepted.client_public_key), via_relay: false, video_token: None };
+            let peer = PeerInfo {
+                public_key: Some(accepted.client_public_key),
+                via_relay: false,
+                video_token: None,
+                video_endpoint: None,
+            };
             serve(shared, profile, accepted.stream, peer).await;
         });
     }

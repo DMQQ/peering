@@ -24,6 +24,8 @@ impl Connection {
             ReadyOutcome::Close(_) => Flow::Closed,
             ReadyOutcome::Unhandled(MessageKind::TerminalRequest) => self.answer_file(frame),
             ReadyOutcome::Unhandled(MessageKind::AgentRequest) => self.agent_request(frame),
+            ReadyOutcome::Unhandled(MessageKind::VideoKeyRequest) => self.answer_video_key(),
+            ReadyOutcome::Unhandled(MessageKind::VideoTransport) => self.answer_video_transport(frame),
             ReadyOutcome::Unhandled(_) => Flow::Open,
         }
     }

@@ -126,7 +126,7 @@ pub fn harness() -> Harness {
 }
 
 pub fn direct_peer() -> PeerInfo {
-    PeerInfo { public_key: Some(CLIENT_KEY.to_vec()), via_relay: false, video_token: None }
+    PeerInfo { public_key: Some(CLIENT_KEY.to_vec()), via_relay: false, video_token: None, video_endpoint: None }
 }
 
 pub fn encode_json<T: Serialize>(kind: MessageKind, value: &T) -> Frame {

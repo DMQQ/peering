@@ -13,13 +13,16 @@ mod connection;
 mod control;
 mod files;
 mod listener;
+mod peer_address;
 mod pins;
 mod random;
 mod ready;
 mod relay;
+mod relay_lane;
 mod services;
 mod shared;
 mod video;
+mod video_requests;
 
 use std::collections::HashMap;
 use std::io;
@@ -35,6 +38,7 @@ use peering_core::pairing::{ApprovalDecision, PairingOffer, PairingService};
 use peering_core::video::coordinator::VideoCoordinator;
 use peering_net::identity::HostIdentity;
 use peering_net::tls::HostTls;
+use peering_wire::relay_messages::RelayClientMessage;
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 use tokio::task::LocalSet;
@@ -44,6 +48,7 @@ pub use control::{ApprovalView, DeviceView, HostHandle, HostSnapshot, OfferView,
 pub use services::{platform_services, HostServices};
 
 use control::ControlChannel;
+use peer_address::PeerAddressRouter;
 use pins::SecretPins;
 use services::{BoxedEncoder, BoxedInput, SharedCapture, SharedFileSystem};
 use shared::{HostState, Shared};
@@ -117,6 +122,15 @@ pub struct PeerInfo {
     pub via_relay: bool,
     /// The relay's video token for a relayed session; direct connections have none.
     pub video_token: Option<[u8; 16]>,
+    /// Where the relay takes a relayed session's datagrams. Set with `video_token`.
+    pub video_endpoint: Option<VideoEndpoint>,
+}
+
+/// The relay's UDP port for a relayed session, as `sessionReady` names it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VideoEndpoint {
+    pub host: String,
+    pub port: u16,
 }
 
 #[derive(Clone)]
@@ -159,6 +173,7 @@ impl HostRuntime {
                 state: Arc::new(Mutex::new(state)),
                 approvals,
                 control: Arc::new(Mutex::new(control)),
+                peer_addresses: Arc::new(Mutex::new(PeerAddressRouter::default())),
             },
             profile: Arc::new(profile),
             commands,
@@ -190,6 +205,21 @@ impl HostRuntime {
         let outgoing = self.shared.lock().pump_video(now)?;
         video::deliver(outgoing);
         Ok(())
+    }
+
+    /// Attaches a signalling socket to the relay's address answers, as the relay connection does when it opens. Returns the
+    /// `requestPeerAddress` asks the video lanes make, for the caller to send on that socket.
+    pub fn attach_signalling(&self) -> tokio::sync::mpsc::UnboundedReceiver<RelayClientMessage> {
+        let (outbound, asks) = tokio::sync::mpsc::unbounded_channel();
+        self.shared.peer_addresses().attach(Some(outbound));
+        asks
+    }
+
+    /// Passes on a `peerAddress` the relay sent on the attached signalling socket.
+    pub fn answer_peer_address(&self, host: &str, port: u16) {
+        if let Some(address) = peer_address::peer_socket_addr(host, port) {
+            self.shared.peer_addresses().answer(address);
+        }
     }
 
     /// The pairing offer the Mac shows: the six digit code, the QR secret and the client it is for, if one is waiting.

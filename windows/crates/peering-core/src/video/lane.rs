@@ -12,11 +12,12 @@ use super::coordinator::VideoOutput;
 
 /// Only the lane's key material comes from here, so the caller decides where randomness is taken from.
 pub trait Random {
-    fn fill(&mut self, buffer: &mut [u8]);
+    /// False when no secure bytes could be drawn; the buffer then holds nothing usable.
+    fn fill(&mut self, buffer: &mut [u8]) -> bool;
 }
 
 /// The lane sends a keepalive bind this often, so the relay keeps this end's mapping open.
-pub const BIND_KEEPALIVE_INTERVAL: f64 = 10.0;
+pub const BIND_KEEPALIVE_INTERVAL: f64 = 5.0;
 
 #[derive(Debug, Error)]
 pub enum LaneError {
@@ -28,6 +29,8 @@ pub enum LaneError {
     TooLarge(usize),
     #[error("a video message could not be encoded as JSON: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("no secure random bytes were available for the video key")]
+    RandomUnavailable,
 }
 
 /// What to write to one lane. Datagrams go to the relay; frames go on the control connection.
@@ -70,7 +73,9 @@ impl VideoLane {
     /// A second request replaces the first key, so only the newest grant can open what is sent from now on.
     pub fn answer_key_request(&mut self, random: &mut dyn Random) -> Result<Frame, LaneError> {
         let mut secret = [0u8; SECRET_SIZE];
-        random.fill(&mut secret);
+        if !random.fill(&mut secret) {
+            return Err(LaneError::RandomUnavailable);
+        }
         self.datagrams = Some(DatagramKeys {
             sealer: Sealer::new(&secret, Direction::HostToClient, self.video_token)?,
             probe_opener: Opener::new(&secret, Direction::ClientToHost)?,
@@ -118,6 +123,15 @@ impl VideoLane {
         }
         self.last_bind_at = Some(now);
         Some(self.video_token.to_vec())
+    }
+
+    /// Seals one message on the host's send key, for replies and probes. Empty until a key has been granted. The
+    /// datagrams carry the token in front, as `send` produces them.
+    pub fn seal_datagrams(&mut self, kind: MessageKind, payload: &[u8]) -> Vec<Vec<u8>> {
+        match self.datagrams.as_mut() {
+            Some(keys) => keys.sealer.seal(kind, payload),
+            None => Vec::new(),
+        }
     }
 
     /// Opens a datagram the client sent on this lane, as the relay forwarded it (token already removed).
