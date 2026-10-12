@@ -1,11 +1,7 @@
 package pl.dmq.peering.ui
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -15,10 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.kit.TitleBarScreen
 import pl.dmq.peering.ui.nav.SessionScreens
 import pl.dmq.peering.ui.theme.EmptyState
-import pl.dmq.peering.ui.theme.ScreenHeader
-import pl.dmq.peering.ui.theme.arrive
 
 /** The Sessions tab: the session in progress, or a line saying there is none. */
 @Composable
@@ -39,11 +34,11 @@ internal fun SessionTab(wiring: FeatureWiring) {
             onDisconnect = wiring.holder::end,
         )
     } else {
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp).padding(top = 16.dp)) {
-            ScreenHeader(title = stringResource(R.string.nav_sessions), modifier = Modifier.arrive())
+        TitleBarScreen(title = stringResource(R.string.nav_sessions), scrollable = false) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(bottom = 48.dp), contentAlignment = Alignment.Center) {
                 EmptyState(
-                    icon = Icons.Outlined.Schedule,
+                    icon = null,
+                    mascot = true,
                     title = stringResource(R.string.sessions_none_title),
                     body = stringResource(R.string.sessions_none),
                 )

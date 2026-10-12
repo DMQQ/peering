@@ -2,15 +2,13 @@ package pl.dmq.peering.feature.onboarding
 
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,22 +26,21 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.ControlsCard
+import pl.dmq.peering.ui.kit.TitleBarScreen
 import pl.dmq.peering.ui.kit.ControlsDivider
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
-import pl.dmq.peering.ui.theme.ScreenHeader
-import pl.dmq.peering.ui.theme.arrive
 
 /** The questions and answers from [FaqEntries], each section a card and each answer opening in place. */
 @Composable
 fun FaqScreen(modifier: Modifier = Modifier, bottomClearance: Dp = 24.dp) {
-    Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp).padding(top = 16.dp, bottom = bottomClearance),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+    TitleBarScreen(
+        title = stringResource(R.string.nav_faq),
+        detail = stringResource(R.string.faq_detail),
+        modifier = modifier,
     ) {
-        ScreenHeader(stringResource(R.string.nav_faq), Modifier.arrive(), detail = stringResource(R.string.faq_detail))
         FaqEntries.sections.forEach { section ->
             ControlsCard(stringResource(section.titleRes)) {
                 Column {
@@ -54,6 +51,7 @@ fun FaqScreen(modifier: Modifier = Modifier, bottomClearance: Dp = 24.dp) {
                 }
             }
         }
+        Spacer(Modifier.height(bottomClearance))
     }
 }
 

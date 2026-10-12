@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.kit.PeeringListItem
 import pl.dmq.peering.ui.theme.OutlinedPanel
 import pl.dmq.peering.ui.theme.PeeringColors
 
@@ -44,28 +45,21 @@ internal fun StreamQualityCard(current: StreamQuality, onChoose: (StreamQuality)
     SettingsCard(heading = stringResource(R.string.settings_quality_heading)) {
         StreamQuality.entries.forEach { quality ->
             val selected = quality == current
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectable(selected = selected, role = Role.RadioButton, onClick = { onChoose(quality) })
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(
-                    selected = selected,
-                    onClick = null,
-                    colors = RadioButtonDefaults.colors(
-                        selectedColor = PeeringColors.accent,
-                        unselectedColor = PeeringColors.faint,
-                    ),
-                )
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    text = stringResource(quality.labelRes()),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = PeeringColors.ink,
-                )
-            }
+            PeeringListItem(
+                headline = stringResource(quality.labelRes()),
+                onClick = { onChoose(quality) },
+                role = Role.RadioButton,
+                leading = {
+                    RadioButton(
+                        selected = selected,
+                        onClick = null,
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = PeeringColors.accent,
+                            unselectedColor = PeeringColors.faint,
+                        ),
+                    )
+                },
+            )
         }
     }
 }

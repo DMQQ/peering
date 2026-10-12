@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.kit.TitleBarScreen
+import pl.dmq.peering.ui.kit.PrimaryButton
 import pl.dmq.peering.ui.theme.PeeringColors
 
 @Composable
@@ -31,21 +31,9 @@ fun HubScreen(
 ) {
     val ui by presenter.ui.collectAsState()
     LaunchedEffect(presenter) { presenter.refresh() }
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(stringResource(R.string.agents_title), style = MaterialTheme.typography.headlineLarge)
+    TitleBarScreen(title = stringResource(R.string.agents_title), modifier = modifier, scrollable = false) {
         if (ui.agents.isNotEmpty()) {
-            Button(
-                onClick = presenter::beginNewChat,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = PeeringColors.ink, contentColor = PeeringColors.onInk),
-            ) {
-                Text(stringResource(R.string.agents_new_chat), style = MaterialTheme.typography.labelLarge)
-            }
+            PrimaryButton(title = stringResource(R.string.agents_new_chat), onClick = presenter::beginNewChat)
         }
         ui.failure?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = PeeringColors.danger) }
         if (ui.agents.isEmpty()) {
