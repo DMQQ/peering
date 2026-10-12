@@ -2,7 +2,6 @@ package pl.dmq.peering.feature.agents
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,6 +33,7 @@ import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.PeeringMenu
 import pl.dmq.peering.ui.kit.PeeringMenuItem
+import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -59,11 +59,10 @@ fun SessionCardRow(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(peeringShapes.medium)
-                .border(1.dp, PeeringColors.hairline, peeringShapes.medium)
+                .sessionSurface(peeringShapes.medium)
                 .combinedClickable(onClick = onOpen, onLongClick = { menuOpen = true })
                 .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(if (card.preview != null) 10.dp else 0.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconTile(AgentBrand.of(card.agentID).icon(), size = 42.dp)
@@ -75,7 +74,7 @@ fun SessionCardRow(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         StatePill(card.state)
                         FolderAndAgent(card)
                     }
@@ -119,7 +118,7 @@ fun SessionCardRow(
 @Composable
 private fun FolderAndAgent(card: SessionCard) {
     val folder = card.directory.trimEnd('/').substringAfterLast('/')
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         if (folder.isNotEmpty()) {
             Icon(AppIcons.folder, contentDescription = null, tint = PeeringColors.muted, modifier = Modifier.size(11.dp))
             Text(
@@ -132,7 +131,7 @@ private fun FolderAndAgent(card: SessionCard) {
             )
         }
         if (!card.title.contains(card.agentName, ignoreCase = true)) {
-            Text(card.agentName, style = PeeringText.caption, color = PeeringColors.muted, maxLines = 1)
+            Text(card.agentName, style = PeeringText.caption, color = PeeringColors.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -148,21 +147,21 @@ private fun Preview(text: String) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(peeringShapes.extraSmall)
-            .background(PeeringColors.surface)
+            .background(PeeringColors.containerHighest)
             .padding(horizontal = 11.dp, vertical = 8.dp),
     )
 }
 
-/** Outlined and tinted: the caution hue for a chat waiting on you, the danger hue for a failure, white shades otherwise. */
+/** A tinted fill: the caution hue for a chat waiting on you, the danger hue for a failure, white shades otherwise. */
 @Composable
 private fun StatePill(state: SessionCardState) {
     val tint = stateColor(state)
     Row(
         modifier = Modifier
             .clip(PillShape)
-            .border(1.dp, tint.copy(alpha = 0.35f), PillShape)
+            .background(tint.copy(alpha = 0.14f))
             .padding(horizontal = 10.dp)
-            .heightIn(min = 26.dp),
+            .heightIn(min = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {

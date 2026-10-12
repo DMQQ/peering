@@ -1,6 +1,5 @@
 package pl.dmq.peering.feature.agents
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -33,13 +31,14 @@ import java.util.Date
 import java.util.Locale
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.PeeringAlert
+import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.peeringShapes
 
 /**
- * Past and elsewhere conversations as one outlined card grouped by day, a row each with the agent's tile, its title,
+ * Past and elsewhere conversations as one tonal card grouped by day, a row each with the agent's tile, its title,
  * the folder, the time and a restart glyph. A conversation a terminal may still have open asks before it is taken over.
  */
 @Composable
@@ -49,8 +48,7 @@ fun HistoryCard(entries: List<HistoryEntry>, onRun: (HistoryEntry) -> Unit, modi
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(peeringShapes.medium)
-            .border(1.dp, PeeringColors.hairline, peeringShapes.medium)
+            .sessionSurface(peeringShapes.medium)
             .padding(bottom = 6.dp),
     ) {
         groups.forEachIndexed { groupIndex, group ->
@@ -61,7 +59,7 @@ fun HistoryCard(entries: List<HistoryEntry>, onRun: (HistoryEntry) -> Unit, modi
                 modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = if (groupIndex == 0) 12.dp else 16.dp, bottom = 4.dp),
             )
             group.entries.forEachIndexed { index, entry ->
-                if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = PeeringColors.ink.copy(alpha = 0.06f))
+                if (index > 0) HorizontalDivider(modifier = Modifier.padding(start = 56.dp), color = PeeringColors.hairline)
                 HistoryRow(entry) {
                     val action = entry.action
                     if (action is HistoryAction.Resume && action.openElsewhere) confirming = entry else onRun(entry)
@@ -100,7 +98,13 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(entry.detail, style = PeeringText.caption.copy(fontSize = 11.5.sp), color = PeeringColors.muted, maxLines = 1)
+            Text(
+                entry.detail,
+                style = PeeringText.caption.copy(fontSize = 11.5.sp),
+                color = PeeringColors.muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
