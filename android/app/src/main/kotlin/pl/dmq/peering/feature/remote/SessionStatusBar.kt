@@ -6,6 +6,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.layout.layout
+import androidx.compose.runtime.State
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,16 +40,23 @@ fun SessionStatusBar(
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
-    ) {
-        if (!expanded) LockButton(ui, actions)
-        StatusPill(ui, actions, expanded, onTap, Modifier.weight(1f))
-        if (!expanded) TerminalButton(ui.hubTabs.isNotEmpty(), actions.onOpenHub)
+    val inset = animateDpAsState(if (expanded) 0.dp else SIDE_BUTTON_SPACE, tween(260, easing = FastOutSlowInEasing), label = "pillInset")
+    Box(modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
+        Box(Modifier.align(Alignment.TopStart)) { LockButton(ui, actions) }
+        Box(Modifier.align(Alignment.TopEnd)) { TerminalButton(ui.hubTabs.isNotEmpty(), actions.onOpenHub) }
+        StatusPill(ui, actions, expanded, onTap, Modifier.align(Alignment.TopStart).insetBy(inset))
     }
 }
+
+/** The buttons stay where they are and the pill grows over them, so opening it moves nothing beside it. The inset is read while measuring, not while composing. */
+private fun Modifier.insetBy(inset: State<Dp>): Modifier = layout { measurable, constraints ->
+    val side = inset.value.roundToPx()
+    val width = (constraints.maxWidth - side * 2).coerceAtLeast(0)
+    val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width, minHeight = 0))
+    layout(constraints.maxWidth, placeable.height) { placeable.place(side, 0) }
+}
+
+private val SIDE_BUTTON_SPACE = 61.dp
 
 @Composable
 private fun LockButton(ui: StatusUi, actions: StatusActions) {
