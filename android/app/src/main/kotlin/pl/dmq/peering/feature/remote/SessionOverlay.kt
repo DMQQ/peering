@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,8 +25,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
-import pl.dmq.peering.ui.kit.chipSurface
-import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.peeringShapes
 
@@ -48,38 +47,40 @@ fun SessionOverlay(
         verticalArrangement = Arrangement.spacedBy(6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(
-            modifier = Modifier.chipSurface(peeringShapes.extraLarge).padding(start = 16.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            StatusDot(statusColor(state))
-            Column(modifier = Modifier.weight(1f, fill = false).padding(vertical = 6.dp, horizontal = 2.dp)) {
-                Text(
-                    text = state.hostName ?: stringResource(R.string.remote_computer_fallback),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = PeeringColors.ink,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    state.path?.let { PathBadge(it) }
-                    state.latencyMs?.let { LabelText(stringResource(R.string.overlay_latency, it)) }
-                    LabelText(stringResource(state.pictureLabel()))
+        Surface(shape = peeringShapes.extraLarge, color = PeeringColors.containerHigh, shadowElevation = 6.dp) {
+            Row(
+                modifier = Modifier.padding(start = 16.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                StatusDot(statusColor(state))
+                Column(modifier = Modifier.weight(1f, fill = false).padding(vertical = 6.dp, horizontal = 2.dp)) {
+                    Text(
+                        text = state.hostName ?: stringResource(R.string.remote_computer_fallback),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = PeeringColors.ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        state.path?.let { PathBadge(it) }
+                        state.latencyMs?.let { LabelText(stringResource(R.string.overlay_latency, it)) }
+                        LabelText(stringResource(state.pictureLabel()))
+                    }
                 }
-            }
-            zoomPercent?.let {
-                TextButton(onClick = onFit) {
-                    Text(stringResource(R.string.remote_zoom_percent, it), color = PeeringColors.accent)
+                zoomPercent?.let {
+                    TextButton(onClick = onFit) {
+                        Text(stringResource(R.string.remote_zoom_percent, it), color = PeeringColors.accent)
+                    }
                 }
-            }
-            IconButton(onClick = onDisconnect) {
-                Icon(
-                    imageVector = AppIcons.power,
-                    contentDescription = stringResource(R.string.remote_disconnect_description),
-                    tint = PeeringColors.danger,
-                )
-            }
+                IconButton(onClick = onDisconnect) {
+                    Icon(
+                        imageVector = AppIcons.power,
+                        contentDescription = stringResource(R.string.remote_disconnect_description),
+                        tint = PeeringColors.danger,
+                    )
+                }
+        }
         }
         if (state.picture == PictureState.STALLED || state.picture == PictureState.FAILED) {
             TextButton(onClick = onRetry) { Text(stringResource(R.string.overlay_picture_retry)) }

@@ -12,18 +12,27 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 
-/** F1 to F12 in a scrolling row. Each press is sent with the modifiers latched on the bar. */
+/** Esc, Tab and the arrows, then F1 to F12, in a scrolling row. Each press is sent with the modifiers latched on the bar. */
 @Composable
 fun FunctionKeyRow(
     onKey: (FunctionKey) -> Unit,
+    onEditingKey: (EditingKey) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val description = stringResource(R.string.remote_function_keys)
     LazyRow(
         modifier = modifier.semantics { contentDescription = description },
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp),
     ) {
+        items(EditingKey.entries) { key ->
+            KeyCap(
+                label = key.label,
+                selected = false,
+                outlinedInAccent = false,
+                onClick = { onEditingKey(key) },
+            )
+        }
         items(FunctionKey.entries) { key ->
             KeyCap(
                 label = key.name,

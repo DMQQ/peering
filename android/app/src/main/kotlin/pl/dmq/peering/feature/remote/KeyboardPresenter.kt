@@ -28,6 +28,10 @@ class KeyboardPresenter(private val sink: CommandSink) {
         pressKey(key.macKeyCode)
     }
 
+    fun onEditingKey(key: EditingKey) {
+        pressKey(key.macKeyCode)
+    }
+
     /** Text committed by the soft keyboard. */
     fun onSoftKeyboardText(text: String) {
         if (text.isEmpty()) return

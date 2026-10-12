@@ -32,18 +32,18 @@ internal fun KeyCap(
     val outline = if (outlinedInAccent) PeeringColors.accent else PeeringColors.hairline
     Box(
         modifier = modifier
-            .defaultMinSize(minWidth = 48.dp, minHeight = 44.dp)
+            .defaultMinSize(minWidth = 44.dp, minHeight = 40.dp)
             .clip(shape)
             .then(if (selected) Modifier.background(PeeringColors.accent) else Modifier)
             .border(1.dp, outline, shape)
             .clickable(role = Role.Button, onClick = onClick)
             .semantics { if (stateText != null) stateDescription = stateText }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelMedium,
             color = if (selected) PeeringColors.onInk else PeeringColors.ink,
         )
     }

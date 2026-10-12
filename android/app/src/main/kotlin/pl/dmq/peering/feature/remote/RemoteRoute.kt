@@ -116,6 +116,7 @@ fun RemoteRoute(model: RemoteModel) {
                     }
                 },
                 onFunctionKey = keyboard::onFunctionKey,
+                onEditingKey = keyboard::onEditingKey,
                 onModifier = {
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     keyboard.onModifierTap(it, SystemClock.uptimeMillis())

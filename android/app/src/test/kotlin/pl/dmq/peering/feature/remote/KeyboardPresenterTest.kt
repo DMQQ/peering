@@ -22,6 +22,13 @@ class KeyboardPresenterTest {
     }
 
     @Test
+    fun `an editing key is pressed and released by its Mac keycode`() {
+        presenter.onEditingKey(EditingKey.ESCAPE)
+
+        assertEquals(listOf<RemoteCommand>(KeyDown(53, Modifiers(0)), KeyUp(53, Modifiers(0))), sink.sent)
+    }
+
+    @Test
     fun `a printable hardware key is typed as text on press only`() {
         assertTrue(presenter.onKey(KeyInput(androidKeyCode = 29, unicodeChar = 'a'.code, metaState = 0, isDown = true)))
         assertTrue(presenter.onKey(KeyInput(androidKeyCode = 29, unicodeChar = 'a'.code, metaState = 0, isDown = false)))
