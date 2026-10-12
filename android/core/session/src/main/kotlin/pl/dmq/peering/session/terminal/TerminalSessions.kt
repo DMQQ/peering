@@ -26,6 +26,7 @@ class TerminalSessions(
     private val send: (TerminalRequest) -> Unit,
     private val newEmulator: (columns: Int, rows: Int) -> TerminalEmulator = ::VtScreen,
     private val scope: CoroutineScope? = null,
+    private val listsAgents: () -> Boolean = { false },
 ) {
     private val lock = Any()
     private val screens = HashMap<String, TerminalEmulator>()
@@ -38,6 +39,13 @@ class TerminalSessions(
 
     /** Asks for the list. Called when the screen opens and again after a reconnect, which replays each shell's output. */
     fun attach() = send(TerminalRequest.ListTerminals)
+
+    /** Asks which agent commands the computer has. Never sent to a computer that did not declare the list: it could not decode it. */
+    fun refreshAgents() {
+        if (!listsAgents()) return
+        synchronized(lock) { mutableState.value = mutableState.value.copy(agentListPending = true) }
+        send(TerminalRequest.ListAgents)
+    }
 
     fun open() = send(TerminalRequest.Create)
 
@@ -95,6 +103,8 @@ class TerminalSessions(
                 it.copy(isRunning = false, exitStatus = event.status)
             }
             is TerminalEvent.Closed -> onClosed(event.sessionID)
+            is TerminalEvent.Agents -> mutableState.value =
+                mutableState.value.copy(installedAgents = event.installed.toSet(), agentListPending = false)
             is TerminalEvent.Failed -> onFailed(event)
             else -> Unit
         }
@@ -114,7 +124,7 @@ class TerminalSessions(
         screens.keys.retainAll(tabs.map { it.id }.toSet())
         frames.keys.retainAll(screens.keys)
         val selected = mutableState.value.selectedID?.takeIf { id -> tabs.any { it.id == id } } ?: tabs.firstOrNull()?.id
-        mutableState.value = TerminalsState(tabs, selected, loaded = true)
+        mutableState.value = mutableState.value.copy(tabs = tabs, selectedID = selected, loaded = true, failure = null)
     }
 
     private fun onCreated(info: TerminalSessionInfo) {
