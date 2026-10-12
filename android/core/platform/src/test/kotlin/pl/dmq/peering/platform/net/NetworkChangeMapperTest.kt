@@ -58,6 +58,22 @@ class NetworkChangeMapperTest {
     }
 
     @Test
+    fun movingToAnotherWifiNetworkIsAPathChange() {
+        val mapper = NetworkChangeMapper()
+        mapper.changeFor(wifi.copy(networkId = 1))
+
+        assertEquals(NetworkChange.PathChanged(TransportKind.WIFI), mapper.changeFor(wifi.copy(networkId = 2)))
+    }
+
+    @Test
+    fun repeatedCapabilitiesOfTheSameWifiNetworkAreIgnored() {
+        val mapper = NetworkChangeMapper()
+        mapper.changeFor(wifi.copy(networkId = 1))
+
+        assertNull(mapper.changeFor(wifi.copy(networkId = 1)))
+    }
+
+    @Test
     fun reconnectingAfterLossIsAvailableAgain() {
         val mapper = NetworkChangeMapper()
         mapper.changeFor(wifi)

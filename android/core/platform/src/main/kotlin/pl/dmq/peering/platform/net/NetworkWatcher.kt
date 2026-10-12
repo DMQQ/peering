@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.callbackFlow
  * events for the network currently in use count. Callbacks arrive on one thread, which is what the mapper relies on.
  */
 class NetworkWatcher(private val connectivity: ConnectivityManager) {
+    fun isOnline(): Boolean = connectivity.activeNetwork != null
+
     fun changes(): Flow<NetworkChange> = callbackFlow {
         val mapper = NetworkChangeMapper()
         var current: Network? = null
@@ -27,7 +29,7 @@ class NetworkWatcher(private val connectivity: ConnectivityManager) {
                     wifi = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
                     cellular = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR),
                 )
-                report(mapper.changeFor(NetworkSnapshot(connected = true, transport = transport)))
+                report(mapper.changeFor(NetworkSnapshot(connected = true, transport = transport, networkId = network.networkHandle)))
             }
 
             override fun onLost(network: Network) {
