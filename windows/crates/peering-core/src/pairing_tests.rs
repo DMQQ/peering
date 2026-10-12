@@ -26,7 +26,7 @@ fn code_event() -> HostEvent {
 #[test]
 fn a_pairing_code_event_opens_the_offer_with_its_qr_strings() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    pairing.apply_event(&code_event());
+    pairing.apply_event(1, &code_event());
 
     let offer = pairing.offer().expect("an offer is shown");
     assert_eq!(offer.code, "365357");
@@ -40,16 +40,16 @@ fn a_pairing_code_event_opens_the_offer_with_its_qr_strings() {
 #[test]
 fn a_finished_pairing_closes_the_offer() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    pairing.apply_event(&code_event());
-    pairing.apply_event(&HostEvent::PairingCompleted { client_name: "Pixel 9".to_owned(), accepted: true });
+    pairing.apply_event(1, &code_event());
+    pairing.apply_event(1, &HostEvent::PairingCompleted { client_name: "Pixel 9".to_owned(), accepted: true });
     assert_eq!(pairing.offer(), None);
 }
 
 #[test]
 fn a_client_connecting_leaves_the_offer_alone() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    pairing.apply_event(&code_event());
-    pairing.apply_event(&HostEvent::ClientConnected {
+    pairing.apply_event(1, &code_event());
+    pairing.apply_event(1, &HostEvent::ClientConnected {
         client_id: "c".to_owned(),
         client_name: "Other".to_owned(),
         via_relay: false,
@@ -60,7 +60,7 @@ fn a_client_connecting_leaves_the_offer_alone() {
 #[test]
 fn approving_returns_the_session_and_removes_the_request() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    let id = pairing.request_approval(7, "Pixel 9");
+    let id = pairing.request_approval(7, "Pixel 9").expect("room");
     assert_eq!(pairing.pending_approvals().len(), 1);
     assert_eq!(pairing.pending_approvals()[0].client_name, "Pixel 9");
 
@@ -72,7 +72,7 @@ fn approving_returns_the_session_and_removes_the_request() {
 #[test]
 fn declining_returns_the_session_as_refused() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    let id = pairing.request_approval(3, "Pixel 9");
+    let id = pairing.request_approval(3, "Pixel 9").expect("room");
     assert_eq!(pairing.decline(id), Some(ApprovalDecision { session: 3, approved: false }));
     assert!(pairing.pending_approvals().is_empty());
 }
@@ -80,7 +80,7 @@ fn declining_returns_the_session_as_refused() {
 #[test]
 fn an_unknown_approval_id_changes_nothing() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    let kept = pairing.request_approval(1, "Pixel 9");
+    let kept = pairing.request_approval(1, "Pixel 9").expect("room");
     assert_eq!(pairing.approve(kept + 100), None);
     assert_eq!(pairing.pending_approvals().len(), 1);
 }
@@ -88,8 +88,8 @@ fn an_unknown_approval_id_changes_nothing() {
 #[test]
 fn approvals_keep_arrival_order_and_distinct_ids() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    let first = pairing.request_approval(1, "First");
-    let second = pairing.request_approval(2, "Second");
+    let first = pairing.request_approval(1, "First").expect("room");
+    let second = pairing.request_approval(2, "Second").expect("room");
     assert_ne!(first, second);
     let names: Vec<&str> = pairing.pending_approvals().iter().map(|a| a.client_name.as_str()).collect();
     assert_eq!(names, ["First", "Second"]);
@@ -98,8 +98,8 @@ fn approvals_keep_arrival_order_and_distinct_ids() {
 #[test]
 fn forgetting_a_session_drops_only_its_approvals() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    pairing.request_approval(1, "Gone");
-    let kept = pairing.request_approval(2, "Still here");
+    pairing.request_approval(1, "Gone").expect("room");
+    let kept = pairing.request_approval(2, "Still here").expect("room");
     pairing.forget_session(1);
     assert_eq!(pairing.pending_approvals().len(), 1);
     assert_eq!(pairing.approve(kept), Some(ApprovalDecision { session: 2, approved: true }));
@@ -132,4 +132,72 @@ fn revoking_removes_the_pin_and_reports_it() {
 fn revoking_an_unknown_device_reports_nothing_removed() {
     let pairing = service(Arc::new(MemoryPins::default()));
     assert!(!pairing.revoke("NOBODY"));
+}
+
+#[test]
+fn a_second_session_cannot_replace_the_offer_of_the_first() {
+    let mut pairing = service(Arc::new(MemoryPins::default()));
+    pairing.apply_event(1, &code_event());
+    let intruder = HostEvent::PairingCode {
+        code: "111111".to_owned(),
+        secret: vec![1],
+        client_name: "Intruder".to_owned(),
+        via_relay: false,
+    };
+    pairing.apply_event(2, &intruder);
+    assert_eq!(pairing.offer().map(|offer| offer.code.as_str()), Some("365357"));
+}
+
+#[test]
+fn a_second_session_cannot_close_the_offer_of_the_first() {
+    let mut pairing = service(Arc::new(MemoryPins::default()));
+    pairing.apply_event(1, &code_event());
+    pairing.apply_event(2, &HostEvent::PairingCompleted { client_name: "Other".to_owned(), accepted: false });
+    assert!(pairing.offer().is_some());
+}
+
+#[test]
+fn the_offer_goes_when_its_session_ends_without_finishing() {
+    let mut pairing = service(Arc::new(MemoryPins::default()));
+    pairing.apply_event(1, &code_event());
+    pairing.forget_session(1);
+    assert_eq!(pairing.offer(), None);
+}
+
+#[test]
+fn a_new_pairing_can_start_once_the_old_session_is_gone() {
+    let mut pairing = service(Arc::new(MemoryPins::default()));
+    pairing.apply_event(1, &code_event());
+    pairing.forget_session(1);
+    pairing.apply_event(2, &code_event());
+    assert_eq!(pairing.offer().map(|offer| offer.session), Some(2));
+}
+
+#[test]
+fn forgetting_another_session_keeps_the_offer() {
+    let mut pairing = service(Arc::new(MemoryPins::default()));
+    pairing.apply_event(1, &code_event());
+    pairing.forget_session(2);
+    assert!(pairing.offer().is_some());
+}
+
+#[test]
+fn approvals_past_the_cap_are_refused_for_the_asking_session() {
+    let mut pairing = service(Arc::new(MemoryPins::default()));
+    for session in 0..MAXIMUM_PENDING_APPROVALS as u64 {
+        pairing.request_approval(session, "Phone").expect("room");
+    }
+    assert_eq!(pairing.request_approval(99, "Flood"), Err(ApprovalDecision { session: 99, approved: false }));
+    assert_eq!(pairing.pending_approvals().len(), MAXIMUM_PENDING_APPROVALS);
+}
+
+#[test]
+fn answering_an_approval_makes_room_for_the_next() {
+    let mut pairing = service(Arc::new(MemoryPins::default()));
+    let first = pairing.request_approval(0, "Phone").expect("room");
+    for session in 1..MAXIMUM_PENDING_APPROVALS as u64 {
+        pairing.request_approval(session, "Phone").expect("room");
+    }
+    pairing.decline(first);
+    assert!(pairing.request_approval(50, "Next").is_ok());
 }

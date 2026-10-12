@@ -165,3 +165,25 @@ fn mouse_commands_produce_no_key_events() {
     let mut injector = KeyboardInjector::default();
     assert!(injector.plan(&RemoteCommand::Scroll { dx: 0.0, dy: 1.0 }).is_empty());
 }
+
+#[test]
+fn a_chord_pressed_again_after_its_modifier_was_lifted_releases_the_modifier_once() {
+    let mut injector = KeyboardInjector::default();
+    let down = |injector: &mut KeyboardInjector| {
+        injector.plan(&RemoteCommand::KeyDown { key_code: C, modifiers: Modifiers::COMMAND })
+    };
+    down(&mut injector);
+    injector.plan(&RemoteCommand::KeyUp { key_code: LEFT_COMMAND, modifiers: Modifiers::NONE });
+    down(&mut injector);
+    let up = injector.plan(&RemoteCommand::KeyUp { key_code: C, modifiers: Modifiers::COMMAND });
+    let control_releases = up.iter().filter(|spec| spec.input == KeyInput::Scancode(control()) && spec.key_up).count();
+    assert_eq!(control_releases, 1);
+}
+
+#[test]
+fn recording_the_same_modifier_twice_for_one_key_keeps_one_entry() {
+    let mut held = HeldKeys::default();
+    held.record_chord(C, &[control(), control()]);
+    held.record_chord(C, &[control(), shift()]);
+    assert_eq!(held.take_chord(C), vec![control(), shift()]);
+}

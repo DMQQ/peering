@@ -13,13 +13,13 @@ use peering_core::video::lane::LaneSend;
 use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::source::CaptureCatalog;
 use peering_wire::source::CaptureSource;
-use tokio::sync::mpsc::UnboundedSender;
 use std::sync::PoisonError;
 use tokio::task::spawn_local;
 use tokio::time::interval;
 
 use peering_core::notice::notice_frame;
 
+use super::outbound::FrameSender;
 use super::ready::error_frame;
 use super::services::{BoxedEncoder, SharedCapture};
 use super::control::{publish_if_due, take_commands};
@@ -33,7 +33,7 @@ const NO_FRAMES_MESSAGE: &str = "The screen capture produced no frames.";
 
 /// A frame bound for one connection, sent after the state lock is released.
 pub struct Outgoing {
-    pub to: UnboundedSender<Frame>,
+    pub to: FrameSender,
     pub frame: Frame,
 }
 

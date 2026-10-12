@@ -6,6 +6,7 @@ pub mod settings;
 pub mod catalogue;
 pub mod files;
 pub mod notice;
+pub mod outbound;
 pub mod pairing;
 pub mod push_tokens;
 pub mod relay;

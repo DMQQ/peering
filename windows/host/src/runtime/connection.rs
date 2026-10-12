@@ -6,20 +6,20 @@ use std::time::Duration;
 
 use peering_core::session::actions::SessionAction;
 use peering_core::session::deps::{HostDeps, Random};
-use peering_core::ports::input::InputSink;
 use peering_core::session::handshake::{HostConfig, HostSession};
-use peering_core::session::liveness::{LivenessTracker, Verdict};
+use peering_core::session::liveness::{counts_as_life, LivenessTracker, Verdict};
 use peering_core::session::slots::{client_has_other_session, newest_session_for_key};
 use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
 use peering_wire::handshake::{ClientHello, ServerHello};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 use tokio::task::spawn_local;
 use tokio::time::interval;
 
 mod register;
 
-use super::agent::StdLauncher;
+use super::outbound::{outbound, FrameSender, OutboundReceiver};
+use super::pre_auth::PreAuthPermit;
 use super::random::SystemRandomSource;
 use super::shared::Shared;
 use super::{HostProfile, PeerInfo};
@@ -37,14 +37,15 @@ pub(super) struct Connection {
     pub(super) shared: Shared,
     pub(super) profile: Arc<HostProfile>,
     pub(super) peer: PeerInfo,
-    pub(super) outbound: mpsc::UnboundedSender<Frame>,
+    pub(super) outbound: FrameSender,
     pub(super) session: HostSession,
     pub(super) session_id: u64,
     pub(super) liveness: LivenessTracker,
     pub(super) supports_agent_chat: bool,
-    pub(super) agent: Option<peering_agent::manager::AgentSessionManager<StdLauncher>>,
     pub(super) video_for_session: Option<u64>,
     pub(super) registered: bool,
+    /// Held until the connection is authorised or turns out to be a video connection.
+    pub(super) pre_auth: Option<PreAuthPermit>,
 }
 
 /// Serves one connection until the peer leaves, the core closes it, or the framing breaks.
@@ -52,8 +53,16 @@ pub async fn serve<S>(shared: Shared, profile: Arc<HostProfile>, stream: S, peer
 where
     S: AsyncRead + AsyncWrite + Unpin + 'static,
 {
+    serve_counted(shared, profile, stream, peer, None).await;
+}
+
+/// `serve` for a connection that holds a pre-authentication slot, which it gives back once it is authorised.
+pub async fn serve_counted<S>(shared: Shared, profile: Arc<HostProfile>, stream: S, peer: PeerInfo, pre_auth: Option<PreAuthPermit>)
+where
+    S: AsyncRead + AsyncWrite + Unpin + 'static,
+{
     let (mut reader, writer) = tokio::io::split(stream);
-    let (outbound, frames) = mpsc::unbounded_channel();
+    let (outbound, frames) = outbound();
     spawn_local(write_frames(writer, frames));
 
     let session_id = shared.lock().allocate_session();
@@ -80,17 +89,23 @@ where
         session_id,
         liveness: LivenessTracker::started_at(now),
         supports_agent_chat: false,
-        agent: None,
         video_for_session: None,
         registered: false,
+        pre_auth,
     };
     connection.run(&mut reader).await;
     connection.finish();
 }
 
-async fn write_frames<W: AsyncWrite + Unpin>(mut writer: W, mut frames: mpsc::UnboundedReceiver<Frame>) {
+async fn write_frames<W: AsyncWrite + Unpin>(mut writer: W, mut frames: OutboundReceiver<Frame>) {
     while let Some(frame) = frames.recv().await {
-        if writer.write_all(&frame.encode()).await.is_err() {
+        // A peer that has stopped reading blocks the write; the queue passing its high-water mark is what ends it.
+        let bytes = frame.encode();
+        let written = tokio::select! {
+            written = writer.write_all(&bytes) => written.is_ok(),
+            () = frames.overflowed() => false,
+        };
+        if !written {
             break;
         }
     }
@@ -125,6 +140,7 @@ impl Connection {
                         }
                     }
                 }
+                () = self.outbound.overflowed() => return,
                 _ = ticks.tick() => {
                     if self.on_tick() == Flow::Closed {
                         return;
@@ -158,7 +174,9 @@ impl Connection {
         if self.evicted() {
             return Flow::Closed;
         }
-        self.liveness.heard(self.now());
+        if counts_as_life(self.session.state().phase(), frame.kind) {
+            self.liveness.heard(self.now());
+        }
         if self.video_for_session.is_some() {
             // A video connection only carries frames out; key and transport requests are answered on the control connection.
             return Flow::Open;
@@ -185,10 +203,6 @@ impl Connection {
         if verdict == Verdict::End || !self.shared.lock().hosting {
             return Flow::Closed;
         }
-        let events = self.agent.as_mut().map(|manager| manager.poll()).unwrap_or_default();
-        for event in events {
-            self.send_event(&event);
-        }
         Flow::Open
     }
 
@@ -204,13 +218,20 @@ impl Connection {
     fn apply(&mut self, action: SessionAction) -> Flow {
         match action {
             SessionAction::Send(frame) => self.send(self.decorate(frame)),
-            SessionAction::Emit(event) => self.shared.lock().pairing.apply_event(&event),
+            SessionAction::Emit(event) => self.shared.lock().pairing.apply_event(self.session_id, &event),
             SessionAction::Authorized => self.register(),
             SessionAction::ForwardFrame(frame) => return self.on_ready(&frame),
             SessionAction::ForwardCommand(command) => self.dispatch_command(command),
-            SessionAction::VideoConnection => return self.attach_video(),
+            SessionAction::VideoConnection => {
+                self.pre_auth = None;
+                return self.attach_video();
+            }
             SessionAction::RequestApproval { client_name } => {
-                self.shared.lock().pairing.request_approval(self.session_id, &client_name);
+                let refused = self.shared.lock().pairing.request_approval(self.session_id, &client_name).err();
+                if let Some(decision) = refused {
+                    // This connection hears its own refusal on the approvals channel and answers the client.
+                    let _delivered = self.shared.approvals.send(decision);
+                }
             }
             SessionAction::Close(_) => return Flow::Closed,
         }
@@ -274,10 +295,15 @@ impl Connection {
         }
         if let Some(slot) = state.sessions.remove(&self.session_id) {
             let siblings = state.sessions.iter().map(|(id, other)| (*id, other.client_id.as_str()));
-            if !client_has_other_session(siblings, &slot.client_id, self.session_id) {
+            let last_of_client = !client_has_other_session(siblings, &slot.client_id, self.session_id);
+            // The ceiling goes first: once capture stops, the encoder no longer takes a new bitrate.
+            state.refresh_bitrate_ceiling();
+            if last_of_client {
                 state.video.detach(&slot.client_id);
                 state.video.stop_when_idle();
-                state.input.release_all();
+            }
+            state.release_input_if_idle();
+            if last_of_client {
                 state.terminals.disconnect(&slot.client_id);
             }
         }

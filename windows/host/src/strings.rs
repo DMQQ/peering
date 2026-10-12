@@ -30,7 +30,7 @@ pub const NO_DEVICES: &str = "No paired phones yet.";
 
 pub const START_AT_LOGIN: &str = "Start at login";
 pub const FIX_FIREWALL: &str = "Fix firewall";
-pub const FIREWALL_HINT: &str = "Windows asks once for permission to let phones reach this PC.";
+pub const FIREWALL_HINT: &str = "Windows asks once for permission to let phones reach this PC. This works on networks Windows calls Private: if this one is Public, switch it to Private in Windows settings.";
 pub const FIREWALL_REQUESTED: &str = "Approve the Windows prompt to add the firewall rule.";
 pub const FRAME_RATE_HEADING: &str = "Frame rate";
 pub const FRAME_RATE_NOTE: &str = "A phone can still ask for its own frame rate.";
@@ -62,6 +62,10 @@ pub fn autostart_failed(reason: &str) -> String {
 
 pub fn frame_rate_label(fps: u32) -> String {
     format!("{fps} fps")
+}
+
+pub fn host_stopped(reason: &str) -> String {
+    format!("Host stopped: {reason}")
 }
 
 pub fn connected_clients(count: usize) -> String {

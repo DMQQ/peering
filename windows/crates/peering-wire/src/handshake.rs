@@ -6,6 +6,8 @@ use crate::swift_enum::{base64_bytes, base64_bytes_option};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+pub use crate::video_transport::{VideoKeyGrant, VideoTransportKind, VideoTransportRequest};
+
 /// Declares a struct of optional capability flags. Absent or `null` reads as `None`, which means unsupported.
 macro_rules! capability_flags {
     ($name:ident { $($field:ident),* $(,)? }) => {
@@ -168,27 +170,6 @@ impl ErrorPayload {
         let payload = Self { code: Self::HOST_STOPPED_CODE.to_owned(), message: "Hosting stopped on this PC.".to_owned() };
         Frame::new(MessageKind::Error, serde_json::to_vec(&payload).expect("an error payload always serialises"))
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VideoKeyGrant {
-    #[serde(with = "base64_bytes")]
-    pub secret: Vec<u8>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum VideoTransportKind {
-    Primary,
-    Control,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VideoTransportRequest {
-    pub transport: VideoTransportKind,
-    pub reason: String,
 }
 
 #[cfg(test)]

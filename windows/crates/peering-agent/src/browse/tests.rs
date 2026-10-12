@@ -198,3 +198,9 @@ fn a_listing_past_the_entry_cap_is_cut_and_marked_truncated() {
         other => panic!("expected a directory, got {other:?}"),
     }
 }
+
+#[test]
+fn a_reserved_device_name_is_not_a_folder_to_open() {
+    let browser = AgentBrowser::new(FakeLister::default(), PROFILE);
+    assert!(matches!(browser.browse(Some("/C:/Users/nul")), AgentEvent::BrowseFailure { .. }));
+}

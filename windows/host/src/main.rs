@@ -58,8 +58,12 @@ fn run_host(ready: mpsc::Sender<HostHandle>) -> Result<(), RuntimeError> {
         name: host_name,
     };
     let runtime = HostRuntime::new(profile, services)?;
-    if ready.send(runtime.handle()).is_err() {
+    let handle = runtime.handle();
+    if ready.send(handle.clone()).is_err() {
         return Ok(());
     }
-    runtime.run(RuntimeConfig { port: DEFAULT_PORT, relay: Some(relay) }, identity)
+    let result = runtime.run(RuntimeConfig { port: DEFAULT_PORT, relay: Some(relay) }, identity);
+    // The port is bound after the handle is sent, so a bind or advertise failure reaches the window only this way.
+    handle.report_stopped(result.as_ref().err().map_or_else(|| "it was stopped".to_owned(), ToString::to_string));
+    result
 }

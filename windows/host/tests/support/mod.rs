@@ -26,7 +26,7 @@ use peering_core::pairing::PairingOffer;
 use peering_host::runtime::{HostProfile, HostRuntime, HostServices, PeerInfo, TerminalServices};
 use peering_wire::command::RemoteCommand;
 use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
-use peering_wire::handshake::{ClientHello, PairConfirm, PairResult, ServerHello};
+use peering_wire::handshake::{ClientCapabilities, ClientHello, PairConfirm, PairResult, ServerHello};
 use peering_wire::source::{CaptureSource, NormalizedPoint};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -276,7 +276,7 @@ pub fn hello() -> Frame {
         client_name: CLIENT_NAME.to_owned(),
         protocol_version: PROTOCOL_VERSION,
         wants_pairing: true,
-        capabilities: Default::default(),
+        capabilities: ClientCapabilities { supports_agent_chat: Some(true), ..Default::default() },
         resume_source: None,
         lost_pairing: None,
         client_platform: Some("android".to_owned()),

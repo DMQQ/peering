@@ -36,11 +36,37 @@ fn is_drive(segment: &str) -> bool {
     )
 }
 
-/// A single name below a drive. `.` and `..` would move the path, and a backslash would add a level the wire
-/// did not name.
 fn is_name(segment: &str) -> bool {
-    !segment.is_empty()
-        && segment != "."
-        && segment != ".."
-        && !segment.contains(['\\', ':', '\0'])
+    peering_wire::path_segment::is_name(segment)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reserved_device_names_are_refused_with_or_without_an_extension() {
+        for name in ["con", "CON", "con.txt", "Nul.tar.gz", "aux", "PRN", "com1", "LPT9", "com0", "COM\u{b9}", "CONIN$", "con .txt"] {
+            assert_eq!(parse(&format!("/C:/{name}")), Err(InvalidPath), "{name}");
+        }
+    }
+
+    #[test]
+    fn names_that_only_resemble_devices_are_kept() {
+        for name in ["console", "com10", "com", "lpt", "auxiliary.txt", "nullable"] {
+            assert!(parse(&format!("/C:/{name}")).is_ok(), "{name}");
+        }
+    }
+
+    #[test]
+    fn trailing_dots_and_spaces_and_wildcards_are_refused() {
+        for name in ["file.", "file ", "a*b", "a?b", "a<b", "a|b", "a\"b"] {
+            assert_eq!(parse(&format!("/C:/Users/{name}")), Err(InvalidPath), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_device_name_below_a_folder_is_refused() {
+        assert_eq!(parse("/C:/Users/me/nul"), Err(InvalidPath));
+    }
 }

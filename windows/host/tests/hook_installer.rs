@@ -80,3 +80,20 @@ fn the_script_carries_the_token_and_exits_clean() {
     assert!(text.contains("x-peering-token: tok"));
     assert!(text.ends_with("exit /b 0\r\n"));
 }
+
+#[test]
+fn a_failed_write_leaves_the_previous_settings_untouched() {
+    let (_dir, files) = files();
+    fs::create_dir_all(files.settings.parent().expect("parent")).expect("folder");
+    fs::write(&files.settings, r#"{"model":"opus"}"#).expect("seed");
+    fs::create_dir(files.settings.with_extension("json.peering-tmp")).expect("a folder where the temporary file goes");
+    assert!(files.install(1, "a").is_err());
+    assert_eq!(fs::read_to_string(&files.settings).expect("settings"), r#"{"model":"opus"}"#);
+}
+
+#[test]
+fn a_successful_write_leaves_no_temporary_file_behind() {
+    let (_dir, files) = files();
+    files.install(1, "a").expect("installs");
+    assert!(!files.settings.with_extension("json.peering-tmp").exists());
+}

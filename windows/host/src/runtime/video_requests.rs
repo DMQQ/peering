@@ -1,11 +1,13 @@
 //! The client's video requests on the control connection: the key for the relayed lane, and moving the picture between the
 //! relayed lane and the control connection. Both are answered where the request arrives, so neither waits on the pump.
 
+use peering_core::video::lane::lowest_ceiling_kbps;
 use peering_wire::framing::Frame;
 use peering_wire::handshake::VideoTransportRequest;
 
 use super::connection::{Connection, Flow};
 use super::random::SystemRandomSource;
+use super::shared::HostState;
 
 impl Connection {
     /// Grants this session's relayed lane its key. A session without a running lane is not granted one, so the picture stays
@@ -38,12 +40,19 @@ impl Connection {
         };
         let now = self.now();
         let mut guard = self.shared.lock();
-        let state = &mut *guard;
-        if let Some(slot) = state.sessions.get_mut(&self.session_id) {
+        if let Some(slot) = guard.sessions.get_mut(&self.session_id) {
             slot.lane.handle_transport_request(&request, now);
-            let ceiling = slot.lane.bitrate_ceiling_kbps();
-            state.video.set_bitrate_ceiling(ceiling);
+            guard.refresh_bitrate_ceiling();
         }
         Flow::Open
+    }
+}
+
+impl HostState {
+    /// One encoder serves every session, so it runs at the lowest ceiling any of them needs. A session that left no longer
+    /// counts, and neither does one whose picture is back on the primary lane.
+    pub fn refresh_bitrate_ceiling(&mut self) {
+        let ceiling = lowest_ceiling_kbps(self.sessions.values().map(|slot| slot.lane.bitrate_ceiling_kbps()));
+        self.video.set_bitrate_ceiling(ceiling);
     }
 }
