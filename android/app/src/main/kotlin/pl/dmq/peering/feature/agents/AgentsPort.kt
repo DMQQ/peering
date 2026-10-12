@@ -1,0 +1,35 @@
+package pl.dmq.peering.feature.agents
+
+import kotlinx.coroutines.flow.StateFlow
+import pl.dmq.peering.session.agent.ApprovalAnswer
+import pl.dmq.peering.session.agent.AgentChatState
+import pl.dmq.peering.wire.AgentPermissionMode
+
+/**
+ * What the agents screens ask of the session layer. The session controller implements it by sending the matching
+ * request, and forwards the Mac's browse events to [FolderPicker.onEvent].
+ */
+interface AgentsPort {
+    val chats: StateFlow<AgentChatState>
+
+    fun list()
+
+    fun start(agentID: String, directory: String?)
+
+    fun select(sessionID: String)
+
+    fun close(sessionID: String)
+
+    fun prompt(sessionID: String, text: String)
+
+    fun approve(sessionID: String, approvalID: String, answer: ApprovalAnswer)
+
+    fun interrupt(sessionID: String)
+
+    fun setPermissionMode(sessionID: String, mode: AgentPermissionMode)
+
+    fun setModel(sessionID: String, model: String?)
+
+    /** Asks the Mac to list [path], or its home folder when null. */
+    fun browse(path: String?)
+}
