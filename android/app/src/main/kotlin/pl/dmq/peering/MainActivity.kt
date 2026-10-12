@@ -3,6 +3,7 @@ package pl.dmq.peering
 import android.graphics.Color
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,6 +21,7 @@ import pl.dmq.peering.ui.theme.PeeringTheme
 import pl.dmq.peering.ui.wiring.AppLock
 import pl.dmq.peering.ui.wiring.DeviceUnlock
 import pl.dmq.peering.ui.wiring.PreferencesFirstRunStore
+import pl.dmq.peering.ui.wiring.ScreenSecurity
 import pl.dmq.peering.widget.LockedLinkQueue
 import pl.dmq.peering.widget.WidgetLink
 
@@ -44,7 +46,12 @@ class MainActivity : FragmentActivity() {
             PreferencesFirstRunStore(preferences).reset()
         }
         appLock = AppLock(preferences)
-        locked = appLock.isEnabled() && DeviceUnlock.isAvailable(this)
+        val deviceLockAvailable = DeviceUnlock.isAvailable(this)
+        if (ScreenSecurity.lockLapsed(appLock.isEnabled(), deviceLockAvailable)) {
+            appLock.setEnabled(false)
+            Toast.makeText(this, R.string.connect_lock_lapsed, Toast.LENGTH_LONG).show()
+        }
+        locked = appLock.isEnabled() && deviceLockAvailable
         val preview = if (BuildConfig.DEBUG) intent.getStringExtra(PREVIEW_EXTRA) else null
         if (savedInstanceState == null) openWidgetLink(intent)
         setContent {
@@ -76,6 +83,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onStart() {
         super.onStart()
+        ScreenSecurity.apply(window, ScreenSecurity.hidesContent(appLock.isEnabled(), locked, sessionOnScreen = false))
         if (locked) requestUnlock()
     }
 

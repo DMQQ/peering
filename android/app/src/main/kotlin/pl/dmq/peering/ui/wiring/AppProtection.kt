@@ -23,15 +23,16 @@ internal fun rememberAppProtection(): AppProtection {
     val available = remember(context) { DeviceUnlock.isAvailable(context) }
     return AppProtection(enabled, available) { requested ->
         val activity = context.findActivity() as? FragmentActivity
+        fun store(on: Boolean) {
+            lock.setEnabled(on)
+            enabled = on
+            activity?.let { ScreenSecurity.apply(it.window, ScreenSecurity.hidesContent(on, lockShowing = false, sessionOnScreen = false)) }
+        }
         if (!requested || activity == null) {
-            lock.setEnabled(false)
-            enabled = false
+            store(false)
         } else {
             DeviceUnlock.prompt(activity, reason) { confirmed ->
-                if (confirmed) {
-                    lock.setEnabled(true)
-                    enabled = true
-                }
+                if (confirmed) store(true)
             }
         }
     }

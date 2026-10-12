@@ -27,6 +27,7 @@ import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringTheme
 import pl.dmq.peering.ui.wiring.AppLock
 import pl.dmq.peering.ui.wiring.DeviceUnlock
+import pl.dmq.peering.ui.wiring.ScreenSecurity
 import pl.dmq.peering.ui.wiring.hubShouldClose
 
 /**
@@ -53,6 +54,7 @@ class HubActivity : FragmentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
         window.isNavigationBarContrastEnforced = false
+        ScreenSecurity.apply(window, ScreenSecurity.hidesContent(lockEnabled = false, lockShowing = false, sessionOnScreen = true))
         appLock = AppLock(getSharedPreferences(MainActivity.PREFERENCES_NAME, MODE_PRIVATE))
         lifecycleScope.launch {
             dependencies.active
