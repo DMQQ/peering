@@ -133,6 +133,7 @@ extension MacSession {
                     deliberate: userEnded,
                     path: Self.activityPath(connectionPath)
                 )
+                if phase == .ready { LiveActivityTokens.shared.sendAll(to: wire) }
             }
 
             if !phase.holdsSession {
