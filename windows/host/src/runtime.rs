@@ -25,6 +25,7 @@ mod notifications;
 mod outbound;
 mod pins;
 mod pre_auth;
+mod problem_source;
 mod random;
 mod ready;
 mod relay;
@@ -73,6 +74,7 @@ use control::ControlChannel;
 use notifications::WaitingNotifications;
 use peer_address::PeerAddressRouter;
 use pins::SecretPins;
+use problem_source::ProblemSource;
 use services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
 use shared::{HostState, Shared};
 use video_handle::VideoHandle;
@@ -170,7 +172,7 @@ impl HostRuntime {
         };
         let mut state = state;
         if let Some(problem) = pins_problem {
-            state.set_problem("pairedDevices", problem);
+            state.set_problem(ProblemSource::PairedDevices, problem);
         }
         let (approvals, _unused_receiver) = broadcast::channel::<ApprovalDecision>(APPROVAL_CHANNEL_DEPTH);
         let (commands, command_inbox) = mpsc::channel();
@@ -195,7 +197,7 @@ impl HostRuntime {
 
     /// The UI's end of the host: the snapshot it reads and the commands it sends. Clone it freely.
     pub fn handle(&self) -> HostHandle {
-        let published = self.shared.control.lock().unwrap_or_else(std::sync::PoisonError::into_inner).published.clone();
+        let published = lock::lock_ignoring_poison(&self.shared.control).published.clone();
         HostHandle::new(published, self.commands.clone())
     }
 
@@ -277,7 +279,7 @@ impl HostRuntime {
 
     fn spawn_pumps(&self) -> PumpTasks {
         let meter = supervise::PassMeter::new();
-        let published = self.shared.control.lock().unwrap_or_else(std::sync::PoisonError::into_inner).published.clone();
+        let published = lock::lock_ignoring_poison(&self.shared.control).published.clone();
         supervise::spawn_hang_monitor(&meter, published);
         PumpTasks {
             video: video_pass::spawn_pump(self.shared.clone(), self.profile.clone(), meter),
@@ -340,7 +342,7 @@ fn watch_relay(shared: Shared, task: JoinHandle<()>) {
         let outcome = task.await;
         let mut state = shared.lock();
         state.relay = RelayStatus::Off;
-        state.set_problem("relay", crate::strings::relay_task_stopped(&task_end_text(&outcome)));
+        state.set_problem(ProblemSource::Relay, crate::strings::relay_task_stopped(&task_end_text(&outcome)));
     });
 }
 

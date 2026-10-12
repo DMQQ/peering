@@ -1,7 +1,7 @@
 //! The adapters a runtime is built from. The Windows set is compiled on Windows only; elsewhere the fakes stand in, so the
 //! host logic runs and is tested on any OS. The wrappers let the video coordinator and the runtime share one capture.
 
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use peering_agent::availability::BinaryLocator;
 use peering_core::files::vfs::{FileSystem, FsError, RawEntry};
@@ -38,6 +38,7 @@ mod windows;
 #[cfg(not(windows))]
 mod fakes;
 
+use super::lock::lock_ignoring_poison;
 use super::RuntimeError;
 
 /// What terminals run on: the pseudo console, the shells this PC has, where a new one starts and the environment it gets.
@@ -72,7 +73,7 @@ impl SharedCapture {
     }
 
     fn locked(&self) -> MutexGuard<'_, Box<dyn Capture + Send>> {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+        lock_ignoring_poison(&self.0)
     }
 
     pub fn displays(&self) -> Vec<DisplayInfo> {

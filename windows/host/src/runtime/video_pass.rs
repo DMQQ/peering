@@ -17,6 +17,7 @@ use tokio::time::{interval, MissedTickBehavior};
 use super::control::{publish, take_commands};
 use super::diagnostics;
 use super::lock::lock_ignoring_poison;
+use super::problem_source::ProblemSource;
 use super::shared::{HostState, Shared};
 use super::supervise::{record_problem, Pass, PassMeter, Supervised};
 use super::video::{deliver, Outgoing};
@@ -63,12 +64,12 @@ impl HostState {
         let outputs = match outputs {
             Ok(outputs) => outputs,
             Err(error) => {
-                self.set_problem("video", crate::strings::capture_recovering(&error.to_string()));
+                self.set_problem(ProblemSource::Video, crate::strings::capture_recovering(&error.to_string()));
                 return (outgoing, Some(error));
             }
         };
         if video.lock().recovery_failures() == 0 {
-            self.clear_problem("video");
+            self.clear_problem(ProblemSource::Video);
         }
         for output in &outputs {
             self.route(output, &sessions, now, &mut outgoing);
@@ -159,14 +160,14 @@ pub async fn run_pump(shared: Shared, profile: Arc<HostProfile>, meter: Arc<Pass
         meter.begin();
         if video.ready(now) {
             let outcome = run_video_pass(&shared, &profile, now).await;
-            let pass = video.settle(now, outcome, |text| record_problem(&shared, "video", text));
+            let pass = video.settle(now, outcome, |text| record_problem(&shared, ProblemSource::Video, text));
             match pass {
                 Pass::Done(finished) => deliver_pass(&shared, finished, &mut failures, now),
                 Pass::Panicked => shared.lock().reset_after_video_panic(now),
                 Pass::Skipped => {}
             }
         }
-        let terminal_pass = terminals.run(now, || shared.lock().pump_terminals(), |text| record_problem(&shared, "terminals", text));
+        let terminal_pass = terminals.run(now, || shared.lock().pump_terminals(), |text| record_problem(&shared, ProblemSource::Terminals, text));
         if let Pass::Done(terminal_output) = terminal_pass {
             deliver(terminal_output);
         }

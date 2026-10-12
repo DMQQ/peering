@@ -2,7 +2,7 @@
 //! they send back. Both are plain data, so they cross from the runtime thread to the UI thread.
 
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex};
 
 use peering_core::pairing::ApprovalDecision;
 use peering_core::ports::input::InputSink;
@@ -10,6 +10,7 @@ use peering_core::session::slots::sessions_of_client;
 use peering_wire::handshake::ErrorPayload;
 use peering_wire::pairing_payload;
 
+use super::lock::lock_ignoring_poison;
 use super::shared::HostState;
 
 const PUBLISH_INTERVAL_SECONDS: f64 = 1.0;
@@ -88,12 +89,12 @@ impl HostHandle {
     }
 
     pub fn snapshot(&self) -> HostSnapshot {
-        self.published.lock().unwrap_or_else(PoisonError::into_inner).clone()
+        lock_ignoring_poison(&self.published).clone()
     }
 
     /// Records that the runtime ended, so the window says why instead of showing its last healthy snapshot.
     pub fn report_stopped(&self, reason: String) {
-        let mut published = self.published.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut published = lock_ignoring_poison(&self.published);
         published.hosting = false;
         published.connected_clients = 0;
         published.stopped = Some(reason);
@@ -217,12 +218,9 @@ impl ControlChannel {
 
 /// Writes a snapshot built under the state lock into the slot `publish_due` named.
 pub(super) fn publish(slot: &Mutex<HostSnapshot>, snapshot: HostSnapshot) {
-    *lock(slot) = snapshot;
+    *lock_ignoring_poison(slot) = snapshot;
 }
 
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
-}
 
 #[cfg(test)]
 mod tests {

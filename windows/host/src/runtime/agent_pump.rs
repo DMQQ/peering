@@ -7,6 +7,7 @@ use std::time::Duration;
 use tokio::task::{spawn_local, JoinHandle};
 use tokio::time::interval;
 
+use super::problem_source::ProblemSource;
 use super::shared::{HostState, Shared};
 use super::supervise::{record_problem, Pass, Supervised};
 use super::video::{deliver, Outgoing};
@@ -41,7 +42,7 @@ fn supervised_pass(
     now: f64,
     pass: impl FnOnce(&mut HostState) -> Vec<Outgoing>,
 ) -> Vec<Outgoing> {
-    let result = supervised.run(now, || pass(&mut shared.lock()), |text| record_problem(shared, "agents", text));
+    let result = supervised.run(now, || pass(&mut shared.lock()), |text| record_problem(shared, ProblemSource::Agents, text));
     match result {
         Pass::Done(outgoing) => outgoing,
         Pass::Skipped | Pass::Panicked => Vec::new(),
@@ -77,12 +78,12 @@ mod tests {
         let mut supervised = Supervised::new("agents");
         let none = supervised_pass(&mut supervised, &shared, 1.0, |_| panic!("the adapter broke"));
         assert!(none.is_empty());
-        assert!(shared.lock().problems.get("agents").is_some_and(|text| text.contains("the adapter broke")));
+        assert!(shared.lock().problems.get(&ProblemSource::Agents).is_some_and(|text| text.contains("the adapter broke")));
 
         let held_off = supervised_pass(&mut supervised, &shared, 1.1, |_| panic!("must not run inside the backoff"));
         assert!(held_off.is_empty());
 
         let _ = supervised_pass(&mut supervised, &shared, 2.0, |_| Vec::new());
-        assert!(shared.lock().problems.get("agents").is_none());
+        assert!(shared.lock().problems.get(&ProblemSource::Agents).is_none());
     }
 }

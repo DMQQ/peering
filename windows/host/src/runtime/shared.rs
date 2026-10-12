@@ -4,7 +4,7 @@
 //! taken alone, never with another lock held.
 
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use peering_agent::availability::AgentAvailability;
 use peering_agent::manager::ClientAgents;
@@ -21,12 +21,13 @@ use tokio::sync::broadcast;
 
 use super::control::{ControlChannel, RelayStatus};
 use super::diagnostics;
-use super::lock::lock_clearing_poison;
+use super::lock::{lock_clearing_poison, lock_ignoring_poison};
 use super::agent::StdLauncher;
 use super::agent_browse::FolderBrowser;
 use super::notifications::WaitingNotifications;
 use super::outbound::{FrameSender, Outbound};
 use super::peer_address::PeerAddressRouter;
+use super::problem_source::ProblemSource;
 use super::services::{BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
 use super::video_handle::VideoHandle;
 
@@ -77,18 +78,18 @@ pub struct HostState {
     pub hosting: bool,
     pub relay: RelayStatus,
     /// What is wrong right now, by source, for the window to show. A source clears its own entry when it recovers.
-    pub problems: BTreeMap<&'static str, String>,
+    pub problems: BTreeMap<ProblemSource, String>,
     /// Why the host ended, once it has. Kept here so the published snapshot does not overwrite it.
     pub stopped: Option<String>,
 }
 
 impl HostState {
-    pub fn set_problem(&mut self, source: &'static str, text: String) {
+    pub fn set_problem(&mut self, source: ProblemSource, text: String) {
         self.problems.insert(source, text);
     }
 
-    pub fn clear_problem(&mut self, source: &'static str) {
-        self.problems.remove(source);
+    pub fn clear_problem(&mut self, source: ProblemSource) {
+        self.problems.remove(&source);
     }
 
     /// Lifts the keys and buttons the remote held, once no session is left to hold them. A phone that reconnects before
@@ -167,7 +168,7 @@ impl Shared {
     }
 
     pub fn peer_addresses(&self) -> MutexGuard<'_, PeerAddressRouter> {
-        self.peer_addresses.lock().unwrap_or_else(PoisonError::into_inner)
+        lock_ignoring_poison(&self.peer_addresses)
     }
 }
 

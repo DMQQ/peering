@@ -3,11 +3,13 @@
 //! is never read as empty: the bytes are copied aside, the stored list is left untouched, and every change is refused
 //! until the person deals with it.
 
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use peering_core::ports::secret_store::{SecretStore, StoreError};
 use peering_core::session::deps::{PairedDevice, PinStore};
 use serde::{Deserialize, Serialize};
+
+use super::lock::lock_ignoring_poison;
 
 const STORAGE_NAME: &str = "pairedDevices";
 /// Secret names cannot hold a dot, so the kept copy is `pairedDevices-bad` rather than `pairedDevices.bad`.
@@ -52,7 +54,7 @@ impl SecretPins {
     }
 
     fn locked(&self) -> MutexGuard<'_, Vec<PairedDevice>> {
-        self.devices.lock().unwrap_or_else(PoisonError::into_inner)
+        lock_ignoring_poison(&self.devices)
     }
 
     fn save(&self, devices: &[PairedDevice]) -> bool {

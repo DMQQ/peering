@@ -27,6 +27,7 @@ use super::control::RelayStatus;
 use super::diagnostics;
 use super::peer_address::{peer_socket_addr, signalling_channel};
 use super::pre_auth::{PreAuthGate, PreAuthPermit};
+use super::problem_source::ProblemSource;
 use super::random::unit_fraction;
 use super::shared::Shared;
 use super::{HostProfile, PeerInfo, RelayConfig, VideoEndpoint};
@@ -102,7 +103,7 @@ async fn serve_connection(
                     pending = registration.on_message(message, clock);
                     if registration.is_registered() {
                         set_relay_status(shared, RelayStatus::Registered);
-                        shared.lock().clear_problem("relay-clock");
+                        shared.lock().clear_problem(ProblemSource::RelayClock);
                     }
                 }
                 Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
@@ -134,7 +135,7 @@ fn report_link_down(shared: &Shared, fault: Option<RelayFault>) {
     match fault {
         Some(RelayFault::ClockSkew) => {
             state.relay = RelayStatus::ClockSkew;
-            state.set_problem("relay-clock", crate::strings::RELAY_CLOCK_SKEW_PROBLEM.to_owned());
+            state.set_problem(ProblemSource::RelayClock, crate::strings::RELAY_CLOCK_SKEW_PROBLEM.to_owned());
         }
         None => state.relay = RelayStatus::Retrying,
     }

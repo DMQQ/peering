@@ -4,7 +4,7 @@
 
 use std::any::Any;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::{Arc, Mutex, PoisonError, Weak};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
 
 use peering_core::supervision::{PassGuard, PassWatch};
@@ -12,6 +12,8 @@ use peering_core::video::recovery::LogGate;
 
 use super::control::HostSnapshot;
 use super::diagnostics;
+use super::lock::lock_ignoring_poison;
+use super::problem_source::ProblemSource;
 use super::shared::Shared;
 
 const MONITOR_INTERVAL: Duration = Duration::from_secs(1);
@@ -74,7 +76,7 @@ pub(super) enum Pass<R> {
 }
 
 /// Shows or clears `source`'s problem in the shared state.
-pub(super) fn record_problem(shared: &Shared, source: &'static str, text: Option<String>) {
+pub(super) fn record_problem(shared: &Shared, source: ProblemSource, text: Option<String>) {
     let mut state = shared.lock();
     match text {
         Some(text) => state.set_problem(source, text),
@@ -106,7 +108,7 @@ impl PassMeter {
     }
 
     fn watch(&self) -> std::sync::MutexGuard<'_, PassWatch> {
-        self.watch.lock().unwrap_or_else(PoisonError::into_inner)
+        lock_ignoring_poison(&self.watch)
     }
 
     pub(super) fn begin(&self) {
@@ -133,7 +135,7 @@ pub(super) fn spawn_hang_monitor(meter: &Arc<PassMeter>, published: Arc<Mutex<Ho
         let Some(meter) = meter.upgrade() else { return };
         let Some(seconds) = meter.hung_for() else { continue };
         let text = crate::strings::pass_hung(seconds);
-        let mut snapshot = published.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut snapshot = lock_ignoring_poison(&published);
         snapshot.problems.retain(|problem| !problem.starts_with(crate::strings::PASS_HUNG_PREFIX));
         snapshot.problems.push(text);
     });

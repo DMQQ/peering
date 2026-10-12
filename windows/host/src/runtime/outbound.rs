@@ -2,11 +2,13 @@
 //! channel it has a high-water mark: see `peering_core::outbound` for the policy.
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use peering_core::outbound::{OutboundQueue, Pushed, Queued};
 use peering_wire::framing::Frame;
 use tokio::sync::{watch, Notify};
+
+use super::lock::lock_ignoring_poison;
 
 struct Inner<T: Queued> {
     queue: Mutex<OutboundQueue<T>>,
@@ -19,7 +21,7 @@ struct Inner<T: Queued> {
 
 impl<T: Queued> Inner<T> {
     fn queue(&self) -> MutexGuard<'_, OutboundQueue<T>> {
-        self.queue.lock().unwrap_or_else(PoisonError::into_inner)
+        lock_ignoring_poison(&self.queue)
     }
 
     async fn wait_for_overflow(&self) {

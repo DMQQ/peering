@@ -3,10 +3,12 @@
 //! a small share of it, so one host cannot fill it for everyone else.
 
 use std::net::IpAddr;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 
 use peering_core::admission::{AddressKey, PerKeyLimit, PER_ADDRESS_LIMIT};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+
+use super::lock::lock_ignoring_poison;
 
 pub const MAXIMUM_PRE_AUTH_CONNECTIONS: usize = 32;
 
@@ -27,7 +29,7 @@ pub struct PreAuthPermit {
 impl Drop for PreAuthPermit {
     fn drop(&mut self) {
         if let Some((addresses, key)) = self.share.take() {
-            addresses.lock().unwrap_or_else(PoisonError::into_inner).leave(key);
+            lock_ignoring_poison(&addresses).leave(key);
         }
     }
 }
@@ -46,12 +48,12 @@ impl PreAuthGate {
     /// and the caller drops the new connection.
     pub fn enter_from(&self, address: IpAddr) -> Option<PreAuthPermit> {
         let key = AddressKey::of(address);
-        if !self.addresses.lock().unwrap_or_else(PoisonError::into_inner).enter(key) {
+        if !lock_ignoring_poison(&self.addresses).enter(key) {
             return None;
         }
         let slot = self.slots.clone().try_acquire_owned().ok();
         let Some(slot) = slot else {
-            self.addresses.lock().unwrap_or_else(PoisonError::into_inner).leave(key);
+            lock_ignoring_poison(&self.addresses).leave(key);
             return None;
         };
         Some(PreAuthPermit { _slot: slot, share: Some((self.addresses.clone(), key)) })
