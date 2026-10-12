@@ -25,6 +25,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.theme.CompactKeyShape
+import pl.dmq.peering.ui.theme.KeyboardBarShape
 import pl.dmq.peering.ui.kit.SessionIcons
 import pl.dmq.peering.ui.kit.blockTouches
 import pl.dmq.peering.ui.kit.sessionSurface
@@ -49,9 +51,9 @@ class KeyboardKeys(
  * delete. The dock and the pointer are behind the keyboard, so these are the keys a phone keyboard lacks.
  */
 @Composable
-fun KeyboardBar(keys: KeyboardKeys, modifier: Modifier = Modifier) {
+fun KeyboardBar(keys: KeyboardKeys, modifier: Modifier = Modifier, landscape: Boolean = false) {
     Column(
-        modifier = modifier.fillMaxWidth().sessionSurface(peeringShapes.medium).blockTouches().padding(horizontal = 14.dp, vertical = 12.dp),
+        modifier = modifier.fillMaxWidth().sessionSurface(KeyboardBarShape).blockTouches().padding(horizontal = 14.dp, vertical = if (landscape) 8.dp else 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         TypedLine(keys.typed)
@@ -63,21 +65,28 @@ fun KeyboardBar(keys: KeyboardKeys, modifier: Modifier = Modifier) {
                 CompactKey(SessionIcons.tab, stringResource(R.string.remote_key_tab), { keys.onKey(TAB) })
             }
             Spacer(Modifier.weight(1f))
+            if (landscape) ArrowStrip(keys)
             CompactKey(SessionIcons.enter, stringResource(R.string.remote_key_enter), keys.onEnter, large = true)
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)) {
-            CompactKey(SessionIcons.left, stringResource(R.string.remote_arrow_left), { keys.onKey(LEFT) })
-            CompactKey(SessionIcons.up, stringResource(R.string.remote_arrow_up), { keys.onKey(UP) })
-            CompactKey(SessionIcons.down, stringResource(R.string.remote_arrow_down), { keys.onKey(DOWN) })
-            CompactKey(SessionIcons.right, stringResource(R.string.remote_arrow_right), { keys.onKey(RIGHT) })
-            CompactKey(SessionIcons.delete, stringResource(R.string.remote_key_delete), keys.onDelete)
-        }
+        if (!landscape) ArrowStrip(keys, Modifier.fillMaxWidth())
+    }
+}
+
+/** Left, up, down, right and delete: under the keys in portrait, in their row in landscape where a third row does not fit. */
+@Composable
+private fun ArrowStrip(keys: KeyboardKeys, modifier: Modifier = Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)) {
+        CompactKey(SessionIcons.left, stringResource(R.string.remote_arrow_left), { keys.onKey(LEFT) })
+        CompactKey(SessionIcons.up, stringResource(R.string.remote_arrow_up), { keys.onKey(UP) })
+        CompactKey(SessionIcons.down, stringResource(R.string.remote_arrow_down), { keys.onKey(DOWN) })
+        CompactKey(SessionIcons.right, stringResource(R.string.remote_arrow_right), { keys.onKey(RIGHT) })
+        CompactKey(SessionIcons.delete, stringResource(R.string.remote_key_delete), keys.onDelete)
     }
 }
 
 @Composable
 private fun TypedLine(typed: String) {
-    val shape = peeringShapes.extraSmall
+    val shape = CompactKeyShape
     Box(
         Modifier
             .fillMaxWidth()
@@ -100,14 +109,14 @@ private fun TypedLine(typed: String) {
 internal fun CompactKey(icon: ImageVector, label: String, onClick: () -> Unit, filled: Boolean = false, large: Boolean = false) {
     Box(
         Modifier
-            .size(width = if (large) 48.dp else 40.dp, height = if (large) 44.dp else 36.dp)
-            .clip(peeringShapes.extraSmall)
+            .size(width = if (large) 54.dp else 40.dp, height = if (large) 42.dp else 32.dp)
+            .clip(CompactKeyShape)
             .background(if (filled) PeeringColors.ink else PeeringColors.ink.copy(alpha = 0.1f))
             .tappable(onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = if (filled) PeeringColors.onInk else PeeringColors.ink, modifier = Modifier.size(22.dp))
+        Icon(icon, contentDescription = null, tint = if (filled) PeeringColors.onInk else PeeringColors.ink, modifier = Modifier.size(if (large) 22.dp else 18.dp))
     }
 }
 

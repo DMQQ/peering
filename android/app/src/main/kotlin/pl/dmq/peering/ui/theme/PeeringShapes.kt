@@ -24,3 +24,11 @@ val PillShape: Shape = RoundedCornerShape(percent = 50)
 /** Corners of the terminal keys, the iPhone's 7 for a single key and 9 for the wider ellipsis and the joined arrows. */
 val KeyShape = RoundedCornerShape(7.dp)
 val KeyGroupShape = RoundedCornerShape(9.dp)
+
+/** The session chrome's radii, as the phone draws them. */
+val PanelShape = RoundedCornerShape(22.dp)
+val KeyboardBarShape = RoundedCornerShape(20.dp)
+val DockCollapsedShape = RoundedCornerShape(35.dp)
+val DockExpandedShape = RoundedCornerShape(28.dp)
+val ChipKeyShape = RoundedCornerShape(9.dp)
+val CompactKeyShape = RoundedCornerShape(10.dp)

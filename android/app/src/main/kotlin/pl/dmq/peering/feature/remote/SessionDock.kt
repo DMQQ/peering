@@ -26,6 +26,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.theme.DockCollapsedShape
+import pl.dmq.peering.ui.theme.DockExpandedShape
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.SessionIcons
 import pl.dmq.peering.ui.kit.blockTouches
@@ -33,7 +35,6 @@ import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PillShape
-import pl.dmq.peering.ui.theme.peeringShapes
 
 /**
  * The dock: pages of equal buttons that snap one page per swipe, a chevron at its end that opens it into a wrapped grid,
@@ -55,7 +56,7 @@ fun SessionDock(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .sessionSurface(peeringShapes.large)
+                        .sessionSurface(DockExpandedShape)
                         .blockTouches()
                         .padding(ChromeMetrics.railPadding),
                     verticalAlignment = Alignment.CenterVertically,
@@ -71,7 +72,7 @@ fun SessionDock(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .sessionSurface(peeringShapes.medium)
+                        .sessionSurface(DockCollapsedShape)
                         .blockTouches()
                         .padding(ChromeMetrics.railPadding),
                     verticalAlignment = Alignment.CenterVertically,

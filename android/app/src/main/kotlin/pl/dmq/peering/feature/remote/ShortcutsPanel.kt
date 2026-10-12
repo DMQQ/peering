@@ -7,16 +7,19 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.text.style.TextOverflow
+import pl.dmq.peering.ui.theme.PillShape
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,12 +36,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.theme.ChipKeyShape
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.SessionIcons
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
-import pl.dmq.peering.ui.theme.peeringShapes
 
 /** What the Shortcuts panel sends and edits. */
 class ShortcutsActions(
@@ -68,16 +71,7 @@ fun ShortcutsPanel(
     val sets = listOfNotNull(ShortcutSet.APPLICATION.takeIf { profile != null }, ShortcutSet.MACROS, ShortcutSet.FUNCTION_KEYS)
     val shown = chosen?.takeIf { it in sets } ?: sets.first()
     Column(modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            sets.forEachIndexed { index, set ->
-                SegmentedButton(
-                    selected = set == shown,
-                    onClick = { chosen = set },
-                    shape = SegmentedButtonDefaults.itemShape(index, sets.size),
-                    label = { Text(setTitle(set, profile), maxLines = 1) },
-                )
-            }
-        }
+        SetPicker(sets.map { it to setTitle(it, profile) }, shown) { chosen = it }
         Column(Modifier.heightIn(max = SETS_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
             when (shown) {
                 ShortcutSet.APPLICATION -> profile?.let { ApplicationKeys(it, actions) }
@@ -87,6 +81,28 @@ fun ShortcutsPanel(
         }
         ModifierRow(latches, actions.onModifier)
         ArrowCluster(actions)
+    }
+}
+
+/** The phone's segmented control: a track with the chosen set lifted on it. */
+@Composable
+private fun <T> SetPicker(items: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
+    Row(Modifier.fillMaxWidth().height(32.dp).clip(PillShape).background(PeeringColors.ink.copy(alpha = 0.1f)).padding(2.dp)) {
+        items.forEach { (item, title) ->
+            val on = item == selected
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(PillShape)
+                    .background(if (on) PeeringColors.ink.copy(alpha = 0.16f) else Color.Transparent)
+                    .tappable({ onSelect(item) })
+                    .semantics { this.selected = on },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(title, style = PeeringText.subheadline, color = PeeringColors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 8.dp))
+            }
+        }
     }
 }
 
@@ -144,7 +160,7 @@ private fun ChipCell(chip: KeyChip, modifier: Modifier) {
     Box(
         modifier
             .heightIn(min = 44.dp)
-            .clip(peeringShapes.extraSmall)
+            .clip(ChipKeyShape)
             .background(PeeringColors.ink.copy(alpha = 0.1f))
             .tappable(chip.onClick)
             .semantics { contentDescription = chip.description },
@@ -174,7 +190,7 @@ private fun PanelKey(icon: ImageVector, label: String, width: Dp, onClick: () ->
     Box(
         Modifier
             .size(width = width, height = 40.dp)
-            .clip(peeringShapes.extraSmall)
+            .clip(ChipKeyShape)
             .background(PeeringColors.ink.copy(alpha = 0.1f))
             .tappable(onClick)
             .semantics { contentDescription = label },

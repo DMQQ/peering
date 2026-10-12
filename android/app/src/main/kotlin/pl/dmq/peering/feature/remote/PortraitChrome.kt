@@ -72,6 +72,6 @@ internal fun PortraitChrome(
 }
 
 private val DOCK_ESTIMATE: Dp = 80.dp
-private val DOCK_EXPANDED_HEIGHT: Dp = 62.dp * 3 + 4.dp + 8.dp + 16.dp
-private val STATUS_BAR_HEIGHT: Dp = 56.dp
+private val DOCK_EXPANDED_HEIGHT: Dp = ChromeMetrics.buttonHeight * 3 + ChromeMetrics.buttonGap * 2 + ChromeMetrics.railPadding * 2 + 6.dp + 10.dp
+private val STATUS_BAR_HEIGHT: Dp = 44.dp
 private val MIN_PANEL_HEIGHT: Dp = 140.dp
