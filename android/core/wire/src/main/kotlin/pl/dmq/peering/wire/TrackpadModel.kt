@@ -33,11 +33,27 @@ class TrackpadModel(
     var cursorY: Double = 0.5
         private set
 
+    private var travelWidth = canvasWidth
+    private var travelHeight = canvasHeight
+
     private val touches = LinkedHashMap<Int, Touch>()
     private var gestureStartMs = 0L
     private var gestureFingers = 0
     private var gestureTravelled = false
     private var dragging = false
+
+    /** Sets the pixels a finger crosses to sweep the cursor over the whole picture, one per axis. The default is the canvas. */
+    fun sweep(width: Double, height: Double) {
+        if (width <= 0 || height <= 0) return
+        travelWidth = width
+        travelHeight = height
+    }
+
+    /** Puts the cursor where the computer's pointer really is, so the next drag starts from there. Sends nothing. */
+    fun syncCursor(x: Double, y: Double) {
+        cursorX = x.coerceIn(0.0, 1.0)
+        cursorY = y.coerceIn(0.0, 1.0)
+    }
 
     fun onDown(id: Int, x: Double, y: Double, timeMs: Long): List<PointerAction> {
         if (touches.isEmpty()) startGesture(timeMs)
@@ -96,8 +112,8 @@ class TrackpadModel(
     }
 
     private fun moveCursor(dx: Double, dy: Double): PointerAction.MoveTo {
-        cursorX = (cursorX + dx / canvasWidth * sensitivity).coerceIn(0.0, 1.0)
-        cursorY = (cursorY + dy / canvasWidth * sensitivity).coerceIn(0.0, 1.0)
+        cursorX = (cursorX + dx / travelWidth * sensitivity).coerceIn(0.0, 1.0)
+        cursorY = (cursorY + dy / travelHeight * sensitivity).coerceIn(0.0, 1.0)
         return PointerAction.MoveTo(cursorX, cursorY)
     }
 

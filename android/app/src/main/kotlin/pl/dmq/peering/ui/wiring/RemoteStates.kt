@@ -39,6 +39,7 @@ internal fun remoteUiState(
         supportsMosaic = ready?.capabilities?.contains(HostCapability.Mosaic) == true,
         mosaic = mosaic,
         rememberedMosaic = session.rememberedMosaic,
+        hostPointer = session.hostPointer,
         clipboardImages = ready?.capabilities?.contains(HostCapability.ClipboardImages) == true,
     )
 }

@@ -21,6 +21,7 @@ import pl.dmq.peering.wire.TrackpadModel
 class RemoteCanvasPresenter(
     private val sink: CommandSink,
     mode: InputMode,
+    private val cursor: () -> NormalizedPoint = { NormalizedPoint(0.5, 0.5) },
 ) {
     private val uiState = MutableStateFlow(CanvasUiState.INITIAL)
     val state: StateFlow<CanvasUiState> = uiState.asStateFlow()
@@ -103,7 +104,10 @@ class RemoteCanvasPresenter(
         pointers[id] = CanvasPoint(x, y)
         if (mosaic != null) taps.down(id, x, y, timeMs, pointers.size)
         when {
-            effectiveMode == InputMode.TRACKPAD -> emit(model.onDown(id, x, y, timeMs))
+            effectiveMode == InputMode.TRACKPAD -> {
+                if (pointers.size == 1) cursor().let { model.syncCursor(it.x, it.y) }
+                emit(model.onDown(id, x, y, timeMs))
+            }
             effectiveMode == InputMode.DIRECT && pointers.size == 1 -> pressDirect(x, y)
         }
         if (pointers.size >= 2) releaseDirect(lastDirectPoint)
@@ -239,7 +243,9 @@ class RemoteCanvasPresenter(
     }
 
     private fun publish() {
-        uiState.value = CanvasUiState(viewport, fittedPicture()?.let(viewport::displayed))
+        val shown = fittedPicture()?.let(viewport::displayed)
+        if (shown != null) trackpad?.sweep(shown.width, shown.height)
+        uiState.value = CanvasUiState(viewport, shown)
     }
 
     private fun emit(actions: List<PointerAction>) {
