@@ -40,6 +40,7 @@ internal class ControllerRemoteModel(
         when (entry) {
             HubEntry.AGENTS -> onOpen(SessionRoute.AGENTS)
             HubEntry.FILES -> onOpen(SessionRoute.FILES)
+            HubEntry.TERMINAL -> onOpen(SessionRoute.TERMINAL)
             HubEntry.DISCONNECT -> onDisconnect()
             HubEntry.SOURCES, HubEntry.QUALITY -> Unit
         }
@@ -52,5 +53,9 @@ internal class ControllerRemoteModel(
     override fun onRelayUpgradeRequested() = onOpen(SessionRoute.PAYWALL)
 
     private fun hubCapabilities(): HubCapabilities =
-        HubCapabilities(agentChat = controller.agentChat != null, fileBrowser = controller.files != null)
+        HubCapabilities(
+            agentChat = controller.agentChat != null,
+            fileBrowser = controller.files != null,
+            terminal = controller.terminals != null,
+        )
 }

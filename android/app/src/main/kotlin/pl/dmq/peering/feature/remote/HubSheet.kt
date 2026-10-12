@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.feature.terminal.TerminalGlyphs
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.PeeringListItem
 import pl.dmq.peering.ui.kit.PeeringSheet
@@ -43,6 +44,7 @@ private fun HubEntry.icon(): ImageVector = when (this) {
     HubEntry.SOURCES -> AppIcons.display
     HubEntry.AGENTS -> AppIcons.sparkles
     HubEntry.FILES -> AppIcons.folder
+    HubEntry.TERMINAL -> TerminalGlyphs.terminal
     HubEntry.QUALITY -> AppIcons.tune
     HubEntry.DISCONNECT -> AppIcons.power
 }
@@ -51,6 +53,7 @@ private fun HubEntry.labelRes(): Int = when (this) {
     HubEntry.SOURCES -> R.string.hub_sources
     HubEntry.AGENTS -> R.string.hub_agents
     HubEntry.FILES -> R.string.hub_files
+    HubEntry.TERMINAL -> R.string.hub_terminal
     HubEntry.QUALITY -> R.string.hub_quality
     HubEntry.DISCONNECT -> R.string.hub_disconnect
 }

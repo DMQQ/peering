@@ -6,6 +6,7 @@ class HubPresenter {
         add(HubEntry.SOURCES)
         if (capabilities.agentChat) add(HubEntry.AGENTS)
         if (capabilities.fileBrowser) add(HubEntry.FILES)
+        if (capabilities.terminal) add(HubEntry.TERMINAL)
         add(HubEntry.QUALITY)
         add(HubEntry.DISCONNECT)
     }

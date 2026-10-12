@@ -4,6 +4,7 @@ enum class HubEntry {
     SOURCES,
     AGENTS,
     FILES,
+    TERMINAL,
     QUALITY,
     DISCONNECT,
 }
