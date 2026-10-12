@@ -15,11 +15,10 @@ private const val RELAY_TOKEN_SIZE = 16
  * Blocking calls; run them off the main thread.
  */
 class TlsFactory(private val credentials: TlsCredentials) {
-    fun open(host: String, port: Int, pin: ByteArray?, timeoutMs: Int): ControlTransport {
-        val trust = PinningTrustManager(pin)
-        val context = SSLContext.getInstance(PROTOCOL)
-        context.init(arrayOf(ClientKeyManager(credentials)), arrayOf(trust), SecureRandom())
-        val socket = context.socketFactory.createSocket() as SSLSocket
+    /** [firstPairing] must be set to connect without a [pin]; a known host with no pin is refused rather than trusted. */
+    fun open(host: String, port: Int, pin: ByteArray?, firstPairing: Boolean, timeoutMs: Int): ControlTransport {
+        val trust = PinningTrustManager(pin, firstPairing)
+        val socket = sslContext(trust).socketFactory.createSocket() as SSLSocket
         try {
             socket.tcpNoDelay = true
             socket.enabledProtocols = arrayOf(PROTOCOL)
@@ -41,6 +40,7 @@ class TlsFactory(private val credentials: TlsCredentials) {
         host: String,
         port: Int,
         pin: ByteArray?,
+        firstPairing: Boolean,
         timeoutMs: Int,
     ): ControlTransport {
         require(token.size == RELAY_TOKEN_SIZE) { "relay token must be $RELAY_TOKEN_SIZE bytes" }
@@ -54,17 +54,19 @@ class TlsFactory(private val credentials: TlsCredentials) {
             raw.close()
             throw failure
         }
-        return layerTls(raw, host, port, pin, timeoutMs)
+        return layerTls(raw, host, port, PinningTrustManager(pin, firstPairing), timeoutMs)
     }
 
-    private fun layerTls(raw: Socket, host: String, port: Int, pin: ByteArray?, timeoutMs: Int): ControlTransport {
-        val trust = PinningTrustManager(pin)
+    private fun sslContext(trust: PinningTrustManager): SSLContext =
+        SSLContext.getInstance(PROTOCOL).apply {
+            init(arrayOf(ClientKeyManager(credentials)), arrayOf(trust), SecureRandom())
+        }
+
+    private fun layerTls(raw: Socket, host: String, port: Int, trust: PinningTrustManager, timeoutMs: Int): ControlTransport {
         try {
             raw.tcpNoDelay = true
             raw.soTimeout = timeoutMs
-            val context = SSLContext.getInstance(PROTOCOL)
-            context.init(arrayOf(ClientKeyManager(credentials)), arrayOf(trust), SecureRandom())
-            val socket = context.socketFactory.createSocket(raw, host, port, true) as? SSLSocket
+            val socket = sslContext(trust).socketFactory.createSocket(raw, host, port, true) as? SSLSocket
                 ?: throw IllegalStateException("TLS socket factory did not return an SSL socket")
             socket.enabledProtocols = arrayOf(PROTOCOL)
             socket.startHandshake()

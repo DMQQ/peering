@@ -17,7 +17,7 @@ class PinningTrustManagerTest {
     @Test
     fun firstPairingAcceptsAnyKeyAndRecordsIt() {
         val peer = PeerCredentials.generate(folder.root, "first")
-        val trust = PinningTrustManager(pin = null)
+        val trust = PinningTrustManager(pin = null, firstPairing = true)
 
         trust.checkServerTrusted(peer.certificateChain().toTypedArray(), "ECDHE")
 
@@ -26,7 +26,7 @@ class PinningTrustManagerTest {
 
     @Test
     fun nothingIsRecordedBeforeAnyCheck() {
-        assertNull(PinningTrustManager(pin = null).observedKey())
+        assertNull(PinningTrustManager(pin = null, firstPairing = true).observedKey())
     }
 
     @Test
@@ -53,7 +53,7 @@ class PinningTrustManagerTest {
 
     @Test
     fun emptyChainIsRefused() {
-        val trust = PinningTrustManager(pin = null)
+        val trust = PinningTrustManager(pin = null, firstPairing = true)
 
         assertThrows(CertificateException::class.java) {
             trust.checkServerTrusted(emptyArray(), "ECDHE")
