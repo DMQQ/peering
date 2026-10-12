@@ -54,7 +54,7 @@ class SessionHistory private constructor(private val limit: Int, initial: List<S
         return true
     }
 
-    fun toJson(): String = STORAGE.encodeToString(ListSerializer(SessionRecord.serializer()), records)
+    fun toJson(): String = toJson(records)
 
     companion object {
         const val DEFAULT_LIMIT = 50
@@ -63,6 +63,8 @@ class SessionHistory private constructor(private val limit: Int, initial: List<S
             ignoreUnknownKeys = true
             encodeDefaults = true
         }
+
+        fun toJson(records: List<SessionRecord>): String = STORAGE.encodeToString(ListSerializer(SessionRecord.serializer()), records)
 
         /** Throws when the text is not a history: deciding what an unreadable store means is the caller's job. */
         fun fromJson(text: String, limit: Int = DEFAULT_LIMIT): SessionHistory {

@@ -8,10 +8,13 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.GeneralSecurityException
 import java.security.KeyStore
+import java.security.UnrecoverableKeyException
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import pl.dmq.peering.session.ports.StoredRead
 
 private const val ANDROID_KEY_STORE = "AndroidKeyStore"
 private const val KEY_ALIAS = "pl.dmq.peering.blobs"
@@ -24,19 +27,27 @@ private const val TAG_BITS = 128
  * The file is replaced whole, through a temporary file, so a crash leaves the previous blob intact.
  */
 class KeystoreBlobStore(private val directory: File) : BlobStore {
-    override fun get(name: String): ByteArray? {
+    override fun get(name: String): ByteArray? = (read(name) as? StoredRead.Found)?.bytes
+
+    override fun read(name: String): StoredRead {
         val file = fileFor(name)
-        if (!file.isFile) return null
+        if (!file.isFile) return StoredRead.Absent
         return try {
             val bytes = file.readBytes()
-            if (bytes.size <= IV_SIZE) return null
+            if (bytes.size <= IV_SIZE) return StoredRead.Unreadable(permanent = true)
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(TAG_BITS, bytes.copyOf(IV_SIZE)))
-            cipher.doFinal(bytes, IV_SIZE, bytes.size - IV_SIZE)
+            StoredRead.Found(cipher.doFinal(bytes, IV_SIZE, bytes.size - IV_SIZE))
+        } catch (_: AEADBadTagException) {
+            StoredRead.Unreadable(permanent = true)
+        } catch (_: UnrecoverableKeyException) {
+            StoredRead.Unreadable(permanent = true)
         } catch (_: IOException) {
-            null
+            StoredRead.Unreadable(permanent = false)
         } catch (_: GeneralSecurityException) {
-            null
+            StoredRead.Unreadable(permanent = false)
+        } catch (_: RuntimeException) {
+            StoredRead.Unreadable(permanent = false)
         }
     }
 
@@ -53,6 +64,8 @@ class KeystoreBlobStore(private val directory: File) : BlobStore {
         } catch (_: IOException) {
             false
         } catch (_: GeneralSecurityException) {
+            false
+        } catch (_: RuntimeException) {
             false
         }
     }

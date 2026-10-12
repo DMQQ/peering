@@ -2,7 +2,6 @@ package pl.dmq.peering.ui.wiring
 
 import android.content.ContentResolver
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -14,6 +13,7 @@ import pl.dmq.peering.feature.agents.attach.AttachmentSender
 import pl.dmq.peering.feature.agents.attach.AttachmentSource
 import pl.dmq.peering.feature.agents.attach.PhotoName
 import pl.dmq.peering.feature.files.InputChunks
+import pl.dmq.peering.imaging.BoundedBitmap
 import pl.dmq.peering.session.agent.attachmentPath
 import pl.dmq.peering.session.files.FileBrowser
 import pl.dmq.peering.session.files.FileUpload
@@ -57,6 +57,8 @@ internal class SessionAttachments(
             jpegOf(uri)
         } catch (failure: IOException) {
             null
+        } catch (failure: OutOfMemoryError) {
+            null
         } ?: return AttachmentOutcome.Failed(name, UploadFailure.Unreadable)
         browser.uploadInto(folder, name, jpeg.size.toLong(), InputChunks(ByteArrayInputStream(jpeg), TransferLimits.UPLOAD_CHUNK_BYTES))
         return outcome(name, folder, uri.toString())
@@ -64,9 +66,10 @@ internal class SessionAttachments(
 
     /** A library photo is often HEIC or WebP, which the agents cannot read, so anything that is not a JPEG is re-encoded as one. */
     private fun jpegOf(uri: Uri): ByteArray? {
-        val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+        val limit = TransferLimits.MAXIMUM_PHONE_UPLOAD_BYTES.toInt()
+        val bytes = resolver.openInputStream(uri)?.use { it.readNBytes(limit + 1) }?.takeIf { it.size <= limit } ?: return null
         if (resolver.getType(uri) == "image/jpeg") return bytes
-        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        val bitmap = BoundedBitmap.decode(bytes) ?: return null
         return ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }.toByteArray()
     }
 

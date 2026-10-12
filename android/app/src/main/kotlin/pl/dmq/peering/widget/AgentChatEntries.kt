@@ -9,8 +9,8 @@ object AgentChatEntries {
         AgentChatEntry(
             id = session.id,
             hostId = hostId,
-            title = session.info.title,
-            folder = session.info.directory.trimEnd('/').substringAfterLast('/'),
+            title = WidgetLimits.text(session.info.title),
+            folder = WidgetLimits.text(session.info.directory.trimEnd('/').substringAfterLast('/')),
             tone = tone(session),
             updatedAtSeconds = nowSeconds,
         )

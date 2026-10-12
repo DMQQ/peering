@@ -2,8 +2,11 @@ package pl.dmq.peering.session.controller
 
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import pl.dmq.peering.session.history.ByteTally
 import pl.dmq.peering.wire.Frame
@@ -39,5 +42,24 @@ class ReaderLoopTest {
         val picture = Frame(MessageKind.VideoFrame, ByteArray(MAX_CONTROL_PAYLOAD * 4))
 
         assertEquals(listOf(picture), read(picture))
+    }
+
+    @Test
+    fun theInboundChannelStopsTheReaderWhenFullAndResumesWhenDrained() = runTest {
+        val total = ReaderLoop.INBOUND_CAPACITY + 50
+        val frame = FrameEncoder.encode(MessageKind.Notice, "{}".toByteArray())
+        val inbound = ReaderLoop.inbound()
+        val reading = launch { ReaderLoop(flowOf(*Array(total) { frame }), inbound, ByteTally()) { }.run() }
+
+        runCurrent()
+        assertTrue(reading.isActive)
+
+        var received = 0
+        for (arrived in inbound) {
+            received += 1
+            if (received == total) break
+        }
+        reading.join()
+        assertEquals(total, received)
     }
 }

@@ -18,7 +18,7 @@ class AgentSnapshotBook {
         return byHost.size != before
     }
 
-    fun merged(): List<AgentChatEntry> = ordered(byHost.values.flatten())
+    fun merged(): List<AgentChatEntry> = ordered(byHost.values.flatten()).take(WidgetLimits.MAX_CHATS)
 
     private fun withoutClock(entry: AgentChatEntry) = entry.copy(updatedAtSeconds = 0)
 

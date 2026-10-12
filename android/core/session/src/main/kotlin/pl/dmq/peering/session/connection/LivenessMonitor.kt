@@ -48,6 +48,11 @@ class LivenessMonitor(private val clock: Clock) {
         return if (sorted.size % 2 == 1) sorted[middle] else (sorted[middle - 1] + sorted[middle]) / 2
     }
 
+    /** Counts the silence from now, for a phone that was away and could not have heard anything. */
+    fun resetSilence() {
+        lastReplyAtSeconds = clock.monotonicSeconds()
+    }
+
     fun silenceSeconds(nowSeconds: Double): Double = nowSeconds - lastReplyAtSeconds
 
     fun isSilent(nowSeconds: Double, limitSeconds: Double): Boolean = silenceSeconds(nowSeconds) > limitSeconds

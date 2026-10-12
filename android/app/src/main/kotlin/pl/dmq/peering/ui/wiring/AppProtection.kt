@@ -26,7 +26,7 @@ internal fun rememberAppProtection(): AppProtection {
         fun store(on: Boolean) {
             lock.setEnabled(on)
             enabled = on
-            activity?.let { ScreenSecurity.apply(it.window, ScreenSecurity.hidesContent(on, lockShowing = false, sessionOnScreen = false)) }
+            (activity as? MainActivity)?.refreshScreenSecurity()
         }
         if (!requested || activity == null) {
             store(false)

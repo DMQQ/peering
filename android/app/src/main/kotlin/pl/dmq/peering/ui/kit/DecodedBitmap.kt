@@ -1,6 +1,5 @@
 package pl.dmq.peering.ui.kit
 
-import android.graphics.BitmapFactory
 import android.util.LruCache
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -9,6 +8,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import pl.dmq.peering.imaging.BoundedBitmap
 
 private const val CACHE_BYTES = 8 * 1024 * 1024
 
@@ -28,6 +28,6 @@ fun rememberDecodedBitmap(key: String?, bytes: () -> ByteArray?): State<ImageBit
             return@produceState
         }
         value = bitmaps.get(key) ?: withContext(Dispatchers.Default) {
-            bytes()?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }?.asImageBitmap()
+            bytes()?.let(BoundedBitmap::decode)?.asImageBitmap()
         }?.also { bitmaps.put(key, it) }
     }

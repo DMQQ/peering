@@ -35,7 +35,12 @@ class AppGraph(context: Context) {
         KeystoreIdentity(secrets, Build.MODEL.orEmpty())
     }
 
-    private val pins: PinStore by lazy { PinStoreImpl(blobs) }
+    private val pinStore: PinStoreImpl by lazy { PinStoreImpl(blobs) }
+
+    private val pins: PinStore get() = pinStore
+
+    /** True once if the stored pairings could not be read; reads the keystore, so call it off the main thread. */
+    fun takePairingsUnreadable(): Boolean = pinStore.takeReadFailure()
 
     private val tls: TlsFactory by lazy { TlsFactory(keystoreIdentity) }
 

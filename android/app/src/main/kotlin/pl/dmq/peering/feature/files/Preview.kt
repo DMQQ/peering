@@ -15,13 +15,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.wire.RemoteFileKind
@@ -72,9 +75,14 @@ private fun Notice(text: String, tint: Color, modifier: Modifier) {
     }
 }
 
+private class DecodedPicture(val bitmap: ImageBitmap?)
+
 @Composable
 private fun PictureContent(bytes: ByteArray, modifier: Modifier) {
-    val bitmap = remember(bytes) { ImageBitmapDecoder.decode(bytes) }
+    val decoded by produceState<DecodedPicture?>(null, bytes) {
+        value = DecodedPicture(withContext(Dispatchers.Default) { ImageBitmapDecoder.decode(bytes) })
+    }
+    val bitmap = (decoded ?: return).bitmap
     if (bitmap == null) {
         Notice(stringResource(R.string.preview_unsupported_kind), PeeringColors.muted, modifier)
     } else {

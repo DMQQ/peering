@@ -12,7 +12,7 @@ internal class AppLock(private val preferences: SharedPreferences) {
     fun isEnabled(): Boolean = preferences.getBoolean(KEY, false)
 
     fun setEnabled(enabled: Boolean) {
-        preferences.edit().putBoolean(KEY, enabled).apply()
+        PreferenceWrites.shared.save(preferences) { putBoolean(KEY, enabled) }
     }
 
     private companion object {

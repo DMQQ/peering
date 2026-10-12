@@ -1,5 +1,6 @@
 package pl.dmq.peering.session.controller
 
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.Flow
 import pl.dmq.peering.session.history.ByteTally
@@ -35,5 +36,12 @@ internal class ReaderLoop(
         } finally {
             frames.close()
         }
+    }
+
+    companion object {
+        /** Frames waiting for the session. A reader that gets ahead stops reading, which holds the host back, instead of buffering without limit. */
+        const val INBOUND_CAPACITY = 256
+
+        fun inbound(): Channel<Frame> = Channel(INBOUND_CAPACITY)
     }
 }

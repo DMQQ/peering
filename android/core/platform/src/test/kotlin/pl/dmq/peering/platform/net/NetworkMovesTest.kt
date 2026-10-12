@@ -1,5 +1,6 @@
 package pl.dmq.peering.platform.net
 
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -35,5 +36,25 @@ class NetworkMovesTest {
             listOf<NetworkChange>(NetworkChange.Available(TransportKind.WIFI)),
             changes.movesOnly(startedOnline = false).toList(),
         )
+    }
+
+    @Test
+    fun aFailingRegistrationDoesNotCrashTheScope() = runTest {
+        val changes = flow<NetworkChange> { throw SecurityException("no ACCESS_NETWORK_STATE") }
+        var moves = 0
+
+        changes.followMoves(this, onMoved = { moves++ }).join()
+
+        assertEquals(0, moves)
+    }
+
+    @Test
+    fun movesAreReported() = runTest {
+        val changes = flowOf(NetworkChange.Available(TransportKind.WIFI), NetworkChange.PathChanged(TransportKind.CELLULAR))
+        var moves = 0
+
+        changes.followMoves(this, onMoved = { moves++ }).join()
+
+        assertEquals(1, moves)
     }
 }

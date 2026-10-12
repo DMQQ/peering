@@ -159,6 +159,30 @@ launch time undo, battery watchdog), the hook socket and approval handling.
 Present and well done: pin enforcement and rollback on failed writes, entry point hardening for widget links, peer length
 caps (16 MiB frames, 64 KiB control payloads, bounded reassembly, clipboard image budget, capped transcript).
 
+Status of items 11 to 15, 21 and 22 (app, platform storage and handshake):
+
+* 11 partly done. The inbound frame channel is bounded (256 frames, so a reader that gets ahead stops reading and the host
+  is held back) and the control stream is cut into frames on `Dispatchers.Default` (`SessionPorts.readerContext`). Still on
+  Main, on purpose: `FrameRouter` JSON parsing, video reassembly, the terminal byte parser and the hand over of decoded
+  pictures. `ConnectedLink`, `SessionController` and the presenters mutate unsynchronised state that the UI also calls
+  into (`link`, command queues, `notice`, `hostPointer`), so collecting on Default would need a threading redesign
+  of the session core and cannot be done with no behaviour change.
+* 12 done except a foreground service, deliberately not added. Silence limit 30 s while backgrounded, one automatic
+  retry on return after a loss, FAQ entry and `android/README.md` section.
+* 13 done. Absent and unreadable are different results (`StoredRead`); a pin file or client id that may be readable
+  later is never overwritten; the user is told once to pair again. A device that gets a blank storage after a
+  permanent key loss still pairs. Pairing and `PinStoreImpl.record` still write synchronously on the caller's thread.
+* 14 done. Sizes are checked before reads, decoding is sampled to 16 M pixels, `OutOfMemoryError` is caught at the
+  decode boundary, shared files are named by SHA-256 and pruned (one day, 64 MB).
+* 15 done: counted multicast lock, widget publisher survives failures and bounds its snapshots, `followMoves`
+  tolerates a failing registration, app lock, relay usage, key value and history writes are flushed off Main. Not done:
+  the settings, macro and device preference stores still `commit()` on the calling thread because they return the result
+  to the user; the NSD resolve timeout and `RouteRace` leak belong to the session core work.
+* 21 partly done. The hello cannot wait for the host id: the host answers a hello and sends nothing first, so a
+  different order is a protocol change. A dialled host whose pin differs from the key in its certificate now gets no hello
+  at all. A first pairing and an undialled address still send the name, which the host shows the person.
+* 22 done. `MainActivity` sets FLAG_SECURE whenever a session exists, not only under the app lock (release builds).
+
 ## Relay
 
 1. **HIGH. No per IP limit anywhere.** `signalling.rs:395-450`, `tcp_relay.rs:41-60`. Registration is unauthenticated, a single

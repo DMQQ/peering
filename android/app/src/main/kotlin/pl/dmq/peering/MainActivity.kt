@@ -13,6 +13,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import pl.dmq.peering.ui.LockScreen
 import pl.dmq.peering.ui.debug.DebugPreview
 import pl.dmq.peering.ui.debug.PREVIEW_EXTRA
@@ -31,6 +37,7 @@ class MainActivity : FragmentActivity() {
     private lateinit var appLock: AppLock
     private var locked by mutableStateOf(false)
     private var connectRequests by mutableIntStateOf(0)
+    private var sessionActive = false
     private val lockedLinks = LockedLinkQueue()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,6 +60,8 @@ class MainActivity : FragmentActivity() {
             Toast.makeText(this, R.string.connect_lock_lapsed, Toast.LENGTH_LONG).show()
         }
         locked = appLock.isEnabled() && deviceLockAvailable
+        announceUnreadablePairings()
+        followSession()
         val preview = if (BuildConfig.DEBUG) intent.getStringExtra(PREVIEW_EXTRA) else null
         if (savedInstanceState == null) openWidgetLink(intent)
         setContent {
@@ -62,6 +71,32 @@ class MainActivity : FragmentActivity() {
                     locked -> LockScreen(onUnlock = ::requestUnlock)
                     else -> PeeringScaffold(connectRequests)
                 }
+            }
+        }
+    }
+
+    /** Applies FLAG_SECURE for the lock and for a live session, which would otherwise show in recents and screenshots. */
+    internal fun refreshScreenSecurity() {
+        ScreenSecurity.apply(window, ScreenSecurity.hidesContent(appLock.isEnabled(), locked, sessionOnScreen = sessionActive))
+    }
+
+    private fun followSession() {
+        val holder = (application as PeeringApplication).wiring?.holder ?: return
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                holder.active.collect {
+                    sessionActive = it != null
+                    refreshScreenSecurity()
+                }
+            }
+        }
+    }
+
+    private fun announceUnreadablePairings() {
+        val graph = (application as PeeringApplication).graph
+        lifecycleScope.launch {
+            if (withContext(Dispatchers.Default) { graph.takePairingsUnreadable() }) {
+                Toast.makeText(this@MainActivity, R.string.connect_pairings_unreadable, Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -84,7 +119,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onStart() {
         super.onStart()
-        ScreenSecurity.apply(window, ScreenSecurity.hidesContent(appLock.isEnabled(), locked, sessionOnScreen = false))
+        refreshScreenSecurity()
         if (locked) requestUnlock()
     }
 

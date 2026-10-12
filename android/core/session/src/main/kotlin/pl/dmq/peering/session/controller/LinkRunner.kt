@@ -12,6 +12,7 @@ import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import pl.dmq.peering.session.connection.ClientConfig
 import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.session.history.SessionRecord
@@ -117,13 +118,15 @@ internal class LinkRunner(
     private suspend fun CoroutineScope.serveRoute(route: OpenedRoute): LinkOutcome {
         val ended = CompletableDeferred<LinkEnd>()
         currentEnd = ended
-        val frames = Channel<Frame>(Channel.UNLIMITED)
+        val frames = ReaderLoop.inbound()
         val writer = WriterLoop(route.transport, recorder.tally)
         launchLinkTask(ended) { writer.run() }
         launchLinkTask(ended) {
-            ReaderLoop(route.transport.received, frames, recorder.tally) {
-                ended.complete(LinkEnd.Terminal(SessionFailure.MalformedFrame))
-            }.run()
+            withContext(ports.readerContext) {
+                ReaderLoop(route.transport.received, frames, recorder.tally) {
+                    ended.complete(LinkEnd.Terminal(SessionFailure.MalformedFrame))
+                }.run()
+            }
         }
         val hello = when (val result = handshake(route, writer, frames)) {
             is HandshakeOutcome.Ready -> result.hello
