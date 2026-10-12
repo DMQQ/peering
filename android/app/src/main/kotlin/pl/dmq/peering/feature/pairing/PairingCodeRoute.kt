@@ -7,7 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 
-/** The code comparison step. Calls [onFinished] once the pairing is done, failed, or cancelled. */
+/** The step where the user types the code the computer shows. Calls [onFinished] once the pairing is done, failed, or cancelled. */
 @Composable
 fun PairingCodeRoute(
     presenter: PairingCodePresenter,
@@ -21,8 +21,7 @@ fun PairingCodeRoute(
     }
     val actions = remember(presenter, onFinished, onScanRequested) {
         PairingActions(
-            onMatch = { presenter.confirm(codesMatch = true) },
-            onMismatch = { presenter.confirm(codesMatch = false) },
+            onDigitsEntered = { digits -> presenter.submitCode(digits) },
             onCancel = presenter::cancel,
             onFinished = onFinished,
             onScan = onScanRequested,

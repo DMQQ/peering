@@ -4,14 +4,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -23,25 +22,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
+import pl.dmq.peering.session.controller.MAX_PAIRING_ATTEMPTS
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.InkButton
-import pl.dmq.peering.ui.theme.OutlinedPanel
 import pl.dmq.peering.ui.theme.PeeringColors
-import pl.dmq.peering.ui.theme.QuietButton
 import pl.dmq.peering.ui.theme.arrive
 
-/** The pairing steps, one calm thing at a time: the six digits big in a card, then the two answers. */
+/** The pairing steps, one calm thing at a time: six cells for the code the computer shows, then the wait. */
 @Composable
 fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxSize().padding(horizontal = 22.dp).padding(top = 16.dp, bottom = 20.dp),
+        modifier = modifier.fillMaxSize().imePadding().padding(horizontal = 22.dp).padding(top = 16.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.arrive()) {
@@ -50,7 +46,7 @@ fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modif
                 style = MaterialTheme.typography.headlineLarge,
                 color = PeeringColors.ink,
             )
-            if (screen is PairingCodeScreen.Comparing) {
+            if (screen is PairingCodeScreen.EnteringCode) {
                 Text(
                     text = stringResource(R.string.pairing_code_detail),
                     style = MaterialTheme.typography.bodyMedium,
@@ -59,7 +55,7 @@ fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modif
             }
         }
         when (screen) {
-            is PairingCodeScreen.Comparing -> Comparing(screen.code, actions)
+            is PairingCodeScreen.EnteringCode -> EnteringCode(screen, actions)
             PairingCodeScreen.Waiting -> Waiting(actions)
             PairingCodeScreen.Done -> Outcome(
                 icon = { IconTile(Icons.Filled.Check, size = 56.dp) },
@@ -79,38 +75,24 @@ fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modif
 }
 
 @Composable
-private fun ColumnScope.Comparing(code: String, actions: PairingActions) {
-    OutlinedPanel(modifier = Modifier.fillMaxWidth().arrive(delayMillis = 90).padding(vertical = 8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 22.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            code.chunked(DIGIT_GROUP).forEachIndexed { index, group ->
-                if (index > 0) Spacer(Modifier.width(22.dp))
-                Text(
-                    text = group,
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontFamily = FontFamily.Default,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 52.sp,
-                        lineHeight = 56.sp,
-                        letterSpacing = 3.sp,
-                        fontFeatureSettings = "tnum",
-                    ),
-                    color = PeeringColors.ink,
-                )
-            }
-        }
+private fun ColumnScope.EnteringCode(screen: PairingCodeScreen.EnteringCode, actions: PairingActions) {
+    PairingCodeCells(
+        attempts = screen.attempts,
+        wrong = screen.error != null,
+        onComplete = actions.onDigitsEntered,
+        modifier = Modifier.arrive(delayMillis = 90).padding(top = 8.dp),
+    )
+    if (screen.error != null) {
+        val left = (MAX_PAIRING_ATTEMPTS - screen.attempts).coerceAtLeast(1)
+        Text(
+            text = stringResource(R.string.pairing_code_wrong) + " " +
+                pluralStringResource(R.plurals.pairing_code_tries_left, left, left),
+            style = MaterialTheme.typography.bodyMedium,
+            color = PeeringColors.danger,
+        )
     }
     Spacer(Modifier.weight(1f))
     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.arrive(delayMillis = 160)) {
-        InkButton(onClick = actions.onMatch, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.pairing_code_match))
-        }
-        QuietButton(onClick = actions.onMismatch, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.pairing_code_mismatch))
-        }
         if (actions.onScan != null) {
             TextButton(onClick = actions.onScan, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.pairing_code_scan), color = PeeringColors.ink)
@@ -155,5 +137,3 @@ private fun CancelButton(actions: PairingActions) {
         Text(stringResource(R.string.pairing_code_cancel), color = PeeringColors.muted)
     }
 }
-
-private const val DIGIT_GROUP = 3

@@ -48,10 +48,14 @@
     <string name="pairing_error_code_instead_of_id">That is the six digit code. Enter the Mac\'s device ID instead.</string>
     <string name="pairing_error_not_pairing_code">That QR code is not a Peering pairing code.</string>
     <string name="pairing_error_not_identifier">That is not a Mac\'s device ID.</string>
-    <string name="pairing_code_title">Check the code</string>
-    <string name="pairing_code_detail">Your Mac shows the same six digits. Confirm they match before pairing.</string>
-    <string name="pairing_code_match">Match</string>
-    <string name="pairing_code_mismatch">Don\'t match</string>
+    <string name="pairing_code_title">Enter the code</string>
+    <string name="pairing_code_detail">Your computer is showing six digits. Type them here.</string>
+    <string name="pairing_code_cells_label">Pairing code, six digits</string>
+    <string name="pairing_code_wrong">That is not the code on your computer.</string>
+    <plurals name="pairing_code_tries_left">
+        <item quantity="one">%1$d try left.</item>
+        <item quantity="other">%1$d tries left.</item>
+    </plurals>
     <string name="pairing_code_waiting">Waiting for the Mac to finish pairing.</string>
     <string name="pairing_code_done">Paired.</string>
     <string name="pairing_code_back">Back</string>
@@ -67,6 +71,7 @@
     <string name="pairing_failed_refused_reason">The Mac refused the pairing: %1$s</string>
     <string name="pairing_failed_declined">The codes did not match, so the pairing was stopped.</string>
     <string name="pairing_failed_not_saved">The Mac approved the pairing, but this device could not save it. Try again.</string>
+    <string name="pairing_failed_too_many">That code was wrong too many times, so the pairing was stopped. Start again to get a new code.</string>
     <string name="pairing_failed_unreachable">The Mac could not be reached on this network. Check that both are on the same Wi-Fi.</string>
     <string name="agents_title">Agents</string>
     <string name="agents_new_chat">New chat</string>

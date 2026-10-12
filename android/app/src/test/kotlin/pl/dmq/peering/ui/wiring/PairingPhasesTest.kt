@@ -4,14 +4,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import pl.dmq.peering.feature.pairing.PairingPhase
 import pl.dmq.peering.session.connection.FailureReason
+import pl.dmq.peering.session.controller.PairingCodeError
 import pl.dmq.peering.session.controller.SessionFailure
 import pl.dmq.peering.session.controller.SessionPhase
 import pl.dmq.peering.session.history.SessionRecord
 
 class PairingPhasesTest {
     @Test
-    fun theSixDigitsWaitingForAnAnswerAreConfirming() {
-        assertEquals(PairingPhase.Confirming("123456"), SessionPhase.ConfirmingPairing("123456").toPairingPhase())
+    fun theCodeWaitingToBeTypedIsEnteringCodeWithoutTheCode() {
+        assertEquals(
+            PairingPhase.EnteringCode(2, PairingCodeError.WrongCode),
+            SessionPhase.EnteringPairingCode(2, PairingCodeError.WrongCode).toPairingPhase(),
+        )
     }
 
     @Test

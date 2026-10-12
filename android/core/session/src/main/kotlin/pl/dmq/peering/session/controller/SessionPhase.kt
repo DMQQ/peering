@@ -9,7 +9,8 @@ sealed interface SessionPhase {
 
     data class Connecting(val path: SessionRecord.Path) : SessionPhase
 
-    data class ConfirmingPairing(val code: String) : SessionPhase
+    /** The Mac is showing six digits and the phone waits for the user to type them. [attempts] counts the wrong tries so far. */
+    data class EnteringPairingCode(val attempts: Int, val error: PairingCodeError? = null) : SessionPhase
 
     data class Ready(
         val hostName: String,

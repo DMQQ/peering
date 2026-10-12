@@ -15,6 +15,7 @@ import pl.dmq.peering.feature.pairing.PairingCodeContent
 import pl.dmq.peering.feature.pairing.PairingCodeScreen
 import pl.dmq.peering.feature.pairing.PairingMessage
 import pl.dmq.peering.feature.scan.ScanMessage
+import pl.dmq.peering.session.controller.PairingCodeError
 import androidx.compose.ui.Modifier
 import pl.dmq.peering.feature.connect.ConnectActions
 import pl.dmq.peering.feature.connect.ConnectScreen
@@ -42,7 +43,12 @@ fun DebugPreview(name: String) {
             "connect_found" -> connect(NearbyPhase.Found, HostListing(samplePaired, sampleNearby))
             "connect_searching" -> connect(NearbyPhase.Searching, HostListing(emptyList(), emptyList()))
             "connect_none" -> connect(NearbyPhase.NoneFound, HostListing(emptyList(), emptyList()))
-            "pairing_compare" -> PairingCodeContent(PairingCodeScreen.Comparing("482917"), PairingActions(onScan = {}))
+            "pairing_entry" -> PairingCodeContent(PairingCodeScreen.EnteringCode(0, null), PairingActions(onScan = {}))
+            "pairing_wrong" -> PairingCodeContent(
+                PairingCodeScreen.EnteringCode(1, PairingCodeError.WrongCode),
+                PairingActions(onScan = {}),
+            )
+            "pairing_too_many" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.TooManyAttempts), PairingActions())
             "pairing_wait" -> PairingCodeContent(PairingCodeScreen.Waiting, PairingActions())
             "pairing_done" -> PairingCodeContent(PairingCodeScreen.Done, PairingActions())
             "pairing_failed" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.Unreachable), PairingActions())

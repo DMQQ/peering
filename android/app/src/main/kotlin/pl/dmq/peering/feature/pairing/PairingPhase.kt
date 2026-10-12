@@ -1,10 +1,11 @@
 package pl.dmq.peering.feature.pairing
 
 import pl.dmq.peering.session.connection.FailureReason
+import pl.dmq.peering.session.controller.PairingCodeError
 
 sealed interface PairingPhase {
-    /** The six digits the Mac shows, for the user to compare with the ones on this screen. */
-    data class Confirming(val code: String) : PairingPhase
+    /** The computer shows six digits and the user types them. [attempts] counts the wrong tries so far. */
+    data class EnteringCode(val attempts: Int, val error: PairingCodeError?) : PairingPhase
 
     data object Waiting : PairingPhase
 

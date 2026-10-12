@@ -7,49 +7,61 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import pl.dmq.peering.feature.scan.ScanOutcome
-import pl.dmq.peering.feature.scan.pairingCodeScanOutcome
+import pl.dmq.peering.session.controller.CodeCheck
 import pl.dmq.peering.wire.PairingPayload
 
 class PairingCodePresenter(
     private val session: PairingSession,
     scope: CoroutineScope,
 ) {
-    private val answered = MutableStateFlow(false)
-    private val cancelled = MutableStateFlow(false)
+    private val ending = MutableStateFlow(Ending.None)
 
-    val state: StateFlow<PairingCodeScreen> = combine(session.phases, answered, cancelled) { phase, given, stopped ->
-        screenFor(phase, given, stopped)
+    val state: StateFlow<PairingCodeScreen> = combine(session.phases, ending) { phase, end ->
+        screenFor(phase, end)
     }.stateIn(scope, SharingStarted.Eagerly, PairingCodeScreen.Waiting)
 
-    fun confirm(codesMatch: Boolean) {
-        if (answered.value || cancelled.value) return
-        answered.value = true
-        session.confirm(codesMatch)
+    /** Checks the typed digits. Once a right code was given, or the attempts ran out, later digits are not sent. */
+    fun submitCode(digits: String): CodeCheck {
+        if (ending.value != Ending.None) return CodeCheck.Mismatch
+        return noteOutcome(session.submitCode(digits))
     }
 
-    /** A code read from the Mac's screen. The one that matches the digits on this screen confirms the pairing with its secret. */
+    /** A code read from the computer's screen. The one that matches confirms the pairing with its secret. */
     fun confirmScannedCode(raw: String): ScanOutcome {
-        val expected = (state.value as? PairingCodeScreen.Comparing)?.code ?: return ScanOutcome.WrongCode
-        val outcome = pairingCodeScanOutcome(raw, expected)
-        if (outcome != ScanOutcome.Used || answered.value || cancelled.value) return outcome
-        answered.value = true
-        session.confirm(codesMatch = true, secret = PairingPayload.secret(raw))
-        return outcome
+        val code = PairingPayload.code(raw) ?: return ScanOutcome.NotAPairingCode
+        if (ending.value != Ending.None) return ScanOutcome.WrongCode
+        return when (noteOutcome(session.submitScanned(code, PairingPayload.secret(raw)))) {
+            CodeCheck.Match -> ScanOutcome.Used
+            CodeCheck.Mismatch, CodeCheck.TooManyAttempts -> ScanOutcome.WrongCode
+        }
     }
 
     fun cancel() {
-        if (cancelled.value) return
-        cancelled.value = true
+        if (ending.value == Ending.Cancelled) return
+        ending.value = Ending.Cancelled
         session.cancel()
     }
 
-    private fun screenFor(phase: PairingPhase, given: Boolean, stopped: Boolean): PairingCodeScreen = when {
-        stopped -> PairingCodeScreen.Cancelled
+    private fun noteOutcome(check: CodeCheck): CodeCheck {
+        when (check) {
+            CodeCheck.Match -> ending.value = Ending.Answered
+            CodeCheck.TooManyAttempts -> ending.value = Ending.TooManyAttempts
+            CodeCheck.Mismatch -> Unit
+        }
+        return check
+    }
+
+    private fun screenFor(phase: PairingPhase, end: Ending): PairingCodeScreen = when {
+        end == Ending.Cancelled -> PairingCodeScreen.Cancelled
+        end == Ending.TooManyAttempts -> PairingCodeScreen.Failed(PairingMessage.TooManyAttempts)
         else -> when (phase) {
-            is PairingPhase.Confirming -> if (given) PairingCodeScreen.Waiting else PairingCodeScreen.Comparing(phase.code)
+            is PairingPhase.EnteringCode ->
+                if (end == Ending.Answered) PairingCodeScreen.Waiting else PairingCodeScreen.EnteringCode(phase.attempts, phase.error)
             PairingPhase.Waiting -> PairingCodeScreen.Waiting
             PairingPhase.Done -> PairingCodeScreen.Done
             is PairingPhase.Failed -> PairingCodeScreen.Failed(phase.reason.toPairingMessage())
         }
     }
+
+    private enum class Ending { None, Answered, TooManyAttempts, Cancelled }
 }

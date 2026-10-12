@@ -53,7 +53,7 @@ class SessionController(
     private var reconnect = ReconnectSupervisor()
     private var job: Job? = null
     private var link: ConnectedLink? = null
-    private var pairingAnswer: CompletableDeferred<PairingDecision>? = null
+    @Volatile private var pendingCode: PendingCode? = null
     private var pictureEnabled = true
     private var historyId: Long? = null
     private var everReady = false
@@ -77,12 +77,23 @@ class SessionController(
         job = scope.launch { lifecycle() }
     }
 
-    /**
-     * The user's answer to the six digits shown on both screens. [secret] is the QR code's secret when the digits were
-     * read from a code. Ignored when no code is waiting.
-     */
-    fun confirmPairing(accepted: Boolean, secret: ByteArray? = null) {
-        pairingAnswer?.complete(PairingDecision(accepted, secret))
+    /** The six digits the user typed. Ignored, and read as a mismatch, when no code is awaited. */
+    fun submitPairingCode(digits: String): CodeCheck = submitCode(digits, null)
+
+    /** The code read from the Mac's QR code, with the secret it carried. */
+    fun submitScannedPairingCode(code: String, secret: ByteArray?): CodeCheck = submitCode(code, secret)
+
+    private fun submitCode(entry: String, secret: ByteArray?): CodeCheck {
+        val pending = pendingCode ?: return CodeCheck.Mismatch
+        val check = pending.gate.check(entry)
+        when (check) {
+            CodeCheck.Match -> pending.answer.complete(PairingDecision(accepted = true, secret = secret))
+            CodeCheck.TooManyAttempts -> pending.answer.complete(PairingDecision(accepted = false, secret = null))
+            CodeCheck.Mismatch -> update {
+                it.copy(phase = SessionPhase.EnteringPairingCode(pending.gate.wrongAttempts, PairingCodeError.WrongCode))
+            }
+        }
+        return check
     }
 
     /** Sends [command] to the host. False when the session is not ready or the host did not declare what it needs. */
@@ -216,14 +227,17 @@ class SessionController(
         if (ended.isCompleted) ended.getCompleted() as? LinkEnd.Terminal else null
 
     private suspend fun awaitPairing(code: String): PairingDecision {
-        update { it.copy(phase = SessionPhase.ConfirmingPairing(code)) }
-        val answer = CompletableDeferred<PairingDecision>()
-        pairingAnswer = answer
-        val decision = answer.await()
-        pairingAnswer = null
+        (target as? ConnectTarget.Pairing)?.qrSecret?.let { return PairingDecision(accepted = true, secret = it) }
+        update { it.copy(phase = SessionPhase.EnteringPairingCode(attempts = 0)) }
+        val pending = PendingCode(PairingCodeGate(code), CompletableDeferred())
+        pendingCode = pending
+        val decision = pending.answer.await()
+        pendingCode = null
         update { it.copy(phase = SessionPhase.Connecting(target.path)) }
         return decision
     }
+
+    private class PendingCode(val gate: PairingCodeGate, val answer: CompletableDeferred<PairingDecision>)
 
     private fun startSession(
         hello: ServerHello,

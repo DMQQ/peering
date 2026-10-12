@@ -21,5 +21,9 @@ sealed interface PairingMessage {
     data object Declined : PairingMessage
 
     data object NotSaved : PairingMessage
+
+    /** The user gave a wrong code too many times, so the phone stopped the pairing. */
+    data object TooManyAttempts : PairingMessage
+
     data object Unreachable : PairingMessage
 }

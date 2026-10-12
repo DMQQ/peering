@@ -18,5 +18,6 @@ internal fun PairingMessage.text(): String = when (this) {
         ?: stringResource(R.string.pairing_failed_refused)
     PairingMessage.Declined -> stringResource(R.string.pairing_failed_declined)
     PairingMessage.NotSaved -> stringResource(R.string.pairing_failed_not_saved)
+    PairingMessage.TooManyAttempts -> stringResource(R.string.pairing_failed_too_many)
     PairingMessage.Unreachable -> stringResource(R.string.pairing_failed_unreachable)
 }

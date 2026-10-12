@@ -1,7 +1,9 @@
 package pl.dmq.peering.feature.pairing
 
+import pl.dmq.peering.session.controller.PairingCodeError
+
 sealed interface PairingCodeScreen {
-    data class Comparing(val code: String) : PairingCodeScreen
+    data class EnteringCode(val attempts: Int, val error: PairingCodeError?) : PairingCodeScreen
 
     data object Waiting : PairingCodeScreen
 
