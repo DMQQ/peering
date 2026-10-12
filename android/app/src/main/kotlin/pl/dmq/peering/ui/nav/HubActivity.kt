@@ -56,7 +56,7 @@ class HubActivity : FragmentActivity() {
         )
         window.isNavigationBarContrastEnforced = false
         ScreenSecurity.apply(window, ScreenSecurity.hidesContent(lockEnabled = false, lockShowing = false, sessionOnScreen = true))
-        appLock = AppLock(getSharedPreferences(MainActivity.PREFERENCES_NAME, MODE_PRIVATE))
+        appLock = AppLock(getSharedPreferences(MainActivity.PREFERENCES_NAME, MODE_PRIVATE), (application as PeeringApplication).graph.preferenceWrites)
         lifecycleScope.launch(survivableErrorHandler()) {
             dependencies.active
                 .flatMapLatest { current ->

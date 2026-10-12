@@ -18,7 +18,7 @@ import pl.dmq.peering.feature.connect.AppProtection
 internal fun rememberAppProtection(): AppProtection {
     val context = LocalContext.current
     val reason = stringResource(R.string.connect_protect_reason)
-    val lock = remember(context) { AppLock(context.getSharedPreferences(MainActivity.PREFERENCES_NAME, Context.MODE_PRIVATE)) }
+    val lock = remember(context) { AppLock(context.getSharedPreferences(MainActivity.PREFERENCES_NAME, Context.MODE_PRIVATE), context.preferenceWrites()) }
     var enabled by remember { mutableStateOf(lock.isEnabled()) }
     val available = remember(context) { DeviceUnlock.isAvailable(context) }
     return AppProtection(enabled, available) { requested ->

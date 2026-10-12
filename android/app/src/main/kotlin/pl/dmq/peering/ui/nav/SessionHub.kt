@@ -37,6 +37,7 @@ import pl.dmq.peering.ui.kit.rememberMotionDistances
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.wiring.ActiveSession
 import pl.dmq.peering.ui.wiring.PreferencesKeyValueStore
+import pl.dmq.peering.ui.wiring.preferenceWrites
 import pl.dmq.peering.ui.wiring.TerminalHost
 
 
@@ -53,7 +54,7 @@ internal fun SessionHub(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
-    val preferences = remember(context) { PreferencesKeyValueStore(context.getSharedPreferences("peering_hub", Context.MODE_PRIVATE)) }
+    val preferences = remember(context) { PreferencesKeyValueStore(context.getSharedPreferences("peering_hub", Context.MODE_PRIVATE), context.preferenceWrites()) }
     val tabs = remember(active, preferences) {
         val offered = HubPresenter().offeredTabs(
             HubCapabilities(

@@ -16,6 +16,7 @@ import pl.dmq.peering.platform.store.KeystoreBlobStore
 import pl.dmq.peering.platform.store.PinStoreImpl
 import pl.dmq.peering.session.ports.PinStore
 import pl.dmq.peering.session.ports.SecretStore
+import pl.dmq.peering.ui.wiring.PreferenceWrites
 
 // Every platform object is built on first use, so JVM tests of view models never reach Android.
 class AppGraph(context: Context) {
@@ -52,6 +53,8 @@ class AppGraph(context: Context) {
         val wifi = appContext.getSystemService(WifiManager::class.java)
         NsdDiscovery(appContext.getSystemService(NsdManager::class.java), MulticastLease(wifi))
     }
+
+    internal val preferenceWrites: PreferenceWrites by lazy { PreferenceWrites.onBackgroundThread() }
 
     val sessions: SessionFactory by lazy {
         SessionFactory(

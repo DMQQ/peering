@@ -8,11 +8,11 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 
 /** Whether opening Peering asks for the device's own unlock, kept in the preferences the rest of the app uses. */
-internal class AppLock(private val preferences: SharedPreferences) {
+internal class AppLock(private val preferences: SharedPreferences, private val writes: PreferenceWrites) {
     fun isEnabled(): Boolean = preferences.getBoolean(KEY, false)
 
     fun setEnabled(enabled: Boolean) {
-        PreferenceWrites.shared.save(preferences) { putBoolean(KEY, enabled) }
+        writes.save(preferences) { putBoolean(KEY, enabled) }
     }
 
     private companion object {

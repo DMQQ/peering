@@ -49,7 +49,7 @@ internal fun TerminalHost(active: ActiveSession, guideStore: KeyValueStore, fold
     val phase by active.controller.state.collectAsState()
     val context = LocalContext.current
     val preferences = remember(context) {
-        val store = PreferencesKeyValueStore(context.getSharedPreferences("peering_terminal", Context.MODE_PRIVATE))
+        val store = PreferencesKeyValueStore(context.getSharedPreferences("peering_terminal", Context.MODE_PRIVATE), context.preferenceWrites())
         TerminalPreferences(QuickCommands(store), TerminalTextSizeSetting(store), AgentLaunchHistory(store))
     }
     val guide = remember(guideStore) { HubGuidePresenter(guideStore, HubGuidePresenter.TERMINALS_KEY) }

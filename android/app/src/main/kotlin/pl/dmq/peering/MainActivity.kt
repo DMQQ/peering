@@ -54,7 +54,7 @@ class MainActivity : FragmentActivity() {
         if (BuildConfig.DEBUG && intent.getBooleanExtra(RESET_FIRST_RUN_EXTRA, false)) {
             PreferencesFirstRunStore(preferences).reset()
         }
-        appLock = AppLock(preferences)
+        appLock = AppLock(preferences, (application as PeeringApplication).graph.preferenceWrites)
         val deviceLockAvailable = DeviceUnlock.isAvailable(this)
         if (ScreenSecurity.lockLapsed(appLock.isEnabled(), deviceLockAvailable)) {
             appLock.setEnabled(false)
