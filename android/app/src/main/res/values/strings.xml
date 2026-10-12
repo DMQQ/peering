@@ -120,7 +120,6 @@
     <string name="agents_usage_limits">Limit used</string>
     <string name="agents_usage_limits_none">This agent does not report limits.</string>
     <string name="agents_usage_resets">Resets %1$s</string>
-    <string name="agents_context_label">Context %1$s</string>
     <string name="agents_empty_chat_title">What are we working on?</string>
     <string name="agents_empty_chat_ended">This chat has ended. Its conversation is above; start a new chat to keep going.</string>
     <string name="agents_suggestion_overview">What does this project do?</string>

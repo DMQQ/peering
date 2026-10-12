@@ -6,7 +6,8 @@ Status is as of the start of this pass. "Closed" rows name the commit area that 
 | Capability (iPhone) | Android before | Status |
 | --- | --- | --- |
 | Agent list from `agentChatAgents`, gated by `supportsAgentChat` | Done (AgentCatalog, hub presenter) | Done |
-| `supportsAgentList` gate for the chat list request | List was gated on chat only | Closed |
+| Host without `agentChatAgents` offers Claude Code and Codex (the iPhone default) | Offered nothing, so the hub read as unsupported | Closed |
+| `supportsAgentList` filters offered agents to the installed ones (terminal `agents` request) | Absent; every declared agent is offered | Open (terminal code is owned elsewhere) |
 | Chat cards with state, pending approvals, activity age | Done | Done |
 | Start a chat: agent, then folder via host browse, recents | Done | Done |
 | Model picker (`supportsAgentModelPicker`) | Done | Done |
