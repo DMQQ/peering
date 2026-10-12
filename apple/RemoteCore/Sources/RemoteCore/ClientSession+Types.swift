@@ -66,6 +66,8 @@ extension ClientSession {
         case terminal(TerminalEvent)
         case agent(AgentEvent)
         case relayQuotaExceeded
+        /// What the relay says is left of today's allowance, sent as the relayed session is set up. Absent from older relays.
+        case relayRemaining(seconds: UInt64)
         /// The user stopped hosting on the Mac. Sent just before the session fails, so the app
         /// can treat that failure as final rather than a drop to reconnect from.
         case hostStopped
