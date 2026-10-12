@@ -23,7 +23,7 @@ data class DecoderConfig(
 
         /** [sdkInt] is the platform level, passed in so the mapping is the same on every JVM run. */
         fun from(config: VideoStreamConfig, sdkInt: Int): DecoderConfig {
-            require(config.pixelWidth > 0 && config.pixelHeight > 0) { "video size must be positive" }
+            require(config.isWithinLimits) { "video size ${config.pixelWidth}x${config.pixelHeight} is out of range" }
             return DecoderConfig(
                 mimeType = mimeTypeFor(config.codec),
                 width = config.pixelWidth,

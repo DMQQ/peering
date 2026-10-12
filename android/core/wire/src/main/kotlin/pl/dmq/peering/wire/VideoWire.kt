@@ -26,7 +26,14 @@ data class VideoStreamConfig(
 ) {
     fun parameterSetBytes(): List<ByteArray> = parameterSets.map { Base64.getDecoder().decode(it) }
 
+    /** False for a size the peer could use to make the phone allocate an absurd decoder surface. */
+    val isWithinLimits: Boolean
+        get() = pixelWidth in 1..MAX_PICTURE_SIDE && pixelHeight in 1..MAX_PICTURE_SIDE
+
     companion object {
+        /** The longest side, in pixels, a stream may declare. */
+        const val MAX_PICTURE_SIDE = 8192
+
         /**
          * Null when the candidate has no parameter sets (a delta frame's description is empty, not a reset)
          * or equals the description already sent.
