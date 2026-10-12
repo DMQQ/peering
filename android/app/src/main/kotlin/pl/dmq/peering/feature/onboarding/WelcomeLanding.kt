@@ -1,5 +1,7 @@
 package pl.dmq.peering.feature.onboarding
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.PrimaryButton
-import pl.dmq.peering.ui.kit.pressable
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.kit.rememberSheen
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringMotion
@@ -104,7 +106,8 @@ internal fun SkipButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         color = PeeringColors.muted,
         modifier = modifier
             .windowInsetsPadding(WindowInsets.statusBars)
-            .pressable(onClick)
+            .clip(CircleShape)
+            .tappable(onClick)
             .padding(horizontal = 18.dp, vertical = 12.dp),
     )
 }

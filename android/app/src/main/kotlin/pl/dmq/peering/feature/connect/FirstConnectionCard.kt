@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.connect
 
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,9 +20,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.kit.Symbols
+import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.cardBackground
-import pl.dmq.peering.ui.kit.pressable
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -31,7 +32,7 @@ import pl.dmq.peering.ui.theme.PeeringText
 internal fun FirstConnectionCard(modifier: Modifier = Modifier) {
     val uri = LocalUriHandler.current
     Row(modifier.fillMaxWidth().cardBackground().padding(16.dp), verticalAlignment = Alignment.Top) {
-        IconTile(Symbols.wifi)
+        IconTile(AppIcons.wifi)
         Spacer(Modifier.width(12.dp))
         Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
             Text(stringResource(R.string.connect_first_title), style = PeeringText.subheadlineSemibold, color = PeeringColors.ink)
@@ -39,12 +40,13 @@ internal fun FirstConnectionCard(modifier: Modifier = Modifier) {
             Row(
                 Modifier
                     .padding(top = 4.dp)
-                    .pressable({ uri.openUri("https://getpeering.app/download") }, scale = 0.97f)
-                    .background(PeeringColors.accent.copy(alpha = 0.18f), CircleShape)
+                    .clip(CircleShape)
+                    .background(PeeringColors.accent.copy(alpha = 0.18f))
+                    .tappable({ uri.openUri("https://getpeering.app/download") })
                     .padding(horizontal = 12.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Symbols.arrowDownCircle, null, tint = PeeringColors.accent, modifier = Modifier.size(16.dp))
+                Icon(AppIcons.download, null, tint = PeeringColors.accent, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(stringResource(R.string.connect_first_download), style = PeeringText.subheadlineMedium.copy(fontWeight = FontWeight.Medium), color = PeeringColors.accent)
             }

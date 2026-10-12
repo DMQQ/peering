@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import pl.dmq.peering.ui.theme.ContinuousShape
 
 /** The tour's phone, from the marketing site's mockup: every measure is a fraction of the screen width. */
 object PhoneMetrics {
@@ -36,7 +35,7 @@ object PhoneMetrics {
 fun PhoneDrawing(screenWidth: Dp, modifier: Modifier = Modifier, screen: @Composable () -> Unit) {
     val screenHeight = screenWidth / PhoneMetrics.ASPECT
     val bezel = screenWidth * PhoneMetrics.BEZEL
-    val body = ContinuousShape(PhoneMetrics.bodyWidth(screenWidth) * PhoneMetrics.BODY_CORNER)
+    val body = RoundedCornerShape(PhoneMetrics.bodyWidth(screenWidth) * PhoneMetrics.BODY_CORNER)
     Box(
         modifier = modifier
             .size(PhoneMetrics.bodyWidth(screenWidth), PhoneMetrics.bodyHeight(screenWidth))
@@ -45,7 +44,7 @@ fun PhoneDrawing(screenWidth: Dp, modifier: Modifier = Modifier, screen: @Compos
             .border(1.dp, PhoneMetrics.rim, body),
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.size(screenWidth, screenHeight).clip(ContinuousShape(screenWidth * PhoneMetrics.SCREEN_CORNER))) {
+        Box(Modifier.size(screenWidth, screenHeight).clip(RoundedCornerShape(screenWidth * PhoneMetrics.SCREEN_CORNER))) {
             screen()
             Box(
                 Modifier
@@ -92,7 +91,7 @@ fun MacDrawing(displayWidth: Dp, modifier: Modifier = Modifier, screen: @Composa
             Modifier.size(lidWidth, lidHeight).background(Color.Black, lid).border(1.dp, PhoneMetrics.rim, lid),
             contentAlignment = Alignment.Center,
         ) {
-            Box(Modifier.size(displayWidth, displayHeight).clip(ContinuousShape(lidWidth * MacMetrics.LID_CORNER - bezel))) {
+            Box(Modifier.size(displayWidth, displayHeight).clip(RoundedCornerShape(lidWidth * MacMetrics.LID_CORNER - bezel))) {
                 screen()
                 Box(
                     Modifier

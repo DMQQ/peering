@@ -12,7 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.theme.EmptyState
-import pl.dmq.peering.ui.theme.InkButton
+import pl.dmq.peering.ui.kit.InkButton
 
 /** Why there is no camera picture: unavailable, not yet allowed, or switched off, with the one button that fixes it. */
 @Composable

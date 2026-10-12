@@ -65,7 +65,7 @@ fun FloatingChips(chips: List<FloatingChip>, modifier: Modifier = Modifier) {
                         scaleY = 0.8f + 0.2f * progress
                         translationY = (1f - progress) * 14.dp.toPx() + sin(drift.value + index * 2f) * 4.dp.toPx()
                     }
-                    .glassSurface(CircleShape)
+                    .chipSurface(CircleShape)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

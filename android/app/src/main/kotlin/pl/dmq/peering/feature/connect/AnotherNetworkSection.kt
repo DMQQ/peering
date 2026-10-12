@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.kit.Symbols
+import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringRow
@@ -23,9 +23,9 @@ import pl.dmq.peering.ui.theme.SectionLabel
 @Composable
 internal fun AnotherNetworkSection(onClick: () -> Unit) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        SectionLabel(stringResource(R.string.connect_another_network), Symbols.globe)
+        SectionLabel(stringResource(R.string.connect_another_network), AppIcons.globe)
         PeeringRow(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-            IconTile(Symbols.number)
+            IconTile(AppIcons.number)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(stringResource(R.string.connect_pair_elsewhere_title), style = PeeringText.subheadlineSemibold, color = PeeringColors.ink)

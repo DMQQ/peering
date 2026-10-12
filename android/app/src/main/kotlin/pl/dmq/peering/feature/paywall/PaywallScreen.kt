@@ -24,7 +24,7 @@ import pl.dmq.peering.R
 import pl.dmq.peering.billing.BillingUnavailable
 import pl.dmq.peering.ui.theme.OutlinedPanel
 import pl.dmq.peering.ui.theme.PeeringColors
-import pl.dmq.peering.ui.theme.QuietButton
+import pl.dmq.peering.ui.kit.QuietButton
 
 /** The plans: why the paywall opened, every offer the store lists, buying and restoring. */
 @Composable

@@ -41,8 +41,8 @@ import pl.dmq.peering.ui.kit.GuideStepRow
 import pl.dmq.peering.ui.kit.GuideStepState
 import pl.dmq.peering.ui.kit.PeeringSpinner
 import pl.dmq.peering.ui.kit.StepDetail
-import pl.dmq.peering.ui.kit.Symbols
-import pl.dmq.peering.ui.kit.pressable
+import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.kit.rowSurface
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -93,7 +93,7 @@ fun FirstConnectionScreen(state: ConnectUiState, actions: ConnectActions, onSkip
             }
         }
         Row(
-            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).heightIn(min = 44.dp).padding(bottom = 8.dp).pressable(onSkip, scale = 0.97f),
+            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).heightIn(min = 44.dp).padding(bottom = 8.dp).tappable(onSkip),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -130,8 +130,8 @@ private fun ChooseContent(found: List<HostRow>, ready: Boolean, actions: Connect
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Alternative(stringResource(R.string.first_enter_id), Symbols.number, onEnterId, Modifier.weight(1f))
-            Alternative(stringResource(R.string.first_enter_address), Symbols.keyboard, onEnterAddress, Modifier.weight(1f))
+            Alternative(stringResource(R.string.first_enter_id), AppIcons.number, onEnterId, Modifier.weight(1f))
+            Alternative(stringResource(R.string.first_enter_address), AppIcons.keyboard, onEnterAddress, Modifier.weight(1f))
         }
     }
 }
@@ -139,23 +139,23 @@ private fun ChooseContent(found: List<HostRow>, ready: Boolean, actions: Connect
 @Composable
 private fun NearbyChoice(host: HostRow, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 56.dp).pressable(onClick, scale = 0.98f).rowSurface().padding(horizontal = 14.dp),
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).rowSurface().tappable(onClick).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Symbols.macbook, null, tint = PeeringColors.ink, modifier = Modifier.size(24.dp))
+        Icon(AppIcons.computer, null, tint = PeeringColors.ink, modifier = Modifier.size(24.dp))
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(host.name ?: stringResource(R.string.connect_unnamed_host), style = PeeringText.subheadlineSemibold.copy(fontWeight = FontWeight.SemiBold), color = PeeringColors.ink)
             Text(stringResource(R.string.first_tap_to_connect), style = PeeringText.caption, color = PeeringColors.muted)
         }
-        Icon(Symbols.chevronRight, null, tint = PeeringColors.muted, modifier = Modifier.size(14.dp))
+        Icon(AppIcons.chevronRight, null, tint = PeeringColors.muted, modifier = Modifier.size(14.dp))
     }
 }
 
 @Composable
 private fun Alternative(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, modifier: Modifier) {
     Row(
-        modifier.heightIn(min = 44.dp).pressable(onClick, scale = 0.97f).rowSurface(),
+        modifier.heightIn(min = 44.dp).rowSurface().tappable(onClick),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -169,10 +169,10 @@ private fun Alternative(title: String, icon: androidx.compose.ui.graphics.vector
 private fun InstallLink() {
     val uri = LocalUriHandler.current
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).pressable({ uri.openUri("https://getpeering.app/download") }, scale = 0.98f).rowSurface().padding(horizontal = 14.dp),
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).rowSurface().tappable({ uri.openUri("https://getpeering.app/download") }).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(stringResource(R.string.tour_download_address), style = PeeringText.subheadlineSemibold.copy(fontWeight = FontWeight.SemiBold), color = PeeringColors.ink, modifier = Modifier.weight(1f), maxLines = 1)
-        Icon(Symbols.arrowUpRight, null, tint = PeeringColors.muted, modifier = Modifier.size(16.dp))
+        Icon(AppIcons.openExternal, null, tint = PeeringColors.muted, modifier = Modifier.size(16.dp))
     }
 }

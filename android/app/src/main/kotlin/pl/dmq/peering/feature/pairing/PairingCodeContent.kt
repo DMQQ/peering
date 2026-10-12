@@ -34,8 +34,8 @@ import pl.dmq.peering.ui.kit.GuideStepState
 import pl.dmq.peering.ui.kit.PeeringSpinner
 import pl.dmq.peering.ui.kit.PrimaryButton
 import pl.dmq.peering.ui.kit.StepDetail
-import pl.dmq.peering.ui.kit.Symbols
-import pl.dmq.peering.ui.kit.pressable
+import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.FailureNotice
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -102,7 +102,7 @@ private fun Steps(screen: PairingCodeScreen, actions: PairingActions) {
         }
         GuideStepRow(4, if (done) GuideStepState.Done else GuideStepState.Pending, stringResource(R.string.pairing_step_connected), Modifier.arrive(180), isLast = true) {
             if (done) StepDetail(stringResource(R.string.pairing_code_done)) else StepDetail(stringResource(R.string.pairing_step_connected_detail))
-            if (done) PrimaryButton(stringResource(R.string.pairing_code_back), actions.onFinished, Modifier.padding(top = 8.dp), height = 44.dp)
+            if (done) PrimaryButton(stringResource(R.string.pairing_code_back), actions.onFinished, Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -121,11 +121,11 @@ private fun ColumnScope.EnteringCode(screen: PairingCodeScreen.EnteringCode, act
     }
     if (actions.onScan != null) {
         Row(
-            Modifier.fillMaxWidth().height(40.dp).pressable(actions.onScan, scale = 0.97f),
+            Modifier.fillMaxWidth().height(40.dp).tappable(actions.onScan),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Symbols.qrcodeViewfinder, null, tint = PeeringColors.muted, modifier = Modifier.size(18.dp))
+            Icon(AppIcons.qrScanner, null, tint = PeeringColors.muted, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.pairing_code_scan), style = PeeringText.subheadlineMedium, color = PeeringColors.muted)
         }
@@ -135,16 +135,16 @@ private fun ColumnScope.EnteringCode(screen: PairingCodeScreen.EnteringCode, act
 @Composable
 private fun Failure(screen: PairingCodeScreen.Failed, actions: PairingActions) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        IconTile(Symbols.exclamationmarkTriangle, size = 56.dp)
+        IconTile(AppIcons.warning, size = 56.dp)
         FailureNotice(screen.message.text(), screen.details)
-        PrimaryButton(stringResource(R.string.pairing_code_back), actions.onFinished, height = 44.dp)
+        PrimaryButton(stringResource(R.string.pairing_code_back), actions.onFinished)
     }
 }
 
 @Composable
 private fun FooterLink(text: String, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).height(44.dp).padding(bottom = 8.dp).pressable(onClick, scale = 0.97f),
+        Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).height(44.dp).padding(bottom = 8.dp).tappable(onClick),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {

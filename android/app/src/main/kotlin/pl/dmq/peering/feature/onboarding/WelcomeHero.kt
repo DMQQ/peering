@@ -19,7 +19,7 @@ import pl.dmq.peering.ui.kit.FloatingChip
 import pl.dmq.peering.ui.kit.FloatingChips
 import pl.dmq.peering.ui.kit.PhoneDrawing
 import pl.dmq.peering.ui.kit.PhoneMetrics
-import pl.dmq.peering.ui.kit.Symbols
+import pl.dmq.peering.ui.kit.AppIcons
 import androidx.compose.foundation.background
 import androidx.compose.ui.res.stringResource
 
@@ -55,9 +55,9 @@ internal fun WelcomeHero(modifier: Modifier = Modifier) {
         }
         FloatingChips(
             listOf(
-                FloatingChip(Symbols.lockShield, stringResource(R.string.chip_encrypted), false, 0.06f),
-                FloatingChip(Symbols.personCropCircleBadgeXmark, stringResource(R.string.chip_no_account), true, 0.5f),
-                FloatingChip(Symbols.wifi, stringResource(R.string.chip_free_own_network), false, 0.76f),
+                FloatingChip(AppIcons.encrypted, stringResource(R.string.chip_encrypted), false, 0.06f),
+                FloatingChip(AppIcons.noAccount, stringResource(R.string.chip_no_account), true, 0.5f),
+                FloatingChip(AppIcons.wifi, stringResource(R.string.chip_free_own_network), false, 0.76f),
             ),
         )
     }

@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.kit.Symbols
+import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -23,10 +23,10 @@ import pl.dmq.peering.ui.theme.SectionLabel
 @Composable
 internal fun TrustedSection(hosts: List<HostRow>, actions: ConnectActions) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        SectionLabel(stringResource(R.string.connect_paired_heading), Symbols.checkmarkShield)
+        SectionLabel(stringResource(R.string.connect_paired_heading), AppIcons.verifiedShield)
         if (hosts.isEmpty()) {
             Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconTile(Symbols.shield)
+                IconTile(AppIcons.shield)
                 Spacer(Modifier.width(12.dp))
                 Text(stringResource(R.string.connect_paired_empty), style = PeeringText.subheadline, color = PeeringColors.muted)
             }

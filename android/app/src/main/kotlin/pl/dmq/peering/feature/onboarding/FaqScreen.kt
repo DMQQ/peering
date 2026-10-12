@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.ControlsCard
 import pl.dmq.peering.ui.kit.ControlsDivider
-import pl.dmq.peering.ui.kit.Symbols
-import pl.dmq.peering.ui.kit.pressable
+import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringMotion
 import pl.dmq.peering.ui.theme.PeeringText
@@ -63,7 +63,7 @@ private fun FaqRow(item: FaqItem) {
     val turn by animateFloatAsState(if (open) 90f else 0f, PeeringMotion.settle, label = "chevron")
     Column(Modifier.fillMaxWidth().animateContentSize()) {
         Row(
-            Modifier.fillMaxWidth().pressable({ open = !open }, scale = 0.99f).padding(vertical = 11.dp),
+            Modifier.fillMaxWidth().tappable({ open = !open }).padding(vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -72,7 +72,7 @@ private fun FaqRow(item: FaqItem) {
                 color = PeeringColors.ink,
                 modifier = Modifier.weight(1f),
             )
-            Icon(Symbols.chevronRight, null, tint = PeeringColors.tertiary, modifier = Modifier.size(14.dp).rotate(turn))
+            Icon(AppIcons.chevronRight, null, tint = PeeringColors.tertiary, modifier = Modifier.size(14.dp).rotate(turn))
         }
         if (open) {
             Text(stringResource(item.answerRes), style = PeeringText.footnote.copy(fontSize = PeeringText.subheadline.fontSize), color = PeeringColors.muted, modifier = Modifier.padding(bottom = 12.dp))

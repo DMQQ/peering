@@ -22,8 +22,8 @@ import pl.dmq.peering.feature.paywall.PaywallUi
 import pl.dmq.peering.feature.paywall.PlanOffer
 import pl.dmq.peering.feature.paywall.RestoreState
 import pl.dmq.peering.ui.kit.PeeringSpinner
-import pl.dmq.peering.ui.kit.Symbols
-import pl.dmq.peering.ui.kit.pressable
+import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.tappable
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.size
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -34,7 +34,7 @@ import pl.dmq.peering.ui.theme.PeeringText
 internal fun PlansSection(ui: PaywallUi, freeChosen: Boolean, onChooseFree: () -> Unit, onChoose: (PlanOffer) -> Unit, onRetry: () -> Unit, modifier: Modifier = Modifier) {
     when {
         ui.entitled -> Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(Symbols.checkmarkShield, null, tint = PeeringColors.accent, modifier = Modifier.size(40.dp))
+            Icon(AppIcons.verifiedShield, null, tint = PeeringColors.accent, modifier = Modifier.size(40.dp))
             Text(stringResource(R.string.tour_on_pro_title), style = PeeringText.headline, color = PeeringColors.ink)
             Text(stringResource(R.string.tour_on_pro_body), style = PeeringText.caption, color = PeeringColors.muted, textAlign = TextAlign.Center)
         }
@@ -54,7 +54,7 @@ internal fun PlansSection(ui: PaywallUi, freeChosen: Boolean, onChooseFree: () -
                 style = PeeringText.caption,
                 color = PeeringColors.muted,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().pressable(onRetry),
+                modifier = Modifier.fillMaxWidth().tappable(onRetry),
             )
         }
         else -> Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -101,7 +101,7 @@ internal fun LegalLinks(restore: RestoreState, onRestore: () -> Unit, modifier: 
 
 @Composable
 private fun LinkText(text: String, onClick: () -> Unit) {
-    Text(text, style = PeeringText.caption2.copy(fontSize = PeeringText.caption.fontSize), color = PeeringColors.muted, modifier = Modifier.pressable(onClick).padding(vertical = 4.dp))
+    Text(text, style = PeeringText.caption2.copy(fontSize = PeeringText.caption.fontSize), color = PeeringColors.muted, modifier = Modifier.tappable(onClick).padding(vertical = 4.dp))
 }
 
 @StringRes

@@ -23,8 +23,8 @@ import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.MenuItem
 import pl.dmq.peering.ui.kit.PeeringMenu
-import pl.dmq.peering.ui.kit.Symbols
-import pl.dmq.peering.ui.kit.pressable
+import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.kit.rowSurface
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -34,9 +34,9 @@ import pl.dmq.peering.ui.theme.PeeringText
 @Composable
 internal fun HostRowItem(row: HostRow, paired: Boolean, onOpen: () -> Unit, onForget: () -> Unit) {
     Row(Modifier.rowSurface().padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(Modifier.weight(1f).pressable(onOpen, scale = 0.98f), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.weight(1f).tappable(onOpen), verticalAlignment = Alignment.CenterVertically) {
             Box {
-                IconTile(Symbols.macbook)
+                IconTile(AppIcons.computer)
                 StatusDot(up = !paired || row.status != HostStatus.Unknown, modifier = Modifier.align(Alignment.BottomEnd))
             }
             Spacer(Modifier.width(12.dp))
@@ -65,11 +65,11 @@ internal fun HostRowItem(row: HostRow, paired: Boolean, onOpen: () -> Unit, onFo
 private fun TrustedMenu(onForget: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        Box(Modifier.size(36.dp).pressable({ open = true }), contentAlignment = Alignment.Center) {
-            Icon(Symbols.ellipsisCircle, stringResource(R.string.connect_more), tint = PeeringColors.muted, modifier = Modifier.size(22.dp))
+        Box(Modifier.size(36.dp).tappable({ open = true }), contentAlignment = Alignment.Center) {
+            Icon(AppIcons.more, stringResource(R.string.connect_more), tint = PeeringColors.muted, modifier = Modifier.size(22.dp))
         }
         PeeringMenu(open, { open = false }) {
-            MenuItem(stringResource(R.string.connect_forget), Symbols.trash, { open = false; onForget() }, destructive = true)
+            MenuItem(stringResource(R.string.connect_forget), AppIcons.delete, { open = false; onForget() }, destructive = true)
         }
     }
 }

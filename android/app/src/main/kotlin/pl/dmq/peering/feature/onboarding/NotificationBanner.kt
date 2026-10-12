@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.theme.ContinuousShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import androidx.compose.ui.draw.shadow
@@ -82,7 +82,7 @@ internal fun NotificationBanner(modifier: Modifier = Modifier) {
 
 @Composable
 private fun NotificationCard(example: Example, width: Dp) {
-    val shape = ContinuousShape(width * 0.055f)
+    val shape = RoundedCornerShape(width * 0.055f)
     fun size(fraction: Float) = (width * fraction).value.sp
     Column(
         Modifier
@@ -95,7 +95,7 @@ private fun NotificationCard(example: Example, width: Dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val tile = width * 0.085f
             Box(
-                Modifier.size(tile).background(PeeringColors.backdrop, ContinuousShape(tile * 0.2237f)),
+                Modifier.size(tile).background(PeeringColors.backdrop, RoundedCornerShape(tile * 0.2237f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Image(painterResource(R.drawable.pears), null, Modifier.size(tile * 0.85f))

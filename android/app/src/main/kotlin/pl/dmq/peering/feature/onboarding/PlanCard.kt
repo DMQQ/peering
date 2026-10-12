@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.onboarding
 
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -26,9 +27,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.ui.kit.CardShape
-import pl.dmq.peering.ui.kit.Symbols
+import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.cardBackground
-import pl.dmq.peering.ui.kit.pressable
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 
@@ -47,7 +48,8 @@ internal fun PlanCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .pressable(onClick, role = Role.RadioButton)
+            .clip(CardShape)
+            .tappable(onClick, role = Role.RadioButton)
             .semantics { role = Role.RadioButton; this.selected = selected }
             .let { if (selected) it.border(2.dp, PeeringColors.accent, CardShape) else it.cardBackground() }
             .padding(horizontal = 18.dp, vertical = 13.dp),
@@ -88,6 +90,6 @@ private fun Radio(selected: Boolean) {
             .let { if (selected) it.background(PeeringColors.accent, CircleShape) else it.border(1.5.dp, Color.White.copy(alpha = 0.35f), CircleShape) },
         contentAlignment = Alignment.Center,
     ) {
-        if (selected) Icon(Symbols.checkmark, null, tint = Color.White, modifier = Modifier.size(16.dp))
+        if (selected) Icon(AppIcons.check, null, tint = Color.White, modifier = Modifier.size(16.dp))
     }
 }

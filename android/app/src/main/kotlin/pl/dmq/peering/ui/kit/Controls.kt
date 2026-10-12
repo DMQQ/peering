@@ -24,7 +24,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import pl.dmq.peering.ui.theme.ContinuousShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 
@@ -46,7 +46,7 @@ fun ControlsCard(title: String, modifier: Modifier = Modifier, footer: String? =
 /** The 28 point glyph tile at the head of a row: 13 point glyph, radius 8, [tint] at 0.14. */
 @Composable
 fun ControlIcon(icon: ImageVector, modifier: Modifier = Modifier, tint: Color = PeeringColors.ink) {
-    Box(modifier.size(28.dp).background(tint.copy(alpha = 0.14f), ContinuousShape(8.dp)), contentAlignment = Alignment.Center) {
+    Box(modifier.size(28.dp).background(tint.copy(alpha = 0.14f), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
     }
 }

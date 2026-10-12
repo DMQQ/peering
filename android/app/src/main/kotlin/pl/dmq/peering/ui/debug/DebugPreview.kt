@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.kit.Symbols
+import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.feature.pairing.PairingActions
 import pl.dmq.peering.feature.pairing.PairingCodeContent
 import pl.dmq.peering.feature.pairing.PairingCodeScreen
@@ -60,7 +60,7 @@ fun DebugPreview(name: String) {
             "pairing_done" -> PairingCodeContent(PairingCodeScreen.Done, PairingActions())
             "pairing_failed" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.Unreachable, "ConnectException: failed to connect to /192.168.1.20 (port 51515)"), PairingActions())
             "scan_denied" -> ScanMessage(
-                icon = Symbols.camera,
+                icon = AppIcons.camera,
                 title = stringResource(R.string.scan_denied_title),
                 text = stringResource(R.string.scan_denied),
                 action = stringResource(R.string.scan_open_settings),

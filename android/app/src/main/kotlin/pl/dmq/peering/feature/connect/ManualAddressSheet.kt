@@ -13,6 +13,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -27,8 +29,7 @@ import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.PeeringSheet
 import pl.dmq.peering.ui.kit.PeeringTextField
 import pl.dmq.peering.ui.kit.PrimaryButton
-import pl.dmq.peering.ui.kit.SheetToolbar
-import pl.dmq.peering.ui.kit.Symbols
+import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 
@@ -39,9 +40,8 @@ internal fun ManualAddressSheet(onConnect: (host: String, port: String) -> Unit,
     var port by rememberSaveable { mutableStateOf(ManualAddress.DEFAULT_PORT.toString()) }
     val valid = ManualAddress.parse(host, port) != null
     PeeringSheet(onDismiss) {
-        SheetToolbar(cancel = stringResource(R.string.connect_cancel), onCancel = onDismiss)
-        Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            Text(stringResource(R.string.connect_address_title), style = PeeringText.display(size = 34f, tracking = -1.2f, lineHeight = 38f), color = PeeringColors.ink)
+        Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 24.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            Text(stringResource(R.string.connect_address_title), style = MaterialTheme.typography.headlineMedium, color = PeeringColors.ink)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PeeringTextField(
                     host, { host = it }, stringResource(R.string.connect_address_hint), Modifier.weight(1f),
@@ -53,7 +53,7 @@ internal fun ManualAddressSheet(onConnect: (host: String, port: String) -> Unit,
                     keyboardActions = KeyboardActions(onGo = { if (valid) onConnect(host, port) }),
                 )
             }
-            PrimaryButton(stringResource(R.string.connect_address_connect), onClick = { onConnect(host, port) }, enabled = valid, height = 44.dp)
+            PrimaryButton(stringResource(R.string.connect_address_connect), onClick = { onConnect(host, port) }, enabled = valid)
         }
     }
 }

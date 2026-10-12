@@ -18,6 +18,7 @@ object PeeringColors {
     val switchOffTrack = Color(0xFF39393D)
     val surface = Color(0x12FFFFFF)
     val hairline = Color(0x14FFFFFF)
+    val outline = Color(0x3DFFFFFF)
     val muted = Color(0x99EBEBF5)
     /** The system's tertiary label on dark. */
     val tertiary = Color(0x4DEBEBF5)

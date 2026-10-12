@@ -41,6 +41,6 @@ class PeeringColorsTest {
         assertEquals(PeeringColors.backdrop, scheme.background)
         assertEquals(PeeringColors.backdrop, scheme.surface)
         assertEquals(PeeringColors.ink, scheme.onSurface)
-        assertEquals(PeeringColors.hairline, scheme.outline)
+        assertEquals(PeeringColors.outline, scheme.outline)
     }
 }

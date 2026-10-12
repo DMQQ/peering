@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import pl.dmq.peering.ui.kit.pressable
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.kit.rowSurface
 
 /** A row resting on a card: the one filled surface in the app. Pressing it shrinks it a hair, with no ripple. */
@@ -18,7 +18,7 @@ fun PeeringRow(
     content: @Composable RowScope.() -> Unit,
 ) {
     Row(
-        modifier = modifier.pressable(onClick).rowSurface().padding(horizontal = 10.dp, vertical = 9.dp),
+        modifier = modifier.rowSurface().tappable(onClick).padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
     )

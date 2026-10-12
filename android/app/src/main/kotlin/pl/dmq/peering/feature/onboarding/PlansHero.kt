@@ -19,7 +19,7 @@ import pl.dmq.peering.ui.kit.FloatingChip
 import pl.dmq.peering.ui.kit.FloatingChips
 import pl.dmq.peering.ui.kit.PhoneDrawing
 import pl.dmq.peering.ui.kit.PhoneMetrics
-import pl.dmq.peering.ui.kit.Symbols
+import pl.dmq.peering.ui.kit.AppIcons
 
 /** The plans page's picture: the app's own screen in the tour's phone, rising out of the bottom edge, with what the paid plans add around it. */
 @Composable
@@ -43,9 +43,9 @@ internal fun PlansHero(modifier: Modifier = Modifier) {
         }
         FloatingChips(
             listOf(
-                FloatingChip(Symbols.infinity, stringResource(R.string.chip_unlimited_away), false, 0.2f),
-                FloatingChip(Symbols.sparkles, stringResource(R.string.chip_sharpest), true, 0.42f),
-                FloatingChip(Symbols.globe, stringResource(R.string.chip_any_network), false, 0.7f),
+                FloatingChip(AppIcons.unlimited, stringResource(R.string.chip_unlimited_away), false, 0.2f),
+                FloatingChip(AppIcons.sparkles, stringResource(R.string.chip_sharpest), true, 0.42f),
+                FloatingChip(AppIcons.globe, stringResource(R.string.chip_any_network), false, 0.7f),
             ),
         )
     }

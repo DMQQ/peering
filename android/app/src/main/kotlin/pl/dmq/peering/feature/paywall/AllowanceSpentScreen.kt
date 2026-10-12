@@ -16,7 +16,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.theme.PeeringColors
-import pl.dmq.peering.ui.theme.QuietButton
+import pl.dmq.peering.ui.kit.QuietButton
 
 /** Shown when the relay ends a session because the day's free time is gone. The Mac's own network still works. */
 @Composable

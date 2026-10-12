@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
@@ -21,8 +22,8 @@ import pl.dmq.peering.ui.kit.ControlsDivider
 import pl.dmq.peering.ui.kit.PeeringSheet
 import pl.dmq.peering.ui.kit.PeeringTextField
 import pl.dmq.peering.ui.kit.PrimaryButton
-import pl.dmq.peering.ui.kit.Symbols
-import pl.dmq.peering.ui.kit.pressable
+import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 
@@ -39,14 +40,14 @@ fun HostIdEntrySheet(
     onDismiss: () -> Unit,
 ) {
     val clipboard = LocalClipboardManager.current
-    PeeringSheet(onDismiss, dragIndicator = true) {
+    PeeringSheet(onDismiss) {
         Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            Text(stringResource(R.string.pairing_entry_heading), style = PeeringText.display(size = 34f, tracking = -1.2f, lineHeight = 38f), color = PeeringColors.ink)
+            Text(stringResource(R.string.pairing_entry_heading), style = MaterialTheme.typography.headlineMedium, color = PeeringColors.ink)
             ControlsCard(stringResource(R.string.pairing_entry_card), footer = stringResource(R.string.pairing_entry_detail)) {
                 PeeringTextField(
                     value = state.text,
                     onValueChange = onTextChanged,
-                    placeholder = stringResource(R.string.pairing_entry_hint),
+                    label = stringResource(R.string.pairing_entry_hint),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = false,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Go),
@@ -54,14 +55,14 @@ fun HostIdEntrySheet(
                     monospaced = true,
                 )
                 ControlsDivider()
-                ControlRow(stringResource(R.string.pairing_entry_paste), Symbols.docOnDoc, Modifier.pressable({ clipboard.getText()?.text?.let(onTextChanged) }, scale = 0.98f))
+                ControlRow(stringResource(R.string.pairing_entry_paste), AppIcons.copy, Modifier.tappable({ clipboard.getText()?.text?.let(onTextChanged) }))
                 if (onScan != null) {
                     ControlsDivider()
-                    ControlRow(stringResource(R.string.pairing_entry_scan), Symbols.qrcodeViewfinder, Modifier.pressable(onScan, scale = 0.98f))
+                    ControlRow(stringResource(R.string.pairing_entry_scan), AppIcons.qrScanner, Modifier.tappable(onScan))
                 }
             }
             state.error?.let { Text(stringResource(it.messageRes()), style = PeeringText.caption, color = PeeringColors.ink) }
-            PrimaryButton(stringResource(R.string.pairing_entry_submit), onClick = onSubmit, enabled = state.canSubmit, height = 44.dp)
+            PrimaryButton(stringResource(R.string.pairing_entry_submit), onClick = onSubmit, enabled = state.canSubmit)
         }
     }
 }

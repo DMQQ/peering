@@ -68,7 +68,7 @@ fun GuideStepRow(
 private fun Marker(number: Int, state: GuideStepState) {
     when (state) {
         GuideStepState.Done -> Box(Modifier.size(30.dp).background(PeeringColors.ink, CircleShape), contentAlignment = Alignment.Center) {
-            Icon(Symbols.checkmark, null, tint = PeeringColors.onInk, modifier = Modifier.size(16.dp))
+            Icon(AppIcons.check, null, tint = PeeringColors.onInk, modifier = Modifier.size(16.dp))
         }
         GuideStepState.Current -> Box(
             Modifier.size(30.dp).background(PeeringColors.accent.copy(alpha = 0.18f), CircleShape).border(2.dp, PeeringColors.accent, CircleShape),

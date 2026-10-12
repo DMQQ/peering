@@ -1,28 +1,23 @@
 package pl.dmq.peering.ui.kit
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.dp
-import pl.dmq.peering.ui.theme.ContinuousShape
 import pl.dmq.peering.ui.theme.PeeringColors
-import pl.dmq.peering.ui.theme.PeeringText
 
-/** iOS `.textFieldStyle(.plain)` on a 0.06 white fill, radius 12, 12 of padding. */
+/** Material's outlined field in the palette: a hairline outline that turns the single blue when focused, with a floating label. */
 @Composable
 fun PeeringTextField(
     value: String,
     onValueChange: (String) -> Unit,
-    placeholder: String,
+    label: String,
     modifier: Modifier = Modifier,
     singleLine: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
@@ -30,21 +25,23 @@ fun PeeringTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     monospaced: Boolean = false,
 ) {
-    BasicTextField(
+    val style = MaterialTheme.typography.bodyLarge
+    OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier,
         singleLine = singleLine,
+        label = { Text(label) },
+        textStyle = if (monospaced) style.copy(fontFamily = FontFamily.Monospace) else style,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
         visualTransformation = visualTransformation,
-        textStyle = (if (monospaced) PeeringText.subheadline.copy(fontFamily = FontFamily.Monospace) else PeeringText.body).copy(color = PeeringColors.ink),
-        cursorBrush = SolidColor(PeeringColors.ink),
-        decorationBox = { field ->
-            Box(Modifier.background(PeeringColors.ink.copy(alpha = 0.06f), ContinuousShape(12.dp)).padding(12.dp)) {
-                if (value.isEmpty()) Text(placeholder, style = PeeringText.body, color = PeeringColors.tertiary)
-                field()
-            }
-        },
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = PeeringColors.accent,
+            unfocusedBorderColor = PeeringColors.outline,
+            focusedLabelColor = PeeringColors.accent,
+            unfocusedLabelColor = PeeringColors.muted,
+            cursorColor = PeeringColors.accent,
+        ),
     )
 }

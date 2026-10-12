@@ -3,6 +3,7 @@ package pl.dmq.peering.ui.theme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,7 +19,7 @@ fun IconTile(icon: ImageVector, modifier: Modifier = Modifier, size: Dp = 42.dp,
     Box(
         modifier = modifier
             .size(size)
-            .background(PeeringColors.ink.copy(alpha = 0.12f), ContinuousShape(size * 0.286f)),
+            .background(PeeringColors.ink.copy(alpha = 0.12f), RoundedCornerShape(size * 0.286f)),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size * 0.56f))

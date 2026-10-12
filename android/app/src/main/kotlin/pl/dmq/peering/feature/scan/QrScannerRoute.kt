@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -25,7 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.kit.Symbols
+import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.PeeringColors
 
 /**
@@ -54,6 +55,7 @@ fun QrScannerRoute(
         granted = context.hasCameraPermission()
         onPauseOrDispose {}
     }
+    BackHandler(onBack = onClose)
     val permission = CameraPermissionState.of(granted, requested, rationale)
     LaunchedEffect(permission) {
         if (permission == CameraPermissionState.Unasked) launcher.launch(Manifest.permission.CAMERA)
@@ -62,7 +64,7 @@ fun QrScannerRoute(
     Box(modifier = modifier.fillMaxSize().background(PeeringColors.backdrop)) {
         when {
             unavailable -> ScanMessage(
-                icon = Symbols.camera,
+                icon = AppIcons.camera,
                 text = stringResource(R.string.scan_unavailable),
             )
             permission == CameraPermissionState.Granted -> {
@@ -76,13 +78,13 @@ fun QrScannerRoute(
                 ScanFrameGuide()
             }
             permission == CameraPermissionState.Rationale -> ScanMessage(
-                icon = Symbols.camera,
+                icon = AppIcons.camera,
                 text = stringResource(R.string.scan_rationale),
                 action = stringResource(R.string.scan_allow),
                 onAction = { launcher.launch(Manifest.permission.CAMERA) },
             )
             permission == CameraPermissionState.PermanentlyDenied -> ScanMessage(
-                icon = Symbols.camera,
+                icon = AppIcons.camera,
                 title = stringResource(R.string.scan_denied_title),
                 text = stringResource(R.string.scan_denied),
                 action = stringResource(R.string.scan_open_settings),

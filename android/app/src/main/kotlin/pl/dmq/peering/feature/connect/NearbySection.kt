@@ -19,11 +19,11 @@ import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.CapsuleChip
 import pl.dmq.peering.ui.kit.CircleIconButton
 import pl.dmq.peering.ui.kit.PeeringSpinner
-import pl.dmq.peering.ui.kit.Symbols
+import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.EmptyState
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
-import pl.dmq.peering.ui.theme.QuietButton
+import pl.dmq.peering.ui.kit.QuietButton
 import pl.dmq.peering.ui.theme.SectionLabel
 
 /** Computers on this network, or the reason there are none: no network, still looking, or nothing answered. */
@@ -37,21 +37,21 @@ internal fun NearbySection(
 ) {
     Column(modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            SectionLabel(stringResource(R.string.connect_nearby_heading), Symbols.dotRadiowavesLeftAndRight)
+            SectionLabel(stringResource(R.string.connect_nearby_heading), AppIcons.nearby)
             if (phase == NearbyPhase.Searching) {
                 Spacer(Modifier.width(8.dp))
                 PeeringSpinner(size = 13.dp, color = PeeringColors.muted)
             }
             Spacer(Modifier.weight(1f))
-            CapsuleChip(stringResource(R.string.connect_by_address), Symbols.network, onConnectByAddress)
+            CapsuleChip(stringResource(R.string.connect_by_address), AppIcons.network, onConnectByAddress)
             if (phase != NearbyPhase.NoNetwork) {
                 Spacer(Modifier.width(8.dp))
-                CircleIconButton(Symbols.arrowClockwise, stringResource(R.string.connect_search_again), actions.onSearchAgain)
+                CircleIconButton(AppIcons.refresh, stringResource(R.string.connect_search_again), actions.onSearchAgain)
             }
         }
         when (phase) {
             NearbyPhase.NoNetwork -> EmptyState(
-                icon = Symbols.wifiExclamationmark,
+                icon = AppIcons.wifiOff,
                 title = stringResource(R.string.connect_no_network_title),
                 body = stringResource(R.string.connect_no_network_body),
                 modifier = Modifier.padding(vertical = 8.dp),

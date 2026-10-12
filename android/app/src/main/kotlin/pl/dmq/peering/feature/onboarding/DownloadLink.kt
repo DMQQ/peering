@@ -28,8 +28,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.kit.Symbols
-import pl.dmq.peering.ui.kit.pressable
+import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.kit.rowSurface
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -54,7 +54,7 @@ internal fun DownloadLink(modifier: Modifier = Modifier, compact: Boolean = fals
         Row(
             Modifier
                 .weight(1f)
-                .pressable({ uri.openUri(DOWNLOAD_URL) })
+                .tappable({ uri.openUri(DOWNLOAD_URL) })
                 .semantics { contentDescription = openLabel }
                 .padding(start = 16.dp, end = 4.dp, top = if (compact) 0.dp else 13.dp, bottom = if (compact) 0.dp else 13.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -64,17 +64,17 @@ internal fun DownloadLink(modifier: Modifier = Modifier, compact: Boolean = fals
                 (if (compact) PeeringText.subheadline else PeeringText.title3).copy(fontWeight = FontWeight.SemiBold),
                 Modifier.weight(1f),
             )
-            Icon(Symbols.arrowUpRight, null, tint = PeeringColors.muted, modifier = Modifier.size(18.dp))
+            Icon(AppIcons.openExternal, null, tint = PeeringColors.muted, modifier = Modifier.size(18.dp))
         }
         Box(
             Modifier
                 .size(44.dp)
-                .pressable({ clipboard.setText(AnnotatedString(address)); copied = true }, scale = 0.94f)
+                .tappable({ clipboard.setText(AnnotatedString(address)); copied = true })
                 .semantics { contentDescription = "" },
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                if (copied) Symbols.checkmark else Symbols.docOnDoc,
+                if (copied) AppIcons.check else AppIcons.copy,
                 contentDescription = stringResource(if (copied) R.string.tour_download_copied else R.string.tour_download_copy),
                 tint = if (copied) PeeringColors.ink else PeeringColors.muted,
                 modifier = Modifier.size(20.dp),
