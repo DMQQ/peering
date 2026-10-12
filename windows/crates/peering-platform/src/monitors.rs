@@ -73,7 +73,12 @@ pub fn virtual_desktop_rect(displays: &[DisplayInfo]) -> (i32, i32, u32, u32) {
 
 #[cfg(windows)]
 pub fn enumerate_monitors() -> Vec<DisplayInfo> {
-    sys::read_monitors().iter().map(display_info).collect()
+    enumerate_readings().iter().map(display_info).collect()
+}
+
+#[cfg(windows)]
+pub fn enumerate_readings() -> Vec<MonitorReading> {
+    sys::read_monitors()
 }
 
 fn to_points(pixels: i32, scale: f64) -> i32 {
