@@ -69,6 +69,7 @@ class AgentsHubPresenter(
             val pending = session.pendingApprovalCount()
             SessionCard(
                 id = session.id,
+                agentID = session.info.agentID,
                 title = session.info.title,
                 directory = session.info.directory,
                 state = session.cardState(pending),

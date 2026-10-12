@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.TitleBarScreen
 import pl.dmq.peering.ui.kit.PrimaryButton
+import pl.dmq.peering.ui.theme.EmptyState
 import pl.dmq.peering.ui.theme.PeeringColors
 
 @Composable
@@ -37,9 +38,21 @@ fun HubScreen(
         }
         ui.failure?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = PeeringColors.danger) }
         if (ui.agents.isEmpty()) {
-            Text(stringResource(R.string.agents_unsupported), style = MaterialTheme.typography.bodyMedium, color = PeeringColors.muted)
+            EmptyState(
+                icon = null,
+                mascot = true,
+                title = stringResource(R.string.agents_unsupported_title),
+                body = stringResource(R.string.agents_unsupported),
+                modifier = Modifier.padding(vertical = 32.dp),
+            )
         } else if (ui.sessions.isEmpty()) {
-            Text(stringResource(R.string.agents_empty_body), style = MaterialTheme.typography.bodyMedium, color = PeeringColors.muted)
+            EmptyState(
+                icon = null,
+                mascot = true,
+                title = stringResource(R.string.agents_empty_title),
+                body = stringResource(R.string.agents_empty_body),
+                modifier = Modifier.padding(vertical = 32.dp),
+            )
         }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(ui.sessions, key = { it.id }) { card ->

@@ -1,11 +1,16 @@
 package pl.dmq.peering.feature.agents
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -13,12 +18,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.OutlinedPanel
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.PillShape
 
 @Composable
 fun SessionCardRow(
@@ -33,11 +41,16 @@ fun SessionCardRow(
             .clip(MaterialTheme.shapes.large)
             .clickable(onClick = onOpen),
     ) {
-        Text(card.title, style = MaterialTheme.typography.titleMedium, color = PeeringColors.ink, maxLines = 1)
-        Text(card.directory, style = MaterialTheme.typography.bodySmall, color = PeeringColors.muted, maxLines = 1)
-        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            IconTile(AgentBrand.of(card.agentID).icon(), size = 44.dp)
+            Column(Modifier.weight(1f)) {
+                Text(card.title, style = MaterialTheme.typography.titleMedium, color = PeeringColors.ink, maxLines = 1)
+                Text(card.directory, style = MaterialTheme.typography.bodySmall, color = PeeringColors.muted, maxLines = 1)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stateLabel(card.state), style = MaterialTheme.typography.labelMedium, color = stateColor(card.state))
+            StatusChip(card.state)
             if (card.pendingApprovals > 0) {
                 Text(
                     pluralStringResource(R.plurals.agents_pending_approvals, card.pendingApprovals, card.pendingApprovals),
@@ -60,6 +73,22 @@ fun SessionCardRow(
 }
 
 @Composable
+private fun StatusChip(state: SessionCardState) {
+    val color = stateColor(state)
+    Row(
+        modifier = Modifier
+            .clip(PillShape)
+            .background(color.copy(alpha = 0.14f))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(Modifier.size(6.dp).clip(PillShape).background(color))
+        Text(stateLabel(state), style = MaterialTheme.typography.labelMedium, color = color)
+    }
+}
+
+@Composable
 private fun stateLabel(state: SessionCardState): String = stringResource(
     when (state) {
         SessionCardState.WORKING -> R.string.agents_state_working
@@ -70,10 +99,10 @@ private fun stateLabel(state: SessionCardState): String = stringResource(
     },
 )
 
-private fun stateColor(state: SessionCardState) = when (state) {
+private fun stateColor(state: SessionCardState): Color = when (state) {
     SessionCardState.NEEDS_YOU -> PeeringColors.caution
     SessionCardState.FAILED -> PeeringColors.danger
-    SessionCardState.WORKING -> PeeringColors.ink
+    SessionCardState.WORKING -> PeeringColors.accent
     SessionCardState.IDLE, SessionCardState.ENDED -> PeeringColors.muted
 }
 

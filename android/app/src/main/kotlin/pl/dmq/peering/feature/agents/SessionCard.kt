@@ -7,6 +7,7 @@ import pl.dmq.peering.wire.AgentSessionState
 /** One chat as the hub shows it. [lastActivityUnix] is seconds since the Unix epoch. */
 data class SessionCard(
     val id: String,
+    val agentID: String,
     val title: String,
     val directory: String,
     val state: SessionCardState,

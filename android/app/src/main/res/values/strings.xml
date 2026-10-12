@@ -98,6 +98,12 @@
     <string name="pairing_failed_unreachable">Could not reach the computer. Check that it is on the same network and that Peering Host is running.</string>
     <string name="agents_title">Agents</string>
     <string name="agents_new_chat">New chat</string>
+    <string name="agents_tagline_claude">Anthropic\'s coding agent</string>
+    <string name="agents_tagline_codex">OpenAI\'s coding agent</string>
+    <string name="agents_tagline_opencode">Open source coding agent</string>
+    <string name="agents_tagline_other">A coding agent on your computer</string>
+    <string name="agents_unsupported_title">No agents here</string>
+    <string name="agents_empty_title">No chats yet</string>
     <string name="agents_unsupported">This computer does not offer agent chats yet.</string>
     <string name="agents_empty_body">Start a chat with an agent on your computer. It works in a folder you choose.</string>
     <string name="agents_choose_agent_title">Choose an agent</string>
