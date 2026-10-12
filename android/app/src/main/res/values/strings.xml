@@ -170,4 +170,37 @@
     <string name="approval_risk_tool">Uses a tool on your Mac</string>
     <string name="approval_answered">Answered</string>
     <string name="approval_cancelled">Cancelled, the turn ended first</string>
+
+    <string name="remote_keyboard">Keyboard</string>
+    <string name="remote_menu">Menu</string>
+    <string name="hub_title">Session</string>
+    <string name="hub_sources">Sources</string>
+    <string name="hub_agents">Agents</string>
+    <string name="hub_files">Files</string>
+    <string name="hub_quality">Quality</string>
+    <string name="hub_disconnect">Disconnect</string>
+    <string name="overlay_latency">%1$d ms</string>
+    <string name="overlay_path_lan">LAN</string>
+    <string name="overlay_path_relay">Relay</string>
+    <string name="overlay_path_direct">Direct</string>
+    <string name="overlay_picture_waiting">Waiting for the picture</string>
+    <string name="overlay_picture_paused">Picture paused</string>
+    <string name="overlay_quota_low">%1$d min of relay time left today</string>
+    <string name="overlay_quota_exhausted">Relay time is used up for today</string>
+    <string name="composer_placeholder">Message</string>
+    <string name="composer_placeholder_queue">Queue a message…</string>
+    <string name="composer_send">Send</string>
+    <string name="composer_queue">Queue</string>
+    <string name="composer_stop">Stop</string>
+    <string name="composer_model_default">Default model</string>
+    <string name="permission_manual">Manual</string>
+    <string name="permission_accept_edits">Auto accept</string>
+    <string name="permission_plan">Plan</string>
+    <string name="permission_auto">Auto</string>
+    <string name="permission_detail_asks">Asks before it edits or runs anything</string>
+    <string name="permission_detail_edits">Edits go through, commands still ask</string>
+    <string name="permission_detail_folder">Works freely inside the folder, nothing outside it</string>
+    <string name="permission_detail_plan">Looks and plans first, changes nothing until you approve</string>
+    <string name="permission_detail_reviewer">A reviewer model checks each action before it runs</string>
+    <string name="permission_detail_never">Never asks, and can reach outside the folder</string>
 </resources>
