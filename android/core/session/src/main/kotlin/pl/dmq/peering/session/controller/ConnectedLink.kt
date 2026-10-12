@@ -89,6 +89,10 @@ internal class ConnectedLink(
     var hostClipboard: ClipboardContent? = null
         private set
 
+    /** Where the computer last said its pointer is, or null before it said. The serial counts reports, so a repeat still registers. */
+    var hostPointer: HostPointer? = null
+        private set
+
     private var clipboardFrameId = 0L
 
     /** Sends a picture to the computer's clipboard and keeps it in the history when it went. */
@@ -193,6 +197,8 @@ internal class ConnectedLink(
                 hostClipboard = event.content
                 clipboard.record(event.content, ClipboardDirection.FROM_COMPUTER)
             }
+            is SessionEvent.HostPointerMoved ->
+                hostPointer = HostPointer(event.point, (hostPointer?.serial ?: 0) + 1)
             is SessionEvent.Finish -> ended.complete(event.end)
         }
     }

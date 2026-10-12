@@ -4,6 +4,7 @@ import pl.dmq.peering.session.clipboard.ClipboardContent
 import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.video.LaneOutput
 import pl.dmq.peering.wire.Frame
+import pl.dmq.peering.wire.NormalizedPoint
 import pl.dmq.peering.wire.RemoteCommand
 
 /** What routing a frame asks the live link to do. The link applies them in order. */
@@ -22,6 +23,9 @@ sealed interface SessionEvent {
 
     /** The host answered a clipboard request. Empty text means its clipboard held nothing the phone can take. */
     data class HostClipboard(val content: ClipboardContent) : SessionEvent
+
+    /** The computer reported where its pointer is, after something other than this client moved it. */
+    data class HostPointerMoved(val point: NormalizedPoint) : SessionEvent
 
     /** The link must end with [end]. */
     data class Finish(val end: LinkEnd) : SessionEvent
