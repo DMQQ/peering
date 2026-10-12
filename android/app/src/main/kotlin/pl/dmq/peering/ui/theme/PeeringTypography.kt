@@ -33,16 +33,21 @@ object PeeringText {
 
 val wordmarkStyle = PeeringText.display(size = 60f, tracking = -2.2f)
 
+/** Material's type scale: the serif carries display, headline and large titles; everything else is the system sans. */
 val peeringTypography = Typography(
+    displayLarge = PeeringText.display(size = 57f, tracking = -2f, lineHeight = 62f),
+    displayMedium = PeeringText.display(size = 45f, tracking = -1.6f, lineHeight = 50f),
+    displaySmall = PeeringText.display(size = 36f, tracking = -1.2f, lineHeight = 42f),
     headlineLarge = PeeringText.display(size = 34f, tracking = -1.2f, lineHeight = 40f),
     headlineMedium = PeeringText.display(size = 28f, tracking = -0.8f, lineHeight = 34f),
-    headlineSmall = PeeringText.display(size = 26f, tracking = -0.6f, lineHeight = 32f),
-    titleMedium = PeeringText.subheadlineSemibold,
-    titleSmall = PeeringText.subheadlineMedium,
-    bodyLarge = PeeringText.body,
-    bodyMedium = PeeringText.subheadline,
-    bodySmall = PeeringText.footnote,
-    labelLarge = PeeringText.subheadlineSemibold,
-    labelMedium = PeeringText.captionSemibold.copy(letterSpacing = 0.2.sp),
-    labelSmall = PeeringText.caption2.copy(fontWeight = FontWeight.Medium),
+    headlineSmall = PeeringText.display(size = 24f, tracking = -0.5f, lineHeight = 30f),
+    titleLarge = PeeringText.display(size = 22f, tracking = -0.3f, lineHeight = 28f),
+    titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.15.sp),
+    titleSmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.1.sp),
+    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Normal, letterSpacing = 0.5.sp),
+    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Normal, letterSpacing = 0.25.sp),
+    bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Normal, letterSpacing = 0.4.sp),
+    labelLarge = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.1.sp),
+    labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp),
+    labelSmall = TextStyle(fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp),
 )
