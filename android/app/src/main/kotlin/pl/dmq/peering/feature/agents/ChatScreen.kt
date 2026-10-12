@@ -43,6 +43,7 @@ fun ChatScreen(
     val transcriptUi by transcript.ui.collectAsState()
     var showingUsage by remember { mutableStateOf(false) }
     var showingChanges by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
     var confirmingClose by remember { mutableStateOf(false) }
     val pending = remember(transcriptUi.rows) { pendingApprovals(transcriptUi.rows) }
     var reviewingID by remember { mutableStateOf<String?>(null) }
@@ -55,6 +56,7 @@ fun ChatScreen(
                 onBack = onBackToList,
                 onShowUsage = { showingUsage = true },
                 onShowChanges = { showingChanges = true },
+            onRename = { renaming = true },
                 onPause = { if (chat.pause()) onBackToList() },
                 onClose = { confirmingClose = true },
             )
@@ -81,6 +83,16 @@ fun ChatScreen(
         ui.sessionID?.let { sessionID ->
             ApprovalSheet(port, sessionID, approval, onDismiss = { reviewingID = null })
         }
+    }
+    if (renaming) {
+        RenameDialog(
+            initial = ui.title,
+            onSave = {
+                chat.rename(it)
+                renaming = false
+            },
+            onDismiss = { renaming = false },
+        )
     }
     if (confirmingClose) {
         PeeringAlert(

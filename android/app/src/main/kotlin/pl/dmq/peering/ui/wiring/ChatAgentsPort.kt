@@ -43,6 +43,8 @@ internal class ChatAgentsPort(private val chat: AgentChat) : AgentsPort {
         chat.prompt(text)
     }
 
+    override fun rename(sessionID: String, name: String) = chat.rename(sessionID, name)
+
     override fun approve(sessionID: String, approvalID: String, answer: ApprovalAnswer) {
         chat.select(sessionID)
         chat.approve(approvalID, answer)

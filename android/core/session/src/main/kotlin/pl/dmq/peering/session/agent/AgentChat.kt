@@ -76,6 +76,15 @@ class AgentChat(
 
     fun close() = ifDeclared(capabilities.chat) { mutableState.value.selectedSessionID?.let { send(AgentRequest.Close(it)) } }
 
+    /** Names the chat on this phone only: the computer's title still says what it runs. Blank names are ignored. */
+    fun rename(sessionID: String, name: String) = ifDeclared(capabilities.chat) {
+        val trimmed = name.trim()
+        val session = mutableState.value.session(sessionID)
+        if (trimmed.isNotEmpty() && session != null) {
+            mutableState.value = mutableState.value.replacingSession(session.copy(renamedTo = trimmed))
+        }
+    }
+
     /** Stops the chat's process and keeps its conversation; the next prompt picks it up. */
     fun pause(sessionID: String) = ifDeclared(capabilities.chat && capabilities.pause) { send(AgentRequest.Pause(sessionID)) }
 

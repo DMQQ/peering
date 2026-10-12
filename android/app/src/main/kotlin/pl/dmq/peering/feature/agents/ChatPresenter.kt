@@ -48,6 +48,10 @@ class ChatPresenter(
         ui.value.sessionID?.let(port::close)
     }
 
+    fun rename(name: String) {
+        ui.value.sessionID?.let { port.rename(it, name) }
+    }
+
     fun suggest(text: String) {
         val sessionID = ui.value.sessionID ?: return
         port.prompt(sessionID, text)
@@ -60,7 +64,7 @@ class ChatPresenter(
         val state = session?.state
         return ChatUi(
             sessionID = session?.id,
-            title = session?.info?.title.orEmpty(),
+            title = session?.title.orEmpty(),
             directory = session?.info?.directory.orEmpty(),
             agentName = session?.let { AgentCatalog.name(it.info.agentID) }.orEmpty(),
             agentID = session?.info?.agentID.orEmpty(),

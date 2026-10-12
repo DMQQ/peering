@@ -42,7 +42,7 @@ import pl.dmq.peering.ui.theme.peeringShapes
 
 /**
  * One chat as the iPhone draws it: the agent's tile, the title, a state pill with the folder beside it, and the
- * latest reply underneath. A long press offers a new chat here, stopping it to history, and closing it.
+ * latest reply underneath. A long press offers a new chat here, renaming, stopping it to history, and closing it.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -50,6 +50,7 @@ fun SessionCardRow(
     card: SessionCard,
     onOpen: () -> Unit,
     onNewChatHere: () -> Unit,
+    onRename: () -> Unit,
     onPause: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
@@ -89,6 +90,14 @@ fun SessionCardRow(
                 onClick = {
                     menuOpen = false
                     onNewChatHere()
+                },
+            )
+            PeeringMenuItem(
+                title = stringResource(R.string.agents_rename),
+                icon = AppIcons.edit,
+                onClick = {
+                    menuOpen = false
+                    onRename()
                 },
             )
             if (card.canPause) {

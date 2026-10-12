@@ -55,12 +55,14 @@ private fun HubBody(
     onChatStarted: () -> Unit,
 ) {
     var closing by remember { mutableStateOf<SessionCard?>(null) }
+    var renaming by remember { mutableStateOf<SessionCard?>(null) }
     Box(Modifier.fillMaxSize()) {
         HubList(
             ui = ui,
             presenter = presenter,
             guide = guide,
             onClose = { closing = it },
+            onRename = { renaming = it },
             onSessionOpened = onSessionOpened,
             onChatStarted = onChatStarted,
         )
@@ -78,6 +80,16 @@ private fun HubBody(
             BackHandler(onBack = presenter::cancelNewChat)
             AgentPicker(ui.agents, ui.agentUsage, ui.selectedAgentID, presenter::chooseAgent, presenter::cancelNewChat)
         }
+    }
+    renaming?.let { card ->
+        RenameDialog(
+            initial = card.title,
+            onSave = {
+                presenter.renameSession(card.id, it)
+                renaming = null
+            },
+            onDismiss = { renaming = null },
+        )
     }
     closing?.let { card ->
         PeeringAlert(

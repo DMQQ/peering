@@ -38,6 +38,9 @@ interface AgentsPort {
 
     fun prompt(sessionID: String, text: String)
 
+    /** Names the chat on this phone only. */
+    fun rename(sessionID: String, name: String)
+
     fun approve(sessionID: String, approvalID: String, answer: ApprovalAnswer)
 
     fun interrupt(sessionID: String)

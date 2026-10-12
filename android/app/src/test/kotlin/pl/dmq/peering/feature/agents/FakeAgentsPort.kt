@@ -50,6 +50,10 @@ class FakeAgentsPort(
         calls += "prompt:$sessionID:$text"
     }
 
+    override fun rename(sessionID: String, name: String) {
+        calls += "rename:$sessionID:$name"
+    }
+
     override fun approve(sessionID: String, approvalID: String, answer: ApprovalAnswer) {
         calls += "approve:$sessionID:$approvalID:$answer"
     }
