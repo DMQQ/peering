@@ -27,13 +27,28 @@ fn everything_a_shell_printed_in_one_poll_is_one_event() {
 }
 
 #[test]
-fn a_burst_of_output_is_split_into_events_of_at_most_64_kib() {
+fn a_burst_of_output_is_split_into_events_of_at_most_32_kib() {
     let mut rig = rig();
     create(&mut rig, ALICE);
     rig.shells.shell(0).print(&vec![b'x'; 150 * 1024]);
     let poll = rig.manager.poll();
     let sizes: Vec<usize> = outputs(&poll).iter().map(|data| data.len()).collect();
-    assert_eq!(sizes, [64 * 1024, 64 * 1024, 22 * 1024]);
+    assert_eq!(sizes, [32 * 1024, 32 * 1024, 32 * 1024, 32 * 1024, 22 * 1024]);
+}
+
+#[test]
+fn the_largest_encoded_output_frame_stays_under_the_64_kib_rule() {
+    let mut rig = rig();
+    create(&mut rig, ALICE);
+    rig.shells.shell(0).print(&(0..=255u8).cycle().take(200 * 1024).collect::<Vec<u8>>());
+    let poll = rig.manager.poll();
+    let largest = poll
+        .events
+        .iter()
+        .map(|outbound| serde_json::to_vec(&outbound.event).expect("an event serialises").len())
+        .max()
+        .expect("output was produced");
+    assert!(largest < 64 * 1024, "the largest encoded event is {largest} bytes");
 }
 
 #[test]

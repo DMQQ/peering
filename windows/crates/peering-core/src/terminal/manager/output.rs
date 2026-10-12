@@ -1,4 +1,4 @@
-//! Reading what the shells print, and telling the owner: output in events of at most 64 KiB, then any prompt or
+//! Reading what the shells print, and telling the owner: output in events of at most 32 KiB, then any prompt or
 //! finished command found in it. A client that is not connected is told by push instead of by event.
 
 use peering_wire::terminal::{TerminalAttentionKind, TerminalEvent};
@@ -7,7 +7,9 @@ use super::{PushAlert, TerminalSessionManager};
 use crate::terminal::finish::{duration_suffix, Finish};
 use crate::terminal::session::Session;
 
-pub const MAXIMUM_OUTPUT_EVENT_BYTES: usize = 64 * 1024;
+/// Raw bytes per event. The wire carries them as base64 inside JSON, about 4/3 larger, and a frame over 64 KiB is dropped
+/// by a peer that is not yet past its handshake limit.
+pub const MAXIMUM_OUTPUT_EVENT_BYTES: usize = 32 * 1024;
 /// What one session may deliver per poll, so a shell that never stops printing cannot starve the others.
 const READ_BUDGET_BYTES: usize = 1024 * 1024;
 
