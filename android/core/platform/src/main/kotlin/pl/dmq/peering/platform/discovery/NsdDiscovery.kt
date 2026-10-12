@@ -2,38 +2,64 @@ package pl.dmq.peering.platform.discovery
 
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.util.Log
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import pl.dmq.peering.session.ports.DiscoveredHost
 import pl.dmq.peering.session.ports.Discovery
+import pl.dmq.peering.session.ports.DiscoveryEvent
 import pl.dmq.peering.session.ports.PeerAddress
 import kotlin.coroutines.resume
 
 /**
- * Browses `_remotedesktop._tcp` over NsdManager. Resolution runs one service at a time, because NsdManager refuses a
- * second resolve while one is pending. A host is emitted again only when its collapsed entry changes.
+ * Browses `_remotedesktop._tcp` over NsdManager. Every collection browses and resolves afresh, so nothing here is a
+ * cached address. NsdManager allows one resolve at a time for the whole process, so resolves queue on [resolving] and a
+ * refusal because another is active (a Samsung habit even without one) is retried after a short wait.
  */
 class NsdDiscovery(
     private val nsd: NsdManager,
     private val multicast: MulticastLease,
 ) : Discovery {
-    override fun hosts(): Flow<DiscoveredHost> = callbackFlow {
-        val found = Channel<NsdServiceInfo>(Channel.UNLIMITED)
+    private val resolving = Mutex()
+
+    override fun hosts(): Flow<DiscoveredHost> = events().filterIsInstance<DiscoveryEvent.Found>().map { it.host }
+
+    override fun events(): Flow<DiscoveryEvent> = callbackFlow {
+        val changes = Channel<ServiceChange>(Channel.UNLIMITED)
         val listener = object : NsdManager.DiscoveryListener {
-            override fun onDiscoveryStarted(serviceType: String) = Unit
-            override fun onDiscoveryStopped(serviceType: String) = Unit
-            override fun onServiceLost(serviceInfo: NsdServiceInfo) = Unit
-            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) = Unit
+            override fun onDiscoveryStarted(serviceType: String) {
+                Log.d(TAG, "browse started for $serviceType")
+            }
+
+            override fun onDiscoveryStopped(serviceType: String) {
+                Log.d(TAG, "browse stopped")
+            }
+
+            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
+                Log.w(TAG, "stopping the browse failed, code $errorCode")
+            }
 
             override fun onServiceFound(serviceInfo: NsdServiceInfo) {
-                found.trySend(serviceInfo)
+                Log.d(TAG, "service found: ${serviceInfo.serviceName}")
+                changes.trySend(ServiceChange.Found(serviceInfo))
+            }
+
+            override fun onServiceLost(serviceInfo: NsdServiceInfo) {
+                Log.d(TAG, "service lost: ${serviceInfo.serviceName}")
+                changes.trySend(ServiceChange.Lost(serviceInfo.serviceName))
             }
 
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
+                Log.w(TAG, "starting the browse failed, code $errorCode")
                 close(IllegalStateException("NSD discovery failed with code $errorCode"))
             }
         }
@@ -42,42 +68,88 @@ class NsdDiscovery(
         nsd.discoverServices(HostMapper.SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
 
         val resolver = launch {
-            val byService = mutableMapOf<String, DiscoveredHost>()
-            val emitted = mutableMapOf<String, DiscoveredHost>()
-            for (info in found) {
-                val host = resolve(info) ?: continue
-                byService[info.serviceName] = host
-                for (current in HostMapper.collapse(byService.values)) {
-                    if (emitted[current.id] != current) {
-                        emitted[current.id] = current
-                        send(current)
-                    }
+            val roster = ServiceRoster()
+            for (change in changes) {
+                val events = when (change) {
+                    is ServiceChange.Found -> resolve(change.info)
+                        ?.let { roster.found(change.info.serviceName, it) }
+                        .orEmpty()
+                    is ServiceChange.Lost -> roster.lost(change.serviceName)
+                }
+                for (event in events) {
+                    Log.d(TAG, "emit ${describe(event)}")
+                    send(event)
                 }
             }
         }
 
         awaitClose {
             resolver.cancel()
-            found.close()
+            changes.close()
             nsd.stopServiceDiscovery(listener)
             multicast.release()
         }
     }
 
-    private suspend fun resolve(info: NsdServiceInfo): DiscoveredHost? {
-        val resolved = suspendCancellableCoroutine<NsdServiceInfo?> { continuation ->
-            nsd.resolveService(info, object : NsdManager.ResolveListener {
-                override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                    continuation.resume(null)
+    private suspend fun resolve(info: NsdServiceInfo): DiscoveredHost? = resolving.withLock {
+        var attempt = 0
+        var host: DiscoveredHost? = null
+        var settled = false
+        while (!settled) {
+            when (val result = resolveOnce(info)) {
+                is ResolveResult.Resolved -> {
+                    host = hostOf(result.info)
+                    settled = true
                 }
+                is ResolveResult.Failed -> {
+                    val wait = ResolvePolicy.retryDelayMillis(result.code, attempt)
+                    Log.w(TAG, "resolve of ${info.serviceName} failed, code ${result.code}, retry in ${wait ?: "never"}")
+                    if (wait == null) settled = true else delay(wait)
+                    attempt++
+                }
+            }
+        }
+        host
+    }
 
-                override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
-                    continuation.resume(serviceInfo)
-                }
-            })
-        } ?: return null
+    private suspend fun resolveOnce(info: NsdServiceInfo): ResolveResult = suspendCancellableCoroutine { continuation ->
+        nsd.resolveService(info, object : NsdManager.ResolveListener {
+            override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+                continuation.resume(ResolveResult.Failed(errorCode))
+            }
+
+            override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
+                continuation.resume(ResolveResult.Resolved(serviceInfo))
+            }
+        })
+    }
+
+    private fun hostOf(resolved: NsdServiceInfo): DiscoveredHost? {
         val address = resolved.host?.hostAddress ?: return null
         val attributes = HostMapper.decodeAttributes(resolved.attributes)
-        return HostMapper.map(resolved.serviceName, attributes, PeerAddress(address, resolved.port))
+        val host = HostMapper.map(resolved.serviceName, attributes, PeerAddress(address, resolved.port))
+        Log.d(TAG, "resolved ${resolved.serviceName} to $address:${resolved.port}, ours: ${host != null}")
+        return host
+    }
+
+    private fun describe(event: DiscoveryEvent): String = when (event) {
+        is DiscoveryEvent.Found -> "found ${event.host.id} at ${event.host.address.host}:${event.host.address.port}"
+        is DiscoveryEvent.Lost -> "lost ${event.hostId}"
+    }
+
+    private sealed interface ServiceChange {
+        class Found(val info: NsdServiceInfo) : ServiceChange
+
+        class Lost(val serviceName: String) : ServiceChange
+    }
+
+    private sealed interface ResolveResult {
+        class Resolved(val info: NsdServiceInfo) : ResolveResult
+
+        class Failed(val code: Int) : ResolveResult
+    }
+
+    private companion object {
+        const val TAG = "PeeringDiscovery"
     }
 }

@@ -14,6 +14,7 @@ import pl.dmq.peering.feature.connect.PairedHost
 import pl.dmq.peering.session.hosts.HostDirectory
 import pl.dmq.peering.session.ports.DiscoveredHost
 import pl.dmq.peering.session.ports.Discovery
+import pl.dmq.peering.session.ports.DiscoveryEvent
 import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.ports.PinStore
 
@@ -48,8 +49,14 @@ internal class DiscoveryHostSource(
 
     override fun restartSearch() {
         search?.cancel()
+        found.value = emptyList()
         search = scope.launch {
-            discovery.hosts().collect { host -> found.update { it.withFound(host) } }
+            discovery.events().collect { event ->
+                when (event) {
+                    is DiscoveryEvent.Found -> found.update { it.withFound(event.host) }
+                    is DiscoveryEvent.Lost -> found.update { list -> list.filterNot { it.id == event.hostId } }
+                }
+            }
         }
     }
 }

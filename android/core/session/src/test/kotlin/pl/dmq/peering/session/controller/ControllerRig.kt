@@ -34,6 +34,9 @@ class ControllerRig(
 
     /** When false, every control connection attempt fails, as it does when the Mac is off the network. */
     var reachable = true
+
+    /** Direct addresses that answer with a refusal, as a stale advertised port does. */
+    val refusing = mutableSetOf<PeerAddress>()
     val sink = FakeVideoSink()
     val signalling = FakeSignalling()
     val datagrams = FakeDatagramTransport()
@@ -50,6 +53,7 @@ class ControllerRig(
         control = ControlConnector { route ->
             routes += route
             check(reachable) { "the host is not reachable" }
+            if (route is ControlRoute.Direct && route.address in refusing) throw java.net.ConnectException("refused")
             mac.newConnection()
         },
         discovery = object : Discovery {

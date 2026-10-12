@@ -3,6 +3,7 @@ package pl.dmq.peering.session.controller
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import pl.dmq.peering.session.ports.ControlTransport
 import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.relay.RelayConnect
 import pl.dmq.peering.session.relay.RelaySessionException
@@ -11,15 +12,36 @@ import kotlin.time.Duration.Companion.seconds
 /** Turns a [ConnectTarget] into an open control connection, asking the relay or the local network as the target needs. */
 internal class RouteOpener(private val target: ConnectTarget, private val ports: SessionPorts) {
     suspend fun open(): OpenedRoute = when (target) {
-        is ConnectTarget.Lan -> direct(target.address)
+        is ConnectTarget.Lan -> direct(target.hostId?.let { fresh(it) } ?: target.address)
         is ConnectTarget.Pairing -> direct(guarded { discover(target.hostId) })
         is ConnectTarget.Relay -> relayed(target.hostId)
     }
 
     private suspend fun direct(address: PeerAddress): OpenedRoute {
-        val transport = guarded { ports.control.open(ControlRoute.Direct(address)) }
-        return OpenedRoute(transport, target.path, address, ByteArray(0), datagrams = null)
+        val (transport, reached) = guarded { dial(address) }
+        return OpenedRoute(transport, target.path, reached, ByteArray(0), datagrams = null)
     }
+
+    /** Tries the resolved port, then the protocol default when the first refuses. Each attempt is made by the connector, which logs it. */
+    private suspend fun dial(address: PeerAddress): Pair<ControlTransport, PeerAddress> {
+        var failure: Exception? = null
+        for (candidate in ConnectAddresses.candidates(address)) {
+            try {
+                return ports.control.open(ControlRoute.Direct(candidate)) to candidate
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                failure = error
+                if (!ConnectAddresses.refused(error)) break
+            }
+        }
+        throw checkNotNull(failure)
+    }
+
+    /** The address [hostId] has on the network right now, or null when it was not seen in time. Never a remembered one. */
+    private suspend fun fresh(hostId: String): PeerAddress? = withTimeoutOrNull(FRESH_TIMEOUT) {
+        ports.discovery.hosts().first { it.id == hostId }
+    }?.address
 
     private suspend fun relayed(hostId: String): OpenedRoute {
         val relay = checkNotNull(ports.relay) { "a relay target needs the relay ports" }
@@ -61,5 +83,6 @@ internal class RouteOpener(private val target: ConnectTarget, private val ports:
 
     private companion object {
         val DISCOVERY_TIMEOUT = 10.seconds
+        val FRESH_TIMEOUT = 3.seconds
     }
 }
