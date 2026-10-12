@@ -8,6 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import pl.dmq.peering.session.testing.FakePinStore
 import pl.dmq.peering.session.testing.FixedRandom
+import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.ClientHello
 import pl.dmq.peering.wire.ConnectionRole
 import pl.dmq.peering.wire.Frame
@@ -70,6 +71,25 @@ class ClientStateMachineTest {
         assertEquals(PROTOCOL_VERSION, hello.protocolVersion)
         assertTrue(hello.wantsPairing)
         assertNull(hello.lostPairing)
+    }
+
+    @Test
+    fun theFirstHelloCarriesTheResumeSourceAndThePlatformAndCodecs() {
+        val config = ClientConfig(
+            HostFrames.CLIENT_ID,
+            "Phone",
+            null,
+            HostFrames.hostKey,
+            resumeSource = CaptureSource.Display(7).toJson(),
+            clientPlatform = "android",
+            videoCodecs = listOf("hevc", "h264"),
+        )
+        val actions = ClientStateMachine(config, FakePinStore(), FixedRandom(1)).start()
+
+        val hello = WireJson.decodeFromString(ClientHello.serializer(), actions[1].sentFrame().payload.decodeToString())
+        assertEquals(CaptureSource.Display(7).toJson(), hello.resumeSource)
+        assertEquals("android", hello.clientPlatform)
+        assertEquals(listOf("hevc", "h264"), hello.videoCodecs)
     }
 
     @Test

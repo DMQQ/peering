@@ -183,6 +183,8 @@ class SessionController(
             clientName = ports.clientName,
             dialledHostId = target.hostId,
             serverKey = serverKey,
+            resumeSource = selection.resumeSourceJson(),
+            clientPlatform = CLIENT_PLATFORM,
         )
         return SessionHandshake(
             config = config,
@@ -190,7 +192,6 @@ class SessionController(
             random = ports.random,
             frames = frames,
             pairingSecret = (target as? ConnectTarget.Pairing)?.qrSecret,
-            resumeSource = selection.resumeSourceJson(),
             sendFrame = writer::enqueue,
             awaitDecision = ::awaitPairing,
         ).run()
@@ -293,5 +294,6 @@ class SessionController(
 
     private companion object {
         const val MILLIS_PER_SECOND = 1000L
+        const val CLIENT_PLATFORM = "android"
     }
 }

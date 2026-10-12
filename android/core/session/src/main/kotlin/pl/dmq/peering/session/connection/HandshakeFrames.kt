@@ -28,6 +28,9 @@ internal object HandshakeFrames {
             supportsAgentPermissionModes = true,
             supportsAgentUsage = true,
             lostPairing = if (config.dialledHostId != null && !knowsHost) true else null,
+            resumeSource = config.resumeSource,
+            clientPlatform = config.clientPlatform,
+            videoCodecs = config.videoCodecs,
         ),
     )
 

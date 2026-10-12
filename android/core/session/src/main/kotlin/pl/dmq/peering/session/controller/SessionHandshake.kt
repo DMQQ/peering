@@ -2,17 +2,13 @@ package pl.dmq.peering.session.controller
 
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.serialization.json.JsonElement
 import pl.dmq.peering.session.connection.ClientAction
 import pl.dmq.peering.session.connection.ClientConfig
 import pl.dmq.peering.session.connection.ClientStateMachine
 import pl.dmq.peering.session.connection.FailureReason
-import pl.dmq.peering.session.connection.HandshakeFrames
 import pl.dmq.peering.session.ports.PinStore
 import pl.dmq.peering.session.ports.Random
-import pl.dmq.peering.wire.ClientHello
 import pl.dmq.peering.wire.Frame
-import pl.dmq.peering.wire.MessageKind
 import pl.dmq.peering.wire.ServerHello
 import kotlin.time.Duration.Companion.seconds
 
@@ -36,7 +32,6 @@ internal class SessionHandshake(
     random: Random,
     private val frames: ReceiveChannel<Frame>,
     private val pairingSecret: ByteArray?,
-    private val resumeSource: JsonElement?,
     private val sendFrame: (Frame) -> Unit,
     private val awaitDecision: suspend (code: String) -> Boolean,
 ) {
@@ -54,7 +49,7 @@ internal class SessionHandshake(
     private suspend fun consume(actions: List<ClientAction>): HandshakeOutcome? {
         for (action in actions) {
             when (action) {
-                is ClientAction.Send -> sendFrame(withResumeSource(action.frame))
+                is ClientAction.Send -> sendFrame(action.frame)
                 is ClientAction.ShowCode -> {
                     val accepted = awaitDecision(action.code)
                     return consume(machine.confirm(accepted, pairingSecret))
@@ -65,14 +60,6 @@ internal class SessionHandshake(
             }
         }
         return null
-    }
-
-    /** The state machine does not carry the resume source, so the client hello is rewritten with it on a reconnect. */
-    private fun withResumeSource(frame: Frame): Frame {
-        val source = resumeSource ?: return frame
-        if (frame.kind != MessageKind.ClientHello) return frame
-        val hello = HandshakeFrames.decode(frame, ClientHello.serializer()) ?: return frame
-        return HandshakeFrames.json(MessageKind.ClientHello, ClientHello.serializer(), hello.copy(resumeSource = source))
     }
 
     private companion object {
