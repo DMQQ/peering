@@ -13,6 +13,9 @@ interface HostSource {
     /** Removes the pin for [hostId]. False when the removal did not persist. */
     fun forget(hostId: String): Boolean
 
+    /** Names [hostId] on this device only; a blank name restores the one the computer gave itself. */
+    fun rename(hostId: String, name: String)
+
     /** Starts discovery again, after it found nothing or stopped. */
     fun restartSearch()
 }

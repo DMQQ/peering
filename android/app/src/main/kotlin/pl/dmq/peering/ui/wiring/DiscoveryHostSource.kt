@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import pl.dmq.peering.feature.connect.HostSource
@@ -25,6 +25,7 @@ internal class DiscoveryHostSource(
     private val pins: PinStore,
     private val directory: HostDirectory,
     private val lanAddresses: RememberedLanAddresses,
+    private val aliases: HostAliases,
     private val scope: CoroutineScope,
 ) : HostSource {
     private val found = MutableStateFlow<List<DiscoveredHost>>(emptyList())
@@ -39,9 +40,11 @@ internal class DiscoveryHostSource(
 
     override fun nearbyHosts(): Flow<List<DiscoveredHost>> = found.asStateFlow()
 
-    override fun pairedHosts(): Flow<List<PairedHost>> = directory.known.map { known ->
-        pins.hostIds().map { PairedHost(id = it, name = known[it]?.name) }
+    override fun pairedHosts(): Flow<List<PairedHost>> = combine(directory.known, aliases.names) { known, named ->
+        pins.hostIds().map { PairedHost(id = it, name = named[it] ?: known[it]?.name) }
     }
+
+    override fun rename(hostId: String, name: String) = aliases.set(hostId, name)
 
     override fun forget(hostId: String): Boolean {
         val removed = pins.remove(hostId)

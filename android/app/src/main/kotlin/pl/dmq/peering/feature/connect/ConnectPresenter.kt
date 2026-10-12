@@ -17,6 +17,7 @@ class ConnectPresenter(
     presence: PresenceSource,
     qrSource: QrSource,
     private val onConnect: (String) -> Unit,
+    private val onConnectVia: (String, ConnectVia) -> Unit = { hostId, _ -> onConnect(hostId) },
     private val onPair: (String) -> Unit,
     private val onConnectAddress: (ManualAddress) -> Unit,
     private val scope: CoroutineScope,
@@ -60,6 +61,18 @@ class ConnectPresenter(
 
     fun connect(hostId: String) {
         onConnect(hostId)
+    }
+
+    fun connectVia(hostId: String, via: ConnectVia) {
+        onConnectVia(hostId, via)
+    }
+
+    fun rename(hostId: String, name: String) {
+        hosts.rename(hostId, name.trim())
+    }
+
+    fun dismissMessage() {
+        message.value = null
     }
 
     fun pair(hostId: String) {

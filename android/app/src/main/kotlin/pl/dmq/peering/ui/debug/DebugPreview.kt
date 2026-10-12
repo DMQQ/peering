@@ -25,6 +25,7 @@ import pl.dmq.peering.feature.connect.ManualAddressSheet
 import pl.dmq.peering.feature.pairing.HostIdEntrySheet
 import pl.dmq.peering.feature.pairing.HostIdEntryState
 import pl.dmq.peering.feature.connect.ConnectActions
+import pl.dmq.peering.feature.connect.AppProtection
 import pl.dmq.peering.feature.connect.ConnectScreen
 import pl.dmq.peering.feature.connect.ConnectUiState
 import pl.dmq.peering.feature.connect.HostListing
@@ -95,7 +96,7 @@ fun DebugPreview(name: String) {
 
 @Composable
 private fun connect(phase: NearbyPhase, listing: HostListing) {
-    ConnectScreen(ConnectUiState(listing = listing, nearbyPhase = phase), previewConnect())
+    ConnectScreen(ConnectUiState(listing = listing, nearbyPhase = phase), previewConnect(), AppProtection(enabled = false, available = true, onChange = { note("protect $it") }))
 }
 
 @Composable
@@ -116,7 +117,10 @@ private fun previewPairing(scan: Boolean = true) = PairingActions(
 
 private fun previewConnect() = ConnectActions(
     onConnect = { id -> Log.i(TAG, "connect $id") },
+    onConnectVia = { id, via -> Log.i(TAG, "connect $id via $via") },
     onPair = { id -> Log.i(TAG, "pair $id") },
+    onRename = { id, name -> Log.i(TAG, "rename $id $name") },
+    onDismissMessage = note("dismiss message"),
     onForget = { id -> Log.i(TAG, "forget $id") },
     onConnectAddress = { host, port -> Log.i(TAG, "address $host:$port") },
     onSearchAgain = note("search again"),

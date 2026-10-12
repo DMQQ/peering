@@ -17,11 +17,12 @@ import pl.dmq.peering.ui.kit.PeeringAlert
 fun ConnectRoute(
     presenter: ConnectPresenter,
     modifier: Modifier = Modifier,
+    protection: AppProtection,
     onScanRequested: (() -> Unit)?,
 ) {
     val state by presenter.state.collectAsState()
     val actions = rememberConnectActions(presenter, onScanRequested)
-    ConnectScreen(state = state, actions = actions, modifier = modifier)
+    ConnectScreen(state = state, actions = actions, protection = protection, modifier = modifier)
     if (state.forgetTarget != null) {
         ForgetDialog(onConfirm = presenter::confirmForget, onDismiss = presenter::cancelForget)
     }
@@ -46,7 +47,10 @@ internal fun rememberConnectActions(presenter: ConnectPresenter, onScanRequested
     return remember(presenter, onScanRequested, context) {
         ConnectActions(
             onConnect = presenter::connect,
+            onConnectVia = presenter::connectVia,
             onPair = presenter::pair,
+            onRename = presenter::rename,
+            onDismissMessage = presenter::dismissMessage,
             onForget = presenter::requestForget,
             onConnectAddress = presenter::connectToAddress,
             onSearchAgain = presenter::searchAgain,

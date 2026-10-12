@@ -17,7 +17,10 @@ private fun ignore(host: String, port: String) = Unit
 
 private val previewActions = ConnectActions(
     onConnect = ::ignore,
+    onConnectVia = ::ignoreVia,
     onPair = ::ignore,
+    onRename = ::ignore,
+    onDismissMessage = ::ignore,
     onForget = ::ignore,
     onConnectAddress = ::ignore,
     onSearchAgain = ::ignore,
@@ -37,7 +40,7 @@ private val nearbyRows = listOf(HostRow("N1", "Spare laptop", HostStatus.Online,
 
 @Composable
 private fun Frame(state: ConnectUiState) {
-    PeeringTheme { Box(Modifier.peeringBackdrop()) { ConnectScreen(state, previewActions) } }
+    PeeringTheme { Box(Modifier.peeringBackdrop()) { ConnectScreen(state, previewActions, AppProtection(enabled = false, available = true, onChange = ::ignoreFlag)) } }
 }
 
 @Preview(name = "Connect, computers found", showBackground = true, heightDp = 1000)
@@ -55,3 +58,9 @@ private fun ConnectNoneFoundPreview() = Frame(ConnectUiState(HostListing(pairedR
 @Preview(name = "Connect, no network, nothing paired", showBackground = true, heightDp = 900)
 @Composable
 private fun ConnectNoNetworkPreview() = Frame(ConnectUiState(HostListing.EMPTY, NearbyPhase.NoNetwork))
+
+@Suppress("UNUSED_PARAMETER")
+private fun ignoreVia(hostId: String, via: ConnectVia) = Unit
+
+@Suppress("UNUSED_PARAMETER")
+private fun ignoreFlag(enabled: Boolean) = Unit

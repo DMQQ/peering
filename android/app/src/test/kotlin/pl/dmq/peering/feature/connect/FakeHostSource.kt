@@ -12,6 +12,7 @@ class FakeHostSource(
     val nearby = MutableStateFlow(nearby)
     val paired = MutableStateFlow(paired)
     val forgotten = mutableListOf<String>()
+    val renamed = mutableListOf<Pair<String, String>>()
     var searchRestarts = 0
         private set
 
@@ -23,6 +24,10 @@ class FakeHostSource(
         forgotten += hostId
         if (forgetSucceeds) paired.value = paired.value.filterNot { it.id == hostId }
         return forgetSucceeds
+    }
+
+    override fun rename(hostId: String, name: String) {
+        renamed += hostId to name
     }
 
     override fun restartSearch() {

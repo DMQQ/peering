@@ -11,7 +11,9 @@ import pl.dmq.peering.feature.scan.CameraQrSource
 import pl.dmq.peering.feature.onboarding.FaqScreen
 import pl.dmq.peering.ui.nav.ScreenRegistry
 import pl.dmq.peering.ui.wiring.ConnectivityNetworkSource
+import pl.dmq.peering.feature.connect.ConnectVia
 import pl.dmq.peering.ui.wiring.DiscoveryHostSource
+import pl.dmq.peering.ui.wiring.HostAliases
 import pl.dmq.peering.ui.wiring.PinTrustedHosts
 import pl.dmq.peering.ui.wiring.PreferencesComposerDrafts
 import pl.dmq.peering.ui.wiring.PreferencesFolderRecents
@@ -47,7 +49,8 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val hostNames = PersistedHostDirectory(PreferencesKeyValueStore(preferences))
     val trusted = PinTrustedHosts(graph.sessions.pins, hostNames)
     val lanAddresses = RememberedLanAddresses(PreferencesKeyValueStore(preferences))
-    val discovery = DiscoveryHostSource(graph.sessions.discovery, graph.sessions.pins, hostNames, lanAddresses, scope)
+    val aliases = HostAliases(PreferencesKeyValueStore(preferences)) { graph.sessions.pins.hostIds().toSet() }
+    val discovery = DiscoveryHostSource(graph.sessions.discovery, graph.sessions.pins, hostNames, lanAddresses, aliases, scope)
     val billing = PlayBilling(graph.applicationContext, scope) { graph.sessions.identity.publicKey }.also { it.connect() }
     val holder = SessionHolder(
         SessionPortsFactory(
@@ -79,6 +82,15 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     /** Starts a session with a paired Mac, over the local network when it is seen there. */
     fun connectPaired(hostId: String) {
         holder.connect(pairedTarget(hostId, discovery.addressOf(hostId), lanAddresses.addressOf(hostId)))
+    }
+
+    /** Dials a paired Mac over the one route the user chose. */
+    fun connectPairedVia(hostId: String, via: ConnectVia) {
+        val target = when (via) {
+            ConnectVia.Lan -> ConnectTarget.Paired(hostId, discovery.addressOf(hostId), lanAddresses.addressOf(hostId), relayAllowed = false)
+            ConnectVia.Relay -> ConnectTarget.Paired(hostId, null, null, relayAllowed = true)
+        }
+        holder.connect(target)
     }
 
     fun startPairing(hostId: String) = holder.connect(ConnectTarget.Pairing(hostId))

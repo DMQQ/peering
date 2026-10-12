@@ -7,9 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,66 +16,68 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
-import pl.dmq.peering.ui.kit.LinkButton
+import pl.dmq.peering.ui.kit.CapsuleChip
+import pl.dmq.peering.ui.kit.CircleIconButton
+import pl.dmq.peering.ui.kit.InkButton
 import pl.dmq.peering.ui.kit.PeeringSpinner
-import pl.dmq.peering.ui.kit.QuietButton
-import pl.dmq.peering.ui.theme.EmptyState
+import pl.dmq.peering.ui.kit.cardBackground
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.SectionLabel
 
-/** Computers on this network, or the calm reason there are none: no network, still looking, or nothing answered. */
+internal const val ID_PREFIX = 8
+
 @Composable
-internal fun NearbySection(phase: NearbyPhase, hosts: List<HostRow>, actions: ConnectActions, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+internal fun NearbySection(
+    phase: NearbyPhase,
+    hosts: List<HostRow>,
+    actions: ConnectActions,
+    onConnectByAddress: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             SectionLabel(stringResource(R.string.connect_nearby_heading), AppIcons.nearby)
-            if (phase == NearbyPhase.Searching) {
+            if (hosts.isEmpty()) {
                 Spacer(Modifier.width(8.dp))
                 PeeringSpinner(size = 13.dp, color = PeeringColors.muted)
             }
             Spacer(Modifier.weight(1f))
-            if (phase != NearbyPhase.NoNetwork) {
-                IconButton(onClick = actions.onSearchAgain) {
-                    Icon(AppIcons.refresh, stringResource(R.string.connect_search_again), tint = PeeringColors.muted)
+            CapsuleChip(stringResource(R.string.connect_by_address), AppIcons.network, onConnectByAddress)
+            Spacer(Modifier.width(8.dp))
+            CircleIconButton(AppIcons.refresh, stringResource(R.string.connect_search_again), actions.onSearchAgain)
+        }
+        if (hosts.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                hosts.forEach { row ->
+                    HostRowCard(row, detail = row.id.take(ID_PREFIX), up = true, onOpen = { actions.onPair(row.id) })
                 }
             }
         }
-        when (phase) {
-            NearbyPhase.NoNetwork -> EmptyState(
-                icon = AppIcons.wifiOff,
-                title = stringResource(R.string.connect_no_network_title),
-                body = stringResource(R.string.connect_no_network_body),
-                action = { QuietButton(onClick = actions.onOpenWifiSettings) { Text(stringResource(R.string.connect_open_wifi_settings)) } },
-            )
-            NearbyPhase.Searching -> Text(
-                stringResource(R.string.connect_searching),
-                style = MaterialTheme.typography.bodyMedium,
-                color = PeeringColors.muted,
-            )
-            NearbyPhase.NoneFound -> NoneFound(actions.onSearchAgain)
-            NearbyPhase.Found -> {
-                hosts.forEach { row -> HostCard(row, paired = false, onOpen = { actions.onPair(row.id) }, onForget = null) }
-                Text(
-                    pluralStringResource(R.plurals.connect_macs_found, hosts.size, hosts.size),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = PeeringColors.muted,
-                )
-            }
-        }
+        if (phase == NearbyPhase.NoNetwork) NoWifiNotice(actions.onOpenWifiSettings)
+        Text(
+            nearbyStatus(phase, hosts.size),
+            style = PeeringText.caption,
+            color = if (hosts.isEmpty()) PeeringColors.tertiary else PeeringColors.muted,
+            modifier = Modifier.padding(vertical = if (hosts.isEmpty()) 4.dp else 0.dp),
+        )
     }
 }
 
 @Composable
-private fun NoneFound(onSearchAgain: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(stringResource(R.string.connect_none_title), style = MaterialTheme.typography.titleMedium, color = PeeringColors.ink)
-        Text(stringResource(R.string.connect_none_body), style = MaterialTheme.typography.bodyMedium, color = PeeringColors.muted)
-        listOf(R.string.connect_tip_same_network, R.string.connect_tip_host_running, R.string.connect_tip_permission).forEach { tip ->
-            Row(verticalAlignment = Alignment.Top) {
-                Text("•", style = MaterialTheme.typography.bodyMedium, color = PeeringColors.tertiary, modifier = Modifier.width(16.dp))
-                Text(stringResource(tip), style = MaterialTheme.typography.bodyMedium, color = PeeringColors.muted)
-            }
+private fun nearbyStatus(phase: NearbyPhase, found: Int): String = when {
+    found > 0 -> pluralStringResource(R.plurals.connect_macs_found, found, found)
+    phase == NearbyPhase.NoneFound -> stringResource(R.string.connect_none_found)
+    else -> stringResource(R.string.connect_searching)
+}
+
+@Composable
+private fun NoWifiNotice(onOpenWifiSettings: () -> Unit) {
+    Column(Modifier.fillMaxWidth().cardBackground().padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(stringResource(R.string.connect_no_network_title), style = PeeringText.subheadlineSemibold, color = PeeringColors.ink)
+        Text(stringResource(R.string.connect_no_network_body), style = PeeringText.caption, color = PeeringColors.muted)
+        InkButton(onClick = onOpenWifiSettings, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.connect_open_wifi_settings))
         }
-        LinkButton(stringResource(R.string.connect_search_again), onSearchAgain, Modifier.padding(top = 4.dp))
     }
 }

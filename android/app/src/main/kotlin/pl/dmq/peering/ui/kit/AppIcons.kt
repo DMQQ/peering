@@ -8,6 +8,8 @@ import androidx.compose.material.icons.outlined.AllInclusive
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -106,6 +108,8 @@ object AppIcons {
     val sparkles: ImageVector get() = Icons.Outlined.AutoAwesome
     val help: ImageVector get() = Icons.AutoMirrored.Outlined.HelpOutline
     val delete: ImageVector get() = Icons.Outlined.Delete
+    val edit: ImageVector get() = Icons.Outlined.Edit
+    val fingerprint: ImageVector get() = Icons.Outlined.Fingerprint
     val camera: ImageVector get() = Icons.Outlined.PhotoCamera
     val fit: ImageVector get() = Icons.Outlined.FitScreen
     val menu: ImageVector get() = Icons.Outlined.Menu

@@ -37,15 +37,14 @@ class HostRouteTest {
     @Test
     fun theSupportingLineNamesTheRouteOfAPairedComputer() {
         val rows = listing().paired.associateBy { it.id }
-        assertEquals(R.string.connect_status_local, rows.getValue("A").supportingRes(paired = true))
-        assertEquals(R.string.connect_status_relay, rows.getValue("B").supportingRes(paired = true))
-        assertEquals(R.string.connect_status_unknown, rows.getValue("C").supportingRes(paired = true))
+        assertEquals(R.string.connect_status_local, rows.getValue("A").pairedDetailRes())
+        assertEquals(R.string.connect_status_relay, rows.getValue("B").pairedDetailRes())
+        assertEquals(R.string.connect_status_unknown, rows.getValue("C").pairedDetailRes())
     }
 
     @Test
-    fun aNearbyComputerInvitesPairingAndAConnectedOneInvitesReturning() {
-        assertEquals(R.string.connect_nearby_tap_to_pair, listing().nearby.single().supportingRes(paired = false))
+    fun aConnectedComputerInvitesReturning() {
         val connected = HostRow("A", "Alpha", HostStatus.Connected, HostRoute.Local)
-        assertEquals(R.string.connect_status_connected, connected.supportingRes(paired = true))
+        assertEquals(R.string.connect_status_connected, connected.pairedDetailRes())
     }
 }

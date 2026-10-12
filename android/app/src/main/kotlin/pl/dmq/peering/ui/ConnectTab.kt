@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import pl.dmq.peering.ui.wiring.StorePaywallBilling
+import pl.dmq.peering.ui.wiring.rememberAppProtection
 import pl.dmq.peering.ui.wiring.findActivity
 import pl.dmq.peering.feature.connect.ConnectPresenter
 import pl.dmq.peering.feature.connect.ConnectRoute
@@ -61,6 +62,10 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             qrSource = wiring.qrSource,
             onConnect = { hostId ->
                 wiring.connectPaired(hostId)
+                showingSession = true
+            },
+            onConnectVia = { hostId, via ->
+                wiring.connectPairedVia(hostId, via)
                 showingSession = true
             },
             onPair = { hostId ->
@@ -153,6 +158,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             )
             ConnectStage.Hosts -> ConnectRoute(
                 presenter = connect,
+                protection = rememberAppProtection(),
                 onScanRequested = { scanning = ScanPurpose.FindMac },
             )
         }

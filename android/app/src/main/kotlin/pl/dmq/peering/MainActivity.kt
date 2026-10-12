@@ -2,18 +2,28 @@ package pl.dmq.peering
 
 import android.graphics.Color
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.fragment.app.FragmentActivity
+import pl.dmq.peering.ui.LockScreen
 import pl.dmq.peering.ui.debug.DebugPreview
 import pl.dmq.peering.ui.debug.PREVIEW_EXTRA
 import pl.dmq.peering.ui.nav.PeeringScaffold
 import pl.dmq.peering.ui.theme.PeeringTheme
+import pl.dmq.peering.ui.wiring.AppLock
+import pl.dmq.peering.ui.wiring.DeviceUnlock
 import pl.dmq.peering.ui.wiring.PreferencesFirstRunStore
 
-class MainActivity : ComponentActivity() {
+/** A FragmentActivity because the system's unlock prompt is hosted by one. */
+class MainActivity : FragmentActivity() {
+    private lateinit var appLock: AppLock
+    private var locked by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -23,13 +33,36 @@ class MainActivity : ComponentActivity() {
         )
         // Three-button navigation otherwise gets a scrim that tints the bottom bar a different black.
         window.isNavigationBarContrastEnforced = false
+        val preferences = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
         if (BuildConfig.DEBUG && intent.getBooleanExtra(RESET_FIRST_RUN_EXTRA, false)) {
-            PreferencesFirstRunStore(getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)).reset()
+            PreferencesFirstRunStore(preferences).reset()
         }
+        appLock = AppLock(preferences)
+        locked = appLock.isEnabled() && DeviceUnlock.isAvailable(this)
         val preview = if (BuildConfig.DEBUG) intent.getStringExtra(PREVIEW_EXTRA) else null
         setContent {
-            PeeringTheme { if (preview != null) DebugPreview(preview) else PeeringScaffold() }
+            PeeringTheme {
+                when {
+                    preview != null -> DebugPreview(preview)
+                    locked -> LockScreen(onUnlock = ::requestUnlock)
+                    else -> PeeringScaffold()
+                }
+            }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (locked) requestUnlock()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (appLock.isEnabled() && DeviceUnlock.isAvailable(this)) locked = true
+    }
+
+    private fun requestUnlock() {
+        DeviceUnlock.prompt(this, getString(R.string.connect_unlock_title)) { unlocked -> if (unlocked) locked = false }
     }
 
     companion object {
