@@ -38,6 +38,24 @@ object MosaicGrid {
         return List(count) { index -> NormalizedRect(width * (index % columns), height * (index / columns), width, height) }
     }
 
+    /** Rows of equal height; inside a row each tile takes a share of the width in proportion to its weight, and a short last row ends early. */
+    fun rects(weights: List<Int>, portrait: Boolean): List<NormalizedRect> {
+        if (weights.isEmpty()) return emptyList()
+        val columns = columns(weights.size, portrait)
+        val rows = ceil(weights.size.toDouble() / columns).toInt()
+        val height = 1.0 / rows
+        val unit = 1.0 / columns
+        return weights.chunked(columns).flatMapIndexed { row, rowWeights ->
+            val total = rowWeights.sumOf { max(it, 1) }
+            val full = rowWeights.size == columns
+            var x = 0.0
+            rowWeights.map { weight ->
+                val width = if (full) max(weight, 1).toDouble() / total else unit
+                NormalizedRect(x, height * row, width, height).also { x += width }
+            }
+        }
+    }
+
     /** The median shape of the sources the catalogue describes, so one odd window does not shape the grid. */
     fun tileAspect(sources: List<CaptureSource>, catalog: CaptureCatalog?): Double {
         val known = catalog ?: return WINDOW_ASPECT
@@ -67,11 +85,16 @@ object MosaicGrid {
     }
 
     /** The layout for [sources] on a screen of [viewport] pixels, or null when fewer than two or more than the host builds. */
-    fun layout(sources: List<CaptureSource>, viewport: PixelSize, catalog: CaptureCatalog?): MosaicLayout? {
+    fun layout(sources: List<CaptureSource>, viewport: PixelSize, catalog: CaptureCatalog?): MosaicLayout? =
+        layout(MosaicArrangement.of(sources), viewport, catalog)
+
+    fun layout(arrangement: MosaicArrangement, viewport: PixelSize, catalog: CaptureCatalog?): MosaicLayout? {
+        val sources = arrangement.sources
         if (sources.size < MINIMUM_TILES || sources.size > MosaicLayout.MAXIMUM_TILES) return null
         val portrait = viewport.height > viewport.width
         val columns = columns(sources.size, portrait)
-        val tiles = sources.zip(rects(sources.size, portrait)).map { (source, rect) -> MosaicTile(source, rect) }
+        val rects = rects(arrangement.choices.map { it.weight }, portrait)
+        val tiles = sources.zip(rects).map { (source, rect) -> MosaicTile(source, rect) }
         val canvas = canvas(columns, sources.size, tileAspect(sources, catalog), viewport)
         return MosaicLayout(canvas, tiles, DEFAULT_FRAME_RATE)
     }

@@ -31,6 +31,7 @@ class SessionSettingsModel(
     val quality: QualitySheetUi,
     val darkened: Boolean,
     val macros: List<Macro>,
+    val facts: SessionFacts = SessionFacts(),
 )
 
 /** What the session's Settings panel does. */

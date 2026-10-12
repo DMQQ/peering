@@ -115,6 +115,12 @@
     <string name="mosaic_limit">up to %d</string>
     <string name="mosaic_back_to_sources">Sources</string>
     <string name="mosaic_start">Show mosaic</string>
+    <string name="mosaic_tile_unknown">Window no longer open</string>
+    <string name="mosaic_tile_earlier">Move %1$s earlier</string>
+    <string name="mosaic_tile_later">Move %1$s later</string>
+    <string name="mosaic_tile_smaller">Make %1$s smaller</string>
+    <string name="mosaic_tile_larger">Make %1$s larger</string>
+    <string name="mosaic_tile_remove">Remove %1$s</string>
 
     <string name="remote_quit_title">Quit the active app?</string>
     <string name="remote_quit_message">The computer may ask you to save open documents first.</string>
@@ -131,6 +137,12 @@
     <string name="panel_none">None</string>
     <string name="panel_state">State</string>
     <string name="panel_latency">Latency</string>
+    <string name="panel_direct_path">Direct path</string>
+    <string name="panel_direct_not_tried">Not tried</string>
+    <string name="panel_direct_no_address">The relay has not said where the computer is</string>
+    <string name="panel_direct_probing">Knocking on %1$s, nothing back yet</string>
+    <string name="panel_direct_unusable">The relay named %1$s, which this phone cannot use</string>
+    <string name="panel_video">Video</string>
     <string name="panel_lock">Lock computer · unlock locally</string>
     <string name="panel_lock_title">Lock this computer?</string>
     <string name="panel_lock_message">The computer will lock immediately. macOS does not let a remote app past its login screen, so someone must unlock it there. Peering reconnects after it wakes or is unlocked.</string>

@@ -3,10 +3,12 @@ package pl.dmq.peering.feature.remote
 import pl.dmq.peering.session.clipboard.ClipboardContent
 import pl.dmq.peering.session.controller.HostPointer
 import pl.dmq.peering.session.history.SessionRecord
+import pl.dmq.peering.session.relay.DirectPathState
 import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.MosaicLayout
 import pl.dmq.peering.wire.PixelSize
+import pl.dmq.peering.wire.VideoStreamConfig
 
 /** The session facts the remote screen shows. The session side publishes a new value whenever one changes. */
 data class RemoteUiState(
@@ -39,6 +41,10 @@ data class RemoteUiState(
     val rememberedMosaic: MosaicLayout? = null,
     /** The computer's own report of where its pointer is, which the cursor glyph follows. */
     val hostPointer: HostPointer? = null,
+    /** How the attempt at a direct path stands, or null when this session makes none. */
+    val directPath: DirectPathState? = null,
+    /** The stream the computer last configured, or null before it did. */
+    val videoStream: VideoStreamConfig? = null,
 ) {
     val showsMosaic: Boolean get() = chosenSource is CaptureSource.Mosaic
 

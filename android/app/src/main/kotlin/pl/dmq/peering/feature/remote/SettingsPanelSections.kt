@@ -102,6 +102,8 @@ internal fun SessionInfoSection(model: SessionSettingsModel, actions: SessionSet
         InfoRow(stringResource(R.string.remote_computer_fallback), overlay.hostName ?: stringResource(R.string.panel_none))
         InfoRow(stringResource(R.string.panel_state), stateText(overlay))
         InfoRow(stringResource(R.string.sessions_detail_path), overlay.path?.let { stringResource(it.labelRes()) } ?: stringResource(R.string.panel_none))
+        model.facts.directPath?.let { InfoRow(stringResource(R.string.panel_direct_path), directPathText(it)) }
+        model.facts.video?.let { InfoRow(stringResource(R.string.panel_video), it) }
         overlay.latencyMs?.let { InfoRow(stringResource(R.string.panel_latency), stringResource(R.string.overlay_latency, it)) }
         RowButton(AppIcons.encrypted, stringResource(R.string.panel_lock), trailing = false) { confirm = true }
     }
@@ -119,6 +121,14 @@ internal fun SessionInfoSection(model: SessionSettingsModel, actions: SessionSet
             destructive = true,
         )
     }
+}
+
+@Composable
+private fun directPathText(row: DirectPathRow): String = when (row.report) {
+    DirectPathReport.NOT_TRIED -> stringResource(R.string.panel_direct_not_tried)
+    DirectPathReport.NO_ADDRESS -> stringResource(R.string.panel_direct_no_address)
+    DirectPathReport.PROBING -> stringResource(R.string.panel_direct_probing, row.peer.orEmpty())
+    DirectPathReport.UNUSABLE -> stringResource(R.string.panel_direct_unusable, row.peer.orEmpty())
 }
 
 @Composable

@@ -4,6 +4,8 @@ import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.CaptureSourceDescriptor
 import pl.dmq.peering.wire.CaptureSourceKind
+import pl.dmq.peering.session.video.MosaicArrangement
+import pl.dmq.peering.session.video.MosaicEdit
 import pl.dmq.peering.session.video.MosaicGrid
 import pl.dmq.peering.wire.LaunchApplication
 import pl.dmq.peering.wire.MosaicLayout
@@ -14,6 +16,11 @@ import pl.dmq.peering.wire.WatchSourceThumbnails
 
 /** Turns the host's catalogue into the sources sheet, and sends the user's choice to the Mac. */
 class SourcesPresenter(private val sink: CommandSink) {
+    private var weights: Map<CaptureSource, Int> = emptyMap()
+
+    /** The tiles of [layout] with the sizes the user gave them in this session. */
+    fun arrangementOf(layout: MosaicLayout): MosaicArrangement = MosaicArrangement.of(layout.tiles.map { it.source }, weights)
+
     /** A null catalogue is one not received yet, and shows as an empty list of displays. */
     fun build(catalog: CaptureCatalog?, chosen: CaptureSource?): SourcesState {
         val known = catalog ?: CaptureCatalog()
@@ -37,7 +44,26 @@ class SourcesPresenter(private val sink: CommandSink) {
     /** Asks the computer for a mosaic of [picks] sized to a screen of [viewport] pixels. False when the picks are not a mosaic. */
     fun showMosaic(picks: MosaicPicks, viewport: PixelSize, catalog: CaptureCatalog?): Boolean {
         if (!picks.canStart) return false
-        val layout = MosaicGrid.layout(picks.sources, viewport, catalog) ?: return false
+        val layout = MosaicGrid.layout(MosaicArrangement.of(picks.sources, weights), viewport, catalog) ?: return false
+        sink.send(SetCaptureSource(CaptureSource.Mosaic(layout)))
+        return true
+    }
+
+    /**
+     * Applies [edit] to the mosaic on screen and asks the computer for the result. An arrangement left with one tile is
+     * not a mosaic, so that window is shown on its own. False when nothing was sent.
+     */
+    fun edit(current: MosaicLayout, edit: MosaicEdit, viewport: PixelSize, catalog: CaptureCatalog?): Boolean {
+        val before = arrangementOf(current)
+        val after = before.applying(edit)
+        if (after == before) return false
+        weights = weights + after.choices.associate { it.source to it.weight }
+        if (!after.isMosaic) {
+            val only = after.sources.firstOrNull() ?: return false
+            sink.send(SetCaptureSource(only))
+            return true
+        }
+        val layout = MosaicGrid.layout(after, viewport, catalog) ?: return false
         sink.send(SetCaptureSource(CaptureSource.Mosaic(layout)))
         return true
     }
