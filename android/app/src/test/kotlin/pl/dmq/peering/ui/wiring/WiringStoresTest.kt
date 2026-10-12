@@ -54,10 +54,11 @@ class WiringStoresTest {
     }
 
     @Test
-    fun aPairedMacOnTheNetworkIsDialledDirectlyAndOtherwiseThroughTheRelay() {
-        val address = PeerAddress("192.0.2.1", 7000)
+    fun aPairedMacIsDialledByTheBestAddressKnownWithTheRelayOnlyBehindIt() {
+        val seen = PeerAddress("192.0.2.1", 7000)
+        val earlier = PeerAddress("192.0.2.2", 7000)
 
-        assertEquals(ConnectTarget.Lan(address, "h1"), pairedTarget("h1", address))
-        assertEquals(ConnectTarget.Relay("h1"), pairedTarget("h1", null))
+        assertEquals(ConnectTarget.Paired("h1", seen, earlier, relayAllowed = true), pairedTarget("h1", seen, earlier))
+        assertEquals(ConnectTarget.Paired("h1", null, null, relayAllowed = true), pairedTarget("h1", null, null))
     }
 }

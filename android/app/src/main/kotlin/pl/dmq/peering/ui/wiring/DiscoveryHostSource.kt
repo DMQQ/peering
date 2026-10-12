@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import pl.dmq.peering.feature.connect.HostSource
 import pl.dmq.peering.feature.connect.PairedHost
 import pl.dmq.peering.session.hosts.HostDirectory
+import pl.dmq.peering.session.hosts.RememberedLanAddresses
 import pl.dmq.peering.session.ports.DiscoveredHost
 import pl.dmq.peering.session.ports.Discovery
 import pl.dmq.peering.session.ports.DiscoveryEvent
@@ -23,6 +24,7 @@ internal class DiscoveryHostSource(
     private val discovery: Discovery,
     private val pins: PinStore,
     private val directory: HostDirectory,
+    private val lanAddresses: RememberedLanAddresses,
     private val scope: CoroutineScope,
 ) : HostSource {
     private val found = MutableStateFlow<List<DiscoveredHost>>(emptyList())
@@ -53,7 +55,10 @@ internal class DiscoveryHostSource(
         search = scope.launch {
             discovery.events().collect { event ->
                 when (event) {
-                    is DiscoveryEvent.Found -> found.update { it.withFound(event.host) }
+                    is DiscoveryEvent.Found -> {
+                        found.update { it.withFound(event.host) }
+                        if (event.host.id in pins.hostIds()) lanAddresses.remember(event.host.id, event.host.address)
+                    }
                     is DiscoveryEvent.Lost -> found.update { list -> list.filterNot { it.id == event.hostId } }
                 }
             }

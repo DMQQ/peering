@@ -29,6 +29,7 @@ import pl.dmq.peering.ui.wiring.SurfacePicture
 import pl.dmq.peering.ui.wiring.pairedTarget
 import pl.dmq.peering.session.controller.ConnectTarget
 import pl.dmq.peering.session.hosts.PersistedHostDirectory
+import pl.dmq.peering.session.hosts.RememberedLanAddresses
 import pl.dmq.peering.session.relay.PresenceWatch
 
 /** The adapters the screens share, built once for the process. [install] points the tab slots at the real screens. */
@@ -43,7 +44,8 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val settings = PreferencesSettingsStore(preferences)
     val hostNames = PersistedHostDirectory(PreferencesKeyValueStore(preferences))
     val trusted = PinTrustedHosts(graph.sessions.pins, hostNames)
-    val discovery = DiscoveryHostSource(graph.sessions.discovery, graph.sessions.pins, hostNames, scope)
+    val lanAddresses = RememberedLanAddresses(PreferencesKeyValueStore(preferences))
+    val discovery = DiscoveryHostSource(graph.sessions.discovery, graph.sessions.pins, hostNames, lanAddresses, scope)
     val billing = PlayBilling(graph.applicationContext, scope) { graph.sessions.identity.publicKey }.also { it.connect() }
     val holder = SessionHolder(
         SessionPortsFactory(
@@ -73,7 +75,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
 
     /** Starts a session with a paired Mac, over the local network when it is seen there. */
     fun connectPaired(hostId: String) {
-        holder.connect(pairedTarget(hostId, discovery.addressOf(hostId)))
+        holder.connect(pairedTarget(hostId, discovery.addressOf(hostId), lanAddresses.addressOf(hostId)))
     }
 
     fun startPairing(hostId: String) = holder.connect(ConnectTarget.Pairing(hostId))

@@ -264,14 +264,14 @@ class SessionController(
         link = live
         everReady = true
         if (historyId == null) {
-            historyId = history.begin(hello.serverID, hello.hostName, target.path, nowMillis())
+            historyId = history.begin(hello.serverID, hello.hostName, route.path, nowMillis())
         }
         update {
             it.copy(
                 phase = SessionPhase.Ready(
                     hostName = hello.hostName,
                     capabilities = HostCapability.entries.filterTo(mutableSetOf()) { capability -> capability.declaredBy(hello) },
-                    path = target.path,
+                    path = route.path,
                 ),
             )
         }

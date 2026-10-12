@@ -3,10 +3,12 @@ package pl.dmq.peering.session.controller
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.session.ports.ControlTransport
 import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.relay.RelayConnect
 import pl.dmq.peering.session.relay.RelaySessionException
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /** Turns a [ConnectTarget] into an open control connection, asking the relay or the local network as the target needs. */
@@ -14,12 +16,39 @@ internal class RouteOpener(private val target: ConnectTarget, private val ports:
     suspend fun open(): OpenedRoute = when (target) {
         is ConnectTarget.Lan -> direct(target.hostId?.let { fresh(it) } ?: target.address)
         is ConnectTarget.Pairing -> direct(guarded { discover(target.hostId) })
-        is ConnectTarget.Relay -> relayed(target.hostId)
+        is ConnectTarget.Relay -> raced(DialInputs(null, null, relayAllowed = true, pairElsewhere = true))
+        is ConnectTarget.Paired -> raced(
+            DialInputs(
+                discovered = target.discovered ?: seenSoon(target),
+                remembered = target.remembered,
+                relayAllowed = target.relayAllowed && ports.relay != null,
+            ),
+        )
     }
+
+    /** Dials by the plan for [inputs]; a plan with no route at all means the host is not where this phone can look. */
+    private suspend fun raced(inputs: DialInputs): OpenedRoute {
+        val steps = DialPlanner.plan(inputs)
+        if (steps.isEmpty()) throw ConnectFailure(SessionFailure.HostNotFound)
+        return RouteRace(steps.map { step -> RouteRace.Attempt(step.startsAfter) { attempt(step) } }).run()
+    }
+
+    private suspend fun attempt(step: DialStep): OpenedRoute = when (step) {
+        is DialStep.Lan -> withTimeoutOrNull(step.timeout) { direct(step.address) } ?: throw ConnectFailure(
+            SessionFailure.ConnectionFailed(ConnectFailureKind.Timeout, "No answer from ${step.address.host} on the local network"),
+        )
+        is DialStep.Relay -> relayed(target.hostId ?: error("a relay dial needs a host"))
+    }
+
+    /** With nothing known about where the host is, discovery gets a moment before the relay is dialled past a host on this network. */
+    private suspend fun seenSoon(target: ConnectTarget.Paired): PeerAddress? =
+        if (target.remembered != null) null else withTimeoutOrNull(LOCAL_GRACE) {
+            ports.discovery.hosts().first { it.id == target.hostId }
+        }?.address
 
     private suspend fun direct(address: PeerAddress): OpenedRoute {
         val (transport, reached) = guarded { dial(address) }
-        return OpenedRoute(transport, target.path, reached, ByteArray(0), datagrams = null)
+        return OpenedRoute(transport, SessionRecord.Path.LAN, reached, ByteArray(0), datagrams = null)
     }
 
     /** Tries the resolved port, then the protocol default when the first refuses. Each attempt is made by the connector, which logs it. */
@@ -50,7 +79,7 @@ internal class RouteOpener(private val target: ConnectTarget, private val ports:
                 .requestSession(hostId, ports.identity.clientId, relay.entitlement())
         }
         val transport = guarded { ports.control.open(ControlRoute.Relayed(session.controlHandoff())) }
-        return OpenedRoute(transport, target.path, session.video, session.videoTokenBytes, relay.datagrams)
+        return OpenedRoute(transport, SessionRecord.Path.RELAY, session.video, session.videoTokenBytes, relay.datagrams)
     }
 
     private suspend fun discover(hostId: String): PeerAddress {
@@ -84,5 +113,6 @@ internal class RouteOpener(private val target: ConnectTarget, private val ports:
     private companion object {
         val DISCOVERY_TIMEOUT = 10.seconds
         val FRESH_TIMEOUT = 3.seconds
+        val LOCAL_GRACE = 900.milliseconds
     }
 }

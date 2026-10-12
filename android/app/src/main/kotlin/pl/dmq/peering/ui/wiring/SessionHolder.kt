@@ -40,7 +40,10 @@ internal class SessionHolder(
                 .map { it.phase }
                 .filterIsInstance<SessionPhase.Ready>()
                 .distinctUntilChanged()
-                .collect { ready -> target.hostId?.let { directory.remember(it, ready.hostName, ready.path) } }
+                .collect { ready ->
+                    Log.i(TAG, "session ready on ${ready.path}")
+                    target.hostId?.let { directory.remember(it, ready.hostName, ready.path) }
+                }
         }
         failures = scope.launch {
             session.controller.state

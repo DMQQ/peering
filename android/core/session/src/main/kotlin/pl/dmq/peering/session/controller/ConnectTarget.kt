@@ -25,4 +25,18 @@ sealed interface ConnectTarget {
     class Pairing(override val hostId: String, val qrSecret: ByteArray? = null) : ConnectTarget {
         override val path: SessionRecord.Path get() = SessionRecord.Path.LAN
     }
+
+    /**
+     * A paired host reached by the best route available: the local network when [discovered] or [remembered] says where
+     * the host is, with the relay behind it when [relayAllowed].
+     */
+    data class Paired(
+        override val hostId: String,
+        val discovered: PeerAddress?,
+        val remembered: PeerAddress?,
+        val relayAllowed: Boolean,
+    ) : ConnectTarget {
+        override val path: SessionRecord.Path
+            get() = if (discovered != null || remembered != null) SessionRecord.Path.LAN else SessionRecord.Path.RELAY
+    }
 }

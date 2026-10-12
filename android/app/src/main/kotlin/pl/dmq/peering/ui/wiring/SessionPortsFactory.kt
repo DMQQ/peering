@@ -22,7 +22,7 @@ internal class SessionPortsFactory(
     private val billing: Billing,
 ) {
     fun open(target: ConnectTarget, scope: CoroutineScope): ActiveSession {
-        val lane = if (target is ConnectTarget.Relay) UdpLane.bind() else null
+        val lane = if (target.mayUseRelay()) UdpLane.bind() else null
         val relay = lane?.let { RelayPorts(sessions.newRelaySignalling(), it, billing::entitlement) }
         val downloads = SessionDownloads()
         val ports = SessionPorts(
@@ -41,3 +41,5 @@ internal class SessionPortsFactory(
         return ActiveSession(target, SessionController(scope, target, ports, history), lane, downloads)
     }
 }
+
+private fun ConnectTarget.mayUseRelay(): Boolean = this is ConnectTarget.Relay || (this is ConnectTarget.Paired && relayAllowed)

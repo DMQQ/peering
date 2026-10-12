@@ -1,7 +1,9 @@
 package pl.dmq.peering.session.controller
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import pl.dmq.peering.session.flows.ScriptedPairingHost
@@ -29,6 +31,7 @@ class ControllerRig(
     val mac: ScriptedMac = ScriptedMac(),
     val pins: FakePinStore = FakePinStore(mapOf(ScriptedPairingHost.HOST_ID to ScriptedPairingHost.HOST_KEY)),
     val entitlement: RelayEntitlement = RelayEntitlement(),
+    nobodyDiscovered: Boolean = false,
 ) {
     val routes = mutableListOf<ControlRoute>()
 
@@ -57,9 +60,11 @@ class ControllerRig(
             mac.newConnection()
         },
         discovery = object : Discovery {
-            override fun hosts(): Flow<DiscoveredHost> = flowOf(
-                DiscoveredHost(ScriptedPairingHost.HOST_ID, HOST_NAME, protocolVersion = 1, address = LAN_ADDRESS),
-            )
+            override fun hosts(): Flow<DiscoveredHost> = if (nobodyDiscovered) {
+                flow { awaitCancellation() }
+            } else {
+                flowOf(DiscoveredHost(ScriptedPairingHost.HOST_ID, HOST_NAME, protocolVersion = 1, address = LAN_ADDRESS))
+            }
         },
         sink = sink,
         downloads = DownloadWriter { offset, bytes -> downloads[offset] = bytes },
