@@ -19,6 +19,8 @@
 //! the framing; `tokio-rustls` with `webpki-roots` handles TLS certificate verification.
 
 use std::collections::HashMap;
+
+use crate::redact::tag;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -234,7 +236,7 @@ impl ApnsClient {
             PushOutcome::Accepted => Ok(()),
             PushOutcome::Refused(failure) => {
                 let other = if first == APNS_HOST { APNS_SANDBOX_HOST } else { APNS_HOST };
-                warn!(%device_token, host = first, failure = %failure, "APNs refused the push");
+                warn!(device_token = %tag(device_token), host = first, failure = %failure, "APNs refused the push");
 
                 match self.push(other, device_token, title, body, route).await {
                     PushOutcome::Accepted => {
@@ -245,7 +247,7 @@ impl ApnsClient {
                         Ok(())
                     }
                     PushOutcome::Refused(other_failure) => {
-                        warn!(%device_token, host = other, failure = %other_failure, "APNs refused the push on both hosts");
+                        warn!(device_token = %tag(device_token), host = other, failure = %other_failure, "APNs refused the push on both hosts");
                         Err(format!("APNs refused on both hosts: {failure} / {other_failure}").into())
                     }
                     PushOutcome::Failed(error) => Err(error),

@@ -20,8 +20,10 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
 use tracing::{debug, info, warn};
 
-use crate::counted_stream::CountedStream;
+use crate::counted_stream::{Activity, CountedStream, EndWatch, Side};
+use crate::redact::tag;
 use crate::session::{Join, Registry, Token};
+use crate::stats::{self, EndReason, Refusal, TALLY};
 
 /// How long a connection may sit without presenting a token. Long enough to survive a slow start,
 /// short enough that an idle socket cannot be used to hold resources.
@@ -33,13 +35,15 @@ const MAX_UNAUTHENTICATED: usize = 512;
 /// Without a pause a persistent accept error (descriptor exhaustion) turns this loop into a spinning core and a log flood.
 const ACCEPT_ERROR_BACKOFF: Duration = Duration::from_millis(50);
 
-pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
+/// `idle_window` is how long a splice may carry no bytes in either direction before it is ended;
+/// zero disables the check.
+pub async fn serve(listener: TcpListener, registry: Arc<Registry>, idle_window: Duration) {
     let waiting = Arc::new(tokio::sync::Semaphore::new(MAX_UNAUTHENTICATED));
     info!(addr = %listener.local_addr().map(|a| a.to_string()).unwrap_or_default(), "control relay listening");
 
     loop {
         match listener.accept().await {
-            Ok((stream, peer)) => {
+            Ok((stream, _)) => {
                 // Nagle off, on both halves of every splice. This one listener accepts *both*
                 // ends of a session — the connection that waits and the one handed to it — so
                 // setting it here covers the pair, and `copy_bidirectional` below inherits it.
@@ -54,18 +58,18 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
                 // A failure here costs latency, not correctness, so it is logged and carried
                 // on rather than closing a connection that would otherwise work.
                 if let Err(error) = stream.set_nodelay(true) {
-                    warn!(%error, %peer, "could not disable Nagle on a control connection");
+                    warn!(%error, "could not disable Nagle on a control connection");
                 }
 
                 let Ok(permit) = Arc::clone(&waiting).try_acquire_owned() else {
-                    warn!(%peer, "refused a control connection: too many are waiting for a token");
+                    warn!("refused a control connection: too many are waiting for a token");
                     continue;
                 };
 
                 let registry = Arc::clone(&registry);
                 tokio::spawn(async move {
-                    if let Err(error) = handle(stream, registry, permit).await {
-                        debug!(%peer, %error, "control connection ended");
+                    if let Err(error) = handle(stream, registry, permit, idle_window).await {
+                        debug!(%error, "control connection ended");
                     }
                 });
             }
@@ -84,6 +88,7 @@ async fn handle(
     mut stream: TcpStream,
     registry: Arc<Registry>,
     waiting: tokio::sync::OwnedSemaphorePermit,
+    idle_window: Duration,
 ) -> std::io::Result<()> {
     // No buffering here, and none needed: this is the only read this side ever does. Everything
     // after it belongs to TLS.
@@ -99,12 +104,14 @@ async fn handle(
     // spliced at all, and a token whose session has gone is the same answer: there is nothing to
     // charge, so there is nothing to carry.
     let Some(account) = registry.account_for_token(&token).await else {
+        TALLY.refused(Refusal::BadToken);
         return Ok(());
     };
 
     let Some(join) = registry.join_control(&token, stream).await else {
         // Not a token we issued, or one that has already been used or swept. Closed without a
         // reply, so a probe learns nothing about whether the session exists.
+        TALLY.refused(Refusal::BadToken);
         return Ok(());
     };
 
@@ -118,11 +125,15 @@ async fn handle(
     // and the socket closes. A second timeout here would only duplicate that with a second number
     // to keep in step.
     let Ok(theirs) = peer.await else {
-        info!("session was swept before the peer connected; the other end never arrived");
+        TALLY.refused(Refusal::TimedOutWaitingForHost);
+        info!(
+            reason = Refusal::TimedOutWaitingForHost.as_str(),
+            "session was swept before the peer connected; the other end never arrived"
+        );
         return Ok(());
     };
 
-    debug!(peer = %theirs.peer_addr().map(|a| a.to_string()).unwrap_or_default(), "splicing");
+    debug!("splicing");
 
     // The clock starts here, where both ends are present and bytes are about to move, rather than
     // at allocation: the seconds between a phone asking for a Mac and its two ends turning up are
@@ -142,8 +153,14 @@ async fn handle(
     // already filled, and bytes read from one end but not yet written to the other would be lost
     // every time a tick was handled.
     let control_bytes = Arc::new(AtomicU64::new(0));
-    let mut mine = CountedStream::new(mine, Arc::clone(&control_bytes));
-    let mut theirs = CountedStream::new(theirs, Arc::clone(&control_bytes));
+    let first_to_end = Arc::new(EndWatch::default());
+    let activity = Arc::new(Activity::new());
+    let mut mine = CountedStream::new(mine, Arc::clone(&control_bytes))
+        .watched(Arc::clone(&first_to_end), Side::First)
+        .active(Arc::clone(&activity));
+    let mut theirs = CountedStream::new(theirs, Arc::clone(&control_bytes))
+        .watched(Arc::clone(&first_to_end), Side::Second)
+        .active(Arc::clone(&activity));
     let splice = tokio::io::copy_bidirectional(&mut mine, &mut theirs);
     tokio::pin!(splice);
 
@@ -165,11 +182,17 @@ async fn handle(
     // reported as one that ran out of allowance, which is a distinction the log line below exists
     // to make. Polling the work before the clock is also the order the two matter in.
     let mut spent = false;
+    let mut idle = false;
+    let mut copied = None;
     let spliced_at = std::time::Instant::now();
+    TALLY.splice_started();
     loop {
         tokio::select! {
             biased;
-            _ = &mut splice => break,
+            result = &mut splice => {
+                copied = Some(result);
+                break;
+            }
             _ = ticks.tick() => {
                 // **Said on every tick, not once at the start.** The sweep retires a session whose
                 // registry entry has not been touched for the TTL, and the only thing that used to
@@ -179,8 +202,19 @@ async fn handle(
                 // still works. The tick is the only thing here that knows the session is doing
                 // work, so it is the thing that has to say so.
                 registry.touch(&token).await;
-                if meter.charge() == Some(0) {
+                // Charged only up to the last byte that crossed, so a stalled connection stops
+                // costing the moment it stalls. A live one is at most a ping behind.
+                if meter.charge_through(activity.last()) == Some(0) {
                     spent = true;
+                    break;
+                }
+            }
+            // A connection that has stalled bills nothing from the last byte onward and is ended
+            // once the window passes. Armed afresh each turn, so traffic simply moves the deadline.
+            _ = tokio::time::sleep(idle_left(&activity, idle_window)), if !idle_window.is_zero() => {
+                if activity.idle_at(std::time::Instant::now()) >= idle_window {
+                    meter.stop_at(activity.last());
+                    idle = true;
                     break;
                 }
             }
@@ -190,45 +224,84 @@ async fn handle(
     // Released so the token cannot be presented again. Without this a token stays valid for the
     // rest of its TTL, and a leaked one could hold a splice open.
     let video = registry.release(&token).await;
+    let tier = meter.tier();
 
     // The last stretch, which is whatever has passed since the previous charge. Taken here rather
     // than left to the meter's own drop so that the number billed is the number on the line below;
     // the drop is what covers the paths that never reach this one, and charging is cumulative, so
     // the two together cannot bill a second twice. Paid clients are charged the same way and are
     // never ended by it: their plan answers `None` to the question this asks.
-    let left = meter.charge();
+    let left = meter.charge_through(activity.last());
 
     if spent {
         // The only line that says a session was cut off for money rather than by one of its ends:
         // without it, a client that spent its allowance and a client that hung up look identical in
         // the log, and the question "why was I disconnected" has no answer in it.
         info!(
-            client_id = meter.client_id(),
+            client_id = %tag(meter.client_id()),
             "session ended: the plan's relay allowance for this window is spent"
         );
     } else {
         debug!(
-            client_id = meter.client_id(),
+            client_id = %tag(meter.client_id()),
             remaining_secs = ?left,
             "relay usage recorded"
         );
     }
 
+    let reason = stats::end_reason(spent, idle, copied.as_ref());
+    TALLY.splice_ended(reason);
+    let closed_first = match (reason, first_to_end.first_to_end()) {
+        (EndReason::QuotaExhausted | EndReason::IdleTimeout, _) | (_, None) => "unknown",
+        (_, Some(Side::First)) => "first_joiner",
+        (_, Some(Side::Second)) => "second_joiner",
+    };
+
     // One line per relayed session, kept at info: a session whose picture never crossed the video
     // socket is how a network that blocks UDP shows up here, and nothing else in the log says so.
     // `control_bytes` is large when the picture travelled on the control channel instead, so `video_over_udp = false` with a large count is a fallback that worked, not a blocked network.
-    if let Some(video) = video {
-        info!(
-            seconds = spliced_at.elapsed().as_secs(),
-            video_over_udp = video.from_host_datagrams > 0,
-            video_datagrams_from_host = video.from_host_datagrams,
-            video_bytes_from_host = video.from_host_bytes,
-            video_datagrams_from_client = video.from_client_datagrams,
-            control_bytes = control_bytes.load(Ordering::Relaxed),
-            "relayed session ended"
-        );
+    //
+    // `closed_first` names sockets by arrival order because the relay cannot tell a phone from a Mac
+    // here. `session_retired_early` means the registry had already dropped the session (swept or
+    // superseded), so the video fields are zero for want of a count rather than for want of video.
+    let session_retired_early = video.is_none();
+    let video = video.unwrap_or_default();
+    let seconds = spliced_at.elapsed().as_secs();
+    let control_total = control_bytes.load(Ordering::Relaxed);
+    let path = stats::video_path(video.from_host_datagrams, control_total, seconds);
+    let first_video_ms = video
+        .first_from_host
+        .map(|at| at.saturating_duration_since(spliced_at).as_millis() as u64);
+    if !session_retired_early && (!video.client_bound || !video.host_bound) {
+        TALLY.refused(Refusal::UdpBindUnclaimed);
     }
+    info!(
+        seconds,
+        video_over_udp = video.from_host_datagrams > 0,
+        video_datagrams_from_host = video.from_host_datagrams,
+        video_bytes_from_host = video.from_host_bytes,
+        video_datagrams_from_client = video.from_client_datagrams,
+        control_bytes = control_total,
+        end_reason = reason.as_str(),
+        closed_first,
+        io_error_kind = ?stats::error_kind(copied.as_ref()),
+        plan = tier.as_str(),
+        video_path = path.as_str(),
+        first_video_ms = ?first_video_ms,
+        udp_client_bound = video.client_bound,
+        udp_host_bound = video.host_bound,
+        session_retired_early,
+        "relayed session ended"
+    );
 
     debug!("splice finished");
     Ok(())
+}
+
+/// How long until the splice would be idle for `window` if nothing else crossed. Never zero, so a
+/// deadline already passed is re-checked on the next turn instead of spinning.
+fn idle_left(activity: &Activity, window: Duration) -> Duration {
+    window
+        .saturating_sub(activity.idle_at(std::time::Instant::now()))
+        .max(Duration::from_millis(1))
 }

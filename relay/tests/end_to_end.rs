@@ -70,6 +70,17 @@ async fn start_with_timeouts(
     handshake_timeout: Duration,
     idle_timeout: Duration,
 ) -> TestRelay {
+    start_full(quota, handshake_timeout, idle_timeout, Duration::from_secs(45)).await
+}
+
+/// Every deadline the caller chooses, including how long a spliced control connection may carry
+/// nothing before the relay ends it.
+async fn start_full(
+    quota: Arc<QuotaTracker>,
+    handshake_timeout: Duration,
+    idle_timeout: Duration,
+    control_idle: Duration,
+) -> TestRelay {
     let registry = Arc::new(Registry::new(usize::MAX));
 
     // Port 0 throughout, so tests never collide with a relay someone is actually running — or with
@@ -79,7 +90,7 @@ async fn start_with_timeouts(
     let signal = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let signal_port = signal.local_addr().unwrap().port();
 
-    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry)));
+    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry), control_idle));
 
     // The relay's one video socket, bound exactly as `main` binds it and before signalling starts,
     // so that the port every session is told is the port that exists.
@@ -814,10 +825,14 @@ async fn a_session_that_runs_past_its_allowance_is_ended() {
     let relay = start_with(Arc::clone(&quota)).await;
     let mut client = splice(&relay, Some("free")).await;
 
-    assert!(
-        closed(&mut client.phone).await,
-        "the relay should end a session whose allowance is spent"
-    );
+    // Traffic keeps crossing: a stalled splice is not charged, so only a live one can run out.
+    let mut chatter = 0;
+    while chatter < 100 && carries_traffic(&mut client.phone, &mut client.mac, b'.').await {
+        chatter += 1;
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert!(chatter < 100, "the relay should end a session whose allowance is spent");
+    assert!(closed(&mut client.phone).await, "and the end is a closed socket");
     assert_eq!(
         quota.remaining("phone", None, Plan::Free),
         Some(0),
@@ -1151,4 +1166,57 @@ async fn a_client_without_a_proof_is_still_metered_by_its_id() {
         "the announced id is the key when there is no proof"
     );
     let _ = client.phone_ws.send(Message::Close(None)).await;
+}
+
+/// A connection that goes quiet is ended after the idle window and is not charged for the quiet.
+///
+/// The failure this is for: a control channel that stalls while the socket stays open used to keep
+/// spending the client's allowance every charge period until something else gave up.
+#[tokio::test]
+async fn a_stalled_splice_is_ended_and_its_idle_tail_is_not_charged() {
+    let quota = Arc::new(
+        QuotaTracker::new(PlanAllowances::default(), Default::default())
+            .with_charge_period(Duration::from_millis(100)),
+    );
+    let relay = start_full(
+        Arc::clone(&quota),
+        Duration::from_secs(10),
+        Duration::from_secs(90),
+        Duration::from_millis(1500),
+    )
+    .await;
+    let mut client = splice(&relay, Some("free")).await;
+
+    assert!(
+        closed(&mut client.phone).await,
+        "the relay should end a splice that carries nothing for the idle window"
+    );
+
+    let left = quota.remaining("phone", None, Plan::Free).expect("a free plan is metered");
+    assert!(
+        left > 30 * 60 - 2,
+        "only the seconds up to the last byte are billed, not the 1.5 second stall: {left} left"
+    );
+}
+
+/// The other half: traffic keeps a splice alive for longer than the window.
+#[tokio::test]
+async fn a_splice_with_traffic_outlives_the_idle_window() {
+    let quota = Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default()));
+    let relay = start_full(
+        quota,
+        Duration::from_secs(10),
+        Duration::from_secs(90),
+        Duration::from_millis(600),
+    )
+    .await;
+    let mut client = splice(&relay, Some("free")).await;
+
+    for _ in 0..8 {
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        assert!(
+            carries_traffic(&mut client.phone, &mut client.mac, b'p').await,
+            "a splice that keeps carrying traffic is not idle"
+        );
+    }
 }

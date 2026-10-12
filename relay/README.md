@@ -57,6 +57,7 @@ video, and serves signalling in plaintext. That is exactly right for pointing bo
 | `PEERINGD_MAX_CONNECTIONS` | `4096` | Sockets that may be open on the signalling listener at once. Has to be larger than the number of registered Macs, since each holds its registration socket open for as long as it runs. A connection beyond it is closed rather than queued |
 | `PEERINGD_HANDSHAKE_SECONDS` | `10` | How long a socket has to finish becoming a WebSocket, counting the TLS handshake. Without it a peer that opens a connection and says nothing holds a task and a file descriptor indefinitely |
 | `PEERINGD_IDLE_SECONDS` | `90` | How long an established signalling connection may sit silent. Comfortably longer than the Mac's 25-second keepalive on purpose: a registered Mac is idle between pings and must not be dropped for it |
+| `PEERINGD_CONTROL_IDLE_SECONDS` | `45` | How long a spliced control connection may carry no bytes in either direction before the relay ends it (`end_reason=idle_timeout`). The phone pings every second, so this is a stalled connection, not a quiet one. A stalled splice is billed only up to its last byte, so a dead connection stops spending the free allowance when it stalls. `0` turns the check off |
 | `PEERINGD_FREE_MINUTES` | `30` | Relay minutes per device in each rolling 24-hour window for a client on the free plan. The app draws its "free relay time" bar from its own copy of this number and its own copy of the window arithmetic (`RelayPlan.allowanceSeconds`, `SessionModel.relayPeriodStart`) — change the relay and those together, or the bar lies |
 | `PEERINGD_RELAY_MINUTES` | `180` | Legacy compatibility setting. Paid plans are unlimited and the quota check does not use this value. |
 | `PEERINGD_PAID_KEYS` | — | Comma-separated API keys that bypass the quota entirely. See the note under "Plans" below |
@@ -316,7 +317,7 @@ the signed string is the only thing keeping a client registration from being pre
 registration for the same id. `device_proof` has a test for exactly that.
 
 When the proof verifies, the relay meters the public key rather than the announced id, and the id
-becomes a name in a log line (the `metered_by` field on the `session allocated` line says which of
+becomes a tag in a log line (the `metered_by` field on the `session allocated` line says which of
 the two it used). The key is in the Keychain and iOS keeps those through a reinstall, so the second
 install spends what the first one spent.
 
@@ -794,6 +795,75 @@ a relay that is up in your memory and down in reality.
 systemctl status peeringd          # is it running, and if not, what was the last exit
 journalctl -u peeringd -n 100      # why it stopped, in its own words
 systemctl reset-failed peeringd    # after fixing the cause, clear the start limit
+```
+
+#### Reading the journal: why sessions end and why attempts fail
+
+**Identifiers in the journal are tags, not ids.** Where a line needs to say which client, device,
+host or push token it is about, the field (`client_id`, `device_id`, `host_id`, `device_token`)
+holds eight hex characters of a keyed hash. The key is drawn at startup and kept only in memory, so
+lines about one client agree within a run (grep a tag to follow one client), cannot be turned back
+into the id, and do not match across a restart. Host names, peer addresses and raw tokens are not
+logged at all. The new fields below are counts and names from closed sets (`stats.rs`). The usage
+log file (`PEERINGD_USAGE_LOG`) is a separate file and does still hold client ids.
+
+To answer "why was this client cut off" from a report, find the line by its reason and plan
+(`relay allowance exhausted`, with the `plan` and `plan_trust` fields), not by an id.
+
+**Every relayed session writes one `relayed session ended` line.** The fields from before are
+unchanged (`seconds`, `video_over_udp`, `video_datagrams_from_host`, `video_bytes_from_host`,
+`video_datagrams_from_client`, `control_bytes`). New:
+
+| Field | Values | Meaning |
+|---|---|---|
+| `end_reason` | `peer_closed`, `quota_exhausted`, `idle_timeout`, `io_error`, `shutdown` | `peer_closed` is a clean finish, `idle_timeout` a splice that carried nothing for `PEERINGD_CONTROL_IDLE_SECONDS`, `io_error` a failed read or write (usually a reset), `quota_exhausted` the relay cut a free session off. `shutdown` is counted in the summary only, since a stopping process writes no per-session line |
+| `closed_first` | `first_joiner`, `second_joiner`, `unknown` | Which control socket ended first, named by arrival order: the relay cannot tell a phone from a Mac (the token is shared and the rest is TLS). `unknown` for quota cuts and idle timeouts |
+| `io_error_kind` | `None` or a Rust `ErrorKind` (`ConnectionReset`, `BrokenPipe`, `TimedOut`) | Only with `io_error` |
+| `plan` | `free`, `paid`, `unlimited` | `paid` is a purchased plan, `unlimited` a paid key |
+| `video_path` | `udp`, `tcp_fallback`, `none` | `udp` if any picture datagram crossed. `tcp_fallback` is a heuristic: no UDP, but the control stream averaged 32 KiB/s or more. `none` is neither |
+| `first_video_ms` | `None` or milliseconds | From the splice starting to the first picture datagram from the host |
+| `udp_client_bound`, `udp_host_bound` | `true`, `false` | Whether that end ever sent any datagram to the video socket. `false` on the host is UDP not reaching the relay at all |
+| `session_retired_early` | `true`, `false` | The registry had already dropped the session (swept or superseded), so the video numbers are zero for want of a count |
+
+**Refusals and failures** are counted by reason: `host_not_registered`, `host_offline` (the host
+vanished while its session was being set up), `bad_token`, `bad_proof` (a registration whose proof
+is stale, invalid or for a key another device holds), `quota_refused_at_connect`,
+`timed_out_waiting_for_host` (the session was swept before its second end connected),
+`version_mismatch` (an unknown message variant, or host and client on different protocol
+versions), `malformed_message` (a message that did not parse for any other reason) and
+`udp_bind_unclaimed` (a session ended with an end that never bound its video slot). The warn line
+for an unparseable message and the swept-session line carry a `reason` field with the same names.
+
+**Every ten minutes the relay writes `relay summary since the last one`**, and once more when it
+stops. It carries counters since the previous summary: `sessions_allocated`, `sessions_started`,
+`active_splices` (a gauge, not reset), `ended_*` by reason, `refused_*` by reason,
+`failed_udp_bind_unclaimed`, and `udp_datagrams_unclaimed` (datagrams that named no live session).
+A quiet relay prints a line of zeros; a broken one prints nothing, so a missing summary is itself the
+alarm.
+
+```sh
+# Is UDP video failing? Share of recent sessions by video path.
+journalctl -u peeringd --since "24 hours ago" -o cat | grep 'relayed session ended' \
+  | grep -o 'video_path=[a-z_]*' | sort | uniq -c
+
+# Sessions whose Mac never reached the video socket (UDP blocked or port not forwarded).
+journalctl -u peeringd --since "24 hours ago" -o cat | grep 'relayed session ended' \
+  | grep -c 'udp_host_bound=false'
+
+# Why are sessions ending?
+journalctl -u peeringd --since "24 hours ago" -o cat | grep 'relayed session ended' \
+  | grep -o 'end_reason=[a-z_]*' | sort | uniq -c
+
+# Time to first picture over UDP, slowest first.
+journalctl -u peeringd --since "24 hours ago" -o cat | grep 'video_path=udp' \
+  | grep -o 'first_video_ms=Some([0-9]*)' | sort -t'(' -k2 -n -r | head
+
+# Is the relay alive and what has it been refusing? Last six summaries.
+journalctl -u peeringd -o cat | grep 'relay summary' | tail -6
+
+# Datagrams arriving that no session claims (a port scan, or ends with stale tokens).
+journalctl -u peeringd --since "24 hours ago" -o cat | grep 'relay summary' \
+  | grep -o 'udp_datagrams_unclaimed=[0-9]*'
 ```
 
 #### Knowing whether it is up

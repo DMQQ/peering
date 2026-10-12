@@ -110,6 +110,9 @@ struct Route {
     /// tokens and datagrams with nowhere to go are not counted: this answers "did a picture cross".
     datagrams: u64,
     bytes: u64,
+    /// When this end's first forwarded payload arrived, for the time-to-first-picture a session
+    /// line reports.
+    first_forwarded: Option<Instant>,
 }
 
 /// What crossed the video socket for one session, read when the session ends. A relayed session
@@ -121,6 +124,12 @@ pub struct VideoUsage {
     pub from_client_bytes: u64,
     pub from_host_datagrams: u64,
     pub from_host_bytes: u64,
+    /// Whether each end ever claimed its slot with any datagram. A session whose host never did is
+    /// the plainest sign that UDP is not getting through to the relay from that end.
+    pub client_bound: bool,
+    pub host_bound: bool,
+    /// When the host's first forwarded payload arrived: the first picture frame over UDP.
+    pub first_from_host: Option<Instant>,
 }
 
 /// What the routing table made of one datagram's token.
@@ -203,6 +212,7 @@ impl VideoRoutes {
                     last_active: None,
                     datagrams: 0,
                     bytes: 0,
+                    first_forwarded: None,
                 },
             );
         }
@@ -224,9 +234,12 @@ impl VideoRoutes {
             if slot == CLIENT_SLOT {
                 usage.from_client_datagrams = route.datagrams;
                 usage.from_client_bytes = route.bytes;
+                usage.client_bound = route.addr.is_some();
             } else {
                 usage.from_host_datagrams = route.datagrams;
                 usage.from_host_bytes = route.bytes;
+                usage.host_bound = route.addr.is_some();
+                usage.first_from_host = route.first_forwarded;
             }
         }
         usage
@@ -275,6 +288,7 @@ impl VideoRoutes {
             if forwarded {
                 route.datagrams += 1;
                 route.bytes += payload_len as u64;
+                route.first_forwarded.get_or_insert_with(Instant::now);
             }
         }
 
@@ -937,15 +951,18 @@ mod tests {
         table.route_sized(&HOST, addr(2, 6000), 800);
         table.route_sized(&CLIENT, addr(1, 5000), 40);
 
+        let usage = table.close(&[CLIENT, HOST]);
         assert_eq!(
-            table.close(&[CLIENT, HOST]),
-            VideoUsage {
-                from_client_datagrams: 1,
-                from_client_bytes: 40,
-                from_host_datagrams: 2,
-                from_host_bytes: 2000,
-            }
+            (
+                usage.from_client_datagrams,
+                usage.from_client_bytes,
+                usage.from_host_datagrams,
+                usage.from_host_bytes,
+            ),
+            (1, 40, 2, 2000)
         );
+        assert!(usage.client_bound && usage.host_bound);
+        assert!(usage.first_from_host.is_some());
     }
 
     #[test]
@@ -954,7 +971,20 @@ mod tests {
         table.open(&[CLIENT, HOST]);
 
         assert_eq!(table.route_sized(&HOST, addr(2, 6000), 1200), Routed::NoPeer);
-        assert_eq!(table.close(&[CLIENT, HOST]), VideoUsage::default());
+        let usage = table.close(&[CLIENT, HOST]);
+        assert_eq!(usage.from_host_datagrams, 0);
+        assert!(usage.first_from_host.is_none());
+    }
+
+    #[test]
+    fn a_session_whose_ends_never_sent_a_datagram_reports_both_unbound() {
+        let table = routes();
+        table.open(&[CLIENT, HOST]);
+        table.route_sized(&CLIENT, addr(1, 5000), 0);
+
+        let usage = table.close(&[CLIENT, HOST]);
+        assert!(usage.client_bound, "a bare token binds");
+        assert!(!usage.host_bound, "the host never spoke");
     }
 
     #[test]

@@ -162,6 +162,11 @@ pub struct Config {
     /// pings rather than a hiccup.
     pub handshake_timeout: Duration,
     pub idle_timeout: Duration,
+    /// `PEERINGD_CONTROL_IDLE_SECONDS`: how long a spliced control connection may carry no bytes in
+    /// either direction before the relay ends it. The phone pings every second, so 45 is a stalled
+    /// connection rather than a quiet one. It exists to stop a dead connection spending a free
+    /// user's allowance. `0` turns it off.
+    pub control_idle: Duration,
     /// `PEERINGD_APNS_KEY_ID`: the 10-character key identifier from the APNs key.
     pub apns_key_id: Option<String>,
     /// `PEERINGD_APNS_TEAM_ID`: the 10-character Apple Developer team identifier.
@@ -192,6 +197,7 @@ const DEFAULT_MAX_CONNECTIONS: usize = 4096;
 /// Seconds a socket has to finish saying hello, and to keep saying something. See the fields.
 const DEFAULT_HANDSHAKE_SECONDS: u64 = 10;
 const DEFAULT_IDLE_SECONDS: u64 = 90;
+const DEFAULT_CONTROL_IDLE_SECONDS: u64 = 45;
 
 /// Free relay minutes per client per window, unless `PEERINGD_FREE_MINUTES` says otherwise.
 ///
@@ -350,6 +356,11 @@ impl Config {
                 &get,
                 "PEERINGD_IDLE_SECONDS",
                 DEFAULT_IDLE_SECONDS,
+            )?),
+            control_idle: Duration::from_secs(seconds(
+                &get,
+                "PEERINGD_CONTROL_IDLE_SECONDS",
+                DEFAULT_CONTROL_IDLE_SECONDS,
             )?),
             apns_key_id: get("PEERINGD_APNS_KEY_ID"),
             apns_team_id: get("PEERINGD_APNS_TEAM_ID"),
@@ -541,6 +552,14 @@ mod tests {
 
         assert_eq!(config.plans, PlanAllowances::default());
         assert_eq!(config.plans.free_seconds, Some(30 * 60), "free is 30 minutes a day");
+    }
+
+    #[test]
+    fn the_control_idle_window_defaults_to_forty_five_seconds_and_can_be_set() {
+        assert_eq!(configured(&[]).unwrap().control_idle, Duration::from_secs(45));
+        let config = configured(&[("PEERINGD_CONTROL_IDLE_SECONDS", "10")]).unwrap();
+        assert_eq!(config.control_idle, Duration::from_secs(10));
+        assert!(configured(&[("PEERINGD_CONTROL_IDLE_SECONDS", "soon")]).is_err());
     }
 
     #[test]
