@@ -8,6 +8,7 @@ import pl.dmq.peering.AppGraph
 import pl.dmq.peering.session.history.SessionHistory
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.feature.scan.CameraQrSource
+import pl.dmq.peering.feature.onboarding.FaqScreen
 import pl.dmq.peering.ui.nav.ScreenRegistry
 import pl.dmq.peering.ui.wiring.ConnectivityNetworkSource
 import pl.dmq.peering.ui.wiring.DiscoveryHostSource
@@ -28,6 +29,7 @@ import pl.dmq.peering.ui.wiring.SessionPresence
 import pl.dmq.peering.ui.wiring.SurfacePicture
 import pl.dmq.peering.ui.wiring.pairedTarget
 import pl.dmq.peering.session.controller.ConnectTarget
+import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.hosts.PersistedHostDirectory
 import pl.dmq.peering.session.hosts.RememberedLanAddresses
 import pl.dmq.peering.session.relay.PresenceWatch
@@ -80,9 +82,13 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
 
     fun startPairing(hostId: String) = holder.connect(ConnectTarget.Pairing(hostId))
 
+    /** Dials a computer by address alone, the way for a network where it cannot be found by name. */
+    fun startPairingByAddress(address: PeerAddress) = holder.connect(ConnectTarget.Lan(address))
+
     fun install() {
         ScreenRegistry.connect = { ConnectTab(this) }
         ScreenRegistry.sessions = { SessionTab(this) }
+        ScreenRegistry.faq = { FaqScreen() }
         ScreenRegistry.settings = { SettingsTab(this) }
     }
 

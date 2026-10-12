@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.ui.theme.ContinuousShape
@@ -27,6 +28,7 @@ fun PeeringTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    monospaced: Boolean = false,
 ) {
     BasicTextField(
         value = value,
@@ -36,7 +38,7 @@ fun PeeringTextField(
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
         visualTransformation = visualTransformation,
-        textStyle = PeeringText.body.copy(color = PeeringColors.ink),
+        textStyle = (if (monospaced) PeeringText.subheadline.copy(fontFamily = FontFamily.Monospace) else PeeringText.body).copy(color = PeeringColors.ink),
         cursorBrush = SolidColor(PeeringColors.ink),
         decorationBox = { field ->
             Box(Modifier.background(PeeringColors.ink.copy(alpha = 0.06f), ContinuousShape(12.dp)).padding(12.dp)) {

@@ -5,11 +5,10 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.NoPhotography
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.kit.Symbols
 import pl.dmq.peering.feature.pairing.PairingActions
 import pl.dmq.peering.feature.pairing.PairingCodeContent
 import pl.dmq.peering.feature.pairing.PairingCodeScreen
@@ -19,6 +18,9 @@ import pl.dmq.peering.session.controller.PairingCodeError
 import androidx.compose.ui.Modifier
 import pl.dmq.peering.feature.onboarding.OnboardingRoute
 import pl.dmq.peering.feature.onboarding.OnboardingStep
+import pl.dmq.peering.feature.connect.ManualAddressSheet
+import pl.dmq.peering.feature.pairing.HostIdEntrySheet
+import pl.dmq.peering.feature.pairing.HostIdEntryState
 import pl.dmq.peering.feature.connect.ConnectActions
 import pl.dmq.peering.feature.connect.ConnectScreen
 import pl.dmq.peering.feature.connect.ConnectUiState
@@ -55,7 +57,7 @@ fun DebugPreview(name: String) {
             "pairing_done" -> PairingCodeContent(PairingCodeScreen.Done, PairingActions())
             "pairing_failed" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.Unreachable, "ConnectException: failed to connect to /192.168.1.20 (port 51515)"), PairingActions())
             "scan_denied" -> ScanMessage(
-                icon = Icons.Filled.NoPhotography,
+                icon = Symbols.camera,
                 title = stringResource(R.string.scan_denied_title),
                 text = stringResource(R.string.scan_denied),
                 action = stringResource(R.string.scan_open_settings),
@@ -69,6 +71,14 @@ fun DebugPreview(name: String) {
             "onboarding_6" -> sampleOnboarding(OnboardingStep.MOSAIC)
             "onboarding_7" -> sampleOnboarding(OnboardingStep.NOTIFICATIONS)
             "onboarding_8" -> sampleOnboarding(OnboardingStep.PLANS)
+            "connect_address" -> {
+                connect(NearbyPhase.Found, HostListing(emptyList(), sampleNearby))
+                ManualAddressSheet(onConnect = { _, _ -> }, onDismiss = {})
+            }
+            "connect_entry" -> {
+                connect(NearbyPhase.Found, HostListing(emptyList(), sampleNearby))
+                HostIdEntrySheet(HostIdEntryState(), {}, {}, {}, {})
+            }
             "connect_nonetwork" -> connect(NearbyPhase.NoNetwork, HostListing(samplePaired.take(1), emptyList()))
         }
     }

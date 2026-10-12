@@ -2,7 +2,6 @@ package pl.dmq.peering.feature.pairing
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -43,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.kit.RowShape
+import pl.dmq.peering.ui.kit.rowSurface
 import pl.dmq.peering.ui.theme.PeeringColors
 
 private const val SHAKE_STEP_MILLIS = 50
@@ -118,13 +119,13 @@ internal fun PairingCodeCells(
 
 @Composable
 private fun Cell(text: String, current: Boolean, wrong: Boolean, modifier: Modifier) {
-    val outline = when {
-        wrong -> BorderStroke(1.5.dp, PeeringColors.danger)
-        current -> BorderStroke(1.5.dp, PeeringColors.accent)
-        else -> BorderStroke(1.dp, PeeringColors.ink.copy(alpha = 0.16f))
+    val ring = when {
+        wrong -> PeeringColors.danger
+        current -> PeeringColors.accent
+        else -> Color.Transparent
     }
     Box(
-        modifier = modifier.height(64.dp).border(outline, MaterialTheme.shapes.small),
+        modifier = modifier.height(60.dp).rowSurface().border(1.5.dp, ring, RowShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(

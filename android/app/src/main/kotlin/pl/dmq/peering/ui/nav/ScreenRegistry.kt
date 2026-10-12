@@ -8,11 +8,13 @@ typealias ScreenSlot = @Composable () -> Unit
 object ScreenRegistry {
     lateinit var connect: ScreenSlot
     lateinit var sessions: ScreenSlot
+    lateinit var faq: ScreenSlot
     lateinit var settings: ScreenSlot
 
     fun slotFor(destination: PeeringDestination): ScreenSlot = when (destination) {
         PeeringDestination.Connect -> connect
         PeeringDestination.Sessions -> sessions
+        PeeringDestination.Faq -> faq
         PeeringDestination.Settings -> settings
     }
 }

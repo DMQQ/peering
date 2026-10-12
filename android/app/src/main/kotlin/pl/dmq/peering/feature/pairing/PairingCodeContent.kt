@@ -1,148 +1,147 @@
 package pl.dmq.peering.feature.pairing
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.session.controller.MAX_PAIRING_ATTEMPTS
+import pl.dmq.peering.ui.kit.GuideStepRow
+import pl.dmq.peering.ui.kit.GuideStepState
+import pl.dmq.peering.ui.kit.PeeringSpinner
+import pl.dmq.peering.ui.kit.PrimaryButton
+import pl.dmq.peering.ui.kit.StepDetail
+import pl.dmq.peering.ui.kit.Symbols
+import pl.dmq.peering.ui.kit.pressable
 import pl.dmq.peering.ui.theme.FailureNotice
 import pl.dmq.peering.ui.theme.IconTile
-import pl.dmq.peering.ui.theme.InkButton
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.arrive
+import pl.dmq.peering.ui.theme.peeringBackdrop
 
-/** The pairing steps, one calm thing at a time: six cells for the code the computer shows, then the wait. */
+/** The pairing as the iPhone's PairingPrompt lays it out: four steps down one column, the code entry living inside the second. */
 @Composable
 fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.fillMaxSize().imePadding().padding(horizontal = 22.dp).padding(top = 16.dp, bottom = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.arrive()) {
+    Column(modifier.fillMaxSize().peeringBackdrop().windowInsetsPadding(WindowInsets.statusBars).imePadding()) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(top = 48.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(28.dp),
+        ) {
             Text(
-                text = stringResource(R.string.pairing_code_title),
-                style = MaterialTheme.typography.headlineLarge,
+                stringResource(if (screen is PairingCodeScreen.Done) R.string.pairing_code_done_title else R.string.pairing_code_title),
+                style = PeeringText.display(size = 30f, tracking = -1f, lineHeight = 34f),
                 color = PeeringColors.ink,
+                modifier = Modifier.arrive(),
             )
-            if (screen is PairingCodeScreen.EnteringCode) {
-                Text(
-                    text = stringResource(R.string.pairing_code_detail),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = PeeringColors.muted,
-                )
+            when (screen) {
+                is PairingCodeScreen.Failed -> Failure(screen, actions)
+                else -> Steps(screen, actions)
             }
         }
-        when (screen) {
-            is PairingCodeScreen.EnteringCode -> EnteringCode(screen, actions)
-            PairingCodeScreen.Waiting -> Waiting(actions)
-            PairingCodeScreen.Done -> Outcome(
-                icon = { IconTile(Icons.Filled.Check, size = 56.dp) },
-                text = stringResource(R.string.pairing_code_done),
-                color = PeeringColors.ink,
-                actions = actions,
-            )
-            is PairingCodeScreen.Failed -> Failure(screen, actions)
-            PairingCodeScreen.Cancelled -> Unit
+        if (screen !is PairingCodeScreen.Failed && screen !is PairingCodeScreen.Done) {
+            FooterLink(stringResource(R.string.pairing_code_cancel), actions.onCancel)
+        }
+    }
+}
+
+@Composable
+private fun Steps(screen: PairingCodeScreen, actions: PairingActions) {
+    val entering = screen as? PairingCodeScreen.EnteringCode
+    val done = screen is PairingCodeScreen.Done
+    Column {
+        GuideStepRow(1, GuideStepState.Done, stringResource(R.string.pairing_step_found), Modifier.arrive(0)) {
+            StepDetail(stringResource(R.string.pairing_step_found_detail))
+        }
+        GuideStepRow(2, if (entering != null) GuideStepState.Current else GuideStepState.Done, stringResource(R.string.pairing_step_code), Modifier.arrive(60)) {
+            if (entering != null) EnteringCode(entering, actions) else StepDetail(stringResource(R.string.pairing_step_code_done))
+        }
+        GuideStepRow(
+            3,
+            when {
+                entering != null -> GuideStepState.Pending
+                done -> GuideStepState.Done
+                else -> GuideStepState.Current
+            },
+            stringResource(R.string.pairing_step_approve),
+            Modifier.arrive(120),
+        ) {
+            if (screen == PairingCodeScreen.Waiting) {
+                StepDetail(stringResource(R.string.pairing_code_waiting))
+                PeeringSpinner(color = PeeringColors.ink)
+            }
+        }
+        GuideStepRow(4, if (done) GuideStepState.Done else GuideStepState.Pending, stringResource(R.string.pairing_step_connected), Modifier.arrive(180), isLast = true) {
+            if (done) StepDetail(stringResource(R.string.pairing_code_done)) else StepDetail(stringResource(R.string.pairing_step_connected_detail))
+            if (done) PrimaryButton(stringResource(R.string.pairing_code_back), actions.onFinished, Modifier.padding(top = 8.dp), height = 44.dp)
         }
     }
 }
 
 @Composable
 private fun ColumnScope.EnteringCode(screen: PairingCodeScreen.EnteringCode, actions: PairingActions) {
-    PairingCodeCells(
-        attempts = screen.attempts,
-        wrong = screen.error != null,
-        onComplete = actions.onDigitsEntered,
-        modifier = Modifier.arrive(delayMillis = 90).padding(top = 8.dp),
-    )
+    StepDetail(stringResource(R.string.pairing_code_detail))
+    PairingCodeCells(attempts = screen.attempts, wrong = screen.error != null, onComplete = actions.onDigitsEntered)
     if (screen.error != null) {
         val left = (MAX_PAIRING_ATTEMPTS - screen.attempts).coerceAtLeast(1)
         Text(
-            text = stringResource(R.string.pairing_code_wrong) + " " +
-                pluralStringResource(R.plurals.pairing_code_tries_left, left, left),
-            style = MaterialTheme.typography.bodyMedium,
+            stringResource(R.string.pairing_code_wrong) + " " + pluralStringResource(R.plurals.pairing_code_tries_left, left, left),
+            style = PeeringText.footnote,
             color = PeeringColors.danger,
         )
     }
-    Spacer(Modifier.weight(1f))
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.arrive(delayMillis = 160)) {
-        if (actions.onScan != null) {
-            TextButton(onClick = actions.onScan, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.pairing_code_scan), color = PeeringColors.ink)
-            }
+    if (actions.onScan != null) {
+        Row(
+            Modifier.fillMaxWidth().height(40.dp).pressable(actions.onScan, scale = 0.97f),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Symbols.qrcodeViewfinder, null, tint = PeeringColors.muted, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.pairing_code_scan), style = PeeringText.subheadlineMedium, color = PeeringColors.muted)
         }
-        CancelButton(actions)
     }
 }
 
 @Composable
-private fun ColumnScope.Waiting(actions: PairingActions) {
-    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            CircularProgressIndicator(color = PeeringColors.ink, strokeWidth = 2.dp, modifier = Modifier.size(32.dp))
-            Text(
-                text = stringResource(R.string.pairing_code_waiting),
-                style = MaterialTheme.typography.bodyMedium,
-                color = PeeringColors.muted,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-    CancelButton(actions)
-}
-
-@Composable
-private fun ColumnScope.Outcome(icon: @Composable () -> Unit, text: String, color: Color, actions: PairingActions) {
-    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            icon()
-            Text(text, style = MaterialTheme.typography.bodyLarge, color = color, textAlign = TextAlign.Center)
-        }
-    }
-    InkButton(onClick = actions.onFinished, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.pairing_code_back))
+private fun Failure(screen: PairingCodeScreen.Failed, actions: PairingActions) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        IconTile(Symbols.exclamationmarkTriangle, size = 56.dp)
+        FailureNotice(screen.message.text(), screen.details)
+        PrimaryButton(stringResource(R.string.pairing_code_back), actions.onFinished, height = 44.dp)
     }
 }
 
 @Composable
-private fun ColumnScope.Failure(screen: PairingCodeScreen.Failed, actions: PairingActions) {
-    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            IconTile(Icons.Filled.ErrorOutline, size = 56.dp)
-            FailureNotice(screen.message.text(), screen.details)
-        }
-    }
-    InkButton(onClick = actions.onFinished, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.pairing_code_back))
-    }
-}
-
-@Composable
-private fun CancelButton(actions: PairingActions) {
-    TextButton(onClick = actions.onCancel, modifier = Modifier.fillMaxWidth().height(44.dp)) {
-        Text(stringResource(R.string.pairing_code_cancel), color = PeeringColors.muted)
+private fun FooterLink(text: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).height(44.dp).padding(bottom = 8.dp).pressable(onClick, scale = 0.97f),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text, style = PeeringText.footnote.copy(fontWeight = FontWeight.Medium), color = PeeringColors.muted)
     }
 }

@@ -2,40 +2,34 @@ package pl.dmq.peering.feature.pairing
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.theme.InkButton
+import pl.dmq.peering.ui.kit.ControlRow
+import pl.dmq.peering.ui.kit.ControlsCard
+import pl.dmq.peering.ui.kit.ControlsDivider
+import pl.dmq.peering.ui.kit.PeeringSheet
+import pl.dmq.peering.ui.kit.PeeringTextField
+import pl.dmq.peering.ui.kit.PrimaryButton
+import pl.dmq.peering.ui.kit.Symbols
+import pl.dmq.peering.ui.kit.pressable
 import pl.dmq.peering.ui.theme.PeeringColors
-import pl.dmq.peering.ui.theme.QuietButton
+import pl.dmq.peering.ui.theme.PeeringText
 
 /**
- * Takes a Mac's device ID typed or pasted. An error shows only once the user has submitted something the app
- * refused (typing clears it), never on the empty field. [onScan] null hides the scan button.
+ * Takes a computer's device ID typed or pasted, or scanned. An error shows only once the user has submitted something
+ * the app refused (typing clears it), never on the empty field. [onScan] null hides the scan row.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HostIdEntrySheet(
     state: HostIdEntryState,
@@ -44,52 +38,30 @@ fun HostIdEntrySheet(
     onScan: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = PeeringColors.sheet,
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-        contentColor = PeeringColors.ink,
-        shape = MaterialTheme.shapes.large.copy(bottomStart = CornerSize(0.dp), bottomEnd = CornerSize(0.dp)),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 20.dp).imePadding().navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.pairing_entry_heading),
-                style = MaterialTheme.typography.headlineSmall,
-                color = PeeringColors.ink,
-            )
-            Text(
-                text = stringResource(R.string.pairing_entry_detail),
-                style = MaterialTheme.typography.bodyMedium,
-                color = PeeringColors.muted,
-            )
-            OutlinedTextField(
-                value = state.text,
-                onValueChange = onTextChanged,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(stringResource(R.string.pairing_entry_hint)) },
-                isError = state.error != null,
-                supportingText = state.error?.let { error -> { Text(stringResource(error.messageRes())) } },
-                singleLine = true,
-                shape = MaterialTheme.shapes.small,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                keyboardActions = KeyboardActions(onGo = { onSubmit() }),
-                colors = peeringFieldColors(),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                InkButton(onClick = onSubmit, enabled = state.canSubmit, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.pairing_entry_submit))
-                }
+    val clipboard = LocalClipboardManager.current
+    PeeringSheet(onDismiss, dragIndicator = true) {
+        Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            Text(stringResource(R.string.pairing_entry_heading), style = PeeringText.display(size = 34f, tracking = -1.2f, lineHeight = 38f), color = PeeringColors.ink)
+            ControlsCard(stringResource(R.string.pairing_entry_card), footer = stringResource(R.string.pairing_entry_detail)) {
+                PeeringTextField(
+                    value = state.text,
+                    onValueChange = onTextChanged,
+                    placeholder = stringResource(R.string.pairing_entry_hint),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = false,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Go),
+                    keyboardActions = KeyboardActions(onGo = { onSubmit() }),
+                    monospaced = true,
+                )
+                ControlsDivider()
+                ControlRow(stringResource(R.string.pairing_entry_paste), Symbols.docOnDoc, Modifier.pressable({ clipboard.getText()?.text?.let(onTextChanged) }, scale = 0.98f))
                 if (onScan != null) {
-                    QuietButton(onClick = onScan, modifier = Modifier.weight(1.4f)) {
-                        Icon(Icons.Filled.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text(stringResource(R.string.pairing_entry_scan), modifier = Modifier.padding(start = 8.dp))
-                    }
+                    ControlsDivider()
+                    ControlRow(stringResource(R.string.pairing_entry_scan), Symbols.qrcodeViewfinder, Modifier.pressable(onScan, scale = 0.98f))
                 }
             }
+            state.error?.let { Text(stringResource(it.messageRes()), style = PeeringText.caption, color = PeeringColors.ink) }
+            PrimaryButton(stringResource(R.string.pairing_entry_submit), onClick = onSubmit, enabled = state.canSubmit, height = 44.dp)
         }
     }
 }

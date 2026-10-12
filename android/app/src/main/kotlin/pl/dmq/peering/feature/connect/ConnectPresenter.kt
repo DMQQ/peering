@@ -18,6 +18,7 @@ class ConnectPresenter(
     qrSource: QrSource,
     private val onConnect: (String) -> Unit,
     private val onPair: (String) -> Unit,
+    private val onConnectAddress: (ManualAddress) -> Unit = {},
     private val scope: CoroutineScope,
     network: NetworkSource = NetworkSource.Always,
     private val searchWindowMillis: Long = SEARCH_WINDOW_MILLIS,
@@ -63,6 +64,11 @@ class ConnectPresenter(
 
     fun pair(hostId: String) {
         onPair(hostId)
+    }
+
+    /** Dials a computer by the typed address. Fields that are not an address are ignored: the sheet keeps its button off for them. */
+    fun connectToAddress(host: String, port: String) {
+        ManualAddress.parse(host, port)?.let(onConnectAddress)
     }
 
     fun requestForget(hostId: String) {

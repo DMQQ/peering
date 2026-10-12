@@ -1,6 +1,7 @@
 package pl.dmq.peering.ui.kit
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,17 +22,21 @@ fun SheetToolbar(
     cancel: String,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    title: String? = null,
     confirm: String? = null,
     canConfirm: Boolean = true,
     onConfirm: () -> Unit = {},
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ToolbarCapsule(cancel, onCancel, PeeringColors.accent, FontWeight.Normal, true)
-        if (confirm != null) ToolbarCapsule(confirm, onConfirm, PeeringColors.accent, FontWeight.SemiBold, canConfirm)
+    Box(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp), contentAlignment = Alignment.Center) {
+        if (title != null) Text(title, style = PeeringText.headline, color = PeeringColors.ink)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ToolbarCapsule(cancel, onCancel, PeeringColors.accent, FontWeight.Normal, true)
+            if (confirm != null) ToolbarCapsule(confirm, onConfirm, PeeringColors.accent, FontWeight.SemiBold, canConfirm)
+        }
     }
 }
 

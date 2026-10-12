@@ -12,9 +12,9 @@ class PeeringDestinationTest {
     }
 
     @Test
-    fun navigationOrderIsConnectSessionsSettings() {
+    fun navigationOrderIsConnectSessionsFaqSettings() {
         assertEquals(
-            listOf(PeeringDestination.Connect, PeeringDestination.Sessions, PeeringDestination.Settings),
+            listOf(PeeringDestination.Connect, PeeringDestination.Sessions, PeeringDestination.Faq, PeeringDestination.Settings),
             PeeringDestination.entries,
         )
     }

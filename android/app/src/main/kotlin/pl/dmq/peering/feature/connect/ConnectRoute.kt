@@ -2,9 +2,6 @@ package pl.dmq.peering.feature.connect
 
 import android.content.Intent
 import android.provider.Settings
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -13,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.kit.PeeringAlert
 
 /** The Connect screen. Intents go to [presenter]; the wiring owns the presenter and what connecting and pairing do. */
 @Composable
@@ -29,6 +26,7 @@ fun ConnectRoute(
             onConnect = presenter::connect,
             onPair = presenter::pair,
             onForget = presenter::requestForget,
+            onConnectAddress = presenter::connectToAddress,
             onSearchAgain = presenter::searchAgain,
             onOpenWifiSettings = {
                 context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -46,20 +44,13 @@ fun ConnectRoute(
 
 @Composable
 private fun ForgetDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = PeeringColors.backdrop,
-        title = { Text(stringResource(R.string.connect_forget_title)) },
-        text = { Text(stringResource(R.string.connect_forget_text)) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(R.string.connect_forget_confirm), color = PeeringColors.danger)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.connect_cancel), color = PeeringColors.ink)
-            }
-        },
+    PeeringAlert(
+        title = stringResource(R.string.connect_forget_title),
+        message = stringResource(R.string.connect_forget_text),
+        confirm = stringResource(R.string.connect_forget_confirm),
+        onConfirm = onConfirm,
+        cancel = stringResource(R.string.connect_cancel),
+        onCancel = onDismiss,
+        destructive = true,
     )
 }

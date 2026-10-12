@@ -5,6 +5,7 @@ data class ConnectActions(
     val onConnect: (String) -> Unit = {},
     val onPair: (String) -> Unit = {},
     val onForget: (String) -> Unit = {},
+    val onConnectAddress: (host: String, port: String) -> Unit = { _, _ -> },
     val onSearchAgain: () -> Unit = {},
     val onOpenWifiSettings: () -> Unit = {},
     val onEntryTextChanged: (String) -> Unit = {},

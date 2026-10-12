@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -46,7 +48,7 @@ private val sheetShape = ContinuousShape(38.dp)
 
 /** A floating sheet as iOS 26 draws it: inset from the edges, rounded all round, rising on a spring and dragged down to dismiss. */
 @Composable
-fun PeeringSheet(onDismiss: () -> Unit, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun PeeringSheet(onDismiss: () -> Unit, modifier: Modifier = Modifier, dragIndicator: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -85,7 +87,12 @@ fun PeeringSheet(onDismiss: () -> Unit, modifier: Modifier = Modifier, content: 
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                     .background(PeeringColors.sheet, sheetShape)
                     .border(1.dp, Color.White.copy(alpha = 0.08f), sheetShape),
-                content = content,
+                content = {
+                    if (dragIndicator) {
+                        Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp).size(36.dp, 5.dp).background(Color.White.copy(alpha = 0.28f), CircleShape))
+                    }
+                    content()
+                },
             )
         }
     }

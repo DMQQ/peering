@@ -13,9 +13,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.NoPhotography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.kit.Symbols
 import pl.dmq.peering.ui.theme.PeeringColors
 
 /**
@@ -64,7 +62,7 @@ fun QrScannerRoute(
     Box(modifier = modifier.fillMaxSize().background(PeeringColors.backdrop)) {
         when {
             unavailable -> ScanMessage(
-                icon = Icons.Filled.NoPhotography,
+                icon = Symbols.camera,
                 text = stringResource(R.string.scan_unavailable),
             )
             permission == CameraPermissionState.Granted -> {
@@ -78,13 +76,13 @@ fun QrScannerRoute(
                 ScanFrameGuide()
             }
             permission == CameraPermissionState.Rationale -> ScanMessage(
-                icon = Icons.Filled.CameraAlt,
+                icon = Symbols.camera,
                 text = stringResource(R.string.scan_rationale),
                 action = stringResource(R.string.scan_allow),
                 onAction = { launcher.launch(Manifest.permission.CAMERA) },
             )
             permission == CameraPermissionState.PermanentlyDenied -> ScanMessage(
-                icon = Icons.Filled.NoPhotography,
+                icon = Symbols.camera,
                 title = stringResource(R.string.scan_denied_title),
                 text = stringResource(R.string.scan_denied),
                 action = stringResource(R.string.scan_open_settings),

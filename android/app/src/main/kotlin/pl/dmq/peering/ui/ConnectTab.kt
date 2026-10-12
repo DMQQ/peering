@@ -17,6 +17,7 @@ import pl.dmq.peering.ui.wiring.StorePaywallBilling
 import pl.dmq.peering.ui.wiring.findActivity
 import pl.dmq.peering.feature.connect.ConnectPresenter
 import pl.dmq.peering.feature.connect.ConnectRoute
+import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.feature.onboarding.OnboardingRoute
 import pl.dmq.peering.feature.pairing.PairingCodePresenter
 import pl.dmq.peering.feature.pairing.PairingCodeRoute
@@ -54,6 +55,12 @@ internal fun ConnectTab(wiring: FeatureWiring) {
                 pairing = PairingCodePresenter(ControllerPairingSession(session.controller, scope), scope)
                 onboarding = false
                 scanning = null
+                wiring.firstRun.markComplete()
+            },
+            onConnectAddress = { address ->
+                val session = wiring.startPairingByAddress(PeerAddress(address.host, address.port))
+                pairing = PairingCodePresenter(ControllerPairingSession(session.controller, scope), scope)
+                onboarding = false
                 wiring.firstRun.markComplete()
             },
             scope = scope,
