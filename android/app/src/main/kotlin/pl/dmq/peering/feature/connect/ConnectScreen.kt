@@ -45,8 +45,8 @@ fun ConnectScreen(
     ) {
         ConnectHeader()
         state.message?.let { message -> FailureCard(message, actions.onDismissMessage) }
-        if (state.listing.paired.isEmpty()) FirstConnectionCard(Modifier.arrive(delayMillis = 80))
-        Column(Modifier.fillMaxWidth().arrive(delayMillis = 120).cardBackground()) {
+        if (state.listing.paired.isEmpty()) FirstConnectionCard(Modifier.arrive(delayMillis = 80, once = "connect.first"))
+        Column(Modifier.fillMaxWidth().arrive(delayMillis = 120, once = "connect.hosts").cardBackground()) {
             NearbySection(
                 state.nearbyPhase, state.listing.nearby, actions,
                 onConnectByAddress = { addressOpen = true },
@@ -57,7 +57,7 @@ fun ConnectScreen(
             HorizontalDivider(color = DIVIDER)
             PairedSection(state.listing.paired, actions, Modifier.padding(16.dp))
         }
-        ProtectionCard(protection, Modifier.arrive(delayMillis = 180))
+        ProtectionCard(protection, Modifier.arrive(delayMillis = 180, once = "connect.protection"))
     }
     if (entryOpen) {
         HostIdEntrySheet(

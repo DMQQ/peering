@@ -13,6 +13,7 @@ import pl.dmq.peering.feature.paywall.PaywallReason
 import pl.dmq.peering.feature.paywall.PaywallRoute
 import pl.dmq.peering.feature.sessions.SessionDetail
 import pl.dmq.peering.feature.sessions.SessionsScreen
+import pl.dmq.peering.ui.kit.DepthTransition
 import pl.dmq.peering.ui.wiring.StorePaywallBilling
 import pl.dmq.peering.ui.wiring.findActivity
 import androidx.compose.ui.platform.LocalContext
@@ -26,24 +27,34 @@ internal fun SessionTab(wiring: FeatureWiring) {
     var openId by rememberSaveable { mutableStateOf<Long?>(null) }
     var plans by rememberSaveable { mutableStateOf(false) }
     val nowMillis = wiring.clock.unixSeconds() * MILLIS_PER_SECOND
-    val opened = records.firstOrNull { it.id == openId }
-    when {
-        plans -> {
-            BackHandler { plans = false }
-            PaywallRoute(
+    BackHandler(enabled = plans) { plans = false }
+    BackHandler(enabled = !plans && openId != null) { openId = null }
+    val page = when {
+        plans -> SessionsPage.Plans
+        openId != null -> SessionsPage.Detail(openId)
+        else -> SessionsPage.List
+    }
+    DepthTransition(state = page, depth = { if (it == SessionsPage.List) 0 else 1 }, label = "sessionsPage") { shown ->
+        when (shown) {
+            SessionsPage.Plans -> PaywallRoute(
                 billing = remember(wiring) { StorePaywallBilling(wiring.billing) { context.findActivity() } },
                 allowance = wiring.relayAllowance.allowance,
                 reason = PaywallReason.Upgrade,
                 startsWithAllowanceNotice = false,
                 onDismiss = { plans = false },
             )
+            is SessionsPage.Detail -> records.firstOrNull { it.id == shown.id }?.let {
+                SessionDetail(it, nowMillis, onBack = { openId = null }, modifier = Modifier)
+            }
+            SessionsPage.List -> SessionsScreen(records, allowance, nowMillis, onUpgrade = { plans = true }, onOpen = { openId = it.id })
         }
-        opened != null -> {
-            BackHandler { openId = null }
-            SessionDetail(opened, nowMillis, onBack = { openId = null }, modifier = Modifier)
-        }
-        else -> SessionsScreen(records, allowance, nowMillis, onUpgrade = { plans = true }, onOpen = { openId = it.id })
     }
+}
+
+private sealed interface SessionsPage {
+    data object List : SessionsPage
+    data object Plans : SessionsPage
+    data class Detail(val id: Long?) : SessionsPage
 }
 
 private const val MILLIS_PER_SECOND = 1_000L

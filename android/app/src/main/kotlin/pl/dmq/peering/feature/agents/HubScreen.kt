@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.kit.DepthTransition
 import pl.dmq.peering.ui.kit.PeeringAlert
 
 /** The Agents page: the chats on the computer, the conversations it holds, and the dock that starts a new chat. */
@@ -28,20 +29,33 @@ fun HubScreen(
 ) {
     val ui by presenter.ui.collectAsState()
     LaunchedEffect(presenter) { presenter.refresh() }
-    if (ui.newChat is NewChatStep.ChoosingFolder) {
-        BackHandler(onBack = presenter::cancelNewChat)
-        FolderPage(
-            folders = folders,
-            recentFolders = ui.recentFolders,
-            onUseFolder = { if (presenter.startInChosenFolder()) onChatStarted() },
-            onUseRecent = { if (presenter.startInRecentFolder(it)) onChatStarted() },
-            onBack = presenter::cancelNewChat,
-            modifier = modifier,
-        )
-        return
+    val choosingFolder = ui.newChat is NewChatStep.ChoosingFolder
+    BackHandler(enabled = choosingFolder, onBack = presenter::cancelNewChat)
+    DepthTransition(state = choosingFolder, depth = { if (it) 1 else 0 }, modifier = modifier, label = "hubFolder") { folderPage ->
+        if (folderPage) {
+            FolderPage(
+                folders = folders,
+                recentFolders = ui.recentFolders,
+                onUseFolder = { if (presenter.startInChosenFolder()) onChatStarted() },
+                onUseRecent = { if (presenter.startInRecentFolder(it)) onChatStarted() },
+                onBack = presenter::cancelNewChat,
+            )
+        } else {
+            HubBody(ui, presenter, guide, onSessionOpened, onChatStarted)
+        }
     }
+}
+
+@Composable
+private fun HubBody(
+    ui: HubUi,
+    presenter: AgentsHubPresenter,
+    guide: HubGuidePresenter,
+    onSessionOpened: () -> Unit,
+    onChatStarted: () -> Unit,
+) {
     var closing by remember { mutableStateOf<SessionCard?>(null) }
-    Box(modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize()) {
         HubList(
             ui = ui,
             presenter = presenter,

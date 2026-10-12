@@ -28,19 +28,19 @@ internal fun ConnectHeader(modifier: Modifier = Modifier) {
             painter = painterResource(R.drawable.pears),
             contentDescription = null,
             alignment = Alignment.CenterStart,
-            modifier = Modifier.size(72.dp).arrive(),
+            modifier = Modifier.size(72.dp).arrive(once = "connect.icon"),
         )
         Spacer(Modifier.height(16.dp))
         Text(
             text = stringResource(R.string.app_name),
             style = wordmarkStyle.copy(brush = rememberSheen()),
-            modifier = Modifier.arrive(delayMillis = 70),
+            modifier = Modifier.arrive(delayMillis = 70, once = "connect.title"),
         )
         Text(
             text = stringResource(R.string.connect_tagline),
             style = PeeringText.subheadline,
             color = PeeringColors.muted,
-            modifier = Modifier.padding(top = 6.dp).arrive(delayMillis = 140),
+            modifier = Modifier.padding(top = 6.dp).arrive(delayMillis = 140, once = "connect.subtitle"),
         )
     }
 }

@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.agents
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -12,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import pl.dmq.peering.session.ports.Clock
+import pl.dmq.peering.ui.kit.DepthTransition
 import pl.dmq.peering.session.ports.KeyValueStore
 
 /**
@@ -57,23 +59,26 @@ fun AgentsRoute(
     }
 
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {
-        val selected = chatState.selected
-        if (showingChat && selected != null) {
-            ChatScreen(
-                chat = chat,
-                transcript = transcript,
-                composer = composer,
-                port = port,
-                onBackToList = { showingChat = false },
-            )
-        } else {
-            HubScreen(
-                presenter = hub,
-                guide = guide,
-                folders = folders,
-                onSessionOpened = { showingChat = true },
-                onChatStarted = { sessionsBeforeStart = chatState.sessions.map { it.id }.toSet() },
-            )
+        val chatOpen = showingChat && chatState.selected != null
+        BackHandler(enabled = chatOpen) { showingChat = false }
+        DepthTransition(state = chatOpen, depth = { if (it) 1 else 0 }, label = "agentsChat") { openChat ->
+            if (openChat) {
+                ChatScreen(
+                    chat = chat,
+                    transcript = transcript,
+                    composer = composer,
+                    port = port,
+                    onBackToList = { showingChat = false },
+                )
+            } else {
+                HubScreen(
+                    presenter = hub,
+                    guide = guide,
+                    folders = folders,
+                    onSessionOpened = { showingChat = true },
+                    onChatStarted = { sessionsBeforeStart = chatState.sessions.map { it.id }.toSet() },
+                )
+            }
         }
     }
 }

@@ -35,7 +35,7 @@ internal fun TourStage(page: TourPage, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize()) {
         AnimatedContent(
             targetState = page,
-            transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(140)) },
+            transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(120)) },
             label = "stage",
             contentKey = { it.step },
         ) { shown ->

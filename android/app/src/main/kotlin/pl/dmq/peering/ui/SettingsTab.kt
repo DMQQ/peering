@@ -20,6 +20,7 @@ import pl.dmq.peering.feature.settings.LegalPageScreen
 import pl.dmq.peering.feature.settings.SettingsActions
 import pl.dmq.peering.feature.settings.SettingsPresenter
 import pl.dmq.peering.feature.settings.SettingsRoute
+import pl.dmq.peering.ui.kit.DepthTransition
 import pl.dmq.peering.ui.nav.LocalRootChrome
 import pl.dmq.peering.ui.nav.PeeringDestination
 import pl.dmq.peering.ui.wiring.StorePaywallBilling
@@ -63,22 +64,26 @@ internal fun SettingsTab(wiring: FeatureWiring) {
         onReportIssue = { context.composeEmail(SUPPORT_ADDRESS, reportSubject, reportBody) },
         protection = rememberAppProtection(),
     )
-    val document = legal
-    when {
-        document != null -> {
-            BackHandler { legal = null }
-            LegalPageScreen(document = document, onOpenWebPage = { context.openWebPage(it) })
-        }
-        plans -> {
-            BackHandler { plans = false }
-            PaywallRoute(
+    BackHandler(enabled = legal != null) { legal = null }
+    BackHandler(enabled = legal == null && plans) { plans = false }
+    val page = legal?.let { SettingsPage.Legal(it) } ?: if (plans) SettingsPage.Plans else SettingsPage.Root
+    DepthTransition(state = page, depth = { if (it == SettingsPage.Root) 0 else 1 }, label = "settingsPage") { shown ->
+        when (shown) {
+            is SettingsPage.Legal -> LegalPageScreen(document = shown.document, onOpenWebPage = { context.openWebPage(it) })
+            SettingsPage.Plans -> PaywallRoute(
                 billing = remember(wiring) { StorePaywallBilling(wiring.billing) { context.findActivity() } },
                 allowance = wiring.relayAllowance.allowance,
                 reason = PaywallReason.Upgrade,
                 startsWithAllowanceNotice = false,
                 onDismiss = { plans = false },
             )
+            SettingsPage.Root -> SettingsRoute(presenter = presenter, actions = actions)
         }
-        else -> SettingsRoute(presenter = presenter, actions = actions)
     }
+}
+
+private sealed interface SettingsPage {
+    data object Root : SettingsPage
+    data object Plans : SettingsPage
+    data class Legal(val document: LegalDocument) : SettingsPage
 }
