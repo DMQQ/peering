@@ -204,4 +204,21 @@
     <string name="permission_detail_reviewer">A reviewer model checks each action before it runs</string>
     <string name="permission_detail_never">Never asks, and can reach outside the folder</string>
     <string name="agents_back_to_list">Agents</string>
+    <string name="files_kind_folder">Folder</string>
+    <string name="files_kind_folder_link">Folder, through a link</string>
+    <string name="files_kind_link">Link</string>
+    <string name="files_kind_executable">Program, %1$s</string>
+    <string name="files_size_bytes">%1$d B</string>
+    <string name="files_size_kilobytes">%1$s KB</string>
+    <string name="files_size_megabytes">%1$s MB</string>
+    <string name="files_size_gigabytes">%1$s GB</string>
+    <string name="files_loading">Loading the folder</string>
+    <string name="files_retry">Try again</string>
+    <string name="files_folder_empty">This folder is empty.</string>
+    <string name="files_truncated">Only the first items are shown. The Mac holds more in this folder.</string>
+    <string name="files_sort_name">Name</string>
+    <string name="files_sort_size">Size</string>
+    <string name="files_sort_modified">Modified</string>
+    <string name="files_show_hidden">Hidden</string>
+    <string name="files_up_one_level">Up one level</string>
 </resources>
