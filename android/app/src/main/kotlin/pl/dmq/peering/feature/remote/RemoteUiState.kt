@@ -9,6 +9,10 @@ import pl.dmq.peering.wire.PixelSize
 data class RemoteUiState(
     val catalog: CaptureCatalog?,
     val chosenSource: CaptureSource?,
+    /** The title of the chosen source: a window's title or a display's name. Null until the catalogue says it. */
+    val sourceTitle: String?,
+    /** The chosen source's application, which picks the shortcut set for the application on screen. */
+    val sourceBundleId: String?,
     /** Pixel size of the chosen source, which the picture is fitted to. Null until the catalogue says it. */
     val picturePixels: PixelSize?,
     val latencyMs: Int?,
@@ -20,12 +24,15 @@ data class RemoteUiState(
     /** The computer's name while the session is ready, else null. */
     val hostName: String?,
     val reconnecting: Boolean,
-    val inputMode: InputMode,
+    /** What the computer's clipboard held when last asked, or null. */
+    val hostClipboard: String?,
 ) {
     companion object {
         val INITIAL = RemoteUiState(
             catalog = null,
             chosenSource = null,
+            sourceTitle = null,
+            sourceBundleId = null,
             picturePixels = null,
             latencyMs = null,
             path = null,
@@ -34,7 +41,7 @@ data class RemoteUiState(
             capabilities = HubCapabilities.NONE,
             hostName = null,
             reconnecting = false,
-            inputMode = InputMode.TRACKPAD,
+            hostClipboard = null,
         )
     }
 }

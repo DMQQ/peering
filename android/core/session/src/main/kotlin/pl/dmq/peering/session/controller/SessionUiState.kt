@@ -12,5 +12,7 @@ data class SessionUiState(
     val latencyMillis: Int? = null,
     val picture: PictureState = PictureState.Connecting,
     val notice: String? = null,
+    /** The text the computer's clipboard held when last asked, or null. */
+    val hostClipboard: String? = null,
     val qualityCeiling: QualityTier = QualityTier.HIGH,
 )

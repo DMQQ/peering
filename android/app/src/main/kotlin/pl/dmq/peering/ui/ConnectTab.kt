@@ -61,7 +61,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             presence = wiring.presence,
             qrSource = wiring.qrSource,
             onConnect = { hostId ->
-                wiring.connectPaired(hostId)
+                wiring.connectOrResume(hostId)
                 showingSession = true
             },
             onConnectVia = { hostId, via ->
@@ -141,6 +141,8 @@ internal fun ConnectTab(wiring: FeatureWiring) {
                     drafts = wiring.drafts,
                     folderRecents = wiring.folderRecents,
                     settings = wiring.settings,
+                    devicePrefs = wiring.devicePrefs,
+                    macros = wiring.macros,
                     billing = wiring.billing,
                     relayAllowance = wiring.relayAllowance,
                     clock = wiring.clock,

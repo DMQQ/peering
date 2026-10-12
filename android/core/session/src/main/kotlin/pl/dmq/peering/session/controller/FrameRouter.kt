@@ -9,6 +9,7 @@ import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.session.video.SourceSelection
 import pl.dmq.peering.session.video.VideoLanes
 import pl.dmq.peering.wire.AgentEvent
+import pl.dmq.peering.wire.ClipboardPayload
 import pl.dmq.peering.wire.ErrorPayload
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.MessageKind
@@ -46,7 +47,13 @@ internal class FrameRouter(
         }
         MessageKind.Error -> onError(frame)
         MessageKind.Notice -> onNotice(frame)
+        MessageKind.ClipboardContent -> onClipboard(frame)
         else -> emptyList()
+    }
+
+    private fun onClipboard(frame: Frame): List<SessionEvent> {
+        val clipboard = HandshakeFrames.decode(frame, ClipboardPayload.serializer()) ?: return emptyList()
+        return listOf(SessionEvent.HostClipboard(clipboard.plainText))
     }
 
     private fun laneEvents(frame: Frame): List<SessionEvent> = lanes.onControlFrame(frame).asEvents()

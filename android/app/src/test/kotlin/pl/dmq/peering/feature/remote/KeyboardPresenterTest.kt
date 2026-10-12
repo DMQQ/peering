@@ -130,6 +130,55 @@ class KeyboardPresenterTest {
         )
     }
 
+    @Test
+    fun `the typed preview follows typing, deleting and Enter`() {
+        presenter.onSoftKeyboardText("helo")
+        presenter.onSoftKeyboardDelete()
+        presenter.onSoftKeyboardText("lo")
+        assertEquals("hello", presenter.typedPreview.value)
+
+        presenter.pressEnter()
+
+        assertEquals("", presenter.typedPreview.value)
+    }
+
+    @Test
+    fun `keycode mode presses keys so a shortcut can follow and sends other characters as text`() {
+        val keycode = KeyboardPresenter(sink) { KeyboardMode.KEYCODE }
+
+        keycode.onSoftKeyboardText("aBé")
+
+        val none = Modifiers(0)
+        assertEquals(
+            listOf<RemoteCommand>(
+                KeyDown(0, none), KeyUp(0, none),
+                KeyDown(11, Modifiers(Modifiers.SHIFT)), KeyUp(11, Modifiers(Modifiers.SHIFT)),
+                TextInput("é"),
+            ),
+            sink.sent,
+        )
+    }
+
+    @Test
+    fun `a dock key carries what is latched and releases it after`() {
+        presenter.onModifierTap(StickyModifier.COMMAND, timeMs = 0)
+        sink.sent.clear()
+
+        presenter.sendKey(123)
+
+        val command = Modifiers(Modifiers.COMMAND)
+        assertEquals(KeyDown(123, command), sink.sent[0])
+        assertEquals(KeyUp(123, command), sink.sent[1])
+        assertEquals(ModifierLatch.OFF, presenter.latches.value.getValue(StickyModifier.COMMAND))
+    }
+
+    @Test
+    fun `a chord sent with its own modifiers is not latched`() {
+        presenter.sendKey(8, Modifiers.COMMAND)
+
+        assertEquals(listOf<RemoteCommand>(KeyDown(8, Modifiers(Modifiers.COMMAND)), KeyUp(8, Modifiers(Modifiers.COMMAND))), sink.sent)
+    }
+
     private companion object {
         const val CTRL_ON = 0x1000L
         const val KEYCODE_BACK = 4

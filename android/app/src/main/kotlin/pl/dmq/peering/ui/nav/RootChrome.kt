@@ -14,6 +14,13 @@ class RootChrome {
     private var hiders by mutableIntStateOf(0)
     val navigationBarVisible: Boolean get() = hiders == 0
 
+    /** Set by the scaffold: switches the root tab, for screens that send the user to another one. */
+    var navigator: ((PeeringDestination) -> Unit)? = null
+
+    fun open(destination: PeeringDestination) {
+        navigator?.invoke(destination)
+    }
+
     internal fun hide() { hiders++ }
     internal fun show() { hiders-- }
 }

@@ -198,6 +198,42 @@ class RemoteCanvasPresenterTest {
         assertEquals(218.75, picture.top, EPSILON)
     }
 
+    @Test
+    fun `observing sends nothing and one finger pans a zoomed picture`() {
+        presenter.setMode(InputMode.OBSERVE)
+        presenter.zoomByNotch(20)
+        val zoomed = presenter.state.value.viewport
+
+        presenter.onPointerDown(1, 500.0, 500.0, timeMs = 0)
+        presenter.onPointerMove(1, 450.0, 500.0, timeMs = 10)
+        presenter.onPointerUp(1, 450.0, 500.0, timeMs = 20)
+
+        assertTrue(sink.sent.isEmpty())
+        assertEquals(zoomed.panX - 50.0, presenter.state.value.viewport.panX, EPSILON)
+    }
+
+    @Test
+    fun `fill zooms until the picture covers the canvas`() {
+        presenter.onPictureChanged(PixelSize(1920.0, 1080.0))
+
+        presenter.fillCanvas()
+
+        val viewport = presenter.state.value.viewport
+        assertEquals(1000.0 / 562.5, viewport.zoom, EPSILON)
+        assertEquals(1000.0 * (1 - viewport.zoom) / 2, viewport.panX, EPSILON)
+    }
+
+    @Test
+    fun `a wheel notch zooms in and the opposite notch zooms out`() {
+        presenter.zoomByNotch(10)
+        val zoomedIn = presenter.state.value.viewport.zoom
+
+        presenter.zoomByNotch(-10)
+
+        assertTrue(zoomedIn > 1.0)
+        assertEquals(1.0, presenter.state.value.viewport.zoom, EPSILON)
+    }
+
     private fun assertMove(command: RemoteCommand, x: Double, y: Double) {
         val move = command as MouseMove
         assertEquals(x, move.to.x, EPSILON)

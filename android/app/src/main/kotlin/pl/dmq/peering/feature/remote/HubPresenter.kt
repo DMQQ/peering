@@ -1,16 +1,10 @@
 package pl.dmq.peering.feature.remote
 
-/** Decides which entries the session hub offers for a Mac. Sources, Quality and Disconnect are always there. */
+/** Decides what the terminal button offers for a computer: only what it declared it can do, the terminal first. */
 class HubPresenter {
-    fun entries(capabilities: HubCapabilities): List<HubEntry> = buildList {
-        add(HubEntry.SOURCES)
+    fun terminalEntries(capabilities: HubCapabilities): List<HubEntry> = buildList {
+        if (capabilities.terminal) add(HubEntry.TERMINAL)
         if (capabilities.agentChat) add(HubEntry.AGENTS)
         if (capabilities.fileBrowser) add(HubEntry.FILES)
-        if (capabilities.terminal) add(HubEntry.TERMINAL)
-        add(HubEntry.QUALITY)
-        add(HubEntry.DISCONNECT)
     }
-
-    /** What the More sheet lists beyond the bar's own buttons. */
-    fun moreEntries(): List<HubEntry> = listOf(HubEntry.QUALITY, HubEntry.DISCONNECT)
 }

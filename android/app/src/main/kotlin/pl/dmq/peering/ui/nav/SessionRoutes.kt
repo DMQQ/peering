@@ -37,8 +37,10 @@ import pl.dmq.peering.feature.paywall.PaywallReason
 import pl.dmq.peering.billing.PlayBilling
 import pl.dmq.peering.feature.paywall.PaywallRoute
 import pl.dmq.peering.feature.paywall.RelayAllowanceTracker
+import pl.dmq.peering.feature.remote.MacroStore
 import pl.dmq.peering.feature.remote.RemoteModel
 import pl.dmq.peering.feature.remote.RemoteRoute
+import pl.dmq.peering.feature.settings.DevicePreferences
 import pl.dmq.peering.feature.settings.SettingsStore
 import pl.dmq.peering.session.controller.SessionFailure
 import pl.dmq.peering.session.controller.SessionPhase
@@ -60,8 +62,8 @@ import pl.dmq.peering.ui.wiring.messageRes
 enum class SessionRoute { REMOTE, AGENTS, FILES, TERMINAL, PAYWALL }
 
 /**
- * The session's screens, one at a time. Back returns to the remote screen first, then leaves the session through
- * [onClose] when the caller provides one. [onDisconnect] runs when the user ends the session from the menu.
+ * The session's screens, one at a time. Back returns to the remote screen from the others. [onClose] leaves the screen
+ * with the session still running; [onDisconnect] runs when the user ends the session.
  */
 @Composable
 internal fun SessionScreens(
@@ -70,10 +72,12 @@ internal fun SessionScreens(
     drafts: ComposerDraftStore,
     folderRecents: FolderRecentsStore,
     settings: SettingsStore,
+    devicePrefs: DevicePreferences,
+    macros: MacroStore,
     billing: PlayBilling,
     relayAllowance: RelayAllowanceTracker,
     clock: Clock,
-    onClose: (() -> Unit)?,
+    onClose: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -86,9 +90,13 @@ internal fun SessionScreens(
             picture = picture,
             scope = scope,
             quality = ControllerQualityPort(active.controller, settings, scope),
+            prefs = devicePrefs,
+            macros = macros,
             relayAllowance = relayAllowance.allowance,
             onDisconnect = onDisconnect,
-        ) { route = it }
+            onLeave = onClose,
+            onOpen = { route = it },
+        )
     }
     val session by active.controller.state.collectAsState()
     val browser = active.controller.files
@@ -101,9 +109,7 @@ internal fun SessionScreens(
             route = SessionRoute.PAYWALL
         }
     }
-    BackHandler(enabled = route != SessionRoute.REMOTE || onClose != null) {
-        if (route != SessionRoute.REMOTE) route = SessionRoute.REMOTE else onClose?.invoke()
-    }
+    BackHandler(enabled = route != SessionRoute.REMOTE) { route = SessionRoute.REMOTE }
     AnimatedContent(targetState = route, transitionSpec = { fadeThrough() }, label = "sessionRoute") { shown ->
         when (shown) {
             SessionRoute.REMOTE -> RemoteWithNotice(remote, session.phase)

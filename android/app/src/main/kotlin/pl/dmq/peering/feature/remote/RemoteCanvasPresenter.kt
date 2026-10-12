@@ -66,13 +66,28 @@ class RemoteCanvasPresenter(
         publish()
     }
 
+    /** Zooms until the picture covers the whole canvas, as far as the zoom limit allows, about the canvas centre. */
+    fun fillCanvas() {
+        val size = canvas ?: return
+        val fit = fittedPicture() ?: return
+        val cover = maxOf(size.width / fit.width, size.height / fit.height)
+        viewport = CanvasViewport().zoomedAbout(cover, size.width / 2, size.height / 2, size)
+        publish()
+    }
+
+    /** One wheel notch of zoom about the canvas centre, positive zooming in. */
+    fun zoomByNotch(notches: Int) {
+        val size = canvas ?: return
+        viewport = viewport.zoomedAbout(Math.pow(NOTCH_ZOOM, notches.toDouble()), size.width / 2, size.height / 2, size)
+        publish()
+    }
+
     fun onPointerDown(id: Int, x: Double, y: Double, timeMs: Long) {
         val model = trackpad ?: return
         pointers[id] = CanvasPoint(x, y)
-        if (mode == InputMode.TRACKPAD) {
-            emit(model.onDown(id, x, y, timeMs))
-        } else if (pointers.size == 1) {
-            pressDirect(x, y)
+        when {
+            mode == InputMode.TRACKPAD -> emit(model.onDown(id, x, y, timeMs))
+            mode == InputMode.DIRECT && pointers.size == 1 -> pressDirect(x, y)
         }
         if (pointers.size >= 2) releaseDirect(lastDirectPoint)
         rebaseline()
@@ -80,24 +95,25 @@ class RemoteCanvasPresenter(
 
     fun onPointerMove(id: Int, x: Double, y: Double, timeMs: Long) {
         val model = trackpad ?: return
-        if (!pointers.containsKey(id)) return
+        val previous = pointers[id] ?: return
         pointers[id] = CanvasPoint(x, y)
         if (pointers.size >= 2) multiTouchFrame()?.let(::applyMultiTouch)
-        if (mode == InputMode.TRACKPAD) {
-            val actions = model.onMove(id, x, y, timeMs)
-            if (!pinching) emit(actions)
-        } else if (pointers.size == 1 && directPressed) {
-            moveDirect(x, y)
+        when {
+            mode == InputMode.OBSERVE -> if (pointers.size == 1) panBy(x - previous.x, y - previous.y)
+            mode == InputMode.TRACKPAD -> {
+                val actions = model.onMove(id, x, y, timeMs)
+                if (!pinching) emit(actions)
+            }
+            pointers.size == 1 && directPressed -> moveDirect(x, y)
         }
     }
 
     fun onPointerUp(id: Int, x: Double, y: Double, timeMs: Long) {
         val model = trackpad ?: return
         if (pointers.remove(id) == null) return
-        if (mode == InputMode.TRACKPAD) {
-            emit(model.onUp(id, x, y, timeMs))
-        } else if (pointers.isEmpty()) {
-            releaseDirect(directPoint(x, y) ?: lastDirectPoint)
+        when {
+            mode == InputMode.TRACKPAD -> emit(model.onUp(id, x, y, timeMs))
+            mode == InputMode.DIRECT && pointers.isEmpty() -> releaseDirect(directPoint(x, y) ?: lastDirectPoint)
         }
         rebaseline()
     }
@@ -119,9 +135,17 @@ class RemoteCanvasPresenter(
             zoomAndPan(frame)
         } else if (mode == InputMode.DIRECT) {
             sink.send(Scroll(frame.centroid.x - lastCentroid.x, frame.centroid.y - lastCentroid.y))
+        } else if (mode == InputMode.OBSERVE) {
+            panBy(frame.centroid.x - lastCentroid.x, frame.centroid.y - lastCentroid.y)
         }
         lastSpread = frame.spread
         lastCentroid = frame.centroid
+    }
+
+    private fun panBy(dx: Double, dy: Double) {
+        val size = canvas ?: return
+        viewport = viewport.pannedBy(dx, dy, size)
+        publish()
     }
 
     private fun zoomAndPan(frame: MultiTouchFrame) {
@@ -198,5 +222,6 @@ class RemoteCanvasPresenter(
 
     private companion object {
         const val PINCH_THRESHOLD = 0.05
+        const val NOTCH_ZOOM = 1.03
     }
 }

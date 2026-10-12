@@ -4,6 +4,8 @@ import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.CaptureSourceDescriptor
 import pl.dmq.peering.wire.CaptureSourceKind
+import pl.dmq.peering.wire.LaunchApplication
+import pl.dmq.peering.wire.OpenNewWindow
 import pl.dmq.peering.wire.SetCaptureSource
 import pl.dmq.peering.wire.WatchSourceThumbnails
 
@@ -29,23 +31,34 @@ class SourcesPresenter(private val sink: CommandSink) {
         sink.send(SetCaptureSource(tile.source))
     }
 
+    /** Opens a new window in the application on the computer, which then appears among its windows. */
+    fun openNewWindow(bundleIdentifier: String) {
+        sink.send(OpenNewWindow(bundleIdentifier))
+    }
+
+    /** Opens an application the computer has installed and is not running. */
+    fun launch(application: InstalledApplication) {
+        sink.send(LaunchApplication(application.bundleIdentifier))
+    }
+
+    /** One descriptor as the tile the panel draws, marked when it is what the picture shows. */
+    fun tile(descriptor: CaptureSourceDescriptor, chosen: CaptureSource?): SourceTile = SourceTile(
+        source = descriptor.source,
+        kind = descriptor.kind,
+        title = descriptor.title,
+        subtitle = descriptor.subtitle,
+        pixelSize = descriptor.pixelSize,
+        selected = descriptor.source == chosen,
+        iconData = descriptor.iconPNGData,
+        thumbnail = descriptor.thumbnail,
+    )
+
     private fun section(
         kind: CaptureSourceKind,
         descriptors: List<CaptureSourceDescriptor>,
         chosen: CaptureSource?,
     ): SourceSection = SourceSection(
         kind = kind,
-        tiles = descriptors.map { descriptor ->
-            SourceTile(
-                source = descriptor.source,
-                kind = descriptor.kind,
-                title = descriptor.title,
-                subtitle = descriptor.subtitle,
-                pixelSize = descriptor.pixelSize,
-                selected = descriptor.source == chosen,
-                iconData = descriptor.iconPNGData,
-                thumbnail = descriptor.thumbnail,
-            )
-        },
+        tiles = descriptors.map { tile(it, chosen) },
     )
 }

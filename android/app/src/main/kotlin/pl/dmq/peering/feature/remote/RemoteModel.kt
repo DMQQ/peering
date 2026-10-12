@@ -1,6 +1,7 @@
 package pl.dmq.peering.feature.remote
 
 import kotlinx.coroutines.flow.StateFlow
+import pl.dmq.peering.feature.settings.DevicePreferences
 
 /** What the remote screen needs from the session. The session side implements it; the screen never talks to the wire. */
 interface RemoteModel {
@@ -12,11 +13,20 @@ interface RemoteModel {
     /** Receives the picture's surface, for the decoder to draw into. */
     val surface: SurfaceListener
 
-    /** The picture quality the sheet reads and changes. */
+    /** The picture quality the Settings panel reads and changes. */
     val quality: QualityPort
 
-    /** A hub entry the remote screen does not open itself: Agents, Files or Disconnect. */
+    /** The choices Settings keeps: interaction, fit or fill, keyboard mode, closing panels, device name. */
+    val prefs: DevicePreferences
+
+    /** The shortcuts the user added. */
+    val macros: MacroStore
+
+    /** A hub entry the remote screen does not open itself: Agents, Files, Terminal or Disconnect. */
     fun onHubEntry(entry: HubEntry)
+
+    /** Leaves the session screen and keeps the session running, as the Connect chip does. */
+    fun onStepAway()
 
     /** The picture stalled or failed and the user asked for it again. */
     fun onRetryPicture()

@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="remote_wheel_up">Roll up one notch</string>
+    <string name="remote_wheel_down">Roll down one notch</string>
+    <string name="remote_wheel_scroll">Scroll the computer</string>
+    <string name="remote_wheel_zoom">Zoom the picture</string>
+    <string name="remote_joystick">Relative pointer. Drag to nudge the cursor, tap to click, hold for a right click, tap twice to change speed.</string>
+
+    <string name="remote_reconnecting_short">Reconnecting…</string>
+    <string name="remote_pill_open">Show the session controls</string>
+    <string name="remote_dot_connected">Connected</string>
+    <string name="remote_dot_degraded">Reconnecting or not streaming</string>
+    <string name="remote_dot_broken">Not streaming</string>
+    <string name="remote_dot_waiting">Waiting for the picture</string>
+
+    <string name="remote_row_view">View</string>
+    <string name="remote_row_computer">Computer</string>
+    <string name="remote_row_session">Session</string>
+    <string name="remote_row_end">End</string>
+    <string name="remote_chip_lock">Lock</string>
+    <string name="remote_chip_restore">Restore</string>
+    <string name="remote_chip_darken">Darken</string>
+    <string name="remote_chip_connect">Connect</string>
+    <string name="remote_chip_terminal">Terminal</string>
+    <string name="remote_chip_quit">Quit</string>
+    <string name="remote_chip_fit">Fit</string>
+    <string name="remote_chip_fill">Fill</string>
+    <string name="remote_chip_immersive">Immersive</string>
+    <string name="remote_lock_description">Lock the computer. Touch and hold for Lock Screen or Dim Displays.</string>
+    <string name="remote_menu_lock">Lock screen</string>
+    <string name="remote_menu_dim">Dim displays</string>
+    <string name="remote_menu_restore">Restore display brightness</string>
+    <string name="remote_terminal_description">Terminal, agents and files</string>
+
+    <string name="remote_dock_apps">Apps</string>
+    <string name="remote_dock_clipboard">Clipboard</string>
+    <string name="remote_dock_shortcuts">Shortcuts</string>
+    <string name="remote_dock_settings">Settings</string>
+    <string name="remote_dock_left">Left</string>
+    <string name="remote_dock_up">Up</string>
+    <string name="remote_dock_down">Down</string>
+    <string name="remote_dock_right">Right</string>
+    <string name="remote_dock_hide">Hide the other controls</string>
+    <string name="remote_dock_show">Show the other controls</string>
+
+    <string name="remote_key_enter">Enter</string>
+    <string name="remote_key_back">Back</string>
+    <string name="remote_key_escape">Escape</string>
+    <string name="remote_key_escape_short">Esc</string>
+    <string name="remote_key_tab">Tab</string>
+    <string name="remote_key_delete">Delete</string>
+    <string name="remote_arrow_left">Left arrow</string>
+    <string name="remote_arrow_up">Up arrow</string>
+    <string name="remote_arrow_down">Down arrow</string>
+    <string name="remote_arrow_right">Right arrow</string>
+    <string name="remote_keyboard_hide">Hide keyboard</string>
+    <string name="remote_typing">Typing…</string>
+
+    <string name="remote_shortcuts_set">Shortcuts</string>
+    <string name="remote_shortcuts_function_keys">F1-F12</string>
+    <string name="remote_macros_edit">Edit macros</string>
+    <string name="remote_fn_description">Function keys</string>
+    <string name="macros_title">Macros</string>
+    <string name="macros_custom">Custom macros</string>
+    <string name="macros_custom_empty">No custom macros yet. Add one below.</string>
+    <string name="macros_builtin">Built-in macros</string>
+    <string name="macros_builtin_tag">built-in</string>
+    <string name="macros_delete">Delete %1$s</string>
+    <string name="macros_new">New macro</string>
+    <string name="macros_label_hint">Label (automatic from the keys when empty)</string>
+    <string name="macros_key">Key</string>
+    <string name="macros_preview">Button will show</string>
+    <string name="macros_add">Add</string>
+
+    <string name="clipboard_phone">Phone</string>
+    <string name="clipboard_computer">Computer</string>
+    <string name="clipboard_nothing_copied">Nothing copied</string>
+    <string name="clipboard_other_copied">Something that is not text was copied</string>
+    <string name="clipboard_not_checked">Not checked yet</string>
+    <string name="clipboard_nothing_to_copy">Nothing to copy</string>
+    <string name="clipboard_send">Send</string>
+    <string name="clipboard_paste_on_computer">Paste on computer</string>
+    <string name="clipboard_copy_to_phone">Copy to phone</string>
+
+    <string name="sources_search">Find a display, application or window</string>
+    <string name="sources_section_screens">Screens</string>
+    <string name="sources_new_window">New window</string>
+    <string name="sources_installed">Installed on your computer</string>
+    <string name="sources_installed_note">Not running yet. Choosing one opens it on the computer.</string>
+    <plurals name="sources_windows">
+        <item quantity="one">%d window</item>
+        <item quantity="other">%d windows</item>
+    </plurals>
+
+    <string name="remote_quit_title">Quit the active app?</string>
+    <string name="remote_quit_message">The computer may ask you to save open documents first.</string>
+    <string name="remote_quit_confirm">Send Cmd+Q</string>
+
+    <string name="panel_keywords_session">session computer state path direct video connection latency lock</string>
+    <string name="panel_keywords_stream">stream display app window source quality bitrate automatic manual codec hevc</string>
+    <string name="panel_keywords_panels">panels close after selecting</string>
+    <string name="panel_keywords_privacy">privacy relay allow darken displays brightness</string>
+    <string name="panel_keywords_keyboard">keyboard unicode keycode</string>
+    <string name="panel_keywords_macros">macros shortcuts</string>
+    <string name="panel_keywords_device">this device name phone</string>
+    <string name="panel_session">Session</string>
+    <string name="panel_none">None</string>
+    <string name="panel_state">State</string>
+    <string name="panel_latency">Latency</string>
+    <string name="panel_lock">Lock computer · unlock locally</string>
+    <string name="panel_lock_title">Lock this computer?</string>
+    <string name="panel_lock_message">The computer will lock immediately. macOS does not let a remote app past its login screen, so someone must unlock it there. Peering reconnects after it wakes or is unlocked.</string>
+    <string name="panel_lock_confirm">Lock computer</string>
+    <string name="panel_state_connected">Connected</string>
+    <string name="panel_state_connecting">Connecting</string>
+    <string name="panel_state_reconnecting">Offline, reconnecting</string>
+    <string name="panel_state_not_streaming">Not streaming</string>
+    <string name="panel_stream">Stream</string>
+    <string name="panel_display_app_window">Display, app or window</string>
+    <string name="panel_quality_automatic">Automatic</string>
+    <string name="panel_quality_manual">Manual</string>
+    <string name="panel_quality_auto_note">Peering picks the rate and moves it as the connection does: down when frames arrive late or are dropped, up again after a stretch of clean ones. Low is 2 Mbps, Medium is 8, High is 20.</string>
+    <string name="panel_quality_manual_note">The computer sends the picture at the rate you chose and holds it whatever the network does. A connection with less room than that shows it as stutter rather than a softer picture: Low is 2 Mbps, Medium is 8, High is 20.</string>
+    <string name="panel_hevc_yes">HEVC supported</string>
+    <string name="panel_hevc_yes_note">This phone can decode H.265. Enable HEVC on the computer for better quality at lower bandwidth.</string>
+    <string name="panel_hevc_no">HEVC not supported</string>
+    <string name="panel_hevc_no_note">This phone cannot decode H.265. Use H.264 on the computer for the best performance.</string>
+    <string name="panel_panels">Panels</string>
+    <string name="panel_panels_note">The Apps panel puts itself away once you have picked a source, a desktop or an application. Shortcuts stays open either way: its buttons are key presses rather than choices, and a panel that shut after every one would have to be reopened for the next.</string>
+    <string name="panel_privacy">Privacy</string>
+    <string name="panel_allow_relay">Allow the relay</string>
+    <string name="panel_allow_relay_note">On: when your computer is not on this network, Peering reaches it through a relay server. The connection is still end-to-end encrypted and the relay cannot read it, but the computer\'s device ID and the times you connect do pass through that server. Off: Peering only ever connects directly, over a network you are both on.</string>
+    <string name="panel_darken">Darken the computer\'s displays</string>
+    <string name="panel_darken_note">Privacy mode darkens the computer\'s displays without stopping the stream. Everything is restored when you turn it off or disconnect.</string>
+    <string name="panel_macros">Macros</string>
+</resources>

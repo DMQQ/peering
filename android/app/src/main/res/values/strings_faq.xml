@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="faq_detail">Pairing, privacy, and what moves between your devices.</string>
+
+    <string name="faq_section_start">Getting started</string>
+    <string name="faq_account_question">Do I need an account?</string>
+    <string name="faq_account_answer">No. Each device creates its own identity and keeps the key in its own secure storage. There is no sign-up, no email, and nothing about you stored on a server.</string>
+    <string name="faq_pair_question">How do I pair a computer?</string>
+    <string name="faq_pair_answer">The two devices have to be able to reach each other once, and somebody has to be at the computer. On the same network, choose the computer from Nearby. If it is somewhere else, open Devices in Peering on the computer, copy its device ID, and use Pair from another network on the phone. Either way the computer shows six digits: enter them on the phone and continue only if they match. You pair once; after that the devices recognise each other and reconnect on their own.</string>
+    <string name="faq_mac_needs_question">What does the computer need?</string>
+    <string name="faq_mac_needs_answer">The Peering app for the computer, running, with two permissions allowed: Screen Recording, which is what lets it capture the screen, and Accessibility, which is what lets it move the pointer and type. The computer app shows their state with a button to open the right pane.</string>
+    <string name="faq_away_question">Can I connect away from home?</string>
+    <string name="faq_away_answer">Yes, and it tries two ways in order. First the two devices look for a path straight between themselves; if the networks will not allow one, Peering\'s relay carries the session instead. The session screen shows which is in use as LAN, RELAY, or DIRECT. You can turn the relay off entirely under Settings, Remote access, which leaves connections on your own network only.</string>
+    <string name="faq_awake_question">Does my computer have to be awake?</string>
+    <string name="faq_awake_answer">It has to be on to hold a session. A sleeping computer cannot be woken from the phone yet.</string>
+    <string name="faq_many_question">How many computers can I use?</string>
+    <string name="faq_many_answer">As many as you pair. They all appear in the Connect tab with their own menu, and one session runs at a time. Starting another ends the first.</string>
+    <string name="faq_phones_question">Can two phones use the same computer?</string>
+    <string name="faq_phones_answer">Yes. The computer accepts more than one connected device. The picture itself is sent to one device at a time, so a second phone watching the same computer is not getting a second stream.</string>
+
+    <string name="faq_section_privacy">Privacy</string>
+    <string name="faq_relay_sees_question">Can the relay see my screen or controls?</string>
+    <string name="faq_relay_sees_answer">No. It forwards an encrypted connection it holds no key for. The video, clipboard text, keystrokes and pointer input are all inside that connection, and the relay can read none of them.</string>
+    <string name="faq_relay_knows_question">What does the relay know?</string>
+    <string name="faq_relay_knows_answer">The computer\'s device ID and name, this phone\'s device ID, the protocol version, which plan the app says you are on, and how much you have used it. It does not see inside the session, and it does not keep a record of what was on your screen.</string>
+    <string name="faq_video_servers_question">Does the video go through your servers?</string>
+    <string name="faq_video_servers_answer">Only when it has to. When the two devices can reach each other directly, the picture takes that path and only the control connection stays on the relay. When they cannot, which is common on restrictive networks, the relay carries the picture too. The app tries the direct path and falls back on its own.</string>
+    <string name="faq_darken_question">Can I stop someone at the computer from watching?</string>
+    <string name="faq_darken_answer">Yes. Turn on Darken during a session and the computer\'s own screens go dark while capture keeps running, so you can work without the room reading over your shoulder. They come back when you turn it off or end the session.</string>
+    <string name="faq_lock_question">Can I lock the app?</string>
+    <string name="faq_lock_answer">Yes. The lock is under Settings, Security and privacy, and asks each time the app comes back. Your device passcode is accepted as well as your fingerprint or face, so a phone that stops recognising you cannot lock you out of the app.</string>
+    <string name="faq_collect_question">What does Peering collect?</string>
+    <string name="faq_collect_answer">Nothing. There is no analytics, no advertising, and no third-party tracking in the app.</string>
+
+    <string name="faq_section_moves">What moves between devices</string>
+    <string name="faq_clipboard_question">How does clipboard sharing work?</string>
+    <string name="faq_clipboard_answer">Text moves only when you ask it to: send this phone\'s clipboard to the computer, or paste it there in one tap. Nothing is copied in the background.</string>
+    <string name="faq_files_question">Can I transfer files?</string>
+    <string name="faq_files_answer">Yes, from the file browser. You can read a file, download it to the phone, edit a text file and save it back, make a new file or folder, rename or delete what is listed, and send a file from the phone into the folder you are looking at. Deleting moves the file to the Bin on the computer. What a file is gets decided by the file itself rather than its name, so a picture opens as a picture and anything that is neither text nor a picture is offered as a download.</string>
+    <string name="faq_terminal_question">Can I open a terminal?</string>
+    <string name="faq_terminal_answer">Yes. A shell on the computer opens inside the session, with tabs you can rename and a key row for the control keys a phone keyboard cannot send.</string>
+    <string name="faq_macros_question">What are shortcuts and macros?</string>
+    <string name="faq_macros_answer">Saved key combinations you fire with a tap rather than typing them on glass. The Shortcuts panel has the common ones, a set for the application on screen, and F1 to F12. Add your own with the edit button at the end of the Shortcuts set.</string>
+
+    <string name="faq_section_plans">Plans</string>
+    <string name="faq_free_question">What is free?</string>
+    <string name="faq_free_answer">Connecting over your own network, with no limit and no time counted. The relay is the part that reaches a computer on another network, and free includes 30 minutes of it each day.</string>
+    <string name="faq_run_out_question">What happens when my relay time runs out?</string>
+    <string name="faq_run_out_answer">The relay stops carrying sessions until the day rolls over, and the Sessions tab shows the meter. Connections on your own network keep working the whole time. Any paid plan removes the limit entirely.</string>
+    <string name="faq_subscribe_question">Why does the app ask me to subscribe?</string>
+    <string name="faq_subscribe_answer">It asks after your first session, and again if your relay time is nearly gone. Both are a single prompt with a way to dismiss it; nothing is charged without you confirming it through the store.</string>
+
+    <string name="faq_section_trouble">Security and troubleshooting</string>
+    <string name="faq_verified_question">How are paired devices verified?</string>
+    <string name="faq_verified_answer">Each device creates its own key and keeps it in secure storage. When you confirm the six-digit code, both devices record the other\'s public key and refuse to connect to anything else claiming that identity. The relay cannot substitute itself for either end.</string>
+    <string name="faq_black_question">Why is the computer screen black?</string>
+    <string name="faq_black_answer">Almost always Screen Recording. Check System Settings, Privacy and Security, Screen Recording on the computer, then fully quit Peering there and open it again. The permission is only picked up at launch.</string>
+    <string name="faq_soft_question">The picture looks soft. Can I change it?</string>
+    <string name="faq_soft_answer">Yes. Settings, Stream quality, sets Automatic, Low, Medium or High, and so does the Settings panel in a session. Automatic follows what the connection can carry, stepping down when latency rises and back up when it settles, so a weak link goes soft rather than stalling.</string>
+    <string name="faq_network_question">What happens if my phone changes network?</string>
+    <string name="faq_network_answer">The connection goes quiet, because the address the computer was sending to no longer exists. Peering tries to put the session back and tells you if it ended. Join the new network, tap the computer, and you are back.</string>
+
+    <string name="faq_section_gaps">Known gaps</string>
+    <string name="faq_gaps_question">What can\'t Peering do yet?</string>
+    <string name="faq_gaps_answer">A list rather than a promise. The computer\'s sound is not played on this phone yet. There is no dictation button. The picker does not show each desktop (Space) or make virtual displays, and there is no mosaic of several windows. The clipboard history and reading what the computer copied are not built. A computer asleep and off your network cannot be woken.</string>
+    <string name="faq_coming_question">Is any of that coming?</string>
+    <string name="faq_coming_answer">Some of it. Nothing on that list is a design decision we are defending; each is simply not built. The FAQ will say so when it changes, because a list like this is only worth reading if it is kept.</string>
+</resources>
