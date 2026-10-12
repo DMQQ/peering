@@ -14,6 +14,9 @@ internal object FileBrowserReducer {
             is TerminalEvent.FileRange -> fileRange(state, event)
             is TerminalEvent.ArchiveReady -> archiveReady(state, event)
             is TerminalEvent.TransferFailure -> transferFailure(state, event)
+            is TerminalEvent.FileOperationDone -> FileChangeReducer.done(browserID, state, event)
+            is TerminalEvent.FileOperationFailure -> FileChangeReducer.failed(browserID, state, event)
+            is TerminalEvent.WroteFile, is TerminalEvent.WriteFailure -> FileChangeReducer.uploadEvent(browserID, state, event)
             is TerminalEvent.Failed -> FileBrowserStep(state.copy(browseFailure = event.message, listingLoading = false))
             else -> FileBrowserStep(state)
         }
@@ -26,6 +29,10 @@ internal object FileBrowserReducer {
         is TerminalEvent.FileRange -> event.sessionID
         is TerminalEvent.ArchiveReady -> event.sessionID
         is TerminalEvent.TransferFailure -> event.sessionID
+        is TerminalEvent.FileOperationDone -> event.sessionID
+        is TerminalEvent.FileOperationFailure -> event.sessionID
+        is TerminalEvent.WroteFile -> event.sessionID
+        is TerminalEvent.WriteFailure -> event.sessionID
         is TerminalEvent.Failed -> event.sessionID
         else -> null
     }

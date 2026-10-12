@@ -14,4 +14,7 @@ object TransferLimits {
     const val UPLOAD_CHUNK_BYTES = 32 * 1024
 
     const val MAXIMUM_UPLOAD_BYTES = 2L * 1024 * 1024 * 1024
+
+    /** What the phone sends: the outgoing queue holds a file's frames until the socket drains, so it is held to memory. */
+    const val MAXIMUM_PHONE_UPLOAD_BYTES = 64L * 1024 * 1024
 }

@@ -1,41 +1,31 @@
 package pl.dmq.peering.feature.files
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
-import pl.dmq.peering.wire.RemoteDirectoryEntry
 
 class FileGlyphTest {
-    private fun file(name: String, modified: Double? = null) = RemoteDirectoryEntry(
-        name = name, isDirectory = false, isSymlink = false, size = 1, permissions = "-rw-r--r--", modified = modified,
-    )
-
     @Test
-    fun `a plain file is told by its extension in any case`() {
+    fun entriesAreToldByKindFirstThenByExtension() {
+        assertEquals(FileGlyph.FOLDER, FileGlyph.of(folder("src")))
+        assertEquals(FileGlyph.EXECUTABLE, FileGlyph.of(file("run.png", permissions = "-rwxr-xr-x")))
         assertEquals(FileGlyph.IMAGE, FileGlyph.of(file("Photo.JPG")))
-        assertEquals(FileGlyph.CODE, FileGlyph.of(file("main.swift")))
-        assertEquals(FileGlyph.ARCHIVE, FileGlyph.of(file("backup.tar")))
-        assertEquals(FileGlyph.DOCUMENT, FileGlyph.of(file("notes.md")))
+        assertEquals(FileGlyph.PDF, FileGlyph.of(file("a.pdf")))
+        assertEquals(FileGlyph.ARCHIVE, FileGlyph.of(file("a.tar.gz")))
+        assertEquals(FileGlyph.CODE, FileGlyph.of(file("Main.kt")))
+        assertEquals(FileGlyph.GENERIC, FileGlyph.of(file("data.bin")))
     }
 
     @Test
-    fun `an unknown or missing extension is a plain file`() {
-        assertEquals(FileGlyph.FILE, FileGlyph.of(file("data.xyz")))
-        assertEquals(FileGlyph.FILE, FileGlyph.of(file("Makefile")))
+    fun aDotfileHasNoExtension() {
+        assertEquals("", FileGlyph.extensionOf(".env"))
+        assertEquals("gz", FileGlyph.extensionOf("a.tar.gz"))
+        assertEquals(FileGlyph.GENERIC, FileGlyph.byName(".zshrc"))
     }
 
     @Test
-    fun `a folder and a link keep their own glyph whatever the name says`() {
-        val folder = RemoteDirectoryEntry("pics.png", isDirectory = true, isSymlink = false, size = 0, permissions = "drwxr-xr-x")
-        val link = RemoteDirectoryEntry("pics.png", isDirectory = false, isSymlink = true, size = 0, permissions = "lrwxr-xr-x")
-        assertEquals(FileGlyph.FOLDER, FileGlyph.of(folder))
-        assertEquals(FileGlyph.LINK, FileGlyph.of(link))
-    }
-
-    @Test
-    fun `modified time moves from the 2001 reference to unix milliseconds`() {
-        assertEquals(978_307_200_000L, file("a", modified = 0.0).modifiedEpochMillis())
-        assertEquals(978_307_201_000L, file("a", modified = 1.9).modifiedEpochMillis())
-        assertNull(file("a").modifiedEpochMillis())
+    fun shareTypesFollowTheName() {
+        assertEquals("image/png", MimeTypes.of("/a/b.PNG"))
+        assertEquals("text/plain", MimeTypes.of("/a/b.swift"))
+        assertEquals("application/octet-stream", MimeTypes.of("/a/b"))
     }
 }

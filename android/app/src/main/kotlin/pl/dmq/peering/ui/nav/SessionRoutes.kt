@@ -24,6 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.agents.AgentsRoute
 import pl.dmq.peering.feature.agents.ComposerDraftStore
@@ -174,7 +177,13 @@ private fun FilesScreen(active: ActiveSession, onBack: () -> Unit) {
     }
     BackHandler(onBack = onBack)
     val resolver = LocalContext.current.contentResolver
-    FilesRoute(port = remember(browser) { SessionFileBrowsing(browser, active.downloads, resolver) }, onBack = onBack)
+    val scope = rememberCoroutineScope()
+    val port = remember(browser) {
+        val online = active.controller.state.map { it.phase is SessionPhase.Ready }
+            .stateIn(scope, SharingStarted.Eagerly, active.controller.state.value.phase is SessionPhase.Ready)
+        SessionFileBrowsing(browser, active.downloads, resolver, online, scope)
+    }
+    FilesRoute(port = port, onBack = onBack)
 }
 
 @Composable

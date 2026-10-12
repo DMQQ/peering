@@ -2,6 +2,7 @@ package pl.dmq.peering.session.files
 
 import pl.dmq.peering.wire.RemoteDirectoryEntry
 import pl.dmq.peering.wire.RemoteFileKind
+import pl.dmq.peering.wire.RemoteFileOperation
 import pl.dmq.peering.wire.TerminalEvent
 import pl.dmq.peering.wire.TerminalRequest
 import pl.dmq.peering.wire.toBase64
@@ -18,7 +19,31 @@ class ScriptedFileHost(
         is TerminalRequest.ReadFile -> readFile(request)
         is TerminalRequest.ReadRange -> readRange(request)
         is TerminalRequest.ArchiveFolder -> archiveFolder(request)
+        is TerminalRequest.ChangeFile -> changeFile(request)
+        is TerminalRequest.WriteChunk -> writeChunk(request)
         else -> emptyList()
+    }
+
+    /** Paths the host refuses to change or write, with the text it answers. */
+    val refusals = mutableMapOf<String, String>()
+    private val received = mutableMapOf<String, ByteArray>()
+
+    private fun changeFile(request: TerminalRequest.ChangeFile): List<TerminalEvent> {
+        val path = when (val operation = request.operation) {
+            is RemoteFileOperation.Create -> operation.path
+            is RemoteFileOperation.Rename -> operation.path
+            is RemoteFileOperation.Delete -> operation.path
+        }
+        val refusal = refusals[path]
+            ?: return listOf(TerminalEvent.FileOperationDone(request.sessionID, path, ""))
+        return listOf(TerminalEvent.FileOperationFailure(request.sessionID, path, refusal))
+    }
+
+    private fun writeChunk(request: TerminalRequest.WriteChunk): List<TerminalEvent> {
+        received[request.path] = (received[request.path] ?: ByteArray(0)) + request.dataBytes
+        if (!request.isLast) return emptyList()
+        refusals[request.path]?.let { return listOf(TerminalEvent.WriteFailure(request.sessionID, request.path, it)) }
+        return listOf(TerminalEvent.WroteFile(request.sessionID, request.path, received.getValue(request.path).size.toLong()))
     }
 
     private fun listDirectory(request: TerminalRequest.ListDirectory): List<TerminalEvent> {
