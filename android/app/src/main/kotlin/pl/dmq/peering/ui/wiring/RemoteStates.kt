@@ -35,4 +35,6 @@ internal fun SessionPictureState.toScreenPicture(): PictureState = when (this) {
     SessionPictureState.Connecting -> PictureState.WAITING
     SessionPictureState.Live, SessionPictureState.Fallback -> PictureState.LIVE
     SessionPictureState.Paused -> PictureState.PAUSED
+    SessionPictureState.Stalled -> PictureState.STALLED
+    is SessionPictureState.Failed -> PictureState.FAILED
 }

@@ -24,7 +24,7 @@ class RouteOpenerTest {
         advanceTimeBy(100)
         runCurrent()
 
-        assertEquals(listOf<ControlRoute>(ControlRoute.Direct(ControllerRig.LAN_ADDRESS)), rig.routes)
+        assertEquals(listOf<ControlRoute>(ControlRoute.Direct(ControllerRig.LAN_ADDRESS)), rig.controlRoutes)
     }
 
     @Test
@@ -38,7 +38,7 @@ class RouteOpenerTest {
 
         assertEquals(
             listOf<ControlRoute>(ControlRoute.Direct(stale), ControlRoute.Direct(stale.copy(port = 51515))),
-            rig.routes,
+            rig.controlRoutes,
         )
         assertTrue(rig.controller.state.value.phase !is SessionPhase.Failed)
     }
@@ -52,7 +52,7 @@ class RouteOpenerTest {
         advanceTimeBy(100)
         runCurrent()
 
-        assertEquals(1, rig.routes.size)
+        assertEquals(1, rig.controlRoutes.size)
     }
 
     @Test

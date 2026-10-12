@@ -44,7 +44,7 @@ class DisconnectTest {
         runCurrent()
 
         assertEquals(SessionPhase.Ended, rig.controller.state.value.phase)
-        assertEquals(1, rig.routes.size)
+        assertEquals(1, rig.routes.count { it !is ControlRoute.Video })
         assertEquals(1, rig.mac.connections.size)
         assertTrue(rig.mac.connections.single().closed)
         assertEquals(SessionRecord.EndReason.USER_ENDED, rig.history.records.single().reason)

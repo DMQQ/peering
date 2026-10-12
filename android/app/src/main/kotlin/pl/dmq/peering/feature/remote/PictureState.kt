@@ -4,4 +4,6 @@ enum class PictureState {
     WAITING,
     LIVE,
     PAUSED,
+    STALLED,
+    FAILED,
 }

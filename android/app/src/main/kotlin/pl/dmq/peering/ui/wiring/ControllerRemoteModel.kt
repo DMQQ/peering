@@ -45,6 +45,10 @@ internal class ControllerRemoteModel(
         }
     }
 
+    override fun onRetryPicture() {
+        controller.retryPicture()
+    }
+
     override fun onRelayUpgradeRequested() = onOpen(SessionRoute.PAYWALL)
 
     private fun hubCapabilities(): HubCapabilities =

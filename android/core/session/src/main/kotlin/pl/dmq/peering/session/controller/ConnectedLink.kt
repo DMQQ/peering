@@ -13,6 +13,7 @@ import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.session.ports.VideoSink
 import pl.dmq.peering.session.relay.DirectPathState
 import pl.dmq.peering.session.relay.RelayConnect
+import pl.dmq.peering.session.video.LanVideoLane
 import pl.dmq.peering.session.video.SourceSelection
 import pl.dmq.peering.session.video.VideoLanes
 import pl.dmq.peering.wire.AutoQualityPolicy
@@ -20,6 +21,7 @@ import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.ServerHello
 import pl.dmq.peering.wire.QualityTier
 import pl.dmq.peering.wire.SetStreamQuality
+import pl.dmq.peering.wire.SetVideoEnabled
 import pl.dmq.peering.wire.VideoTransportKind
 import kotlin.math.roundToInt
 import kotlin.time.Duration
@@ -38,6 +40,7 @@ internal class ConnectedLink(
     private val frames: ReceiveChannel<Frame>,
     sink: VideoSink,
     onPicture: () -> Unit,
+    videoConnector: ControlConnector,
     selection: SourceSelection,
     agent: AgentChat?,
     files: FileBrowser?,
@@ -47,21 +50,24 @@ internal class ConnectedLink(
 ) {
     private val liveness = LivenessMonitor(clock)
     val commands = SessionCommands(hello)
-    private val lanes = VideoLanes(
-        PictureSink(sink) {
-            pictureSeen = true
-            onPicture()
-        },
-        clock,
-        route.videoPeer,
-        route.videoToken,
-    )
+    private val seen: () -> Unit = {
+        noteSeen()
+        onPicture()
+    }
+    private val lanes = VideoLanes(PictureSink(sink, onPicture = seen), clock, route.videoPeer, route.videoToken)
     private val router = FrameRouter(liveness, commands, lanes, selection, agent, files)
-    private var pictureSeen = false
+    private val picture: PictureWatch = PictureWatch(
+        clock,
+        lane = route.path.takeIf { it == SessionRecord.Path.LAN }?.let {
+            LanVideoLane(videoConnector, route.videoPeer, PictureSink(sink, selection::onVideoConfig, seen))
+        },
+    )
     private var automatic: AutoQualityPolicy? = null
     private val direct: DirectPathRunner? = route.datagrams?.let { datagrams ->
         relay?.let { DirectPathRunner(lanes, datagrams, it, route.videoToken) }
     }
+
+    private fun noteSeen() = picture.noteSeen()
 
     /** The route the picture is on: [SessionRecord.Path.DIRECT] once the Mac's own address has authenticated. */
     val path: SessionRecord.Path
@@ -73,11 +79,16 @@ internal class ConnectedLink(
 
     val latencyMillis: Int? get() = liveness.smoothedLatencyMillis()?.roundToInt()
 
-    fun pictureState(paused: Boolean): PictureState = when {
-        paused -> PictureState.Paused
-        lanes.delivery.transport == VideoTransportKind.CONTROL -> PictureState.Fallback
-        !pictureSeen -> PictureState.Connecting
-        else -> PictureState.Live
+    fun pictureState(paused: Boolean): PictureState =
+        picture.state(paused, viaControlChannel = lanes.delivery.transport == VideoTransportKind.CONTROL)
+
+    /** Reopens the picture. A relayed session has no lane of its own, so pausing and resuming makes the host send a keyframe. */
+    fun retryPicture() {
+        if (route.path == SessionRecord.Path.RELAY) {
+            commands.send(SetVideoEnabled(false))?.let(writer::enqueue)
+            commands.send(SetVideoEnabled(true))?.let(writer::enqueue)
+        }
+        picture.restart()
     }
 
     fun enqueue(frame: Frame) = writer.enqueue(frame)
@@ -85,6 +96,7 @@ internal class ConnectedLink(
     /** Starts the link's loops in this scope. [ended] completes with the reason the link stopped. */
     fun CoroutineScope.serve(ended: CompletableDeferred<LinkEnd>, onTick: () -> Unit) {
         applyQuality(quality, ceiling)
+        picture.start(this)
         launchLinkTask(ended) {
             if (route.path == SessionRecord.Path.RELAY) {
                 for (event in lanes.start().asEvents()) applyEvent(event, ended)

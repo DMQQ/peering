@@ -25,7 +25,7 @@ class LanSessionTest {
         val ready = rig.controller.state.value.phase as SessionPhase.Ready
         assertEquals(ControllerRig.HOST_NAME, ready.hostName)
         assertEquals(SessionRecord.Path.LAN, ready.path)
-        assertEquals(listOf(ControlRoute.Direct(ControllerRig.LAN_ADDRESS)), rig.routes)
+        assertEquals(listOf(ControlRoute.Direct(ControllerRig.LAN_ADDRESS)), rig.controlRoutes)
         assertEquals(
             listOf(SetStreamQuality(fps = 0, bitrateKbps = QualityTier.HIGH.kbps)),
             rig.mac.connections.single().phoneFrames.commands(),

@@ -23,7 +23,7 @@ class PairedDialTest {
         rig.controller.connect()
         settle()
 
-        assertEquals(listOf<ControlRoute>(ControlRoute.Direct(ControllerRig.LAN_ADDRESS)), rig.routes)
+        assertEquals(listOf<ControlRoute>(ControlRoute.Direct(ControllerRig.LAN_ADDRESS)), rig.controlRoutes)
         assertEquals(SessionRecord.Path.LAN, (rig.controller.state.value.phase as SessionPhase.Ready).path)
         assertTrue(rig.signalling.sent.isEmpty())
     }
@@ -38,7 +38,7 @@ class PairedDialTest {
         rig.controller.connect()
         settle()
 
-        assertTrue(rig.routes.last() is ControlRoute.Relayed)
+        assertTrue(rig.controlRoutes.last() is ControlRoute.Relayed)
         assertEquals(SessionRecord.Path.RELAY, (rig.controller.state.value.phase as SessionPhase.Ready).path)
     }
 
@@ -48,7 +48,7 @@ class PairedDialTest {
         rig.controller.connect()
         settle()
 
-        assertEquals(ControlRoute.Direct(ControllerRig.LAN_ADDRESS), rig.routes.first())
+        assertEquals(ControlRoute.Direct(ControllerRig.LAN_ADDRESS), rig.controlRoutes.first())
         assertEquals(SessionRecord.Path.LAN, (rig.controller.state.value.phase as SessionPhase.Ready).path)
         assertTrue(rig.signalling.sent.isEmpty())
     }
@@ -73,7 +73,7 @@ class PairedDialTest {
         rig.controller.connect()
         settle()
 
-        assertEquals(ControlRoute.Direct(ControllerRig.LAN_ADDRESS), rig.routes.first())
+        assertEquals(ControlRoute.Direct(ControllerRig.LAN_ADDRESS), rig.controlRoutes.first())
         assertEquals(SessionRecord.Path.LAN, (rig.controller.state.value.phase as SessionPhase.Ready).path)
     }
 
@@ -85,7 +85,7 @@ class PairedDialTest {
         advanceTimeBy(2_000)
         runCurrent()
 
-        assertTrue(rig.routes.single() is ControlRoute.Relayed)
+        assertTrue(rig.controlRoutes.single() is ControlRoute.Relayed)
     }
 
     @Test

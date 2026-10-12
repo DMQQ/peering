@@ -35,11 +35,20 @@ class ControllerRig(
 ) {
     val routes = mutableListOf<ControlRoute>()
 
+    /** The routes dialled for control connections: every one except the picture lane. */
+    val controlRoutes: List<ControlRoute> get() = routes.filter { it !is ControlRoute.Video }
+
     /** When false, every control connection attempt fails, as it does when the Mac is off the network. */
     var reachable = true
 
     /** Direct addresses that answer with a refusal, as a stale advertised port does. */
     val refusing = mutableSetOf<PeerAddress>()
+
+    /** When false, a picture connection cannot be opened, as when the host refuses it. */
+    var videoReachable = true
+
+    /** The picture connections opened so far, in order. */
+    val videoConnections = mutableListOf<ScriptedVideoConnection>()
     val sink = FakeVideoSink()
     val signalling = FakeSignalling()
     val datagrams = FakeDatagramTransport()
@@ -55,6 +64,10 @@ class ControllerRig(
         clock = clock,
         control = ControlConnector { route ->
             routes += route
+            if (route is ControlRoute.Video) {
+                check(videoReachable) { "the picture connection is refused" }
+                return@ControlConnector ScriptedVideoConnection().also { videoConnections += it }
+            }
             check(reachable) { "the host is not reachable" }
             if (route is ControlRoute.Direct && route.address in refusing) throw java.net.ConnectException("refused")
             mac.newConnection()

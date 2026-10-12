@@ -4,6 +4,7 @@ import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import pl.dmq.peering.SessionFactory
 import pl.dmq.peering.platform.net.UdpLane
+import pl.dmq.peering.platform.video.codecSupport
 import pl.dmq.peering.billing.Billing
 import pl.dmq.peering.session.controller.ConnectTarget
 import pl.dmq.peering.session.controller.QualitySource
@@ -37,6 +38,7 @@ internal class SessionPortsFactory(
             downloads = downloads,
             relay = relay,
             quality = quality,
+            videoCodecs = codecSupport(),
         )
         return ActiveSession(target, SessionController(scope, target, ports, history), lane, downloads)
     }

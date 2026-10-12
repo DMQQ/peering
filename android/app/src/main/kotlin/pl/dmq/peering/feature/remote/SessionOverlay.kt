@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -15,7 +16,7 @@ import pl.dmq.peering.ui.theme.PeeringColors
 
 /** The status line over the top of the picture: latency, the path, the picture state and any relay notice. */
 @Composable
-fun SessionOverlay(state: SessionOverlayState, modifier: Modifier = Modifier) {
+fun SessionOverlay(state: SessionOverlayState, onRetry: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             state.latencyMs?.let {
@@ -34,6 +35,9 @@ fun SessionOverlay(state: SessionOverlayState, modifier: Modifier = Modifier) {
                 )
             }
         }
+        if (state.picture == PictureState.STALLED || state.picture == PictureState.FAILED) {
+            TextButton(onClick = onRetry) { Text(stringResource(R.string.overlay_picture_retry)) }
+        }
         state.quota?.let { notice ->
             val text = when (notice) {
                 is QuotaNotice.Low -> stringResource(R.string.overlay_quota_low, notice.minutesLeft)
@@ -51,5 +55,7 @@ fun SessionOverlay(state: SessionOverlayState, modifier: Modifier = Modifier) {
 private fun PictureState.labelRes(): Int? = when (this) {
     PictureState.WAITING -> R.string.overlay_picture_waiting
     PictureState.PAUSED -> R.string.overlay_picture_paused
+    PictureState.STALLED -> R.string.overlay_picture_stalled
+    PictureState.FAILED -> R.string.overlay_picture_failed
     PictureState.LIVE -> null
 }

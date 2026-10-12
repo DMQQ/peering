@@ -230,6 +230,9 @@
     <string name="overlay_path_relay_description">Connected through the relay</string>
     <string name="overlay_path_direct_description">Connected directly, without the relay</string>
     <string name="overlay_picture_waiting">Waiting for the picture</string>
+    <string name="overlay_picture_stalled">Still waiting for the picture</string>
+    <string name="overlay_picture_failed">No picture from the computer</string>
+    <string name="overlay_picture_retry">Retry</string>
     <string name="overlay_picture_paused">Picture paused</string>
     <string name="overlay_quota_low">%1$d min of relay time left today</string>
     <string name="overlay_quota_exhausted">Relay time is used up for today</string>

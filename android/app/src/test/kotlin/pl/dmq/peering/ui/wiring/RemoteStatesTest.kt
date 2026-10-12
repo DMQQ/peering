@@ -5,6 +5,7 @@ import org.junit.Test
 import pl.dmq.peering.feature.remote.HubCapabilities
 import pl.dmq.peering.feature.remote.InputMode
 import pl.dmq.peering.feature.remote.PictureState
+import pl.dmq.peering.session.controller.PictureFailure
 import pl.dmq.peering.session.controller.PictureState as SessionPictureState
 import pl.dmq.peering.session.controller.SessionPhase
 import pl.dmq.peering.session.controller.SessionUiState
@@ -49,5 +50,7 @@ class RemoteStatesTest {
         assertEquals(PictureState.LIVE, SessionPictureState.Live.toScreenPicture())
         assertEquals(PictureState.LIVE, SessionPictureState.Fallback.toScreenPicture())
         assertEquals(PictureState.PAUSED, SessionPictureState.Paused.toScreenPicture())
+        assertEquals(PictureState.STALLED, SessionPictureState.Stalled.toScreenPicture())
+        assertEquals(PictureState.FAILED, SessionPictureState.Failed(PictureFailure.Dropped).toScreenPicture())
     }
 }

@@ -18,6 +18,9 @@ interface RemoteModel {
     /** A hub entry the remote screen does not open itself: Agents, Files or Disconnect. */
     fun onHubEntry(entry: HubEntry)
 
+    /** The picture stalled or failed and the user asked for it again. */
+    fun onRetryPicture()
+
     /** A quality the session cannot stream without more relay time was picked: the paywall opens. */
     fun onRelayUpgradeRequested()
 }

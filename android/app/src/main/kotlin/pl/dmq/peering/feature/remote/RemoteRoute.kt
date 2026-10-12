@@ -56,6 +56,7 @@ fun RemoteRoute(model: RemoteModel) {
                 picture = state.pictureState,
                 relayMinutesLeft = state.relayMinutesLeft,
             ),
+            onRetry = model::onRetryPicture,
             modifier = Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
         )
 

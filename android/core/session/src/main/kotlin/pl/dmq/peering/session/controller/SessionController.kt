@@ -123,6 +123,14 @@ class SessionController(
         return sent
     }
 
+    /** Reopens the picture after it stalled or failed. False when no session is running. */
+    fun retryPicture(): Boolean {
+        val live = link ?: return false
+        live.retryPicture()
+        publish(live)
+        return true
+    }
+
     /** Applies the stream quality to the live session. False when no session is running. */
     fun setQuality(choice: QualityChoice): Boolean {
         val live = link ?: return false
@@ -225,6 +233,7 @@ class SessionController(
             serverKey = serverKey,
             resumeSource = selection.resumeSourceJson(),
             clientPlatform = CLIENT_PLATFORM,
+            videoCodecs = ports.videoCodecs,
         )
         val shaking = SessionHandshake(
             config = config,
@@ -278,6 +287,7 @@ class SessionController(
             frames = frames,
             sink = ports.sink,
             onPicture = ::pictureArrived,
+            videoConnector = ports.control,
             selection = selection,
             agent = services.agentChat,
             files = services.fileBrowser,
