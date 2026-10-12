@@ -33,7 +33,8 @@ import pl.dmq.peering.session.terminal.screen.ScreenSnapshot
 import pl.dmq.peering.session.terminal.screen.StyledRun
 import pl.dmq.peering.ui.theme.PeeringColors
 
-private val cellStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 17.sp, color = PeeringColors.ink)
+private fun styleFor(fontSize: Int) =
+    TextStyle(fontFamily = FontFamily.Monospace, fontSize = fontSize.sp, lineHeight = (fontSize * 1.3f).sp, color = PeeringColors.ink)
 private const val DIM_ALPHA = 0.6f
 private const val CURSOR_ALPHA = 0.6f
 private const val WIDTH_SAMPLE = 20
@@ -50,9 +51,11 @@ fun TerminalCanvas(
     onGrid: (columns: Int, rows: Int) -> Unit,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
+    fontSize: Int = TerminalTextSize.REGULAR.points,
 ) {
+    val cellStyle = remember(fontSize) { styleFor(fontSize) }
     val measurer = rememberTextMeasurer(cacheSize = TEXT_CACHE)
-    val cell = remember(measurer) {
+    val cell = remember(measurer, cellStyle) {
         val measured = measurer.measure("M".repeat(WIDTH_SAMPLE), cellStyle).size
         Size(measured.width / WIDTH_SAMPLE.toFloat(), measured.height.toFloat())
     }
@@ -85,7 +88,7 @@ fun TerminalCanvas(
             .padding(horizontal = 8.dp)
             .onSizeChanged { size = it },
     ) {
-        drawScreen(snapshot, measurer, cell, rows, back)
+        drawScreen(snapshot, measurer, cell, cellStyle, rows, back)
     }
 }
 
@@ -93,6 +96,7 @@ private fun DrawScope.drawScreen(
     snapshot: ScreenSnapshot,
     measurer: TextMeasurer,
     cell: Size,
+    cellStyle: TextStyle,
     rows: Int,
     back: Int,
 ) {
@@ -104,7 +108,7 @@ private fun DrawScope.drawScreen(
         var x = 0f
         for (run in snapshot.lines[index].runs) {
             val width = run.text.codePointCount(0, run.text.length) * cell.width
-            drawRun(run, measurer, Offset(x, y), Size(width, cell.height))
+            drawRun(run, measurer, cellStyle, Offset(x, y), Size(width, cell.height))
             x += width
         }
     }
@@ -121,6 +125,7 @@ private fun DrawScope.drawScreen(
 private fun DrawScope.drawRun(
     run: StyledRun,
     measurer: TextMeasurer,
+    cellStyle: TextStyle,
     at: Offset,
     box: Size,
 ) {

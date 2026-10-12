@@ -1,21 +1,16 @@
 package pl.dmq.peering.feature.terminal
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -27,7 +22,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -36,19 +30,24 @@ import kotlinx.coroutines.launch
 import pl.dmq.peering.R
 import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.session.terminal.TerminalTab
-import pl.dmq.peering.ui.kit.AppIcons
-import pl.dmq.peering.ui.kit.PeeringMenu
-import pl.dmq.peering.ui.kit.PeeringMenuItem
 import pl.dmq.peering.ui.theme.PeeringColors
 
+/** What the screen keeps beyond the shells themselves: saved commands and the log's type size. */
+class TerminalPreferences(val quickCommands: QuickCommands, val textSize: TerminalTextSizeSetting)
+
 /**
- * The shells of one computer: Material tabs over a text canvas, with an extra keys row above the soft keyboard.
- * [connected] is true while the session is live; each time it becomes true the list is asked for again, which also
- * replays the output after a reconnect.
+ * The shells of one computer, laid out as the iPhone does: a strip of tabs, the output, the key deck and the command
+ * line. [connected] is true while the session is live; each time it becomes true the list is asked for again, which
+ * also replays the output after a reconnect.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TerminalRoute(sessions: TerminalSessions, connected: Boolean, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun TerminalRoute(
+    sessions: TerminalSessions,
+    preferences: TerminalPreferences,
+    connected: Boolean,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val state by sessions.state.collectAsState()
     val selected = state.selected
     val scope = rememberCoroutineScope()
@@ -56,89 +55,150 @@ fun TerminalRoute(sessions: TerminalSessions, connected: Boolean, onBack: () -> 
     val clipboard = LocalClipboardManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val focus = remember { FocusRequester() }
-    val keyboard = remember(sessions, selected?.id) {
-        TerminalKeyboard { bytes -> selected?.let { sessions.input(it.id, bytes) } }
-    }
-    var menuOpen by remember { mutableStateOf(false) }
-    val copiedMessage = stringResource(R.string.terminal_copied)
+    val commands by preferences.quickCommands.all.collectAsState()
+    var textSize by remember { mutableStateOf(preferences.textSize.read()) }
+    var command by remember { mutableStateOf("") }
+    var history by remember { mutableStateOf(emptyList<String>()) }
+    var showsHistory by remember { mutableStateOf(false) }
+    var showsKeys by remember { mutableStateOf(false) }
+    var editingCommands by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<TerminalTab?>(null) }
+    var pendingEnd by remember { mutableStateOf<TerminalTab?>(null) }
+    val copied = stringResource(R.string.terminal_copied)
 
     LaunchedEffect(sessions, connected) {
         if (connected) sessions.attach()
     }
+    LaunchedEffect(state.failure) {
+        state.failure?.let {
+            snackbar.showSnackbar(it)
+            sessions.dismissFailure()
+        }
+    }
+
+    fun hasOutput(tab: TerminalTab) = sessions.snapshot(tab.id).lines.any { it.text.isNotBlank() }
+    fun requestEnd(tab: TerminalTab) {
+        if (tab.isRunning || hasOutput(tab)) pendingEnd = tab else sessions.close(tab.id)
+    }
+    val tabActions = TerminalTabActions(
+        onSelect = { sessions.select(it.id) },
+        onClose = ::requestEnd,
+        onRename = { renaming = it },
+        onCopy = { tab ->
+            clipboard.setText(AnnotatedString(screenText(sessions, tab)))
+            scope.launch { snackbar.showSnackbar(copied) }
+        },
+    )
+    fun send(tab: TerminalTab, text: String) = sessions.input(tab.id, text)
 
     Scaffold(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = PeeringColors.backdrop,
         contentWindowInsets = WindowInsets.safeDrawing,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             Column {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.terminal_title)) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(AppIcons.back, stringResource(R.string.terminal_back)) }
-                    },
-                    actions = {
-                        IconButton(onClick = sessions::open, enabled = connected) {
-                            Icon(TerminalGlyphs.add, stringResource(R.string.terminal_new))
-                        }
-                        IconButton(onClick = { menuOpen = true }, enabled = selected != null) {
-                            Icon(AppIcons.more, stringResource(R.string.terminal_more))
-                        }
-                        Box {
-                            PeeringMenu(expanded = menuOpen, onDismiss = { menuOpen = false }) {
-                                PeeringMenuItem(stringResource(R.string.terminal_copy), icon = AppIcons.copy, onClick = {
-                                    menuOpen = false
-                                    selected?.let { clipboard.setText(AnnotatedString(screenText(sessions, it))) }
-                                    scope.launch { snackbar.showSnackbar(copiedMessage) }
-                                })
-                                PeeringMenuItem(stringResource(R.string.terminal_paste), icon = TerminalGlyphs.paste, onClick = {
-                                    menuOpen = false
-                                    clipboard.getText()?.text?.let(keyboard::paste)
-                                })
-                                PeeringMenuItem(stringResource(R.string.terminal_close_tab), icon = AppIcons.close, destructive = true, onClick = {
-                                    menuOpen = false
-                                    selected?.let { sessions.close(it.id) }
-                                })
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, titleContentColor = PeeringColors.ink),
-                )
-                if (state.tabs.isNotEmpty()) TerminalTabs(state.tabs, state.selectedID, sessions::select)
+                TerminalTopBar(selected, onBack, onRename = { renaming = it }, onEnd = ::requestEnd)
+                if (state.tabs.isNotEmpty()) {
+                    TerminalTabStrip(state.tabs, state.selectedID, ::hasOutput, tabActions, onNew = sessions::open, newEnabled = connected)
+                }
             }
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             when {
                 !state.loaded -> TerminalLoading(waitingForConnection = !connected)
-                selected == null -> TerminalEmpty(state.failure, onNew = sessions::open)
+                selected == null -> TerminalEmpty(onNew = sessions::open)
                 else -> {
-                    TerminalNotice(selected, state.failure, onNew = sessions::open, onDismissFailure = sessions::dismissFailure)
                     Box(Modifier.weight(1f)) {
                         key(selected.id) {
-                            TerminalScreenView(sessions, selected) {
+                            TerminalOutput(sessions, selected, textSize.points) {
                                 focus.requestFocus()
                                 keyboardController?.show()
                             }
                         }
-                        TerminalInput(keyboard, focus)
                     }
-                    ExtraKeysRow(keyboard)
+                    if (showsHistory && history.isNotEmpty()) {
+                        TerminalHistoryStrip(history, selected.isRunning, onPick = {
+                            command = it
+                            focus.requestFocus()
+                        })
+                    }
+                    TerminalDeck(onMore = { showsKeys = true }, send = { send(selected, it) }, isEnabled = selected.isRunning)
+                    TerminalCommandBar(
+                        CommandBarState(
+                            text = command,
+                            onText = { command = it },
+                            isRunning = selected.isRunning,
+                            historyVisible = showsHistory,
+                            hasHistory = history.isNotEmpty(),
+                            onToggleHistory = { showsHistory = !showsHistory },
+                            onSubmit = {
+                                send(selected, command + "\r")
+                                history = history.withCommand(command)
+                                command = ""
+                            },
+                            onEnter = { send(selected, "\r") },
+                        ),
+                        focus,
+                    )
                 }
             }
         }
     }
+
+    if (showsKeys && selected != null) {
+        TerminalAllKeys(
+            AllKeysActions(
+                commands = commands,
+                textSize = textSize,
+                send = { send(selected, it) },
+                run = { send(selected, it.command + "\r") },
+                remove = preferences.quickCommands::delete,
+                edit = { editingCommands = true },
+                onTextSize = {
+                    textSize = it
+                    preferences.textSize.write(it)
+                },
+            ),
+            onDismiss = { showsKeys = false },
+        )
+    }
+    if (editingCommands) {
+        QuickCommandEditor(commands, preferences.quickCommands::save, preferences.quickCommands::delete) { editingCommands = false }
+    }
+    renaming?.let { tab ->
+        RenameTerminalDialog(tab, onCancel = { renaming = null }, onSave = {
+            sessions.rename(tab.id, it)
+            renaming = null
+        })
+    }
+    pendingEnd?.let { tab ->
+        EndTerminalPrompt(tab, onKeep = { pendingEnd = null }, onEnd = {
+            sessions.close(tab.id)
+            pendingEnd = null
+        })
+    }
 }
 
 @Composable
-private fun TerminalScreenView(sessions: TerminalSessions, tab: TerminalTab, onTap: () -> Unit) {
+private fun TerminalOutput(sessions: TerminalSessions, tab: TerminalTab, fontSize: Int, onTap: () -> Unit) {
     val snapshot = remember(tab.id, tab.revision) { sessions.snapshot(tab.id) }
-    TerminalCanvas(
-        snapshot = snapshot,
-        onGrid = { columns, rows -> sessions.resize(tab.id, columns, rows) },
-        onTap = onTap,
-    )
+    val printed = snapshot.lines.any { it.text.isNotBlank() }
+    Box(Modifier.fillMaxSize()) {
+        TerminalCanvas(
+            snapshot = snapshot,
+            onGrid = { columns, rows -> sessions.resize(tab.id, columns, rows) },
+            onTap = onTap,
+            fontSize = fontSize,
+            modifier = Modifier.fillMaxSize(),
+        )
+        if (!printed) {
+            Box(Modifier.fillMaxSize().background(PeeringColors.backdrop)) {
+                if (tab.isRunning) TerminalStarting() else TerminalNothingPrinted()
+            }
+        }
+    }
 }
 
 private fun screenText(sessions: TerminalSessions, tab: TerminalTab): String {
