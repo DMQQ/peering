@@ -12,6 +12,8 @@ class FakeVideoSink : VideoSink {
     var stops = 0
         private set
 
+    override var decoderFailed = false
+
     override fun onConfig(config: VideoStreamConfig) {
         configs += config
     }

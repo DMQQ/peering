@@ -30,7 +30,7 @@ class ReferralClient(
     }
 
     /** Throws [ReferralRefused] when the relay says no, and the signalling's own exception when it cannot be reached. */
-    suspend fun redeem(typed: String): RelayReferral = signalling.exchange {
+    suspend fun redeem(typed: String): RelayReferral = signalling.exchange(idempotent = false) {
         val code = ReferralCode.canonical(typed)
         val proof = makeRedeemReferralProof(IdentityProofSigner(identity), identity.clientId, code, clock.unixSeconds())
         send(RelayClientMessage.RedeemReferral(identity.clientId, code, proof.publicKey, proof.signature, proof.proofTime))

@@ -46,9 +46,9 @@ internal class SessionServices(private val ports: SessionPorts, private val curr
             }
         }
         if (hello.supportsAgentChat == true && preview == null) {
-            preview = PreviewProxyClient { command ->
+            preview = PreviewProxyClient(transmit = { command ->
                 currentLink()?.enqueue(Frame(MessageKind.PreviewRequest, command.toJson().toByteArray(Charsets.UTF_8))) != null
-            }
+            })
         }
         if (hello.supportsFileBrowser == true && fileBrowser == null) {
             fileBrowser = FileBrowser(
@@ -57,6 +57,7 @@ internal class SessionServices(private val ports: SessionPorts, private val curr
                     currentLink()?.enqueue(Frame(MessageKind.TerminalRequest, request.toJson().toByteArray(Charsets.UTF_8)))
                 },
                 writeDownloadRange = ports.downloads::writeRange,
+                downloadBacklog = { ports.downloads.backlog },
             )
         }
     }

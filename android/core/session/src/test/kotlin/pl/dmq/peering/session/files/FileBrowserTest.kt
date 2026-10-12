@@ -1,5 +1,10 @@
 package pl.dmq.peering.session.files
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -9,7 +14,9 @@ import pl.dmq.peering.wire.RemoteFileKind
 import pl.dmq.peering.wire.TerminalEvent
 import pl.dmq.peering.wire.TerminalRequest
 import pl.dmq.peering.wire.toBase64
+import kotlin.time.Duration.Companion.seconds
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class FileBrowserTest {
     private val scope = "3F2504E0-4F89-41D3-9A0C-0305E82C3301"
     private val sent = mutableListOf<TerminalRequest>()
@@ -17,11 +24,18 @@ class FileBrowserTest {
     private val written = sortedMapOf<Long, ByteArray>()
 
     private var host = ScriptedFileHost(folders = emptyMap())
+    private var backlog = 0
+    private var slowWriter = false
     private val browser = FileBrowser(
         supportsFileBrowser = true,
         browserID = scope,
         send = { outbox.addLast(it) },
-        writeDownloadRange = { offset, bytes -> written[offset] = bytes },
+        writeDownloadRange = { offset, bytes ->
+            written[offset] = bytes
+            if (slowWriter) backlog = TransferLimits.DOWNLOAD_WINDOW
+        },
+        downloadBacklog = { backlog },
+        uploadTimeout = { 10.seconds },
     )
 
     private fun folder(name: String) = RemoteDirectoryEntry(name, isDirectory = true, isSymlink = false, size = 0, permissions = "drwxr-xr-x")
@@ -195,6 +209,94 @@ class FileBrowserTest {
         val assembled = written.values.fold(ByteArray(0)) { acc, piece -> acc + piece }
         assertEquals(100_000, assembled.size)
         assertTrue(assembled.contentEquals(ByteArray(100_000) { (it % 251).toByte() }))
+    }
+
+    @Test
+    fun readsWaitWhileTheWriterIsBehindAndGoOutOnceItCatchesUp() {
+        serve()
+        browser.open()
+        pump()
+        sent.clear()
+        slowWriter = true
+
+        browser.download("/Users/me/Projects/big.bin")
+        pump()
+
+        assertEquals(listOf(0L), sent.filterIsInstance<TerminalRequest.ReadRange>().map { it.offset })
+
+        slowWriter = false
+        backlog = 0
+        browser.resumeDownload()
+        pump()
+
+        assertEquals(FileTransfer.Finished("/Users/me/Projects/big.bin"), browser.state.value.transfer)
+        assertEquals(4, sent.filterIsInstance<TerminalRequest.ReadRange>().size)
+    }
+
+    @Test
+    fun cancellingADownloadDropsTheReadsHeldBack() {
+        serve()
+        browser.open()
+        pump()
+        slowWriter = true
+        browser.download("/Users/me/Projects/big.bin")
+        pump()
+
+        browser.cancelDownload()
+        sent.clear()
+        slowWriter = false
+        backlog = 0
+        browser.resumeDownload()
+        pump()
+
+        assertEquals(emptyList<TerminalRequest>(), sent)
+    }
+
+    @Test
+    fun aLostLinkEndsARunningDownloadAndUpload() = runTest {
+        serve()
+        browser.open()
+        pump()
+        browser.download("/Users/me/Projects/big.bin")
+        val upload = launch { browser.uploadInto("/Users/me", "up.bin", 10, listOf(ByteArray(4)).iterator()) }
+        runCurrent()
+
+        browser.onLinkLost()
+
+        assertTrue(browser.state.value.transfer is FileTransfer.Failed)
+        assertTrue((browser.state.value.upload as FileUpload.Failed).reason is UploadFailure.Host)
+        upload.join()
+    }
+
+    @Test
+    fun anUploadTheComputerNeverAnswersFailsAfterTheTimeout() = runTest {
+        serve()
+        val upload = launch { browser.uploadInto("/Users/me", "up.bin", 4, listOf(ByteArray(4)).iterator()) }
+        runCurrent()
+        assertTrue(browser.state.value.upload is FileUpload.Running)
+
+        advanceTimeBy(10_001)
+        runCurrent()
+
+        assertTrue(browser.state.value.upload is FileUpload.Failed)
+        upload.join()
+    }
+
+    @Test
+    fun aRevokedFileGrantFailsTheUploadInsteadOfThrowing() = runTest {
+        serve()
+        val revoked = object : Iterator<ByteArray> {
+            override fun hasNext() = true
+
+            override fun next(): ByteArray = throw SecurityException("grant revoked")
+        }
+
+        browser.uploadInto("/Users/me", "up.bin", 10, revoked)
+
+        assertEquals(
+            FileUpload.Failed("/Users/me/up.bin", UploadFailure.Unreadable),
+            browser.state.value.upload,
+        )
     }
 
     @Test

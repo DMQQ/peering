@@ -1,11 +1,15 @@
 package pl.dmq.peering.session.files
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlin.time.Duration
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.yield
-import java.io.IOException
 import kotlinx.coroutines.flow.asStateFlow
 import pl.dmq.peering.wire.RemoteDirectoryEntry
 import pl.dmq.peering.wire.RemoteEntryKind
@@ -24,8 +28,11 @@ class FileBrowser(
     private val browserID: String = UUID.randomUUID().toString().uppercase(),
     private val send: (TerminalRequest) -> Unit,
     private val writeDownloadRange: (offset: Long, bytes: ByteArray) -> Unit,
+    private val downloadBacklog: () -> Int = { 0 },
+    private val uploadTimeout: (totalBytes: Long) -> Duration = TransferLimits::uploadTimeout,
 ) {
     private val mutableState = MutableStateFlow(FileBrowserState())
+    private val heldReads = ArrayDeque<TerminalRequest>()
 
     val state: StateFlow<FileBrowserState> = mutableState.asStateFlow()
 
@@ -106,15 +113,54 @@ class FileBrowser(
         if (refusal != null) return setUpload(FileUpload.Failed(path, refusal))
         setUpload(FileUpload.Running(path, 0, totalBytes))
         try {
-            for (request in UploadPlan.requests(browserID, path, totalBytes, counting(path, totalBytes, pieces))) {
-                if (mutableState.value.upload !is FileUpload.Running) return
-                send(request)
-                yield()
+            coroutineScope {
+                val watchdog = launch {
+                    delay(uploadTimeout(totalBytes))
+                    failUpload(path, UploadFailure.Host(UPLOAD_TIMED_OUT))
+                }
+                try {
+                    for (request in UploadPlan.requests(browserID, path, totalBytes, counting(path, totalBytes, pieces))) {
+                        if (mutableState.value.upload !is FileUpload.Running) return@coroutineScope
+                        send(request)
+                        yield()
+                    }
+                    mutableState.first { it.upload !is FileUpload.Running }
+                } finally {
+                    watchdog.cancel()
+                }
             }
-        } catch (failure: IOException) {
-            return setUpload(FileUpload.Failed(path, UploadFailure.Unreadable))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            // A provider that lost its grant throws SecurityException, not IOException.
+            failUpload(path, UploadFailure.Unreadable)
         }
-        mutableState.first { it.upload !is FileUpload.Running }
+    }
+
+    /** The link dropped: an upload or download waiting on the computer's answers can no longer get them. */
+    fun onLinkLost() {
+        heldReads.clear()
+        val upload = mutableState.value.upload
+        if (upload is FileUpload.Running) failUpload(upload.path, UploadFailure.Host(LINK_LOST))
+        mutableState.update { state ->
+            val transfer = state.transfer
+            if (transfer is FileTransfer.Running) {
+                state.copy(transfer = FileTransfer.Failed(transfer.plan.sourcePath, DownloadFailure.Transfer(LINK_LOST)))
+            } else {
+                state
+            }
+        }
+    }
+
+    /** The writer caught up, so reads held back for it can go out. Call it on the same thread as the other methods. */
+    fun resumeDownload() {
+        if (mutableState.value.transfer !is FileTransfer.Running) return heldReads.clear()
+        while (heldReads.isNotEmpty() && downloadBacklog() < TransferLimits.DOWNLOAD_WINDOW) send(heldReads.removeFirst())
+    }
+
+    private fun failUpload(path: String, failure: UploadFailure) = mutableState.update { state ->
+        val upload = state.upload
+        if (upload is FileUpload.Running && upload.path == path) state.copy(upload = FileUpload.Failed(path, failure)) else state
     }
 
     /** The phone could not open [name] to send it. */
@@ -153,11 +199,27 @@ class FileBrowser(
 
     private fun commit(step: FileBrowserStep) {
         mutableState.value = step.state
-        if (supportsFileBrowser) step.requests.forEach(send)
+        if (step.state.transfer !is FileTransfer.Running) heldReads.clear()
         step.piece?.let { writeDownloadRange(it.offset, it.bytes) }
+        if (supportsFileBrowser) step.requests.forEach(::dispatch)
+    }
+
+    /** A read waits while the writer is behind, so a slow destination holds the window shut instead of filling memory. */
+    private fun dispatch(request: TerminalRequest) {
+        val isRead = request is TerminalRequest.ReadRange
+        if (isRead && (heldReads.isNotEmpty() || downloadBacklog() >= TransferLimits.DOWNLOAD_WINDOW)) {
+            heldReads.addLast(request)
+        } else {
+            send(request)
+        }
     }
 
     private inline fun whenSupported(action: () -> Unit) {
         if (supportsFileBrowser) action()
+    }
+
+    private companion object {
+        const val LINK_LOST = "The connection to the computer was lost."
+        const val UPLOAD_TIMED_OUT = "The computer did not confirm the file in time."
     }
 }

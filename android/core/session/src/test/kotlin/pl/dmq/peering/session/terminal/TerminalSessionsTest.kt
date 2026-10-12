@@ -28,6 +28,21 @@ class TerminalSessionsTest {
     private fun text(id: String) = sessions.snapshot(id).lines.map { it.text }.dropLastWhile { it.isEmpty() }
 
     @Test
+    fun aShellSizeTheComputerSaysIsAbsurdIsClampedBeforeAScreenIsAllocated() {
+        val allocated = mutableListOf<Pair<Int, Int>>()
+        val clamped = TerminalSessions(send = {}, newEmulator = { columns, rows ->
+            allocated += columns to rows
+            pl.dmq.peering.session.terminal.screen.VtScreen(columns, rows)
+        })
+
+        clamped.onEvent(TerminalEvent.Snapshot(listOf(info("a", columns = 60_000, rows = 0))))
+        clamped.onEvent(TerminalEvent.Created(info("b", columns = -5, rows = 2_000_000_000)))
+
+        assertEquals(listOf(1_000 to 1, 1 to 1_000), allocated)
+        assertEquals(listOf(1_000, 1), clamped.state.value.tabs.map { it.columns })
+    }
+
+    @Test
     fun attachAsksForTheListAndOpenAsksForAShell() {
         sessions.attach()
         sessions.open()

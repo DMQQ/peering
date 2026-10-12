@@ -115,8 +115,8 @@ class TerminalSessions(
         val known = mutableState.value.tabs.associateBy { it.id }
         val tabs = infos.map { info ->
             val before = known[info.id]
-            val columns = before?.columns ?: info.columns ?: DEFAULT_COLUMNS
-            val rows = before?.rows ?: info.rows ?: DEFAULT_ROWS
+            val columns = (before?.columns ?: info.columns ?: DEFAULT_COLUMNS).coerceIn(1, MAX_DIMENSION)
+            val rows = (before?.rows ?: info.rows ?: DEFAULT_ROWS).coerceIn(1, MAX_DIMENSION)
             screens[info.id] = newEmulator(columns, rows)
             frameFlow(info.id).value = ScreenSnapshot.EMPTY
             TerminalTab(info.id, info.name, info.isRunning, columns, rows, exitStatus = before?.exitStatus?.takeIf { !info.isRunning })
@@ -128,8 +128,8 @@ class TerminalSessions(
     }
 
     private fun onCreated(info: TerminalSessionInfo) {
-        val columns = info.columns ?: DEFAULT_COLUMNS
-        val rows = info.rows ?: DEFAULT_ROWS
+        val columns = (info.columns ?: DEFAULT_COLUMNS).coerceIn(1, MAX_DIMENSION)
+        val rows = (info.rows ?: DEFAULT_ROWS).coerceIn(1, MAX_DIMENSION)
         screens[info.id] = newEmulator(columns, rows)
         frameFlow(info.id).value = ScreenSnapshot.EMPTY
         val tab = TerminalTab(info.id, info.name, info.isRunning, columns, rows)
@@ -199,6 +199,8 @@ class TerminalSessions(
         const val FRAME_MILLIS = 16L
         const val DEFAULT_COLUMNS = 80
         const val DEFAULT_ROWS = 24
-        const val MAX_DIMENSION = 65_535
+
+        /** The most columns or rows a screen is allocated for, whatever the computer says its shell has. */
+        const val MAX_DIMENSION = 1_000
     }
 }

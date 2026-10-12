@@ -4,6 +4,7 @@ import android.view.Surface
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import pl.dmq.peering.DebugLog
 import pl.dmq.peering.feature.remote.SurfaceListener
 import pl.dmq.peering.platform.video.CodecDecoder
 import pl.dmq.peering.session.ports.VideoSink
@@ -23,6 +24,7 @@ internal class SurfacePicture : VideoSink, SurfaceListener {
     private var decoder: CodecDecoder? = null
     private var config: VideoStreamConfig? = null
     private val returns = SurfaceReturn()
+    private var crashed = false
 
     /** The size of the stream the Mac is sending, or null before its first config. */
     val pixelSize: StateFlow<PixelSize?> = size.asStateFlow()
@@ -32,18 +34,33 @@ internal class SurfacePicture : VideoSink, SurfaceListener {
         size.value = PixelSize(config.pixelWidth.toDouble(), config.pixelHeight.toDouble())
         // A reconnect on the same screen has released the decoder but kept the surface, so the next config rebuilds it.
         val live = decoder ?: surface?.let(::CodecDecoder)?.also { decoder = it }
-        live?.onConfig(config)
+        guarded(live) { it.onConfig(config) }
     }
 
     override fun onFrame(frame: EncodedVideoFrame) {
         TestBridge.frameArrived()
-        decoder?.onFrame(frame)
+        guarded(decoder) { it.onFrame(frame) }
     }
 
     override fun onStop() {
-        decoder?.onStop()
+        guarded(decoder) { it.onStop() }
         decoder = null
         config = null
+        crashed = false
+    }
+
+    override val decoderFailed: Boolean get() = crashed || decoder?.decoderFailed == true
+
+    /** A decoder that throws past its own recovery is dropped, so the picture reads as failed and the session lives. */
+    private fun guarded(target: CodecDecoder?, call: (CodecDecoder) -> Unit) {
+        target ?: return
+        try {
+            call(target)
+        } catch (error: RuntimeException) {
+            DebugLog.w(TAG, { "the decoder threw past its recovery" }, error)
+            crashed = true
+            decoder = null
+        }
     }
 
     /** True when the last surface replaced one that was showing the stream, so the stream needs a fresh keyframe. */
@@ -55,15 +72,18 @@ internal class SurfacePicture : VideoSink, SurfaceListener {
         this.surface = surface
         val created = CodecDecoder(surface)
         decoder = created
-        config?.let(created::onConfig)
+        crashed = false
+        config?.let { guarded(created) { decoder -> decoder.onConfig(it) } }
     }
 
     override fun onSurfaceSizeChanged(width: Int, height: Int) = Unit
 
     override fun onSurfaceGone() {
         returns.gone(hadPicture = decoder != null && config != null)
-        decoder?.onStop()
+        guarded(decoder) { it.onStop() }
         decoder = null
         surface = null
     }
 }
+
+private const val TAG = "PeeringPicture"

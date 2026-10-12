@@ -26,4 +26,14 @@ class NetworkMovesTest {
     fun aSingleEventIsNoMove() = runTest {
         assertEquals(emptyList<NetworkChange>(), flowOf(NetworkChange.Available(TransportKind.WIFI)).movesOnly().toList())
     }
+
+    @Test
+    fun aCollectionThatBeganOfflineCountsItsFirstEventAsAMove() = runTest {
+        val changes = flowOf(NetworkChange.Available(TransportKind.WIFI))
+
+        assertEquals(
+            listOf<NetworkChange>(NetworkChange.Available(TransportKind.WIFI)),
+            changes.movesOnly(startedOnline = false).toList(),
+        )
+    }
 }

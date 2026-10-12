@@ -17,6 +17,8 @@ internal class StreamRecord(private val inner: VideoSink) : VideoSink {
 
     override fun onFrame(frame: EncodedVideoFrame) = inner.onFrame(frame)
 
+    override val decoderFailed: Boolean get() = inner.decoderFailed
+
     override fun onStop() {
         config = null
         inner.onStop()

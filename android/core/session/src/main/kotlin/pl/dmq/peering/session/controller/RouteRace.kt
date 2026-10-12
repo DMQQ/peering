@@ -16,12 +16,16 @@ internal class RouteRace(private val attempts: List<Attempt>) {
 
     private class Outcome(val route: OpenedRoute?, val failure: ConnectFailure?)
 
-    /** Throws the failure of the last attempt to fail when none opens. */
+    /**
+     * Throws the first failure that retrying cannot fix (a refused quota, a version mismatch) when none opens, so a
+     * timeout on the other route does not hide it, and otherwise the failure of the last attempt to fail.
+     */
     suspend fun run(): OpenedRoute = coroutineScope {
         val outcomes = Channel<Outcome>(Channel.UNLIMITED)
         var started = 0
         var running = 0
         var lastFailure: ConnectFailure? = null
+        var terminalFailure: ConnectFailure? = null
 
         fun startNext() {
             val attempt = attempts[started++]
@@ -54,12 +58,15 @@ internal class RouteRace(private val attempts: List<Attempt>) {
                 running--
                 outcome.route?.let { return@coroutineScope it }
                 lastFailure = outcome.failure
+                if (terminalFailure == null && outcome.failure?.failure?.canRetry == false) terminalFailure = outcome.failure
                 if (running == 0 && started < attempts.size) startNext()
             }
-            throw checkNotNull(lastFailure) { "a route race needs an attempt" }
+            throw checkNotNull(terminalFailure ?: lastFailure) { "a route race needs an attempt" }
         } finally {
-            outcomes.close()
             coroutineContext.cancelChildren()
+            outcomes.close()
+            // A route that opened after the winner did sits unread in the queue; nothing else would close it.
+            while (true) outcomes.tryReceive().getOrNull()?.route?.transport?.close() ?: break
         }
     }
 }

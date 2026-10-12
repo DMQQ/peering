@@ -11,6 +11,9 @@ internal sealed interface LinkOutcome {
     /** The user cancelled a pairing, and the host has been told. */
     data object Cancelled : LinkOutcome
 
+    /** The dial was abandoned because the network moved under it; dial again at once. */
+    data object Redial : LinkOutcome
+
     /** The session was running and ended as [end]. */
     data class Ended(val end: LinkEnd) : LinkOutcome
 }

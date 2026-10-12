@@ -36,6 +36,26 @@ class PreviewProxyClientTest {
     }
 
     @Test
+    fun aResponseOverTheCapIsEndedAsTooLargeAndTheComputerIsToldToStop() = runTest(UnconfinedTestDispatcher()) {
+        val capped = PreviewProxyClient(maxResponseBytes = 5) { command ->
+            sent += command
+            true
+        }
+        val events = mutableListOf<PreviewProxyEvent>()
+        val job = launch { capped.fetch(3000, "GET", "/big").toList(events) }
+        val id = fetched().single().id
+
+        capped.onEvent(PreviewProxyEvent.Head(id, 200))
+        capped.onEvent(PreviewProxyEvent.Body(id, "aGk="))
+        capped.onEvent(PreviewProxyEvent.Body(id, "aGk="))
+        job.join()
+
+        assertEquals(PreviewProxyEvent.Failure(id, PreviewFailure.TOO_LARGE), events.last())
+        assertEquals(3, events.size)
+        assertTrue(sent.last() is PreviewProxyCommand.Cancel)
+    }
+
+    @Test
     fun eachRequestGetsItsOwnIdAndOnlyItsOwnEvents() = runTest(UnconfinedTestDispatcher()) {
         val first = mutableListOf<PreviewProxyEvent>()
         val second = mutableListOf<PreviewProxyEvent>()

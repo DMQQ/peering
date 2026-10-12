@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import java.io.IOException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import pl.dmq.peering.session.ports.DiscoveredHost
@@ -60,12 +62,19 @@ class NsdDiscovery(
 
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
                 Log.w(TAG, "starting the browse failed, code $errorCode")
-                close(IllegalStateException("NSD discovery failed with code $errorCode"))
+                close(IOException("NSD discovery failed with code $errorCode"))
             }
         }
 
         multicast.acquire()
-        nsd.discoverServices(HostMapper.SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
+        val started = try {
+            nsd.discoverServices(HostMapper.SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
+            true
+        } catch (failure: RuntimeException) {
+            Log.w(TAG, "starting the browse threw", failure)
+            close(IOException("NSD discovery could not start", failure))
+            false
+        }
 
         val resolver = launch {
             val roster = ServiceRoster()
@@ -86,7 +95,13 @@ class NsdDiscovery(
         awaitClose {
             resolver.cancel()
             changes.close()
-            nsd.stopServiceDiscovery(listener)
+            if (started) {
+                try {
+                    nsd.stopServiceDiscovery(listener)
+                } catch (failure: RuntimeException) {
+                    Log.w(TAG, "stopping the browse threw", failure)
+                }
+            }
             multicast.release()
         }
     }
@@ -96,7 +111,11 @@ class NsdDiscovery(
         var host: DiscoveredHost? = null
         var settled = false
         while (!settled) {
-            when (val result = resolveOnce(info)) {
+            when (val result = withTimeoutOrNull(RESOLVE_TIMEOUT_MILLIS) { resolveOnce(info) }) {
+                null -> {
+                    Log.w(TAG, "resolve of ${info.serviceName} timed out")
+                    settled = true
+                }
                 is ResolveResult.Resolved -> {
                     host = hostOf(result.info)
                     settled = true
@@ -113,15 +132,20 @@ class NsdDiscovery(
     }
 
     private suspend fun resolveOnce(info: NsdServiceInfo): ResolveResult = suspendCancellableCoroutine { continuation ->
-        nsd.resolveService(info, object : NsdManager.ResolveListener {
-            override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                continuation.resume(ResolveResult.Failed(errorCode))
-            }
+        try {
+            nsd.resolveService(info, object : NsdManager.ResolveListener {
+                override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+                    if (continuation.isActive) continuation.resume(ResolveResult.Failed(errorCode))
+                }
 
-            override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
-                continuation.resume(ResolveResult.Resolved(serviceInfo))
-            }
-        })
+                override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
+                    if (continuation.isActive) continuation.resume(ResolveResult.Resolved(serviceInfo))
+                }
+            })
+        } catch (failure: RuntimeException) {
+            Log.w(TAG, "resolving ${info.serviceName} threw", failure)
+            continuation.resume(ResolveResult.Failed(THREW))
+        }
     }
 
     private fun hostOf(resolved: NsdServiceInfo): DiscoveredHost? {
@@ -151,5 +175,7 @@ class NsdDiscovery(
 
     private companion object {
         const val TAG = "PeeringDiscovery"
+        const val RESOLVE_TIMEOUT_MILLIS = 10_000L
+        const val THREW = -1
     }
 }

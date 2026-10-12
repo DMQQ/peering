@@ -14,8 +14,11 @@ enum class TransportKind {
     }
 }
 
-/** What the default network looks like now: whether it has connectivity and over which transport. */
-data class NetworkSnapshot(val connected: Boolean, val transport: TransportKind?)
+/**
+ * What the default network looks like now: whether it has connectivity and over which transport. [networkId] names the
+ * network itself, so a move from one Wi-Fi network to another over the same transport still reads as a change.
+ */
+data class NetworkSnapshot(val connected: Boolean, val transport: TransportKind?, val networkId: Long? = null)
 
 sealed interface NetworkChange {
     data class Available(val transport: TransportKind) : NetworkChange
@@ -39,7 +42,9 @@ class NetworkChangeMapper {
             snapshot == previous -> null
             !snapshot.connected -> if (previous.connected) NetworkChange.Lost else null
             !previous.connected -> snapshot.transport?.let { NetworkChange.Available(it) }
-            else -> snapshot.transport?.takeIf { it != previous.transport }?.let { NetworkChange.PathChanged(it) }
+            else -> snapshot.transport
+                ?.takeIf { it != previous.transport || snapshot.networkId != previous.networkId }
+                ?.let { NetworkChange.PathChanged(it) }
         }
     }
 }

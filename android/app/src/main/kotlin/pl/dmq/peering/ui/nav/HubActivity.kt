@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
+import pl.dmq.peering.survivableErrorHandler
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -56,7 +57,7 @@ class HubActivity : FragmentActivity() {
         window.isNavigationBarContrastEnforced = false
         ScreenSecurity.apply(window, ScreenSecurity.hidesContent(lockEnabled = false, lockShowing = false, sessionOnScreen = true))
         appLock = AppLock(getSharedPreferences(MainActivity.PREFERENCES_NAME, MODE_PRIVATE))
-        lifecycleScope.launch {
+        lifecycleScope.launch(survivableErrorHandler()) {
             dependencies.active
                 .flatMapLatest { current ->
                     if (current == null) flowOf(null to null) else current.controller.state.map { current to it.phase }
