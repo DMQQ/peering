@@ -9,6 +9,7 @@ pub struct FakeCapture {
     running_display: Option<u32>,
     pending: VecDeque<RawFrame>,
     failed: bool,
+    probe_failure: bool,
     start_failures: u32,
     starts: u32,
 }
@@ -20,6 +21,7 @@ impl FakeCapture {
             running_display: None,
             pending: VecDeque::new(),
             failed: false,
+            probe_failure: false,
             start_failures: 0,
             starts: 0,
         }
@@ -28,6 +30,11 @@ impl FakeCapture {
     /// Makes `is_failed` report true until the next successful `start`.
     pub fn fail(&mut self) {
         self.failed = true;
+    }
+
+    /// Makes `probe` fail until the next successful `start`.
+    pub fn fail_probes(&mut self) {
+        self.probe_failure = true;
     }
 
     /// The next `count` calls to `start` fail.
@@ -63,6 +70,7 @@ impl Capture for FakeCapture {
             return Err(CaptureError::Failed("the device was removed".to_owned()));
         }
         self.failed = false;
+        self.probe_failure = false;
         self.running_display = Some(display_id);
         self.pending.clear();
         Ok(())
@@ -80,6 +88,13 @@ impl Capture for FakeCapture {
 
     fn is_failed(&self) -> bool {
         self.failed
+    }
+
+    fn probe(&mut self) -> Result<(), CaptureError> {
+        if self.probe_failure {
+            return Err(CaptureError::Failed("the duplication cannot be opened".to_owned()));
+        }
+        Ok(())
     }
 }
 

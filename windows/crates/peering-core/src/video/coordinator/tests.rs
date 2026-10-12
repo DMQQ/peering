@@ -542,10 +542,11 @@ fn a_restart_that_fails_once_is_retried_and_the_picture_returns() {
 }
 
 #[test]
-fn a_capture_that_goes_quiet_is_restarted_after_the_stall_window() {
+fn a_capture_that_goes_quiet_and_fails_its_probe_is_restarted_after_the_stall_window() {
     let mut coordinator = watched_coordinator();
     push(&mut coordinator, &[1]);
     coordinator.pump(0.0).unwrap();
+    coordinator.capture.fail_probes();
     for second in 1..30 {
         coordinator.pump(f64::from(second)).unwrap();
     }
@@ -558,19 +559,33 @@ fn a_capture_that_goes_quiet_is_restarted_after_the_stall_window() {
 }
 
 #[test]
-fn a_still_screen_is_probed_less_often_each_time() {
+fn a_capture_that_keeps_failing_its_probe_is_probed_less_often_each_time() {
     let mut coordinator = watched_coordinator();
     push(&mut coordinator, &[1]);
     coordinator.pump(0.0).unwrap();
+    coordinator.capture.fail_probes();
     coordinator.pump(30.0).unwrap();
     coordinator.pump(30.5).unwrap();
     push(&mut coordinator, &[2]);
+    coordinator.capture.fail_probes();
     coordinator.pump(31.0).unwrap();
     coordinator.pump(89.0).unwrap();
     assert_eq!(coordinator.capture.starts(), 2);
     coordinator.pump(91.0).unwrap();
     coordinator.pump(91.5).unwrap();
     assert_eq!(coordinator.capture.starts(), 3);
+}
+
+#[test]
+fn a_still_screen_is_never_restarted_while_its_probe_passes() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.0).unwrap();
+    for second in 1..=1200 {
+        coordinator.pump(f64::from(second)).unwrap();
+    }
+    assert_eq!(coordinator.capture.starts(), 1, "twenty minutes of a static desktop rebuilt nothing");
+    assert!(!coordinator.take_recovery_report());
 }
 
 #[test]

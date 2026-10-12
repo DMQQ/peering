@@ -42,4 +42,10 @@ pub trait Capture {
     fn is_failed(&self) -> bool {
         false
     }
+
+    /// A check that the capture could still deliver, without restarting it and without consuming a frame. A quiet screen
+    /// passes; an error means the source or its device is gone. Called when no frame has come for a long time.
+    fn probe(&mut self) -> Result<(), CaptureError> {
+        Ok(())
+    }
 }

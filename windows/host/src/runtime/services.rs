@@ -97,6 +97,10 @@ impl Capture for SharedCapture {
     fn is_failed(&self) -> bool {
         self.locked().is_failed()
     }
+
+    fn probe(&mut self) -> Result<(), CaptureError> {
+        self.locked().probe()
+    }
 }
 
 pub struct BoxedEncoder(pub Box<dyn Encoder + Send>);

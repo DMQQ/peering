@@ -98,7 +98,8 @@ objects and archives are enough: point `CC_x86_64_pc_windows_msvc` and `AR_x86_6
 Recovery and supervision, what is decided where:
 
 - `peering-core` decides: which capture and encoder failures are worth a retry, the backoff (0.5 s doubling to 15 s), when a
-  silent capture counts as stalled (30 s, doubling to 5 minutes on a still screen), the relay reconnect ladder with full jitter,
+  silent capture counts as stalled (30 s, doubling to 5 minutes on a still screen) and that it is then probed, and rebuilt only when
+  the probe fails, the relay reconnect ladder with full jitter,
   the frame deadline (two ping intervals) and the stable minute before the ladder resets, the per-address pre-auth share, and
   how long a silent phone's keys are held (5 s).
 - The pump passes run under `catch_unwind` and are held off with the same backoff after a panic. A pass that never returns

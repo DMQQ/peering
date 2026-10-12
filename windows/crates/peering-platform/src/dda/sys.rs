@@ -238,6 +238,21 @@ impl Capture for DesktopDuplicationCapture {
         self.state.is_failed()
     }
 
+    fn probe(&mut self) -> Result<(), CaptureError> {
+        if self.state.is_failed() {
+            return Err(CaptureError::Failed("the duplication failed".to_owned()));
+        }
+        if !self.state.is_running() {
+            return Ok(());
+        }
+        let device_name = self.target_device_name.clone().ok_or_else(|| CaptureError::Failed("no display is captured".to_owned()))?;
+        // A second duplication of the same output opens beside the first and is dropped at once: it proves the device and
+        // the output still work without taking a frame from the one in use.
+        open_duplication(&device_name, self.reusable_gpu())
+            .map(drop)
+            .map_err(|error| CaptureError::Failed(error.to_string()))
+    }
+
     fn poll_frame(&mut self) -> Option<RawFrame> {
         let now = self.now();
         self.release_frame();

@@ -32,6 +32,10 @@ impl Capture for LinkedCapture {
         locked(&self.link).bind(None);
     }
 
+    fn probe(&mut self) -> Result<(), CaptureError> {
+        self.capture.probe()
+    }
+
     fn is_failed(&self) -> bool {
         self.capture.is_failed()
     }

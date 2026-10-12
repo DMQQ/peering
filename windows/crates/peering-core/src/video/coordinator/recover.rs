@@ -61,12 +61,16 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         }
         if self.frame_ever_seen {
             self.recovery.stall_probe_started(now);
+            if self.capture.probe().is_ok() {
+                return;
+            }
         }
         self.recovery.failed(Remedy::Pipeline, now);
     }
 
     /// A capture that never delivered, or one that delivered and then went quiet while someone was watching. A still
-    /// screen looks the same, so the answer is a restart, and the client hears of it only if the restart fails.
+    /// screen looks the same, so a capture that delivered before is probed, and rebuilt only when the probe fails. The
+    /// client hears of it only if the rebuild fails.
     fn stalled(&mut self, now: f64) -> bool {
         if self.source.is_none() || !self.sending() {
             self.recovery.idle(now);
