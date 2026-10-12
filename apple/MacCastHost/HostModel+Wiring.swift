@@ -10,7 +10,7 @@ extension HostModel {
     func loadServerIdentity(for device: DeviceIdentity) -> SelfSignedIdentity? {
         let identity: SelfSignedIdentity
         do {
-            // The common name is decorative — the peer takes the real name from
+            // The common name is decorative, the peer takes the real name from
             // `ServerHello`, so renaming the Mac never invalidates anything.
             identity = try SelfSignedIdentity.loadOrCreate(role: .server, commonName: device.name)
         } catch {
