@@ -2,8 +2,7 @@ package pl.dmq.peering.feature.remote
 
 import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import pl.dmq.peering.ui.kit.Motion
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
@@ -35,14 +34,14 @@ fun RemoteChrome(
     val insets = WindowInsets.systemBars.union(WindowInsets.displayCutout)
     Box(modifier.fillMaxSize().windowInsetsPadding(insets)) {
         PictureStatus(state.overlay.picture, handlers.onRetry, Modifier.align(Alignment.Center))
-        AnimatedVisibility(visible = state.shown, enter = fadeIn(), exit = fadeOut()) {
+        AnimatedVisibility(visible = state.shown, enter = Motion.enter, exit = Motion.leave) {
             if (landscape) LandscapeChrome(state, handlers, panel) else PortraitChrome(state, handlers, panel)
         }
         AnimatedVisibility(
             visible = state.immersive && !state.shown,
             modifier = Modifier.align(Alignment.TopEnd).padding(ChromeMetrics.edgeInset),
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = Motion.enter,
+            exit = Motion.leave,
         ) {
             CircleGlassButton(SessionIcons.exitImmersive, stringResource(R.string.remote_show_controls), handlers.onReveal)
         }

@@ -3,11 +3,6 @@ package pl.dmq.peering.ui.nav
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -36,13 +31,13 @@ import pl.dmq.peering.feature.remote.LocalHubSwitcherInset
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.testing.HubBridge
 import pl.dmq.peering.ui.kit.LocalBorderless
+import pl.dmq.peering.ui.kit.Motion
+import pl.dmq.peering.ui.kit.rememberMotionDistances
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.wiring.ActiveSession
 import pl.dmq.peering.ui.wiring.PreferencesKeyValueStore
 import pl.dmq.peering.ui.wiring.TerminalHost
 
-private const val HUB_SWAP_MS = 120
-private const val SWITCHER_MS = 160
 
 /**
  * The one full-height panel behind the terminal button: a switcher for Agents, Terminals and Files floating over the top of the list pages, and the
@@ -69,6 +64,7 @@ internal fun SessionHub(
         HubTabsPresenter(offered, preferences)
     }
     val chrome = remember { HubChrome() }
+    val risePx = rememberMotionDistances().risePx
     val density = LocalDensity.current
     val switcherInset = with(density) { WindowInsets.statusBars.getTop(density).toDp() } + HubTabBarHeight
     HubBridge(tabs, chrome, onClose)
@@ -78,7 +74,7 @@ internal fun SessionHub(
         LocalHubSwitcherInset provides switcherInset,
     ) {
         Box(Modifier.fillMaxSize().background(PeeringColors.backdrop)) {
-            Crossfade(targetState = tabs.selected, animationSpec = tween(HUB_SWAP_MS), label = "hubTab") { selected ->
+            Crossfade(targetState = tabs.selected, animationSpec = Motion.fast(), label = "hubTab") { selected ->
                 when (selected) {
                     HubTab.AGENTS -> AgentsScreen(active, drafts, folderRecents, preferences, clock)
                     HubTab.TERMINALS -> TerminalHost(
@@ -93,8 +89,8 @@ internal fun SessionHub(
             AnimatedVisibility(
                 visible = chrome.showsSwitcher(tabs.selected),
                 modifier = Modifier.align(Alignment.TopCenter),
-                enter = fadeIn(tween(SWITCHER_MS)) + slideInVertically(tween(SWITCHER_MS)) { -it },
-                exit = fadeOut(tween(SWITCHER_MS)) + slideOutVertically(tween(SWITCHER_MS)) { -it },
+                enter = Motion.enterRising(-risePx),
+                exit = Motion.leave,
             ) {
                 HubTabBar(
                     offered = tabs.offered,
