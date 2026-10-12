@@ -216,9 +216,7 @@
 
     <string name="remote_pointer_trackpad">Trackpad</string>
     <string name="remote_pointer_touch">Touch</string>
-    <string name="remote_pointer_to_touch">Switch to touch pointer</string>
-    <string name="remote_pointer_to_trackpad">Switch to trackpad pointer</string>
-    <string name="remote_fit">Fit</string>
+    <string name="remote_pointer_title">Pointer</string>
     <string name="remote_fit_description">Fit the picture to the screen</string>
     <string name="remote_zoom_percent">%1$d%%</string>
     <string name="remote_show_controls">Show controls</string>
@@ -231,7 +229,7 @@
     <string name="remote_reconnecting">Reconnecting to %1$s</string>
     <string name="overlay_picture_live">Live</string>
     <string name="remote_keyboard">Keyboard</string>
-    <string name="remote_menu">Menu</string>
+    <string name="remote_more">More</string>
     <string name="hub_title">Session</string>
     <string name="hub_sources">Sources</string>
     <string name="hub_agents">Agents</string>
@@ -249,6 +247,8 @@
     <string name="overlay_picture_stalled">Still waiting for the picture</string>
     <string name="overlay_picture_failed">No picture from the computer</string>
     <string name="overlay_picture_retry">Retry</string>
+    <string name="remote_waiting_for_video">Waiting for video</string>
+    <string name="remote_no_picture_yet">No picture yet</string>
     <string name="overlay_picture_paused">Picture paused</string>
     <string name="overlay_quota_low">%1$d min of relay time left today</string>
     <string name="overlay_quota_exhausted">Relay time is used up for today</string>

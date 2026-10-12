@@ -29,6 +29,11 @@ class HubPresenterTest {
     }
 
     @Test
+    fun `the more sheet lists quality and disconnect with disconnect last`() {
+        assertEquals(listOf(HubEntry.QUALITY, HubEntry.DISCONNECT), hub.moreEntries())
+    }
+
+    @Test
     fun `a Mac with everything lists every entry in order with disconnect last`() {
         val entries = hub.entries(HubCapabilities(agentChat = true, fileBrowser = true))
 

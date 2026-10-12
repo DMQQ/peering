@@ -1,7 +1,10 @@
 package pl.dmq.peering.feature.remote
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,7 +23,10 @@ fun ModifierBar(
     onTap: (StickyModifier) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        modifier = modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         StickyModifier.entries.forEach { key ->
             val latch = latches[key] ?: ModifierLatch.OFF
             val state = when (latch) {
@@ -32,7 +38,7 @@ fun ModifierBar(
                 selected = latch != ModifierLatch.OFF,
                 onClick = { onTap(key) },
                 label = {
-                    Text(stringResource(key.labelRes()) + if (latch == ModifierLatch.LOCKED) " •" else "")
+                    Text(stringResource(key.labelRes()) + if (latch == ModifierLatch.LOCKED) " •" else "", maxLines = 1, softWrap = false)
                 },
                 shape = PillShape,
                 modifier = Modifier.semantics { if (state != null) stateDescription = state },

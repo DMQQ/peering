@@ -27,7 +27,7 @@ import kotlinx.coroutines.delay
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.PeeringAlert
 
-/** The remote screen for a connected computer: the picture, the status pill, the toolbar, the keyboard and the session menu. */
+/** The remote screen for a connected computer: the picture, the top bar, the action bar, the keyboard and the More sheet. */
 @Composable
 fun RemoteRoute(model: RemoteModel) {
     val state by model.state.collectAsState()
@@ -94,25 +94,19 @@ fun RemoteRoute(model: RemoteModel) {
                     relayMinutesLeft = state.relayMinutesLeft,
                 ),
                 zoomPercent = zoomPercent,
-                toolbar = toolbar.actions(zoomed = zoomPercent != null),
+                actions = toolbar.actions(state.capabilities),
                 keyboardShown = keyboardShown,
-                mode = mode,
                 latches = latches,
                 onReveal = { chromeShown = true },
                 onFit = canvas::fitToCanvas,
                 onRetry = model::onRetryPicture,
                 onDisconnect = { leaveAsked = true },
-                onToolbar = { action ->
-                    when (action) {
-                        ToolbarAction.KEYBOARD -> keyboardShown = !keyboardShown
-                        ToolbarAction.POINTER_MODE -> {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            mode = toolbar.otherMode(mode)
-                        }
-                        ToolbarAction.FIT -> canvas.fitToCanvas()
-                        ToolbarAction.SOURCES -> sourcesOpen = true
-                        ToolbarAction.QUALITY -> qualityOpen = true
-                        ToolbarAction.MENU -> hubOpen = true
+                onAction = { action ->
+                    when (val effect = toolbar.effect(action)) {
+                        ToolbarEffect.ToggleKeyboard -> keyboardShown = !keyboardShown
+                        ToolbarEffect.OpenSources -> sourcesOpen = true
+                        ToolbarEffect.OpenMore -> hubOpen = true
+                        is ToolbarEffect.OpenHub -> model.onHubEntry(effect.entry)
                     }
                 },
                 onFunctionKey = keyboard::onFunctionKey,
@@ -139,11 +133,15 @@ fun RemoteRoute(model: RemoteModel) {
         }
         if (hubOpen) {
             HubSheet(
-                entries = hub.entries(state.capabilities),
+                entries = hub.moreEntries(),
+                mode = mode,
+                onToggleMode = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    mode = toolbar.otherMode(mode)
+                },
                 onSelect = { entry ->
                     hubOpen = false
                     when (entry) {
-                        HubEntry.SOURCES -> sourcesOpen = true
                         HubEntry.QUALITY -> qualityOpen = true
                         HubEntry.DISCONNECT -> leaveAsked = true
                         else -> model.onHubEntry(entry)
