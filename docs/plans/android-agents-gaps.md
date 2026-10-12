@@ -21,8 +21,12 @@ Status is as of the start of this pass. "Closed" rows name the commit area that 
 | Session import (`supportsAgentSessionImport`): list Claude conversations started on the computer and continue one | `Resumable` kept raw, never decoded | Closed |
 | Chat screen top bar with 48 dp back and an options menu (usage, stop and move to history, close) | Text link back, no menu | Closed |
 | Empty states with the mascot (no chats, empty chat, nothing to import) | Plain text | Closed |
-| Changes review, commit and push (`changes`, `commit`, `push`) | Wire only | Open |
-| Web preview, rename, To review inbox, Lock Screen approvals, slash and mention hints, prompt templates | Absent | Open |
+| Changes review: changed files with diffs, line and file comments sent back as one prompt, commit and push (`changes`, `commit`, `push`) | Wire only | Closed (filters, the All files tree and the agent-edit overlay are not built) |
+| Web preview: address field, servers found on the usual ports, pages fetched through the connection | Absent | Closed (no hello flag exists for it, so it is offered with agent chats; requests that send a body are not carried because Android's WebView does not hand them over) |
+| Rename a chat (this phone only, as on the iPhone) | Absent | Closed |
+| Attach files and photos to a prompt (sent into the chat's folder, then `@path`) | Absent | Closed |
+| Saved prompts beside the suggestions in an empty chat | Absent | Closed |
+| To review inbox, Lock Screen approvals, slash and mention hints | Absent | Open |
 | Continue in a new chat from an expired conversation (`AgentRecap`) | Absent | Open |
 
 Windows hosts declare a subset of these flags; every request above is sent only when its flag is set.
