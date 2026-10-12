@@ -1,6 +1,7 @@
 package pl.dmq.peering.feature.agents
 
 import pl.dmq.peering.session.agent.AgentChatSession
+import pl.dmq.peering.session.agent.isPaused
 import pl.dmq.peering.session.agent.pendingApprovals
 import pl.dmq.peering.wire.AgentSessionState
 
@@ -13,6 +14,8 @@ data class SessionCard(
     val state: SessionCardState,
     val lastActivityUnix: Long,
     val pendingApprovals: Int,
+    val agentName: String,
+    val canPause: Boolean = false,
 )
 
 enum class SessionCardState {
@@ -21,9 +24,11 @@ enum class SessionCardState {
     IDLE,
     ENDED,
     FAILED,
+    PAUSED,
 }
 
 internal fun AgentChatSession.cardState(pendingApprovals: Int): SessionCardState = when {
+    isPaused -> SessionCardState.PAUSED
     pendingApprovals > 0 || state == AgentSessionState.AWAITING_APPROVAL -> SessionCardState.NEEDS_YOU
     state == AgentSessionState.WORKING -> SessionCardState.WORKING
     state == AgentSessionState.FAILED -> SessionCardState.FAILED

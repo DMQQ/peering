@@ -33,6 +33,7 @@ fun AgentsRoute(
     val hub = remember(port, declaredAgentIDs, chatSupported) {
         AgentsHubPresenter(port, declaredAgentIDs, chatSupported, folders, recents, clock, scope)
     }
+    val chat = remember(port) { ChatPresenter(port, scope) }
     val transcript = remember(port) { TranscriptPresenter(port.chats, scope) }
     val composer = remember(port, modelPickerSupported) {
         ComposerPresenter(port, draftStore, port.chats, modelPickerSupported, scope)
@@ -56,11 +57,10 @@ fun AgentsRoute(
         val selected = chatState.selected
         if (showingChat && selected != null) {
             ChatScreen(
+                chat = chat,
                 transcript = transcript,
                 composer = composer,
                 port = port,
-                title = selected.info.title,
-                directory = selected.info.directory,
                 onBackToList = { showingChat = false },
             )
         } else {

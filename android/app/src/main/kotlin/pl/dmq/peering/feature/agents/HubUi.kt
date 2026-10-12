@@ -9,8 +9,22 @@ sealed interface NewChatStep {
     data class ChoosingFolder(val agentID: String) : NewChatStep
 }
 
+/** A conversation started on the computer. [modifiedAtUnix] is seconds since the Unix epoch. */
+data class ResumableCard(
+    val id: String,
+    val agentID: String,
+    val agentName: String,
+    val title: String,
+    val directory: String,
+    val modifiedAtUnix: Long,
+    val openElsewhere: Boolean,
+)
+
 data class HubUi(
     val sessions: List<SessionCard>,
+    val history: List<SessionCard>,
+    val resumable: List<ResumableCard>,
+    val canImport: Boolean,
     val selectedSessionID: String?,
     val agents: List<AgentOption>,
     val newChat: NewChatStep,
