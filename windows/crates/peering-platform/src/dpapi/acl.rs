@@ -1,7 +1,6 @@
 //! Limits the secrets directory to its owner and SYSTEM, so a different account on the same PC cannot list or open it
 //! even if the profile folder was loosened.
 
-use std::ffi::c_void;
 use std::io;
 use std::iter::once;
 use std::os::windows::ffi::OsStrExt;
@@ -54,6 +53,6 @@ fn restrict(target: &Path, descriptor_sddl: &str) -> io::Result<()> {
         )
     };
     // SAFETY: the descriptor came from the OS allocator in the conversion call and is not used again.
-    unsafe { LocalFree(HLOCAL(descriptor.0 as *mut c_void)) };
+    unsafe { LocalFree(HLOCAL(descriptor.0)) };
     applied.ok().map_err(|error| io::Error::other(error.to_string()))
 }

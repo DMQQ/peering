@@ -86,6 +86,8 @@ impl HostRuntime {
             last_publish: None,
         };
         Ok(Self {
+            // The state holds boxed adapters that are not Send. Only the runtime's own thread locks it, so it is never shared.
+            #[allow(clippy::arc_with_non_send_sync)]
             shared: Shared {
                 state: Arc::new(Mutex::new(state)),
                 approvals,

@@ -212,9 +212,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
     /// What is wrong with the capture right now, for the client to show until it is gone. A capture that never delivered
     /// stays reported through the rebuilds that follow, so the notice does not flicker, and ends with the first frame.
     pub fn capture_condition(&self) -> Option<CaptureCondition> {
-        if self.source.is_none() {
-            return None;
-        }
+        self.source.as_ref()?;
         if self.no_frames {
             Some(CaptureCondition::NoFrames)
         } else if self.recovery.visibly_failing() {

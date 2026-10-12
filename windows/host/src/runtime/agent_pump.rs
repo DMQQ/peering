@@ -84,6 +84,6 @@ mod tests {
         assert!(held_off.is_empty());
 
         let _ = supervised_pass(&mut supervised, &shared, 2.0, |_| Vec::new());
-        assert!(shared.lock().problems.get(&ProblemSource::Agents).is_none());
+        assert!(!shared.lock().problems.contains_key(&ProblemSource::Agents));
     }
 }

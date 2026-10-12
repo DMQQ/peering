@@ -12,6 +12,12 @@ impl SystemClock {
     }
 }
 
+impl Default for SystemClock {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Clock for SystemClock {
     fn now_seconds(&self) -> f64 {
         self.started.elapsed().as_secs_f64()
