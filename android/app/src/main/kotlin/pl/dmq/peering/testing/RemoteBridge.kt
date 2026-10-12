@@ -1,10 +1,12 @@
 package pl.dmq.peering.testing
 
+import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import pl.dmq.peering.feature.remote.ClipboardPort
 import pl.dmq.peering.feature.remote.RemoteActions
 import pl.dmq.peering.feature.remote.SessionPanel
 import pl.dmq.peering.feature.remote.SessionScreenState
@@ -19,8 +21,8 @@ private val panels = mapOf(
 
 /** The remote screen's panels, pill, dock, immersive and keyboard flags, driven through the screen state the buttons write to. */
 @Composable
-internal fun RemoteBridge(screen: SessionScreenState, pill: StatusPillPresenter, actions: RemoteActions) {
-    BridgeRegistration("remote", screen, pill, actions) {
+internal fun RemoteBridge(screen: SessionScreenState, pill: StatusPillPresenter, actions: RemoteActions, clipboard: ClipboardPort) {
+    BridgeRegistration("remote", screen, pill, actions, clipboard) {
         TestBridge.Slot(
             state = {
                 mapOf(
@@ -29,6 +31,7 @@ internal fun RemoteBridge(screen: SessionScreenState, pill: StatusPillPresenter,
                     "dockExpanded" to screen.dockExpanded,
                     "immersive" to screen.immersive,
                     "keyboardShown" to screen.keyboardShown,
+                    "clipboardHistory" to clipboard.history.value.size,
                 )
             },
             actions = mapOf(
@@ -36,6 +39,7 @@ internal fun RemoteBridge(screen: SessionScreenState, pill: StatusPillPresenter,
                 "pill" to { arg -> if (pill.expanded != (arg == "open")) pill.onTap() },
                 "dock" to { arg -> screen.dockExpanded = arg == "expand" },
                 "clipboard-send" to { arg -> arg?.let(actions::send) },
+                "clipboard-history" to { Log.i("PEERTEST", "clipboardHistory size=" + clipboard.history.value.size) },
             ),
         )
     }

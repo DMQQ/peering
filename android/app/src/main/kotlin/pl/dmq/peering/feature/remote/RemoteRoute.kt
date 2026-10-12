@@ -78,7 +78,7 @@ fun RemoteRoute(model: RemoteModel) {
     LaunchedEffect(ready) { pill.onReady(ready) }
 
     SessionWindow()
-    RemoteBridge(screen, pill, actions)
+    RemoteBridge(screen, pill, actions, model.clipboard)
     BackHandler {
         when (screen.backStep()) {
             BackStep.CLOSE_PANEL -> screen.closePanel()
