@@ -1259,7 +1259,7 @@ mod tests {
     fn a_device_token_limit_leaves_room_for_an_fcm_token() {
         let fcm_hex_len = ("fcm:".len() + 170) * 2;
         assert!(fcm_hex_len <= super::MAX_DEVICE_TOKEN_HEX);
-        assert!(64 <= super::MAX_DEVICE_TOKEN_HEX, "an APNs token still fits");
+        const { assert!(64 <= MAX_DEVICE_TOKEN_HEX, "an APNs token still fits") };
     }
 
     use super::*;
