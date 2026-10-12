@@ -1,5 +1,6 @@
 package pl.dmq.peering.ui
 
+import pl.dmq.peering.ui.nav.HideNavigationBar
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -87,7 +88,9 @@ internal fun ConnectTab(wiring: FeatureWiring) {
     val firstConnection = !firstConnectionDismissed && connectState.listing.paired.isEmpty()
     val session = active
     val presenting = pairing
+    val fullScreen = scanning != null || onboarding || presenting != null || (showingSession && session != null)
     Box(modifier = Modifier.fillMaxSize()) {
+        if (fullScreen) HideNavigationBar()
         when {
             scanning != null -> QrScannerRoute(
                 onCode = { text -> scanned(scanning, text, wiring.qrSource, presenting) },

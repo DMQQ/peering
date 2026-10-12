@@ -1,6 +1,8 @@
 package pl.dmq.peering.ui.theme
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -18,6 +20,8 @@ object PeeringMotion {
     val arrive: FiniteAnimationSpec<Float> = spring(dampingRatio = 1f, stiffness = 146f)
     val settle: FiniteAnimationSpec<Float> = spring(dampingRatio = 0.84f, stiffness = 340f)
     val tap: FiniteAnimationSpec<Float> = tween(durationMillis = 180)
+    val fadeThroughIn: FiniteAnimationSpec<Float> = tween(durationMillis = 210, delayMillis = 90, easing = FastOutSlowInEasing)
+    val fadeThroughOut: FiniteAnimationSpec<Float> = tween(durationMillis = 90, easing = FastOutLinearInEasing)
     const val PRESSED_SCALE = 0.98f
 }
 
