@@ -44,5 +44,11 @@ fun makeHostProof(signer: ProofSigner, deviceId: String, nowUnix: Long): DeviceP
 fun makeClientProof(signer: ProofSigner, clientId: String, nowUnix: Long): DeviceProof =
     signedProof(signer, clientPayload(clientId, nowUnix), nowUnix)
 
+fun makeReferralStatusProof(signer: ProofSigner, clientId: String, nowUnix: Long): DeviceProof =
+    signedProof(signer, referralStatusPayload(clientId, nowUnix), nowUnix)
+
+fun makeRedeemReferralProof(signer: ProofSigner, clientId: String, code: String, nowUnix: Long): DeviceProof =
+    signedProof(signer, redeemReferralPayload(clientId, code, nowUnix), nowUnix)
+
 private fun signedProof(signer: ProofSigner, message: ByteArray, proofTime: Long): DeviceProof =
     DeviceProof.fromBytes(signer.publicKey(), signer.sign(message), proofTime)

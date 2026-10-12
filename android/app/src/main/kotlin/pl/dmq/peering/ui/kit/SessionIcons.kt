@@ -7,6 +7,9 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardReturn
 import androidx.compose.material.icons.automirrored.outlined.KeyboardTab
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CardGiftcard
+import androidx.compose.material.icons.outlined.ConfirmationNumber
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.SkipNext
@@ -75,6 +78,9 @@ object SessionIcons {
     val key: ImageVector get() = Icons.Outlined.Key
     val mail: ImageVector get() = Icons.Outlined.Mail
     val privacy: ImageVector get() = Icons.Outlined.PrivacyTip
+    val ticket: ImageVector get() = Icons.Outlined.ConfirmationNumber
+    val gift: ImageVector get() = Icons.Outlined.CardGiftcard
+    val share: ImageVector get() = Icons.Outlined.Share
 
     /** What F1 to F12 print on a Mac's top row; null where the key has no action the phone can post (dictation, Do Not Disturb). */
     val topRow: List<ImageVector?> get() = listOf(

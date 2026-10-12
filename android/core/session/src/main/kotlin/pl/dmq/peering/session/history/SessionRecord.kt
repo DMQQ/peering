@@ -13,6 +13,9 @@ data class SessionRecord(
     val endedAt: Long? = null,
     val path: Path,
     val reason: EndReason? = null,
+    val bytesReceived: Long = 0,
+    val bytesSent: Long = 0,
+    val logs: List<String> = emptyList(),
 ) {
     @Serializable
     enum class Path {

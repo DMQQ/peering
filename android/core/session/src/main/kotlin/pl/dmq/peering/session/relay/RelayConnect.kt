@@ -122,7 +122,7 @@ class RelayConnect(
     }
 }
 
-private class IdentityProofSigner(private val identity: DeviceIdentity) : ProofSigner {
+internal class IdentityProofSigner(private val identity: DeviceIdentity) : ProofSigner {
     override fun publicKey(): ByteArray = identity.publicKey
 
     override fun sign(message: ByteArray): ByteArray = identity.sign(message)

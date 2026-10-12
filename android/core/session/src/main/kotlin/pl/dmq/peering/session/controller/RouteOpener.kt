@@ -6,12 +6,17 @@ import kotlinx.coroutines.withTimeoutOrNull
 import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.session.ports.ControlTransport
 import pl.dmq.peering.session.ports.PeerAddress
+import pl.dmq.peering.session.ports.SessionLog
 import pl.dmq.peering.session.relay.RelayConnect
 import pl.dmq.peering.session.relay.RelaySessionException
 import kotlin.time.Duration.Companion.seconds
 
 /** Turns a [ConnectTarget] into an open control connection, asking the relay or the local network as the target needs. */
-internal class RouteOpener(private val target: ConnectTarget, private val ports: SessionPorts) {
+internal class RouteOpener(
+    private val target: ConnectTarget,
+    private val ports: SessionPorts,
+    private val log: SessionLog = ports.log,
+) {
     suspend fun open(): OpenedRoute = when (target) {
         is ConnectTarget.Lan -> direct(target.hostId?.let { fresh(it) } ?: target.address)
         is ConnectTarget.Pairing -> direct(guarded { discover(target.hostId) })
@@ -46,7 +51,7 @@ internal class RouteOpener(private val target: ConnectTarget, private val ports:
         }?.address
 
     private suspend fun direct(address: PeerAddress): OpenedRoute {
-        ports.log.log("dialling ${address.host}:${address.port} on the local network")
+        log.log("dialling ${address.host}:${address.port} on the local network")
         val (transport, reached) = guarded { dial(address) }
         return OpenedRoute(transport, SessionRecord.Path.LAN, reached, ByteArray(0), datagrams = null)
     }
@@ -74,7 +79,7 @@ internal class RouteOpener(private val target: ConnectTarget, private val ports:
 
     private suspend fun relayed(hostId: String): OpenedRoute {
         val relay = checkNotNull(ports.relay) { "a relay target needs the relay ports" }
-        ports.log.log("asking the relay for a session to $hostId")
+        log.log("asking the relay for a session to $hostId")
         val session = guarded {
             RelayConnect(relay.signalling, ports.identity, ports.clock)
                 .requestSession(hostId, ports.identity.clientId, relay.entitlement())
@@ -87,7 +92,7 @@ internal class RouteOpener(private val target: ConnectTarget, private val ports:
         val found = withTimeoutOrNull(DISCOVERY_TIMEOUT) {
             ports.discovery.hosts().first { it.id == hostId }
         } ?: run {
-            ports.log.log("host $hostId not seen on the local network in $DISCOVERY_TIMEOUT")
+            log.log("host $hostId not seen on the local network in $DISCOVERY_TIMEOUT")
             throw ConnectFailure(SessionFailure.HostNotFound)
         }
         return found.address
@@ -99,13 +104,13 @@ internal class RouteOpener(private val target: ConnectTarget, private val ports:
     } catch (failure: ConnectFailure) {
         throw failure
     } catch (failure: RelaySessionException) {
-        ports.log.log("relay session failed: $failure")
+        log.log("relay session failed: $failure")
         throw ConnectFailure(relayFailure(failure))
     } catch (failure: CancellationException) {
         throw failure
     } catch (failure: Exception) {
         val kind = ConnectFailureKind.of(failure)
-        ports.log.log("connect failed, $kind: ${ConnectFailureKind.describe(failure)}")
+        log.log("connect failed, $kind: ${ConnectFailureKind.describe(failure)}")
         throw ConnectFailure(SessionFailure.ConnectionFailed(kind, ConnectFailureKind.describe(failure)))
     }
 

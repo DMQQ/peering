@@ -30,6 +30,7 @@ import pl.dmq.peering.ui.wiring.StorePaywallBilling
 import pl.dmq.peering.ui.wiring.composeEmail
 import pl.dmq.peering.ui.wiring.findActivity
 import pl.dmq.peering.ui.wiring.openWebPage
+import pl.dmq.peering.ui.wiring.shareText
 import pl.dmq.peering.ui.wiring.rememberAppProtection
 
 private const val SUPPORT_ADDRESS = "support@getpeering.app"
@@ -67,6 +68,7 @@ internal fun SettingsTab(wiring: FeatureWiring) {
         },
         onReportIssue = { context.composeEmail(SUPPORT_ADDRESS, reportSubject, reportBody) },
         onOpenWebPage = { context.openWebPage(it) },
+        onShareInvite = { context.shareText(it) },
         onCopyDiagnostics = { state ->
             val text = diagnosticsText(version, Build.VERSION.RELEASE, Build.MODEL, state.deviceId, state.trustedHosts.size, state.prefs.allowsRelay, state.relayUnlimited)
             clipboard.setText(AnnotatedString(text))
@@ -86,7 +88,7 @@ internal fun SettingsTab(wiring: FeatureWiring) {
                 startsWithAllowanceNotice = false,
                 onDismiss = { plans = false },
             )
-            SettingsPage.Root -> SettingsRoute(presenter = presenter, actions = actions)
+            SettingsPage.Root -> SettingsRoute(presenter = presenter, invites = wiring.invites, nowSeconds = wiring.clock::unixSeconds, actions = actions)
         }
     }
 }

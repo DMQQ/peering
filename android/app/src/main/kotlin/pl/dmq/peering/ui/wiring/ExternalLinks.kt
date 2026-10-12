@@ -21,6 +21,15 @@ internal fun Context.composeEmail(address: String, subject: String, body: String
     }
 }
 
+/** Offers [text] to whichever app the user picks to send it with. */
+internal fun Context.shareText(text: String) {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, text)
+    }
+    startActivity(Intent.createChooser(send, null))
+}
+
 /** Opens [url] in the browser the phone has chosen. Without one, the user is told rather than left with nothing happening. */
 internal fun Context.openWebPage(url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))

@@ -89,6 +89,28 @@ class SessionHistoryTest {
         assertTrue(restored.toJson().contains("\"path\":\"relay\""))
     }
 
+    @Test
+    fun endingASessionStoresItsBytesAndLogAcrossARoundTrip() {
+        val id = history.begin("host-1", "Studio", Path.RELAY, startedAt = 1_000)
+        history.end(id, endedAt = 2_000, reason = EndReason.USER_ENDED, bytesReceived = 5_000, bytesSent = 300, logs = listOf("+0s up"))
+
+        val restored = SessionHistory.fromJson(history.toJson()).records.single()
+
+        assertEquals(5_000L, restored.bytesReceived)
+        assertEquals(300L, restored.bytesSent)
+        assertEquals(listOf("+0s up"), restored.logs)
+    }
+
+    @Test
+    fun aHistoryStoredBeforeBytesWereCountedStillLoads() {
+        val old = """[{"id":1,"hostId":"h","hostName":"Studio","startedAt":1000,"endedAt":2000,"path":"lan","reason":"userEnded"}]"""
+
+        val record = SessionHistory.fromJson(old).records.single()
+
+        assertEquals(0L, record.bytesReceived)
+        assertTrue(record.logs.isEmpty())
+    }
+
     @Test(expected = SerializationException::class)
     fun aMalformedHistoryIsRefusedRatherThanReadAsEmpty() {
         SessionHistory.fromJson("{not a list")

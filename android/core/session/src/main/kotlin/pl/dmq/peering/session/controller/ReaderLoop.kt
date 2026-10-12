@@ -2,6 +2,7 @@ package pl.dmq.peering.session.controller
 
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.Flow
+import pl.dmq.peering.session.history.ByteTally
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.FrameDecoder
 import pl.dmq.peering.wire.FramingException
@@ -14,12 +15,14 @@ import pl.dmq.peering.wire.FramingException
 internal class ReaderLoop(
     private val bytes: Flow<ByteArray>,
     private val frames: SendChannel<Frame>,
+    private val tally: ByteTally,
     private val onMalformed: () -> Unit,
 ) {
     suspend fun run() {
         val decoder = FrameDecoder()
         try {
             bytes.collect { chunk ->
+                tally.addReceived(chunk.size)
                 decoder.push(chunk)
                 while (true) {
                     val frame = decoder.next() ?: break

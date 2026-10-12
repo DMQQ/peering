@@ -33,12 +33,24 @@ class SessionHistory private constructor(private val limit: Int, initial: List<S
     }
 
     /** Closes an open session. Returns false when no open record has that id, such as one that already fell off. */
-    fun end(id: Long, endedAt: Long, reason: SessionRecord.EndReason): Boolean {
+    fun end(
+        id: Long,
+        endedAt: Long,
+        reason: SessionRecord.EndReason,
+        bytesReceived: Long = 0,
+        bytesSent: Long = 0,
+        logs: List<String> = emptyList(),
+    ): Boolean {
         val index = entries.indexOfFirst { it.id == id && it.endedAt == null }
         if (index < 0) return false
         val record = entries[index]
         // A clock corrected mid-session can read earlier than the start, which would be a negative duration.
-        entries[index] = record.copy(endedAt = maxOf(endedAt, record.startedAt), reason = reason)
+        entries[index] = record.copy(endedAt = maxOf(endedAt, record.startedAt),
+            reason = reason,
+            bytesReceived = bytesReceived,
+            bytesSent = bytesSent,
+            logs = logs,
+        )
         return true
     }
 

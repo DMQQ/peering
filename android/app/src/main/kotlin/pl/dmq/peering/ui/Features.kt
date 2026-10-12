@@ -46,6 +46,9 @@ import pl.dmq.peering.session.clipboard.ClipboardHistory
 import pl.dmq.peering.session.hosts.PersistedHostDirectory
 import pl.dmq.peering.session.hosts.RememberedLanAddresses
 import pl.dmq.peering.session.relay.PresenceWatch
+import pl.dmq.peering.session.relay.ReferralClient
+import pl.dmq.peering.feature.settings.InvitePresenter
+import pl.dmq.peering.ui.wiring.RelayInviteService
 
 /** The adapters the screens share, built once for the process. [install] points the tab slots at the real screens. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -97,6 +100,10 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
         billing.paidRelay,
         scope,
     ).also { tracker -> scope.launch { tracker.trackSessions(relayInUse(holder.active)) } }
+    val invites = InvitePresenter(
+        RelayInviteService(ReferralClient(graph.sessions.newRelaySignalling(), graph.sessions.identity, graph.sessions.clock)),
+        scope,
+    )
     val presence = SessionPresence(holder, relayPresence)
 
     init {

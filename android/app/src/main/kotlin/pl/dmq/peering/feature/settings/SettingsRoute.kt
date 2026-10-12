@@ -32,6 +32,7 @@ class SettingsActions(
     val onReportIssue: () -> Unit,
     val onOpenWebPage: (String) -> Unit,
     val onCopyDiagnostics: (SettingsUiState) -> Unit,
+    val onShareInvite: (String) -> Unit,
     val protection: AppProtection,
 )
 
@@ -39,10 +40,13 @@ class SettingsActions(
 @Composable
 fun SettingsRoute(
     presenter: SettingsPresenter,
+    invites: InvitePresenter,
+    nowSeconds: () -> Long,
     actions: SettingsActions,
     modifier: Modifier = Modifier,
 ) {
     val state by presenter.state.collectAsState()
+    val inviteState by invites.state.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
     val shown = SettingsSection.entries.filter { SettingsSearch.matches(stringResource(it.keywordsRes), query) }
         .filter { it != SettingsSection.Trusted || state.trustedHosts.isNotEmpty() }
@@ -56,7 +60,7 @@ fun SettingsRoute(
             Text(stringResource(it.messageRes()), style = PeeringText.footnote, color = PeeringColors.danger)
         }
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            shown.forEach { SectionCard(it, state, presenter, actions) }
+            shown.forEach { SectionCard(it, state, presenter, actions, InviteSlot(invites, inviteState, nowSeconds)) }
             if (shown.isEmpty()) {
                 Text(
                     stringResource(R.string.settings_no_match, query),
@@ -74,12 +78,19 @@ fun SettingsRoute(
 }
 
 @Composable
-private fun SectionCard(section: SettingsSection, state: SettingsUiState, presenter: SettingsPresenter, actions: SettingsActions) {
+private fun SectionCard(
+    section: SettingsSection,
+    state: SettingsUiState,
+    presenter: SettingsPresenter,
+    actions: SettingsActions,
+    invite: InviteSlot,
+) {
     when (section) {
         SettingsSection.Device -> DeviceCard(state.prefs.deviceName, presenter::setDeviceName)
         SettingsSection.Controls -> SessionControlsCard(state.prefs, presenter)
         SettingsSection.Quality -> StreamQualityCard(state.streamQuality, presenter::chooseStreamQuality)
         SettingsSection.RemoteAccess -> RemoteAccessCard(state, presenter::setAllowsRelay, actions.onSeePlans)
+        SettingsSection.Invite -> InviteCard(invite.state, invite.nowSeconds(), invite.presenter::refresh, invite.presenter::redeem, actions.onShareInvite)
         SettingsSection.Security -> SecurityCard(actions.protection)
         SettingsSection.Trusted -> TrustedHostsCard(state.trustedHosts, presenter::requestForget)
         SettingsSection.Identity -> IdentityCard(state.deviceId, state.trustedHosts.size)
@@ -87,3 +98,5 @@ private fun SectionCard(section: SettingsSection, state: SettingsUiState, presen
         SettingsSection.Legal -> LegalCard(actions.onOpenLegal, actions.onOpenWebPage)
     }
 }
+
+private class InviteSlot(val presenter: InvitePresenter, val state: InviteUiState, val nowSeconds: () -> Long)
