@@ -55,6 +55,7 @@ class SessionController(
     private val prompt = PairingPrompt(target, ::update)
     private val services: SessionServices = SessionServices(ports) { runner.link }
     private val runner = LinkRunner(target, ports, selection, services, recorder, prompt, ::update, ::pictureArrived, ::publish)
+    private val handover = LanHandover(target, ports)
     private val link: ConnectedLink? get() = runner.link
 
     /** The agent chat, present once the host has declared that it supports one. */
@@ -140,10 +141,18 @@ class SessionController(
     }
 
     /**
-     * The network moved, so the reconnect ladder starts again from its shortest step.
+     * The network moved, so the reconnect ladder starts again from its shortest step. A session on the relay is dialled
+     * again when the host turns out to be on this network, so the picture moves to the local path.
      */
     fun networkChanged() {
         reconnect.networkChanged()
+        val live = link ?: return
+        scope.launch {
+            if (handover.worthMovingFrom(live.path) && link === live) {
+                recorder.note("the host is on this network now, moving off the relay")
+                runner.endLink(LinkEnd.Lost)
+            }
+        }
     }
 
     /** Ends the session now. The phone does not reconnect afterwards. */
