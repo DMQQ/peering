@@ -1,5 +1,6 @@
 import Foundation
 import MacCastKit
+import RemoteCore
 
 /// The Mac and the networking libraries word their errors in English. The phone shows the ones it
 /// knows in its own language and passes every other sentence through unchanged, so a Mac newer than
@@ -74,7 +75,17 @@ enum HostWireText {
         if let found = SentenceTemplate.arguments(in: text, template: "Terminal \u{201C}%@\u{201D} is waiting for confirmation.") {
             return String(localized: "Terminal \u{201C}\(found[0])\u{201D} is waiting for confirmation.")
         }
-        return patternedNumber(text)
+        return patternedFinished(text) ?? patternedNumber(text)
+    }
+
+    private static func patternedFinished(_ text: String) -> String? {
+        guard let finished = FinishedSentence(parsing: text) else { return nil }
+        let duration = finished.seconds.map { TerminalCommandFinishDetector.spokenDuration($0) } ?? finished.duration
+        let named = switch finished.subject {
+        case .command(let command): "\u{201C}\(command)\u{201D}"
+        case .terminal(let name): String(localized: "Terminal \u{201C}\(name)\u{201D}")
+        }
+        return String(localized: "\(named) finished after \(duration).")
     }
 
     private static func patternedNumber(_ text: String) -> String? {
