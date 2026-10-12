@@ -93,6 +93,50 @@ pub enum RelayClientMessage {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         approval_id: Option<String>,
     },
+    /// Registered hosts only. Pushes a Live Activity update; `content_state` must be a JSON object of at most 3500 bytes.
+    NotifyActivity {
+        activity_token: String,
+        activity: ActivityKind,
+        event: ActivityEvent,
+        content_state: serde_json::Value,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        stale_seconds: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        priority: Option<u8>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        attributes_type: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        attributes: Option<serde_json::Value>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        alert_title: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        alert_body: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        environment: Option<ActivityEnvironment>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ActivityKind {
+    Session,
+    AgentChat,
+    Terminal,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ActivityEvent {
+    Start,
+    Update,
+    End,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ActivityEnvironment {
+    Production,
+    Sandbox,
 }
 
 /// Messages the relay sends back. A `type` this build does not know decodes as `Unknown`, which the caller ignores.
@@ -128,6 +172,11 @@ pub enum RelayServerMessage {
     Error {
         code: String,
         message: String,
+    },
+    /// A `notifyActivity` that was not sent. `reason` is `invalidPayload`, `invalidToken`, `rejected` or `unavailable`;
+    /// it stays a string so a reason added later does not make the whole message undecodable.
+    ActivityRefused {
+        reason: String,
     },
     #[serde(other)]
     Unknown,
