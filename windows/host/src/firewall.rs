@@ -5,20 +5,31 @@
 use peering_core::settings::DEFAULT_PORT;
 
 pub const RULE_NAME: &str = "Peering Host";
+pub const MDNS_RULE_NAME: &str = "Peering Host mDNS";
+const MDNS_PORT: u16 = 5353;
 pub const HELPER_FLAG: &str = "--firewall-rule";
 
 /// The netsh arguments for an inbound TCP rule on `port` for the executable at `exe_path`, on private networks only and
 /// only from the local subnet, so a router that forwards the port does not expose it.
 pub fn netsh_firewall_args(exe_path: &str, port: u16) -> Vec<String> {
+    netsh_rule_args(RULE_NAME, "TCP", port, exe_path)
+}
+
+/// The rule for mDNS: without inbound UDP 5353 Windows drops the multicast queries that make the host findable by name.
+pub fn netsh_mdns_args(exe_path: &str) -> Vec<String> {
+    netsh_rule_args(MDNS_RULE_NAME, "UDP", MDNS_PORT, exe_path)
+}
+
+fn netsh_rule_args(name: &str, protocol: &str, port: u16, exe_path: &str) -> Vec<String> {
     vec![
         "advfirewall".to_owned(),
         "firewall".to_owned(),
         "add".to_owned(),
         "rule".to_owned(),
-        format!("name={RULE_NAME}"),
+        format!("name={name}"),
         "dir=in".to_owned(),
         "action=allow".to_owned(),
-        "protocol=TCP".to_owned(),
+        format!("protocol={protocol}"),
         format!("localport={port}"),
         "profile=private".to_owned(),
         "remoteip=localsubnet".to_owned(),
@@ -26,15 +37,15 @@ pub fn netsh_firewall_args(exe_path: &str, port: u16) -> Vec<String> {
     ]
 }
 
-/// The arguments that remove this program's rule before it is added again, so a changed port never leaves a stale rule.
-/// The program is named so another application's rule of the same name is not removed with it.
-pub fn netsh_delete_args(exe_path: &str) -> Vec<String> {
+/// The arguments that remove this program's rule called `name` before it is added again, so a changed port never leaves
+/// a stale rule. The program is named so another application's rule of the same name is not removed with it.
+pub fn netsh_delete_args(name: &str, exe_path: &str) -> Vec<String> {
     vec![
         "advfirewall".to_owned(),
         "firewall".to_owned(),
         "delete".to_owned(),
         "rule".to_owned(),
-        format!("name={RULE_NAME}"),
+        format!("name={name}"),
         format!("program={exe_path}"),
     ]
 }
@@ -108,10 +119,17 @@ pub fn request_rule_elevated(exe_path: &std::path::Path, port: u16) -> std::io::
 #[cfg(windows)]
 pub fn apply_rule(exe_path: &std::path::Path, port: u16) -> std::io::Result<()> {
     let program = exe_path.to_string_lossy();
-    // Deleting a rule that is not there fails, and that is the state wanted, so the delete result is not checked.
-    let _absent_or_removed = std::process::Command::new("netsh").args(netsh_delete_args(&program)).status();
-    let status = std::process::Command::new("netsh").args(netsh_firewall_args(&program, port)).status()?;
-    status.success().then_some(()).ok_or_else(|| std::io::Error::other("netsh did not add the firewall rule"))
+    for name in [RULE_NAME, MDNS_RULE_NAME] {
+        // Deleting a rule that is not there fails, and that is the state wanted, so the delete result is not checked.
+        let _absent_or_removed = std::process::Command::new("netsh").args(netsh_delete_args(name, &program)).status();
+    }
+    for arguments in [netsh_firewall_args(&program, port), netsh_mdns_args(&program)] {
+        let status = std::process::Command::new("netsh").args(arguments).status()?;
+        if !status.success() {
+            return Err(std::io::Error::other("netsh did not add the firewall rule"));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -145,6 +163,20 @@ mod tests {
     }
 
     #[test]
+    fn mdns_gets_its_own_udp_rule_from_the_local_subnet() {
+        let args = netsh_mdns_args(r"C:\Peering\peering-host.exe");
+        for expected in ["name=Peering Host mDNS", "protocol=UDP", "localport=5353", "dir=in", "profile=private", "remoteip=localsubnet"] {
+            assert!(args.contains(&expected.to_owned()), "{expected}");
+        }
+    }
+
+    #[test]
+    fn the_two_rules_have_different_names_so_one_delete_cannot_remove_both() {
+        assert_ne!(RULE_NAME, MDNS_RULE_NAME);
+        assert!(netsh_delete_args(MDNS_RULE_NAME, "p").contains(&"name=Peering Host mDNS".to_owned()));
+    }
+
+    #[test]
     fn a_program_path_with_spaces_is_one_argument_when_the_line_is_joined() {
         let args = netsh_firewall_args(r"C:\Program Files\Peering Host\peering-host.exe", 51515);
         let line = command_line(&args);
@@ -154,7 +186,7 @@ mod tests {
 
     #[test]
     fn the_delete_removes_only_the_rule_of_this_program() {
-        let args = netsh_delete_args(r"C:\Peering\peering-host.exe");
+        let args = netsh_delete_args(RULE_NAME, r"C:\Peering\peering-host.exe");
         assert!(args.contains(&"name=Peering Host".to_owned()));
         assert_eq!(args.last().map(String::as_str), Some(r"program=C:\Peering\peering-host.exe"));
     }
