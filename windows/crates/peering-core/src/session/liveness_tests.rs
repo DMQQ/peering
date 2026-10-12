@@ -70,3 +70,28 @@ fn an_empty_ping_from_an_old_client_gets_an_empty_pong() {
     let pong = pong_for(&Frame::empty(MessageKind::Ping));
     assert_eq!(pong, Frame::empty(MessageKind::Pong));
 }
+
+#[test]
+fn a_ping_does_not_keep_an_unauthenticated_connection_alive() {
+    assert!(!counts_as_life(HostPhase::Unauthenticated, MessageKind::Ping));
+    assert!(!counts_as_life(HostPhase::Unauthenticated, MessageKind::Command));
+}
+
+#[test]
+fn handshake_frames_count_before_authorisation() {
+    for kind in [MessageKind::ConnectionRole, MessageKind::ClientHello, MessageKind::PairCommit, MessageKind::PairReveal, MessageKind::PairConfirm] {
+        assert!(counts_as_life(HostPhase::Unauthenticated, kind), "{kind:?}");
+    }
+}
+
+#[test]
+fn a_client_awaiting_approval_is_kept_by_pings_only() {
+    assert!(counts_as_life(HostPhase::AwaitingApproval, MessageKind::Ping));
+    assert!(!counts_as_life(HostPhase::AwaitingApproval, MessageKind::Command));
+}
+
+#[test]
+fn every_frame_counts_once_authorised() {
+    assert!(counts_as_life(HostPhase::Authorized, MessageKind::Command));
+    assert!(counts_as_life(HostPhase::Authorized, MessageKind::Ping));
+}

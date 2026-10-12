@@ -8,7 +8,7 @@ use peering_core::session::actions::SessionAction;
 use peering_core::session::deps::{HostDeps, Random};
 use peering_core::ports::input::InputSink;
 use peering_core::session::handshake::{HostConfig, HostSession};
-use peering_core::session::liveness::{LivenessTracker, Verdict};
+use peering_core::session::liveness::{counts_as_life, LivenessTracker, Verdict};
 use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
 use peering_wire::handshake::{ClientHello, ServerHello};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -19,6 +19,7 @@ use tokio::time::interval;
 mod register;
 
 use super::agent::StdLauncher;
+use super::pre_auth::PreAuthPermit;
 use super::random::SystemRandomSource;
 use super::shared::Shared;
 use super::{HostProfile, PeerInfo};
@@ -43,10 +44,20 @@ pub(super) struct Connection {
     pub(super) supports_agent_chat: bool,
     pub(super) agent: Option<peering_agent::manager::AgentSessionManager<StdLauncher>>,
     pub(super) video_for_session: Option<u64>,
+    /// Held until the connection is authorised or turns out to be a video connection.
+    pub(super) pre_auth: Option<PreAuthPermit>,
 }
 
 /// Serves one connection until the peer leaves, the core closes it, or the framing breaks.
 pub async fn serve<S>(shared: Shared, profile: Arc<HostProfile>, stream: S, peer: PeerInfo)
+where
+    S: AsyncRead + AsyncWrite + Unpin + 'static,
+{
+    serve_counted(shared, profile, stream, peer, None).await;
+}
+
+/// `serve` for a connection that holds a pre-authentication slot, which it gives back once it is authorised.
+pub async fn serve_counted<S>(shared: Shared, profile: Arc<HostProfile>, stream: S, peer: PeerInfo, pre_auth: Option<PreAuthPermit>)
 where
     S: AsyncRead + AsyncWrite + Unpin + 'static,
 {
@@ -80,6 +91,7 @@ where
         supports_agent_chat: false,
         agent: None,
         video_for_session: None,
+        pre_auth,
     };
     connection.run(&mut reader).await;
     connection.finish();
@@ -146,7 +158,9 @@ impl Connection {
     }
 
     fn on_frame(&mut self, frame: Frame) -> Flow {
-        self.liveness.heard(self.now());
+        if counts_as_life(self.session.state().phase(), frame.kind) {
+            self.liveness.heard(self.now());
+        }
         if self.video_for_session.is_some() {
             // A video connection only carries frames out; key and transport requests are answered on the control connection.
             return Flow::Open;
@@ -192,7 +206,10 @@ impl Connection {
             SessionAction::Authorized => self.register(),
             SessionAction::ForwardFrame(frame) => return self.on_ready(&frame),
             SessionAction::ForwardCommand(command) => self.dispatch_command(command),
-            SessionAction::VideoConnection => return self.attach_video(),
+            SessionAction::VideoConnection => {
+                self.pre_auth = None;
+                return self.attach_video();
+            }
             SessionAction::RequestApproval { client_name } => {
                 self.shared.lock().pairing.request_approval(self.session_id, &client_name);
             }

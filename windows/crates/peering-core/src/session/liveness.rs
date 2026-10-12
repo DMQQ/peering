@@ -18,6 +18,24 @@ pub fn silence_limit_seconds(phase: HostPhase) -> f64 {
     }
 }
 
+/// Whether a frame proves the client is alive. Before the client is authorised only the frames that move the handshake
+/// count, so a peer pinging every few seconds cannot hold an unauthenticated connection open. A client waiting on the
+/// user's approval may still ping, since that wait is the user's to end.
+pub fn counts_as_life(phase: HostPhase, kind: MessageKind) -> bool {
+    match phase {
+        HostPhase::Authorized => true,
+        HostPhase::AwaitingApproval => matches!(kind, MessageKind::Ping | MessageKind::Pong),
+        HostPhase::Unauthenticated => matches!(
+            kind,
+            MessageKind::ConnectionRole
+                | MessageKind::ClientHello
+                | MessageKind::PairCommit
+                | MessageKind::PairReveal
+                | MessageKind::PairConfirm
+        ),
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verdict {
     Keep,

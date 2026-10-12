@@ -15,6 +15,7 @@ mod files;
 mod listener;
 mod peer_address;
 mod pins;
+mod pre_auth;
 mod random;
 mod ready;
 mod relay;
