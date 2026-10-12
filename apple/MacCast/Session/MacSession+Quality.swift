@@ -25,14 +25,22 @@ extension MacSession {
         return model.storeManager.relayPlan.isUnlimited ? .high : .medium
     }
 
+    /// Every quality message carries the frame rate too, so the Mac's cap follows Low Power Mode both ways without this end remembering what it last said.
+    private func sendStreamQuality(bitrateKbps: Int) {
+        send(.setStreamQuality(
+            fps: PowerSavingPolicy.framesPerSecond(isLowPowerMode: model.isLowPowerMode),
+            bitrateKbps: bitrateKbps
+        ))
+    }
+
     /// Sends the rate again under the ceiling as it now stands, for Low Power Mode turning on or off.
     func refreshQualityCeiling() {
         guard wire != nil else { return }
         if let bitrateKbps = model.streamQuality.bitrateKbps {
-            send(.setStreamQuality(fps: 0, bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps)))
+            sendStreamQuality(bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps))
         } else {
             autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath, ceiling: videoCeiling)
-            send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
+            sendStreamQuality(bitrateKbps: autoQualityPolicy.tier.bitrateKbps)
         }
     }
 
@@ -50,11 +58,11 @@ extension MacSession {
         }
         model.rememberQualityChoice(quality)
         if let bitrateKbps = quality.bitrateKbps {
-            send(.setStreamQuality(fps: 0, bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps)))
+            sendStreamQuality(bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps))
         } else {
             autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath, ceiling: videoCeiling)
             lastAutoDroppedFrames = renderer.currentSnapshot.framesDropped
-            send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
+            sendStreamQuality(bitrateKbps: autoQualityPolicy.tier.bitrateKbps)
         }
     }
 
@@ -68,9 +76,9 @@ extension MacSession {
 
         if let bitrateKbps = quality.bitrateKbps {
             model.lastManualQuality = quality
-            send(.setStreamQuality(fps: 0, bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps)))
+            sendStreamQuality(bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps))
         } else {
-            send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
+            sendStreamQuality(bitrateKbps: autoQualityPolicy.tier.bitrateKbps)
         }
     }
 
@@ -95,7 +103,7 @@ extension MacSession {
             latencyMilliseconds: latencyMilliseconds,
             newDroppedFrames: newDrops
         ) else { return }
-        send(.setStreamQuality(fps: 0, bitrateKbps: tier.bitrateKbps))
+        sendStreamQuality(bitrateKbps: tier.bitrateKbps)
         append(note: String(localized: "Auto quality changed to \(tier.bitrateKbps / 1_000) Mbps"))
     }
 }

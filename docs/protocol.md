@@ -236,7 +236,7 @@ JSON of `RemoteCommand` (`RemoteCommand.swift:75-132`). A command is never sent 
 | joystickMove | `{"joystickMove":{"dx":0,"dy":0}}` | none |
 | setCaptureSource | `{"setCaptureSource":{"_0":{"display":{"_0":1}}}}` | none for display/window/application; mosaic needs `supportsMosaic` |
 | launchApplication | `{"launchApplication":{"bundleIdentifier":"x"}}` | host support |
-| setStreamQuality | `{"setStreamQuality":{"fps":0,"bitrateKbps":8000}}` | none; 0 means keep; host clamps to 100000 kbps |
+| setStreamQuality | `{"setStreamQuality":{"fps":0,"bitrateKbps":8000}}` | none; 0 means keep; host clamps to 100000 kbps and `fps` to 15..120 (a frame rate cap on what is sent; 120 lifts it) |
 | setVideoEnabled | `{"setVideoEnabled":{"_0":false}}` | `supportsVideoPause` |
 | refreshSpacePreviews, refreshSourceThumbnails | `{"refreshSourceThumbnails":{}}` | `supportsSourceThumbnails` for the latter |
 | watchSourceThumbnails | `{"watchSourceThumbnails":{"_0":true}}` | `supportsSourceThumbnails` |
