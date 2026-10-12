@@ -43,6 +43,7 @@ pub mod playbilling;
 pub mod protocol;
 pub mod push;
 pub mod quota;
+pub mod redact;
 pub mod referrals;
 pub mod session;
 pub mod signalling;

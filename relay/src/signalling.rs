@@ -11,7 +11,6 @@
 //! who this Mac is, what it is called, and whether the two ends can speak to each other.
 
 use std::collections::HashMap;
-use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -56,6 +55,7 @@ use crate::referrals::Standing;
 use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
 use crate::play_api::PlayVerifier;
 use crate::playbilling::{self, PlayReceiptCache, PlayRejection};
+use crate::redact::tag;
 use crate::stats::{Refusal, TALLY};
 use crate::storekit::{Rejection, ReceiptCache, StoreKitVerifier, Trust};
 
@@ -246,7 +246,6 @@ pub struct HostRegistry {
 }
 
 struct Host {
-    name: String,
     protocol_version: u16,
     /// The push channel for this Mac's signalling connection.
     tx: mpsc::Sender<ServerMessage>,
@@ -256,7 +255,6 @@ struct Host {
 /// allocated underneath it.
 struct HostRef {
     tx: mpsc::Sender<ServerMessage>,
-    name: String,
     protocol_version: u16,
 }
 
@@ -289,7 +287,6 @@ impl HostRegistry {
     async fn put(
         &self,
         device_id: &str,
-        name: String,
         version: u16,
         tx: mpsc::Sender<ServerMessage>,
         proof: Option<&str>,
@@ -303,7 +300,7 @@ impl HostRegistry {
             // take a Mac off the relay for good by arriving first.
             Binding::Rebound => {
                 warn!(
-                    %device_id,
+                    device_id = %tag(device_id),
                     "this device id was bound to a different key and is now bound to this one"
                 );
             }
@@ -313,7 +310,6 @@ impl HostRegistry {
         self.inner.lock().await.insert(
             device_id.to_string(),
             Host {
-                name,
                 protocol_version: version,
                 tx,
             },
@@ -340,7 +336,6 @@ impl HostRegistry {
     async fn entry_for(&self, device_id: &str) -> Option<HostRef> {
         self.inner.lock().await.get(device_id).map(|host| HostRef {
             tx: host.tx.clone(),
-            name: host.name.clone(),
             protocol_version: host.protocol_version,
         })
     }
@@ -386,7 +381,7 @@ pub async fn serve(
     ));
 
     loop {
-        let (stream, peer) = match listener.accept().await {
+        let (stream, _) = match listener.accept().await {
             Ok(pair) => pair,
             Err(error) => {
                 warn!(%error, "signalling listener could not accept");
@@ -396,7 +391,7 @@ pub async fn serve(
         };
 
         let Ok(permit) = Arc::clone(&permits).try_acquire_owned() else {
-            warn!(%peer, "refused a signalling connection: the listener is at its limit");
+            warn!("refused a signalling connection: the listener is at its limit");
             drop(stream);
             continue;
         };
@@ -427,13 +422,13 @@ pub async fn serve(
                     // and `tokio::spawn` refuses it.
                     match secured {
                         Ok(Ok(secured)) => {
-                            handle(secured, peer, relay_host, registry, hosts, settings).await;
+                            handle(secured, relay_host, registry, hosts, settings).await;
                         }
                         Ok(Err(error)) => {
-                            debug!(%peer, %error, "signalling TLS handshake failed");
+                            debug!(%error, "signalling TLS handshake failed");
                         }
                         Err(_) => {
-                            debug!(%peer, "signalling TLS handshake timed out");
+                            debug!("signalling TLS handshake timed out");
                         }
                     }
                     // Dropped with the permit, which is what returns it to the pool.
@@ -442,7 +437,7 @@ pub async fn serve(
             }
             None => {
                 tokio::spawn(async move {
-                    handle(stream, peer, relay_host, registry, hosts, settings).await;
+                    handle(stream, relay_host, registry, hosts, settings).await;
                     drop(permit);
                 });
             }
@@ -452,7 +447,6 @@ pub async fn serve(
 
 async fn handle<S>(
     stream: S,
-    peer: SocketAddr,
     relay_host: String,
     registry: Arc<Registry>,
     hosts: HostRegistry,
@@ -477,11 +471,11 @@ async fn handle<S>(
     {
         Ok(Ok(ws)) => ws,
         Ok(Err(error)) => {
-            debug!(%peer, %error, "websocket handshake failed");
+            debug!(%error, "websocket handshake failed");
             return;
         }
         Err(_) => {
-            debug!(%peer, "websocket handshake timed out");
+            debug!("websocket handshake timed out");
             return;
         }
     };
@@ -508,7 +502,7 @@ async fn handle<S>(
     loop {
         tokio::select! {
             _ = &mut deadline => {
-                debug!(%peer, "signalling connection has been idle for too long");
+                debug!("signalling connection has been idle for too long");
                 break;
             }
             incoming = source.next() => {
@@ -522,7 +516,7 @@ async fn handle<S>(
                             Err(error) => {
                                 let reason = Refusal::for_unparseable(&error);
                                 TALLY.refused(reason);
-                                warn!(%peer, %error, reason = reason.as_str(), "unparseable signalling message; likely a client on a different version");
+                                warn!(%error, reason = reason.as_str(), "unparseable signalling message; likely a client on a different version");
                                 Some(ServerMessage::error("protocol", "unrecognised message"))
                             }
                         };
@@ -537,7 +531,7 @@ async fn handle<S>(
                     // protocol-level pings itself, so there is nothing to do for them here.
                     Some(Ok(_)) => {}
                     Some(Err(error)) => {
-                        debug!(%peer, %error, "signalling read failed");
+                        debug!(%error, "signalling read failed");
                         break;
                     }
                 }
@@ -556,7 +550,7 @@ async fn handle<S>(
 
     if let Some(device_id) = state.registered_as {
         hosts.remove_if_ours(&device_id, &tx).await;
-        info!(%device_id, "host went offline");
+        info!(device_id = %tag(&device_id), "host went offline");
     }
 }
 
@@ -600,7 +594,7 @@ async fn dispatch(
                         .as_secs();
                     if !device_proof::time_is_current(stamp, now) {
                         TALLY.refused(Refusal::BadProof);
-                        warn!(%device_id, "a device registration was signed for a different time");
+                        warn!(device_id = %tag(&device_id), "a device registration was signed for a different time");
                         return Some(ServerMessage::error(
                             "proofStale",
                             "that registration was signed for a time this relay will not accept",
@@ -609,7 +603,7 @@ async fn dispatch(
                     let body = device_proof::payload(&device_id, stamp);
                     if !device_proof::verifies(key, signature, body.as_bytes()) {
                         TALLY.refused(Refusal::BadProof);
-                        warn!(%device_id, "a device registration did not prove the key it claimed");
+                        warn!(device_id = %tag(&device_id), "a device registration did not prove the key it claimed");
                         return Some(ServerMessage::error(
                             "proofInvalid",
                             "that registration does not prove it comes from the device it names",
@@ -623,7 +617,6 @@ async fn dispatch(
             if let Err(reason) = hosts
                 .put(
                     &device_id,
-                    name.clone(),
                     protocol_version,
                     self_tx.clone(),
                     proved.as_deref(),
@@ -634,14 +627,13 @@ async fn dispatch(
                 // key, or somebody claiming an id they do not own, and both are worth seeing in
                 // the journal without turning a log level up to find them.
                 TALLY.refused(Refusal::BadProof);
-                warn!(%device_id, reason, "refused a device registration");
+                warn!(device_id = %tag(&device_id), reason, "refused a device registration");
                 return Some(ServerMessage::error("deviceRefused", reason));
             }
 
             state.registered_as = Some(device_id.clone());
             info!(
-                %device_id,
-                %name,
+                device_id = %tag(&device_id),
                 protocol_version,
                 proved = proved.is_some(),
                 "host registered"
@@ -697,11 +689,11 @@ async fn dispatch(
                         if device_proof::verifies(key, signature, body.as_bytes()) {
                             Some(key.clone())
                         } else {
-                            info!(%client_id, "a client proof did not verify; metered by id");
+                            info!(client_id = %tag(&client_id), "a client proof did not verify; metered by id");
                             None
                         }
                     } else {
-                        info!(%client_id, "a client proof was signed for a different time; metered by id");
+                        info!(client_id = %tag(&client_id), "a client proof was signed for a different time; metered by id");
                         None
                     }
                 }
@@ -709,7 +701,7 @@ async fn dispatch(
                 // Two fields of three. Not salvaged, and not worth a refusal: the client is
                 // metered by its id, which is what a build that sends none of them gets.
                 _ => {
-                    info!(%client_id, "a client proof was incomplete; metered by id");
+                    info!(client_id = %tag(&client_id), "a client proof was incomplete; metered by id");
                     None
                 }
             };
@@ -743,7 +735,7 @@ async fn dispatch(
             // switch says, because Apple gives those away for nothing.
             if let Some(reason) = refused {
                 info!(
-                    %client_id,
+                    client_id = %tag(&client_id),
                     plan = plan.as_str(),
                     plan_trust = trust.as_str(),
                     reason,
@@ -769,7 +761,7 @@ async fn dispatch(
                 // it was.
                 TALLY.refused(Refusal::QuotaRefusedAtConnect);
                 info!(
-                    %client_id,
+                    client_id = %tag(&client_id),
                     plan = plan.as_str(),
                     plan_trust = trust.as_str(),
                     "relay allowance exhausted"
@@ -782,7 +774,7 @@ async fn dispatch(
 
             let Some(host) = hosts.entry_for(&host_id).await else {
                 TALLY.refused(Refusal::HostNotRegistered);
-                info!(%host_id, "asked for a host that is not registered");
+                info!(host_id = %tag(&host_id), "asked for a host that is not registered");
                 return Some(ServerMessage::HostOffline { device_id: host_id });
             };
 
@@ -814,7 +806,7 @@ async fn dispatch(
             // times is not a client that should be told "try again shortly", it should be told to
             // stop, which is what this refusal says.
             if state.sessions_asked_for >= MAX_SESSIONS_PER_CONNECTION {
-                warn!(%client_id, "refused: one connection has asked for too many sessions");
+                warn!(client_id = %tag(&client_id), "refused: one connection has asked for too many sessions");
                 return Some(ServerMessage::error(
                     "tooManySessions",
                     "this connection has asked for too many sessions; reconnect to try again",
@@ -833,7 +825,7 @@ async fn dispatch(
                 // `Send`, which `tokio::spawn` refuses two call frames up with an error that names
                 // neither this line nor this cause.
                 let sessions = registry.len().await;
-                warn!(%client_id, sessions, "refused: the relay is at its session ceiling");
+                warn!(client_id = %tag(&client_id), sessions, "refused: the relay is at its session ceiling");
                 return Some(ServerMessage::error(
                     "relayFull",
                     "the relay is at capacity; try again in a minute",
@@ -849,9 +841,8 @@ async fn dispatch(
             // means the client's word for it, `neither` means the free allowance.
             TALLY.session_allocated();
             info!(
-                %host_id,
-                host_name = %host.name,
-                %client_id,
+                host_id = %tag(&host_id),
+                client_id = %tag(&client_id),
                 // Which of the two the time is charged to, and it is a field rather than a second
                 // id in the line because the two are usually the same string: an operator asking
                 // "why is this client's usage not where I expect it" needs to see that it is not.
@@ -886,7 +877,7 @@ async fn dispatch(
                 .is_err()
             {
                 TALLY.refused(Refusal::HostOffline);
-                warn!(%host_id, "host went away while its session was being set up");
+                warn!(host_id = %tag(&host_id), "host went away while its session was being set up");
                 registry.release(&allocated.control_token).await;
                 return Some(ServerMessage::HostOffline { device_id: host_id });
             }
@@ -1047,11 +1038,11 @@ async fn dispatch(
             };
             Some(match settings.quota.referrals().redeem(&identity, &code, unix_now()) {
                 Ok(standing) => {
-                    info!(%client_id, "an invite code was redeemed");
+                    info!(client_id = %tag(&client_id), "an invite code was redeemed");
                     referral_reply(standing)
                 }
                 Err(refusal) => {
-                    info!(%client_id, reason = refusal.code(), "an invite code was refused");
+                    info!(client_id = %tag(&client_id), reason = refusal.code(), "an invite code was refused");
                     ServerMessage::error(refusal.code(), refusal.message())
                 }
             })
@@ -1266,13 +1257,12 @@ mod tests {
         let hosts = HostRegistry::new();
         let (tx, _rx) = channel();
         hosts
-            .put("mac", "Studio".into(), 3, tx, None)
+            .put("mac", 3, tx, None)
             .await
             .expect("an unproved registration is accepted while nothing is bound");
 
         let host = hosts.entry_for("mac").await.expect("should be found");
         assert_eq!(host.protocol_version, 3);
-        assert_eq!(host.name, "Studio");
         assert!(hosts.entry_for("other").await.is_none());
         assert_eq!(hosts.online_count().await, 1);
     }
@@ -1286,11 +1276,11 @@ mod tests {
         let (new_tx, _new_rx) = channel();
 
         hosts
-            .put("mac", "Studio".into(), 3, old_tx.clone(), None)
+            .put("mac", 3, old_tx.clone(), None)
             .await
             .expect("an unproved registration is accepted while nothing is bound");
         hosts
-            .put("mac", "Studio".into(), 3, new_tx.clone(), None)
+            .put("mac", 3, new_tx.clone(), None)
             .await
             .expect("an unproved registration is accepted while nothing is bound");
 
@@ -1311,7 +1301,7 @@ mod tests {
         let hosts = HostRegistry::new();
         let (host_tx, _host_rx) = channel();
         hosts
-            .put("mac", "Studio".into(), 3, host_tx, None)
+            .put("mac", 3, host_tx, None)
             .await
             .expect("an unproved registration is accepted while nothing is bound");
 
@@ -1359,7 +1349,7 @@ mod tests {
         let hosts = HostRegistry::new();
         let (host_tx, _host_rx) = channel();
         hosts
-            .put("mac", "Studio".into(), 3, host_tx.clone(), None)
+            .put("mac", 3, host_tx.clone(), None)
             .await
             .expect("an unproved registration is accepted while nothing is bound");
 
@@ -1443,7 +1433,7 @@ mod tests {
         let hosts = HostRegistry::new();
         let (host_tx, _host_rx) = channel();
         hosts
-            .put("mac", "Studio".into(), 3, host_tx, None)
+            .put("mac", 3, host_tx, None)
             .await
             .expect("an unproved registration is accepted while nothing is bound");
 
@@ -1484,7 +1474,7 @@ mod tests {
         let hosts = HostRegistry::new();
         let (host_tx, mut host_rx) = channel();
         hosts
-            .put("mac", "Studio".into(), 3, host_tx, None)
+            .put("mac", 3, host_tx, None)
             .await
             .expect("an unproved registration is accepted while nothing is bound");
 
@@ -1562,7 +1552,7 @@ mod tests {
         let hosts = HostRegistry::new();
         let (host_tx, _host_rx) = channel();
         hosts
-            .put("mac", "Studio".into(), 3, host_tx, None)
+            .put("mac", 3, host_tx, None)
             .await
             .expect("an unproved registration is accepted while nothing is bound");
 

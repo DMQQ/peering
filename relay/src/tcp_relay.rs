@@ -21,6 +21,7 @@ use tokio::time::timeout;
 use tracing::{debug, info, warn};
 
 use crate::counted_stream::{Activity, CountedStream, EndWatch, Side};
+use crate::redact::tag;
 use crate::session::{Join, Registry, Token};
 use crate::stats::{self, EndReason, Refusal, TALLY};
 
@@ -42,7 +43,7 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>, idle_window: 
 
     loop {
         match listener.accept().await {
-            Ok((stream, peer)) => {
+            Ok((stream, _)) => {
                 // Nagle off, on both halves of every splice. This one listener accepts *both*
                 // ends of a session — the connection that waits and the one handed to it — so
                 // setting it here covers the pair, and `copy_bidirectional` below inherits it.
@@ -57,18 +58,18 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>, idle_window: 
                 // A failure here costs latency, not correctness, so it is logged and carried
                 // on rather than closing a connection that would otherwise work.
                 if let Err(error) = stream.set_nodelay(true) {
-                    warn!(%error, %peer, "could not disable Nagle on a control connection");
+                    warn!(%error, "could not disable Nagle on a control connection");
                 }
 
                 let Ok(permit) = Arc::clone(&waiting).try_acquire_owned() else {
-                    warn!(%peer, "refused a control connection: too many are waiting for a token");
+                    warn!("refused a control connection: too many are waiting for a token");
                     continue;
                 };
 
                 let registry = Arc::clone(&registry);
                 tokio::spawn(async move {
                     if let Err(error) = handle(stream, registry, permit, idle_window).await {
-                        debug!(%peer, %error, "control connection ended");
+                        debug!(%error, "control connection ended");
                     }
                 });
             }
@@ -132,7 +133,7 @@ async fn handle(
         return Ok(());
     };
 
-    debug!(peer = %theirs.peer_addr().map(|a| a.to_string()).unwrap_or_default(), "splicing");
+    debug!("splicing");
 
     // The clock starts here, where both ends are present and bytes are about to move, rather than
     // at allocation: the seconds between a phone asking for a Mac and its two ends turning up are
@@ -237,12 +238,12 @@ async fn handle(
         // without it, a client that spent its allowance and a client that hung up look identical in
         // the log, and the question "why was I disconnected" has no answer in it.
         info!(
-            client_id = meter.client_id(),
+            client_id = %tag(meter.client_id()),
             "session ended: the plan's relay allowance for this window is spent"
         );
     } else {
         debug!(
-            client_id = meter.client_id(),
+            client_id = %tag(meter.client_id()),
             remaining_secs = ?left,
             "relay usage recorded"
         );

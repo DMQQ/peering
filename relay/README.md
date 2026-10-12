@@ -317,7 +317,7 @@ the signed string is the only thing keeping a client registration from being pre
 registration for the same id. `device_proof` has a test for exactly that.
 
 When the proof verifies, the relay meters the public key rather than the announced id, and the id
-becomes a name in a log line (the `metered_by` field on the `session allocated` line says which of
+becomes a tag in a log line (the `metered_by` field on the `session allocated` line says which of
 the two it used). The key is in the Keychain and iOS keeps those through a reinstall, so the second
 install spends what the first one spent.
 
@@ -799,8 +799,16 @@ systemctl reset-failed peeringd    # after fixing the cause, clear the start lim
 
 #### Reading the journal: why sessions end and why attempts fail
 
-None of these lines carries a client id, host id, address, key, token or any content that was not
-already there: the new fields are counts and names from closed sets (`stats.rs`).
+**Identifiers in the journal are tags, not ids.** Where a line needs to say which client, device,
+host or push token it is about, the field (`client_id`, `device_id`, `host_id`, `device_token`)
+holds eight hex characters of a keyed hash. The key is drawn at startup and kept only in memory, so
+lines about one client agree within a run (grep a tag to follow one client), cannot be turned back
+into the id, and do not match across a restart. Host names, peer addresses and raw tokens are not
+logged at all. The new fields below are counts and names from closed sets (`stats.rs`). The usage
+log file (`PEERINGD_USAGE_LOG`) is a separate file and does still hold client ids.
+
+To answer "why was this client cut off" from a report, find the line by its reason and plan
+(`relay allowance exhausted`, with the `plan` and `plan_trust` fields), not by an id.
 
 **Every relayed session writes one `relayed session ended` line.** The fields from before are
 unchanged (`seconds`, `video_over_udp`, `video_datagrams_from_host`, `video_bytes_from_host`,
