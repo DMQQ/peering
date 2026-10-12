@@ -19,6 +19,9 @@ sealed interface SessionEvent {
     /** A standing notice from the host. A null [message] clears it. */
     data class Notice(val message: String?) : SessionEvent
 
+    /** The host answered a clipboard request. [text] is null when the clipboard holds no text. */
+    data class HostClipboard(val text: String?) : SessionEvent
+
     /** The link must end with [end]. */
     data class Finish(val end: LinkEnd) : SessionEvent
 }

@@ -79,6 +79,10 @@ internal class ConnectedLink(
     var notice: String? = null
         private set
 
+    /** The text the host last sent for a clipboard request, or null before one answered or when it held none. */
+    var hostClipboard: String? = null
+        private set
+
     val latencyMillis: Int? get() = liveness.smoothedLatencyMillis()?.roundToInt()
 
     fun pictureState(paused: Boolean): PictureState =
@@ -164,6 +168,7 @@ internal class ConnectedLink(
             is SessionEvent.Offer -> commands.offer(event.command)
             is SessionEvent.Datagram -> route.datagrams?.send(event.bytes, event.destination)
             is SessionEvent.Notice -> notice = event.message
+            is SessionEvent.HostClipboard -> hostClipboard = event.text
             is SessionEvent.Finish -> ended.complete(event.end)
         }
     }

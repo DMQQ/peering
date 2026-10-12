@@ -85,6 +85,13 @@ data class NoticePayload(
     val lockedDisplayID: Long? = null,
 )
 
+/** What the host's clipboard holds. An older host sends only [text], with no [kind]: absent means text. */
+@Serializable
+data class ClipboardPayload(val kind: String? = null, val text: String? = null) {
+    /** The text, or null when the clipboard holds something else, such as an image. */
+    val plainText: String? get() = if (kind == null || kind == "text") text else null
+}
+
 /** A pong is matched to its ping by [sequence]. */
 @Serializable
 data class PingPayload(val sequence: Long)
