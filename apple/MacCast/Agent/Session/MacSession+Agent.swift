@@ -63,6 +63,12 @@ extension MacSession {
     func sendAgentPrompt(_ text: String, to id: UUID) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        guard ControlTextPolicy.verdict(forClipboardOrPrompt: trimmed) == .fits else {
+            if let index = agentSessions.firstIndex(where: { $0.id == id }) {
+                agentSessions[index].failure = String(localized: "That message is too long to send. Shorten it and try again.")
+            }
+            return
+        }
         var state: AgentSessionState?
         if let index = agentSessions.firstIndex(where: { $0.id == id }) {
             agentSessions[index].failure = nil

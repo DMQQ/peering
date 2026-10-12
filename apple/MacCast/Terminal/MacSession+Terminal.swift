@@ -68,8 +68,8 @@ extension MacSession {
     func sendTerminalInput(_ text: String, to id: UUID, appendReturn: Bool = true) {
         let suffix = appendReturn ? "\r" : ""
         guard let data = (text + suffix).data(using: .utf8) else { return }
-        wire?.sendTerminal(.input(sessionID: id, data: data))
-        wire?.sendTerminal(.retitle(sessionID: id, command: text))
+        guard sendInChunks(data, to: id) else { return }
+        wire?.sendTerminal(.retitle(sessionID: id, command: String(text.prefix(200))))
         if let index = terminals.firstIndex(where: { $0.id == id }) {
             terminals[index].attention = nil
             terminals[index].failure = nil
@@ -97,7 +97,22 @@ extension MacSession {
     }
 
     func sendTerminalBytes(_ bytes: [UInt8], to id: UUID) {
-        wire?.sendTerminal(.input(sessionID: id, data: Data(bytes)))
+        sendInChunks(Data(bytes), to: id)
+    }
+
+    /// One control message is capped at 64 KB, so a long paste goes as several inputs; the stream keeps them in order.
+    @discardableResult
+    private func sendInChunks(_ data: Data, to id: UUID) -> Bool {
+        guard ControlTextPolicy.verdict(forTerminalInput: data) == .fits else {
+            if let index = terminals.firstIndex(where: { $0.id == id }) {
+                terminals[index].failure = String(localized: "That is too much to paste into a terminal at once.")
+            }
+            return false
+        }
+        for chunk in ControlTextPolicy.terminalChunks(data) {
+            wire?.sendTerminal(.input(sessionID: id, data: chunk))
+        }
+        return true
     }
 
     /// **Rows only ever grow, and that is what keeps the keyboard out of a terminal.** Opening it
