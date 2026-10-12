@@ -11,10 +11,10 @@ public enum AgentTurnDigest {
     }
 
     /// "3 files changed · 2m 14s", or nil when the turn changed nothing and took no time worth saying.
-    public static func detail(editedFiles: Int, duration: TimeInterval?) -> String? {
+    public static func detail(editedFiles: Int, duration: TimeInterval?, words: AgentNotificationWords = .english) -> String? {
         var parts: [String] = []
-        if editedFiles > 0 { parts.append(editedFiles == 1 ? "1 file changed" : "\(editedFiles) files changed") }
-        if let duration, duration >= 5 { parts.append(AgentTurnFormat.duration(duration)) }
+        if editedFiles > 0 { parts.append(words.filesChanged(editedFiles)) }
+        if let duration, duration >= 5 { parts.append(words.duration(duration)) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }

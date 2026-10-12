@@ -2,8 +2,17 @@ import Foundation
 
 /// The words of the pushes an agent chat sends when the phone is away.
 public enum AgentNotificationText {
-    public static func approval(agentName: String, reason: String?, detail: String?) -> (title: String, body: String) {
-        ("\(agentName) asks", AgentApprovalNotification.truncated(AgentApprovalBody.text(command: detail, reason: reason) ?? "").nonEmpty ?? "Needs your approval.")
+    public static func approval(
+        agentName: String,
+        reason: String?,
+        detail: String?,
+        words: AgentNotificationWords = .english
+    ) -> (title: String, body: String) {
+        (
+            words.asks(agentName),
+            AgentApprovalNotification.truncated(AgentApprovalBody.text(command: detail, reason: reason) ?? "").nonEmpty
+                ?? words.needsApproval
+        )
     }
 
     public static func finished(
@@ -12,18 +21,19 @@ public enum AgentNotificationText {
         stopped: Bool,
         lastReply: String?,
         editedFiles: Int = 0,
-        duration: TimeInterval? = nil
+        duration: TimeInterval? = nil,
+        words: AgentNotificationWords = .english
     ) -> (title: String, body: String) {
-        let outcome = ok ? "finished" : (stopped ? "stopped" : "failed")
-        let detail = AgentTurnDigest.detail(editedFiles: editedFiles, duration: duration)
+        let outcome: AgentNotificationWords.Outcome = ok ? .finished : (stopped ? .stopped : .failed)
+        let detail = AgentTurnDigest.detail(editedFiles: editedFiles, duration: duration, words: words)
         let headline: String
         if let lastReply, !lastReply.isEmpty {
             let firstLine = lastReply.split(separator: "\n").first.map(String.init) ?? lastReply
             headline = String(firstLine.prefix(140))
         } else {
-            headline = ok ? "The turn finished." : (stopped ? "The turn was stopped." : "The turn failed.")
+            headline = words.turn(outcome)
         }
-        return ("\(agentName) \(outcome)", detail.map { "\(headline)\n\($0)" } ?? headline)
+        return (words.title(agentName, outcome), detail.map { "\(headline)\n\($0)" } ?? headline)
     }
 }
 
