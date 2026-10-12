@@ -108,8 +108,8 @@ enum Analytics {
         case discovered, relay, pairing, address
     }
 
-    static func connectStarted(route: Route) {
-        send("connect_started", ["route": route.rawValue])
+    static func connectStarted(route: Route, sessionRef: String) {
+        send("connect_started", ["route": route.rawValue, "session_ref": sessionRef])
     }
 
     static func paywallShown(reason: String) {

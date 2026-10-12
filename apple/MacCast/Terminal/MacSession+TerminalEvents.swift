@@ -237,6 +237,7 @@ extension MacSession {
             forgetBrowsing(for: id)
             append(note: String(localized: "\(name) closed"))
         case .failed(let id, let message):
+            Analytics.terminalFailed(stage: id == nil ? .start : .stream)
             if let id, let index = terminals.firstIndex(where: { $0.id == id }) {
                 terminals[index].failure = message
             }

@@ -68,6 +68,7 @@ extension SSHModel {
                         )
                     }
                 case .failed(let error):
+                    Analytics.sshFailed(error, afterConnected: false)
                     let reason = Self.describe(error)
                     terminal.setPhase(.ended(reason))
                     self?.clearPendingBrowsing(for: terminal.id)

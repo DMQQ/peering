@@ -119,6 +119,7 @@ extension MacSession {
             }
 
         case .failed(let id, let message):
+            Analytics.agentFailed(stage: id == nil ? .start : .stream)
             #if DEBUG
             if let id, AgentSeed.owns(id) { return }
             #endif

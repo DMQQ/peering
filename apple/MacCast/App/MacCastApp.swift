@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) {
         // Remote push is the only way a Mac reaches this phone with no session up, and the error is the only evidence of why that never happens, so it is kept.
         SessionNotifier.shared.remoteTokenDidFail(error)
+        Analytics.pushRegistrationFailed(error)
     }
 }
 
@@ -55,6 +56,7 @@ struct MacCastApp: App {
     init() {
         PostHogConfiguration.setup()
         Analytics.observeSettings()
+        PinStoreAlarm.install { Analytics.pinStoreUnreadable(status: $0) }
 
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "Peering.clearDelivered") {

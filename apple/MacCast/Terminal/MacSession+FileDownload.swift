@@ -75,6 +75,7 @@ extension MacSession {
             try download.handle?.write(contentsOf: data)
         } catch {
             Analytics.failed(error, in: .fileTransfer)
+            Analytics.fileTransferFailed(error, direction: .down, stage: .write, bytes: totalBytes)
             fail(download, message: String(localized: "This phone could not save the file: \(error.localizedDescription)"), sessionID: id)
             return
         }

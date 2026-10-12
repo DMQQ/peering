@@ -39,6 +39,7 @@ extension SessionModel {
         do {
             hostID = try PairingPayload.hostID(from: text)
         } catch let problem as PairingPayloadError {
+            Analytics.pairingInputRefused(problem, stage: .codeEntry)
             return problem
         } catch {
             // Unreachable: `PairingPayload` reports every refusal as its own case.
@@ -59,6 +60,7 @@ extension SessionModel {
         // Declining ends the session from the Mac's side too and arrives as `.disconnected`, so without this the user's own "no" reads as a lost connection.
         if !accepted { activeSession?.userEndedDeliberately = true }
         Analytics.pairingDecided(accepted: accepted)
+        if !accepted { Analytics.pairingFailed(stage: .confirm, reason: "cancelled") }
         PostHogLog.info("pairing decision submitted", attributes: [
             "pairing_outcome": accepted ? "accepted" : "declined",
         ])
