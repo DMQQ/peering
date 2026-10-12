@@ -3,7 +3,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use peering_core::ports::secret_store::SecretStore;
+use peering_core::ports::secret_store::{SecretStore, StoreError};
 
 pub mod client;
 
@@ -11,6 +11,7 @@ pub mod client;
 pub struct MemorySecrets {
     values: RefCell<HashMap<String, Vec<u8>>>,
     refuse_writes: bool,
+    refused_reads: Vec<String>,
 }
 
 impl MemorySecrets {
@@ -23,14 +24,22 @@ impl MemorySecrets {
         Self { refuse_writes: true, ..self }
     }
 
+    pub fn refusing_reads_of(mut self, name: &str) -> Self {
+        self.refused_reads.push(name.to_owned());
+        self
+    }
+
     pub fn value(&self, name: &str) -> Option<Vec<u8>> {
         self.values.borrow().get(name).cloned()
     }
 }
 
 impl SecretStore for MemorySecrets {
-    fn read(&self, name: &str) -> Option<Vec<u8>> {
-        self.values.borrow().get(name).cloned()
+    fn read(&self, name: &str) -> Result<Option<Vec<u8>>, StoreError> {
+        if self.refused_reads.iter().any(|refused| refused == name) {
+            return Err(StoreError);
+        }
+        Ok(self.values.borrow().get(name).cloned())
     }
 
     fn write(&self, name: &str, value: &[u8]) -> bool {

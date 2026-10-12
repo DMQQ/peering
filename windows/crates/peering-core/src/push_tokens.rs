@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use crate::ports::secret_store::SecretStore;
+use crate::ports::secret_store::{SecretStore, StoreError};
 
 const STORAGE_NAME: &str = "pushTokens";
 
@@ -19,17 +19,18 @@ pub struct PushTokenStore<S: SecretStore> {
 }
 
 impl<S: SecretStore> PushTokenStore<S> {
-    /// Loads the saved tokens. A value that does not decode as a map of strings is treated as none saved.
-    pub fn open(secrets: S) -> Self {
+    /// Loads the saved tokens. A value that does not decode as a map of strings is treated as none saved; a read
+    /// that fails is an error, because continuing would overwrite the saved tokens on the next change.
+    pub fn open(secrets: S) -> Result<Self, StoreError> {
         let tokens = secrets
-            .read(STORAGE_NAME)
+            .read(STORAGE_NAME)?
             .and_then(|bytes| serde_json::from_slice::<BTreeMap<String, String>>(&bytes).ok())
             .unwrap_or_default();
-        Self {
+        Ok(Self {
             secrets,
             tokens: Mutex::new(tokens),
             change_order: Mutex::new(()),
-        }
+        })
     }
 
     /// Stores the token for a client, or forgets it when `bytes` is empty. Returns false, changing nothing,
@@ -98,7 +99,7 @@ mod tests {
     struct SharedSecrets(Arc<InMemorySecretStore>);
 
     impl SecretStore for SharedSecrets {
-        fn read(&self, name: &str) -> Option<Vec<u8>> {
+        fn read(&self, name: &str) -> Result<Option<Vec<u8>>, StoreError> {
             self.0.read(name)
         }
         fn write(&self, name: &str, value: &[u8]) -> bool {
@@ -111,7 +112,7 @@ mod tests {
 
     fn empty_store() -> (Arc<InMemorySecretStore>, PushTokenStore<SharedSecrets>) {
         let secrets = Arc::new(InMemorySecretStore::default());
-        let store = PushTokenStore::open(SharedSecrets(Arc::clone(&secrets)));
+        let store = PushTokenStore::open(SharedSecrets(Arc::clone(&secrets))).expect("store opens");
         (secrets, store)
     }
 
@@ -168,7 +169,7 @@ mod tests {
         let (secrets, store) = empty_store();
         assert!(store.register("phone-a", &[0xab]));
         drop(store);
-        let reopened = PushTokenStore::open(SharedSecrets(secrets));
+        let reopened = PushTokenStore::open(SharedSecrets(secrets)).expect("store opens");
         assert_eq!(reopened.token_for("phone-a").as_deref(), Some("ab"));
     }
 
@@ -191,7 +192,7 @@ mod tests {
         secrets.set_fail_writes(true);
         assert!(!store.register("phone-a", &[1]));
         drop(store);
-        let reopened = PushTokenStore::open(SharedSecrets(secrets));
+        let reopened = PushTokenStore::open(SharedSecrets(secrets)).expect("store opens");
         assert!(reopened.all().is_empty());
     }
 
@@ -199,7 +200,18 @@ mod tests {
     fn a_saved_value_that_is_not_a_token_map_is_read_as_none() {
         let secrets = Arc::new(InMemorySecretStore::default());
         assert!(secrets.write(STORAGE_NAME, b"not json"));
-        let store = PushTokenStore::open(SharedSecrets(secrets));
+        let store = PushTokenStore::open(SharedSecrets(secrets)).expect("store opens");
         assert!(store.all().is_empty());
+    }
+
+    #[test]
+    fn a_failed_read_refuses_to_open_so_saved_tokens_are_not_overwritten() {
+        let secrets = Arc::new(InMemorySecretStore::default());
+        assert!(secrets.write(STORAGE_NAME, br#"{"phone-a":"0a"}"#));
+        secrets.set_fail_reads(true);
+        assert!(PushTokenStore::open(SharedSecrets(Arc::clone(&secrets))).is_err());
+        secrets.set_fail_reads(false);
+        let store = PushTokenStore::open(SharedSecrets(secrets)).expect("store opens");
+        assert_eq!(store.token_for("phone-a").as_deref(), Some("0a"));
     }
 }

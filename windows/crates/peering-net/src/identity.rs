@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use peering_core::ports::secret_store::SecretStore;
+use peering_core::ports::secret_store::{SecretStore, StoreError};
 use peering_wire::relay_proof::ProofSigner;
 use rustls_pki_types::PrivatePkcs8KeyDer;
 use rcgen::{
@@ -21,10 +21,14 @@ const ORGANISATION: &str = "Peering";
 
 #[derive(Debug, thiserror::Error)]
 pub enum IdentityError {
+    #[error("the identity key could not be read")]
+    KeyUnreadable(#[source] StoreError),
     #[error("the identity key could not be stored")]
     KeyNotStored,
     #[error("the stored identity key is not a P-256 PKCS8 key")]
     KeyRejected,
+    #[error("the device id could not be read")]
+    DeviceIdUnreadable(#[source] StoreError),
     #[error("the device id could not be stored")]
     DeviceIdNotStored,
     #[error("the stored device id is not valid UTF-8")]
@@ -47,7 +51,7 @@ pub struct HostIdentity {
 
 impl HostIdentity {
     /// Loads the stored key and device id, creating and storing them when absent, then mints a certificate for
-    /// `device_name`. The stored key is never replaced by a failed read: every paired peer pins it.
+    /// `device_name`. A failed read is an error, never a reason to create: every paired peer pins the key.
     pub fn load(store: &dyn SecretStore, device_name: &str) -> Result<Self, IdentityError> {
         let device_id = load_or_create_device_id(store)?;
         let pkcs8 = load_or_create_key(store)?;
@@ -120,7 +124,7 @@ impl ProofSigner for HostIdentity {
 }
 
 fn load_or_create_key(store: &dyn SecretStore) -> Result<Vec<u8>, IdentityError> {
-    if let Some(stored) = store.read(KEY_SECRET_NAME) {
+    if let Some(stored) = store.read(KEY_SECRET_NAME).map_err(IdentityError::KeyUnreadable)? {
         return Ok(stored);
     }
     let generated = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &SystemRandom::new())
@@ -133,7 +137,7 @@ fn load_or_create_key(store: &dyn SecretStore) -> Result<Vec<u8>, IdentityError>
 }
 
 fn load_or_create_device_id(store: &dyn SecretStore) -> Result<String, IdentityError> {
-    if let Some(stored) = store.read(DEVICE_ID_SECRET_NAME) {
+    if let Some(stored) = store.read(DEVICE_ID_SECRET_NAME).map_err(IdentityError::DeviceIdUnreadable)? {
         return String::from_utf8(stored).map_err(|_| IdentityError::DeviceIdNotUtf8);
     }
     let device_id = new_device_id()?;

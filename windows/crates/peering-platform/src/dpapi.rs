@@ -5,7 +5,7 @@ use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use peering_core::ports::secret_store::SecretStore;
+use peering_core::ports::secret_store::{SecretStore, StoreError};
 
 #[cfg(windows)]
 mod sys;
@@ -51,10 +51,14 @@ pub fn secret_path(directory: &Path, name: &str) -> Option<PathBuf> {
 }
 
 impl<P: Protector> SecretStore for SecretFiles<P> {
-    fn read(&self, name: &str) -> Option<Vec<u8>> {
-        let path = secret_path(&self.directory, name)?;
-        let sealed = fs::read(path).ok()?;
-        self.protector.unprotect(&sealed)
+    fn read(&self, name: &str) -> Result<Option<Vec<u8>>, StoreError> {
+        let path = secret_path(&self.directory, name).ok_or(StoreError)?;
+        let sealed = match fs::read(path) {
+            Ok(sealed) => sealed,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err(StoreError),
+        };
+        self.protector.unprotect(&sealed).map(Some).ok_or(StoreError)
     }
 
     fn write(&self, name: &str, value: &[u8]) -> bool {
@@ -145,7 +149,7 @@ mod tests {
         let dir = TestDirectory::new("round-trip");
         let store = dir.store(false);
         assert!(store.write("host-key", b"secret bytes"));
-        assert_eq!(store.read("host-key"), Some(b"secret bytes".to_vec()));
+        assert_eq!(store.read("host-key"), Ok(Some(b"secret bytes".to_vec())));
     }
 
     #[test]
@@ -161,7 +165,7 @@ mod tests {
         let dir = TestDirectory::new("refused-seal");
         assert!(dir.store(false).write("host-key", b"old"));
         assert!(!dir.store(true).write("host-key", b"new"));
-        assert_eq!(dir.store(false).read("host-key"), Some(b"old".to_vec()));
+        assert_eq!(dir.store(false).read("host-key"), Ok(Some(b"old".to_vec())));
     }
 
     #[test]
@@ -170,13 +174,28 @@ mod tests {
         assert!(dir.store(false).write("host-key", b"old"));
         fs::create_dir(dir.0.join("host-key.tmp")).expect("a directory at the temporary name blocks the write");
         assert!(!dir.store(false).write("host-key", b"new"));
-        assert_eq!(dir.store(false).read("host-key"), Some(b"old".to_vec()));
+        assert_eq!(dir.store(false).read("host-key"), Ok(Some(b"old".to_vec())));
     }
 
     #[test]
     fn an_unknown_name_reads_as_none() {
         let dir = TestDirectory::new("unknown");
-        assert_eq!(dir.store(false).read("missing"), None);
+        assert_eq!(dir.store(false).read("missing"), Ok(None));
+    }
+
+    #[test]
+    fn a_file_that_does_not_unseal_is_a_read_error_not_none() {
+        let dir = TestDirectory::new("bad-seal");
+        assert!(dir.store(false).write("host-key", b"secret"));
+        fs::write(dir.0.join("host-key"), b"tampered").expect("the secret file is writable");
+        assert_eq!(dir.store(false).read("host-key"), Err(StoreError));
+    }
+
+    #[test]
+    fn a_secret_file_that_cannot_be_opened_is_a_read_error_not_none() {
+        let dir = TestDirectory::new("unopenable");
+        fs::create_dir_all(dir.0.join("host-key")).expect("a directory where the secret file would be");
+        assert_eq!(dir.store(false).read("host-key"), Err(StoreError));
     }
 
     #[test]
@@ -185,16 +204,16 @@ mod tests {
         let store = dir.store(false);
         assert!(store.write("pin", b"1"));
         assert!(store.remove("pin"));
-        assert_eq!(store.read("pin"), None);
+        assert_eq!(store.read("pin"), Ok(None));
         assert!(store.remove("pin"));
     }
 
     #[test]
-    fn a_name_that_cannot_be_a_file_is_refused_on_write_and_reads_empty() {
+    fn a_name_that_cannot_be_a_file_is_refused_on_write_and_read_as_an_error() {
         let dir = TestDirectory::new("bad-name");
         let store = dir.store(false);
         assert!(!store.write("../escape", b"x"));
-        assert_eq!(store.read("../escape"), None);
+        assert_eq!(store.read("../escape"), Err(StoreError));
     }
 
     #[test]

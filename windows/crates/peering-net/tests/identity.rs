@@ -31,6 +31,29 @@ fn a_stored_key_is_loaded_and_never_replaced() {
 }
 
 #[test]
+fn a_failed_key_read_is_an_error_and_mints_no_new_key() {
+    let original = load(&MemorySecrets::default());
+    let store = MemorySecrets::default()
+        .with_value(KEY_SECRET_NAME, original.private_key_pkcs8())
+        .with_value(DEVICE_ID_SECRET_NAME, original.device_id().as_bytes())
+        .refusing_reads_of(KEY_SECRET_NAME);
+    let result = HostIdentity::load(&store, "Studio Mac");
+    assert!(matches!(result, Err(IdentityError::KeyUnreadable(_))));
+    assert_eq!(store.value(KEY_SECRET_NAME).as_deref(), Some(original.private_key_pkcs8()));
+}
+
+#[test]
+fn a_failed_device_id_read_is_an_error_and_writes_nothing() {
+    let key = load(&MemorySecrets::default());
+    let store = MemorySecrets::default()
+        .with_value(KEY_SECRET_NAME, key.private_key_pkcs8())
+        .refusing_reads_of(DEVICE_ID_SECRET_NAME);
+    let result = HostIdentity::load(&store, "Studio Mac");
+    assert!(matches!(result, Err(IdentityError::DeviceIdUnreadable(_))));
+    assert_eq!(store.value(DEVICE_ID_SECRET_NAME), None);
+}
+
+#[test]
 fn a_refused_key_write_is_an_error_not_a_silent_identity() {
     let store = MemorySecrets::default()
         .with_value(DEVICE_ID_SECRET_NAME, b"0F6B2C1E-8D4A-4B7E-9C3D-1A2B3C4D5E6F")
