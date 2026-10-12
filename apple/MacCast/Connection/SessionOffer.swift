@@ -35,7 +35,9 @@ extension SessionModel {
             relayAllowanceRemainingFraction: relayAllowanceRemainingFraction,
             relaySecondsRemainingEstimate: relaySecondsRemainingEstimate,
             currentWindow: relayWindowNumber,
-            offeredWindow: lowRelayOfferWindow
+            offeredWindow: lowRelayOfferWindow,
+            relayReport: relayRemainingSecondsFromRelay,
+            relayAllowanceSeconds: relayAllowanceSeconds
         )
     }
 

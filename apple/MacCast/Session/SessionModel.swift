@@ -249,6 +249,9 @@ final class SessionModel {
     /// `quotaExceeded` looks identical whether the user tapped Connect into a spent allowance or the relay cut a running session, and only the first is a wall they walked into.
     var relaySessionDropped = false
 
+    /// The relay's own count of what is left today, as of the last relayed session it set up or refused. Outranks ``relaySecondsRemainingEstimate`` wherever a screen would claim the allowance is spent.
+    var relayRemainingSecondsFromRelay: RelayRemainingReport?
+
     /// Closing alone is not enough: a failed attempt during a resume is swallowed, so the phase can be left on a connecting state with nothing behind it.
     func dismissSpentAllowance() {
         spentAllowance = nil

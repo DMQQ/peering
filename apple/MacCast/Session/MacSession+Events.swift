@@ -285,7 +285,13 @@ extension MacSession {
             // Arrives just before the failure it explains, so that failure ends the session instead of arming the ladder against a Mac that is no longer listening.
             userEndedDeliberately = true
             stopReconnecting()
+        case .relayRemaining(let seconds):
+            model.relayRemainingSecondsFromRelay = RelayRemainingReport(
+                seconds: TimeInterval(seconds),
+                receivedAt: Date()
+            )
         case .relayQuotaExceeded:
+            model.relayRemainingSecondsFromRelay = RelayRemainingReport(seconds: 0, receivedAt: Date())
             // Through ``StoreManager/access``, the answer every other screen states: `relayPlan` is what the device tells the relay and is free with no receipt (a developer override, or before StoreKit answers), so read for copy it contradicted every badge.
             let plan = model.storeManager.access.plan
             if plan?.isUnlimited != false {
