@@ -7,6 +7,7 @@
 //! the chat and file requests, `pins` stores paired devices, `services` holds the platform adapters.
 
 mod advertise;
+mod ask_queue;
 mod agent;
 mod agent_browse;
 mod agent_pump;
@@ -59,6 +60,7 @@ use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 use tokio::task::{JoinHandle, LocalSet};
 
+pub use ask_queue::AskReceiver;
 pub use clock::SystemClock;
 pub use config::{RelayConfig, RuntimeConfig};
 pub use error::RuntimeError;
@@ -226,8 +228,8 @@ impl HostRuntime {
 
     /// Attaches a signalling socket to the relay's address answers, as the relay connection does when it opens. Returns the
     /// `requestPeerAddress` asks the video lanes make, for the caller to send on that socket.
-    pub fn attach_signalling(&self) -> tokio::sync::mpsc::UnboundedReceiver<RelayClientMessage> {
-        let (outbound, asks) = tokio::sync::mpsc::unbounded_channel();
+    pub fn attach_signalling(&self) -> AskReceiver<RelayClientMessage> {
+        let (outbound, asks) = peer_address::signalling_channel();
         self.shared.peer_addresses().attach(Some(outbound));
         asks
     }

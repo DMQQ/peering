@@ -17,7 +17,6 @@ use rustls::crypto::ring::default_provider;
 use rustls::{ClientConfig, RootCertStore};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tokio::sync::mpsc;
 use tokio::task::spawn_local;
 use tokio::time::{interval, timeout, Interval};
 use tokio_tungstenite::tungstenite::Message;
@@ -26,7 +25,7 @@ use tokio_tungstenite::{connect_async_tls_with_config, Connector, MaybeTlsStream
 use super::connection::serve_counted;
 use super::control::RelayStatus;
 use super::diagnostics;
-use super::peer_address::peer_socket_addr;
+use super::peer_address::{peer_socket_addr, signalling_channel};
 use super::pre_auth::{PreAuthGate, PreAuthPermit};
 use super::random::unit_fraction;
 use super::shared::Shared;
@@ -86,7 +85,7 @@ async fn serve_connection(
         return;
     };
     let mut pending = registration.start(clock);
-    let (asks_tx, mut asks) = mpsc::unbounded_channel();
+    let (asks_tx, mut asks) = signalling_channel();
     shared.peer_addresses().attach(Some(asks_tx));
     loop {
         if apply(&mut socket, &mut pending, Dialer { shared, profile, tls, dials }).await.is_break() {

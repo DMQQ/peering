@@ -13,10 +13,11 @@ use peering_core::video::lane::VideoLane;
 use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::sealing::MAX_DATAGRAM_SIZE;
 use tokio::net::{lookup_host, UdpSocket};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use tokio::time::interval;
 
+use super::ask_queue::AskSender;
 use super::outbound::OutboundReceiver;
+use super::peer_address::answer_channel;
 use super::shared::Shared;
 use super::{HostProfile, VideoEndpoint};
 use route::{arrival_path, route, Path};
@@ -38,7 +39,7 @@ pub async fn run(
     let Ok(socket) = bind_for(relay).await else {
         return;
     };
-    let (answers_tx, mut answers) = unbounded_channel();
+    let (answers_tx, mut answers) = answer_channel();
     let mut lane = RelayLane { shared, profile, session_id, socket, relay, token, knocker: DirectPathKnocker::new(), answers_tx };
     if !lane.on_tick().await {
         return;
@@ -85,7 +86,7 @@ struct RelayLane {
     relay: SocketAddr,
     token: [u8; 16],
     knocker: DirectPathKnocker,
-    answers_tx: UnboundedSender<SocketAddr>,
+    answers_tx: AskSender<SocketAddr>,
 }
 
 impl RelayLane {
