@@ -328,4 +328,5 @@
     <string name="scan_code_mismatch">That code is not the one on your screen.</string>
     <string name="pairing_code_scan">Scan the code on your Mac</string>
     <string name="preview_destination_failed">The file could not be saved to the place you chose.</string>
+    <string name="agents_recent_folders">Recent folders</string>
 </resources>

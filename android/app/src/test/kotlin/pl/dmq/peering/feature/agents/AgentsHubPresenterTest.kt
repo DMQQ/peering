@@ -39,7 +39,7 @@ class AgentsHubPresenterTest {
         init {
             val scope = CoroutineScope(UnconfinedTestDispatcher())
             folders = FolderPicker({ folderRequests += it }, scope)
-            presenter = AgentsHubPresenter(port, declared, supported, folders, clock, scope)
+            presenter = AgentsHubPresenter(port, declared, supported, folders, FolderRecents(InMemoryFolderRecentsStore(), "mac"), clock, scope)
         }
     }
 

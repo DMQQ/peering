@@ -10,6 +10,7 @@ import pl.dmq.peering.ui.nav.ScreenRegistry
 import pl.dmq.peering.ui.wiring.DiscoveryHostSource
 import pl.dmq.peering.ui.wiring.PinTrustedHosts
 import pl.dmq.peering.ui.wiring.PreferencesComposerDrafts
+import pl.dmq.peering.ui.wiring.PreferencesFolderRecents
 import pl.dmq.peering.ui.wiring.PreferencesFirstRunStore
 import pl.dmq.peering.ui.wiring.PreferencesSettingsStore
 import pl.dmq.peering.ui.wiring.SessionHolder
@@ -25,6 +26,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val qrSource = CameraQrSource()
     val clock: Clock = graph.sessions.clock
     val drafts = PreferencesComposerDrafts(preferences)
+    val folderRecents = PreferencesFolderRecents(preferences)
     val firstRun = PreferencesFirstRunStore(preferences)
     val settings = PreferencesSettingsStore(preferences)
     val trusted = PinTrustedHosts(graph.sessions.pins)

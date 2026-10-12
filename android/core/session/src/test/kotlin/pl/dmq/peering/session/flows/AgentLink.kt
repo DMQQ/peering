@@ -1,5 +1,6 @@
 package pl.dmq.peering.session.flows
 
+import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.wire.AgentRequest
 
@@ -10,7 +11,7 @@ import pl.dmq.peering.wire.AgentRequest
 class AgentLink(private val host: ScriptedAgentHost) {
     val sent = mutableListOf<AgentRequest>()
     private val outbox = mutableListOf<AgentRequest>()
-    val chat = AgentChat(supportsAgentChat = true) { outbox += it }
+    val chat = AgentChat(AgentCapabilities(chat = true)) { outbox += it }
 
     fun pump() {
         while (outbox.isNotEmpty()) {

@@ -1,19 +1,22 @@
 package pl.dmq.peering.ui.wiring
 
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import pl.dmq.peering.feature.agents.AgentsPort
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.session.agent.ApprovalAnswer
+import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 
 /**
  * The agents screens over the session's agent chat. The chat acts on the selected session, so each call that names a
- * session selects it first. Changing a session's model or permission mode and asking for folders are not carried by the
- * chat yet, so those calls do nothing; the screens reach them only from controls the host has not declared.
+ * session selects it first.
  */
 internal class ChatAgentsPort(private val chat: AgentChat) : AgentsPort {
     override val chats: StateFlow<AgentChatState> get() = chat.state
+
+    override val browseEvents: Flow<AgentEvent> get() = chat.browseEvents
 
     override fun list() = chat.list()
 
@@ -41,9 +44,9 @@ internal class ChatAgentsPort(private val chat: AgentChat) : AgentsPort {
         chat.interrupt()
     }
 
-    override fun setPermissionMode(sessionID: String, mode: AgentPermissionMode) = Unit
+    override fun setPermissionMode(sessionID: String, mode: AgentPermissionMode) = chat.setPermissionMode(sessionID, mode)
 
-    override fun setModel(sessionID: String, model: String?) = Unit
+    override fun setModel(sessionID: String, model: String?) = chat.setModel(sessionID, model)
 
-    override fun browse(path: String?) = Unit
+    override fun browse(path: String?) = chat.browse(path)
 }

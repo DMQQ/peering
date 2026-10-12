@@ -18,6 +18,7 @@ class AgentsHubPresenter(
     declaredAgentIDs: List<String>,
     private val chatSupported: Boolean,
     private val folders: FolderPicker,
+    private val recents: FolderRecents,
     clock: Clock,
     scope: CoroutineScope,
 ) {
@@ -25,8 +26,9 @@ class AgentsHubPresenter(
     private val activity = SessionActivity(clock)
     private val step = MutableStateFlow<NewChatStep>(NewChatStep.Closed)
 
-    val ui: StateFlow<HubUi> = combine(port.chats, step) { chats, currentStep -> derive(chats, currentStep) }
-        .stateIn(scope, SharingStarted.Eagerly, derive(port.chats.value, NewChatStep.Closed))
+    val ui: StateFlow<HubUi> = combine(port.chats, step, recents.paths) { chats, currentStep, folderPaths ->
+        derive(chats, currentStep, folderPaths)
+    }.stateIn(scope, SharingStarted.Eagerly, derive(port.chats.value, NewChatStep.Closed, recents.paths.value))
 
     fun refresh() = port.list()
 
@@ -49,6 +51,7 @@ class AgentsHubPresenter(
         val chosen = step.value as? NewChatStep.ChoosingFolder ?: return
         val directory = folders.ui.value.usablePath ?: return
         port.start(chosen.agentID, directory)
+        recents.record(directory)
         step.value = NewChatStep.Closed
     }
 
@@ -60,7 +63,7 @@ class AgentsHubPresenter(
         step.value = NewChatStep.Closed
     }
 
-    private fun derive(chats: AgentChatState, currentStep: NewChatStep): HubUi {
+    private fun derive(chats: AgentChatState, currentStep: NewChatStep, folderPaths: List<String>): HubUi {
         val cards = chats.sessions.map { session ->
             val pending = session.pendingApprovalCount()
             SessionCard(
@@ -79,6 +82,7 @@ class AgentsHubPresenter(
             agents = agents,
             newChat = currentStep,
             failure = chats.failure,
+            recentFolders = folderPaths,
         )
     }
 }

@@ -15,7 +15,7 @@ import pl.dmq.peering.wire.AgentTurnSummary
 
 class AgentChatTest {
     private val sent = mutableListOf<AgentRequest>()
-    private val chat = AgentChat(supportsAgentChat = true) { sent += it }
+    private val chat = AgentChat(AgentCapabilities(chat = true)) { sent += it }
 
     private fun info(id: String, state: AgentSessionState = AgentSessionState.IDLE) = AgentSessionInfo(
         id = id,
@@ -36,7 +36,7 @@ class AgentChatTest {
 
     @Test
     fun aChatSendsNothingWithoutTheHostsSupport() {
-        val silent = AgentChat(supportsAgentChat = false) { sent += it }
+        val silent = AgentChat(AgentCapabilities()) { sent += it }
         silent.list()
         silent.start("claude", "/work")
         silent.onEvent(AgentEvent.Snapshot(listOf(info("A"), info("B"))))

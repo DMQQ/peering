@@ -1,5 +1,6 @@
 package pl.dmq.peering.session.controller
 
+import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.files.FileBrowser
 import pl.dmq.peering.wire.Frame
@@ -19,7 +20,7 @@ internal class SessionServices(private val ports: SessionPorts, private val curr
 
     fun attach(hello: ServerHello) {
         if (hello.supportsAgentChat == true && agentChat == null) {
-            agentChat = AgentChat(supportsAgentChat = true) { request ->
+            agentChat = AgentChat(AgentCapabilities.declaredBy(hello)) { request ->
                 currentLink()?.enqueue(Frame(MessageKind.AgentRequest, request.toJson().toByteArray(Charsets.UTF_8)))
             }
         }

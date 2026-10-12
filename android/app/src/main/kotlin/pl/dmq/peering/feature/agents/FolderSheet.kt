@@ -31,6 +31,7 @@ import pl.dmq.peering.ui.theme.PeeringColors
 @Composable
 fun FolderSheet(
     folders: FolderPicker,
+    recentFolders: List<String>,
     onUseFolder: () -> Unit,
     onBack: () -> Unit,
     onDismiss: () -> Unit,
@@ -46,6 +47,18 @@ fun FolderSheet(
             Text(ui.path.orEmpty(), style = MaterialTheme.typography.bodySmall, color = PeeringColors.muted, maxLines = 2)
             ui.waitingNote?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = PeeringColors.muted) }
             ui.failure?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = PeeringColors.danger) }
+            if (recentFolders.isNotEmpty()) {
+                Text(stringResource(R.string.agents_recent_folders), style = MaterialTheme.typography.labelLarge, color = PeeringColors.muted)
+                recentFolders.forEach { path ->
+                    Text(
+                        path,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = PeeringColors.ink,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth().clickable { folders.open(path) }.padding(vertical = 6.dp),
+                    )
+                }
+            }
             OutlinedTextField(
                 value = ui.query,
                 onValueChange = folders::setQuery,

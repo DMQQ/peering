@@ -26,6 +26,7 @@ internal fun SessionTab(wiring: FeatureWiring) {
             active = session,
             picture = wiring.picture,
             drafts = wiring.drafts,
+            folderRecents = wiring.folderRecents,
             clock = wiring.clock,
             onClose = null,
         )

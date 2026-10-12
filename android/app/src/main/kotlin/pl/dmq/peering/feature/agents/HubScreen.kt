@@ -74,6 +74,7 @@ fun HubScreen(
         )
         is NewChatStep.ChoosingFolder -> FolderSheet(
             folders = folders,
+            recentFolders = ui.recentFolders,
             onUseFolder = presenter::startInChosenFolder,
             onBack = presenter::backToAgents,
             onDismiss = presenter::cancelNewChat,

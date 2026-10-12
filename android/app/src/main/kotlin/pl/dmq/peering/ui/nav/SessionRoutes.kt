@@ -22,10 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.emptyFlow
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.agents.AgentsRoute
 import pl.dmq.peering.feature.agents.ComposerDraftStore
+import pl.dmq.peering.feature.agents.FolderRecents
+import pl.dmq.peering.feature.agents.FolderRecentsStore
 import pl.dmq.peering.feature.files.FilesRoute
 import pl.dmq.peering.feature.paywall.PaywallReason
 import pl.dmq.peering.feature.paywall.PaywallRoute
@@ -56,6 +57,7 @@ internal fun SessionScreens(
     active: ActiveSession,
     picture: SurfacePicture,
     drafts: ComposerDraftStore,
+    folderRecents: FolderRecentsStore,
     clock: Clock,
     onClose: (() -> Unit)?,
 ) {
@@ -70,7 +72,7 @@ internal fun SessionScreens(
     }
     when (route) {
         SessionRoute.REMOTE -> RemoteWithNotice(remote, session.phase)
-        SessionRoute.AGENTS -> AgentsScreen(active, drafts, clock) { route = SessionRoute.REMOTE }
+        SessionRoute.AGENTS -> AgentsScreen(active, drafts, folderRecents, clock) { route = SessionRoute.REMOTE }
         SessionRoute.FILES -> FilesScreen(active) { route = SessionRoute.REMOTE }
         SessionRoute.PAYWALL -> PaywallRoute(
             billing = StorePaywallBilling(UnboundBilling),
@@ -105,6 +107,7 @@ private fun RemoteWithNotice(remote: RemoteModel, phase: SessionPhase) {
 private fun AgentsScreen(
     active: ActiveSession,
     drafts: ComposerDraftStore,
+    folderRecents: FolderRecentsStore,
     clock: Clock,
     onBack: () -> Unit,
 ) {
@@ -116,10 +119,12 @@ private fun AgentsScreen(
     BackHandler(onBack = onBack)
     AgentsRoute(
         port = remember(chat) { ChatAgentsPort(chat) },
-        browseEvents = remember { emptyFlow() },
+        recents = remember(folderRecents, active.target.hostId) {
+            FolderRecents(folderRecents, active.target.hostId.orEmpty())
+        },
         declaredAgentIDs = active.controller.declaredAgentIDs,
         chatSupported = true,
-        modelPickerSupported = false,
+        modelPickerSupported = chat.capabilities.modelPicker,
         draftStore = drafts,
         clock = clock,
     )

@@ -11,18 +11,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import kotlinx.coroutines.flow.Flow
 import pl.dmq.peering.session.ports.Clock
-import pl.dmq.peering.wire.AgentEvent
 
 /**
- * The agents feature as one screen: the hub of chats, and the chat open on it. [browseEvents] carries the Mac's
- * folder listings and failures; everything else the screens need arrives through [port].
+ * The agents feature as one screen: the hub of chats, and the chat open on it. Everything the screens need arrives
+ * through [port].
  */
 @Composable
 fun AgentsRoute(
     port: AgentsPort,
-    browseEvents: Flow<AgentEvent>,
+    recents: FolderRecents,
     declaredAgentIDs: List<String>,
     chatSupported: Boolean,
     modelPickerSupported: Boolean,
@@ -33,7 +31,7 @@ fun AgentsRoute(
     val scope = rememberCoroutineScope()
     val folders = remember(port) { FolderPicker(port::browse, scope) }
     val hub = remember(port, declaredAgentIDs, chatSupported) {
-        AgentsHubPresenter(port, declaredAgentIDs, chatSupported, folders, clock, scope)
+        AgentsHubPresenter(port, declaredAgentIDs, chatSupported, folders, recents, clock, scope)
     }
     val transcript = remember(port) { TranscriptPresenter(port.chats, scope) }
     val composer = remember(port, modelPickerSupported) {
@@ -43,7 +41,7 @@ fun AgentsRoute(
     var showingChat by remember { mutableStateOf(false) }
 
     LaunchedEffect(folders) {
-        browseEvents.collect(folders::onEvent)
+        port.browseEvents.collect(folders::onEvent)
     }
 
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {

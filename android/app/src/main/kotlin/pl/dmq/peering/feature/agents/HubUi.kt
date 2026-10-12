@@ -15,4 +15,5 @@ data class HubUi(
     val agents: List<AgentOption>,
     val newChat: NewChatStep,
     val failure: String?,
+    val recentFolders: List<String>,
 )
