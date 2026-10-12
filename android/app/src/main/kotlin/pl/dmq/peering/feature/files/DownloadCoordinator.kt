@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.files
 
+import pl.dmq.peering.DebugLog
 import java.util.TreeMap
 
 /**
@@ -61,7 +62,8 @@ class DownloadCoordinator(private val sink: DownloadSink) {
     private fun discardSink() {
         try {
             sink.discard()
-        } catch (_: Exception) {
+        } catch (failure: Exception) {
+            DebugLog.w(TAG, { "discarding the download failed" }, failure)
         }
     }
 }
@@ -77,3 +79,5 @@ sealed interface DownloadOutcome {
         }
     }
 }
+
+private const val TAG = "PeeringDownload"
