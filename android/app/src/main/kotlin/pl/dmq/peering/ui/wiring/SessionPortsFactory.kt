@@ -4,6 +4,7 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import pl.dmq.peering.SessionFactory
 import pl.dmq.peering.platform.net.UdpLane
+import pl.dmq.peering.platform.net.followMoves
 import pl.dmq.peering.platform.video.codecSupport
 import pl.dmq.peering.billing.Billing
 import pl.dmq.peering.session.clipboard.ClipboardHistory
@@ -48,7 +49,9 @@ internal class SessionPortsFactory(
             lanReached = lanAddresses::remember,
             clipboardHistory = clipboardHistory,
         )
-        return ActiveSession(target, SessionController(scope, target, ports, history), lane, downloads)
+        val controller = SessionController(scope, target, ports, history)
+        val networkWatch = sessions.networkChanges.followMoves(scope, controller::networkChanged)
+        return ActiveSession(target, controller, lane, downloads, networkWatch)
     }
 }
 
