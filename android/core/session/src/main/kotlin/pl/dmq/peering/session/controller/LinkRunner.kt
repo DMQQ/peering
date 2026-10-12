@@ -26,6 +26,7 @@ internal class LinkRunner(
     private val update: ((SessionUiState) -> SessionUiState) -> Unit,
     private val onPicture: () -> Unit,
     private val publish: (ConnectedLink) -> Unit,
+    private val phoneBackgrounded: () -> Boolean,
 ) {
     /** The session being served, or null between links. */
     var link: ConnectedLink? = null
@@ -174,6 +175,7 @@ internal class LinkRunner(
         )
         link = live
         everReady = true
+        if (phoneBackgrounded()) live.reportBackground(true)
         recorder.note("session ready with ${hello.hostName} over ${route.path}")
         if (route.path == SessionRecord.Path.LAN) ports.lanReached(hello.serverID, route.videoPeer)
         recorder.begin(hello, route.path)

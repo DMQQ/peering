@@ -40,6 +40,7 @@ pub enum MessageKind {
     PreviewRequest = 0x20,
     PreviewEvent = 0x21,
     PointerReport = 0x22,
+    ClientState = 0x23,
 }
 
 impl MessageKind {
@@ -79,6 +80,7 @@ impl MessageKind {
             0x20 => PreviewRequest,
             0x21 => PreviewEvent,
             0x22 => PointerReport,
+            0x23 => ClientState,
             _ => return None,
         })
     }

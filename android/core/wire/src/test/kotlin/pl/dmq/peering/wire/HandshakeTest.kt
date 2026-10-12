@@ -79,6 +79,24 @@ class HandshakeTest {
     }
 
     @Test
+    fun clientStateKindIsTheByte0x23AndItsPayloadIsAJsonObject() {
+        assertEquals(0x23, MessageKind.ClientState.byte)
+        assertEquals(MessageKind.ClientState, MessageKind.fromByte(0x23))
+        assertEquals("""{"background":true}""", WireJson.encodeToString(ClientStatePayload(true)))
+        assertEquals("""{"background":false}""", WireJson.encodeToString(ClientStatePayload(false)))
+    }
+
+    @Test
+    fun supportsClientStateIsOptionalOnTheServerHello() {
+        val absent = WireJson.decodeFromString<ServerHello>("""{"serverID":"s","hostName":"h","protocolVersion":20,"alreadyPaired":true}""")
+        assertNull(absent.supportsClientState)
+        val declared = WireJson.decodeFromString<ServerHello>(
+            """{"serverID":"s","hostName":"h","protocolVersion":20,"alreadyPaired":true,"supportsClientState":true}""",
+        )
+        assertEquals(true, declared.supportsClientState)
+    }
+
+    @Test
     fun explicitNullFlagsDecodeAsNull() {
         val hello = WireJson.decodeFromString<ClientHello>(
             """{"clientID":"c","clientName":"p","protocolVersion":20,"wantsPairing":true,"supportsAgentChat":null}""",

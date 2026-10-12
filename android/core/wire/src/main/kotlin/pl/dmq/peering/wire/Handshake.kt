@@ -54,6 +54,8 @@ data class ServerHello(
     val supportsAgentSessionImport: Boolean? = null,
     val supportsAgentPause: Boolean? = null,
     val hostPlatform: String? = null,
+    /** The host understands [ClientStatePayload]; a phone sends it only to a host that declared this. */
+    val supportsClientState: Boolean? = null,
 )
 
 @Serializable
@@ -109,6 +111,10 @@ const val MAX_CLIPBOARD_IMAGE_BYTES = 8 * 1024 * 1024
 
 /** Above [MAX_CLIPBOARD_IMAGE_BYTES] because the host guards the base64 form. */
 const val MAX_CLIPBOARD_REASSEMBLED_BYTES = 12 * 1024 * 1024
+
+/** Whether the phone is out of the foreground, so the host can stop encoding for a phone the OS has frozen. */
+@Serializable
+data class ClientStatePayload(val background: Boolean)
 
 /** A pong is matched to its ping by [sequence]. */
 @Serializable

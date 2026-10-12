@@ -37,7 +37,8 @@ enum class MessageKind(val byte: Int) {
     AgentEvent(0x1F),
     PreviewRequest(0x20),
     PreviewEvent(0x21),
-    PointerReport(0x22);
+    PointerReport(0x22),
+    ClientState(0x23);
 
     companion object {
         private val byByte: Map<Int, MessageKind> = entries.associateBy { it.byte }

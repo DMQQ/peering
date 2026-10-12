@@ -191,7 +191,11 @@ impl HostSession {
             protocol_version: PROTOCOL_VERSION,
             already_paired,
             mac_addresses: already_paired.then(|| self.config.mac_addresses.clone()),
-            capabilities: ServerCapabilities { supports_video_pause: Some(true), ..ServerCapabilities::default() },
+            capabilities: ServerCapabilities {
+                supports_video_pause: Some(true),
+                supports_client_state: Some(true),
+                ..ServerCapabilities::default()
+            },
             agent_chat_agents: None,
             host_platform: Some(HOST_PLATFORM.to_owned()),
         }

@@ -2,6 +2,9 @@ package pl.dmq.peering.ui.wiring
 
 import pl.dmq.peering.DebugLog
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import pl.dmq.peering.SessionFactory
 import pl.dmq.peering.platform.net.UdpLane
 import pl.dmq.peering.platform.net.followMoves
@@ -26,6 +29,7 @@ internal class SessionPortsFactory(
     private val billing: Billing,
     private val lanAddresses: RememberedLanAddresses,
     private val clipboardHistory: ClipboardHistory,
+    private val foreground: Flow<Boolean> = processForeground(),
     private val deviceName: () -> String,
 ) : SessionOpener {
     override fun open(target: ConnectTarget, scope: CoroutineScope): ActiveSession {
@@ -51,7 +55,8 @@ internal class SessionPortsFactory(
         )
         val controller = SessionController(scope, target, ports, history)
         val networkWatch = sessions.networkChanges.followMoves(scope, controller::networkChanged)
-        return ActiveSession(target, controller, lane, downloads, networkWatch)
+        val foregroundWatch = foreground.onEach { controller.clientBackgrounded(!it) }.launchIn(scope)
+        return ActiveSession(target, controller, lane, downloads, networkWatch, foregroundWatch)
     }
 }
 

@@ -44,6 +44,7 @@ pub struct VideoCoordinator<C: Capture, E: Encoder> {
     encoder: E,
     clients: BTreeSet<String>,
     video_enabled: bool,
+    watched: bool,
     source: Option<CaptureSource>,
     chosen_source: Option<CaptureSource>,
     size: (u32, u32),
@@ -68,6 +69,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
             encoder,
             clients: BTreeSet::new(),
             video_enabled: true,
+            watched: true,
             source: None,
             chosen_source: None,
             size: (0, 0),
@@ -221,6 +223,15 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.video_enabled = enabled;
     }
 
+    /// Whether any attached client is looking. Nobody looking stops encoding like a pause does, and looking again starts
+    /// with a description and a keyframe.
+    pub fn set_watched(&mut self, watched: bool) {
+        if watched && !self.watched {
+            self.request_resync();
+        }
+        self.watched = watched;
+    }
+
     /// Takes every frame the capture has ready, encodes it while anyone is watching, and returns what to send.
     /// Only the newest frame survives a burst, except that a keyframe is never lost to a delta behind it.
     pub fn pump(&mut self, now: f64) -> Result<Vec<VideoOutput>, CoordinatorError> {
@@ -279,7 +290,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
     }
 
     fn sending(&self) -> bool {
-        self.video_enabled && !self.clients.is_empty() && self.source.is_some()
+        self.video_enabled && self.watched && !self.clients.is_empty() && self.source.is_some()
     }
 }
 

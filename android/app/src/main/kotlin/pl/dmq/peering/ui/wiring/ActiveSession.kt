@@ -12,10 +12,12 @@ internal class ActiveSession(
     private val lane: UdpLane?,
     val downloads: SessionDownloads,
     private val networkWatch: Job? = null,
+    private val foregroundWatch: Job? = null,
 ) {
     fun close() {
         controller.disconnect()
         networkWatch?.cancel()
+        foregroundWatch?.cancel()
         lane?.close()
         downloads.close()
     }

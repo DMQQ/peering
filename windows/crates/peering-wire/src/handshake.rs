@@ -49,6 +49,7 @@ capability_flags!(ServerCapabilities {
     supports_agent_session_import,
     supports_agent_pause,
     supports_lock_screen,
+    supports_client_state,
 });
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -152,6 +153,13 @@ pub struct NoticePayload {
 #[serde(rename_all = "camelCase")]
 pub struct PingPayload {
     pub sequence: u64,
+}
+
+/// Whether the phone is out of the foreground. A client sends it only to a host that declared `supportsClientState`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientStatePayload {
+    pub background: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -289,6 +297,23 @@ mod tests {
         };
         let value = serde_json::to_value(&server).unwrap();
         assert_eq!(value.as_object().unwrap().len(), 4);
+    }
+
+    #[test]
+    fn client_state_is_kind_0x23_with_a_background_flag() {
+        assert_eq!(MessageKind::from_byte(0x23), Some(MessageKind::ClientState));
+        assert_eq!(serde_json::to_string(&ClientStatePayload { background: true }).unwrap(), r#"{"background":true}"#);
+        let parsed: ClientStatePayload = serde_json::from_str(r#"{"background":false,"later":1}"#).unwrap();
+        assert!(!parsed.background);
+    }
+
+    #[test]
+    fn supports_client_state_is_optional_and_camel_case() {
+        let absent: ServerHello =
+            serde_json::from_str(r#"{"serverID":"s","hostName":"h","protocolVersion":20,"alreadyPaired":true}"#).unwrap();
+        assert_eq!(absent.capabilities.supports_client_state, None);
+        let declared = ServerCapabilities { supports_client_state: Some(true), ..ServerCapabilities::default() };
+        assert_eq!(serde_json::to_string(&declared).unwrap(), r#"{"supportsClientState":true}"#);
     }
 
     #[test]

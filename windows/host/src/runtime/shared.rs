@@ -32,6 +32,8 @@ pub struct SessionSlot {
     pub video_outbound: Option<FrameSender>,
     pub datagram_outbound: Option<Outbound<Vec<u8>>>,
     pub lane: VideoLane,
+    /// The phone reported it left the foreground, so nothing is sent to it until it returns.
+    pub background: bool,
 }
 
 impl SessionSlot {
@@ -73,6 +75,12 @@ impl HostState {
         if self.sessions.is_empty() {
             self.input.release_all();
         }
+    }
+
+    /// Encoding runs only while some session is in the foreground.
+    pub fn refresh_watched(&mut self) {
+        let watched = self.sessions.values().any(|slot| !slot.background);
+        self.video.set_watched(watched);
     }
 
     pub fn allocate_session(&mut self) -> u64 {
