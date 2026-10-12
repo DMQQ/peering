@@ -1,8 +1,8 @@
 package pl.dmq.peering.widget
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNull
+import org.junit.Test
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 
 class LockedLinkQueueTest {
     @Test
