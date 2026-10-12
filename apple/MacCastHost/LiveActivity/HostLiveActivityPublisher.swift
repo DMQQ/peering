@@ -32,7 +32,7 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
     private var clients: [String: Client] = [:]
     private var directPathOpen = false
     private var suspendedUntil: Date?
-    private var lastPushed: (clientID: String, token: String)?
+    private var ledger = ActivityPushLedger()
 
     init(
         hostID: String,
@@ -100,14 +100,14 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
         _ = group.wait(timeout: .now() + 1.5)
     }
 
-    /// The relay says why a push was not sent. It names no token, so the most recent one sent is the one it means.
-    func refused(_ reason: RelayActivityRefusal) {
+    /// The relay says why a push was not sent. `requestId` ties it to one push; a relay that does not echo it leaves only the most recent push to blame.
+    func refused(_ reason: RelayActivityRefusal, requestId: String?) {
         queue.async { [self] in
             switch reason {
             case .invalidToken:
-                guard let last = lastPushed else { return }
+                guard let pushed = ledger.entry(for: requestId, now: .now) else { return }
                 activityLog.notice("the relay refused a Live Activity token; forgetting it")
-                update(last.clientID) { $0.planner.forget(token: last.token) }
+                update(pushed.clientID) { $0.planner.forget(token: pushed.token) }
             case .unavailable:
                 activityLog.notice("Live Activity push is unavailable; holding off for a minute")
                 suspendedUntil = Date().addingTimeInterval(Self.unavailableBackoff)
@@ -164,13 +164,15 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
 
     private func deliver(_ command: LiveActivityCommand, clientID: String, now: Date, completion: (@Sendable () -> Void)?) {
         do {
-            let push = try LiveActivityPushBuilder.push(for: command, hostID: hostID, now: now)
+            var push = try LiveActivityPushBuilder.push(for: command, hostID: hostID, now: now)
             guard push.contentStateFits else {
                 activityLog.error("a Live Activity state was too large to push and was dropped")
                 completion?()
                 return
             }
-            lastPushed = (clientID, command.token)
+            let requestId = ActivityPushLedger.makeRequestID()
+            push.requestId = requestId
+            ledger.record(requestId: requestId, clientID: clientID, token: command.token, now: .now)
             send(push) { completion?() }
         } catch {
             activityLog.error("a Live Activity state could not be encoded: \(error.localizedDescription, privacy: .public)")
