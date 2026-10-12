@@ -25,9 +25,9 @@ class RelayConnect(
         hostId: String,
         clientId: String,
         entitlement: RelayEntitlement = RelayEntitlement(),
-    ): RelaySession {
+    ): RelaySession = signalling.exchange {
         val proof = makeClientProof(IdentityProofSigner(identity), clientId, clock.unixSeconds())
-        signalling.send(
+        send(
             RelayClientMessage.ConnectToHost(
                 hostId = hostId,
                 clientId = clientId,
@@ -40,8 +40,62 @@ class RelayConnect(
                 proofTime = proof.proofTime,
             ),
         )
+        awaitSession(hostId)
+    }
+
+    /** Presence the relay knows for each host. A host that does not answer is absent from the map. */
+    suspend fun hostPresence(hostIds: List<String>): Map<String, Boolean> {
+        if (hostIds.isEmpty()) return emptyMap()
+        return signalling.exchange {
+            for (hostId in hostIds) {
+                send(RelayClientMessage.HostPresence(hostId))
+            }
+            val presence = mutableMapOf<String, Boolean>()
+            val outstanding = hostIds.toMutableSet()
+            // Bounded, so an unexpected reply cannot keep this read going; an older relay answers an error instead.
+            repeat(hostIds.size * 2 + 4) {
+                if (outstanding.isEmpty()) return@exchange presence
+                when (val reply = receive()) {
+                    is RelayServerMessage.HostPresence -> {
+                        presence[reply.hostId] = reply.online
+                        outstanding.remove(reply.hostId)
+                    }
+                    is RelayServerMessage.Error -> return@exchange presence
+                    else -> Unit
+                }
+            }
+            presence
+        }
+    }
+
+    /**
+     * The address the relay has seen the Mac's datagrams come from, or null once [attempts] asks have all been
+     * answered with "not known yet". Not knowing yet is the ordinary first answer, so the ask repeats.
+     */
+    suspend fun discoverPeer(videoToken: ByteArray, attempts: Int = 8, intervalMs: Long = 150): PeerAddress? =
+        signalling.exchange {
+            val token = Token(videoToken)
+            repeat(maxOf(1, attempts)) { attempt ->
+                send(RelayClientMessage.RequestPeerAddress(token))
+                when (val reply = receive()) {
+                    is RelayServerMessage.PeerAddress -> return@exchange PeerAddress(reply.host, reply.port)
+                    is RelayServerMessage.Error -> {
+                        if (reply.code != PEER_ADDRESS_UNKNOWN) {
+                            throw RelaySessionException.Refused(reply.code, reply.message)
+                        }
+                        if (attempt < maxOf(1, attempts) - 1) delay(intervalMs)
+                    }
+                    is RelayServerMessage.SessionReady -> throw RelaySessionException.UnexpectedReply("sessionReady")
+                    is RelayServerMessage.HostOffline -> throw RelaySessionException.UnexpectedReply("hostOffline")
+                    else -> Unit
+                }
+            }
+            null
+        }
+
+    private suspend fun Signalling.awaitSession(hostId: String): RelaySession {
         while (true) {
-            when (val reply = signalling.receive()) {
+            when (val reply = receive()) {
                 is RelayServerMessage.SessionReady -> return RelaySession(
                     control = PeerAddress(reply.controlHost, reply.controlPort),
                     video = PeerAddress(reply.videoHost, reply.videoPort),
@@ -53,53 +107,6 @@ class RelayConnect(
                 else -> Unit
             }
         }
-    }
-
-    /** Presence the relay knows for each host. A host that does not answer is absent from the map. */
-    suspend fun hostPresence(hostIds: List<String>): Map<String, Boolean> {
-        if (hostIds.isEmpty()) return emptyMap()
-        for (hostId in hostIds) {
-            signalling.send(RelayClientMessage.HostPresence(hostId))
-        }
-        val presence = mutableMapOf<String, Boolean>()
-        val outstanding = hostIds.toMutableSet()
-        // Bounded, so an unexpected reply cannot keep this read going; an older relay answers an error instead.
-        repeat(hostIds.size * 2 + 4) {
-            if (outstanding.isEmpty()) return presence
-            when (val reply = signalling.receive()) {
-                is RelayServerMessage.HostPresence -> {
-                    presence[reply.hostId] = reply.online
-                    outstanding.remove(reply.hostId)
-                }
-                is RelayServerMessage.Error -> return presence
-                else -> Unit
-            }
-        }
-        return presence
-    }
-
-    /**
-     * The address the relay has seen the Mac's datagrams come from, or null once [attempts] asks have all been
-     * answered with "not known yet". Not knowing yet is the ordinary first answer, so the ask repeats.
-     */
-    suspend fun discoverPeer(videoToken: ByteArray, attempts: Int = 8, intervalMs: Long = 150): PeerAddress? {
-        val token = Token(videoToken)
-        repeat(maxOf(1, attempts)) { attempt ->
-            signalling.send(RelayClientMessage.RequestPeerAddress(token))
-            when (val reply = signalling.receive()) {
-                is RelayServerMessage.PeerAddress -> return PeerAddress(reply.host, reply.port)
-                is RelayServerMessage.Error -> {
-                    if (reply.code != PEER_ADDRESS_UNKNOWN) {
-                        throw RelaySessionException.Refused(reply.code, reply.message)
-                    }
-                    if (attempt < maxOf(1, attempts) - 1) delay(intervalMs)
-                }
-                is RelayServerMessage.SessionReady -> throw RelaySessionException.UnexpectedReply("sessionReady")
-                is RelayServerMessage.HostOffline -> throw RelaySessionException.UnexpectedReply("hostOffline")
-                else -> Unit
-            }
-        }
-        return null
     }
 
     private fun sessionError(reply: RelayServerMessage.Error, hostId: String): RelaySessionException =

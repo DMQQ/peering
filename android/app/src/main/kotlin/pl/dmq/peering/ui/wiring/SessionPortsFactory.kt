@@ -3,7 +3,6 @@ package pl.dmq.peering.ui.wiring
 import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import pl.dmq.peering.SessionFactory
-import pl.dmq.peering.platform.net.OkHttpSignalling
 import pl.dmq.peering.platform.net.UdpLane
 import pl.dmq.peering.session.controller.ConnectTarget
 import pl.dmq.peering.session.controller.RelayPorts
@@ -20,7 +19,7 @@ internal class SessionPortsFactory(
 ) {
     fun open(target: ConnectTarget, scope: CoroutineScope): ActiveSession {
         val lane = if (target is ConnectTarget.Relay) UdpLane.bind() else null
-        val relay = lane?.let { RelayPorts(RelaySignallingLink(OkHttpSignalling()), it) }
+        val relay = lane?.let { RelayPorts(sessions.newRelaySignalling(), it) }
         val downloads = SessionDownloads()
         val ports = SessionPorts(
             identity = sessions.identity,

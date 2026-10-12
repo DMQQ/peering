@@ -13,6 +13,7 @@ import pl.dmq.peering.session.ports.PinStore
 import pl.dmq.peering.session.ports.Random
 import pl.dmq.peering.session.ports.Signalling
 import pl.dmq.peering.session.relay.RelayConnect
+import pl.dmq.peering.session.relay.ResilientSignalling
 
 class SessionFactory(
     val identity: DeviceIdentity,
@@ -27,7 +28,8 @@ class SessionFactory(
 
     fun newLivenessMonitor() = LivenessMonitor(clock)
 
-    fun newRelaySignalling(): OkHttpSignalling = OkHttpSignalling()
+    /** A relay connection that is opened on first use and opened again after it drops. */
+    fun newRelaySignalling(): Signalling = ResilientSignalling(open = { OkHttpSignalling().apply { connect() } })
 
     fun newRelayConnect(signalling: Signalling) = RelayConnect(signalling, identity, clock)
 }
