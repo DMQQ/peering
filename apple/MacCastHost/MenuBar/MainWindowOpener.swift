@@ -39,6 +39,20 @@ extension View {
     func captureOpenWindow() -> some View { modifier(CaptureOpenWindow()) }
 }
 
+/// A closure cannot sit in an environment entry without invalidating every reader on each update, so the action is
+/// wrapped in an object that compares by identity. Only the main thread creates or calls it.
+final class DismissMenuBar: Equatable, @unchecked Sendable {
+    static let none = DismissMenuBar {}
+
+    private let action: () -> Void
+
+    init(_ action: @escaping () -> Void) { self.action = action }
+
+    func callAsFunction() { action() }
+
+    static func == (lhs: DismissMenuBar, rhs: DismissMenuBar) -> Bool { lhs === rhs }
+}
+
 extension EnvironmentValues {
-    @Entry var dismissMenuBar: () -> Void = {}
+    @Entry var dismissMenuBar: DismissMenuBar = .none
 }

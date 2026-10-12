@@ -39,7 +39,7 @@ final class MenuBarController: NSObject {
         let content = HostMenuBarContent()
             .environment(model)
             .environment(updater)
-            .environment(\.dismissMenuBar) { [weak self] in self?.popover.performClose(nil) }
+            .environment(\.dismissMenuBar, DismissMenuBar { [weak self] in self?.popover.performClose(nil) })
             .preferredColorScheme(.dark)
         let controller = NSHostingController(rootView: content)
         controller.sizingOptions = .preferredContentSize
