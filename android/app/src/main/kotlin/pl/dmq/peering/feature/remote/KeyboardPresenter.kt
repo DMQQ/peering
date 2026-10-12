@@ -102,7 +102,7 @@ class KeyboardPresenter(private val sink: CommandSink) {
     private companion object {
         const val BACKSPACE_KEY = 51
 
-        /** Left and right Shift, Control, Option, Command, Caps Lock is not one of them. */
+        /** Both sides of Shift, Control, Option and Command. Caps Lock is an ordinary key here. */
         val MODIFIER_KEY_CODES = setOf(54, 55, 56, 58, 59, 60, 61, 62)
     }
 }

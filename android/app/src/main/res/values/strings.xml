@@ -203,4 +203,5 @@
     <string name="permission_detail_plan">Looks and plans first, changes nothing until you approve</string>
     <string name="permission_detail_reviewer">A reviewer model checks each action before it runs</string>
     <string name="permission_detail_never">Never asks, and can reach outside the folder</string>
+    <string name="agents_back_to_list">Agents</string>
 </resources>
