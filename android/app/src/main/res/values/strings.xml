@@ -221,4 +221,16 @@
     <string name="files_sort_modified">Modified</string>
     <string name="files_show_hidden">Hidden</string>
     <string name="files_up_one_level">Up one level</string>
+    <string name="preview_close">Close</string>
+    <string name="preview_unsupported_text">This file is not plain text, so it cannot be shown here.</string>
+    <string name="preview_unsupported_kind">This kind of file cannot be shown here. You can download it instead.</string>
+    <string name="preview_download">Download</string>
+    <string name="preview_cancel">Cancel</string>
+    <string name="preview_downloading">Downloading %1$d%%</string>
+    <string name="preview_preparing_folder">Preparing the folder on your Mac</string>
+    <string name="preview_saved">Downloaded</string>
+    <string name="preview_download_failed">The download failed.</string>
+    <string name="preview_too_large">This file is too large to download here.</string>
+    <string name="preview_short_read">The Mac stopped sending the file early.</string>
+    <string name="preview_truncated">Showing the first %1$s of %2$s</string>
 </resources>
