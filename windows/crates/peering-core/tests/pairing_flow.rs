@@ -103,7 +103,7 @@ fn a_declined_approval_refuses_the_phone_and_pins_nothing() {
 
     let result = pair_result_of(&declined);
     assert!(!result.accepted);
-    assert_eq!(result.reason.as_deref(), Some("The pairing was declined on the Mac."));
+    assert_eq!(result.reason.as_deref(), Some("The pairing was declined on the computer."));
     assert_eq!(close_reason(&declined), Some(CloseReason::PairingRejected));
     assert!(declined.contains(&SessionAction::Emit(HostEvent::PairingCompleted {
         client_name: CLIENT_NAME.to_owned(),

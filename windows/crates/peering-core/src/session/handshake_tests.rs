@@ -223,7 +223,7 @@ fn declined_approval_refuses_and_stores_nothing() {
     let actions = session.resolve_approval(false);
     let result = pair_result_of(&actions);
     assert!(!result.accepted);
-    assert_eq!(result.reason.as_deref(), Some("The pairing was declined on the Mac."));
+    assert_eq!(result.reason.as_deref(), Some("The pairing was declined on the computer."));
     assert_eq!(find_close(&actions), Some(&CloseReason::PairingRejected));
     assert_eq!(session.state(), HandshakeState::Failed);
     assert_eq!(pins.pin_for(CLIENT_ID), None);

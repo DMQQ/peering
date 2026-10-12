@@ -97,7 +97,7 @@ impl HostSession {
         let result = if approved {
             self.finish_pairing(&mut out)
         } else {
-            self.send_refusal("The pairing was declined on the Mac.", &mut out);
+            self.send_refusal("The pairing was declined on the computer.", &mut out);
             Err(CloseReason::PairingRejected)
         };
         self.settle(result, &mut out);
