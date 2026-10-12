@@ -33,6 +33,7 @@
 
 pub mod activity;
 pub mod apns;
+pub mod apns_policy;
 pub mod config;
 pub mod counted_stream;
 pub mod device_bindings;
@@ -54,4 +55,5 @@ pub mod storekit;
 pub mod supervise;
 pub mod tcp_relay;
 pub mod udp_relay;
+pub mod usage_log;
 pub mod web;

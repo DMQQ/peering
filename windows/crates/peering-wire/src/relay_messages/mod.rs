@@ -113,6 +113,12 @@ pub enum RelayClientMessage {
         alert_body: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         environment: Option<ActivityEnvironment>,
+        /// `end` only: seconds until the card leaves the Lock Screen, at most 14400 (the default).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        dismissal_seconds: Option<u32>,
+        /// Up to 64 characters, echoed in `activityRefused`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
 }
 
@@ -177,6 +183,8 @@ pub enum RelayServerMessage {
     /// it stays a string so a reason added later does not make the whole message undecodable.
     ActivityRefused {
         reason: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
     #[serde(other)]
     Unknown,

@@ -34,7 +34,7 @@ use tracing::{debug, info, warn};
 
 use crate::apns::{ApnsClient, PushAction, PushRoute};
 use crate::fcm::FcmClient;
-use crate::push::{self, PushTarget};
+use crate::push::{self, PushLimiter, PushTarget};
 
 /// The only categories a Mac may name: the ones the phone registers for an agent approval, and for
 /// the notice that a turn finished.
@@ -189,6 +189,8 @@ struct ConnectionState {
     referral_requests: usize,
     /// Live Activity pushes this socket has sent, budgeted per activity token.
     activity_limiter: ActivityLimiter,
+    /// `notifyDevice` pushes this socket has sent.
+    push_limiter: PushLimiter,
 }
 
 /// Invite requests one socket may make before it is told to reconnect.
@@ -680,9 +682,10 @@ fn notify_activity(
     settings: &Settings,
     state: &mut ConnectionState,
 ) -> Option<ServerMessage> {
+    let request_id = push.request_id.clone().filter(|id| id.len() <= activity::MAX_REQUEST_ID_BYTES);
     let refuse = |refusal: ActivityRefusal| {
         TALLY.activity(ActivityOutcome::refused(refusal));
-        Some(ServerMessage::ActivityRefused { reason: refusal })
+        Some(ServerMessage::ActivityRefused { reason: refusal, request_id: request_id.clone() })
     };
     let request = match activity::build(&push, unix_now()) {
         Ok(request) => request,
@@ -705,7 +708,7 @@ fn notify_activity(
             Err(failure) => {
                 let refusal = failure.refusal();
                 TALLY.activity(ActivityOutcome::refused(refusal));
-                let _ = reply.try_send(ServerMessage::ActivityRefused { reason: refusal });
+                let _ = reply.try_send(ServerMessage::ActivityRefused { reason: refusal, request_id });
             }
         }
     });
@@ -1155,6 +1158,10 @@ async fn dispatch(
             {
                 return Some(ServerMessage::error("invalid", "field too long"));
             }
+            if !state.push_limiter.allow(Instant::now()) {
+                warn!(host = %tag(&host_id), "notifyDevice over its budget, dropped");
+                return None;
+            }
             // The Mac's ID is the relay's own record of who asked, not something the Mac says about
             // itself, so a tap can only ever open the Mac that sent it. A token's kind decides which
             // service carries it; a service that is not configured drops the push, as it always has.
@@ -1243,7 +1250,7 @@ async fn dispatch(
                 Ok(identity) => identity,
                 Err(refusal) => return Some(refusal),
             };
-            Some(match settings.quota.referrals().redeem(&identity, &code, unix_now()) {
+            Some(match settings.quota.referrals().redeem_from(&identity, &code, unix_now(), state.peer) {
                 Ok(standing) => {
                     info!(client_id = %tag(&client_id), "an invite code was redeemed");
                     referral_reply(standing)
@@ -1485,7 +1492,7 @@ mod tests {
     async fn a_registered_host_without_apns_is_told_the_push_is_unavailable() {
         let mut state = ConnectionState { registered_as: Some("mac".into()), ..Default::default() };
         let reply = ask_as_host(&mut state, activity_message(&"ab".repeat(32))).await;
-        assert_eq!(reply, Some(ServerMessage::ActivityRefused { reason: ActivityRefusal::Unavailable }));
+        assert_eq!(reply, Some(ServerMessage::ActivityRefused { reason: ActivityRefusal::Unavailable, request_id: None }));
     }
 
     #[tokio::test]
@@ -1494,7 +1501,7 @@ mod tests {
         let fcm = crate::protocol::bytes_hex(b"fcm:abc123");
         for token in ["zz", fcm.as_str()] {
             let reply = ask_as_host(&mut state, activity_message(token)).await;
-            assert_eq!(reply, Some(ServerMessage::ActivityRefused { reason: ActivityRefusal::InvalidToken }));
+            assert_eq!(reply, Some(ServerMessage::ActivityRefused { reason: ActivityRefusal::InvalidToken, request_id: None }));
         }
     }
 
@@ -1510,8 +1517,23 @@ mod tests {
 
     #[test]
     fn a_refusal_serialises_with_a_reason_from_the_closed_set_and_nothing_else() {
-        let json = serde_json::to_string(&ServerMessage::ActivityRefused { reason: ActivityRefusal::InvalidToken }).unwrap();
+        let json = serde_json::to_string(&ServerMessage::ActivityRefused { reason: ActivityRefusal::InvalidToken, request_id: None }).unwrap();
         assert_eq!(json, r#"{"type":"activityRefused","reason":"invalidToken"}"#);
+    }
+
+    #[test]
+    fn a_refusal_echoes_the_request_id_verbatim() {
+        let refused = ServerMessage::ActivityRefused { reason: ActivityRefusal::Rejected, request_id: Some("r-7".into()) };
+        assert_eq!(serde_json::to_string(&refused).unwrap(), r#"{"type":"activityRefused","reason":"rejected","requestId":"r-7"}"#);
+    }
+
+    #[tokio::test]
+    async fn a_synchronous_refusal_carries_the_pushs_request_id() {
+        let mut state = ConnectionState { registered_as: Some("mac".into()), ..Default::default() };
+        let ClientMessage::NotifyActivity(mut push) = activity_message("zz") else { panic!("not a notifyActivity") };
+        push.request_id = Some("r-9".into());
+        let reply = ask_as_host(&mut state, ClientMessage::NotifyActivity(push)).await;
+        assert_eq!(reply, Some(ServerMessage::ActivityRefused { reason: ActivityRefusal::InvalidToken, request_id: Some("r-9".into()) }));
     }
 
     #[tokio::test]

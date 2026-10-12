@@ -5,6 +5,7 @@
 //! token exchange.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use bytes::Bytes;
 use h2::client;
@@ -17,6 +18,9 @@ use tokio_rustls::rustls::{ClientConfig, RootCertStore, crypto::ring::default_pr
 use crate::fcm_auth::BoxError;
 
 const HTTPS_PORT: u16 = 443;
+/// Covers connecting, the request and reading the reply. Without it a Google endpoint that stops
+/// answering holds a socket and a task for as long as the kernel lets it.
+pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 /// Google's replies here are small JSON documents. The cap keeps a hostile or broken peer from
 /// making the relay buffer without limit.
 const MAX_REPLY_BYTES: usize = 64 * 1024;
@@ -39,8 +43,21 @@ pub fn tls_config() -> Result<Arc<ClientConfig>, BoxError> {
     Ok(Arc::new(config))
 }
 
-/// Sends one request to `url` with the given headers and returns the status and the reply body.
+/// Sends one request to `url` with the given headers and returns the status and the reply body,
+/// or an error once `REQUEST_TIMEOUT` has passed.
 pub async fn request(
+    tls: &Arc<ClientConfig>,
+    method: Method,
+    url: &str,
+    headers: &[(&str, &str)],
+    body: Bytes,
+) -> Result<HttpsReply, BoxError> {
+    tokio::time::timeout(REQUEST_TIMEOUT, send(tls, method, url, headers, body))
+        .await
+        .map_err(|_| "the request to Google timed out")?
+}
+
+async fn send(
     tls: &Arc<ClientConfig>,
     method: Method,
     url: &str,

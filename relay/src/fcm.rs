@@ -14,10 +14,12 @@ use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use bytes::Bytes;
 use http::Method;
 use serde_json::{Map, Value, json};
+use tokio::sync::Semaphore;
 use tracing::warn;
 
 use crate::apns::PushRoute;
@@ -116,7 +118,14 @@ pub struct FcmClient {
     project_id: String,
     tokens: Box<dyn AccessTokens>,
     transport: Box<dyn FcmTransport>,
+    in_flight: Semaphore,
+    timeout: Duration,
 }
+
+/// Pushes that may be waiting on Google at once. A push beyond it is refused rather than queued.
+const MAX_PUSHES_IN_FLIGHT: usize = 64;
+/// The whole push: the access token, the request and the reply.
+const PUSH_TIMEOUT: Duration = Duration::from_secs(10);
 
 impl FcmClient {
     pub fn new(
@@ -128,7 +137,15 @@ impl FcmClient {
             project_id,
             tokens: Box::new(tokens),
             transport: Box::new(transport),
+            in_flight: Semaphore::new(MAX_PUSHES_IN_FLIGHT),
+            timeout: PUSH_TIMEOUT,
         }
+    }
+
+    #[cfg(test)]
+    fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
     }
 
     /// The client the relay runs with, built from the service account file: tokens minted from its
@@ -143,6 +160,19 @@ impl FcmClient {
     }
 
     pub async fn send(
+        &self,
+        device_token: &str,
+        title: &str,
+        body: &str,
+        route: Option<PushRoute<'_>>,
+    ) -> Result<FcmOutcome, BoxError> {
+        let _permit = self.in_flight.try_acquire().map_err(|_| "too many FCM pushes are in flight")?;
+        tokio::time::timeout(self.timeout, self.send_unbounded(device_token, title, body, route))
+            .await
+            .map_err(|_| "the FCM push timed out")?
+    }
+
+    async fn send_unbounded(
         &self,
         device_token: &str,
         title: &str,

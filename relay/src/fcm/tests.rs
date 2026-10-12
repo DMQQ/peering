@@ -108,3 +108,27 @@ async fn a_token_that_cannot_be_minted_sends_nothing() {
     assert!(client.send("tok", "T", "B", None).await.is_err());
     assert!(sent.lock().unwrap().is_empty());
 }
+
+struct HangingTransport;
+
+impl FcmTransport for HangingTransport {
+    fn post<'a>(&'a self, _: &'a str, _: &'a str, _: &'a str) -> BoxFuture<'a, Result<FcmReply, BoxError>> {
+        Box::pin(std::future::pending())
+    }
+}
+
+#[tokio::test]
+async fn a_push_to_an_endpoint_that_never_answers_ends_at_the_timeout() {
+    let client = FcmClient::new("peering-test".to_owned(), FakeAccessTokens::giving("ya29.test"), HangingTransport)
+        .with_timeout(Duration::from_millis(20));
+    let error = client.send("tok", "T", "B", None).await.expect_err("times out");
+    assert!(error.to_string().contains("timed out"));
+}
+
+#[tokio::test]
+async fn pushes_beyond_the_in_flight_limit_are_refused() {
+    let (client, sent) = client_answering(200, "{}");
+    let _held = client.in_flight.try_acquire_many(MAX_PUSHES_IN_FLIGHT as u32).unwrap();
+    assert!(client.send("tok", "T", "B", None).await.is_err());
+    assert!(sent.lock().unwrap().is_empty());
+}

@@ -62,18 +62,17 @@
 //! mints a key that could be in the set — see `PEERINGD_PAID_KEYS` in the README.
 
 use std::collections::{HashMap, HashSet};
-use std::fs::{self, File, OpenOptions};
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::io;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::config::PlanAllowances;
 use crate::referrals::{ReferralTerms, Referrals};
 use crate::stats::PlanTier;
+use crate::usage_log::UsageLogWriter;
 
 /// One-day rolling window. Dividing epoch seconds by this gives a bucket number that advances
 /// every 24 hours — no calendar library needed, and the exact hour it rolls over does not matter
@@ -138,187 +137,6 @@ impl Plan {
     }
 }
 
-/// One line of the usage log.
-///
-/// Short field names because they are written a few hundred thousand times over a relay's life
-/// and read only by this file. Serde rather than a hand-rolled format so that a client id
-/// containing a pipe, a comma, a newline or anything else is stored and read back unchanged.
-#[derive(Serialize, Deserialize)]
-struct UsageLine {
-    /// The client's device id.
-    c: String,
-    /// The window the seconds belong to.
-    w: u64,
-    /// Seconds relayed in that window, for that one charge. A session writes several of these if
-    /// it runs long enough, and what is read back is their sum.
-    s: u64,
-}
-
-/// How large the log is allowed to grow before it is rewritten down to one line per client.
-///
-/// Four megabytes is on the order of a hundred thousand charges. Each of those is a stretch of a
-/// session rather than a whole one, so the file fills faster than it did when a session wrote one
-/// line at the end, and the rewrite that follows is the same trade it always was: one line per
-/// client against a file that grows for a day at a time. The rewrite takes the same lock an append
-/// does, which is why it happens on the task that has just charged a session rather than on a
-/// timer behind it: there is no background task here that could get out of step with the file, and
-/// nothing to shut down cleanly.
-const COMPACT_BYTES: u64 = 4 * 1024 * 1024;
-
-/// The counter's second home, on disk.
-///
-/// Held open in append mode for the life of the process, so recording a session is one small
-/// write rather than an open, a write and a close.
-struct UsageLog {
-    path: PathBuf,
-    file: File,
-    /// Bytes in the file, so compaction can be decided without asking the filesystem.
-    written: u64,
-}
-
-impl UsageLog {
-    /// Opens the log and reads back what it already held.
-    ///
-    /// The parent directory is created if it is missing, because the likeliest reason a
-    /// configured path does not exist yet is that the operator has just written the line into the
-    /// environment file and not yet made the directory.
-    fn open(path: PathBuf) -> io::Result<(Self, HashMap<String, (u64, u64)>)> {
-        if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
-            fs::create_dir_all(parent)?;
-        }
-        let usage = Self::replay(&path)?;
-        let file = OpenOptions::new().create(true).append(true).open(&path)?;
-        let written = file.metadata().map(|m| m.len()).unwrap_or(0);
-        Ok((Self { path, file, written }, usage))
-    }
-
-    /// The map the tracker keeps, rebuilt from the file.
-    ///
-    /// **Only the newest window in the file survives**, and that is not a heuristic: nothing ever
-    /// asks for an older one, because ``QuotaTracker::remaining`` filters on the current window
-    /// and ``record`` overwrites an entry whose window has moved on. An entry from yesterday
-    /// would be a number with no reader.
-    ///
-    /// A line that will not parse is skipped rather than made fatal, which is the point of one
-    /// object per line: the failure this is written for is a machine that died mid-append, and
-    /// what it should cost is the seconds of one charge, not the whole file.
-    fn replay(path: &Path) -> io::Result<HashMap<String, (u64, u64)>> {
-        let text = match fs::read_to_string(path) {
-            Ok(text) => text,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(HashMap::new()),
-            Err(error) => return Err(error),
-        };
-
-        let mut newest = 0u64;
-        let mut entries = Vec::new();
-        for line in text.lines() {
-            let Ok(entry) = serde_json::from_str::<UsageLine>(line) else { continue };
-            newest = newest.max(entry.w);
-            entries.push(entry);
-        }
-
-        let mut usage: HashMap<String, (u64, u64)> = HashMap::new();
-        for entry in entries.into_iter().filter(|entry| entry.w == newest) {
-            let slot = usage.entry(entry.c).or_insert((newest, 0));
-            slot.1 = slot.1.saturating_add(entry.s);
-        }
-        Ok(usage)
-    }
-
-    /// Adds one charge to the log and puts it on the disk before returning.
-    ///
-    /// Synced rather than merely written, and it is worth saying why that is not paranoia: the
-    /// case this file exists for is a relay that stops without warning, and a write still sitting
-    /// in the page cache when the machine goes down is exactly those seconds being free again.
-    /// Charging a running splice on a timer is what makes this the more valuable half of the
-    /// arrangement, since a session that has not ended yet is now also a session that has paid for
-    /// what it has used. The cost is one fsync per charge, which is nothing beside the relay time
-    /// it accounts for.
-    fn append(&mut self, client_id: &str, window: u64, secs: u64) -> io::Result<()> {
-        let mut line = serde_json::to_string(&UsageLine {
-            c: client_id.to_string(),
-            w: window,
-            s: secs,
-        })
-        .map_err(io::Error::other)?;
-        line.push('\n');
-        self.file.write_all(line.as_bytes())?;
-        self.file.sync_data()?;
-        self.written += line.len() as u64;
-        Ok(())
-    }
-
-    /// Whether a compaction would actually make the file smaller.
-    ///
-    /// **The size of the file was the whole of this test, and it is not enough.** Compaction is only
-    /// worth anything if it has something to drop, and what it drops is every line whose window has
-    /// passed and every repeat of a client already written: charges coalesce per client per window.
-    /// An attacker spending a second each under a hundred thousand invented ids produces a file
-    /// with nothing in it to coalesce, and a rewrite that does not shrink the file is a rewrite that
-    /// happens again on the next append and the next. Four megabytes rewritten per charge is a far
-    /// worse outcome than the file it was meant to bound.
-    ///
-    /// So the test is "the file is big *and* what compaction would keep is at most half of it",
-    /// which is the condition that makes the rewrite amortised.
-    fn needs_compaction(&self, usage: &HashMap<String, (u64, u64)>, window: u64) -> bool {
-        if self.written < COMPACT_BYTES {
-            return false;
-        }
-        self.written >= 2 * Self::compacted_size(usage, window)
-    }
-
-    /// What the file would weigh after a compaction, near enough to decide with.
-    ///
-    /// The id is counted at its own length, which is the term that matters: ids are chosen by the
-    /// peer and can be up to 256 bytes, so an estimate that assumed a UUID would be wrong by an
-    /// order of magnitude in exactly the case this exists for. The rest is the JSON envelope around
-    /// it, `{"c":"","w":0,"s":0}` and a newline.
-    ///
-    /// An id full of characters the encoder escapes (a quote, a newline) weighs up to twice what is
-    /// counted here, which makes the estimate low and the rewrite happen a little sooner than it
-    /// had to. That is the harmless direction: a compaction early is a compaction that still
-    /// shrinks the file, and the test above is what rules out the one that would not.
-    fn compacted_size(usage: &HashMap<String, (u64, u64)>, window: u64) -> u64 {
-        const LINE_OVERHEAD: u64 = 24;
-        usage
-            .iter()
-            .filter(|(_, (entry_window, secs))| *entry_window == window && *secs > 0)
-            .map(|(id, (_, secs))| {
-                LINE_OVERHEAD + id.len() as u64 + secs.to_string().len() as u64
-            })
-            .sum()
-    }
-
-    /// Rewrites the file as one line per client, for the current window only.
-    ///
-    /// Through a temporary file and a rename, so a machine that dies in the middle leaves the old
-    /// log whole rather than a half-written one that replays as nothing. That matters more than it
-    /// looks: the file being replaced is the only record of what has already been spent.
-    fn compact(&mut self, usage: &HashMap<String, (u64, u64)>, window: u64) -> io::Result<()> {
-        let mut body = String::new();
-        for (client_id, (entry_window, secs)) in usage {
-            if *entry_window != window || *secs == 0 {
-                continue;
-            }
-            let line = serde_json::to_string(&UsageLine {
-                c: client_id.clone(),
-                w: window,
-                s: *secs,
-            })
-            .map_err(io::Error::other)?;
-            body.push_str(&line);
-            body.push('\n');
-        }
-
-        let temporary = self.path.with_extension("log.tmp");
-        fs::write(&temporary, body)?;
-        fs::rename(&temporary, &self.path)?;
-        self.file = OpenOptions::new().create(true).append(true).open(&self.path)?;
-        self.written = self.file.metadata().map(|m| m.len()).unwrap_or(0);
-        Ok(())
-    }
-}
-
 /// How often a splice that is under way is charged for the time it has run.
 ///
 /// **This is the number that bounds what a session can overrun its allowance by.** Charging only at
@@ -348,7 +166,9 @@ struct Inner {
     usage: HashMap<String, (u64, u64)>,
     paid_keys: HashSet<String>,
     /// Absent when no path was configured or the file would not open. See ``with_usage_log``.
-    log: Option<UsageLog>,
+    log: Option<UsageLogWriter>,
+    /// Whether the writer's queue was full at the last charge, so the warning is once per episode.
+    log_backlogged: bool,
     /// Whether the last thing that happened to the map was an eviction.
     ///
     /// A flag rather than a count of evictions, because this exists to make one log line per
@@ -386,6 +206,7 @@ impl QuotaTracker {
                 usage: HashMap::new(),
                 paid_keys,
                 log: None,
+                log_backlogged: false,
                 evicting: false,
             }),
         }
@@ -424,7 +245,7 @@ impl QuotaTracker {
         path: Option<PathBuf>,
     ) -> (Self, Option<io::Error>) {
         let (log, usage, failure) = match path {
-            Some(path) => match UsageLog::open(path) {
+            Some(path) => match UsageLogWriter::open(path, window_key()) {
                 Ok((log, usage)) => (Some(log), usage, None),
                 Err(error) => (None, HashMap::new(), Some(error)),
             },
@@ -439,6 +260,7 @@ impl QuotaTracker {
                 usage,
                 paid_keys,
                 log,
+                log_backlogged: false,
                 evicting: false,
             }),
         };
@@ -533,9 +355,7 @@ impl QuotaTracker {
         }
         entry.1 = entry.1.saturating_add(secs);
 
-        // Destructured rather than reached through `inner`, so the log and the map can be held at
-        // once: compaction is handed the map it is writing down.
-        let Inner { usage, log, evicting, .. } = &mut *inner;
+        let Inner { usage, log, log_backlogged, evicting, .. } = &mut *inner;
 
         if usage.len() > MAX_TRACKED_CLIENTS {
             Self::evict(usage, window, client_id, evicting);
@@ -544,50 +364,23 @@ impl QuotaTracker {
             *evicting = false;
         }
 
-        let Some(log) = log.as_mut() else { return };
-
-        // Logged and carried on with, both here and below. A file that will not take a write is a
-        // relay that over-counts after its next restart, and a relay that stopped splicing because
-        // its state directory filled up would be a far bigger outage than the one being prevented.
-        // The map stays the truth for this run either way, so the client is still metered correctly
-        // until then.
-        //
-        // **The writing happens off the runtime thread.** Every append is a write and an fsync, and
-        // the callers are tasks: the splice's meter tick and the meter's drop. A file write is
-        // blocking work by definition, and a service where a peer can arrange for thousands of them
-        // is a service where the reactor spends its time waiting on a disk. `block_in_place` hands
-        // the blocking work to a thread of its own and lets the runtime start another worker, which
-        // is exactly the case it exists for. It is asked for only when there is a runtime: the
-        // unit tests call this from plain `#[test]` functions, where there is no reactor to starve
-        // and the call would panic.
-        //
-        // One thing a future change has to know: `block_in_place` panics on a current-thread
-        // runtime, and `Handle::try_current` returns one just as happily as a multi-threaded one.
-        // The binary runs `#[tokio::main]` with the default multi-thread flavour, so the panic
-        // would arrive on the first charge of the first session rather than in production quietly.
-        let writing = |log: &mut UsageLog| -> io::Result<()> {
-            if tokio::runtime::Handle::try_current().is_ok() {
-                tokio::task::block_in_place(|| log.append(client_id, window, secs))
-            } else {
-                log.append(client_id, window, secs)
-            }
-        };
-        if let Err(error) = writing(log) {
-            warn!(%error, "could not write to the usage log; usage will not survive a restart");
-            return;
+        // Queued to the log's writer thread, which batches the writes and does the `fsync`, so a
+        // slow disk never holds this lock. The map stays the truth for this run either way; a
+        // charge the file misses only costs a little after the next restart.
+        let Some(log) = log.as_ref() else { return };
+        let queued = log.charge(client_id, window, secs);
+        if !queued && !*log_backlogged {
+            warn!("the usage log writer is falling behind; charges are counted but not written until it catches up");
         }
+        *log_backlogged = !queued;
+    }
 
-        if log.needs_compaction(usage, window) {
-            let compacting = |log: &mut UsageLog| -> io::Result<()> {
-                if tokio::runtime::Handle::try_current().is_ok() {
-                    tokio::task::block_in_place(|| log.compact(usage, window))
-                } else {
-                    log.compact(usage, window)
-                }
-            };
-            if let Err(error) = compacting(log) {
-                warn!(%error, "could not compact the usage log; it will be tried again on the next session");
-            }
+    /// Waits until every charge made so far has been handed to the disk. For shutdown and tests;
+    /// the metering path never waits.
+    pub fn flush(&self) {
+        let flusher = self.lock().log.as_ref().map(UsageLogWriter::flusher);
+        if let Some(flusher) = flusher {
+            flusher.flush();
         }
     }
 
@@ -789,6 +582,8 @@ impl Drop for Meter {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
 
     /// Small fixture allowances for quota arithmetic. These are deliberately not product defaults.
@@ -1014,6 +809,7 @@ mod tests {
         assert_eq!(first.remaining("phone", None, Plan::Free), Some(600));
 
         // A new tracker over the same file is what a restart is, as far as this module can tell.
+        first.flush();
         let second = paid(HashSet::new(), path.clone());
         assert_eq!(
             second.remaining("phone", None, Plan::Free),
@@ -1032,11 +828,13 @@ mod tests {
         first.record("phone", Duration::from_secs(300));
         first.record("phone", Duration::from_secs(200));
 
+        first.flush();
         let second = paid(HashSet::new(), path.clone());
         assert_eq!(second.remaining("phone", None, Plan::Free), Some(400));
 
         // And recording again on top of the replay adds to the total rather than replacing it.
         second.record("phone", Duration::from_secs(100));
+        second.flush();
         let third = paid(HashSet::new(), path.clone());
         assert_eq!(third.remaining("phone", None, Plan::Free), Some(300));
 
@@ -1051,6 +849,7 @@ mod tests {
         let first = paid(HashSet::new(), path.clone());
         first.record("phone", Duration::from_secs(1_000));
 
+        first.flush();
         let second = paid(HashSet::new(), path.clone());
         assert_eq!(second.remaining("phone", None, Plan::Free), Some(0));
 
@@ -1113,6 +912,7 @@ mod tests {
         tracker.record("phone", Duration::from_secs(200));
 
         // What a machine that died mid-append leaves behind.
+        tracker.flush();
         let mut text = fs::read_to_string(&path).unwrap();
         text.push_str("{\"c\":\"phone\",\"w\":20612,\"s\":");
         fs::write(&path, text).unwrap();
@@ -1135,53 +935,13 @@ mod tests {
         let first = paid(HashSet::new(), path.clone());
         first.record(awkward, Duration::from_secs(120));
 
+        first.flush();
         let second = paid(HashSet::new(), path.clone());
         assert_eq!(second.remaining(awkward, None, Plan::Free), Some(780));
         assert_eq!(
             second.remaining("phone", None, Plan::Free),
             Some(900),
             "and it did not land on anybody else's row"
-        );
-
-        let _ = fs::remove_dir_all(path.parent().unwrap());
-    }
-
-    #[test]
-    fn compaction_keeps_the_totals_and_shrinks_the_file() {
-        let path = scratch("compact");
-
-        let (tracker, failure) = QuotaTracker::with_usage_log(
-            PlanAllowances {
-                free_seconds: Some(900),
-                relay_seconds: Some(10_800),
-            },
-            HashSet::new(),
-            Some(path.clone()),
-        );
-        assert!(failure.is_none());
-        for _ in 0..50 {
-            tracker.record("phone", Duration::from_secs(4));
-        }
-
-        let before = fs::metadata(&path).unwrap().len();
-
-        // The rewrite itself, called directly rather than by writing four megabytes through it.
-        {
-            let mut inner = tracker.lock();
-            let Inner { usage, log, .. } = &mut *inner;
-            log.as_mut().unwrap().compact(usage, window_key()).unwrap();
-        }
-
-        assert!(
-            fs::metadata(&path).unwrap().len() < before,
-            "compaction should make the file smaller"
-        );
-
-        let restarted = paid(HashSet::new(), path.clone());
-        assert_eq!(
-            restarted.remaining("phone", None, Plan::Free),
-            Some(700),
-            "and the total it kept is the same one"
         );
 
         let _ = fs::remove_dir_all(path.parent().unwrap());
@@ -1363,6 +1123,7 @@ mod tests {
         meter.backdate(Duration::from_secs(300));
         assert_eq!(meter.charge(), Some(600));
 
+        first.flush();
         let second = paid(HashSet::new(), path.clone());
         assert_eq!(
             second.remaining("phone", None, Plan::Free),
@@ -1409,53 +1170,5 @@ mod tests {
             "the charge in progress survived the eviction"
         );
         assert!(inner.usage.len() <= MAX_TRACKED_CLIENTS);
-    }
-
-    /// **A compaction that cannot shrink the file must not happen.** It used to be triggered by the
-    /// file's size alone, which is right while charges coalesce per client and wrong the moment an
-    /// attacker spends a second under each of a hundred thousand invented ids: every rewrite keeps
-    /// every line, so the next append triggers another, and the relay spends its time rewriting
-    /// four megabytes per charge.
-    #[test]
-    fn compaction_is_not_attempted_when_there_is_nothing_to_drop() {
-        let mut usage: HashMap<String, (u64, u64)> = HashMap::new();
-        let window = 20_000u64;
-        // Twenty thousand clients with long ids, all in the current window: the compacted file is
-        // most of a megabyte and compaction would keep nearly all of it.
-        for i in 0..20_000 {
-            usage.insert(format!("{i:-<200}"), (window, 60));
-        }
-        let compacted = UsageLog::compacted_size(&usage, window);
-        assert!(compacted > 4 * 1024 * 1024);
-
-        let log = UsageLog {
-            path: PathBuf::from("/dev/null"),
-            file: OpenOptions::new().append(true).open("/dev/null").unwrap(),
-            written: 4 * 1024 * 1024 + 1,
-        };
-        assert!(
-            !log.needs_compaction(&usage, window),
-            "a rewrite that would keep {compacted} of {} bytes is not worth doing",
-            log.written
-        );
-    }
-
-    /// The other half: when there *is* something to drop, it goes ahead. One client with an old
-    /// window beside a big file is the ordinary case this was written for.
-    #[test]
-    fn compaction_is_attempted_when_there_is_something_to_drop() {
-        let mut usage: HashMap<String, (u64, u64)> = HashMap::new();
-        let window = 20_000u64;
-        usage.insert("phone".to_string(), (window, 3_600));
-        for i in 0..1_000 {
-            usage.insert(format!("yesterday-{i}"), (window - 1, 3_600));
-        }
-
-        let log = UsageLog {
-            path: PathBuf::from("/dev/null"),
-            file: OpenOptions::new().append(true).open("/dev/null").unwrap(),
-            written: COMPACT_BYTES + 1,
-        };
-        assert!(log.needs_compaction(&usage, window));
     }
 }

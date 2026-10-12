@@ -405,3 +405,68 @@ async fn a_lookup_that_never_answers_is_unavailable_at_the_timeout() {
     let verdict = verifier.verdict(&mut cache, YEAR, "tok", None, EXPIRY - 1).await;
     assert_eq!(verdict, PlayVerdict::Rejected(PlayRejection::Unavailable));
 }
+
+/// Answers with a purchase until told to fail, then fails with the error it was given.
+struct FlakyPlayApi {
+    healthy: Arc<std::sync::atomic::AtomicBool>,
+    answer: PlayPurchase,
+    failure: fn() -> BoxError,
+}
+
+impl PlayApi for FlakyPlayApi {
+    fn purchase_state<'a>(&'a self, _: &'a str, _: &'a str, _: &'a str) -> BoxFuture<'a, Result<PlayPurchase, BoxError>> {
+        let result = if self.healthy.load(Ordering::SeqCst) { Ok(self.answer.clone()) } else { Err((self.failure)()) };
+        Box::pin(async move { result })
+    }
+}
+
+fn flaky(failure: fn() -> BoxError) -> (PlayVerifier, Arc<std::sync::atomic::AtomicBool>) {
+    let healthy = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let api = FlakyPlayApi { healthy: Arc::clone(&healthy), answer: live_pro_year(), failure };
+    (PlayVerifier::new(PACKAGE.into(), api), healthy)
+}
+
+#[tokio::test]
+async fn a_google_outage_serves_the_last_good_verdict_to_a_new_session() {
+    let (verifier, healthy) = flaky(|| "status 503".into());
+    let first = verifier.verdict(&mut PlayReceiptCache::default(), YEAR, "tok", None, EXPIRY - 1).await;
+    assert_eq!(first, PlayVerdict::Active(Plan::Pro));
+    healthy.store(false, Ordering::SeqCst);
+    let second = verifier.verdict(&mut PlayReceiptCache::default(), YEAR, "tok", None, EXPIRY - 1).await;
+    assert_eq!(second, PlayVerdict::Active(Plan::Pro));
+}
+
+#[tokio::test]
+async fn a_stale_verdict_is_not_served_past_the_purchases_expiry() {
+    let (verifier, healthy) = flaky(|| "status 503".into());
+    verifier.verdict(&mut PlayReceiptCache::default(), YEAR, "tok", None, EXPIRY - 1).await;
+    healthy.store(false, Ordering::SeqCst);
+    let late = verifier.verdict(&mut PlayReceiptCache::default(), YEAR, "tok", None, EXPIRY + 1).await;
+    assert_eq!(late, PlayVerdict::Rejected(PlayRejection::Unavailable));
+}
+
+#[tokio::test]
+async fn a_final_refusal_from_google_is_not_covered_by_a_stale_verdict() {
+    let (verifier, healthy) = flaky(|| BoxError::from(LookupRefused(404)));
+    verifier.verdict(&mut PlayReceiptCache::default(), YEAR, "tok", None, EXPIRY - 1).await;
+    healthy.store(false, Ordering::SeqCst);
+    let after = verifier.verdict(&mut PlayReceiptCache::default(), YEAR, "tok", None, EXPIRY - 1).await;
+    assert_eq!(after, PlayVerdict::Rejected(PlayRejection::Unavailable));
+}
+
+#[tokio::test]
+async fn a_purchase_never_verified_has_no_stale_verdict() {
+    let verifier = PlayVerifier::new(PACKAGE.into(), FakePlayApi::failing("status 503"));
+    let verdict = verifier.verdict(&mut PlayReceiptCache::default(), YEAR, "tok", None, EXPIRY - 1).await;
+    assert_eq!(verdict, PlayVerdict::Rejected(PlayRejection::Unavailable));
+}
+
+#[test]
+fn only_a_final_4xx_counts_as_google_saying_no() {
+    for status in [400, 403, 404, 410] {
+        assert!(is_final_refusal(status), "{status}");
+    }
+    for status in [408, 429, 500, 503] {
+        assert!(!is_final_refusal(status), "{status}");
+    }
+}
