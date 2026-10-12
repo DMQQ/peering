@@ -31,7 +31,7 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
 
     private var clients: [String: Client] = [:]
     private var directPathOpen = false
-    private var suspendedUntil: Date?
+    private var suspendedUntil: ContinuousClock.Instant?
     private var ledger = ActivityPushLedger()
 
     init(
@@ -110,7 +110,7 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
                 update(pushed.clientID) { $0.planner.forget(token: pushed.token) }
             case .unavailable:
                 activityLog.notice("Live Activity push is unavailable; holding off for a minute")
-                suspendedUntil = Date().addingTimeInterval(Self.unavailableBackoff)
+                suspendedUntil = .now + .seconds(Self.unavailableBackoff)
                 for clientID in clients.keys { update(clientID) { $0.planner.resend() } }
             case .invalidPayload:
                 activityLog.error("the relay refused a Live Activity payload as invalid; not retrying it")
@@ -134,9 +134,9 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
         change(&client)
 
         let now = Date()
-        if let until = suspendedUntil, now < until {
+        if let until = suspendedUntil, ContinuousClock.now < until {
             clients[clientID] = client
-            schedule(clientID, at: until)
+            schedule(clientID, after: ContinuousClock.now.duration(to: until))
             return
         }
         let chats = client.tracker.observe(observedChats(clientID), symbol: "sparkles", now: now)
@@ -157,9 +157,14 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
     }
 
     private func schedule(_ clientID: String, at due: Date) {
+        schedule(clientID, after: .seconds(max(0, due.timeIntervalSinceNow)))
+    }
+
+    private func schedule(_ clientID: String, after delay: Duration) {
         let item = DispatchWorkItem { [weak self] in self?.update(clientID) { _ in } }
         clients[clientID]?.timer = item
-        queue.asyncAfter(deadline: .now() + max(0, due.timeIntervalSinceNow), execute: item)
+        let milliseconds = max(0, delay.components.seconds * 1_000 + delay.components.attoseconds / 1_000_000_000_000_000)
+        queue.asyncAfter(deadline: .now() + .milliseconds(Int(milliseconds)), execute: item)
     }
 
     private func deliver(_ command: LiveActivityCommand, clientID: String, now: Date, completion: (@Sendable () -> Void)?) {

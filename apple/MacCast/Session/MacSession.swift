@@ -91,7 +91,7 @@ final class MacSession: Identifiable {
 
     var videoFramesPerSecond: Double = 0
 
-    var lastFrameSample: (count: Int, at: Date)?
+    var lastFrameSample: (count: Int, at: ContinuousClock.Instant)?
 
     var isVideoStreaming = false
 

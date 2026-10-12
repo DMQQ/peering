@@ -405,7 +405,7 @@ extension MacSession {
 
     /// Derived from two polls since neither end knows the other's rate. Smoothed heavily: a half-second window reads one late batch as a swing, and this is for telling thirty from sixty.
     func updateFrameRate(from snapshot: VideoRenderer.Snapshot) {
-        let now = Date()
+        let now = ContinuousClock.now
         defer { lastFrameSample = (snapshot.framesEnqueued, now) }
 
         guard let last = lastFrameSample else { return }
@@ -414,7 +414,8 @@ extension MacSession {
             videoFramesPerSecond = 0
             return
         }
-        let elapsed = now.timeIntervalSince(last.at)
+        let span = last.at.duration(to: now)
+        let elapsed = Double(span.components.seconds) + Double(span.components.attoseconds) / 1e18
         guard elapsed > 0 else { return }
 
         let rate = Double(snapshot.framesEnqueued - last.count) / elapsed
