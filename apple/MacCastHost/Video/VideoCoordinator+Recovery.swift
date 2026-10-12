@@ -69,6 +69,9 @@ extension VideoCoordinator {
             try await startCapture(target)
             HostSessionFacts.shared.noteEncoderRestart()
             pipeline.requestKeyframe()
+            if let report = recovery.attemptSucceeded() {
+                HostTelemetry.error(report.code, stage: report.stage, errorCode: report.errorCode, recovered: true)
+            }
         } catch {
             coordinatorLog.error("capture rebuild failed: \(String(describing: error), privacy: .public)")
             recover(from: .startFailed, reporting: error as? CaptureError)

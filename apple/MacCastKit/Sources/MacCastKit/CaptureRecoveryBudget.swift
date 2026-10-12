@@ -24,8 +24,17 @@ public struct CaptureRecoveryBudget: Sendable, Equatable {
     /// Frames arriving for this long after a rebuild mean it worked, and the next failure starts from a short delay again.
     public static let stableSeconds: TimeInterval = 10
 
+    /// What a failure looks like in the host's error event.
+    public struct Report: Sendable, Equatable {
+        public let code: HostEventCodes.ErrorCode
+        public let stage: String
+        public let errorCode: Int?
+    }
+
     public private(set) var attempts = 0
     private var lastAttemptAt: TimeInterval?
+    /// The failure the pending rebuild answers, kept until the rebuild works or the budget runs out.
+    private var pendingReport: Report?
 
     public init() {}
 
@@ -41,13 +50,36 @@ public struct CaptureRecoveryBudget: Sendable, Equatable {
 
     /// Wake and display changes are the system saying the old stream is gone, so they start over at the shortest delay rather than counting against a stream that was failing for another reason.
     public mutating func failed(_ cause: Cause, at now: TimeInterval) -> Verdict {
-        guard Self.isRetryable(cause) else { return .giveUp }
+        guard Self.isRetryable(cause) else { return giveUp() }
         if cause == .wokeFromSleep || cause == .displaysChanged { attempts = 0 }
-        guard attempts < Self.maximumAttempts else { return .giveUp }
+        guard attempts < Self.maximumAttempts else { return giveUp() }
         let delay = Self.delay(afterAttempts: attempts)
         attempts += 1
         lastAttemptAt = now
+        pendingReport = Self.report(for: cause) ?? pendingReport
         return .retry(after: delay)
+    }
+
+    /// The error to report once a rebuild has worked, with `recovered: true`. Nil when the rebuild answered only a wake or a display change, where nothing had failed.
+    public mutating func rebuildSucceeded() -> Report? {
+        defer { pendingReport = nil }
+        return pendingReport
+    }
+
+    /// Wake and display changes are the system moving, not a fault, so they have no report.
+    public static func report(for cause: Cause) -> Report? {
+        switch cause {
+        case .streamStopped(let code): Report(code: .captureStopped, stage: "stream", errorCode: code)
+        case .encoderFailed: Report(code: .encoderFailed, stage: "encode", errorCode: nil)
+        case .startFailed: Report(code: .captureFailed, stage: "start", errorCode: nil)
+        case .wokeFromSleep, .displaysChanged: nil
+        }
+    }
+
+    /// The failure is reported by whoever tells the user it could not be restored, with `recovered: false`.
+    private mutating func giveUp() -> Verdict {
+        pendingReport = nil
+        return .giveUp
     }
 
     /// Called for every delivered frame; cheap.
@@ -60,5 +92,6 @@ public struct CaptureRecoveryBudget: Sendable, Equatable {
     public mutating func reset() {
         attempts = 0
         lastAttemptAt = nil
+        pendingReport = nil
     }
 }

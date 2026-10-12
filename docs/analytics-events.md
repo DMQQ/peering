@@ -110,7 +110,7 @@ All carry `app_version`, `app_build`, `os_major` (the Mac's macOS major version)
 | `code` | `captureFailed`, `captureStopped`, `permissionRevoked`, `encoderFailed`, `relayDisconnected`, `relayRegistrationFailed`, `virtualDisplayFailed`, `agentCrashed`, `fileTransferFailed`, `pairingRefused`, `hookInstallFailed` |
 | `stage` | where it happened, where that is meaningful: `capture`, `stream`, `encode`, `start`, `register`, `connection`, `confirm`, `proof`, `approval`, `save`, or an area name (`display`, `agent`, `fileTransfer`, `permission`) |
 | `error_code` | number: OSStatus, errno, SCStreamError or NWError code |
-| `recovered` | boolean, only where the site knows |
+| `recovered` | boolean, only where the site knows: `true` on the error a capture rebuild answered, sent once the rebuild worked; `false` on `captureFailed` at stage `recovery` when the host gave up |
 | `count` | number of occurrences this event stands for. At most one event per `code` per minute is sent; the rest are counted into the next. |
 | `session_ref` | the most recent open session's tag, when there is one |
 
@@ -124,13 +124,13 @@ Each has `reason` from a closed set, usually `stage`, and `error_code` (a POSIX,
 | `file_transfer_failed` | `measure`, `read`, `send`, `write` | a cause | `direction` (`up`, `down`), `size_bucket` (byte buckets or `unknown`) |
 | `terminal_failed` | `start`, `stream` | `hostReported` | |
 | `ssh_failed` | `dns`, `connect`, `handshake`, `hostKey`, `auth`, `channel`, `sftp` | a cause, or `rejected`, `changed`, `forwardFailed` | |
-| `agent_failed` | `start`, `stream` | `hostReported` | |
+| `agent_failed` | `start`, `stream`, `approval`, `commit`, `push` | `hostReported`; for `approval`, `offline` (no usable connection) or `timedOut` (the Mac did not confirm) | |
 | `push_registration_failed` | none | `noEntitlement`, `simulator`, or a cause | |
 | `purchase_failed` | none | a StoreKit case name (`networkError`, `systemError`, `notAvailableInStorefront`, `productUnavailable`, `purchaseNotAllowed`, ...) or a cause | `product`: `pro_lifetime`, `pro_yearly`, `pro_monthly`, `other` |
 | `receipt_verification_failed` | none | `invalidSignature`, `invalidCertificateChain`, `revokedCertificate`, `invalidDeviceVerification`, `invalidEncoding`, `missingRequiredProperties`, `other` | `product` as above |
 | `pin_store_unreadable` | none | `keychain` (with the OSStatus as `error_code`) or `undecodable` (`error_code` -1) | once per launch |
 
-`terminal_failed` and `agent_failed` carry no detail because the Mac's own sentence is free text. A relay allowance refusal is not a separate event: it is `relay_allowance_exhausted`. `agent_failed` stages `approval`, `commit` and `push` are in the closed set but not yet emitted.
+`terminal_failed` and `agent_failed` carry no detail because the Mac's own sentence is free text. A relay allowance refusal is not a separate event: it is `relay_allowance_exhausted`. `agent_failed` at `approval` is an answer from a notification button that the Mac did not confirm; at `commit` and `push` it is a git result that reported failure.
 
 ## How to investigate a failure
 

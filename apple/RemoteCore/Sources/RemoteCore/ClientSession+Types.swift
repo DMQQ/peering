@@ -176,7 +176,7 @@ extension ClientSession {
             case .timedOut: self = .timedOut
             case .hostClosed: self = .hostClosed
             case .refused: self = .refused
-            case .invalidPort, .cancelled, .transport: self = .transport
+            case .invalidPort, .cancelled, .transport, .network, .malformed: self = .transport
             }
         }
     }

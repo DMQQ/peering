@@ -29,6 +29,7 @@ import pl.dmq.peering.ui.wiring.AppLock
 import pl.dmq.peering.ui.wiring.DeviceUnlock
 import pl.dmq.peering.ui.wiring.PreferencesFirstRunStore
 import pl.dmq.peering.ui.wiring.ScreenSecurity
+import pl.dmq.peering.widget.LinkNonce
 import pl.dmq.peering.widget.LockedLinkQueue
 import pl.dmq.peering.widget.WidgetLink
 
@@ -81,7 +82,9 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun followSession() {
-        val holder = (application as PeeringApplication).wiring?.holder ?: return
+        val holder = checkNotNull((application as PeeringApplication).wiring) {
+            "PeeringApplication.onCreate builds the wiring before any activity starts"
+        }.holder
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 holder.active.collect {
@@ -108,6 +111,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun openWidgetLink(intent: Intent) {
+        if (!LinkNonce.accepts(LinkNonce.load(noBackupFilesDir), intent.getStringExtra(LinkNonce.EXTRA))) return
         val link = WidgetLink.parse(intent.dataString) ?: return
         act(lockedLinks.admit(link, locked) ?: return)
     }

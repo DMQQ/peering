@@ -61,6 +61,11 @@ class RelayAllowanceTracker(
         save(RelayUsageLedger.spent(today()))
     }
 
+    /** The relay said how much is left in the window, which is truer than what this phone counted. */
+    fun relayReportedRemaining(seconds: Long) {
+        save(RelayUsageLedger.fromRemaining(today(), seconds))
+    }
+
     /** Publishes the allowance as of now, so a day that has just rolled over shows as unused. */
     fun refresh() {
         mutableAllowance.value = current()

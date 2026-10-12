@@ -204,8 +204,21 @@ struct LiveActivityPushPlannerTests {
         #expect(planner.due(now: due.addingTimeInterval(-1)).isEmpty)
         let ended = planner.due(now: due)
         #expect(ended.first?.event == .end)
+        #expect(ended.first?.dismissalSeconds == 1800)
         #expect(planner.due(now: due.addingTimeInterval(60)).isEmpty)
         #expect(planner.nextDue == nil)
+    }
+
+    @Test("a failed chat's card is also taken down with a thirty minute dismissal, and a session card leaves it to the relay")
+    func dismissalSecondsOnEnd() {
+        var chats = planner(.agentChat)
+        _ = chats.observe(truth(chats: [chat("c", .failed)]), presence: .background, now: t0)
+        #expect(chats.due(now: t0.addingTimeInterval(30 * 60)).first?.dismissalSeconds == 1800)
+        var session = planner(.session)
+        _ = session.observe(truth(), presence: .background, now: t0)
+        let ended = session.observe(truth(.ended), presence: .background, now: t0.addingTimeInterval(5))
+        #expect(ended.first?.event == .end)
+        #expect(ended.first?.dismissalSeconds == nil)
     }
 
     @Test("work that returns to a finished card before the linger ends restarts nothing and keeps the card")

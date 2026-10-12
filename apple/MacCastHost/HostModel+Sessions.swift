@@ -96,12 +96,13 @@ extension HostModel {
         if Self.isScreenLocked {
             // Said on a display too: locking often sleeps it, and a black picture with no caption reads as a broken stream.
             if case .display(let id)? = capturingSource {
-                return NoticePayload(message: "This Mac is locked.", symbol: "lock.fill", lockedDisplayID: id)
+                return NoticePayload(message: "This Mac is locked.", symbol: "lock.fill", lockedDisplayID: id, code: NoticeCode.screenLocked.rawValue)
             }
             return NoticePayload(
                 message: "This Mac is locked.",
                 symbol: "lock.fill",
-                lockedDisplayID: CGMainDisplayID()
+                lockedDisplayID: CGMainDisplayID(),
+                code: NoticeCode.screenLocked.rawValue
             )
         }
         guard case .display(let id)? = capturingSource else { return nil }
@@ -110,13 +111,15 @@ extension HostModel {
         if CGDisplayIsOnline(id) == 0 {
             return NoticePayload(
                 message: "That display is no longer connected. Choose another from Sources.",
-                symbol: "display.slash"
+                symbol: "display.slash",
+                code: NoticeCode.displayDisconnected.rawValue
             )
         }
         if CGDisplayIsAsleep(id) != 0 || CGDisplayIsActive(id) == 0 {
             return NoticePayload(
                 message: "This Mac's screen is asleep.",
-                symbol: "moon.zzz.fill"
+                symbol: "moon.zzz.fill",
+                code: NoticeCode.screenAsleep.rawValue
             )
         }
         return nil

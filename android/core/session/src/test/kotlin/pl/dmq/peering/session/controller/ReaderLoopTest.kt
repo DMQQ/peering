@@ -15,10 +15,10 @@ import pl.dmq.peering.wire.MAX_CONTROL_PAYLOAD
 import pl.dmq.peering.wire.MessageKind
 
 class ReaderLoopTest {
-    private suspend fun read(vararg frames: Frame): List<Frame> {
+    private suspend fun read(vararg frames: Frame, limitApplies: Boolean = true): List<Frame> {
         val out = Channel<Frame>(Channel.UNLIMITED)
         val bytes = frames.map { FrameEncoder.encode(it.kind, it.payload) }
-        ReaderLoop(flowOf(*bytes.toTypedArray()), out, ByteTally()) { }.run()
+        ReaderLoop(flowOf(*bytes.toTypedArray()), out, ByteTally(), { limitApplies }) { }.run()
         return buildList { for (frame in out) add(frame) }
     }
 
@@ -28,6 +28,13 @@ class ReaderLoopTest {
         val small = Frame(MessageKind.Notice, "{}".toByteArray())
 
         assertEquals(listOf(small), read(oversize, small))
+    }
+
+    @Test
+    fun aLargeControlPayloadIsKeptOnceTheHandshakeIsDone() = runTest {
+        val catalogue = Frame(MessageKind.Catalog, ByteArray(MAX_CONTROL_PAYLOAD * 3))
+
+        assertEquals(listOf(catalogue), read(catalogue, limitApplies = false))
     }
 
     @Test

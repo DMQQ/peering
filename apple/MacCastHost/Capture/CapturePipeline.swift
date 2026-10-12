@@ -33,6 +33,8 @@ final class CapturePipeline: @unchecked Sendable {
     /// Nil on synthetic pipelines (no screen) and for callers with no preferences store. See ``CursorOverlay``.
     let overlay: CursorOverlay?
     let lock = NSLock()
+    /// Its own lock: the capture queue asks per frame, and the client's request arrives on another thread.
+    let frameRateCap = OSAllocatedUnfairLock(initialState: FrameRateCap())
 
     var encoder: VideoEncoder?
     var source: CaptureSource?

@@ -41,6 +41,11 @@ final class CaptureRecovery: @unchecked Sendable {
         lock.withLock { pending = nil }
     }
 
+    /// The failure this rebuild answered, to be reported as recovered; nil when it answered a wake or a display change.
+    func attemptSucceeded() -> CaptureRecoveryBudget.Report? {
+        lock.withLock { budget.rebuildSucceeded() }
+    }
+
     /// True once, for the first frame after a give-up, so the notice that said it failed can be taken back.
     func frameDelivered() -> Bool {
         lock.withLock {

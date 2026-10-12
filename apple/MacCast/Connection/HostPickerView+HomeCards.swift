@@ -13,17 +13,15 @@ extension HomeTab {
 
     var failurePresentation: FailurePresentation {
         let detail = model.failureMessage ?? String(localized: "The connection could not be completed.")
-        let shownDetail = HostWireText.localized(detail)
         guard model.connectionPath == .relay else {
-            return FailurePresentation(title: String(localized: "Could not connect"), message: shownDetail, isRelayFailure: false)
+            return FailurePresentation(title: String(localized: "Could not connect"), message: detail, isRelayFailure: false)
         }
 
-        // Matched against the English the relay and `RemoteCore` send, so these are plain literals: a translated key here would never match.
         let normalized = detail.lowercased()
 
         // A first pairing that found nothing: the relay answers the same whether the Mac is asleep or the ID was mistyped, and the ID is what the user can check.
         if let pairingID = model.remotePairingHostID,
-           normalized.contains("not currently registered with the relay") {
+           model.failureCause == .relayHostOffline {
             return FailurePresentation(
                 title: String(localized: "No Mac answered"),
                 message: String(localized: "Nothing is registered with the relay under \(pairingID). Check that the whole ID was copied or scanned from the Mac, and that the Mac is awake with Peering running."),
@@ -31,7 +29,7 @@ extension HomeTab {
             )
         }
 
-        if normalized.contains("not currently registered with the relay") {
+        if model.failureCause == .relayHostOffline {
             return FailurePresentation(
                 title: String(localized: "Mac is not available"),
                 message: String(localized: "The relay is working, but this Mac is not connected to it. Make sure the Mac is awake and Peering is running there."),
@@ -41,17 +39,17 @@ extension HomeTab {
 
         // Matched on the word the sentence uses: `Failure.pinMismatch`'s sentence is the only thing that produces it.
         if normalized.contains("pinned") {
-            return FailurePresentation(title: String(localized: "Mac identity changed"), message: shownDetail, isRelayFailure: false)
+            return FailurePresentation(title: String(localized: "Mac identity changed"), message: detail, isRelayFailure: false)
         }
 
-        if normalized.contains("a different mac answered") {
-            return FailurePresentation(title: String(localized: "Wrong Mac"), message: shownDetail, isRelayFailure: false)
+        if normalized.contains(String(localized: "a different mac answered")) {
+            return FailurePresentation(title: String(localized: "Wrong Mac"), message: detail, isRelayFailure: false)
         }
 
         // The relay refuses a pair whose versions differ and states both numbers, so which side needs updating is worked out here, not assumed.
-        if normalized.contains("host speaks v") {
-            let host = Self.version(in: normalized, after: "host speaks v")
-            let client = Self.version(in: normalized, after: "client speaks v")
+        if normalized.contains(String(localized: "host speaks v")) {
+            let host = Self.version(in: normalized, after: String(localized: "host speaks v"))
+            let client = Self.version(in: normalized, after: String(localized: "client speaks v"))
             if let host, let client, client < host {
                 return FailurePresentation(
                     title: String(localized: "Update this device's app"),
@@ -68,7 +66,7 @@ extension HomeTab {
 
         return FailurePresentation(
             title: String(localized: "Remote connection unavailable"),
-            message: String(localized: "Peering could not complete the connection through the relay. Your Mac may be working normally. If both devices are nearby, put them on the same network and connect from Nearby.\n\nDetail: \(shownDetail)"),
+            message: String(localized: "Peering could not complete the connection through the relay. Your Mac may be working normally. If both devices are nearby, put them on the same network and connect from Nearby.\n\nDetail: \(detail)"),
             isRelayFailure: true
         )
     }

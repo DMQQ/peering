@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::device_bindings::DEFAULT_MAX_BINDINGS;
+use crate::client_ip::ClientIpHeader;
 use crate::limits::IpLimits;
 use crate::referrals::ReferralTerms;
 
@@ -270,6 +271,8 @@ pub enum ConfigError {
     BadPort(&'static str, String),
     /// A switch that is not one of the spellings of yes and no.
     NotABoolean(&'static str, String),
+    /// A client address header that is not one of the three the relay knows how to read.
+    BadClientIpHeader(String),
 }
 
 impl fmt::Display for ConfigError {
@@ -291,6 +294,10 @@ impl fmt::Display for ConfigError {
             Self::NotABoolean(name, value) => {
                 write!(f, "{name} is not a switch like 0, 1, true or false: {value:?}")
             }
+            Self::BadClientIpHeader(value) => write!(
+                f,
+                "PEERINGD_CLIENT_IP_HEADER must be X-Real-IP, CF-Connecting-IP or X-Forwarded-For, not {value:?}"
+            ),
         }
     }
 }
@@ -385,6 +392,7 @@ impl Config {
                     .min(u32::MAX as usize) as u32,
                     unspliced_sessions: count(&get, "PEERINGD_MAX_UNSPLICED_PER_IP", defaults.unspliced_sessions)?,
                     exempt_loopback: defaults.exempt_loopback,
+                    client_header: client_ip_header(&get)?,
                 }
             },
             referrals: get("PEERINGD_REFERRALS").map(PathBuf::from),
@@ -462,6 +470,13 @@ fn boolean(get: Lookup<'_>, name: &'static str, default: bool) -> Result<bool, C
     }
 }
 
+fn client_ip_header(get: Lookup<'_>) -> Result<ClientIpHeader, ConfigError> {
+    match get("PEERINGD_CLIENT_IP_HEADER") {
+        None => Ok(ClientIpHeader::default()),
+        Some(raw) => ClientIpHeader::parse(&raw).ok_or(ConfigError::BadClientIpHeader(raw)),
+    }
+}
+
 fn seconds(get: Lookup<'_>, name: &'static str, default: u64) -> Result<u64, ConfigError> {
     match get(name) {
         None => Ok(default),
@@ -514,6 +529,14 @@ mod tests {
             .map(|(key, value)| (key.to_string(), value.to_string()))
             .collect();
         Config::from_lookup(|name| values.get(name).cloned())
+    }
+
+    #[test]
+    fn the_client_address_header_defaults_to_x_real_ip_and_only_known_names_are_accepted() {
+        assert_eq!(configured(&[]).unwrap().ip_limits.client_header, ClientIpHeader::XRealIp);
+        let named = configured(&[("PEERINGD_CLIENT_IP_HEADER", "cf-connecting-ip")]).unwrap();
+        assert_eq!(named.ip_limits.client_header, ClientIpHeader::CfConnectingIp);
+        assert!(configured(&[("PEERINGD_CLIENT_IP_HEADER", "True-Client-IP")]).is_err());
     }
 
     #[test]

@@ -115,6 +115,28 @@ struct LiveActivityPushTests {
         #expect(try decode("tooBusy") == .activityRefused(.other("tooBusy")))
     }
 
+    @Test("an end writes dismissalSeconds and requestId, and an old shape without them still writes the same keys as before")
+    func notifyActivityEndFields() throws {
+        func encoded(_ push: RelayActivityPush) throws -> String {
+            String(decoding: try RelayMessageCodec.encode(RelayClientMessage.notifyActivity(push)), as: UTF8.self)
+        }
+        let ending = RelayActivityPush(
+            activityToken: "aa", activity: .agentChat, event: .end, contentState: .object([:]),
+            environment: .production, dismissalSeconds: 1800, requestId: "9f3a01bc"
+        )
+        #expect(try encoded(ending) == #"{"activity":"agentChat","activityToken":"aa","contentState":{},"dismissalSeconds":1800,"environment":"production","event":"end","requestId":"9f3a01bc","type":"notifyActivity"}"#)
+        let old = RelayActivityPush(activityToken: "aa", activity: .agentChat, event: .end, contentState: .object([:]), environment: .production)
+        #expect(try encoded(old) == #"{"activity":"agentChat","activityToken":"aa","contentState":{},"environment":"production","event":"end","type":"notifyActivity"}"#)
+    }
+
+    @Test("activityRefused hands back the requestId when the relay echoes one, and decodes without it")
+    func refusalRequestID() throws {
+        let echoed = Data(#"{"type":"activityRefused","reason":"invalidToken","requestId":"9f3a01bc"}"#.utf8)
+        #expect(try RelayMessageCodec.decode(RelayServerMessage.self, from: echoed) == .activityRefused(.invalidToken, requestId: "9f3a01bc"))
+        let bare = Data(#"{"type":"activityRefused","reason":"invalidToken"}"#.utf8)
+        #expect(try RelayMessageCodec.decode(RelayServerMessage.self, from: bare) == .activityRefused(.invalidToken, requestId: nil))
+    }
+
     @Test("the published frame vectors decode, and frame with kind 0x24")
     func publishedVectors() throws {
         let session = #"{"activity":"session","environment":"production","pushToStartToken":null,"pushToken":"0a1b2c"}"#

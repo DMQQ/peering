@@ -44,6 +44,9 @@ final class MacSession: Identifiable {
 
     var phase: ClientSession.Phase = .idle
 
+    /// Why ``phase`` failed, when the wording could be chosen here. The picker reads it instead of searching the sentence.
+    var failureCause: ClientSession.FailureCause?
+
     var wire: ClientSession?
 
     var hostID: String?
@@ -88,7 +91,7 @@ final class MacSession: Identifiable {
 
     var videoFramesPerSecond: Double = 0
 
-    var lastFrameSample: (count: Int, at: Date)?
+    var lastFrameSample: (count: Int, at: ContinuousClock.Instant)?
 
     var isVideoStreaming = false
 

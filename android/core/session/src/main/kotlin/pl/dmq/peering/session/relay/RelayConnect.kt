@@ -101,6 +101,7 @@ class RelayConnect(
                     video = PeerAddress(reply.videoHost, reply.videoPort),
                     controlToken = reply.controlToken,
                     videoToken = reply.videoToken,
+                    remainingSeconds = reply.remainingSeconds,
                 )
                 is RelayServerMessage.HostOffline -> throw RelaySessionException.HostOffline(reply.deviceId)
                 is RelayServerMessage.Error -> throw sessionError(reply, hostId)

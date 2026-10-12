@@ -64,6 +64,10 @@ public struct RelayActivityPush: Sendable, Equatable, Encodable {
     public var alertTitle: String?
     public var alertBody: String?
     public var environment: PushEnvironment
+    /// `end` only: seconds until the card leaves the Lock Screen. The relay clamps it to 14400, which is also its default.
+    public var dismissalSeconds: UInt32?
+    /// Up to 64 characters. The relay echoes it in `activityRefused`, so a refusal can be tied to the push it was about.
+    public var requestId: String?
 
     public init(
         activityToken: String,
@@ -76,7 +80,9 @@ public struct RelayActivityPush: Sendable, Equatable, Encodable {
         attributes: RelayJSON? = nil,
         alertTitle: String? = nil,
         alertBody: String? = nil,
-        environment: PushEnvironment
+        environment: PushEnvironment,
+        dismissalSeconds: UInt32? = nil,
+        requestId: String? = nil
     ) {
         self.activityToken = activityToken
         self.activity = activity
@@ -89,6 +95,8 @@ public struct RelayActivityPush: Sendable, Equatable, Encodable {
         self.alertTitle = alertTitle
         self.alertBody = alertBody
         self.environment = environment
+        self.dismissalSeconds = dismissalSeconds
+        self.requestId = requestId
     }
 
     /// Whether the state fits the relay's limit once serialised.

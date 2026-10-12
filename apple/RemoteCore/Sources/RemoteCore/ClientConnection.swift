@@ -17,6 +17,9 @@ public final class ClientConnection: @unchecked Sendable {
         case hostClosed
         case refused(String)
         case transport(String)
+        case network(NetworkFailureText.Kind)
+        /// The byte stream could not be framed.
+        case malformed(String)
 
         public var errorDescription: String? {
             switch self {
@@ -30,9 +33,18 @@ public final class ClientConnection: @unchecked Sendable {
                 return "The Mac closed the connection."
             case .refused(let message):
                 return "The Mac refused the session: \(message)"
-            case .transport(let message):
+            case .transport(let message), .malformed(let message):
                 return message
+            case .network(let kind):
+                return NetworkFailureText.sentence(for: kind)
             }
+        }
+
+        /// A network error keeps its kind, so the app can word it; anything else keeps the sentence it already has.
+        static func transport(from error: Error) -> Failure {
+            if let network = error as? NWError { return .network(NetworkFailureText.kind(of: network)) }
+            if error is FramingError { return .malformed(NetworkFailureText.describe(error)) }
+            return .transport(NetworkFailureText.describe(error))
         }
     }
 
@@ -174,7 +186,7 @@ public final class ClientConnection: @unchecked Sendable {
                         self.receiveNext()
                     case .failed(let error):
                         transportLog.error("connection failed: \(String(describing: error), privacy: .public)")
-                        let failure = Failure.transport(NetworkFailureText.describe(error))
+                        let failure = Failure.transport(from: error)
                         self.noteErrorDetail(error)
                         self.cancelTimeout()
                         self.resumeReady(.failure(failure))
@@ -188,7 +200,7 @@ public final class ClientConnection: @unchecked Sendable {
                         // Network.framework would otherwise retry forever, which for a user who just
                         // tapped a Mac in a list is a hang.
                         transportLog.error("connection waiting: \(String(describing: error), privacy: .public)")
-                        let failure = Failure.transport(NetworkFailureText.describe(error))
+                        let failure = Failure.transport(from: error)
                         self.noteErrorDetail(error)
                         self.cancelTimeout()
                         self.resumeReady(.failure(failure))
@@ -280,7 +292,7 @@ public final class ClientConnection: @unchecked Sendable {
                     // A framing error is unrecoverable, the byte stream being unusable, so the
                     // connection is torn down rather than resynchronised onto a guess.
                     transportLog.error("framing failed: \(String(describing: error), privacy: .public)")
-                    let failure = Failure.transport(NetworkFailureText.describe(error))
+                    let failure = Failure.transport(from: error)
                     connection?.cancel()
                     finish(failure)
                     return
@@ -292,7 +304,7 @@ public final class ClientConnection: @unchecked Sendable {
             if let error {
                 transportLog.error("receive failed: \(String(describing: error), privacy: .public)")
                 noteErrorDetail(error)
-                finish(.transport(NetworkFailureText.describe(error)))
+                finish(Failure.transport(from: error))
                 return
             }
             if isComplete {

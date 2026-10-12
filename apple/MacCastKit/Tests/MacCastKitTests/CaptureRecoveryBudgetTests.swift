@@ -20,6 +20,35 @@ struct CaptureRecoveryBudgetTests {
         #expect(result2 == .giveUp)
     }
 
+    @Test func aRebuildThatWorksOwesTheFailureThatCausedIt() {
+        var budget = CaptureRecoveryBudget()
+        _ = budget.failed(.streamStopped(code: -3821), at: 0)
+        let report = budget.rebuildSucceeded()
+        #expect(report == .init(code: .captureStopped, stage: "stream", errorCode: -3821))
+        #expect(budget.rebuildSucceeded() == nil)
+    }
+
+    @Test func aWakeThatStartsARebuildLeavesTheEarlierFailureToBeReported() {
+        var budget = CaptureRecoveryBudget()
+        _ = budget.failed(.encoderFailed, at: 0)
+        _ = budget.failed(.wokeFromSleep, at: 1)
+        #expect(budget.rebuildSucceeded() == .init(code: .encoderFailed, stage: "encode", errorCode: nil))
+    }
+
+    @Test func aRebuildAfterOnlyAWakeOrADisplayChangeReportsNothing() {
+        var budget = CaptureRecoveryBudget()
+        _ = budget.failed(.displaysChanged, at: 0)
+        #expect(budget.rebuildSucceeded() == nil)
+    }
+
+    @Test func givingUpDropsTheReportSoTheFailureIsNotAlsoClaimedAsRecovered() {
+        var budget = CaptureRecoveryBudget()
+        for _ in 0..<CaptureRecoveryBudget.maximumAttempts { _ = budget.failed(.startFailed, at: 0) }
+        let verdict = budget.failed(.startFailed, at: 0)
+        #expect(verdict == .giveUp)
+        #expect(budget.rebuildSucceeded() == nil)
+    }
+
     @Test func aDeniedPermissionIsNeverRetried() {
         var budget = CaptureRecoveryBudget()
         let result3 = budget.failed(.streamStopped(code: -3801), at: 0)

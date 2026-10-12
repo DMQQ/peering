@@ -34,13 +34,11 @@ extension ClientSession {
             else { return }
 
             // Fast while there is any prospect, then slow for the rest of the session to recover a path a NAT mapping expiry took away. Each probe is sealed afresh: the counter is the AEAD nonce, so a reused probe would be discarded. Discovery repeats on the same cadence, since "no address yet" is the ordinary first answer.
+            let lookup = RelayPeerLookup(url: ProtocolInfo.relaySignallingURL)
             var attempt = 0
             while !Task.isCancelled {
                 if attempt % Self.rediscoverEvery == 0 {
-                    if let address = try? await RelaySignallingConnection.discoverPeer(
-                        at: ProtocolInfo.relaySignallingURL,
-                        videoToken: relay.videoToken
-                    ) {
+                    if let address = try? await lookup.address(videoToken: relay.videoToken) {
                         // Not fatal but said: an unparseable address would go unnoticed all session. ``sendDirect`` does nothing meanwhile rather than sending to the relay.
                         let peer = "\(address.host):\(address.port)"
                         do {
@@ -62,6 +60,7 @@ extension ClientSession {
                 let interval: Duration = attempt <= 12 ? .milliseconds(250) : .seconds(5)
                 try? await Task.sleep(for: interval)
             }
+            await lookup.close()
         }
 
         let previous = lock.withLock { () -> (Task<Void, Never>?, Task<Void, Never>?)? in

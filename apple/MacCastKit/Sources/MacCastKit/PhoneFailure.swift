@@ -37,6 +37,22 @@ public enum PhoneFailure {
 
     public enum AgentStage: String, Sendable, CaseIterable {
         case start, stream, approval, commit, push
+
+        public init(operation: AgentGitOperation) {
+            switch operation {
+            case .commit: self = .commit
+            case .push: self = .push
+            }
+        }
+    }
+
+    /// Why an answer to an agent's approval did not reach the Mac: no usable connection, or no confirmation in time.
+    public static func approvalCause(wasSent: Bool) -> Cause {
+        wasSent ? .timedOut : .offline
+    }
+
+    public static func agentProperties(stage: AgentStage, cause: Cause) -> [String: any Sendable] {
+        properties(stage: stage.rawValue, reason: cause.rawValue, code: nil)
     }
 
     /// What an error says about itself without its message: the broad kind, from the error's domain and code.

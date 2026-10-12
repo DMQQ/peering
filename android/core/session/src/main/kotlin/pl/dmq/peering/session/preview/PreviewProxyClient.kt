@@ -81,11 +81,6 @@ class PreviewProxyClient(
         }
     }
 
-    private companion object {
-        const val BASE64_GROUP = 4
-        const val BYTES_PER_GROUP = 3
-    }
-
     private fun bodyRefusal(body: ByteArray?): PreviewFailure? =
         if (body != null && body.size > PreviewPolicy.MAX_REQUEST_BODY_BYTES) PreviewFailure.TOO_LARGE else null
 
@@ -97,4 +92,9 @@ class PreviewProxyClient(
 
     /** Whether the request was still open, which decides if the computer needs telling to stop. */
     private fun forget(id: Long): Boolean = synchronized(lock) { waiting.remove(id) != null }
+
+    private companion object {
+        const val BASE64_GROUP = 4
+        const val BYTES_PER_GROUP = 3
+    }
 }

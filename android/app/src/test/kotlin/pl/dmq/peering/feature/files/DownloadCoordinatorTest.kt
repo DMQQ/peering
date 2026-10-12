@@ -119,4 +119,57 @@ class DownloadCoordinatorTest {
         assertTrue(sink.discarded)
         assertEquals(DownloadOutcome.Failed("provider refused"), coordinator.outcome)
     }
+
+    private class ThrowingSink(private val failure: () -> Exception, private val failing: Set<String>) : DownloadSink {
+        var discards = 0
+
+        override fun write(bytes: ByteArray) {
+            if ("write" in failing) throw failure()
+        }
+
+        override fun commit() {
+            if ("commit" in failing) throw failure()
+        }
+
+        override fun discard() {
+            discards++
+            if ("discard" in failing) throw failure()
+        }
+    }
+
+    private val failures: List<() -> Exception> = listOf(
+        { SecurityException("grant revoked") },
+        { IllegalArgumentException("bad uri") },
+        { IOException("gone") },
+    )
+
+    @Test
+    fun anyExceptionFromWriteFailsTheDownloadInsteadOfEscaping() {
+        for (failure in failures) {
+            val sink = ThrowingSink(failure, setOf("write", "discard"))
+            val coordinator = DownloadCoordinator(sink)
+            coordinator.accept(0, bytes(1))
+            assertTrue(coordinator.outcome is DownloadOutcome.Failed)
+            assertEquals(1, sink.discards)
+        }
+    }
+
+    @Test
+    fun anyExceptionFromCommitFailsTheDownloadInsteadOfEscaping() {
+        for (failure in failures) {
+            val sink = ThrowingSink(failure, setOf("commit", "discard"))
+            val coordinator = DownloadCoordinator(sink)
+            coordinator.complete()
+            assertTrue(coordinator.outcome is DownloadOutcome.Failed)
+        }
+    }
+
+    @Test
+    fun aCancelSurvivesADiscardThatThrows() {
+        for (failure in failures) {
+            val coordinator = DownloadCoordinator(ThrowingSink(failure, setOf("discard")))
+            coordinator.cancel()
+            assertEquals(DownloadOutcome.Discarded, coordinator.outcome)
+        }
+    }
 }

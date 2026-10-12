@@ -20,6 +20,22 @@ struct PhoneFailureTests {
         #expect(PhoneFailure.cause(of: CancellationError()).cause == .cancelled)
     }
 
+    @Test func aFailedCommitOrPushReportsItsOwnAgentStage() {
+        #expect(PhoneFailure.AgentStage(operation: .commit) == .commit)
+        #expect(PhoneFailure.AgentStage(operation: .push) == .push)
+        let properties = PhoneFailure.agentProperties(stage: .push, cause: .hostReported)
+        #expect(properties["stage"] as? String == "push")
+        #expect(properties["reason"] as? String == "hostReported")
+        #expect(properties["error_code"] == nil)
+    }
+
+    @Test func anApprovalThatWasNeverSentIsOfflineAndOneThatWasNotConfirmedTimedOut() {
+        #expect(PhoneFailure.approvalCause(wasSent: false) == .offline)
+        #expect(PhoneFailure.approvalCause(wasSent: true) == .timedOut)
+        let properties = PhoneFailure.agentProperties(stage: .approval, cause: PhoneFailure.approvalCause(wasSent: true))
+        #expect(properties["stage"] as? String == "approval")
+    }
+
     @Test func anUnknownErrorIsOtherAndCarriesNoMessage() {
         let found = PhoneFailure.cause(of: Sample.transport("secret-host.local:22"))
         #expect(found.cause == .other)

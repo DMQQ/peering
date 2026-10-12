@@ -9,6 +9,8 @@ import os
 extension CapturePipeline {
     func ingest(_ frame: CapturedFrame, source: CaptureSource) {
         guard lock.withLock({ self.source == source }) else { return }
+        // Before the overlay is drawn and the encoder is fed: a frame the client asked not to receive costs nothing.
+        guard frameRateCap.withLock({ $0.admits(at: frame.presentationTime.seconds) }) else { return }
         onGeometry?(frame.geometry)
 
         // The last point where the frame is still ours to draw on, and the only one holding both frame and geometry. Not on a mosaic: each tile's stream already has the real pointer drawn in by ScreenCaptureKit. See ``MosaicPlan``.

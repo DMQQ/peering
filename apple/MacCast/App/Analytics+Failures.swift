@@ -31,8 +31,8 @@ extension Analytics {
         report(.terminal, PhoneFailure.properties(stage: stage.rawValue, reason: PhoneFailure.Cause.hostReported.rawValue, code: nil))
     }
 
-    static func agentFailed(stage: PhoneFailure.AgentStage) {
-        report(.agent, PhoneFailure.properties(stage: stage.rawValue, reason: PhoneFailure.Cause.hostReported.rawValue, code: nil))
+    static func agentFailed(stage: PhoneFailure.AgentStage, cause: PhoneFailure.Cause = .hostReported) {
+        report(.agent, PhoneFailure.agentProperties(stage: stage, cause: cause))
     }
 
     static func pushRegistrationFailed(_ error: Error) {

@@ -63,7 +63,7 @@ struct RemotePairingSheet: View {
                 }
 
                 if let refusal, refusal.text == identifier {
-                    Text(refusal.error.errorDescription ?? String(localized: "That is not a Mac's device ID."))
+                    Text(PairingPayloadText.message(for: refusal.error))
                         .font(.caption)
                         .foregroundStyle(ColorPalette.ink)
                         .fixedSize(horizontal: false, vertical: true)

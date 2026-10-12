@@ -107,7 +107,7 @@ extension SessionModel {
         get { activeSession?.videoFramesPerSecond ?? 0 }
         set { activeSession?.videoFramesPerSecond = newValue }
     }
-    var lastFrameSample: (count: Int, at: Date)? {
+    var lastFrameSample: (count: Int, at: ContinuousClock.Instant)? {
         get { activeSession?.lastFrameSample }
         set { activeSession?.lastFrameSample = newValue }
     }

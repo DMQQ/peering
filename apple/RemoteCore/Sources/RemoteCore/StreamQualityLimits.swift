@@ -2,6 +2,14 @@
 /// clamps them rather than trusting the phone to stay sane.
 public enum StreamQualityLimits {
     public static let maxBitrateKbps = 100_000
+    public static let minFramesPerSecond = 15
+    /// Also what a client sends to mean "no cap": nothing on a Mac captures faster.
+    public static let maxFramesPerSecond = 120
+
+    /// `nil` for zero or negative, which `setStreamQuality` defines as "keep current".
+    public static func clampedFramesPerSecond(_ requested: Int) -> Int? {
+        requested > 0 ? min(max(requested, minFramesPerSecond), maxFramesPerSecond) : nil
+    }
 
     /// `nil` for a request that is not a bitrate at all (zero or negative).
     public static func clampedBitrateKbps(_ requested: Int) -> Int? {

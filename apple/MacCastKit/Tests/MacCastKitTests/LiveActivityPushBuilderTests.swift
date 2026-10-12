@@ -34,6 +34,14 @@ struct LiveActivityPushBuilderTests {
         #expect(decoded.startedAt == started)
     }
 
+    @Test("the dismissal the planner chose reaches the relay message")
+    func dismissalIsCarried() throws {
+        var ending = command(.agentChat, event: .end)
+        ending.dismissalSeconds = 1800
+        #expect(try LiveActivityPushBuilder.push(for: ending, hostID: "mac-1", now: now).dismissalSeconds == 1800)
+        #expect(try LiveActivityPushBuilder.push(for: command(.agentChat, event: .end), hostID: "mac-1", now: now).dismissalSeconds == nil)
+    }
+
     @Test("a session push has the coded fields and no free text")
     func sessionState() throws {
         let chats = [LiveActivityChat(id: "c1", symbol: "sparkles", state: .needsYou)]
