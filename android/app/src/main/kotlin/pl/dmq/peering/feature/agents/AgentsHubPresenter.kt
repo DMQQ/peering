@@ -153,6 +153,7 @@ class AgentsHubPresenter(
             newChat = currentStep,
             failure = chats.failure,
             recentFolders = folderPaths,
+            loading = canImport && listed == null,
         )
     }
 

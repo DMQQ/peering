@@ -60,6 +60,15 @@ class HubHistoryAndImportTest {
     }
 
     @Test
+    fun loadsUntilTheComputerAnswersTheFirstListing() {
+        val port = FakeAgentsPort()
+        val presenter = hub(port)
+        assertTrue(presenter.ui.value.loading)
+        port.resumableList.value = emptyList()
+        assertFalse(presenter.ui.value.loading)
+    }
+
+    @Test
     fun endingAWorkingChatClosesIt() {
         val port = FakeAgentsPort(AgentChatState(sessions = listOf(talked("A", state = AgentSessionState.WORKING))))
         hub(port).endSession("A")

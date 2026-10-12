@@ -45,6 +45,7 @@ import pl.dmq.peering.feature.settings.SettingsStore
 import pl.dmq.peering.session.controller.SessionFailure
 import pl.dmq.peering.session.controller.SessionPhase
 import pl.dmq.peering.session.ports.Clock
+import pl.dmq.peering.session.ports.KeyValueStore
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.wiring.ActiveSession
 import pl.dmq.peering.ui.wiring.ChatAgentsPort
@@ -150,6 +151,7 @@ internal fun AgentsScreen(
     active: ActiveSession,
     drafts: ComposerDraftStore,
     folderRecents: FolderRecentsStore,
+    guideStore: KeyValueStore,
     clock: Clock,
     onBack: () -> Unit,
 ) {
@@ -168,8 +170,8 @@ internal fun AgentsScreen(
         chatSupported = true,
         modelPickerSupported = chat.capabilities.modelPicker,
         draftStore = drafts,
+        guideStore = guideStore,
         clock = clock,
-        onBack = onBack,
     )
 }
 

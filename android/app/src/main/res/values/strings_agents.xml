@@ -8,13 +8,14 @@
     </plurals>
     <string name="agents_guide_reopen">How this page works</string>
     <string name="agents_guide_title">How agents work</string>
-    <string name="agents_guide_pick">Pick an agent below</string>
-    <string name="agents_guide_pick_detail">The bar at the bottom chooses which coding agent you talk to. Hold it to switch.</string>
-    <string name="agents_guide_folder">A chat works in a folder</string>
-    <string name="agents_guide_folder_detail">Chat with an agent and it works on your computer in the folder you pick. The chat stays here when you leave.</string>
+    <string name="agents_guide_pick">Pick an agent</string>
+    <string name="agents_guide_pick_detail">The bar below chooses who you talk to.</string>
+    <string name="agents_guide_folder">Work in a folder</string>
+    <string name="agents_guide_folder_detail">The agent edits files in the folder you pick.</string>
     <string name="agents_guide_waiting">Waiting on you</string>
-    <string name="agents_guide_waiting_detail">A chat marked this way needs a yes or a no before the agent carries on.</string>
+    <string name="agents_guide_waiting_detail">A chat marked this way needs a yes or no.</string>
     <string name="agents_guide_got_it">Got it</string>
+    <string name="agents_guide_dismiss">Close the guide</string>
     <string name="agents_active_on_computer">Active on your computer</string>
     <string name="agents_none_found">No supported agents were found on this computer. Install one and it will show up here.</string>
     <string name="agents_empty_hub_body">Pick an agent below and talk to it. It works on your computer, and the chat stays here when you leave.</string>
