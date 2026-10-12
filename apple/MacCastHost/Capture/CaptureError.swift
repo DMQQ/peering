@@ -16,9 +16,6 @@ enum CaptureError: LocalizedError, Equatable {
     case encodingFailed(String)
     case recoveryFailed(attempts: Int)
 
-    /// Carried in ``NoticePayload/code`` for a client that wants to act on it.
-    static let recoveryFailedNoticeCode = "capture-recovery-failed"
-
     var errorDescription: String? {
         switch self {
         case .screenRecordingDenied:
@@ -58,13 +55,14 @@ enum CaptureError: LocalizedError, Equatable {
         case .screenRecordingDenied:
             return NoticePayload(
                 message: "This Mac cannot record its screen. Someone there has to allow Screen Recording for Peering in System Settings, then quit Peering on the Mac and open it again.",
-                symbol: "rectangle.slash"
+                symbol: "rectangle.slash",
+                code: NoticeCode.screenRecordingDenied.rawValue
             )
         case .recoveryFailed:
             return NoticePayload(
                 message: String(localized: "The picture stopped and this Mac could not start it again. Reconnect to try once more, or check Screen Recording and the display on the Mac."),
                 symbol: "exclamationmark.triangle",
-                code: Self.recoveryFailedNoticeCode
+                code: NoticeCode.captureRecoveryFailed.rawValue
             )
         case .sourceUnavailable, .catalogUnavailable, .streamStopped, .streamFailed, .encodingFailed:
             return nil

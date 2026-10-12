@@ -75,6 +75,7 @@ extension ClientSession {
             state = .idle
             _phase = .connecting
             _failureReason = nil
+            _failureCause = nil
             _failureDiagnosis = nil
             _millisecondsToReady = nil
             connectStartedAt = Self.monotonicNow()

@@ -2,6 +2,7 @@ import AVFoundation
 import CoreGraphics
 import CoreMedia
 import Foundation
+import MacCastKit
 import RemoteCore
 import os
 
@@ -29,6 +30,9 @@ extension VideoCoordinator {
 
 /// Applies a stream-quality change requested by the client.
     func setStreamQuality(fps: Int, bitrateKbps: Int) {
+        if let framesPerSecond = StreamQualityLimits.clampedFramesPerSecond(fps) {
+            pipeline.frameRateCap.withLock { $0.setLimit(framesPerSecond) }
+        }
         guard let bitrateKbps = StreamQualityLimits.clampedBitrateKbps(bitrateKbps) else { return }
         lock.withLock { requestedBitrateKbps = bitrateKbps }
         pipeline.setBitrate(effectiveBitrateKbps * 1000)
@@ -106,6 +110,8 @@ extension VideoCoordinator {
     func forgetTransportChoiceLocked() {
         videoTransport = .primary
         requestedBitrateKbps = 0
+        // A leaf lock, so taking it here calls nothing back into the coordinator.
+        pipeline.frameRateCap.withLock { $0.setLimit(nil) }
     }
 
 /// What the encoder should be running at: the client's choice, and the control channel's ceiling on top

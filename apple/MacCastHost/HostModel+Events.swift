@@ -205,7 +205,8 @@ extension HostModel {
             record("Could not enable Privacy Mode: \(reason)", level: .failure)
             server?.broadcastNotice(NoticePayload(
                 message: "Privacy Mode could not darken this Mac's displays.",
-                symbol: "display.trianglebadge.exclamationmark"
+                symbol: "display.trianglebadge.exclamationmark",
+                code: NoticeCode.privacyModeFailed.rawValue
             ))
             return
         }
@@ -228,7 +229,8 @@ extension HostModel {
             message: refusals.count == 1
                 ? "One of this Mac's displays is still visible: Privacy Mode could not cover it."
                 : "\(refusals.count) of this Mac's displays are still visible: Privacy Mode could not cover them.",
-            symbol: "display.trianglebadge.exclamationmark"
+            symbol: "display.trianglebadge.exclamationmark",
+            code: NoticeCode.privacyModeUncovered.rawValue
         ))
     }
 

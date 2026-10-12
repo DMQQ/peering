@@ -85,4 +85,6 @@ public struct LiveActivityCommand: Sendable, Equatable {
     /// 10 when the person is needed, otherwise the relay's default for the event.
     public var priority: Int?
     public var alert: Alert?
+    /// `end` only: how long the card stays on the Lock Screen. Nil leaves it to the relay's default.
+    public var dismissalSeconds: UInt32? = nil
 }

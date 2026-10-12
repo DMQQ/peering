@@ -12,6 +12,19 @@ struct StreamQualityLimitsTests {
         #expect(StreamQualityLimits.clampedBitrateKbps(Int.max) == 100_000)
         #expect(StreamQualityLimits.clampedBitrateKbps(8_000) == 8_000)
     }
+
+    @Test func zeroOrNegativeFramesPerSecondMeansKeepCurrent() {
+        #expect(StreamQualityLimits.clampedFramesPerSecond(0) == nil)
+        #expect(StreamQualityLimits.clampedFramesPerSecond(-30) == nil)
+        #expect(StreamQualityLimits.clampedFramesPerSecond(Int.min) == nil)
+    }
+
+    @Test func framesPerSecondStaysInASaneRange() {
+        #expect(StreamQualityLimits.clampedFramesPerSecond(1) == 15)
+        #expect(StreamQualityLimits.clampedFramesPerSecond(30) == 30)
+        #expect(StreamQualityLimits.clampedFramesPerSecond(240) == 120)
+        #expect(StreamQualityLimits.clampedFramesPerSecond(Int.max) == 120)
+    }
 }
 
 struct FieldSelectionTests {

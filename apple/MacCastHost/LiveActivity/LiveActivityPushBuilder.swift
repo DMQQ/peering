@@ -35,7 +35,8 @@ enum LiveActivityPushBuilder {
             attributes: isStart ? .object(["origin": .string("host")]) : nil,
             alertTitle: text?.title,
             alertBody: text?.body,
-            environment: command.environment
+            environment: command.environment,
+            dismissalSeconds: command.dismissalSeconds
         )
     }
 

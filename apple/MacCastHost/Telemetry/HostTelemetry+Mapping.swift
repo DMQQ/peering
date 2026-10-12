@@ -10,7 +10,7 @@ extension HostTelemetry {
         case .screenRecordingDenied: error(.permissionRevoked, stage: "capture")
         case .streamStopped(let code, _): error(.captureStopped, stage: "stream", errorCode: code)
         case .encodingFailed: error(.encoderFailed, stage: "encode")
-        case .recoveryFailed: error(.captureFailed, stage: "recovery")
+        case .recoveryFailed: error(.captureFailed, stage: "recovery", recovered: false)
         case .sourceUnavailable, .catalogUnavailable, .streamFailed: error(.captureFailed, stage: "start")
         }
     }

@@ -95,7 +95,7 @@ extension ClientSession {
         case .expired:
             guard let silentSince else { return }
             clientSessionLog.error("the control channel has not answered for \(Int(now - silentSince), privacy: .public)s; failing the session")
-            fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsive)
+            fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsive, cause: .hostUnresponsive)
         }
     }
 

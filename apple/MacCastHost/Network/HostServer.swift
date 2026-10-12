@@ -195,8 +195,8 @@ final class HostServer: @unchecked Sendable {
     }
 
     /// The relay's answer to a Live Activity push that was not sent.
-    func activityPushRefused(_ reason: RelayActivityRefusal) {
-        activityPublisher.refused(reason)
+    func activityPushRefused(_ reason: RelayActivityRefusal, requestId: String?) {
+        activityPublisher.refused(reason, requestId: requestId)
     }
 
     func directPathChanged(_ open: Bool) {

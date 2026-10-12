@@ -205,14 +205,16 @@ public struct LiveActivityPushPlanner: Sendable {
         _ truth: LiveActivityTruth,
         alert: LiveActivityCommand.Alert?
     ) -> LiveActivityCommand {
-        LiveActivityCommand(
+        let settledChat = kind == .agentChat && truth.topChat.map(Self.isSettled) == true
+        return LiveActivityCommand(
             kind: kind,
             event: event,
             token: token,
             environment: environment,
             truth: truth,
             priority: alert == nil ? nil : 10,
-            alert: alert
+            alert: alert,
+            dismissalSeconds: event == .end && settledChat ? UInt32(Self.finishedLinger) : nil
         )
     }
 

@@ -32,7 +32,7 @@ extension ClientSession {
             return
         }
         guard let hello = try? MessageCodec.decode(ServerHello.self, from: frame.payload) else {
-            fail("The Mac's hello could not be read.", reason: .handshake)
+            fail("The Mac's hello could not be read.", reason: .handshake, cause: .handshakeUnreadable)
             return
         }
         guard hello.protocolVersion == ProtocolInfo.version else {
@@ -110,7 +110,7 @@ extension ClientSession {
               let ephemeral = lock.withLock({ self.ephemeral }),
               let nonce = lock.withLock({ self.nonce })
         else {
-            fail("The Mac's pairing commitment could not be read.", reason: .handshake)
+            fail("The Mac's pairing commitment could not be read.", reason: .handshake, cause: .handshakeUnreadable)
             return
         }
 
@@ -133,7 +133,7 @@ extension ClientSession {
             return
         }
         guard let reveal = try? MessageCodec.decode(PairingReveal.self, from: frame.payload) else {
-            fail("The Mac's pairing reveal could not be read.", reason: .handshake)
+            fail("The Mac's pairing reveal could not be read.", reason: .handshake, cause: .handshakeUnreadable)
             return
         }
 
@@ -190,7 +190,7 @@ extension ClientSession {
             return
         }
         guard let result = try? MessageCodec.decode(PairResult.self, from: frame.payload) else {
-            fail("The Mac's pairing result could not be read.", reason: .handshake)
+            fail("The Mac's pairing result could not be read.", reason: .handshake, cause: .handshakeUnreadable)
             return
         }
         guard result.accepted else {
@@ -210,7 +210,7 @@ extension ClientSession {
                 fail(Failure.pinsUnreadable)
                 return
             }
-            fail("The pairing succeeded but this device could not save it. Check that the Keychain is available.", reason: .pairingNotSaved)
+            fail("The pairing succeeded but this device could not save it. Check that the Keychain is available.", reason: .pairingNotSaved, cause: .pairingNotSaved)
             return
         }
 

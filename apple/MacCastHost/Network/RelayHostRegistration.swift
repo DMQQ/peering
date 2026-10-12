@@ -11,7 +11,7 @@ final class RelayHostRegistration: @unchecked Sendable {
     private let onSession: @Sendable (RelaySession) -> Void
     private let onStatus: @Sendable (String) -> Void
     /// Called when the relay answers a Live Activity push with a refusal.
-    var onActivityRefused: (@Sendable (RelayActivityRefusal) -> Void)?
+    var onActivityRefused: (@Sendable (RelayActivityRefusal, String?) -> Void)?
     private let lock = NSLock()
     private var task: Task<Void, Never>?
     private var connection: RelaySignallingConnection?
@@ -249,8 +249,8 @@ final class RelayHostRegistration: @unchecked Sendable {
                 throw RelaySignallingError.refused(code: "relay", message: message)
             case .hostOffline:
                 break
-            case .activityRefused(let reason):
-                onActivityRefused?(reason)
+            case .activityRefused(let reason, let requestId):
+                onActivityRefused?(reason, requestId)
             // Never sent unsolicited, and never in answer to anything this end says: the
             // Mac learns where its clients are by being sent to. Ignored rather than
             // refused, because a relay that says more than this build expects is no reason

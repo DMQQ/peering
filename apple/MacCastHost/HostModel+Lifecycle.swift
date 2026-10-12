@@ -306,8 +306,8 @@ extension HostModel {
                 guard let registration else { return done() }
                 registration.notifyActivity(push, completion: done)
             }
-            registration.onActivityRefused = { [weak server] reason in
-                server?.activityPushRefused(reason)
+            registration.onActivityRefused = { [weak server] reason, requestId in
+                server?.activityPushRefused(reason, requestId: requestId)
             }
             server.onAgentActivity = { [weak self] active in
                 Task { @MainActor [weak self] in self?.setAgentActivity(active) }
