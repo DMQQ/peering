@@ -36,7 +36,7 @@ internal fun PortraitChrome(
         val standing = DOCK_EXPANDED_HEIGHT + ChromeMetrics.panelGap + ChromeMetrics.edgeInset * 2 + STATUS_BAR_HEIGHT
         val panelHeight = (maxHeight - standing).coerceAtLeast(MIN_PANEL_HEIGHT)
         val pointerLift = dockHeight + ChromeMetrics.edgeInset + ChromeMetrics.panelGap
-        if (!state.keyboardShown) {
+        if (state.pointerControlsShown) {
             ScrollWheel(
                 onNotch = handlers.onNotch,
                 label = wheelLabel(state),

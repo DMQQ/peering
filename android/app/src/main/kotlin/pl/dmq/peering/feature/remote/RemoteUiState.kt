@@ -3,6 +3,7 @@ package pl.dmq.peering.feature.remote
 import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
+import pl.dmq.peering.wire.MosaicLayout
 import pl.dmq.peering.wire.PixelSize
 
 /** The session facts the remote screen shows. The session side publishes a new value whenever one changes. */
@@ -26,7 +27,17 @@ data class RemoteUiState(
     val reconnecting: Boolean,
     /** What the computer's clipboard held when last asked, or null. */
     val hostClipboard: String?,
+    /** Whether the computer declared that it can compose a mosaic. A Windows host does not. */
+    val supportsMosaic: Boolean = false,
+    /** The mosaic on screen, or null while a single source is. */
+    val mosaic: MosaicLayout? = null,
+    /** The last mosaic asked for, which the panel offers a way back to. */
+    val rememberedMosaic: MosaicLayout? = null,
 ) {
+    val showsMosaic: Boolean get() = chosenSource is CaptureSource.Mosaic
+
+    val canReturnToMosaic: Boolean get() = supportsMosaic && !showsMosaic && rememberedMosaic != null
+
     companion object {
         val INITIAL = RemoteUiState(
             catalog = null,

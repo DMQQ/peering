@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
@@ -51,7 +53,7 @@ val TILE_HEIGHT: Dp = 98.dp
 
 /** A picture of a screen or window with its name and owner under it, outlined in the blue while it is the one on screen. */
 @Composable
-internal fun PreviewTile(tile: SourceTile, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun PreviewTile(tile: SourceTile, onClick: () -> Unit, modifier: Modifier = Modifier, badge: Int? = null) {
     val shape = (tile.thumbnail?.let { it.width.toFloat() / it.height } ?: pixelShape(tile)).coerceIn(MIN_SHAPE, MAX_SHAPE)
     val width = TILE_HEIGHT * shape
     Column(
@@ -70,7 +72,10 @@ internal fun PreviewTile(tile: SourceTile, onClick: () -> Unit, modifier: Modifi
                 .background(PeeringColors.surface)
                 .let { if (tile.selected) it.border(BorderStroke(2.dp, PeeringColors.accent), peeringShapes.extraSmall) else it },
             contentAlignment = Alignment.Center,
-        ) { TilePicture(tile) }
+        ) {
+            TilePicture(tile)
+            badge?.let { PlaceBadge(it, Modifier.align(Alignment.TopEnd).padding(4.dp)) }
+        }
         Text(
             tile.title,
             style = PeeringText.caption2.copy(fontSize = 10.sp, fontWeight = if (tile.selected) FontWeight.SemiBold else FontWeight.Normal),
@@ -81,6 +86,14 @@ internal fun PreviewTile(tile: SourceTile, onClick: () -> Unit, modifier: Modifi
         tile.subtitle?.let {
             Text(it, style = PeeringText.caption2.copy(fontSize = 9.sp), color = PeeringColors.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+    }
+}
+
+/** The place a picked tile will take in a mosaic. */
+@Composable
+private fun PlaceBadge(place: Int, modifier: Modifier = Modifier) {
+    Box(modifier.size(18.dp).background(PeeringColors.accent, CircleShape), contentAlignment = Alignment.Center) {
+        Text(place.toString(), style = PeeringText.caption2.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = PeeringColors.ink)
     }
 }
 

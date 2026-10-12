@@ -92,6 +92,16 @@
         <item quantity="other">%d windows</item>
     </plurals>
 
+    <string name="mosaic_title">Mosaic</string>
+    <string name="mosaic_subtitle">Pick several, and see them all at once</string>
+    <string name="mosaic_back">Back to the mosaic</string>
+    <string name="mosaic_edit">Add or remove windows</string>
+    <string name="mosaic_pick_two">Pick two or more</string>
+    <string name="mosaic_picked">%d picked</string>
+    <string name="mosaic_limit">up to %d</string>
+    <string name="mosaic_back_to_sources">Sources</string>
+    <string name="mosaic_start">Show mosaic</string>
+
     <string name="remote_quit_title">Quit the active app?</string>
     <string name="remote_quit_message">The computer may ask you to save open documents first.</string>
     <string name="remote_quit_confirm">Send Cmd+Q</string>

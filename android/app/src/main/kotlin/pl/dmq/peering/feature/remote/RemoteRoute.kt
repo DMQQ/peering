@@ -24,6 +24,7 @@ import kotlin.math.ln
 import kotlin.math.roundToInt
 import pl.dmq.peering.ui.kit.LocalBorderless
 import pl.dmq.peering.wire.MouseButton
+import pl.dmq.peering.wire.SetCaptureSource
 
 /** The remote screen for a connected computer: the picture, the chrome over it, the panels, and the keyboard. */
 @Composable
@@ -35,7 +36,7 @@ fun RemoteRoute(model: RemoteModel) {
     val scope = rememberCoroutineScope()
     val prefsNow = rememberUpdatedState(prefs)
     val stateNow = rememberUpdatedState(state)
-    val tracker = remember(model) { PointerTracker(model.commands) { pointerSize(stateNow.value) } }
+    val tracker = remember(model) { PointerTracker(MosaicGate(model.commands) { stateNow.value.showsMosaic }) { pointerSize(stateNow.value) } }
     val input = remember(model) { ObserveGate(tracker) { prefsNow.value.interaction == InputMode.OBSERVE } }
     val canvas = remember(model) { RemoteCanvasPresenter(input, prefsNow.value.interaction) }
     val keyboard = remember(model) { KeyboardPresenter(input) { prefsNow.value.keyboardMode } }
@@ -44,6 +45,7 @@ fun RemoteRoute(model: RemoteModel) {
     val actions = remember(model) {
         RemoteActions(model, input, screen, canvas, keyboard, { prefsNow.value }, { pointerSize(stateNow.value) }, scope)
     }
+    canvas.onTileTapped = { source -> model.commands.send(SetCaptureSource(source)) }
     val canvasState by canvas.state.collectAsState()
     val cursor by tracker.position.collectAsState()
     val typed by keyboard.typedPreview.collectAsState()
@@ -65,6 +67,7 @@ fun RemoteRoute(model: RemoteModel) {
         canvas.setMode(prefs.interaction)
         if (prefs.interaction != InputMode.OBSERVE) screen.lastControl = prefs.interaction
     }
+    LaunchedEffect(state.mosaic) { canvas.setMosaic(state.mosaic) }
     LaunchedEffect(state.picturePixels, prefs.fillsScreen) {
         canvas.onPictureChanged(state.picturePixels)
         if (prefs.fillsScreen) canvas.fillCanvas() else canvas.fitToCanvas()
@@ -90,6 +93,7 @@ fun RemoteRoute(model: RemoteModel) {
         status = StatusUi(
             overlay = overlay,
             sourceTitle = state.sourceTitle,
+            mosaicWindows = state.mosaic?.tiles?.size,
             darkened = screen.darkened,
             fills = prefs.fillsScreen,
             zoomPercent = zoomPercent,
@@ -103,6 +107,7 @@ fun RemoteRoute(model: RemoteModel) {
         profile = ApplicationProfiles.forBundle(state.sourceBundleId),
         wheelPosition = if (prefs.interaction == InputMode.OBSERVE) zoomPosition(canvasState.viewport.zoom) else null,
         speedText = screen.speedBadge,
+        mosaic = state.showsMosaic,
     )
     val panelContext = PanelContext(model, state, prefs, screen, actions, keyboard, sources, quality, customMacros, overlay)
 
@@ -110,7 +115,7 @@ fun RemoteRoute(model: RemoteModel) {
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             Box(modifier = Modifier.fillMaxSize().imePadding()) {
                 RemoteCanvas(presenter = canvas, surface = model.surface, modifier = Modifier.fillMaxSize().displayCutoutPadding())
-                val shown = prefs.interaction != InputMode.OBSERVE && state.pictureState == PictureState.LIVE
+                val shown = ChromePolicy.cursorShown(prefs.interaction, state.pictureState, state.showsMosaic)
                 canvasState.picture?.takeIf { shown }?.let { CursorGlyph(cursor, it, Modifier.displayCutoutPadding()) }
                 RemoteChrome(chrome, handlers, panel = { RemotePanel(it, panelContext) })
             }

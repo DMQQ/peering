@@ -11,7 +11,7 @@ Reference: apple/MacCast/Remote and marketing/appstore/raw/en/02-session, 03-key
 | Height 56, padding 16 / 20 | Status.swift 200-215 | pillHeight 56, same padding | same |
 | Corner radii | 30 collapsed, 26 expanded (Theme.swift) | was 28 for both | fixed (interpolated, clamped to half height) |
 | Width cap | statusBarMaxWidth 460 | 460 in landscape | same |
-| Mosaic title "N windows" | activeSourceTitle | no mosaic on Android | open: feature absent |
+| Mosaic title "N windows" | activeSourceTitle | sourceLine shows the plural "N windows" while a mosaic is up | fixed |
 
 ## Dock
 | Element | Value | Android | Status |
@@ -51,7 +51,24 @@ Reference: apple/MacCast/Remote and marketing/appstore/raw/en/02-session, 03-key
 Phone and Mac rows (28 dp icon tile ink 0.14 radius 8, title semibold, detail caption 2 lines, actions as capsules ink 0.12, prominent ink with onInk text, 1.5 s check) match. Open: the History row and the history list (the session keeps no history on Android), image clipboards ("Image copied"), the "Show" action (Android has no paste prompt).
 
 ## Apps (sources) panel
-Search capsule, screens row, one section per application with window tiles, installed grid of 5 columns, 10 pt titles and 9 pt subtitles match. Open: the Mosaic entry, virtual displays, desktops (Spaces) sections and the window controls on long press are not built on Android; tile minimum width 156 grid versus Android horizontal rows of 98 dp tall tiles.
+Search capsule, screens row, one section per application with window tiles, installed grid of 5 columns, 10 pt titles and 9 pt subtitles match. Open: virtual displays, desktops (Spaces) sections and the window controls on long press are not built on Android; tile minimum width 156 grid versus Android horizontal rows of 98 dp tall tiles.
 
 ## Settings panel
 Section order and search follow SettingsPanel.swift. Open: Recent activity, Direct path, Video and control latency rows, sound toggle, and HEVC badge are absent from the panel; they depend on session facts Android does not publish yet.
+
+## Mosaic
+| iPhone element | Value (Swift) | Android | Status |
+| --- | --- | --- | --- |
+| Entry card, shown only when the host declares supportsMosaic | SourcesPanel.mosaicEntry | MosaicEntryRow, gated by RemoteUiState.supportsMosaic (a Windows host never declares it) | same |
+| Multi-select picker, order of picking is tile order, 2 to 9 | SourcesPanel+Mosaic mosaicPicker | MosaicPicks, numbered badge on picked tiles, "Pick two or more" / "N picked" / "up to 9", Sources and Show mosaic buttons | same (bar sits under the search field, not pinned at the bottom) |
+| Summary rows while active: Back to the mosaic (N windows), Add or remove windows | mosaicEdit | MosaicEditRows | same |
+| Layout: columns by portrait or landscape, median tile aspect, canvas within 2560x1440 and even | MosaicGrid | session MosaicGrid, same arithmetic | same |
+| Selection is a normal setCaptureSource with the layout inside | CaptureSource.mosaic(MosaicLayout) | CaptureSource.Mosaic(layout), capability checked by HostCapability.requiredBy | same |
+| Input refused while up, Space switching still allowed | isBlockedByMosaic | RemoteCommand.isBlockedByMosaic, MosaicGate in front of the tracker | same |
+| Tap on a tile selects its source | RemoteCanvas onMosaicTap | MosaicTapDetector then MosaicHit through letterbox, zoom and pan | same (no hero zoom transition) |
+| Cursor glyph, joystick and wheel hidden | isShowingMosaic | ChromePolicy.cursorShown and pointerControlsShown | same |
+| Rotation rebuilds the arrangement | refreshMosaicForViewport | layout keeps the shape it was asked for until the user starts it again | open |
+| Hold and drag a tile to reorder, per-tile remove, tile size weights | RemoteScreen+Gestures, MosaicOverlay | not built; reorder by editing the picks | open |
+| Tile outlines and labels drawn over the picture | MosaicOverlay | the host's composited picture is shown as is | open |
+| Dropping tiles whose window closed, remembered arrangement per host | dropClosedMosaicTiles, MosaicArrangementStore | the host draws a card for a gone window; the arrangement lasts for the session only | open |
+| Active state comes from the picture's source id | pictureMosaicLayout | the chosen source (what was asked for) | differs: Android has no per-picture source id yet |

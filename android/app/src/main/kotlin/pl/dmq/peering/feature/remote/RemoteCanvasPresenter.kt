@@ -5,6 +5,8 @@ import kotlin.math.hypot
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import pl.dmq.peering.wire.CaptureSource
+import pl.dmq.peering.wire.MosaicLayout
 import pl.dmq.peering.wire.NormalizedPoint
 import pl.dmq.peering.wire.PixelSize
 import pl.dmq.peering.wire.PointerAction
@@ -24,6 +26,11 @@ class RemoteCanvasPresenter(
     val state: StateFlow<CanvasUiState> = uiState.asStateFlow()
 
     private var mode = mode
+    private var mosaic: MosaicLayout? = null
+    private val taps = MosaicTapDetector()
+
+    /** Called with the source of the tile a tap landed on while a mosaic is up. */
+    var onTileTapped: ((CaptureSource) -> Unit)? = null
     private var canvas: CanvasSize? = null
     private var trackpad: TrackpadModel? = null
     private var picture: PixelSize? = null
@@ -41,6 +48,15 @@ class RemoteCanvasPresenter(
         releaseDirect(lastDirectPoint)
         mode = next
     }
+
+    /** While a mosaic is up the canvas only views: one finger pans, two zoom, and a tap on a tile opens that tile. */
+    fun setMosaic(next: MosaicLayout?) {
+        if (next == mosaic) return
+        releaseDirect(lastDirectPoint)
+        mosaic = next
+    }
+
+    private val effectiveMode: InputMode get() = if (mosaic != null) InputMode.OBSERVE else mode
 
     fun onCanvasSized(width: Double, height: Double) {
         if (width <= 0 || height <= 0) return
@@ -85,9 +101,10 @@ class RemoteCanvasPresenter(
     fun onPointerDown(id: Int, x: Double, y: Double, timeMs: Long) {
         val model = trackpad ?: return
         pointers[id] = CanvasPoint(x, y)
+        if (mosaic != null) taps.down(id, x, y, timeMs, pointers.size)
         when {
-            mode == InputMode.TRACKPAD -> emit(model.onDown(id, x, y, timeMs))
-            mode == InputMode.DIRECT && pointers.size == 1 -> pressDirect(x, y)
+            effectiveMode == InputMode.TRACKPAD -> emit(model.onDown(id, x, y, timeMs))
+            effectiveMode == InputMode.DIRECT && pointers.size == 1 -> pressDirect(x, y)
         }
         if (pointers.size >= 2) releaseDirect(lastDirectPoint)
         rebaseline()
@@ -97,10 +114,11 @@ class RemoteCanvasPresenter(
         val model = trackpad ?: return
         val previous = pointers[id] ?: return
         pointers[id] = CanvasPoint(x, y)
+        if (mosaic != null) taps.move(id, x, y)
         if (pointers.size >= 2) multiTouchFrame()?.let(::applyMultiTouch)
         when {
-            mode == InputMode.OBSERVE -> if (pointers.size == 1) panBy(x - previous.x, y - previous.y)
-            mode == InputMode.TRACKPAD -> {
+            effectiveMode == InputMode.OBSERVE -> if (pointers.size == 1) panBy(x - previous.x, y - previous.y)
+            effectiveMode == InputMode.TRACKPAD -> {
                 val actions = model.onMove(id, x, y, timeMs)
                 if (!pinching) emit(actions)
             }
@@ -111,11 +129,19 @@ class RemoteCanvasPresenter(
     fun onPointerUp(id: Int, x: Double, y: Double, timeMs: Long) {
         val model = trackpad ?: return
         if (pointers.remove(id) == null) return
+        if (mosaic != null && taps.up(id, x, y, timeMs, pointers.size)) openTileAt(x, y)
         when {
-            mode == InputMode.TRACKPAD -> emit(model.onUp(id, x, y, timeMs))
-            mode == InputMode.DIRECT && pointers.isEmpty() -> releaseDirect(directPoint(x, y) ?: lastDirectPoint)
+            effectiveMode == InputMode.TRACKPAD -> emit(model.onUp(id, x, y, timeMs))
+            effectiveMode == InputMode.DIRECT && pointers.isEmpty() -> releaseDirect(directPoint(x, y) ?: lastDirectPoint)
         }
         rebaseline()
+    }
+
+    private fun openTileAt(x: Double, y: Double) {
+        val layout = mosaic ?: return
+        val fit = fittedPicture() ?: return
+        val index = MosaicHit.tileAt(layout, viewport, fit, x, y) ?: return
+        onTileTapped?.invoke(layout.tiles[index].source)
     }
 
     private data class MultiTouchFrame(val centroid: CanvasPoint, val spread: Double)
@@ -133,9 +159,9 @@ class RemoteCanvasPresenter(
         if (!pinching && abs(frame.spread / startSpread - 1) > PINCH_THRESHOLD) pinching = true
         if (pinching) {
             zoomAndPan(frame)
-        } else if (mode == InputMode.DIRECT) {
+        } else if (effectiveMode == InputMode.DIRECT) {
             sink.send(Scroll(frame.centroid.x - lastCentroid.x, frame.centroid.y - lastCentroid.y))
-        } else if (mode == InputMode.OBSERVE) {
+        } else if (effectiveMode == InputMode.OBSERVE) {
             panBy(frame.centroid.x - lastCentroid.x, frame.centroid.y - lastCentroid.y)
         }
         lastSpread = frame.spread

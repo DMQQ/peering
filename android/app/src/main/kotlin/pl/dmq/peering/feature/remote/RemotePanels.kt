@@ -56,6 +56,7 @@ internal fun RemotePanel(panel: SessionPanel, context: PanelContext) {
             chosen = context.state.chosenSource,
             presenter = context.sources,
             onPicked = { if (context.prefs.hidesPanelAfterSelect) context.screen.closePanel() },
+            mosaic = MosaicPanel(context.state.mosaic, context.state.rememberedMosaic).takeIf { context.state.supportsMosaic },
         )
         SessionPanel.SETTINGS -> SessionSettingsPanel(
             model = SessionSettingsModel(context.overlay, context.prefs, ui, context.screen.darkened, macros),

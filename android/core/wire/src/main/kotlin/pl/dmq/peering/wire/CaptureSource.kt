@@ -33,6 +33,11 @@ sealed class CaptureSource {
 
     data class Mosaic(val raw: JsonElement) : CaptureSource() {
         override val stableId: String get() = "mosaic"
+
+        /** The arrangement this client asked for, or null for a payload that is not one. */
+        val layout: MosaicLayout? get() = MosaicLayout.fromJson(raw)
+
+        constructor(layout: MosaicLayout) : this(layout.toJson())
     }
 
     fun toJson(): JsonObject = when (this) {

@@ -50,7 +50,7 @@ internal fun LandscapeChrome(
             state.status, handlers.status, state.statusExpanded, handlers.onPillTap,
             Modifier.align(Alignment.TopCenter).padding(top = ChromeMetrics.edgeInset).widthIn(max = barWidth),
         )
-        if (!state.keyboardShown) {
+        if (state.pointerControlsShown) {
             Row(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = ChromeMetrics.edgeInset).padding(bottom = ChromeMetrics.bottomInset),
                 verticalAlignment = Alignment.Bottom,

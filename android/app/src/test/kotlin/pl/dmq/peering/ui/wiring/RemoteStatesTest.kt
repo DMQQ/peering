@@ -13,6 +13,10 @@ import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.CaptureSourceDescriptor
 import pl.dmq.peering.wire.CaptureSourceKind
+import pl.dmq.peering.session.connection.HostCapability
+import pl.dmq.peering.wire.MosaicLayout
+import pl.dmq.peering.wire.MosaicTile
+import pl.dmq.peering.wire.NormalizedRect
 import pl.dmq.peering.wire.PixelSize
 
 class RemoteStatesTest {
@@ -69,6 +73,44 @@ class RemoteStatesTest {
 
         assertEquals("orders.ts", state.sourceTitle)
         assertEquals("com.microsoft.VSCode", state.sourceBundleId)
+    }
+
+    @Test
+    fun theMosaicEntryIsOfferedOnlyWhereTheHostDeclaredIt() {
+        fun supports(capabilities: Set<HostCapability>) = remoteUiState(
+            SessionUiState(phase = SessionPhase.Ready("Studio", capabilities, SessionRecord.Path.DIRECT)),
+            pixels,
+            capabilities = HubCapabilities.NONE,
+            relayMinutesLeft = null,
+        ).supportsMosaic
+
+        assertEquals(true, supports(setOf(HostCapability.Mosaic)))
+        assertEquals(false, supports(setOf(HostCapability.VideoPause)))
+    }
+
+    @Test
+    fun aMosaicOnScreenHasTilesNoSourceTitleAndNoWayBackToItself() {
+        val layout = MosaicLayout(
+            PixelSize(1280.0, 720.0),
+            listOf(
+                MosaicTile(CaptureSource.Window(1), NormalizedRect(0.0, 0.0, 0.5, 1.0)),
+                MosaicTile(CaptureSource.Window(2), NormalizedRect(0.5, 0.0, 0.5, 1.0)),
+            ),
+            15,
+        )
+        val session = SessionUiState(
+            phase = SessionPhase.Ready("Studio", setOf(HostCapability.Mosaic), SessionRecord.Path.DIRECT),
+            activeSource = CaptureSource.Mosaic(layout),
+            rememberedMosaic = layout,
+        )
+
+        val state = remoteUiState(session, pixels, HubCapabilities.NONE, relayMinutesLeft = null)
+
+        assertEquals(true, state.showsMosaic)
+        assertEquals(2, state.mosaic?.tiles?.size)
+        assertEquals(null, state.sourceTitle)
+        assertEquals(false, state.canReturnToMosaic)
+        assertEquals(true, state.copy(chosenSource = CaptureSource.Window(1), mosaic = null).canReturnToMosaic)
     }
 
     @Test
