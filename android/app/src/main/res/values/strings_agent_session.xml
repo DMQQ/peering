@@ -9,4 +9,12 @@
     <string name="agents_template_add">Save your own prompt</string>
     <string name="agents_template_yours">Your prompt</string>
     <string name="agents_template_remove">Remove</string>
+    <string name="agents_attach">Attach a file</string>
+    <string name="agents_attach_photos">Photo library</string>
+    <string name="agents_attach_files">Files</string>
+    <string name="agents_attach_sending">Sending to your computer</string>
+    <string name="agents_attach_remove">Remove</string>
+    <string name="agents_attach_too_large">That file is too large to send from this device (the limit is %1$d MB).</string>
+    <string name="agents_attach_unreadable">This device could not read that file.</string>
+    <string name="agents_attach_bad_name">That file\'s name cannot be used on the computer.</string>
 </resources>

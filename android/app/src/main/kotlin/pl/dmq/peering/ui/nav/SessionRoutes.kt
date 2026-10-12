@@ -53,6 +53,7 @@ import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.wiring.ActiveSession
 import pl.dmq.peering.ui.wiring.ChatAgentsPort
 import pl.dmq.peering.ui.wiring.ControllerQualityPort
+import pl.dmq.peering.ui.wiring.SessionAttachments
 import pl.dmq.peering.ui.wiring.ControllerRemoteModel
 import pl.dmq.peering.ui.wiring.SessionFileBrowsing
 import pl.dmq.peering.ui.wiring.StorePaywallBilling
@@ -169,6 +170,10 @@ internal fun AgentsScreen(
         Unavailable(R.string.session_unavailable_agents)
         return
     }
+    val resolver = LocalContext.current.contentResolver
+    val attachments = remember(active.controller.files, resolver) {
+        active.controller.files?.let { SessionAttachments(it, resolver, clock) }
+    }
     AgentsRoute(
         port = remember(chat) { ChatAgentsPort(chat) },
         recents = remember(folderRecents, active.target.hostId) {
@@ -180,6 +185,7 @@ internal fun AgentsScreen(
         draftStore = drafts,
         guideStore = guideStore,
         clock = clock,
+        attachments = attachments,
     )
 }
 

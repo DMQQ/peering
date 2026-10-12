@@ -91,6 +91,15 @@ class FileChangesTest {
     }
 
     @Test
+    fun uploadIntoAnotherFolderOpensTheScopeAndWritesThereNotInTheFolderOnScreen() = runTest {
+        start()
+        browser.uploadInto("/work/app", "shot.jpg", 2, listOf(byteArrayOf(1, 2)).iterator())
+        assertEquals(TerminalRequest.StartBrowser(SCOPE), sent[0])
+        assertEquals(TerminalRequest.BeginWrite(SCOPE, "/work/app/shot.jpg", 2), sent[1])
+        assertEquals(FileUpload.Done("/work/app/shot.jpg"), browser.state.value.upload)
+    }
+
+    @Test
     fun aFileOverThePhoneLimitIsRefusedBeforeAnythingIsSent() = runTest {
         start()
         browser.upload("big.bin", TransferLimits.MAXIMUM_PHONE_UPLOAD_BYTES + 1, emptyList<ByteArray>().iterator())
