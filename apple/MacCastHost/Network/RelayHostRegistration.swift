@@ -9,7 +9,7 @@ final class RelayHostRegistration: @unchecked Sendable {
     private let device: DeviceIdentity
     private let identity: SelfSignedIdentity
     private let onSession: @Sendable (RelaySession) -> Void
-    private let onStatus: @Sendable (String) -> Void
+    private let onStatus: @Sendable (LocalizedStringResource) -> Void
     /// Called when the relay answers a Live Activity push with a refusal.
     var onActivityRefused: (@Sendable (RelayActivityRefusal) -> Void)?
     private let lock = NSLock()
@@ -32,7 +32,7 @@ final class RelayHostRegistration: @unchecked Sendable {
         device: DeviceIdentity,
         identity: SelfSignedIdentity,
         onSession: @escaping @Sendable (RelaySession) -> Void,
-        onStatus: @escaping @Sendable (String) -> Void
+        onStatus: @escaping @Sendable (LocalizedStringResource) -> Void
     ) {
         self.device = device
         self.identity = identity

@@ -111,7 +111,7 @@ extension HostMenuBarContent {
     /// The host's own cost shared evenly across the attached devices, which is an estimate:
     /// capture and encoding are one pipeline, not one per device.
     private var usageEstimate: String {
-        guard let rates = model.resources.rates else { return "Measuring…" }
+        guard let rates = model.resources.rates else { return String(localized: "Measuring…") }
         let share = Double(max(1, model.connectedClients.count))
         let cpu = HostResourceSampler.percent(rates.cpuOfMachine / share)
         return String(localized: "≈ \(cpu) CPU · \(HostResourceSampler.networkText(rates.bytesPerSecond / share))")
@@ -159,7 +159,7 @@ extension HostMenuBarContent {
             let notInForce = model.keepRunningWithLidClosed && !model.keepAwakeWithheld
                 && model.lidCloseSystemState == .off
             switchRow(
-                "Run with the lid closed",
+                String(localized: "Run with the lid closed"),
                 symbol: "laptopcomputer",
                 isOn: Binding(
                     get: { model.keepRunningWithLidClosed },

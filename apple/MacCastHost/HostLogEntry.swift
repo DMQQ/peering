@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 struct HostLogEntry: Identifiable, Sendable, Equatable {
     enum Level: Sendable, Equatable {
@@ -10,13 +11,27 @@ struct HostLogEntry: Identifiable, Sendable, Equatable {
     let id: UUID
     let at: Date
     let level: Level
+    /// What the window shows, resolved in the Mac's current language at display time. Nil for text
+    /// that is already a finished sentence (an operating system error, a library message).
+    let localizedMessage: LocalizedStringResource?
+    /// The English sentence, for the log file, the diagnostics report and the copied log, so support
+    /// can read them whatever language the Mac is in.
     let message: String
 
-    init(at: Date = Date(), level: Level = .info, message: String) {
+    init(at: Date = Date(), level: Level = .info, message: LocalizedStringResource) {
         self.id = UUID()
         self.at = at
         self.level = level
-        self.message = message
+        self.localizedMessage = message
+        self.message = message.englishText
+    }
+
+    init(at: Date = Date(), level: Level = .info, verbatim: String) {
+        self.id = UUID()
+        self.at = at
+        self.level = level
+        self.localizedMessage = nil
+        self.message = verbatim
     }
 
     var time: String {
@@ -57,5 +72,20 @@ extension Array where Element == HostLogEntry {
             return "\(entry.time)  \(level)\(entry.message)"
         }
         .joined(separator: "\n")
+    }
+}
+
+extension HostLogEntry {
+    var text: Text {
+        localizedMessage.map { Text($0) } ?? Text(verbatim: message)
+    }
+}
+
+extension LocalizedStringResource {
+    /// The source-language sentence, whatever language the Mac is set to.
+    var englishText: String {
+        var english = self
+        english.locale = Locale(identifier: "en")
+        return String(localized: english)
     }
 }

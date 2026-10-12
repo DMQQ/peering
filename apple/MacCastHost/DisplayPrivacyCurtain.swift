@@ -8,23 +8,9 @@ import SwiftUI
 /// Takes no mouse events: injected CGEvents use the same hit test, so an unclickable cover would block the phone clicks too.
 @MainActor
 final class DisplayPrivacyCurtain {
-    enum Failure: LocalizedError {
-        case notHiddenFromCapture
-        case hiddenFromThePhone
-
-        var errorDescription: String? {
-            switch self {
-            case .notHiddenFromCapture:
-                return "the window server would not keep it out of screen capture"
-            case .hiddenFromThePhone:
-                return "the window server treats it as opaque, which would hide this display's windows from the phone"
-            }
-        }
-    }
-
     struct Refusal {
-        let display: String
-        let reason: String
+        let display: LocalizedStringResource
+        let reason: LocalizedStringResource
     }
 
     struct Report {
@@ -91,7 +77,7 @@ final class DisplayPrivacyCurtain {
             var uncovered: [Refusal] = []
             for displayID in displayIDs {
                 guard let window = self.windows[displayID] else { continue }
-                let name = names[displayID] ?? "display \(displayID)"
+                let name: LocalizedStringResource = names[displayID].map { "\($0)" } ?? "display \(displayID)"
                 guard let state = Self.serverState(of: window.windowNumber) else {
                     self.takeDown(displayID)
                     uncovered.append(Refusal(display: name, reason: "the window server did not answer for it"))
@@ -101,7 +87,7 @@ final class DisplayPrivacyCurtain {
                     self.takeDown(displayID)
                     uncovered.append(Refusal(
                         display: name,
-                        reason: Failure.notHiddenFromCapture.errorDescription ?? "it could not be hidden from screen capture"
+                        reason: "the window server would not keep it out of screen capture"
                     ))
                     continue
                 }
@@ -109,7 +95,7 @@ final class DisplayPrivacyCurtain {
                     self.takeDown(displayID)
                     uncovered.append(Refusal(
                         display: name,
-                        reason: Failure.hiddenFromThePhone.errorDescription ?? "it would hide this display's windows from the phone"
+                        reason: "the window server treats it as opaque, which would hide this display's windows from the phone"
                     ))
                     continue
                 }

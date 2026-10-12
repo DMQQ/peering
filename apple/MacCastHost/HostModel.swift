@@ -19,7 +19,7 @@ final class HostModel {
         case idle
         case starting
         case listening(port: UInt16)
-        case failed(String)
+        case failed(LocalizedStringResource)
 
         var isListening: Bool {
             if case .listening = self { return true }
@@ -211,17 +211,16 @@ final class HostModel {
     var relayRegistration: RelayHostRegistration?
 
     /// Only half the answer: whether the relay then reached APNs is not visible from this Mac.
-    var pushTestResult: String?
+    var pushTestResult: LocalizedStringResource?
 
-    @discardableResult
-    func sendTestPush() -> String {
+    func sendTestPush() {
         // registeredPushTokens, not allPushTokens: the latter omits connected phones, which are told over the session rather than pushed.
         let tokens = server?.registeredPushTokens() ?? []
         guard !tokens.isEmpty else {
-            let message = "No device has registered a token with this Mac. Connect the phone once with this build installed."
+            let message: LocalizedStringResource = "No device has registered a token with this Mac. Connect the phone once with this build installed."
             pushTestResult = message
             record(message, level: .warning)
-            return message
+            return
         }
 
         for token in tokens {
@@ -233,12 +232,11 @@ final class HostModel {
         }
 
         let connected = server?.connectedPushClientCount() ?? 0
-        let message = connected > 0
-            ? "Sent to \(tokens.count) device\(tokens.count == 1 ? "" : "s"), \(connected) of them connected."
-            : "Sent to \(tokens.count) device\(tokens.count == 1 ? "" : "s")."
+        let message: LocalizedStringResource = connected > 0
+            ? "Test sent. Devices with a token: \(tokens.count), connected now: \(connected)."
+            : "Test sent. Devices with a token: \(tokens.count)."
         pushTestResult = message
         record(message)
-        return message
     }
     var nativeTerminalWatcher: NativeTerminalWatcher?
     let terminalHooks = TerminalHookController()

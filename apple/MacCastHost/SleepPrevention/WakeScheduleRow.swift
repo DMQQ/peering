@@ -123,6 +123,6 @@ struct WakeScheduleRow: View {
         guard let hour = model.wakeScheduleHour else {
             return String(localized: "Off. Once this Mac has slept, nothing can reach it until something wakes it, and nothing here will.")
         }
-        return "macOS wakes this Mac at \(String(format: "%02d:00", hour)) every day. It works with nothing running and nothing on the network. On battery it may not fire."
+        return String(localized: "macOS wakes this Mac at \(String(format: "%02d:00", hour)) every day. It works with nothing running and nothing on the network. On battery it may not fire.")
     }
 }

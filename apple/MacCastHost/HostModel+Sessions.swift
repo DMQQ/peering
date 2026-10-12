@@ -136,6 +136,17 @@ extension HostModel {
         record("Told the connected device why there is no picture.", level: .warning)
     }
 
+    /// The notice text is the English the phone maps; the feed names the same causes in the Mac's language.
+    private static func screenNotVisible(because message: String) -> LocalizedStringResource {
+        switch message {
+        case "This Mac is locked.": "Screen not visible · This Mac is locked."
+        case "That display is no longer connected. Choose another from Sources.":
+            "Screen not visible · That display is no longer connected. Choose another from Sources."
+        case "This Mac's screen is asleep.": "Screen not visible · This Mac's screen is asleep."
+        default: "Screen not visible · \(message)"
+        }
+    }
+
     func startScreenWatch() {
         guard screenWatchTask == nil else { return }
         screenWatchTask = Task { [weak self] in
@@ -158,7 +169,7 @@ extension HostModel {
                     announcedTo = clients
                     self.server?.broadcastNotice(notice ?? NoticePayload(message: nil))
                     if let message = notice?.message {
-                        self.record("Screen not visible · \(message)", level: .warning)
+                        self.record(Self.screenNotVisible(because: message), level: .warning)
                     } else if wasSayingSomething {
                         self.record("Screen visible again")
                     }

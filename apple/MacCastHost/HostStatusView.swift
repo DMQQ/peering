@@ -226,8 +226,8 @@ struct HostStatusView: View {
         }
         switch model.status {
         case .idle: return String(localized: "Not hosting")
-        case .starting: return "Starting…"
-        case .listening: return "Waiting for a device"
+        case .starting: return String(localized: "Starting…")
+        case .listening: return String(localized: "Waiting for a device")
         case .failed(let message): return String(localized: "Error: \(message)")
         }
     }
