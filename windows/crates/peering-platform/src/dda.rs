@@ -97,6 +97,13 @@ impl CaptureState {
     pub fn is_running(&self) -> bool {
         matches!(self, Self::Running { .. })
     }
+
+    pub fn losses(&self) -> u32 {
+        match *self {
+            Self::Running { losses } | Self::Lost { losses, .. } => losses,
+            Self::Idle | Self::Failed => 0,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -195,6 +202,17 @@ mod tests {
         assert_eq!(state, CaptureState::Running { losses: 1 });
         state.access_lost(0.0);
         assert_eq!(state, CaptureState::Lost { losses: 2, retry_at: 0.5 });
+    }
+
+    #[test]
+    fn losses_count_since_the_last_frame() {
+        let mut state = CaptureState::Running { losses: 0 };
+        state.access_lost(0.0);
+        state.reacquire_failed(10.0);
+        assert_eq!(state.losses(), 2);
+        state.reacquired();
+        state.frame_arrived();
+        assert_eq!(state.losses(), 0);
     }
 
     #[test]

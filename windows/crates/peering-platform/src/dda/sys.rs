@@ -46,6 +46,10 @@ impl DesktopDuplicationCapture {
         self.texture.take()
     }
 
+    pub fn access_losses(&self) -> u32 {
+        self.state.losses()
+    }
+
     fn now(&self) -> f64 {
         self.started.elapsed().as_secs_f64()
     }
