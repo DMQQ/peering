@@ -13,6 +13,7 @@ struct Inner<T: Queued> {
     wake: Notify,
     senders: AtomicUsize,
     receiver_gone: AtomicBool,
+    dropped_stale: AtomicBool,
     overflowed: watch::Sender<bool>,
 }
 
@@ -45,12 +46,13 @@ pub fn outbound<T: Queued>() -> (Outbound<T>, OutboundReceiver<T>) {
     outbound_with(OutboundQueue::new())
 }
 
-fn outbound_with<T: Queued>(queue: OutboundQueue<T>) -> (Outbound<T>, OutboundReceiver<T>) {
+pub(super) fn outbound_with<T: Queued>(queue: OutboundQueue<T>) -> (Outbound<T>, OutboundReceiver<T>) {
     let inner = Arc::new(Inner {
         queue: Mutex::new(queue),
         wake: Notify::new(),
         senders: AtomicUsize::new(1),
         receiver_gone: AtomicBool::new(false),
+        dropped_stale: AtomicBool::new(false),
         overflowed: watch::channel(false).0,
     });
     (Outbound { inner: inner.clone() }, OutboundReceiver { inner })
@@ -63,11 +65,21 @@ impl<T: Queued> Outbound<T> {
             return Err(Closed);
         }
         let pushed = self.inner.queue().push(item);
-        if pushed == Pushed::Overflowed {
-            self.inner.overflowed.send_replace(true);
+        match pushed {
+            Pushed::Overflowed => {
+                self.inner.overflowed.send_replace(true);
+            }
+            Pushed::Queued { dropped } if dropped > 0 => self.inner.dropped_stale.store(true, Ordering::Release),
+            Pushed::Queued { .. } => {}
         }
         self.inner.wake.notify_one();
         if pushed == Pushed::Overflowed { Err(Closed) } else { Ok(()) }
+    }
+
+    /// True once since the last call if queued picture data was discarded to make room, so the decoder behind this queue is
+    /// missing a frame and needs a keyframe.
+    pub fn take_dropped_stale(&self) -> bool {
+        self.inner.dropped_stale.swap(false, Ordering::AcqRel)
     }
 
     pub fn same_channel(&self, other: &Self) -> bool {
@@ -188,5 +200,17 @@ mod tests {
             sender.send(Frame::new(MessageKind::VideoFrame, vec![0; 10])).expect("video is dropped, not refused");
         }
         assert!(!sender.is_closed());
+    }
+
+    #[test]
+    fn dropping_queued_video_is_reported_once() {
+        let (sender, _receiver) = outbound_with(OutboundQueue::<Frame>::with_limits(25, 1000, 100));
+        for _ in 0..2 {
+            sender.send(Frame::new(MessageKind::VideoFrame, vec![0; 10])).expect("room");
+        }
+        assert!(!sender.take_dropped_stale(), "nothing was discarded yet");
+        sender.send(Frame::new(MessageKind::VideoFrame, vec![0; 10])).expect("room");
+        assert!(sender.take_dropped_stale());
+        assert!(!sender.take_dropped_stale(), "the report is cleared by reading it");
     }
 }

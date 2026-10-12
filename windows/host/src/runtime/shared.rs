@@ -107,6 +107,21 @@ impl HostState {
         self.hold.release_if_silent(now, peering_core::session::held_input::HELD_INPUT_TTL_SECONDS, &transform, &mut self.input);
     }
 
+    /// A queue that discarded picture data left its phone without a frame the next ones depend on. The encoder is shared, so
+    /// one resync serves every phone.
+    pub fn resync_if_video_was_dropped(&mut self) -> bool {
+        let mut dropped = false;
+        for slot in self.sessions.values() {
+            dropped |= slot.outbound.take_dropped_stale();
+            dropped |= slot.video_outbound.as_ref().is_some_and(FrameSender::take_dropped_stale);
+            dropped |= slot.datagram_outbound.as_ref().is_some_and(Outbound::take_dropped_stale);
+        }
+        if dropped {
+            self.video.request_resync();
+        }
+        dropped
+    }
+
     pub fn allocate_session(&mut self) -> u64 {
         self.next_session += 1;
         self.next_session
@@ -131,5 +146,56 @@ impl Shared {
 
     pub fn peer_addresses(&self) -> MutexGuard<'_, PeerAddressRouter> {
         self.peer_addresses.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use peering_core::outbound::OutboundQueue;
+    use peering_core::video::lane::VideoLane;
+    use peering_wire::framing::{Frame, MessageKind};
+
+    use super::super::outbound::outbound_with;
+    use super::super::services::platform_services;
+    use super::super::{HostProfile, HostRuntime, SystemClock};
+    use super::*;
+
+    fn runtime() -> HostRuntime {
+        let services = platform_services(String::new()).expect("the stand-in adapters build");
+        let clock = std::sync::Arc::new(SystemClock::new());
+        let profile = HostProfile {
+            host_id: "host".to_owned(),
+            host_name: "PC".to_owned(),
+            identity_public_key: Vec::new(),
+            mac_addresses: Vec::new(),
+            can_lock_screen: false,
+            clock,
+        };
+        HostRuntime::new(profile, services).expect("the runtime builds over stand-ins")
+    }
+
+    #[test]
+    fn a_session_that_lost_queued_video_gets_a_resync_once() {
+        let runtime = runtime();
+        let (sender, _receiver) = outbound_with(OutboundQueue::<Frame>::with_limits(25, 1000, 100));
+        let mut state = runtime.shared.lock();
+        state.sessions.insert(
+            1,
+            SessionSlot {
+                client_id: "phone".to_owned(),
+                peer_key: None,
+                outbound: sender.clone(),
+                video_outbound: None,
+                datagram_outbound: None,
+                lane: VideoLane::new([0; 16]),
+                background: false,
+            },
+        );
+        assert!(!state.resync_if_video_was_dropped(), "a healthy queue asks for nothing");
+        for _ in 0..3 {
+            sender.send(Frame::new(MessageKind::VideoFrame, vec![0; 10])).expect("video is dropped, not refused");
+        }
+        assert!(state.resync_if_video_was_dropped(), "dropped video asks for a keyframe");
+        assert!(!state.resync_if_video_was_dropped(), "and only once");
     }
 }

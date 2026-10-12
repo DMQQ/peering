@@ -175,6 +175,7 @@ impl HostState {
             }
         }
         outgoing.extend(self.session_notices(now));
+        self.resync_if_video_was_dropped();
         self.refresh_watched();
         let outputs = match self.video.pump(now) {
             Ok(outputs) => outputs,
