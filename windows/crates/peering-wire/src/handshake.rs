@@ -5,6 +5,8 @@ use crate::swift_enum::{base64_bytes, base64_bytes_option};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+pub use crate::video_transport::{VideoKeyGrant, VideoTransportKind, VideoTransportRequest};
+
 /// Declares a struct of optional capability flags. Absent or `null` reads as `None`, which means unsupported.
 macro_rules! capability_flags {
     ($name:ident { $($field:ident),* $(,)? }) => {
@@ -161,27 +163,6 @@ pub struct ErrorPayload {
 impl ErrorPayload {
     /// The user pressed Stop on the host. The client must not reconnect.
     pub const HOST_STOPPED_CODE: &'static str = "hostStopped";
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VideoKeyGrant {
-    #[serde(with = "base64_bytes")]
-    pub secret: Vec<u8>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum VideoTransportKind {
-    Primary,
-    Control,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VideoTransportRequest {
-    pub transport: VideoTransportKind,
-    pub reason: String,
 }
 
 #[cfg(test)]

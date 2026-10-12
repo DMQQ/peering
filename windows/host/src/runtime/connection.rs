@@ -6,7 +6,6 @@ use std::time::Duration;
 
 use peering_core::session::actions::SessionAction;
 use peering_core::session::deps::{HostDeps, Random};
-use peering_core::ports::input::InputSink;
 use peering_core::session::handshake::{HostConfig, HostSession};
 use peering_core::session::liveness::{counts_as_life, LivenessTracker, Verdict};
 use peering_wire::framing::{Frame, FrameDecoder, MessageKind};

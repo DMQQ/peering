@@ -38,7 +38,6 @@ fn registration() -> RelayRegistration {
 
 /// Opens the link the way the caller does: the first disconnect schedules the connect, a tick reaches it, and the
 /// caller reports the connection open.
-
 fn open_link(reg: &mut RelayRegistration, clock: &FakeClock) -> Vec<RegAction> {
     reg.on_disconnect(clock);
     clock.advance(1.0);
