@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.TonalButton
+import pl.dmq.peering.ui.theme.EmptyState
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PillShape
 
@@ -54,7 +55,12 @@ fun FileList(presenter: FileListPresenter, modifier: Modifier = Modifier) {
                 Text(ui.failure.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = PeeringColors.danger)
                 TonalButton(onClick = presenter::refresh) { Text(stringResource(R.string.files_retry)) }
             }
-            FileListStatus.EMPTY -> Text(stringResource(R.string.files_folder_empty), style = MaterialTheme.typography.bodyMedium, color = PeeringColors.muted)
+            FileListStatus.EMPTY -> EmptyState(
+                icon = AppIcons.folder,
+                title = stringResource(R.string.files_empty_title),
+                body = stringResource(R.string.files_folder_empty),
+                modifier = Modifier.padding(vertical = 24.dp),
+            )
             FileListStatus.CONTENT -> {
                 LazyColumn {
                     items(ui.entries, key = { it.name }) { entry ->

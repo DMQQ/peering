@@ -281,6 +281,7 @@
     <string name="permission_detail_never">Never asks, and can reach outside the folder</string>
     <string name="agents_back_to_list">Agents</string>
     <string name="files_kind_folder">Folder</string>
+    <string name="files_detail_with_date">%1$s &#183; %2$s</string>
     <string name="files_kind_folder_link">Folder, through a link</string>
     <string name="files_kind_link">Link</string>
     <string name="files_kind_executable">Program, %1$s</string>
@@ -291,6 +292,7 @@
     <string name="files_back">Back</string>
     <string name="files_loading">Loading the folder</string>
     <string name="files_retry">Try again</string>
+    <string name="files_empty_title">Nothing here</string>
     <string name="files_folder_empty">This folder is empty.</string>
     <string name="files_truncated">Only the first items are shown. The computer holds more in this folder.</string>
     <string name="files_sort_name">Name</string>
