@@ -12,15 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerSnapDistance
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,7 +27,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.SessionIcons
@@ -52,14 +50,15 @@ fun SessionDock(
     onChord: (QuickAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val scope = rememberCoroutineScope()
+    val paging = remember { DockPaging() }
     val pager = rememberPagerState(pageCount = { pages.size })
-    var shownId by remember { mutableStateOf(pages.firstOrNull()?.id) }
-    LaunchedEffect(pager.currentPage, pages) { pages.getOrNull(pager.currentPage)?.let { shownId = it.id } }
-    LaunchedEffect(pages.map { it.id }) {
-        val keep = pages.indexOfFirst { it.id == shownId }
-        pager.scrollToPage(if (keep >= 0) keep else 0)
+    val ids = pages.map { it.id }
+    LaunchedEffect(ids) {
+        paging.onPagesChanged(ids)
+        pager.scrollToPage(paging.index)
     }
+    LaunchedEffect(pager) { snapshotFlow { pager.settledPage }.collect(paging::onSettled) }
+    LaunchedEffect(paging.index) { if (pager.currentPage != paging.index) pager.animateScrollToPage(paging.index) }
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(ChromeMetrics.dockDotsGap)) {
         Row(
             Modifier
@@ -70,12 +69,19 @@ fun SessionDock(
                 .padding(horizontal = ChromeMetrics.railPadding, vertical = ChromeMetrics.railPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            HorizontalPager(state = pager, modifier = Modifier.weight(1f)) { index ->
-                DockPageGrid(pages[index], expanded, control, onChord)
+            HorizontalPager(
+                state = pager,
+                modifier = Modifier.weight(1f),
+                flingBehavior = PagerDefaults.flingBehavior(pager, PagerSnapDistance.atMost(1)),
+            ) { index ->
+                pages.getOrNull(index)?.let { DockPageGrid(it, expanded, control, onChord) }
             }
-            DockToggle(expanded) { onExpandedChange(!expanded) }
+            DockToggle(expanded) {
+                paging.reset()
+                onExpandedChange(!expanded)
+            }
         }
-        DockPageDots(pages.size, pager.currentPage) { index -> scope.launch { pager.animateScrollToPage(index) } }
+        DockPageDots(pages.size, paging.index, paging::select)
     }
 }
 
@@ -117,10 +123,10 @@ private fun DockToggle(expanded: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun DockPageDots(count: Int, current: Int, onSelect: (Int) -> Unit) {
-    Row(Modifier.height(ChromeMetrics.dockDotsHeight)) {
+    Row(Modifier.height(DOT_HEIGHT)) {
         repeat(count) { index ->
             Box(
-                Modifier.width(16.dp).height(ChromeMetrics.dockDotsHeight).tappable({ onSelect(index) }),
+                Modifier.width(DOT_WIDTH).height(DOT_HEIGHT).tappable({ onSelect(index) }),
                 contentAlignment = Alignment.Center,
             ) {
                 Box(
@@ -133,3 +139,6 @@ private fun DockPageDots(count: Int, current: Int, onSelect: (Int) -> Unit) {
         }
     }
 }
+
+private val DOT_WIDTH = 24.dp
+private val DOT_HEIGHT = 20.dp
