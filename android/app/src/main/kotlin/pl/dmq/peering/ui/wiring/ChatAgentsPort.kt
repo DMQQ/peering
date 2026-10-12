@@ -3,11 +3,13 @@ package pl.dmq.peering.ui.wiring
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import pl.dmq.peering.feature.agents.AgentsPort
+import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.session.agent.ApprovalAnswer
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
+import pl.dmq.peering.wire.AgentResumableSession
 
 /**
  * The agents screens over the session's agent chat. The chat acts on the selected session, so each call that names a
@@ -15,6 +17,10 @@ import pl.dmq.peering.wire.AgentPermissionMode
  */
 internal class ChatAgentsPort(private val chat: AgentChat) : AgentsPort {
     override val chats: StateFlow<AgentChatState> get() = chat.state
+
+    override val capabilities: AgentCapabilities get() = chat.capabilities
+
+    override val resumable: StateFlow<List<AgentResumableSession>?> get() = chat.resumable
 
     override val browseEvents: Flow<AgentEvent> get() = chat.browseEvents
 
@@ -43,6 +49,12 @@ internal class ChatAgentsPort(private val chat: AgentChat) : AgentsPort {
         chat.select(sessionID)
         chat.interrupt()
     }
+
+    override fun pause(sessionID: String) = chat.pause(sessionID)
+
+    override fun listResumable() = chat.listResumable()
+
+    override fun resume(session: AgentResumableSession) = chat.resume(session)
 
     override fun setPermissionMode(sessionID: String, mode: AgentPermissionMode) = chat.setPermissionMode(sessionID, mode)
 

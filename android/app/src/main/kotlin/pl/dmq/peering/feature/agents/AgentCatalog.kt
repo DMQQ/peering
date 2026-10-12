@@ -10,6 +10,8 @@ object AgentCatalog {
         "opencode" to "OpenCode",
     )
 
+    fun name(id: String): String = names[id] ?: id
+
     /** The agents the Mac declared in its handshake, in the order it declared them. */
     fun options(declaredIDs: List<String>): List<AgentOption> =
         declaredIDs.distinct().map { AgentOption(it, names[it] ?: it) }
