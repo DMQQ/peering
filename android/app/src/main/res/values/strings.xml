@@ -464,4 +464,15 @@
     <string name="tour_on_pro_body">No limit away from your own network, and every update from here on.</string>
     <string name="tour_privacy">Privacy Policy</string>
     <string name="tour_terms">Terms of Use</string>
+    <string name="first_title">Connect your first computer</string>
+    <string name="first_subtitle">Peering needs a small app running on your computer. It takes a minute, and you only do it once.</string>
+    <string name="first_step_install">Install Peering on your computer</string>
+    <string name="first_step_open">Open it, on the same Wi-Fi</string>
+    <string name="first_step_open_detail">Keep the computer awake and on the network this phone is on.</string>
+    <string name="first_step_choose">Choose your computer</string>
+    <string name="first_looking">Looking for your computer…</string>
+    <string name="first_tap_to_connect">Tap to connect</string>
+    <string name="first_enter_id">Enter device ID</string>
+    <string name="first_enter_address">Enter address</string>
+    <string name="first_later">I\'ll do this later</string>
 </resources>

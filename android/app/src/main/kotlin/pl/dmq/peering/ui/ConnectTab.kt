@@ -17,6 +17,8 @@ import pl.dmq.peering.ui.wiring.StorePaywallBilling
 import pl.dmq.peering.ui.wiring.findActivity
 import pl.dmq.peering.feature.connect.ConnectPresenter
 import pl.dmq.peering.feature.connect.ConnectRoute
+import pl.dmq.peering.feature.connect.FirstConnectionScreen
+import pl.dmq.peering.feature.connect.rememberConnectActions
 import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.feature.onboarding.OnboardingRoute
 import pl.dmq.peering.feature.pairing.PairingCodePresenter
@@ -39,6 +41,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
     val active by wiring.holder.active.collectAsState()
     var onboarding by remember { mutableStateOf(!wiring.firstRun.isComplete()) }
     var pairing by remember { mutableStateOf<PairingCodePresenter?>(null) }
+    var firstConnectionDismissed by rememberSaveable { mutableStateOf(false) }
     var showingSession by rememberSaveable { mutableStateOf(false) }
     var scanning by remember { mutableStateOf<ScanPurpose?>(null) }
     val connect = remember(wiring, scope) {
@@ -71,6 +74,8 @@ internal fun ConnectTab(wiring: FeatureWiring) {
         wiring.presence.setShown(true)
         onDispose { wiring.presence.setShown(false) }
     }
+    val connectState by connect.state.collectAsState()
+    val firstConnection = !firstConnectionDismissed && connectState.listing.paired.isEmpty()
     val session = active
     val presenting = pairing
     Box(modifier = Modifier.fillMaxSize()) {
@@ -103,6 +108,11 @@ internal fun ConnectTab(wiring: FeatureWiring) {
                     showingSession = false
                     wiring.holder.end()
                 },
+            )
+            firstConnection -> FirstConnectionScreen(
+                state = connectState,
+                actions = rememberConnectActions(connect) { scanning = ScanPurpose.FindMac },
+                onSkip = { firstConnectionDismissed = true },
             )
             else -> ConnectRoute(
                 presenter = connect,

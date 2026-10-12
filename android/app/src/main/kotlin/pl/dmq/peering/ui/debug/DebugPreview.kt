@@ -19,6 +19,7 @@ import pl.dmq.peering.session.controller.PairingCodeError
 import androidx.compose.ui.Modifier
 import pl.dmq.peering.feature.onboarding.OnboardingRoute
 import pl.dmq.peering.feature.onboarding.OnboardingStep
+import pl.dmq.peering.feature.connect.FirstConnectionScreen
 import pl.dmq.peering.feature.connect.ManualAddressSheet
 import pl.dmq.peering.feature.pairing.HostIdEntrySheet
 import pl.dmq.peering.feature.pairing.HostIdEntryState
@@ -80,6 +81,11 @@ fun DebugPreview(name: String) {
                 connect(NearbyPhase.Found, HostListing(emptyList(), sampleNearby))
                 HostIdEntrySheet(HostIdEntryState(), {}, {}, {}, {})
             }
+            "first_connection" -> FirstConnectionScreen(
+                ConnectUiState(listing = HostListing(emptyList(), sampleNearby), nearbyPhase = NearbyPhase.Found),
+                ConnectActions(onScan = {}),
+                onSkip = {},
+            )
             "connect_nonetwork" -> connect(NearbyPhase.NoNetwork, HostListing(samplePaired.take(1), emptyList()))
         }
     }

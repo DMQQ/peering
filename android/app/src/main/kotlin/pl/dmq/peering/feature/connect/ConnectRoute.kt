@@ -20,22 +20,7 @@ fun ConnectRoute(
     onScanRequested: (() -> Unit)? = null,
 ) {
     val state by presenter.state.collectAsState()
-    val context = LocalContext.current
-    val actions = remember(presenter, onScanRequested, context) {
-        ConnectActions(
-            onConnect = presenter::connect,
-            onPair = presenter::pair,
-            onForget = presenter::requestForget,
-            onConnectAddress = presenter::connectToAddress,
-            onSearchAgain = presenter::searchAgain,
-            onOpenWifiSettings = {
-                context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            },
-            onEntryTextChanged = presenter.entry::onTextChanged,
-            onEntrySubmit = presenter.entry::submit,
-            onScan = onScanRequested,
-        )
-    }
+    val actions = rememberConnectActions(presenter, onScanRequested)
     ConnectScreen(state = state, actions = actions, modifier = modifier)
     if (state.forgetTarget != null) {
         ForgetDialog(onConfirm = presenter::confirmForget, onDismiss = presenter::cancelForget)
@@ -53,4 +38,24 @@ private fun ForgetDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
         onCancel = onDismiss,
         destructive = true,
     )
+}
+
+@Composable
+internal fun rememberConnectActions(presenter: ConnectPresenter, onScanRequested: (() -> Unit)?): ConnectActions {
+    val context = LocalContext.current
+    return remember(presenter, onScanRequested, context) {
+        ConnectActions(
+            onConnect = presenter::connect,
+            onPair = presenter::pair,
+            onForget = presenter::requestForget,
+            onConnectAddress = presenter::connectToAddress,
+            onSearchAgain = presenter::searchAgain,
+            onOpenWifiSettings = {
+                context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            },
+            onEntryTextChanged = presenter.entry::onTextChanged,
+            onEntrySubmit = presenter.entry::submit,
+            onScan = onScanRequested,
+        )
+    }
 }
