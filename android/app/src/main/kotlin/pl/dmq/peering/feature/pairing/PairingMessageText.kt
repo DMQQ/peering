@@ -21,6 +21,7 @@ internal fun PairingMessage.text(): String = when (this) {
     PairingMessage.TooManyAttempts -> stringResource(R.string.pairing_failed_too_many)
     PairingMessage.ConnectionRefused -> stringResource(R.string.session_failed_refused)
     PairingMessage.TlsFailed -> stringResource(R.string.session_failed_tls)
+    PairingMessage.Closed -> stringResource(R.string.session_failed_closed)
     PairingMessage.TimedOut -> stringResource(R.string.session_failed_timeout)
     PairingMessage.Unreachable -> stringResource(R.string.pairing_failed_unreachable)
 }

@@ -28,6 +28,27 @@ class PairingCodePresenterTest {
     }
 
     @Test
+    fun theScreenIsConnectingNotApprovingUntilTheCodeHasBeenAnswered() = runTest(UnconfinedTestDispatcher()) {
+        val session = FakePairingSession()
+        val presenter = PairingCodePresenter(session, backgroundScope)
+
+        session.emit(PairingPhase.Waiting)
+
+        assertEquals(PairingCodeScreen.Connecting, presenter.state.value)
+    }
+
+    @Test
+    fun aConnectionThatClosedAfterTheCodeWasAnsweredFailsInsteadOfWaiting() = runTest(UnconfinedTestDispatcher()) {
+        val session = FakePairingSession()
+        val presenter = PairingCodePresenter(session, backgroundScope)
+        presenter.submitCode("042317")
+
+        session.emit(PairingPhase.ConnectionFailed(ConnectFailureKind.Closed, null))
+
+        assertEquals(PairingCodeScreen.Failed(PairingMessage.Closed), presenter.state.value)
+    }
+
+    @Test
     fun aWrongCodeShowsTheErrorAndAllowsAnotherTry() = runTest(UnconfinedTestDispatcher()) {
         val session = FakePairingSession()
         val presenter = PairingCodePresenter(session, backgroundScope)

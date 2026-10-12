@@ -22,4 +22,5 @@ internal fun ConnectFailureKind.toPairingMessage(): PairingMessage = when (this)
     ConnectFailureKind.Refused -> PairingMessage.ConnectionRefused
     ConnectFailureKind.TlsFailed -> PairingMessage.TlsFailed
     ConnectFailureKind.Timeout -> PairingMessage.TimedOut
+    ConnectFailureKind.Closed -> PairingMessage.Closed
 }

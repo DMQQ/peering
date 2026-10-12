@@ -32,4 +32,7 @@ sealed interface PairingMessage {
     data object TlsFailed : PairingMessage
 
     data object TimedOut : PairingMessage
+
+    /** The computer closed the connection or stopped answering while the pairing was under way. */
+    data object Closed : PairingMessage
 }

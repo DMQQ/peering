@@ -65,10 +65,7 @@ class ClientStateMachine(
         if (state != ClientHandshakeState.AwaitingUserConfirmation) return emptyList()
         if (!accepted) {
             state = ClientHandshakeState.Failed
-            return listOf(
-                ClientAction.Send(HandshakeFrames.json(MessageKind.PairConfirm, PairConfirm.serializer(), PairConfirm(false))),
-                ClientAction.Failed(FailureReason.PairingDeclined),
-            )
+            return listOf(ClientAction.Send(declineFrame()), ClientAction.Failed(FailureReason.PairingDeclined))
         }
         state = ClientHandshakeState.AwaitingPairResult
         val proof = secret?.let { checkNotNull(transcript).proof(it).toBase64() }
@@ -76,6 +73,20 @@ class ClientStateMachine(
             ClientAction.Send(HandshakeFrames.json(MessageKind.PairConfirm, PairConfirm.serializer(), PairConfirm(true, proof))),
         )
     }
+
+    /**
+     * The user walked away from the pairing. The host is told only when it is waiting on this phone's answer or on its
+     * own user's approval, the two states in which it has a pairing to drop.
+     */
+    fun cancel(): List<ClientAction> {
+        val hostIsWaiting = state == ClientHandshakeState.AwaitingUserConfirmation ||
+            state == ClientHandshakeState.AwaitingPairResult
+        if (state != ClientHandshakeState.Ready) state = ClientHandshakeState.Failed
+        return if (hostIsWaiting) listOf(ClientAction.Send(declineFrame())) else emptyList()
+    }
+
+    private fun declineFrame(): Frame =
+        HandshakeFrames.json(MessageKind.PairConfirm, PairConfirm.serializer(), PairConfirm(false))
 
     private fun onServerHello(frame: Frame): List<ClientAction> {
         if (frame.kind != MessageKind.ServerHello) return fail(FailureReason.UnexpectedFrame(frame.kind, "serverHello"))

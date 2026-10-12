@@ -22,8 +22,15 @@ class PairingPhasesTest {
     @Test
     fun aSessionThatIsStillConnectingIsWaiting() {
         assertEquals(PairingPhase.Waiting, SessionPhase.Connecting(SessionRecord.Path.LAN).toPairingPhase())
-        assertEquals(PairingPhase.Waiting, SessionPhase.Reconnecting(1).toPairingPhase())
         assertEquals(PairingPhase.Waiting, SessionPhase.Idle.toPairingPhase())
+    }
+
+    @Test
+    fun aSessionThatEndedOrIsReconnectingNeverReadsAsAPairingInProgress() {
+        val closed = PairingPhase.ConnectionFailed(ConnectFailureKind.Closed, null)
+
+        assertEquals(closed, SessionPhase.Ended.toPairingPhase())
+        assertEquals(closed, SessionPhase.Reconnecting(1).toPairingPhase())
     }
 
     @Test

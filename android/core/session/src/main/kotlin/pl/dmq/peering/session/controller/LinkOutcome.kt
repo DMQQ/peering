@@ -8,6 +8,9 @@ internal sealed interface LinkOutcome {
     /** The host or the relay refused the session. Reconnecting cannot change that. */
     data class Refused(val failure: SessionFailure) : LinkOutcome
 
+    /** The user cancelled a pairing, and the host has been told. */
+    data object Cancelled : LinkOutcome
+
     /** The session was running and ended as [end]. */
     data class Ended(val end: LinkEnd) : LinkOutcome
 }

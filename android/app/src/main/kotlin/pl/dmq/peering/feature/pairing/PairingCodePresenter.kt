@@ -18,7 +18,7 @@ class PairingCodePresenter(
 
     val state: StateFlow<PairingCodeScreen> = combine(session.phases, ending) { phase, end ->
         screenFor(phase, end)
-    }.stateIn(scope, SharingStarted.Eagerly, PairingCodeScreen.Waiting)
+    }.stateIn(scope, SharingStarted.Eagerly, PairingCodeScreen.Connecting)
 
     /** Checks the typed digits. Once a right code was given, or the attempts ran out, later digits are not sent. */
     fun submitCode(digits: String): CodeCheck {
@@ -57,7 +57,7 @@ class PairingCodePresenter(
         else -> when (phase) {
             is PairingPhase.EnteringCode ->
                 if (end == Ending.Answered) PairingCodeScreen.Waiting else PairingCodeScreen.EnteringCode(phase.attempts, phase.error)
-            PairingPhase.Waiting -> PairingCodeScreen.Waiting
+            PairingPhase.Waiting -> if (end == Ending.Answered) PairingCodeScreen.Waiting else PairingCodeScreen.Connecting
             PairingPhase.Done -> PairingCodeScreen.Done
             is PairingPhase.Failed -> PairingCodeScreen.Failed(phase.reason.toPairingMessage())
             is PairingPhase.ConnectionFailed -> PairingCodeScreen.Failed(phase.kind.toPairingMessage(), phase.cause)

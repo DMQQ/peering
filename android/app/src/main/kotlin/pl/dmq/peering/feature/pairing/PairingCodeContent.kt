@@ -72,17 +72,23 @@ fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modif
 private fun Steps(screen: PairingCodeScreen, actions: PairingActions) {
     val entering = screen as? PairingCodeScreen.EnteringCode
     val done = screen is PairingCodeScreen.Done
+    val connecting = screen is PairingCodeScreen.Connecting
     Column {
-        GuideStepRow(1, GuideStepState.Done, stringResource(R.string.pairing_step_found), Modifier.arrive(0)) {
-            StepDetail(stringResource(R.string.pairing_step_found_detail))
+        GuideStepRow(1, if (connecting) GuideStepState.Current else GuideStepState.Done, stringResource(R.string.pairing_step_found), Modifier.arrive(0)) {
+            if (connecting) {
+                StepDetail(stringResource(R.string.pairing_step_connecting_detail))
+                PeeringSpinner(color = PeeringColors.ink)
+            } else {
+                StepDetail(stringResource(R.string.pairing_step_found_detail))
+            }
         }
-        GuideStepRow(2, if (entering != null) GuideStepState.Current else GuideStepState.Done, stringResource(R.string.pairing_step_code), Modifier.arrive(60)) {
-            if (entering != null) EnteringCode(entering, actions) else StepDetail(stringResource(R.string.pairing_step_code_done))
+        GuideStepRow(2, if (entering != null) GuideStepState.Current else if (connecting) GuideStepState.Pending else GuideStepState.Done, stringResource(R.string.pairing_step_code), Modifier.arrive(60)) {
+            if (entering != null) EnteringCode(entering, actions) else if (!connecting) StepDetail(stringResource(R.string.pairing_step_code_done))
         }
         GuideStepRow(
             3,
             when {
-                entering != null -> GuideStepState.Pending
+                entering != null || connecting -> GuideStepState.Pending
                 done -> GuideStepState.Done
                 else -> GuideStepState.Current
             },

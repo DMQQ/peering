@@ -5,6 +5,10 @@ import pl.dmq.peering.session.controller.PairingCodeError
 sealed interface PairingCodeScreen {
     data class EnteringCode(val attempts: Int, val error: PairingCodeError?) : PairingCodeScreen
 
+    /** The phone is still opening the connection, so there is nothing yet for the computer to approve. */
+    data object Connecting : PairingCodeScreen
+
+    /** The digits were answered and the computer is being asked to approve. */
     data object Waiting : PairingCodeScreen
 
     data object Done : PairingCodeScreen

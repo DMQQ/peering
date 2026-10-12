@@ -24,4 +24,5 @@ internal fun ConnectFailureKind.messageRes(): Int = when (this) {
     ConnectFailureKind.Refused -> R.string.session_failed_refused
     ConnectFailureKind.TlsFailed -> R.string.session_failed_tls
     ConnectFailureKind.Timeout -> R.string.session_failed_timeout
+    ConnectFailureKind.Closed -> R.string.session_failed_closed
 }

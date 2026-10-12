@@ -17,6 +17,9 @@ enum class ConnectFailureKind {
 
     /** The computer did not answer in time. */
     Timeout,
+
+    /** The computer closed the connection, or stopped answering, after it had been opened. */
+    Closed,
     ;
 
     companion object {

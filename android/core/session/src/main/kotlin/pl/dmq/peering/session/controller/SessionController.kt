@@ -54,6 +54,7 @@ class SessionController(
     private var job: Job? = null
     private var link: ConnectedLink? = null
     @Volatile private var pendingCode: PendingCode? = null
+    private var activeHandshake: SessionHandshake? = null
     private var pictureEnabled = true
     private var historyId: Long? = null
     private var everReady = false
@@ -137,9 +138,13 @@ class SessionController(
     /** Ends the session now. The phone does not reconnect afterwards. */
     fun disconnect() {
         if (job?.isActive != true) return
-        job?.cancel()
-        pendingCode?.answer?.cancel()
-        pendingCode = null
+        val pairing = activeHandshake
+        if (pairing != null) {
+            // The handshake tells the host and ends the link itself, so its decline is written before the close.
+            pairing.cancel()
+        } else {
+            job?.cancel()
+        }
         endHistory(SessionRecord.EndReason.USER_ENDED)
         update { it.copy(phase = SessionPhase.Ended) }
     }
@@ -147,6 +152,7 @@ class SessionController(
     private suspend fun lifecycle() {
         while (true) {
             when (val outcome = runLink()) {
+                LinkOutcome.Cancelled -> return
                 is LinkOutcome.Refused -> return fail(outcome.failure)
                 is LinkOutcome.Unreachable -> if (!everReady) return fail(outcome.failure)
                 is LinkOutcome.Ended -> when (val end = outcome.end) {
@@ -184,9 +190,16 @@ class SessionController(
             }
             val hello = when (val result = handshake(route, writer, frames)) {
                 is HandshakeOutcome.Ready -> result.hello
-                is HandshakeOutcome.Refused -> return@coroutineScope LinkOutcome.Refused(SessionFailure.Handshake(result.reason))
+                is HandshakeOutcome.Refused -> {
+                    writer.flush()
+                    return@coroutineScope LinkOutcome.Refused(SessionFailure.Handshake(result.reason))
+                }
+                HandshakeOutcome.Cancelled -> {
+                    writer.flush()
+                    return@coroutineScope LinkOutcome.Cancelled
+                }
                 HandshakeOutcome.Lost -> return@coroutineScope terminalEnd(ended)?.let(LinkOutcome::Ended)
-                    ?: LinkOutcome.Unreachable(SessionFailure.ConnectionFailed(ConnectFailureKind.Timeout, "The host closed the connection or stopped answering during the handshake"))
+                    ?: LinkOutcome.Unreachable(SessionFailure.ConnectionFailed(ConnectFailureKind.Closed, "The host closed the connection or stopped answering during the handshake"))
             }
             val live = startSession(hello, route, writer, frames)
             with(live) { serve(ended) { publish(live) } }
@@ -213,7 +226,7 @@ class SessionController(
             resumeSource = selection.resumeSourceJson(),
             clientPlatform = CLIENT_PLATFORM,
         )
-        return SessionHandshake(
+        val shaking = SessionHandshake(
             config = config,
             pins = ports.pins,
             random = ports.random,
@@ -221,7 +234,13 @@ class SessionController(
             pairingSecret = (target as? ConnectTarget.Pairing)?.qrSecret,
             sendFrame = writer::enqueue,
             awaitDecision = ::awaitPairing,
-        ).run()
+        )
+        activeHandshake = shaking
+        try {
+            return shaking.run()
+        } finally {
+            activeHandshake = null
+        }
     }
 
     /** The end a link reached through a malformed frame, which closes the frames before the handshake can read that. */
@@ -233,10 +252,13 @@ class SessionController(
         update { it.copy(phase = SessionPhase.EnteringPairingCode(attempts = 0)) }
         val pending = PendingCode(PairingCodeGate(code), CompletableDeferred())
         pendingCode = pending
-        val decision = pending.answer.await()
-        pendingCode = null
-        update { it.copy(phase = SessionPhase.Connecting(target.path)) }
-        return decision
+        try {
+            val decision = pending.answer.await()
+            update { it.copy(phase = SessionPhase.Connecting(target.path)) }
+            return decision
+        } finally {
+            pendingCode = null
+        }
     }
 
     private class PendingCode(val gate: PairingCodeGate, val answer: CompletableDeferred<PairingDecision>)

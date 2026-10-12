@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +28,7 @@ import pl.dmq.peering.feature.scan.CameraQrSource
 import pl.dmq.peering.feature.scan.QrScannerRoute
 import pl.dmq.peering.feature.scan.ScanOutcome
 import pl.dmq.peering.feature.scan.hostIdScanOutcome
+import pl.dmq.peering.ui.wiring.ActiveSession
 import pl.dmq.peering.ui.wiring.ControllerPairingSession
 import pl.dmq.peering.ui.nav.SessionScreens
 
@@ -41,6 +43,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
     val active by wiring.holder.active.collectAsState()
     var onboarding by remember { mutableStateOf(!wiring.firstRun.isComplete()) }
     var pairing by remember { mutableStateOf<PairingCodePresenter?>(null) }
+    var pairingSession by remember { mutableStateOf<ActiveSession?>(null) }
     var firstConnectionDismissed by rememberSaveable { mutableStateOf(false) }
     var showingSession by rememberSaveable { mutableStateOf(false) }
     var scanning by remember { mutableStateOf<ScanPurpose?>(null) }
@@ -55,6 +58,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             },
             onPair = { hostId ->
                 val session = wiring.startPairing(hostId)
+                pairingSession = session
                 pairing = PairingCodePresenter(ControllerPairingSession(session.controller, scope), scope)
                 onboarding = false
                 scanning = null
@@ -62,6 +66,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             },
             onConnectAddress = { address ->
                 val session = wiring.startPairingByAddress(PeerAddress(address.host, address.port))
+                pairingSession = session
                 pairing = PairingCodePresenter(ControllerPairingSession(session.controller, scope), scope)
                 onboarding = false
                 wiring.firstRun.markComplete()
@@ -73,6 +78,10 @@ internal fun ConnectTab(wiring: FeatureWiring) {
     DisposableEffect(wiring) {
         wiring.presence.setShown(true)
         onDispose { wiring.presence.setShown(false) }
+    }
+    // The holder runs one session; once another replaces the one being paired, its screen has nothing left to show.
+    LaunchedEffect(active) {
+        if (pairing != null && active !== pairingSession) pairing = null
     }
     val connectState by connect.state.collectAsState()
     val firstConnection = !firstConnectionDismissed && connectState.listing.paired.isEmpty()

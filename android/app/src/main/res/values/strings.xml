@@ -350,6 +350,8 @@
     <string name="session_failed_refused">The computer refused the connection. Check that Peering Host is running and not paused, then try again.</string>
     <string name="session_failed_tls">The secure connection to the computer could not be set up. Update Peering on both devices and try again.</string>
     <string name="session_failed_timeout">The computer did not answer in time. Check that it is awake and on the same network.</string>
+    <string name="session_failed_closed">The computer stopped answering. Check that Peering Host is running, then try again.</string>
+    <string name="pairing_step_connecting_detail">Connecting to your computer.</string>
     <string name="failure_details">Details</string>
     <string name="session_failed_not_found">The computer was not found on this network.</string>
     <string name="session_failed_malformed">The computer sent data this app could not read, so the session was ended.</string>

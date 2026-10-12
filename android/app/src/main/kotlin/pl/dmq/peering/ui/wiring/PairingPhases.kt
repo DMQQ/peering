@@ -2,6 +2,7 @@ package pl.dmq.peering.ui.wiring
 
 import pl.dmq.peering.feature.pairing.PairingPhase
 import pl.dmq.peering.session.connection.FailureReason
+import pl.dmq.peering.session.controller.ConnectFailureKind
 import pl.dmq.peering.session.controller.SessionFailure
 import pl.dmq.peering.session.controller.SessionPhase
 
@@ -13,7 +14,9 @@ internal fun SessionPhase.toPairingPhase(): PairingPhase = when (this) {
         else -> PairingPhase.Failed(failure.toFailureReason())
     }
     is SessionPhase.Ready -> PairingPhase.Done
-    SessionPhase.Idle, SessionPhase.Ended, is SessionPhase.Connecting, is SessionPhase.Reconnecting -> PairingPhase.Waiting
+    SessionPhase.Idle, is SessionPhase.Connecting -> PairingPhase.Waiting
+    // A pairing has no use for a session that ended or is reconnecting: the computer is gone, so the screen must say so.
+    SessionPhase.Ended, is SessionPhase.Reconnecting -> PairingPhase.ConnectionFailed(ConnectFailureKind.Closed, null)
 }
 
 /** Pairing runs on the local network, so a failure outside the handshake reads as the Mac not being reached. */

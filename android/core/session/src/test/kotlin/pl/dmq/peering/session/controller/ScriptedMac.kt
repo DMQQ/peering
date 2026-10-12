@@ -31,6 +31,12 @@ class ScriptedMac(
 
     var answersPings = true
 
+    /** A frame kind the Mac reads and never answers, as a host that hangs at that step does. */
+    var silentOn: MessageKind? = null
+
+    /** A frame kind that makes the Mac drop the connection instead of answering. */
+    var dropsOn: MessageKind? = null
+
     val videoSecret = ByteArray(VIDEO_SECRET_SIZE) { 7 }
 
     fun newConnection(): MacConnection = MacConnection().also { connections += it }
@@ -62,6 +68,11 @@ class ScriptedMac(
             inbound.close()
         }
 
+        /** The Mac's end closes: the phone reads the end of the stream. */
+        fun hostCloses() {
+            inbound.close()
+        }
+
         override fun peerPublicKey(): ByteArray = ScriptedPairingHost.HOST_KEY
 
         /** Writes [frame] from the Mac to the phone, as the host would. */
@@ -75,6 +86,8 @@ class ScriptedMac(
         }
 
         private fun answer(frame: Frame) {
+            if (frame.kind == silentOn) return
+            if (frame.kind == dropsOn) return hostCloses()
             when (frame.kind) {
                 MessageKind.Ping -> if (answersPings) deliver(Frame(MessageKind.Pong, frame.payload))
                 MessageKind.VideoKeyRequest -> deliver(videoKey())
