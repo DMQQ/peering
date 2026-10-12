@@ -17,7 +17,10 @@ synthesized `Codable` behaves and not yet confirmed by a test or a captured mess
 * Unknown JSON object keys are ignored. An unknown enum case makes the whole message fail to decode, and a failed
   decode of a control message ends the session. This is why commands that an older peer cannot decode are guarded by flags.
 * A receiver MUST drop a control payload larger than 64 KiB (`maxControlPayload`, `ProtocolInfo.swift:32`) and a
-  frame larger than 16 MiB. Senders are not stopped from exceeding the 64 KiB figure, so they MUST chunk.
+  frame larger than 16 MiB. Senders are not stopped from exceeding the 64 KiB figure, so they MUST chunk. The 64 KiB
+  figure is enforced before the session is ready (hello and pairing frames). After that, a shipped Mac host sends larger
+  control messages (the source catalogue with thumbnails, terminal output), so a receiver accepts anything up to 16 MiB
+  once the handshake is done, as the iPhone and Android do.
 
 ## 2. Transport
 

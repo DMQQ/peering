@@ -1,5 +1,6 @@
 package pl.dmq.peering.session.controller
 
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -119,17 +120,21 @@ internal class LinkRunner(
         val ended = CompletableDeferred<LinkEnd>()
         currentEnd = ended
         val frames = ReaderLoop.inbound()
+        val handshakeDone = AtomicBoolean(false)
         val writer = WriterLoop(route.transport, recorder.tally)
         launchLinkTask(ended) { writer.run() }
         launchLinkTask(ended) {
             withContext(ports.readerContext) {
-                ReaderLoop(route.transport.received, frames, recorder.tally) {
+                ReaderLoop(route.transport.received, frames, recorder.tally, { !handshakeDone.get() }) {
                     ended.complete(LinkEnd.Terminal(SessionFailure.MalformedFrame))
                 }.run()
             }
         }
         val hello = when (val result = handshake(route, writer, frames)) {
-            is HandshakeOutcome.Ready -> result.hello
+            is HandshakeOutcome.Ready -> {
+                handshakeDone.set(true)
+                result.hello
+            }
             is HandshakeOutcome.Refused -> {
                 writer.flush()
                 return LinkOutcome.Refused(SessionFailure.Handshake(result.reason))

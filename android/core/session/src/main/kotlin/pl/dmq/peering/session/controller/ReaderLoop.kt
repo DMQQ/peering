@@ -11,13 +11,15 @@ import pl.dmq.peering.wire.exceedsControlLimit
 
 /**
  * Cuts the control byte stream into frames and passes them on in order. The frame channel is closed when the stream ends
- * or fails, so whoever reads frames sees the connection end as a closed channel. A control payload over 64 KiB is dropped, not fatal. A malformed frame is reported to
- * [onMalformed] before the channel closes, so the end is known by the time a reader sees the closed channel.
+ * or fails, so whoever reads frames sees the connection end as a closed channel. While [controlLimitApplies] a control payload over 64 KiB is
+ * dropped, not fatal; once the handshake is done hosts legitimately send larger catalogues and terminal output, as they do to the iPhone.
+ * A malformed frame is reported to [onMalformed] before the channel closes, so the end is known by the time a reader sees the closed channel.
  */
 internal class ReaderLoop(
     private val bytes: Flow<ByteArray>,
     private val frames: SendChannel<Frame>,
     private val tally: ByteTally,
+    private val controlLimitApplies: () -> Boolean = { true },
     private val onMalformed: () -> Unit,
 ) {
     suspend fun run() {
@@ -28,7 +30,7 @@ internal class ReaderLoop(
                 decoder.push(chunk)
                 while (true) {
                     val frame = decoder.next() ?: break
-                    if (!exceedsControlLimit(frame)) frames.send(frame)
+                    if (!controlLimitApplies() || !exceedsControlLimit(frame)) frames.send(frame)
                 }
             }
         } catch (malformed: FramingException) {
