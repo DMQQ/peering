@@ -14,6 +14,8 @@ class PinStoreImpl(private val blobs: BlobStore) : PinStore {
 
     override fun pin(hostId: String): ByteArray? = synchronized(lock) { pins[hostId]?.copyOf() }
 
+    override fun hostIds(): List<String> = synchronized(lock) { pins.keys.toList() }
+
     override fun record(hostId: String, key: ByteArray): Boolean = synchronized(lock) {
         val previous = pins.put(hostId, key.copyOf())
         if (persist()) return true

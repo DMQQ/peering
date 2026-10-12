@@ -10,6 +10,8 @@ class FakePinStore(initial: Map<String, ByteArray> = emptyMap()) : PinStore {
 
     override fun pin(hostId: String): ByteArray? = pins[hostId]
 
+    override fun hostIds(): List<String> = pins.keys.toList()
+
     override fun record(hostId: String, key: ByteArray): Boolean {
         if (!writesSucceed) return false
         pins[hostId] = key.copyOf()

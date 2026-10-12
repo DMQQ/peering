@@ -50,6 +50,7 @@
     <string name="pairing_failed_refused_reason">The Mac refused the pairing: %1$s</string>
     <string name="pairing_failed_declined">The codes did not match, so the pairing was stopped.</string>
     <string name="pairing_failed_not_saved">The Mac approved the pairing, but this device could not save it. Try again.</string>
+    <string name="pairing_failed_unreachable">The Mac could not be reached on this network. Check that both are on the same Wi-Fi.</string>
     <string name="agents_title">Agents</string>
     <string name="agents_new_chat">New chat</string>
     <string name="agents_unsupported">This Mac does not offer agent chats yet.</string>
@@ -303,4 +304,17 @@
     <string name="faq_run_out_answer">The relay stops carrying new sessions until the next day. Connections on your own network keep working.</string>
     <string name="faq_subscribe_question">Why does the app ask me to subscribe?</string>
     <string name="faq_subscribe_answer">It asks after your first session, and again when your daily relay time is nearly gone. Dismissing it costs nothing, and nothing is charged unless you confirm it through the store.</string>
+    <string name="sessions_none">No session is open. Connect to a Mac first.</string>
+    <string name="session_unavailable_agents">This Mac does not offer agent chats.</string>
+    <string name="session_unavailable_files">This Mac does not offer its files.</string>
+    <string name="session_ended">The session has ended.</string>
+    <string name="session_failed_handshake">The Mac could not complete the connection.</string>
+    <string name="session_failed_quota">The relay\'s free time is used up for today.</string>
+    <string name="session_failed_version">The relay speaks another version of Peering. Update the app.</string>
+    <string name="session_failed_offline">The Mac is offline.</string>
+    <string name="session_failed_relay">The relay refused the session.</string>
+    <string name="session_failed_unreachable">The Mac could not be reached.</string>
+    <string name="session_failed_not_found">The Mac was not found on this network.</string>
+    <string name="session_failed_malformed">The Mac sent data this app could not read, so the session was ended.</string>
+    <string name="session_failed_lost">The connection was lost and could not be restored.</string>
 </resources>

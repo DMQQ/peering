@@ -21,4 +21,5 @@ sealed interface PairingMessage {
     data object Declined : PairingMessage
 
     data object NotSaved : PairingMessage
+    data object Unreachable : PairingMessage
 }

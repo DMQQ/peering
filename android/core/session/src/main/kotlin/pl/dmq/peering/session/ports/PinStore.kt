@@ -8,6 +8,9 @@ interface PinStore {
     /** Pins [key] for [hostId]. False when the write did not persist, so the pairing must not count as done. */
     fun record(hostId: String, key: ByteArray): Boolean
 
+    /** The ids of every paired host. */
+    fun hostIds(): List<String>
+
     /** Forgets the pin for [hostId]. False when the removal did not persist. */
     fun remove(hostId: String): Boolean
 }

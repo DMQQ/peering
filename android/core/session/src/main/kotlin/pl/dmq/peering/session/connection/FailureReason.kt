@@ -25,4 +25,7 @@ sealed interface FailureReason {
     data object PairingDeclined : FailureReason
 
     data object PairingNotSaved : FailureReason
+
+    /** The Mac could not be reached on the network, or did not answer in time. */
+    data object Unreachable : FailureReason
 }

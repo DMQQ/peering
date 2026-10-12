@@ -67,6 +67,9 @@ class SessionController(
     /** The file browser, present once the host has declared that it supports one. */
     val files: FileBrowser? get() = services.fileBrowser
 
+    /** The agent ids the host declared for chats, or an empty list while no session is ready. */
+    val declaredAgentIDs: List<String> get() = link?.hello?.agentChatAgents.orEmpty()
+
     /** Starts the session. Does nothing while one is already running. */
     fun connect() {
         if (job?.isActive == true) return

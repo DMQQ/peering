@@ -13,4 +13,5 @@ internal fun FailureReason.toPairingMessage(): PairingMessage = when (this) {
     is FailureReason.PairingRefused -> PairingMessage.Refused(reason)
     FailureReason.PairingDeclined -> PairingMessage.Declined
     FailureReason.PairingNotSaved -> PairingMessage.NotSaved
+    FailureReason.Unreachable -> PairingMessage.Unreachable
 }
