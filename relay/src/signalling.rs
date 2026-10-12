@@ -616,12 +616,18 @@ async fn handle<S>(
                             Ok(message) => {
                                 dispatch(message, &tx, &registry, &hosts, &settings, &relay_host, &mut state).await
                             }
-                            Err(error) => {
-                                let reason = Refusal::for_unparseable(&error);
-                                TALLY.refused(reason);
-                                warn!(%error, reason = reason.as_str(), "unparseable signalling message; likely a client on a different version");
-                                Some(ServerMessage::error("protocol", "unrecognised message"))
-                            }
+                            Err(error) => match activity::refusal_for_undecodable(&text) {
+                                Some((reason, request_id)) => {
+                                    TALLY.activity(ActivityOutcome::refused(reason));
+                                    Some(ServerMessage::ActivityRefused { reason, request_id })
+                                }
+                                None => {
+                                    let reason = Refusal::for_unparseable(&error);
+                                    TALLY.refused(reason);
+                                    warn!(%error, reason = reason.as_str(), "unparseable signalling message; likely a client on a different version");
+                                    Some(ServerMessage::error("protocol", "unrecognised message"))
+                                }
+                            },
                         };
                         if let Some(message) = reply {
                             // Never awaited: this loop is the only reader of the queue, so waiting
@@ -660,7 +666,7 @@ fn notify_activity(
     settings: &Settings,
     state: &mut ConnectionState,
 ) -> Option<ServerMessage> {
-    let request_id = push.request_id.clone().filter(|id| id.len() <= activity::MAX_REQUEST_ID_BYTES);
+    let request_id = push.request_id.clone().filter(|id| id.chars().count() <= activity::MAX_REQUEST_ID_CHARS);
     let refuse = |refusal: ActivityRefusal| {
         TALLY.activity(ActivityOutcome::refused(refusal));
         Some(ServerMessage::ActivityRefused { reason: refusal, request_id: request_id.clone() })

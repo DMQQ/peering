@@ -1502,3 +1502,18 @@ async fn clients_behind_a_loopback_proxy_are_limited_by_their_forwarded_address(
     send(&mut plain, &ClientMessage::Ping).await;
     assert_eq!(next_message(&mut plain).await, ServerMessage::Pong, "a loopback peer with no header is exempt");
 }
+
+#[tokio::test]
+async fn a_notify_activity_that_fails_to_decode_is_refused_with_its_request_id() {
+    let relay = start_limited(IpLimits::default(), false).await;
+    let mut ws = connect(relay.signal_port).await;
+    let text = r#"{"type":"notifyActivity","activityToken":"ab","activity":"session","event":"update","contentState":{},"priority":300,"requestId":"req-9"}"#;
+    ws.send(Message::Text(text.into())).await.unwrap();
+    assert_eq!(
+        next_message(&mut ws).await,
+        ServerMessage::ActivityRefused {
+            reason: peeringd::activity::ActivityRefusal::InvalidPayload,
+            request_id: Some("req-9".into()),
+        }
+    );
+}

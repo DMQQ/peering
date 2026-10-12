@@ -97,7 +97,7 @@ pub struct ActivityPush {
     pub request_id: Option<String>,
 }
 
-pub const MAX_REQUEST_ID_BYTES: usize = 64;
+pub const MAX_REQUEST_ID_CHARS: usize = 64;
 
 /// Why a push was not sent, as the host is told. A closed set: the host acts on it, so it must
 /// never carry text from Apple or from the host's own payload.
@@ -171,6 +171,21 @@ pub struct ActivityRequest {
     pub body: String,
 }
 
+/// The refusal for a `notifyActivity` that did not decode, so the host is told which push failed
+/// instead of getting a generic protocol error. `None` when the message is some other kind.
+pub fn refusal_for_undecodable(text: &str) -> Option<(ActivityRefusal, Option<String>)> {
+    let value: Value = serde_json::from_str(text).ok()?;
+    if value.get("type")?.as_str()? != "notifyActivity" {
+        return None;
+    }
+    let request_id = value
+        .get("requestId")
+        .and_then(Value::as_str)
+        .filter(|id| id.chars().count() <= MAX_REQUEST_ID_CHARS)
+        .map(str::to_owned);
+    Some((ActivityRefusal::InvalidPayload, request_id))
+}
+
 fn within(text: &str, limit: usize) -> bool {
     text.len() <= limit
 }
@@ -191,7 +206,7 @@ pub fn build(push: &ActivityPush, now: u64) -> Result<ActivityRequest, ActivityR
         return Err(ActivityRefusal::InvalidPayload);
     }
 
-    if push.request_id.as_deref().is_some_and(|id| !within(id, MAX_REQUEST_ID_BYTES)) {
+    if push.request_id.as_deref().is_some_and(|id| id.chars().count() > MAX_REQUEST_ID_CHARS) {
         return Err(ActivityRefusal::InvalidPayload);
     }
 
@@ -207,7 +222,8 @@ pub fn build(push: &ActivityPush, now: u64) -> Result<ActivityRequest, ActivityR
             }
             Some(json!({ "title": title, "body": body }))
         }
-        _ => None,
+        (None, None) => None,
+        _ => return Err(ActivityRefusal::InvalidPayload),
     };
 
     let stale = push.stale_seconds.map(|seconds| now.saturating_add(u64::from(seconds)));
@@ -425,9 +441,14 @@ mod tests {
     }
 
     #[test]
-    fn an_alert_needs_both_halves_and_otherwise_is_left_out() {
-        let half = ActivityPush { alert_title: Some("Only a title".into()), ..push(ActivityEvent::Update) };
-        assert!(body(&build(&half, NOW).unwrap())["aps"].get("alert").is_none());
+    fn an_alert_needs_both_halves_and_a_half_is_refused() {
+        for event in [ActivityEvent::Update, ActivityEvent::End] {
+            let title_only = ActivityPush { alert_title: Some("Only a title".into()), ..push(event) };
+            assert_eq!(build(&title_only, NOW), Err(ActivityRefusal::InvalidPayload));
+            let body_only = ActivityPush { alert_body: Some("Only a body".into()), ..push(event) };
+            assert_eq!(build(&body_only, NOW), Err(ActivityRefusal::InvalidPayload));
+        }
+        assert!(body(&build(&push(ActivityEvent::Update), NOW).unwrap())["aps"].get("alert").is_none());
         let both = ActivityPush { alert_title: Some("T".into()), alert_body: Some("B".into()), ..push(ActivityEvent::Update) };
         assert_eq!(body(&build(&both, NOW).unwrap())["aps"]["alert"], json!({ "title": "T", "body": "B" }));
     }
@@ -541,5 +562,42 @@ mod tests {
         assert!(serde_json::from_str::<crate::protocol::ClientMessage>(minimal).is_ok());
         let unknown = minimal.replace("terminal", "pizza");
         assert!(serde_json::from_str::<crate::protocol::ClientMessage>(&unknown).is_err());
+    }
+
+    #[test]
+    fn a_request_id_is_limited_by_characters_not_bytes() {
+        let sixty_four_characters = "é".repeat(64);
+        let fits = ActivityPush { request_id: Some(sixty_four_characters), ..push(ActivityEvent::Update) };
+        assert!(build(&fits, NOW).is_ok());
+        let too_long = ActivityPush { request_id: Some("é".repeat(65)), ..push(ActivityEvent::Update) };
+        assert_eq!(build(&too_long, NOW), Err(ActivityRefusal::InvalidPayload));
+    }
+
+    #[test]
+    fn an_undecodable_notify_activity_is_refused_with_its_request_id() {
+        let cases = [
+            r#"{"type":"notifyActivity","activityToken":"ab","activity":"session","event":"update","contentState":{},"priority":300,"requestId":"r1"}"#,
+            r#"{"type":"notifyActivity","activityToken":"ab","activity":"session","event":"update","contentState":{},"staleSeconds":-5,"requestId":"r1"}"#,
+            r#"{"type":"notifyActivity","activityToken":"ab","activity":"session","event":"explode","contentState":{},"requestId":"r1"}"#,
+        ];
+        for text in cases {
+            assert!(serde_json::from_str::<crate::protocol::ClientMessage>(text).is_err(), "{text}");
+            assert_eq!(refusal_for_undecodable(text), Some((ActivityRefusal::InvalidPayload, Some("r1".into()))));
+        }
+    }
+
+    #[test]
+    fn an_undecodable_notify_activity_without_a_readable_request_id_is_still_refused() {
+        let text = r#"{"type":"notifyActivity","event":"explode","requestId":7}"#;
+        assert_eq!(refusal_for_undecodable(text), Some((ActivityRefusal::InvalidPayload, None)));
+        let long = format!(r#"{{"type":"notifyActivity","requestId":"{}"}}"#, "x".repeat(65));
+        assert_eq!(refusal_for_undecodable(&long), Some((ActivityRefusal::InvalidPayload, None)));
+    }
+
+    #[test]
+    fn other_undecodable_messages_are_not_taken_for_activity_pushes() {
+        assert_eq!(refusal_for_undecodable(r#"{"type":"nonsense"}"#), None);
+        assert_eq!(refusal_for_undecodable("not json"), None);
+        assert_eq!(refusal_for_undecodable(r#"{"requestId":"r"}"#), None);
     }
 }
