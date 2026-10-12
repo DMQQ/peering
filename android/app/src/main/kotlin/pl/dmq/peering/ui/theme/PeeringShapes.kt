@@ -21,5 +21,6 @@ val peeringShapes = Shapes(
 /** Fully rounded ends whatever the height. */
 val PillShape: Shape = RoundedCornerShape(percent = 50)
 
-/** Corners of the terminal keys: tighter than a tile, so a row of them reads as a keyboard. */
-val KeyShape = RoundedCornerShape(8.dp)
+/** Corners of the terminal keys, the iPhone's 7 for a single key and 9 for the wider ellipsis and the joined arrows. */
+val KeyShape = RoundedCornerShape(7.dp)
+val KeyGroupShape = RoundedCornerShape(9.dp)

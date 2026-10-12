@@ -6,7 +6,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
@@ -44,6 +47,8 @@ import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 
 private val capsuleHeight = 48.dp
+private val fieldHeight = 30.dp
+private val glassOutline = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.20f), Color.White.copy(alpha = 0.05f)))
 
 /** What the bar edits and where its buttons lead. An empty line sends Return on its own. */
 class CommandBarState(
@@ -68,8 +73,8 @@ fun TerminalCommandBar(state: CommandBarState, focus: FocusRequester, modifier: 
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            Modifier.weight(1f).heightIn(min = capsuleHeight).clip(CircleShape).background(PeeringColors.containerHigh)
-                .border(1.dp, PeeringColors.hairline, CircleShape).padding(horizontal = 14.dp),
+            Modifier.weight(1f).heightIn(min = capsuleHeight).clip(CircleShape).background(PeeringColors.surface)
+                .border(1.dp, glassOutline, CircleShape).padding(horizontal = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -98,15 +103,16 @@ private fun CommandField(state: CommandBarState, focus: FocusRequester, modifier
     BasicTextField(
         value = state.text,
         onValueChange = state.onText,
-        modifier = modifier.focusRequester(focus),
+        modifier = modifier.height(fieldHeight).focusRequester(focus),
         enabled = state.isRunning,
         singleLine = true,
         textStyle = style,
-        cursorBrush = SolidColor(PeeringColors.accent),
+        visualTransformation = CommandHighlightTransformation,
+        cursorBrush = SolidColor(PeeringColors.ink),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Send),
         keyboardActions = KeyboardActions(onSend = { state.onSubmit() }),
         decorationBox = { field ->
-            Box(contentAlignment = Alignment.CenterStart) {
+            Box(Modifier.fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
                 if (state.text.isEmpty()) {
                     Text(
                         stringResource(if (state.isRunning) R.string.terminal_placeholder else R.string.terminal_placeholder_exited),
@@ -123,7 +129,7 @@ private fun CommandField(state: CommandBarState, focus: FocusRequester, modifier
 @Composable
 private fun BarGlyph(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, tint: Color, onClick: () -> Unit) {
     Box(Modifier.size(width = 28.dp, height = 36.dp).clip(CircleShape).tappable(onClick), contentAlignment = Alignment.Center) {
-        Icon(icon, description, tint = tint, modifier = Modifier.size(18.dp))
+        Icon(icon, description, tint = tint, modifier = Modifier.size(17.dp))
     }
 }
 
@@ -133,16 +139,15 @@ private fun SendButton(state: CommandBarState) {
     val empty = state.text.isEmpty()
     val enabled = state.isRunning
     Box(
-        Modifier.size(capsuleHeight).clip(CircleShape)
-            .background(if (enabled) PeeringColors.ink else Color.White.copy(alpha = 0.1f))
-            .tappable(if (empty) state.onEnter else state.onSubmit, enabled),
+        Modifier.size(capsuleHeight).railPress(if (empty) state.onEnter else state.onSubmit, enabled, scale = 0.92f)
+            .clip(CircleShape).background(if (enabled) PeeringColors.ink else Color.White.copy(alpha = 0.1f)),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             if (empty) TerminalGlyphs.returnKey else TerminalGlyphs.sendLine,
             stringResource(if (empty) R.string.terminal_enter else R.string.terminal_send),
             tint = if (enabled) PeeringColors.onInk else Color.White.copy(alpha = 0.35f),
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(20.dp),
         )
     }
 }
@@ -156,7 +161,7 @@ fun TerminalHistoryStrip(history: List<String>, enabled: Boolean, onPick: (Strin
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(TerminalGlyphs.history, null, tint = PeeringColors.tertiary, modifier = Modifier.size(13.dp))
+            Icon(TerminalGlyphs.history, null, tint = PeeringColors.tertiary, modifier = Modifier.size(12.dp))
             history.forEach { command ->
                 Text(
                     command,

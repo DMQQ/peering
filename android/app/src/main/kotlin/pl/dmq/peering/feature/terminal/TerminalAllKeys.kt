@@ -70,7 +70,7 @@ class AllKeysActions(
 /** Every key the deck leaves out, grouped by what it does and named in words, since a bare chord says little. */
 @Composable
 fun TerminalAllKeys(actions: AllKeysActions, onDismiss: () -> Unit) {
-    PeeringSheet(onDismiss = onDismiss, scrollable = true) {
+    PeeringSheet(onDismiss = onDismiss, scrollable = true, containerColor = PeeringColors.backdrop, partiallyExpandable = true) {
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             QuickCommandsGrid(actions, onDismiss)
             TerminalKeySpecs.groups.forEach { group -> KeyGroup(group, actions.send) }

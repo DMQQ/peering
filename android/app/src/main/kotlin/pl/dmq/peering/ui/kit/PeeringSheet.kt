@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.ui.theme.PeeringColors
 
@@ -29,11 +30,14 @@ fun PeeringSheet(
     modifier: Modifier = Modifier,
     title: String? = null,
     scrollable: Boolean = false,
+    containerColor: Color = BottomSheetDefaults.ContainerColor,
+    partiallyExpandable: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = !partiallyExpandable),
+        containerColor = containerColor,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
         val body = modifier.fillMaxWidth().imePadding().let { if (scrollable) it.verticalScroll(rememberScrollState()) else it }
