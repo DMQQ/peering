@@ -27,6 +27,21 @@ fn typed_client_message(name: &str) -> RelayClientMessage {
             session_id: None,
             approval_id: None,
         },
+        "notifyActivity update" => RelayClientMessage::NotifyActivity {
+            activity_token: "0a1b2c".into(),
+            activity: ActivityKind::Session,
+            event: ActivityEvent::Update,
+            content_state: serde_json::json!({"phase": "active", "startedAt": 800000000}),
+            stale_seconds: None,
+            priority: None,
+            attributes_type: None,
+            attributes: None,
+            alert_title: None,
+            alert_body: None,
+            environment: Some(ActivityEnvironment::Production),
+            dismissal_seconds: None,
+            request_id: None,
+        },
         other => panic!("no typed message for vector {other}"),
     }
 }
@@ -67,6 +82,10 @@ fn typed_server_message(name: &str) -> RelayServerMessage {
             code: "quotaExceeded".into(),
             message: "relay allowance exhausted for this period".into(),
         },
+        "activityRefused" => RelayServerMessage::ActivityRefused {
+            reason: "invalidToken".into(),
+            request_id: None,
+        },
         other => panic!("no typed message for vector {other}"),
     }
 }
@@ -89,7 +108,7 @@ fn vector_entries(section: &str) -> Vec<(String, String)> {
 #[test]
 fn every_client_vector_serialises_to_its_exact_json() {
     let entries = vector_entries("clientMessages");
-    assert_eq!(entries.len(), 7);
+    assert_eq!(entries.len(), 8);
     for (name, json) in entries {
         assert_eq!(encode_sorted(&typed_client_message(&name)), json, "vector {name}");
     }
@@ -98,7 +117,7 @@ fn every_client_vector_serialises_to_its_exact_json() {
 #[test]
 fn every_server_vector_decodes_to_the_typed_message() {
     let entries = vector_entries("serverMessages");
-    assert_eq!(entries.len(), 7);
+    assert_eq!(entries.len(), 8);
     for (name, json) in entries {
         let decoded: RelayServerMessage = serde_json::from_str(&json).expect("vector decodes");
         assert_eq!(decoded, typed_server_message(&name), "vector {name}");
