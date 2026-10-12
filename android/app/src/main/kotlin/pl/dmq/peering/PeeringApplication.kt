@@ -24,7 +24,7 @@ class PeeringApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate + survivableErrorHandler())
         val preferences = getSharedPreferences(MainActivity.PREFERENCES_NAME, Context.MODE_PRIVATE)
         val wiring = FeatureWiring(graph, scope, preferences)
         this.wiring = wiring
