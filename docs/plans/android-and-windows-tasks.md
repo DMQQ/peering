@@ -120,7 +120,7 @@ Commit: Generate the protocol vectors from the Swift implementation so drift sho
 SPEC-011 | later | S : protocol version policy note
 Reason: owner decision on lockstep versions (plan section 10 question 2). Owns `docs/protocol/versioning.md`.
 
-CI-001 | todo | foundation | S : android workflow
+CI-001 | done | foundation | S : android workflow
 Owns: `.github/workflows/android.yml`. Deps: AND-001.
 Done: paths `android/**`, `docs/protocol/**`; runs `./gradlew :core:wire:test :core:session:test lint assembleDebug`; YAML parses.
 Commit: Add the Android CI workflow with path filters.
