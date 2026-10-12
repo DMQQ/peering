@@ -57,7 +57,8 @@ public final class ClientSession: @unchecked Sendable {
     /// Whether this client wants a picture at all. Set by `.setVideoEnabled`: a client that asked the Mac to stop capturing must not open the socket that restarts it.
     var wantsPicture = true
     /// Set while the app has told the Mac it left the foreground: the Mac stops the picture on purpose, which the transport watch must not read as a blocked path.
-    var clientBackgrounded = false
+    var clientNotice = ClientStateNotice()
+    var clientBackgrounded: Bool { clientNotice.sent }
     var relayProxy: RelayControlProxy?
     /// Changes whenever a control attempt begins or ends. Work resumed from an `await` must
     /// still carry this value before it is allowed to install a relay proxy or send a hello.

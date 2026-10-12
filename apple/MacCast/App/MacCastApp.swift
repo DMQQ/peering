@@ -137,7 +137,7 @@ struct MacCastApp: App {
                         model.enteringForeground()
                         Analytics.appOpened(plan: model.storeManager.access.plan)
                     case .inactive:
-                        model.leavingForeground()
+                        model.becameInactive()
                     case .background:
                         CrashLog.setForeground(false)
                         model.leavingForeground()

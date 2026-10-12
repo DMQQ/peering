@@ -370,7 +370,32 @@ extension SessionModel {
     /// First thing when the app stops being the active scene, before iOS freezes it with its sockets open: the Mac otherwise keeps encoding for a phone that cannot read it. The grace is requested first so the notice has time to leave.
     func leavingForeground() {
         beginBackgroundGrace()
-        tellMacsAppIsBackground(true)
+        applyBackgroundNotice(backgroundNotice.becameBackground())
+    }
+
+    /// Control Center, Face ID and the app switcher pass through here and come straight back, so the Mac is told only if it lasts.
+    func becameInactive() {
+        beginBackgroundGrace()
+        applyBackgroundNotice(backgroundNotice.becameInactive(now: .now))
+    }
+
+    private func applyBackgroundNotice(_ action: BackgroundNoticeDebounce.Action) {
+        switch action {
+        case .none:
+            break
+        case .tell(let background):
+            backgroundNoticeTask?.cancel()
+            backgroundNoticeTask = nil
+            tellMacsAppIsBackground(background)
+        case .wait(let deadline):
+            guard backgroundNoticeTask == nil else { return }
+            backgroundNoticeTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(max(0, deadline.timeIntervalSinceNow)))
+                guard !Task.isCancelled, let self else { return }
+                backgroundNoticeTask = nil
+                applyBackgroundNotice(backgroundNotice.fire(now: .now))
+            }
+        }
     }
 
     /// Picture in Picture keeps the app alive and drawing, so the Mac must keep sending while it is up.
@@ -391,7 +416,7 @@ extension SessionModel {
     }
 
     func enteringForeground() {
-        tellMacsAppIsBackground(false)
+        applyBackgroundNotice(backgroundNotice.becameActive())
         // If the card still shows dropped and the Mac is back in reach, jump to "reconnecting" instead of leaving "dropped" up for the round trip. `reachability(ofHost:)` keeps it in agreement with the picker's dot.
         if let session = activeSession,
            !session.phase.holdsSession,

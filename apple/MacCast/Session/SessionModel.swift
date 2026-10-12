@@ -408,6 +408,8 @@ final class SessionModel {
     }
 
     var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+    var backgroundNotice = BackgroundNoticeDebounce()
+    var backgroundNoticeTask: Task<Void, Never>?
 
     var thisDeviceDescription: String { "\(device.name) · \(device.id)" }
 

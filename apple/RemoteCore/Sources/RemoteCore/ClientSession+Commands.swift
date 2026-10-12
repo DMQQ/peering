@@ -26,6 +26,7 @@ extension ClientSession {
         }
         startPinging()
         startVideoWatch()
+        sendPendingClientState()
     }
 
     func handleReady(_ frame: Frame) {
@@ -118,18 +119,20 @@ extension ClientSession {
 
 extension ClientSession {
     /// Tells the Mac the app left or returned to the foreground, so it stops encoding for a phone iOS is about to freeze. Only to a Mac that declared it, and only once per change.
+    /// Remembered when the session is not ready yet, and sent the moment it is.
     public func sendClientState(background: Bool) {
-        let send = lock.withLock { () -> Bool in
-            guard state == .ready,
-                  ClientStateSupport.maySend(toHostDeclared: _serverHello?.supportsClientState),
-                  clientBackgrounded != background
-            else { return false }
-            clientBackgrounded = background
+        lock.withLock { clientNotice.want(background) }
+        sendPendingClientState()
+    }
+
+    func sendPendingClientState() {
+        let pending = lock.withLock { () -> Bool? in
+            guard let background = clientNotice.takePending(isReady: state == .ready, hostDeclared: _serverHello?.supportsClientState) else { return nil }
             // The picture was stopped on purpose; the timer for "no picture" starts when it is asked back.
             if !background { lastPictureAt = Self.monotonicNow() }
-            return true
+            return background
         }
-        guard send else { return }
+        guard let background = pending else { return }
         connection()?.send(.clientState, ClientStatePayload(background: background))
     }
 }
