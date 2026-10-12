@@ -36,8 +36,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import pl.dmq.peering.R
-import pl.dmq.peering.feature.pairing.inkButtonColors
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.inkButtonColors
 
 /**
  * The camera scanner. Shows the picture once the camera permission is granted, and asks for it, explains it, or sends

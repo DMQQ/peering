@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.theme.OutlinedPanel
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.inkButtonColors
 
 /** Takes a Mac's device ID typed, pasted or scanned. [onScanRequested] null hides the scan button. */
 @Composable

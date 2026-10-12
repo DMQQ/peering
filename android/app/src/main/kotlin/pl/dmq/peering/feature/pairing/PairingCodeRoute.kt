@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.inkButtonColors
 import pl.dmq.peering.ui.theme.peeringBackdrop
 
 /** The code comparison step. Calls [onFinished] once the pairing is done, failed, or cancelled. */
