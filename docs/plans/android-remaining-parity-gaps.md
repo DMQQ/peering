@@ -70,9 +70,9 @@ Status words: **matched** (same layout, order, copy, values), **fixed** (differe
 | Element | iPhone value | Android status |
 |---|---|---|
 | Header "Sessions", "Recent sessions and relay use." | matched | matched |
-| Relay card | Section label, "Free relay time" with left time, 6 pt bar (accent, caution when low), bandwidth line and "last 24 hours", note, upgrade button when low | the "last 24 hours" label was "today": fixed. Bandwidth received is not shown: differs, the Android session record keeps no byte count |
-| Recent connections card | Summary of Sessions, Connected, Video; then rows with tile, name, detail, relative time, chevron | summary third column is Relay time, not Video: differs, same missing byte count. Rows matched |
-| Detail screen | Connection card (Mac, Path, Started, Duration, Connected when interrupted, Video received), Session log with entries, copy button | differs: no Video received row, no log entries (none are recorded), no copy button, no Connected row. Back is a header row, not a navigation bar |
+| Relay card | Section label, "Free relay time" with left time, 6 pt bar (accent, caution when low), bandwidth line and "last 24 hours", note, upgrade button when low | the "last 24 hours" label was "today": fixed. Bandwidth received is still not shown on the relay card |
+| Recent connections card | Summary of Sessions, Connected, Video; then rows with tile, name, detail, relative time, chevron | fixed: the third column is Received bytes and rows end with the received size. It counts all traffic, not video alone |
+| Detail screen | Connection card (Mac, Path, Started, Duration, Connected when interrupted, Video received), Session log with entries, copy button | fixed: Received and Sent rows (all bytes over the session's connections, not video alone), the session log (last 40 entries, stamped with seconds since start) and a copy button. Still differs: no Connected row, and back is a header row, not a navigation bar |
 | SSH shell rows | Servers in the list | skipped: SSH is out of scope on Android |
 
 ## Settings below Session controls (`SettingsTab*.swift`)
@@ -81,7 +81,7 @@ Status words: **matched** (same layout, order, copy, values), **fixed** (differe
 |---|---|---|
 | Stream quality | Menu row "Quality", menu titles with bitrate, footer | matched |
 | Remote access | "Allow relay connections", Privacy mode only in session, "Upgrade to Pro" | matched (privacy mode is a session setting on Android) |
-| Invite a friend | Code, Share, Enter a friend's code, footer | skipped: the relay messages exist in `core/wire` but no client, store or UI is built. A real gap, listed for a later pass |
+| Invite a friend | Code, Share, Enter a friend's code, footer | fixed: `Referral.kt` and the referral messages and proofs in `core/wire`, `ReferralClient` in `core/session`, `InvitePresenter` and `InviteCard` in `feature/settings`. Copy says "computer". The bonus minutes are not yet added to the relay meter's allowance |
 | Security and privacy | Require biometrics, Share anonymous usage statistics | the analytics row is skipped: Android collects no statistics and says so in the footer |
 | Picture in Picture, Home Screen widget, Live Activity | iOS cards | skipped: iOS only |
 | Notifications | Permission state and push registration | skipped: no Android equivalent built |
@@ -113,9 +113,7 @@ SSH servers and the Servers tab, Live Activity, Lock Screen and Home Screen widg
 
 ## Not done in this pass, in order of visibility
 
-1. Invite a friend card (client for `referralStatus`, store, UI).
 2. Code entry inside the first-connection screen.
-3. Session record byte count, then the Video summary figure, Video received row and the relay bandwidth line.
-4. Session log in the detail screen and its copy button.
+3. The relay bandwidth line on the relay card, and the invite bonus counted in the relay allowance.
 5. FAQ entries for features Android has since gained.
 6. The relay-off notice on the Pair from Another Network sheet.

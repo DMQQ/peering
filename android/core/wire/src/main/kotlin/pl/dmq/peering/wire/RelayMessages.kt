@@ -2,6 +2,7 @@ package pl.dmq.peering.wire
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -107,6 +108,40 @@ sealed interface RelayClientMessage {
         override fun fields(): Map<String, JsonElement> = mapOf("hostId" to JsonPrimitive(hostId))
     }
 
+    data class ReferralStatus(
+        val clientId: String,
+        val publicKey: String,
+        val proof: String,
+        val proofTime: Long,
+    ) : RelayClientMessage {
+        override val type = "referralStatus"
+
+        override fun fields(): Map<String, JsonElement> = mapOf(
+            "clientId" to JsonPrimitive(clientId),
+            "publicKey" to JsonPrimitive(publicKey),
+            "proof" to JsonPrimitive(proof),
+            "proofTime" to JsonPrimitive(proofTime),
+        )
+    }
+
+    data class RedeemReferral(
+        val clientId: String,
+        val code: String,
+        val publicKey: String,
+        val proof: String,
+        val proofTime: Long,
+    ) : RelayClientMessage {
+        override val type = "redeemReferral"
+
+        override fun fields(): Map<String, JsonElement> = mapOf(
+            "clientId" to JsonPrimitive(clientId),
+            "code" to JsonPrimitive(code),
+            "publicKey" to JsonPrimitive(publicKey),
+            "proof" to JsonPrimitive(proof),
+            "proofTime" to JsonPrimitive(proofTime),
+        )
+    }
+
     data object Ping : RelayClientMessage {
         override val type = "ping"
 
@@ -155,6 +190,8 @@ sealed interface RelayServerMessage {
 
     data class HostPresence(val hostId: String, val online: Boolean) : RelayServerMessage
 
+    data class Referral(val standing: RelayReferral) : RelayServerMessage
+
     data object Pong : RelayServerMessage
 
     data class Error(val code: String, val message: String) : RelayServerMessage
@@ -183,6 +220,16 @@ sealed interface RelayServerMessage {
                 "hostOffline" -> HostOffline(fields.string("deviceId"))
                 "peerAddress" -> PeerAddress(fields.string("host"), fields.port("port"))
                 "hostPresence" -> HostPresence(fields.string("hostId"), fields.boolean("online"))
+                "referral" -> Referral(
+                    RelayReferral(
+                        code = fields.string("code"),
+                        bonusSeconds = fields.long("bonusSeconds"),
+                        bonusEndsAt = fields.optionalLong("bonusEndsAt"),
+                        redeemed = fields.boolean("redeemed"),
+                        invitesEarned = fields.long("invitesEarned").toInt(),
+                        invitesMax = fields.long("invitesMax").toInt(),
+                    ),
+                )
                 "pong" -> Pong
                 "error" -> Error(fields.string("code"), fields.string("message"))
                 else -> Unknown(type)
@@ -196,6 +243,9 @@ sealed interface RelayServerMessage {
 
         private fun JsonObject.long(key: String): Long =
             primitive(key)?.takeUnless { it.isString }?.longOrNull ?: throw RelayMessageException("field $key is not a number")
+
+        private fun JsonObject.optionalLong(key: String): Long? =
+            if (this[key] == null || this[key] is JsonNull) null else long(key)
 
         private fun JsonObject.port(key: String): Int =
             primitive(key)?.takeUnless { it.isString }?.intOrNull?.takeIf { it in 0..MAX_PORT }

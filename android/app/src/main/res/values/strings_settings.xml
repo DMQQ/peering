@@ -9,6 +9,7 @@
     <string name="settings_keywords_controls">session controls interaction observe control touch picture fit fill keyboard unicode keycode close panels after selecting</string>
     <string name="settings_keywords_quality">stream quality bitrate resolution video auto automatic</string>
     <string name="settings_keywords_remote">remote access relay internet away upgrade pro</string>
+    <string name="settings_keywords_invite">invite friend code share redeem referral gift extra time</string>
     <string name="settings_keywords_security">security fingerprint face biometric unlock lock passcode privacy</string>
     <string name="settings_keywords_trusted">trusted computers paired forget remove</string>
     <string name="settings_keywords_identity">device identity id private key paired computers</string>
@@ -45,6 +46,24 @@
     <string name="settings_remote_footer">Relay connects across networks.</string>
     <string name="settings_allow_relay">Allow relay connections</string>
     <string name="settings_upgrade">Upgrade to Pro</string>
+
+    <string name="settings_invite_heading">Invite a friend</string>
+    <string name="settings_invite_code">Your code</string>
+    <string name="settings_invite_share">Share your code</string>
+    <string name="settings_invite_enter">Enter a friend\'s code</string>
+    <string name="settings_invite_hint">ABCD-EFGH</string>
+    <string name="settings_invite_redeem">Redeem</string>
+    <string name="settings_invite_bonus">You both get %1$d extra minutes a day for %2$d days.</string>
+    <string name="settings_invite_footer">Send a friend your code. They get extra time away from your own network, and so do you.</string>
+    <string name="settings_invite_footer_running">+%1$d minutes a day until %2$s. %3$d of %4$d invites used.</string>
+    <string name="settings_invite_footer_idle">%1$d of %2$d invites used. Your friend gets extra time, and so do you while you are on the free plan.</string>
+    <string name="settings_invite_message">Peering lets me use my computer from my phone. Open Settings, then Invite a friend, and enter my code %1$s for extra time away from your own network: https://getpeering.app</string>
+    <string name="settings_invite_unknown">That code does not match anyone. Check it and try again.</string>
+    <string name="settings_invite_own">That is your own code. Send it to a friend instead.</string>
+    <string name="settings_invite_already">You have already used a code on this device.</string>
+    <string name="settings_invite_proof">This device could not prove who it is. Check that the clock is right and try again.</string>
+    <string name="settings_invite_busy">Too many people are doing this right now. Try again in a while.</string>
+    <string name="settings_invite_unavailable">The relay could not be reached. Try again in a moment.</string>
 
     <string name="settings_security_heading">Security and privacy</string>
     <string name="settings_security_footer">Peering collects no usage statistics. Never your screen, files, keystrokes or computers.</string>
