@@ -1398,12 +1398,82 @@ async fn closing_a_connection_removes_every_id_it_registered() {
     );
 }
 
-async fn connect_behind_proxy(port: u16, client: &str) -> Result<Ws, tokio_tungstenite::tungstenite::Error> {
+async fn connect_with_headers(
+    port: u16,
+    headers: &[(&'static str, &str)],
+) -> Result<Ws, tokio_tungstenite::tungstenite::Error> {
     use tokio_tungstenite::tungstenite::client::IntoClientRequest;
     let mut request = format!("ws://127.0.0.1:{port}").into_client_request().unwrap();
-    request.headers_mut().insert("CF-Connecting-IP", client.parse().unwrap());
+    for (name, value) in headers {
+        request.headers_mut().insert(*name, value.parse().unwrap());
+    }
     let (ws, _) = timeout(PATIENCE, tokio_tungstenite::connect_async(request)).await.expect("answers")?;
     Ok(ws)
+}
+
+async fn connect_behind_proxy(port: u16, client: &str) -> Result<Ws, tokio_tungstenite::tungstenite::Error> {
+    connect_with_headers(port, &[("X-Real-IP", client)]).await
+}
+
+async fn is_refused_after_upgrade(ws: &mut Ws) -> bool {
+    let _ = ws.send(Message::Text(serde_json::to_string(&ClientMessage::Ping).unwrap().into())).await;
+    !matches!(timeout(Duration::from_secs(1), ws.next()).await, Ok(Some(Ok(Message::Text(_)))))
+}
+
+async fn start_with_one_signalling_socket_per_address(limits: IpLimits) -> TestRelay {
+    start_configured(
+        Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default())),
+        Duration::from_secs(10),
+        Duration::from_secs(90),
+        Duration::from_secs(45),
+        IpLimits { signalling_connections: 1, ..limits },
+        false,
+    )
+    .await
+}
+
+#[tokio::test]
+async fn forged_cf_connecting_ip_and_forwarded_for_do_not_evade_the_per_address_limit() {
+    let relay = start_with_one_signalling_socket_per_address(IpLimits::default()).await;
+    let _held = connect_with_headers(
+        relay.signal_port,
+        &[("X-Real-IP", "198.51.100.1"), ("CF-Connecting-IP", "6.6.6.1"), ("X-Forwarded-For", "7.7.7.1")],
+    )
+    .await
+    .unwrap();
+
+    let mut forger = connect_with_headers(
+        relay.signal_port,
+        &[("X-Real-IP", "198.51.100.1"), ("CF-Connecting-IP", "6.6.6.2"), ("X-Forwarded-For", "7.7.7.2")],
+    )
+    .await
+    .unwrap();
+    assert!(is_refused_after_upgrade(&mut forger).await, "new forged headers must not buy a new allowance");
+}
+
+#[tokio::test]
+async fn a_relay_configured_for_cf_connecting_ip_reads_that_header_instead() {
+    let relay = start_with_one_signalling_socket_per_address(IpLimits {
+        client_header: peeringd::client_ip::ClientIpHeader::CfConnectingIp,
+        ..IpLimits::default()
+    })
+    .await;
+    let _held = connect_with_headers(relay.signal_port, &[("CF-Connecting-IP", "198.51.100.1")]).await.unwrap();
+    let mut same = connect_with_headers(relay.signal_port, &[("CF-Connecting-IP", "198.51.100.1")]).await.unwrap();
+    assert!(is_refused_after_upgrade(&mut same).await, "the configured header names the client");
+
+    let mut other = connect_with_headers(relay.signal_port, &[("CF-Connecting-IP", "198.51.100.2")]).await.unwrap();
+    send(&mut other, &ClientMessage::Ping).await;
+    assert_eq!(next_message(&mut other).await, ServerMessage::Pong);
+}
+
+#[tokio::test]
+async fn an_unparseable_client_header_leaves_the_peer_exempt_instead_of_failing() {
+    let relay = start_with_one_signalling_socket_per_address(IpLimits::default()).await;
+    let _held = connect_with_headers(relay.signal_port, &[("X-Real-IP", "garbage")]).await.unwrap();
+    let mut second = connect_with_headers(relay.signal_port, &[("X-Real-IP", "garbage")]).await.unwrap();
+    send(&mut second, &ClientMessage::Ping).await;
+    assert_eq!(next_message(&mut second).await, ServerMessage::Pong);
 }
 
 #[tokio::test]
@@ -1426,12 +1496,7 @@ async fn clients_behind_a_loopback_proxy_are_limited_by_their_forwarded_address(
     }
 
     let mut over = connect_behind_proxy(relay.signal_port, "198.51.100.1").await.unwrap();
-    let _ = over.send(Message::Text(serde_json::to_string(&ClientMessage::Ping).unwrap().into())).await;
-    let answered = timeout(Duration::from_secs(1), over.next()).await;
-    assert!(
-        !matches!(answered, Ok(Some(Ok(Message::Text(_))))),
-        "one forwarded address cannot exceed its cap"
-    );
+    assert!(is_refused_after_upgrade(&mut over).await, "one forwarded address cannot exceed its cap");
 
     let mut plain = connect(relay.signal_port).await;
     send(&mut plain, &ClientMessage::Ping).await;

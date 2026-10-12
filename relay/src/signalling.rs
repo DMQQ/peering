@@ -20,6 +20,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 const MAX_SESSIONS_PER_CONNECTION: usize = 64;
 
 use crate::device_bindings::{Binding, DeviceBindings};
+use crate::client_ip::{forwarded_address, is_loopback};
 use crate::device_proof;
 use crate::limits::PeerLimiter;
 
@@ -484,34 +485,6 @@ pub async fn serve(
     }
 }
 
-/// Parses an address as a proxy writes it: bare, with a port, or a bracketed IPv6 literal.
-fn parse_forwarded(raw: &str) -> Option<IpAddr> {
-    let raw = raw.trim();
-    raw.parse::<IpAddr>()
-        .ok()
-        .or_else(|| raw.parse::<std::net::SocketAddr>().ok().map(|a| a.ip()))
-        .or_else(|| raw.strip_prefix('[')?.strip_suffix(']')?.parse().ok())
-}
-
-/// The client address a loopback proxy reports, in the order `CF-Connecting-IP`, the left-most
-/// valid `X-Forwarded-For` entry, `X-Real-IP`. A peer that is not loopback is a direct client, and
-/// is never allowed to name another address, so this is `None` for it, and for headers that
-/// carry nothing valid.
-fn forwarded_address(peer: IpAddr, headers: &http::HeaderMap) -> Option<IpAddr> {
-    let canonical = match peer {
-        IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or(peer, IpAddr::V4),
-        v4 => v4,
-    };
-    if !canonical.is_loopback() {
-        return None;
-    }
-    let text = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
-    text("cf-connecting-ip")
-        .and_then(parse_forwarded)
-        .or_else(|| text("x-forwarded-for").and_then(|list| list.split(',').find_map(parse_forwarded)))
-        .or_else(|| text("x-real-ip").and_then(parse_forwarded))
-}
-
 /// `Ok(None)` is an address with no accounting, which is every address when `peer` is unknown.
 fn admit_peer(
     limiter: &Arc<PeerLimiter>,
@@ -545,14 +518,19 @@ async fn handle<S>(
     // arrive and then say nothing, and without a deadline the connection it holds is held for ever.
     let forwarded: Arc<std::sync::Mutex<Option<IpAddr>>> = Arc::default();
     let record = Arc::clone(&forwarded);
+    let header = settings.limiter.client_header();
+    let limiter = Arc::clone(&settings.limiter);
     let ws = match time::timeout(
         settings.handshake_timeout,
         tokio_tungstenite::accept_hdr_async_with_config(
             stream,
             move |request: &tokio_tungstenite::tungstenite::handshake::server::Request,
                   response: tokio_tungstenite::tungstenite::handshake::server::Response| {
-                if let Some(ip) = peer.and_then(|peer| forwarded_address(peer, request.headers())) {
+                let named = peer.and_then(|peer| forwarded_address(peer, request.headers(), header));
+                if let Some(ip) = named {
                     *record.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(ip);
+                } else if peer.is_some_and(is_loopback) && limiter.first_headerless_loopback() {
+                    warn!(header = ?header, "a loopback connection carried no usable client address header; per-address limits do nothing until the proxy sets it");
                 }
                 Ok(response)
             },
@@ -1276,6 +1254,7 @@ mod tests {
     }
 
     use super::*;
+    use crate::client_ip::ClientIpHeader;
     use crate::config::PlanAllowances;
     use crate::referrals::{ReferralTerms, Referrals};
 
@@ -2105,45 +2084,10 @@ mod tests {
         flood.abort();
     }
 
-    fn headers(pairs: &[(&str, &str)]) -> http::HeaderMap {
+    fn real_ip_headers(value: &str) -> http::HeaderMap {
         let mut map = http::HeaderMap::new();
-        for (name, value) in pairs {
-            map.insert(http::HeaderName::from_bytes(name.as_bytes()).unwrap(), value.parse().unwrap());
-        }
+        map.insert("x-real-ip", value.parse().unwrap());
         map
-    }
-
-    #[test]
-    fn a_loopback_peer_may_name_its_client_in_the_proxy_headers() {
-        let loopback: IpAddr = "127.0.0.1".parse().unwrap();
-        let all = headers(&[("cf-connecting-ip", "198.51.100.1"), ("x-forwarded-for", "198.51.100.2"), ("x-real-ip", "198.51.100.3")]);
-        assert_eq!(forwarded_address(loopback, &all), Some("198.51.100.1".parse().unwrap()));
-        assert_eq!(
-            forwarded_address("::1".parse().unwrap(), &headers(&[("x-real-ip", "198.51.100.3")])),
-            Some("198.51.100.3".parse().unwrap())
-        );
-    }
-
-    #[test]
-    fn the_left_most_valid_forwarded_for_entry_is_the_client() {
-        let loopback: IpAddr = "127.0.0.1".parse().unwrap();
-        let list = headers(&[("x-forwarded-for", "unknown, 203.0.113.9:4000 , 10.0.0.1")]);
-        assert_eq!(forwarded_address(loopback, &list), Some("203.0.113.9".parse().unwrap()));
-        let v6 = headers(&[("x-forwarded-for", "[2001:db8::1]:443, 10.0.0.1")]);
-        assert_eq!(forwarded_address(loopback, &v6), Some("2001:db8::1".parse().unwrap()));
-    }
-
-    #[test]
-    fn a_direct_client_cannot_name_another_address() {
-        let direct: IpAddr = "203.0.113.50".parse().unwrap();
-        assert_eq!(forwarded_address(direct, &headers(&[("cf-connecting-ip", "198.51.100.1")])), None);
-    }
-
-    #[test]
-    fn garbage_in_the_proxy_headers_falls_back_to_the_peer() {
-        let loopback: IpAddr = "127.0.0.1".parse().unwrap();
-        let garbage = headers(&[("cf-connecting-ip", "not-an-ip"), ("x-forwarded-for", "nope, 999.1.1.1"), ("x-real-ip", "")]);
-        assert_eq!(forwarded_address(loopback, &garbage), None);
     }
 
     #[test]
@@ -2153,8 +2097,8 @@ mod tests {
             ..Default::default()
         }));
         let loopback: IpAddr = "127.0.0.1".parse().unwrap();
-        let first = forwarded_address(loopback, &headers(&[("cf-connecting-ip", "2001:db8:5:6::1")])).unwrap();
-        let sibling = forwarded_address(loopback, &headers(&[("cf-connecting-ip", "2001:db8:5:6:aaaa::2")])).unwrap();
+        let first = forwarded_address(loopback, &real_ip_headers("2001:db8:5:6::1"), ClientIpHeader::XRealIp).unwrap();
+        let sibling = forwarded_address(loopback, &real_ip_headers("2001:db8:5:6:aaaa::2"), ClientIpHeader::XRealIp).unwrap();
         let _held = limiter.admit_signalling(first).unwrap();
         assert!(limiter.admit_signalling(sibling).is_none());
     }

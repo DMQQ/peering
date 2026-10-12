@@ -9,8 +9,10 @@
 //! exempt by default: behind a reverse proxy every client arrives from 127.0.0.1, and capping that
 //! address would cap everyone together.
 
+use crate::client_ip::ClientIpHeader;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv6Addr};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -31,6 +33,8 @@ pub struct IpLimits {
     pub unspliced_sessions: usize,
     /// Whether a loopback peer is left alone, which is right behind a local reverse proxy.
     pub exempt_loopback: bool,
+    /// The header a loopback proxy names the client in. `PEERINGD_CLIENT_IP_HEADER`.
+    pub client_header: ClientIpHeader,
 }
 
 impl Default for IpLimits {
@@ -41,6 +45,7 @@ impl Default for IpLimits {
             sessions_per_minute: 120,
             unspliced_sessions: 64,
             exempt_loopback: true,
+            client_header: ClientIpHeader::default(),
         }
     }
 }
@@ -84,6 +89,7 @@ impl Tally {
 pub struct PeerLimiter {
     limits: IpLimits,
     table: Mutex<HashMap<IpAddr, Tally>>,
+    headerless_loopback_reported: AtomicBool,
 }
 
 /// Holds one slot against an address and gives it back on drop.
@@ -109,7 +115,17 @@ impl Drop for Permit {
 
 impl PeerLimiter {
     pub fn new(limits: IpLimits) -> Self {
-        Self { limits, table: Mutex::default() }
+        Self { limits, table: Mutex::default(), headerless_loopback_reported: AtomicBool::new(false) }
+    }
+
+    pub fn client_header(&self) -> ClientIpHeader {
+        self.limits.client_header
+    }
+
+    /// True once, for the first loopback connection that carried no usable client header: behind a
+    /// proxy that sets none, every client is exempt as loopback and the per-address limits do nothing.
+    pub fn first_headerless_loopback(&self) -> bool {
+        self.limits.exempt_loopback && !self.headerless_loopback_reported.swap(true, Ordering::Relaxed)
     }
 
     fn key(&self, ip: IpAddr) -> Option<IpAddr> {
@@ -252,5 +268,18 @@ mod tests {
         let limiter = limiter(IpLimits::default());
         drop(limiter.admit_control(ip("203.0.113.1")));
         assert_eq!(limiter.tracked(), 0);
+    }
+
+    #[test]
+    fn the_headerless_loopback_warning_fires_once() {
+        let limiter = PeerLimiter::new(IpLimits::default());
+        assert!(limiter.first_headerless_loopback());
+        assert!(!limiter.first_headerless_loopback());
+    }
+
+    #[test]
+    fn no_headerless_loopback_warning_when_loopback_is_not_exempt() {
+        let limiter = PeerLimiter::new(IpLimits { exempt_loopback: false, ..IpLimits::default() });
+        assert!(!limiter.first_headerless_loopback());
     }
 }
