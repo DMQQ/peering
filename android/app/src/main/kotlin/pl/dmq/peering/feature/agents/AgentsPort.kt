@@ -6,6 +6,7 @@ import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.session.agent.ApprovalAnswer
 import pl.dmq.peering.session.agent.changes.AgentChangesByChat
+import pl.dmq.peering.session.preview.PreviewProxyClient
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentResumableSession
@@ -27,6 +28,9 @@ interface AgentsPort {
 
     /** What git says about each chat's folder, and the commit or push in flight. */
     val changes: StateFlow<AgentChangesByChat>
+
+    /** The web preview's way to the computer's loopback; null where the preview is not offered. */
+    val preview: PreviewProxyClient?
 
     fun list()
 

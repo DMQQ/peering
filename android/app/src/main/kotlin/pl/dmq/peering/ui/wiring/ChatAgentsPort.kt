@@ -8,6 +8,7 @@ import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.session.agent.ApprovalAnswer
 import pl.dmq.peering.session.agent.changes.AgentChangesByChat
+import pl.dmq.peering.session.preview.PreviewProxyClient
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentResumableSession
@@ -16,7 +17,7 @@ import pl.dmq.peering.wire.AgentResumableSession
  * The agents screens over the session's agent chat. The chat acts on the selected session, so each call that names a
  * session selects it first.
  */
-internal class ChatAgentsPort(private val chat: AgentChat) : AgentsPort {
+internal class ChatAgentsPort(private val chat: AgentChat, override val preview: PreviewProxyClient?) : AgentsPort {
     override val chats: StateFlow<AgentChatState> get() = chat.state
 
     override val capabilities: AgentCapabilities get() = chat.capabilities

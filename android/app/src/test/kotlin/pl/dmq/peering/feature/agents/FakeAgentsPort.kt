@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.ApprovalAnswer
 import pl.dmq.peering.session.agent.changes.AgentChangesByChat
+import pl.dmq.peering.session.preview.PreviewProxyClient
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
@@ -21,6 +22,8 @@ class FakeAgentsPort(
     val calls = mutableListOf<String>()
 
     val changesState = MutableStateFlow<AgentChangesByChat>(emptyMap())
+
+    override val preview: PreviewProxyClient? = null
 
     override val changes: StateFlow<AgentChangesByChat> get() = changesState
 

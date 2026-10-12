@@ -21,6 +21,7 @@ import pl.dmq.peering.session.clipboard.ClipboardHistory
 import pl.dmq.peering.session.clipboard.ClipboardPush
 import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.session.files.FileBrowser
+import pl.dmq.peering.session.preview.PreviewProxyClient
 import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.session.history.SessionHistory
 import pl.dmq.peering.session.history.SessionRecord
@@ -75,6 +76,9 @@ class SessionController(
 
     /** The shells of the computer, present once a session has been ready. */
     val terminals: TerminalSessions? get() = services.terminals
+
+    /** The web preview's way to the computer's loopback; null until a computer that supports agent chats is connected. */
+    val preview: PreviewProxyClient? get() = services.preview
 
     /** The agent ids the host declared for chats (Claude Code and Codex for a host that predates the list), or none while no session is ready. */
     val declaredAgentIDs: List<String> get() = link?.hello?.let(AgentCapabilities::declaredAgents).orEmpty()
@@ -248,6 +252,7 @@ class SessionController(
             coroutineContext.cancelChildren()
             if (link != null) ports.sink.onStop()
             link = null
+            services.preview?.failAll()
             route.transport.close()
         }
     }
@@ -324,6 +329,7 @@ class SessionController(
             agent = services.agentChat,
             files = services.fileBrowser,
             terminals = services.terminals,
+            preview = services.preview,
             relay = ports.relay?.let { RelayConnect(it.signalling, ports.identity, ports.clock) },
             quality = ports.quality.choice(),
             ceiling = QualityCeiling.of(route.path, ports.quality.unlimitedRelay()),

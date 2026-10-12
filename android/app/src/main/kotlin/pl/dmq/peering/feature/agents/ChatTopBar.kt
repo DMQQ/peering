@@ -37,6 +37,7 @@ fun ChatTopBar(
     onBack: () -> Unit,
     onShowUsage: () -> Unit,
     onShowChanges: () -> Unit,
+    onShowPreview: (() -> Unit)?,
     onRename: () -> Unit,
     onPause: () -> Unit,
     onClose: () -> Unit,
@@ -66,12 +67,12 @@ fun ChatTopBar(
                 textAlign = TextAlign.Center,
             )
         }
-        ChatMenu(ui, onShowUsage, onShowChanges, onRename, onPause, onClose)
+        ChatMenu(ui, onShowUsage, onShowChanges, onShowPreview, onRename, onPause, onClose)
     }
 }
 
 @Composable
-private fun ChatMenu(ui: ChatUi, onShowUsage: () -> Unit, onShowChanges: () -> Unit, onRename: () -> Unit, onPause: () -> Unit, onClose: () -> Unit) {
+private fun ChatMenu(ui: ChatUi, onShowUsage: () -> Unit, onShowChanges: () -> Unit, onShowPreview: (() -> Unit)?, onRename: () -> Unit, onPause: () -> Unit, onClose: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
@@ -96,6 +97,16 @@ private fun ChatMenu(ui: ChatUi, onShowUsage: () -> Unit, onShowChanges: () -> U
                     onShowChanges()
                 },
             )
+            if (onShowPreview != null) {
+                PeeringMenuItem(
+                    title = stringResource(R.string.preview_menu),
+                    icon = AppIcons.globe,
+                    onClick = {
+                        open = false
+                        onShowPreview()
+                    },
+                )
+            }
             PeeringMenuItem(
                 title = stringResource(R.string.agents_rename),
                 icon = AppIcons.edit,

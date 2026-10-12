@@ -21,6 +21,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.agents.changes.ChangesOverlay
+import pl.dmq.peering.feature.agents.preview.previewFetchOf
+import pl.dmq.peering.feature.agents.preview.PreviewScreen
 import pl.dmq.peering.session.agent.pendingApprovals
 import pl.dmq.peering.ui.kit.PeeringAlert
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -45,6 +47,8 @@ fun ChatScreen(
     val saved by templates.templates.collectAsState()
     var showingUsage by remember { mutableStateOf(false) }
     var showingChanges by remember { mutableStateOf(false) }
+    var showingPreview by remember { mutableStateOf(false) }
+    val previewFetch = remember(port.preview) { port.preview?.let(::previewFetchOf) }
     var renaming by remember { mutableStateOf(false) }
     var confirmingClose by remember { mutableStateOf(false) }
     val pending = remember(transcriptUi.rows) { pendingApprovals(transcriptUi.rows) }
@@ -58,6 +62,7 @@ fun ChatScreen(
                 onBack = onBackToList,
                 onShowUsage = { showingUsage = true },
                 onShowChanges = { showingChanges = true },
+            onShowPreview = previewFetch?.let { { showingPreview = true } },
             onRename = { renaming = true },
                 onPause = { if (chat.pause()) onBackToList() },
                 onClose = { confirmingClose = true },
@@ -85,6 +90,7 @@ fun ChatScreen(
             Composer(composer, ui.chip, onShowUsage = { showingUsage = true }, modifier = Modifier.navigationBarsPadding().imePadding())
         }
         if (showingChanges) ui.sessionID?.let { ChangesOverlay(port, it, onClose = { showingChanges = false }) }
+        if (showingPreview && previewFetch != null) PreviewScreen(previewFetch, onClose = { showingPreview = false })
     }
     if (showingUsage) UsageSheet(usage = ui.usage, agentName = ui.agentName, onDismiss = { showingUsage = false })
     pending.firstOrNull { it.approvalID == reviewingID }?.let { approval ->

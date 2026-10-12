@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_menu">Web preview</string>
+    <string name="preview_title">Web preview</string>
+    <string name="preview_done">Done</string>
+    <string name="preview_address_hint">localhost:3000</string>
+    <string name="preview_back">Back</string>
+    <string name="preview_reload">Reload</string>
+    <string name="preview_start_title">Open a server running on your computer</string>
+    <string name="preview_start_detail">Type a port, or pick one that is answering now. Only localhost and 127.0.0.1 on the computer can be opened.</string>
+    <string name="preview_found_none">Nothing found on the usual ports</string>
+    <string name="preview_found_some">On the computer now</string>
+    <string name="preview_look_again">Look again</string>
+    <string name="preview_port_label">:%1$d</string>
+    <string name="preview_note_live_reload">Live reload over WebSocket is not carried here. Reload to see changes. Forms and requests that send data are not carried either.</string>
+    <string name="preview_notice_only_loopback">Only localhost and 127.0.0.1 can be opened here, with a port.</string>
+    <string name="preview_notice_links_outside">Links outside localhost are not opened here.</string>
+    <string name="preview_try_again">Try again</string>
+    <string name="preview_fail_not_listening">Nothing is listening there</string>
+    <string name="preview_fail_not_listening_detail">Ask the agent to start the server, or check the port, then try again.</string>
+    <string name="preview_fail_disconnected">Not connected to the computer</string>
+    <string name="preview_fail_disconnected_detail">Reconnect to the computer and try again.</string>
+    <string name="preview_fail_timed_out">The server did not answer</string>
+    <string name="preview_fail_timed_out_detail">It accepted the connection but sent nothing back.</string>
+    <string name="preview_fail_other">The page could not be opened</string>
+    <string name="preview_fail_too_large_detail">That request was too large to send through the preview.</string>
+    <string name="preview_fail_not_allowed_detail">The preview can only open plain pages on localhost.</string>
+    <string name="preview_fail_busy_detail">Too many requests are waiting. Try again in a moment.</string>
+    <string name="preview_fail_failed_detail">The computer could not fetch it.</string>
+</resources>

@@ -175,7 +175,7 @@ internal fun AgentsScreen(
         active.controller.files?.let { SessionAttachments(it, resolver, clock) }
     }
     AgentsRoute(
-        port = remember(chat) { ChatAgentsPort(chat) },
+        port = remember(chat, active.controller.preview) { ChatAgentsPort(chat, active.controller.preview) },
         recents = remember(folderRecents, active.target.hostId) {
             FolderRecents(folderRecents, active.target.hostId.orEmpty())
         },

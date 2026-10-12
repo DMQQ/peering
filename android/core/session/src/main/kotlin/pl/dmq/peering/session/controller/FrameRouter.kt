@@ -6,6 +6,7 @@ import pl.dmq.peering.session.connection.HandshakeFrames
 import pl.dmq.peering.session.connection.LivenessMonitor
 import pl.dmq.peering.session.connection.SessionCommands
 import pl.dmq.peering.session.files.FileBrowser
+import pl.dmq.peering.session.preview.PreviewProxyClient
 import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.session.video.SourceSelection
 import pl.dmq.peering.session.video.VideoLanes
@@ -19,6 +20,7 @@ import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.MessageKind
 import pl.dmq.peering.wire.NormalizedPoint
 import pl.dmq.peering.wire.NoticePayload
+import pl.dmq.peering.wire.PreviewProxyEvent
 import pl.dmq.peering.wire.TerminalEvent
 
 /** Sends each frame of a live control connection to the part that owns it, and says what the link must do about it. */
@@ -30,6 +32,7 @@ internal class FrameRouter(
     private val agent: AgentChat?,
     private val files: FileBrowser?,
     private val terminals: TerminalSessions?,
+    private val preview: PreviewProxyClient? = null,
 ) {
     private val clipboardChunks = VideoChunkReassembler(MAX_CLIPBOARD_REASSEMBLED_BYTES)
 
@@ -51,6 +54,10 @@ internal class FrameRouter(
         }
         MessageKind.TerminalEvent -> {
             routeTerminal(frame)
+            emptyList()
+        }
+        MessageKind.PreviewEvent -> {
+            HandshakeFrames.parsed { PreviewProxyEvent.parse(frame.payload.decodeToString()) }?.let { preview?.onEvent(it) }
             emptyList()
         }
         MessageKind.Error -> onError(frame)
