@@ -88,7 +88,16 @@ pub struct ActivityPush {
     pub alert_body: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub environment: Option<ActivityEnvironment>,
+    /// For `end` only: seconds until the card leaves the Lock Screen, at most four hours. Absent
+    /// means four hours; zero means now.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dismissal_seconds: Option<u32>,
+    /// Echoed in `activityRefused` so the host can tell which push was refused. Never logged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
 }
+
+pub const MAX_REQUEST_ID_BYTES: usize = 64;
 
 /// Why a push was not sent, as the host is told. A closed set: the host acts on it, so it must
 /// never carry text from Apple or from the host's own payload.
@@ -182,6 +191,10 @@ pub fn build(push: &ActivityPush, now: u64) -> Result<ActivityRequest, ActivityR
         return Err(ActivityRefusal::InvalidPayload);
     }
 
+    if push.request_id.as_deref().is_some_and(|id| !within(id, MAX_REQUEST_ID_BYTES)) {
+        return Err(ActivityRefusal::InvalidPayload);
+    }
+
     let priority = push.priority.unwrap_or_else(|| push.event.default_priority());
     if !matches!(priority, 5 | 10) {
         return Err(ActivityRefusal::InvalidPayload);
@@ -206,7 +219,8 @@ pub fn build(push: &ActivityPush, now: u64) -> Result<ActivityRequest, ActivityR
         aps.insert("stale-date".into(), json!(stale));
     }
     if push.event == ActivityEvent::End {
-        aps.insert("dismissal-date".into(), json!(now.saturating_add(END_DISMISSAL_SECONDS)));
+        let seconds = push.dismissal_seconds.map_or(END_DISMISSAL_SECONDS, |s| u64::from(s).min(END_DISMISSAL_SECONDS));
+        aps.insert("dismissal-date".into(), json!(now.saturating_add(seconds)));
     }
     if push.event == ActivityEvent::Start {
         let attributes_type = push.attributes_type.as_deref().filter(|name| !name.is_empty());
@@ -282,6 +296,8 @@ mod tests {
             alert_title: None,
             alert_body: None,
             environment: None,
+            dismissal_seconds: None,
+            request_id: None,
         }
     }
 
@@ -324,6 +340,54 @@ mod tests {
         let aps = &body(&request)["aps"];
         assert_eq!(aps["event"], "end");
         assert_eq!(aps["dismissal-date"], NOW + 4 * 60 * 60);
+    }
+
+    #[test]
+    fn an_end_with_dismissal_seconds_dismisses_that_much_later() {
+        let end = ActivityPush { dismissal_seconds: Some(1800), ..push(ActivityEvent::End) };
+        assert_eq!(body(&build(&end, NOW).unwrap())["aps"]["dismissal-date"], NOW + 1800);
+    }
+
+    #[test]
+    fn dismissal_seconds_are_capped_at_four_hours() {
+        let end = ActivityPush { dismissal_seconds: Some(u32::MAX), ..push(ActivityEvent::End) };
+        assert_eq!(body(&build(&end, NOW).unwrap())["aps"]["dismissal-date"], NOW + 14_400);
+    }
+
+    #[test]
+    fn zero_dismissal_seconds_dismisses_immediately() {
+        let end = ActivityPush { dismissal_seconds: Some(0), ..push(ActivityEvent::End) };
+        assert_eq!(body(&build(&end, NOW).unwrap())["aps"]["dismissal-date"], NOW);
+    }
+
+    #[test]
+    fn dismissal_seconds_mean_nothing_to_an_update() {
+        let update = ActivityPush { dismissal_seconds: Some(60), ..push(ActivityEvent::Update) };
+        assert!(body(&build(&update, NOW).unwrap())["aps"].get("dismissal-date").is_none());
+    }
+
+    #[test]
+    fn a_request_id_over_64_bytes_is_refused_and_64_is_accepted() {
+        let long = ActivityPush { request_id: Some("a".repeat(65)), ..push(ActivityEvent::Update) };
+        assert_eq!(build(&long, NOW), Err(ActivityRefusal::InvalidPayload));
+        let fits = ActivityPush { request_id: Some("a".repeat(64)), ..push(ActivityEvent::Update) };
+        assert!(build(&fits, NOW).is_ok());
+    }
+
+    #[test]
+    fn a_message_from_a_host_without_either_new_field_still_parses() {
+        let text = r#"{"type":"notifyActivity","activityToken":"0a1b","activity":"session","event":"end","contentState":{}}"#;
+        let message: crate::protocol::ClientMessage = serde_json::from_str(text).expect("parses");
+        let crate::protocol::ClientMessage::NotifyActivity(push) = message else { panic!("not a notifyActivity") };
+        assert_eq!((push.dismissal_seconds, push.request_id), (None, None));
+    }
+
+    #[test]
+    fn both_new_fields_parse_in_camel_case() {
+        let text = r#"{"type":"notifyActivity","activityToken":"0a1b","activity":"session","event":"end","contentState":{},"dismissalSeconds":1800,"requestId":"r-1"}"#;
+        let message: crate::protocol::ClientMessage = serde_json::from_str(text).expect("parses");
+        let crate::protocol::ClientMessage::NotifyActivity(push) = message else { panic!("not a notifyActivity") };
+        assert_eq!((push.dismissal_seconds, push.request_id.as_deref()), (Some(1800), Some("r-1")));
     }
 
     #[test]

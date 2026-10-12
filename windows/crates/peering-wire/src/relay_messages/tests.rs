@@ -205,6 +205,8 @@ fn notify_activity_omits_absent_optionals() {
         alert_title: None,
         alert_body: None,
         environment: None,
+        dismissal_seconds: None,
+        request_id: None,
     };
     assert_eq!(
         encode_sorted(&message),
@@ -215,5 +217,19 @@ fn notify_activity_omits_absent_optionals() {
 #[test]
 fn activity_refused_decodes_with_any_reason() {
     let decoded: RelayServerMessage = serde_json::from_str(r#"{"type":"activityRefused","reason":"invalidToken"}"#).expect("decodes");
-    assert_eq!(decoded, RelayServerMessage::ActivityRefused { reason: "invalidToken".into() });
+    assert_eq!(decoded, RelayServerMessage::ActivityRefused { reason: "invalidToken".into(), request_id: None });
+}
+
+#[test]
+fn activity_refused_decodes_the_echoed_request_id() {
+    let decoded: RelayServerMessage = serde_json::from_str(r#"{"type":"activityRefused","reason":"rejected","requestId":"r-1"}"#).expect("decodes");
+    assert_eq!(decoded, RelayServerMessage::ActivityRefused { reason: "rejected".into(), request_id: Some("r-1".into()) });
+}
+
+#[test]
+fn notify_activity_carries_dismissal_seconds_and_request_id() {
+    let text = r#"{"activity":"session","activityToken":"0a","contentState":{},"dismissalSeconds":1800,"event":"end","requestId":"r-1","type":"notifyActivity"}"#;
+    let message: RelayClientMessage = serde_json::from_str(text).expect("decodes");
+    assert!(matches!(&message, RelayClientMessage::NotifyActivity { dismissal_seconds: Some(1800), request_id: Some(id), .. } if id == "r-1"));
+    assert_eq!(encode_sorted(&message), text);
 }
