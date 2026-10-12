@@ -43,15 +43,17 @@ private fun barColors() = TopAppBarDefaults.topAppBarColors(
     actionIconContentColor = PeeringColors.ink,
 )
 
-/** The folder's name, a way up, search, and a menu for the order and the hidden files. */
+/** The folder's name, a way up unless [onBack] is null, search, and a menu for the order and the hidden files. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FolderTopBar(ui: FileListUi, presenter: FileListPresenter, onBack: () -> Unit, onSearch: () -> Unit) {
+fun FolderTopBar(ui: FileListUi, presenter: FileListPresenter, onBack: (() -> Unit)?, onSearch: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     TopAppBar(
         title = { Text(ui.path?.let(FilePath::name) ?: stringResource(R.string.hub_files), maxLines = 1) },
         navigationIcon = {
-            IconButton(onClick = onBack) { Icon(AppIcons.back, contentDescription = stringResource(R.string.files_back)) }
+            if (onBack != null) {
+                IconButton(onClick = onBack) { Icon(AppIcons.back, contentDescription = stringResource(R.string.files_back)) }
+            }
         },
         actions = {
             IconButton(onClick = onSearch) {

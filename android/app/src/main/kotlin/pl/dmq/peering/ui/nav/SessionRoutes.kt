@@ -183,7 +183,7 @@ internal fun AgentsScreen(
 }
 
 @Composable
-internal fun FilesScreen(active: ActiveSession, onBack: () -> Unit) {
+internal fun FilesScreen(active: ActiveSession, onBack: () -> Unit, hosted: Boolean = false) {
     val browser = active.controller.files
     if (browser == null) {
         Unavailable(R.string.session_unavailable_files, onBack)
@@ -197,7 +197,7 @@ internal fun FilesScreen(active: ActiveSession, onBack: () -> Unit) {
             .stateIn(scope, SharingStarted.Eagerly, active.controller.state.value.phase is SessionPhase.Ready)
         SessionFileBrowsing(browser, active.downloads, resolver, online, scope)
     }
-    FilesRoute(port = port, onBack = onBack)
+    FilesRoute(port = port, onBack = onBack, hosted = hosted)
 }
 
 @Composable

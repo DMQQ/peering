@@ -22,9 +22,12 @@ import androidx.compose.ui.res.stringResource
 import pl.dmq.peering.R
 import pl.dmq.peering.session.files.FilePath
 
-/** The files of one computer: its folders under a path bar, and the file open in the preview over them. */
+/**
+ * The files of one computer: its folders under a path bar, and the file open in the preview over them. A [hosted] page
+ * sits under a switcher that closes it, so the folder bar has no back arrow of its own; a preview keeps its own.
+ */
 @Composable
-fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = Modifier, hosted: Boolean = false) {
     val scope = rememberCoroutineScope()
     val list = remember(port) { FileListPresenter(port, scope) }
     val preview = remember(port) { FilePreviewPresenter(port, scope) }
@@ -65,7 +68,7 @@ fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = 
                 open != null -> PreviewTopBar(open, preview)
                 listUi.isSelecting -> SelectionTopBar(listUi, list)
                 searching -> SearchTopBar(listUi.query, list::setQuery, ::closeSearch)
-                else -> FolderTopBar(listUi, list, onBack = ::goBack, onSearch = { searching = true })
+                else -> FolderTopBar(listUi, list, onBack = if (hosted) null else ::goBack,onSearch = { searching = true })
             }
         },
         floatingActionButton = {

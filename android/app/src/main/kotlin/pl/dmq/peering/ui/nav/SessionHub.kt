@@ -73,7 +73,7 @@ internal fun SessionHub(
                     when (selected) {
                         HubTab.AGENTS -> AgentsScreen(active, drafts, folderRecents, preferences, clock, onClose)
                         HubTab.TERMINALS -> TerminalHost(active, onClose)
-                        HubTab.FILES -> FilesScreen(active, onClose)
+                        HubTab.FILES -> FilesScreen(active, onClose, hosted = true)
                         null -> LaunchedEffect(Unit) { onClose() }
                     }
                 }
