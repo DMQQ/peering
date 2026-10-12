@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import pl.dmq.peering.feature.remote.belowHubSwitcher
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -61,7 +62,7 @@ internal fun HubList(
         WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val hasChats = ui.sessions.isNotEmpty() || history.isNotEmpty() || elsewhere.isNotEmpty()
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().belowHubSwitcher(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = bottom),
     ) {

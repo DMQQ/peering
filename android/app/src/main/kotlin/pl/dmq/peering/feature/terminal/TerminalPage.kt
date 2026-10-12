@@ -9,6 +9,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import pl.dmq.peering.feature.agents.HubGuidePresenter
+import pl.dmq.peering.feature.remote.HubTab
+import pl.dmq.peering.feature.remote.ReportHubPage
 import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.ui.kit.DepthTransition
 
@@ -33,6 +35,7 @@ fun TerminalPage(
         if (connected) sessions.attach()
     }
     LaunchedEffect(state) { presenter.onState(state) }
+    ReportHubPage(HubTab.TERMINALS, atRoot = !inShell)
     BackHandler(enabled = inShell, onBack = presenter::back)
     DepthTransition(state = inShell, depth = { if (it) 1 else 0 }, modifier = modifier, label = "terminalPage") { shell ->
         if (shell) {

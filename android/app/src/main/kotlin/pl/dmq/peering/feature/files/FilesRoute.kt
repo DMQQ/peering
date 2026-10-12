@@ -3,6 +3,7 @@ package pl.dmq.peering.feature.files
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -20,6 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import pl.dmq.peering.R
+import pl.dmq.peering.feature.remote.HubTab
+import pl.dmq.peering.feature.remote.ReportHubPage
+import pl.dmq.peering.feature.remote.belowHubSwitcher
 import pl.dmq.peering.session.files.FilePath
 
 /**
@@ -39,6 +43,7 @@ fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = 
         if (port.state.value.listing == null) port.open(null)
     }
     FileLaunchers(list, preview)
+    ReportHubPage(HubTab.FILES, atRoot = previewUi == null && !searching)
 
     fun closeSearch() {
         list.setQuery("")
@@ -66,9 +71,11 @@ fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = 
             val open = previewUi
             when {
                 open != null -> PreviewTopBar(open, preview)
-                listUi.isSelecting -> SelectionTopBar(listUi, list)
+                listUi.isSelecting -> Box(Modifier.belowHubSwitcher()) { SelectionTopBar(listUi, list) }
                 searching -> SearchTopBar(listUi.query, list::setQuery, ::closeSearch)
-                else -> FolderTopBar(listUi, list, onBack = if (hosted) null else ::goBack,onSearch = { searching = true })
+                else -> Box(Modifier.belowHubSwitcher()) {
+                    FolderTopBar(listUi, list, onBack = if (hosted) null else ::goBack, onSearch = { searching = true })
+                }
             }
         },
         floatingActionButton = {

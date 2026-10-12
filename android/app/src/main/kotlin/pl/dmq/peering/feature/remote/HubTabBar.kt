@@ -29,6 +29,9 @@ import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.PillShape
 
+/** The height of [HubTabBar] without the status bar. */
+val HubTabBarHeight = 52.dp
+
 /** The top of the hub panel: the tabs the computer offers as one pill track, and the button that closes the panel. */
 @Composable
 fun HubTabBar(

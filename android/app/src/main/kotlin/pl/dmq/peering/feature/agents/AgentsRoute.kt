@@ -12,6 +12,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import pl.dmq.peering.feature.remote.HubTab
+import pl.dmq.peering.feature.remote.ReportHubPage
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.ui.kit.DepthTransition
 import pl.dmq.peering.session.ports.KeyValueStore
@@ -44,6 +46,7 @@ fun AgentsRoute(
         ComposerPresenter(port, draftStore, port.chats, modelPickerSupported, scope)
     }
     val chatState by port.chats.collectAsState()
+    val hubUi by hub.ui.collectAsState()
     var showingChat by remember { mutableStateOf(false) }
     var sessionsBeforeStart by remember { mutableStateOf<Set<String>?>(null) }
     LaunchedEffect(chatState.sessions, sessionsBeforeStart) {
@@ -60,6 +63,7 @@ fun AgentsRoute(
 
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {
         val chatOpen = showingChat && chatState.selected != null
+        ReportHubPage(HubTab.AGENTS, atRoot = !chatOpen && hubUi.newChat !is NewChatStep.ChoosingFolder)
         BackHandler(enabled = chatOpen) { showingChat = false }
         DepthTransition(state = chatOpen, depth = { if (it) 1 else 0 }, label = "agentsChat") { openChat ->
             if (openChat) {
