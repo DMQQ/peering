@@ -62,7 +62,7 @@ class VideoLanes(
         started = true
         return listOf(
             LaneOutput.SendControl(Frame(MessageKind.VideoKeyRequest, ByteArray(0))),
-            LaneOutput.Note("Remote session open; asking the Mac to send the picture over the relay."),
+            LaneOutput.Note("Remote session open; asking the computer to send the picture over the relay."),
         )
     }
 
@@ -87,7 +87,7 @@ class VideoLanes(
     }
 
     /**
-     * Opens one datagram that came straight from the Mac's own address. Such a datagram has no relay token, and a stranger's
+     * Opens one datagram that came straight from the computer's own address. Such a datagram has no relay token, and a stranger's
      * noise is dropped without counting as a failed relayed datagram. Returns true when it authenticated.
      */
     fun onDirectDatagram(bytes: ByteArray): Boolean {
@@ -138,7 +138,7 @@ class VideoLanes(
         val secret = HandshakeFrames.decode(frame, VideoKeyGrant.serializer())
             ?.let { grant -> HandshakeFrames.parsed { grant.secretBytes } }
             ?.takeIf { it.size == VIDEO_SECRET_SIZE }
-            ?: return listOf(LaneOutput.Note("The Mac sent a video key this build could not read."))
+            ?: return listOf(LaneOutput.Note("The computer sent a video key this build could not read."))
 
         opener = VideoOpener(secret, VideoDirection.HostToClient)
         val newSealer = VideoSealer(secret, VideoDirection.ClientToHost, videoToken)
@@ -148,7 +148,7 @@ class VideoLanes(
         lastPingAt = now
         return listOf(
             LaneOutput.SendDatagram(newSealer.bindDatagram(), relay),
-            LaneOutput.Note("The Mac's video key arrived; the picture can come over the datagram lane."),
+            LaneOutput.Note("The computer's video key arrived; the picture can come over the datagram lane."),
         )
     }
 
@@ -225,9 +225,9 @@ class VideoLanes(
         const val MILLIS_PER_SECOND = 1000.0
         const val CONTROL_REASON = "no picture on the datagram lane while the control channel answers"
         const val PRIMARY_REASON = "video is arriving again on the transport it prefers"
-        const val CONTROL_NOTE = "No video is arriving on the datagram lane. Asking the Mac for the control channel."
+        const val CONTROL_NOTE = "No video is arriving on the datagram lane. Asking the computer for the control channel."
         const val PRIMARY_NOTE = "Video is arriving again on the datagram lane."
         const val UNREADABLE_DATAGRAMS_NOTE =
-            "Some of the Mac's video datagrams could not be read; the picture may fall back to the control channel."
+            "Some of the computer's video datagrams could not be read; the picture may fall back to the control channel."
     }
 }

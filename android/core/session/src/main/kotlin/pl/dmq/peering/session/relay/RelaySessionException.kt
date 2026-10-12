@@ -7,7 +7,7 @@ sealed class RelaySessionException(message: String) : Exception(message) {
     data object VersionMismatch :
         RelaySessionException("The relay and this app speak different protocol versions.")
 
-    class HostOffline(val hostId: String) : RelaySessionException("The Mac $hostId is not registered with the relay.")
+    class HostOffline(val hostId: String) : RelaySessionException("The computer $hostId is not registered with the relay.")
 
     class Refused(val code: String, val detail: String) :
         RelaySessionException("The relay refused the session ($code): $detail")
