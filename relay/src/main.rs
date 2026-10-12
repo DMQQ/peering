@@ -6,7 +6,7 @@ use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio_rustls::rustls::ServerConfig;
 use tokio_rustls::TlsAcceptor;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 use peeringd::apns::ApnsClient;
@@ -15,9 +15,11 @@ use peeringd::play_api::PlayVerifier;
 use peeringd::config::{Config, TlsFiles};
 use peeringd::quota::QuotaTracker;
 use peeringd::referrals::Referrals;
+use peeringd::limits::PeerLimiter;
 use peeringd::session::Registry;
 use peeringd::signalling::{HostRegistry, Settings};
 use peeringd::storekit::StoreKitVerifier;
+use peeringd::supervise::{self, Health, Supervisor};
 use peeringd::{signalling, stats, tcp_relay, udp_relay, web};
 
 #[tokio::main]
@@ -34,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let registry = Arc::new(Registry::new(config.max_sessions));
     // Who each device id belongs to. A relay that does not write these down forgets them on
     // restart, which re-opens the window for every id it had learned. See `device_bindings`.
-    let (hosts, binding_failure) = HostRegistry::with_bindings(config.device_bindings.clone());
+    let (hosts, binding_failure) = HostRegistry::with_bindings(config.device_bindings.clone(), config.device_bindings_max);
     match (&config.device_bindings, &binding_failure) {
         (Some(path), None) => {
             info!(path = %path.display(), "device bindings are persisted; a restart will not forget them")
@@ -144,7 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // again. Failing to bind is fatal and deliberately so — a relay that starts without video would
     // hand out sessions whose video silently goes nowhere, which is the hardest kind of fault to
     // read from the phone's end of it.
-    let video = udp_relay::serve(
+    let (video, video_forwarder) = udp_relay::bind_forwarder(
         config.video_bind,
         registry.routes(),
         config.session_ttl,
@@ -175,8 +177,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // No counter is handed to the control relay any more, and that is not an omission: what a
     // splice is charged on travels with its session, put there by signalling where the plan was
     // resolved. See `quota::Account`.
-    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry), config.control_idle));
-    tokio::spawn(stats::report_forever());
+    //
+    // Every task below runs for the life of the process, so one that ends or panics takes the
+    // process down for systemd to restart, rather than leaving a relay that answers health checks
+    // with a listener missing.
+    let health = Arc::new(Health::default());
+    let mut tasks = Supervisor::new(Arc::clone(&health));
+    let limiter = Arc::new(PeerLimiter::new(config.ip_limits));
+    tasks.spawn(
+        "control",
+        tcp_relay::serve_limited(control, Arc::clone(&registry), config.control_idle, Arc::clone(&limiter)),
+    );
+    tasks.spawn("video", video_forwarder);
+    tasks.spawn("stats", stats::report_forever());
 
     // Abandoned sessions are the normal residue of clients that crash or walk away, so this runs
     // forever rather than as a one-off. This is also what retires the video routes of a session
@@ -184,7 +197,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // that lasts as long as the process, not just memory.
     let sweep_registry = Arc::clone(&registry);
     let ttl = config.session_ttl;
-    tokio::spawn(async move {
+    tasks.spawn("sweep", async move {
         let mut ticker = tokio::time::interval(Duration::from_secs(30));
         loop {
             ticker.tick().await;
@@ -206,7 +219,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // without a `site` directory is a perfectly good relay, and should not refuse to start over a
     // missing landing page.
     if let Some((listener, root)) = web::bind(config.web_addr, config.web_root.clone()).await {
-        tokio::spawn(web::serve(listener, Arc::new(root)));
+        tokio::spawn(web::serve(listener, Arc::new(root), Arc::clone(&health)));
     }
 
     let apns = match (
@@ -284,17 +297,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         apns,
         fcm,
         play,
+        limiter,
+        require_proven_hosts: config.require_proven_hosts,
     };
 
-    tokio::select! {
-        _ = signalling::serve(signal, Arc::clone(&registry), hosts, settings, tls) => {}
-        _ = tokio::signal::ctrl_c() => info!("stopping"),
-    }
+    let bindings = hosts.clone();
+    tasks.spawn(
+        "signalling",
+        signalling::serve(signal, Arc::clone(&registry), hosts, settings, tls),
+    );
+
+    let failure = tokio::select! {
+        exit = tasks.next_exit() => {
+            error!(task = exit.name, panicked = exit.panicked, "a relay task stopped; shutting down so it is restarted");
+            Some(exit.name)
+        }
+        _ = supervise::shutdown_requested() => {
+            info!("stopping");
+            None
+        }
+    };
 
     stats::TALLY.shutting_down();
     stats::TALLY.take_summary().log();
+    let _ = tokio::task::spawn_blocking(move || bindings.flush_bindings()).await;
 
-    Ok(())
+    match failure {
+        Some(name) => Err(format!("the {name} task stopped").into()),
+        None => Ok(()),
+    }
 }
 
 fn acceptor(files: &TlsFiles) -> Result<TlsAcceptor, Box<dyn std::error::Error>> {

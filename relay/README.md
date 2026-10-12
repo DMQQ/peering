@@ -55,6 +55,12 @@ video, and serves signalling in plaintext. That is exactly right for pointing bo
 | `PEERINGD_SESSION_TTL` | `300` | Seconds a session survives without activity |
 | `PEERINGD_MAX_SESSIONS` | `1000` | Sessions that may exist at once. A session costs a kilobyte of bookkeeping before its splice exists (see Cost), and asking for one is unauthenticated, so this is what turns "someone loops `ConnectToHost`" from an OOM kill into a refusal. Zero is refused as a value: a relay that answers nothing looks healthy, and that is an outage nobody diagnoses from the config |
 | `PEERINGD_MAX_CONNECTIONS` | `4096` | Sockets that may be open on the signalling listener at once. Has to be larger than the number of registered Macs, since each holds its registration socket open for as long as it runs. A connection beyond it is closed rather than queued |
+| `PEERINGD_MAX_SIGNALLING_PER_IP` | `256` | Signalling sockets one peer address may hold at once. Generous because many users share a NAT; the global `PEERINGD_MAX_CONNECTIONS` is what this stops one address from spending. IPv6 peers count by /64. A loopback peer (nginx on the same box) is never limited, so behind a proxy the per address limits do not apply to signalling |
+| `PEERINGD_MAX_CONTROL_PER_IP` | `512` | Control sockets one peer address may hold, waiting for a peer or spliced. Control is not proxied, so this always sees real addresses |
+| `PEERINGD_SESSIONS_PER_IP_PER_MINUTE` | `120` | Sessions one signalling peer address may allocate per minute. Over it the answer is `tooManySessions` |
+| `PEERINGD_MAX_UNSPLICED_PER_IP` | `64` | Sessions one address may have allocated whose two control ends have not both arrived. A fake host that never connects can otherwise keep every session alive against the TTL |
+| `PEERINGD_REQUIRE_PROVEN_HOSTS` | off | When on, `ConnectToHost` only reaches a host whose registration proved its device key; an unproven one is answered `hostOffline`. Off by default because Macs that predate the proof register without one |
+| `PEERINGD_DEVICE_BINDINGS_MAX` | `100000` | Device bindings kept. Past it a new id still registers but is not bound. The file is compacted at startup and whenever superseded lines outnumber live ones |
 | `PEERINGD_HANDSHAKE_SECONDS` | `10` | How long a socket has to finish becoming a WebSocket, counting the TLS handshake. Without it a peer that opens a connection and says nothing holds a task and a file descriptor indefinitely |
 | `PEERINGD_IDLE_SECONDS` | `90` | How long an established signalling connection may sit silent. Comfortably longer than the Mac's 25-second keepalive on purpose: a registered Mac is idle between pings and must not be dropped for it |
 | `PEERINGD_CONTROL_IDLE_SECONDS` | `45` | How long a spliced control connection may carry no bytes in either direction before the relay ends it (`end_reason=idle_timeout`). The phone pings every second, so this is a stalled connection, not a quiet one. A stalled splice is billed only up to its last byte, so a dead connection stops spending the free allowance when it stalls. `0` turns the check off |
@@ -892,6 +898,17 @@ cannot see, because from systemd's side the service is perfectly healthy. It ret
 acting, and after restarting it checks *again* and says so when the restart did not help, so "it
 is stuck" and "it is genuinely broken" are different lines in the journal rather than one silent
 restart loop.
+
+**`/healthz` reflects the relay's own tasks.** The control relay, the video forwarder, the sweep,
+the stats reporter and signalling are supervised: if any of them panics or returns, `/healthz`
+answers `503 unhealthy: <names>` and the process exits so systemd restarts it. The web listener
+now binds even when `PEERINGD_WEB_ROOT` does not exist (it then serves `/healthz` only). If it
+cannot bind at all, the health script does not restart the relay on that alone: when nothing
+answers on the health URL it connects to the signalling and control ports instead
+(`PEERINGD_HEALTHCHECK_PORTS`, default `127.0.0.1:8443 127.0.0.1:9443`; set them to the real
+ports). The relay stops cleanly on SIGTERM as well as ctrl-c, and prints its shutdown summary.
+`PEERINGD_HANDSHAKE_SECONDS` also bounds every single write to a signalling peer, so a client
+that stops reading is dropped after that long.
 
 That covers the machine being up. It does not cover the machine being gone, the certificate
 expiring, or the hostname failing to resolve — for those you still want the external monitor

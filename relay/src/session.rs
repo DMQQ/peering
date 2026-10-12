@@ -28,6 +28,7 @@ use rand::Rng;
 use tokio::net::TcpStream;
 use tokio::sync::{oneshot, Mutex};
 
+use crate::limits::Permit;
 use crate::quota::Account;
 
 /// A 128-bit addressing hint. See the module comment for what it is and is not.
@@ -459,6 +460,9 @@ struct Session {
     video_tokens: [Token; 2],
     control: ControlPairing,
     last_activity: Instant,
+    /// The allocating address's slot for a session nobody has joined; given back when both control
+    /// ends arrive or the session goes.
+    unspliced: Option<Permit>,
 }
 
 struct Inner {
@@ -544,6 +548,17 @@ impl Registry {
         client_id: &str,
         account: Account,
     ) -> Option<Allocated> {
+        self.allocate_guarded(host_id, client_id, account, None).await
+    }
+
+    /// `allocate`, holding `unspliced` against the session until its control ends have joined.
+    pub async fn allocate_guarded(
+        &self,
+        host_id: &str,
+        client_id: &str,
+        account: Account,
+        unspliced: Option<Permit>,
+    ) -> Option<Allocated> {
         let control_token = new_token();
         let video_tokens = [new_token(), new_token()];
 
@@ -576,6 +591,7 @@ impl Registry {
                 video_tokens,
                 control: ControlPairing::default(),
                 last_activity: Instant::now(),
+                unspliced,
             },
         );
 
@@ -616,6 +632,7 @@ impl Registry {
         Some(match waiting {
             Some(peer) => {
                 session.control.paired = true;
+                session.unspliced = None;
                 let _ = peer.send(mine);
                 Join::HandedOver
             }

@@ -38,6 +38,8 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tracing::{debug, info, warn};
 
+use crate::supervise::Health;
+
 /// The largest request head that will be read: request line and headers together.
 ///
 /// A browser sends a few hundred bytes for a page like this one. The limit exists so that a client
@@ -58,13 +60,14 @@ const IDLE_TIMEOUT: Duration = Duration::from_secs(15);
 /// own accept loops behave that way: a transient error — a file descriptor limit reached, a
 /// connection reset between the kernel accepting it and this process hearing about it — is not a
 /// reason to stop serving.
-pub async fn serve(listener: TcpListener, root: Arc<PathBuf>) {
+pub async fn serve(listener: TcpListener, root: Arc<PathBuf>, health: Arc<Health>) {
     loop {
         match listener.accept().await {
             Ok((stream, _peer)) => {
                 let root = Arc::clone(&root);
+                let health = Arc::clone(&health);
                 tokio::spawn(async move {
-                    if let Err(error) = connection(stream, &root).await {
+                    if let Err(error) = connection(stream, &root, &health).await {
                         debug!(%error, "web connection ended");
                     }
                 });
@@ -78,7 +81,7 @@ pub async fn serve(listener: TcpListener, root: Arc<PathBuf>) {
 }
 
 /// One connection: as many requests as it wants to make, until it stops or goes quiet.
-async fn connection(mut stream: TcpStream, root: &Path) -> std::io::Result<()> {
+async fn connection(mut stream: TcpStream, root: &Path, health: &Health) -> std::io::Result<()> {
     // The same reasoning as the control relay's: without this every response waits on Nagle, and
     // a page made of seven small files pays for it seven times.
     let _ = stream.set_nodelay(true);
@@ -112,7 +115,7 @@ async fn connection(mut stream: TcpStream, root: &Path) -> std::io::Result<()> {
         let head_only = matches!(parsed.map(|(method, _, _)| method), Some("HEAD"));
         let close = matches!(connection_of(&head), Connection::Close);
 
-        let response = respond(&head, root).await;
+        let response = respond(&head, root, health).await;
         // Read before the response is handed over, because writing it consumes the body — which is
         // a file handle for anything large enough to care about.
         let status = response.status;
@@ -298,6 +301,7 @@ fn reason_for(status: u16) -> &'static str {
         200 => "OK",
         206 => "Partial Content",
         304 => "Not Modified",
+        503 => "Service Unavailable",
         400 => "Bad Request",
         404 => "Not Found",
         405 => "Method Not Allowed",
@@ -308,7 +312,7 @@ fn reason_for(status: u16) -> &'static str {
     }
 }
 
-async fn respond(head: &str, root: &Path) -> Response {
+async fn respond(head: &str, root: &Path, health: &Health) -> Response {
     let Some((method, target, version)) = request_line(head) else {
         return Response::text(400, "Malformed request.");
     };
@@ -340,7 +344,14 @@ async fn respond(head: &str, root: &Path) -> Response {
     // free intelligence feed, and the operator can read all of it from the logs. The version is
     // in the answer and that is a small disclosure too — it is bought back by being able to say
     // which build is deployed without opening a shell on the box.
+    //
+    // It answers 503 when a supervised listener or background task has stopped, naming which, so
+    // a monitor restarts a relay that is up but no longer doing its job.
     if path == "/healthz" {
+        let failing = health.failing();
+        if !failing.is_empty() {
+            return Response::text(503, &format!("unhealthy: {}", failing.join(", ")));
+        }
         return Response::text(
             200,
             concat!("ok peeringd ", env!("CARGO_PKG_VERSION"), "\n"),
@@ -694,15 +705,15 @@ fn civil_from_days(days: i64) -> (i64, u32, u32) {
 
 /// Binds the site's listener and says where it is.
 ///
-/// Returns `None` — having said why — when there is no site to serve, so that a relay deployed
-/// without one does not hold a port open for nothing.
+/// A missing site directory is said out loud and does not stop the bind: the listener also answers
+/// `/healthz`, which the health check needs whether or not a site is deployed. `None` means the
+/// address could not be bound.
 pub async fn bind(address: std::net::SocketAddr, root: PathBuf) -> Option<(TcpListener, PathBuf)> {
     if !root.is_dir() {
         warn!(
             root = %root.display(),
-            "no site directory at PEERINGD_WEB_ROOT, so the site will not be served"
+            "no site directory at PEERINGD_WEB_ROOT, so only /healthz will be served"
         );
-        return None;
     }
 
     match TcpListener::bind(address).await {
@@ -730,6 +741,7 @@ mod tests {
         let response = respond(
             "GET /healthz HTTP/1.1\r\nHost: getpeering.app\r\n",
             Path::new("/nonexistent-site-root"),
+            &Health::default(),
         )
         .await;
 
@@ -741,11 +753,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn healthz_reports_a_stopped_task_as_unavailable() {
+        let health = Health::default();
+        let live = health.track("control");
+        let request = "GET /healthz HTTP/1.1\r\n";
+
+        assert_eq!(respond(request, Path::new("/nope"), &health).await.status, 200);
+        drop(live);
+        let response = respond(request, Path::new("/nope"), &health).await;
+        assert_eq!(response.status, 503);
+        assert!(matches!(&response.body, Body::Bytes(bytes) if bytes.starts_with(b"unhealthy: control")));
+    }
+
+    #[tokio::test]
     async fn healthz_is_not_reachable_by_a_relative_path() {
         // Only the exact path answers, so nothing that merely *contains* it can be used to probe
         // the process — and a file named healthz in the site root would still be a 404, which is
         // what happens here because the root does not exist.
-        let response = respond("GET /healthz/../healthz HTTP/1.1\r\n", Path::new("/nope")).await;
+        let response = respond("GET /healthz/../healthz HTTP/1.1\r\n", Path::new("/nope"), &Health::default()).await;
         assert_eq!(response.status, 404);
     }
 
