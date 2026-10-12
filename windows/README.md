@@ -62,6 +62,9 @@ powershell -ExecutionPolicy Bypass -File installer\build.ps1
 The script builds the release executable if it is missing and writes `windows\dist\PeeringHostSetup.exe`. The `dist`
 folder is ignored by git.
 
+Pushing a `windows-v*` tag runs `.github/workflows/windows-release.yml`, with no paths filter, which calls the build and
+tests of `windows.yml` and attaches the installer to a release. The installer's version is the tag without `windows-v`.
+
 ## Layout
 
 - `crates/peering-wire`, `crates/peering-core`, `crates/peering-agent`, `crates/peering-net`: protocol, host logic,
