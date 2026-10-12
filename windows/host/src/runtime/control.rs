@@ -21,6 +21,8 @@ pub enum RelayStatus {
     Connecting,
     Registered,
     Retrying,
+    /// The relay refuses this PC because its clock is off by more than the relay accepts.
+    ClockSkew,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,6 +61,9 @@ pub struct HostSnapshot {
     pub frame_rate: u32,
     /// Why the runtime ended, once it has. The tray shows it instead of a healthy-looking status.
     pub stopped: Option<String>,
+    /// What is wrong while the host keeps running (capture recovering, a paired list that could not be read, a clock
+    /// that is off). Each is a sentence for the window.
+    pub problems: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -134,7 +139,8 @@ impl HostState {
                 .map(|device| DeviceView { id: device.id, name: device.name, last_seen_unix: device.last_seen_unix })
                 .collect(),
             frame_rate: self.video.frame_rate(),
-            stopped: None,
+            stopped: self.stopped.clone(),
+            problems: self.problems.values().cloned().collect(),
         }
     }
 

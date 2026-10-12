@@ -16,6 +16,8 @@ pub enum HresultKind {
     Success,
     WaitTimeout,
     AccessLost,
+    /// DXGI_ERROR_DEVICE_REMOVED, DEVICE_RESET or INVALID_CALL: the D3D device or the duplication on it is unusable.
+    DeviceLost,
     Other,
 }
 
@@ -25,6 +27,8 @@ pub enum Classification {
     NoNewFrame,
     /// The duplication must be recreated; the desktop is secure, locked or switched.
     AccessLost,
+    /// The device must be created again, not just the duplication.
+    DeviceLost,
     Fatal,
 }
 
@@ -33,6 +37,7 @@ pub fn classify(kind: HresultKind) -> Classification {
         HresultKind::Success => Classification::NewFrame,
         HresultKind::WaitTimeout => Classification::NoNewFrame,
         HresultKind::AccessLost => Classification::AccessLost,
+        HresultKind::DeviceLost => Classification::DeviceLost,
         HresultKind::Other => Classification::Fatal,
     }
 }
@@ -94,6 +99,10 @@ impl CaptureState {
         self.access_lost(now);
     }
 
+    pub fn is_failed(&self) -> bool {
+        matches!(self, Self::Failed)
+    }
+
     pub fn is_running(&self) -> bool {
         matches!(self, Self::Running { .. })
     }
@@ -119,6 +128,11 @@ mod tests {
     }
 
     #[test]
+    fn a_removed_or_reset_device_is_recovered_by_creating_a_new_one() {
+        assert_eq!(classify(HresultKind::DeviceLost), Classification::DeviceLost);
+    }
+
+    #[test]
     fn backoff_doubles_from_a_quarter_second_and_caps_at_four() {
         assert_eq!(backoff_seconds(1), 0.25);
         assert_eq!(backoff_seconds(2), 0.5);
@@ -126,6 +140,19 @@ mod tests {
         assert_eq!(backoff_seconds(5), 4.0);
         assert_eq!(backoff_seconds(500), 4.0);
         assert_eq!(backoff_seconds(0), 0.25);
+    }
+
+    #[test]
+    fn only_the_failed_state_reports_failed() {
+        let mut state = CaptureState::Idle;
+        assert!(!state.is_failed());
+        state.start();
+        state.access_lost(0.0);
+        assert!(!state.is_failed());
+        state.fail();
+        assert!(state.is_failed());
+        state.stop();
+        assert!(!state.is_failed());
     }
 
     #[test]

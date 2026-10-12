@@ -12,9 +12,11 @@ use thiserror::Error;
 use crate::ports::capture::{Capture, CaptureError};
 use crate::ports::encoder::{EncodeError, Encoder};
 use crate::settings::{snap_frame_rate, DEFAULT_FRAME_RATE};
+use super::recovery::Recovery;
 
 mod encoding;
 mod pacing;
+mod recover;
 
 use pacing::FramePacer;
 
@@ -60,6 +62,7 @@ pub struct VideoCoordinator<C: Capture, E: Encoder> {
     watchdog_reported: bool,
     last_frame_at: Option<f64>,
     dropped_frames: u64,
+    recovery: Recovery,
 }
 
 impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
@@ -85,6 +88,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
             watchdog_reported: false,
             last_frame_at: None,
             dropped_frames: 0,
+            recovery: Recovery::default(),
         }
     }
 
@@ -150,6 +154,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.capture_started_at = None;
         self.frame_ever_seen = false;
         self.watchdog_reported = false;
+        self.recovery = Recovery::default();
     }
 
     /// Switches capture to a display. A switch to the source already running changes nothing.
@@ -181,6 +186,8 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.reconfigure_pending = false;
         self.pacer.restart();
         self.capture_started_at = Some(now);
+        self.recovery = Recovery::default();
+        self.recovery.restarted(now);
         self.frame_ever_seen = false;
         self.watchdog_reported = false;
         Ok(())
@@ -232,9 +239,8 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.watched = watched;
     }
 
-    /// Takes every frame the capture has ready, encodes it while anyone is watching, and returns what to send.
-    /// Only the newest frame survives a burst, except that a keyframe is never lost to a delta behind it.
-    pub fn pump(&mut self, now: f64) -> Result<Vec<VideoOutput>, CoordinatorError> {
+    /// One pass of capture and encode, without the recovery around it.
+    pub(super) fn pump_pass(&mut self, now: f64) -> Result<Vec<VideoOutput>, CoordinatorError> {
         let mut outputs = Vec::new();
         let mut slot = LatestFrameSlot::new();
         self.apply_pending_reconfigure()?;
@@ -242,6 +248,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         let mut encoded = false;
         while let Some(raw) = self.capture.poll_frame() {
             self.frame_ever_seen = true;
+            self.recovery.frame_seen(now);
             if encode_this_pass && self.sending() {
                 self.encode_into(&raw, now, &mut outputs, &mut slot)?;
                 encoded = true;
@@ -265,10 +272,11 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
 
     /// True once per capture start, the first time the watchdog has expired, so a silent capture is reported once.
     pub fn take_watchdog_report(&mut self, now: f64) -> bool {
-        if self.watchdog_reported || !self.watchdog_expired(now) {
+        if self.watchdog_reported || self.recovery.is_reported() || !self.watchdog_expired(now) {
             return false;
         }
         self.watchdog_reported = true;
+        self.recovery.mark_reported();
         true
     }
 

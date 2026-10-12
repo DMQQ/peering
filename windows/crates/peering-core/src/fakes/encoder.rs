@@ -14,9 +14,15 @@ pub struct FakeEncoder {
     configure_calls: Vec<(u32, u32, u32, u32)>,
     encode_calls: Vec<(u64, bool)>,
     bitrate_calls: Vec<u32>,
+    encode_failures: u32,
 }
 
 impl FakeEncoder {
+    /// The next `count` calls to `encode` fail, and each failure forgets the configuration like a lost session would.
+    pub fn fail_encodes(&mut self, count: u32) {
+        self.encode_failures = count;
+    }
+
     pub fn configure_calls(&self) -> &[(u32, u32, u32, u32)] {
         &self.configure_calls
     }
@@ -47,6 +53,11 @@ impl Encoder for FakeEncoder {
 
     fn encode(&mut self, frame: &RawFrame, force_keyframe: bool) -> Result<Vec<EncodedOutput>, EncodeError> {
         self.encode_calls.push((frame.sequence, force_keyframe));
+        if self.encode_failures > 0 {
+            self.encode_failures -= 1;
+            self.configured = None;
+            return Err(EncodeError::Failed("the transform stopped".to_owned()));
+        }
         let (width, height, fps) = self.configured.ok_or(EncodeError::NotConfigured)?;
         let is_keyframe = force_keyframe || self.keyframe_pending;
         let config = self.config_pending.then(|| VideoStreamConfig {

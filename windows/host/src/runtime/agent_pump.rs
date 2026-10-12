@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use tokio::task::spawn_local;
+use tokio::task::{spawn_local, JoinHandle};
 use tokio::time::interval;
 
 use super::shared::{HostState, Shared};
@@ -38,6 +38,6 @@ async fn run(shared: Shared) {
     }
 }
 
-pub fn spawn_pump(shared: Shared) {
-    spawn_local(run(shared));
+pub fn spawn_pump(shared: Shared) -> JoinHandle<()> {
+    spawn_local(run(shared))
 }

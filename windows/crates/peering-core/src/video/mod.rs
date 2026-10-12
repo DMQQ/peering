@@ -3,3 +3,4 @@
 pub mod coordinator;
 pub mod direct;
 pub mod lane;
+pub mod recovery;

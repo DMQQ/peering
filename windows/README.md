@@ -90,11 +90,28 @@ Checked on macOS, with the commands in this file:
   device, the NV12 video processor, the Media Foundation encoder, SendInput, DPAPI, LockWorkStation) against the
   `windows` crate 0.58. Compiling is not running: none of those calls has been executed.
 
-Not verified, and not compiled on any machine yet:
+The host crate (tray, window, firewall and autostart executors) can also be type checked from a Mac. `ring`'s build script
+needs a C compiler for the MSVC target, which only has to produce files for `cargo check`, so two stub scripts that create empty
+objects and archives are enough: point `CC_x86_64_pc_windows_msvc` and `AR_x86_64_pc_windows_msvc` at them and run
+`cargo check -p peering-host --target x86_64-pc-windows-msvc`. That compiles the Windows-only code and runs none of it.
+
+Recovery and supervision, what is decided where:
+
+- `peering-core` decides: which capture and encoder failures are worth a retry, the backoff (0.5 s doubling to 15 s), when a
+  silent capture counts as stalled (30 s, doubling to 5 minutes on a still screen), the relay reconnect ladder with full jitter,
+  the frame deadline (two ping intervals) and the stable minute before the ladder resets, the per-address pre-auth share, and
+  how long a silent phone's keys are held (5 s).
+- The pump passes run under `catch_unwind` and are held off with the same backoff after a panic. A pass that never returns
+  cannot be interrupted: the encode step shares the capture's D3D11 immediate context, which is not thread safe, so moving it
+  off the runtime thread needs a multithread-protected device and is not done. A monitor thread reports a pass that has run for
+  more than 10 s to the window instead. While one hangs, the connections and the relay ping stall with it.
+
+Not verified, and not run on any machine yet:
 
 - The host binary and its Windows-only code: the `ui` window and tray (eframe, tray-icon), `ui/settings_view.rs`, the
   Windows adapters in `host/src/runtime/services/windows.rs`, the firewall and autostart executors, and the elevated
-  firewall helper. The host depends on `ring`, which does not cross compile from macOS.
+  firewall helper. They compile for the Windows target (see above) but have not run. The host depends on `ring`, which does not
+  link from macOS.
 - Running on Windows: desktop duplication frames and their reacquisition after a secure desktop, the NV12 conversion,
   the hardware and software H.264 encoders, the keyframe and bitrate changes on a live encoder, the frame rate change
   on a live encoder, input injection, the lock screen, the Run key and the firewall rule.

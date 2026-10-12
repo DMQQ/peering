@@ -45,3 +45,12 @@ impl SystemRandomSource {
         buffer
     }
 }
+
+/// A uniform value in `0.0..1.0` for jitter. A failed generator gives 1.0, which is the unjittered wait.
+pub fn unit_fraction() -> f64 {
+    let mut buffer = [0u8; 4];
+    if SystemRandom::new().fill(&mut buffer).is_err() {
+        return 1.0;
+    }
+    f64::from(u32::from_le_bytes(buffer)) / (f64::from(u32::MAX) + 1.0)
+}

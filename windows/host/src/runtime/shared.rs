@@ -1,6 +1,6 @@
 //! The state the connections share. It is locked only for short synchronous steps and never across an await.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use peering_agent::manager::ClientAgents;
@@ -10,6 +10,7 @@ use peering_core::notice::NoticeTracker;
 use peering_core::pairing::PairingService;
 use peering_core::ports::input::InputSink;
 use peering_core::session::deps::PinStore;
+use peering_core::session::held_input::HoldGuard;
 use peering_core::terminal::manager::TerminalSessionManager;
 use peering_core::video::coordinator::VideoCoordinator;
 use peering_core::video::lane::VideoLane;
@@ -51,6 +52,8 @@ pub struct HostState {
     pub catalogues: SessionCatalogue<u64>,
     pub video: VideoCoordinator<SharedCapture, BoxedEncoder>,
     pub input: BoxedInput,
+    /// What the phones have left pressed, so a phone that drops silently does not leave a key down.
+    pub hold: HoldGuard,
     pub system: BoxedSystem,
     /// Shared so a request runs on the blocking pool with the state lock released.
     pub files: Arc<FileBrowser<SharedFileSystem>>,
@@ -66,9 +69,21 @@ pub struct HostState {
     pub notice_checked_at: Option<f64>,
     pub hosting: bool,
     pub relay: RelayStatus,
+    /// What is wrong right now, by source, for the window to show. A source clears its own entry when it recovers.
+    pub problems: BTreeMap<&'static str, String>,
+    /// Why the host ended, once it has. Kept here so the published snapshot does not overwrite it.
+    pub stopped: Option<String>,
 }
 
 impl HostState {
+    pub fn set_problem(&mut self, source: &'static str, text: String) {
+        self.problems.insert(source, text);
+    }
+
+    pub fn clear_problem(&mut self, source: &'static str) {
+        self.problems.remove(source);
+    }
+
     /// Lifts the keys and buttons the remote held, once no session is left to hold them. A phone that reconnects before
     /// its old connection is reaped keeps the keys it is holding.
     pub fn release_input_if_idle(&mut self) {
@@ -81,6 +96,15 @@ impl HostState {
     pub fn refresh_watched(&mut self) {
         let watched = self.sessions.values().any(|slot| !slot.background);
         self.video.set_watched(watched);
+    }
+
+    /// Lets go of keys and buttons held by phones that have all gone quiet.
+    pub fn release_silent_input(&mut self, now: f64) {
+        if !self.hold.has_held() {
+            return;
+        }
+        let transform = self.active_transform();
+        self.hold.release_if_silent(now, peering_core::session::held_input::HELD_INPUT_TTL_SECONDS, &transform, &mut self.input);
     }
 
     pub fn allocate_session(&mut self) -> u64 {

@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use peering_net::socket::disable_nagle;
+use peering_net::socket::{disable_nagle, enable_keepalive};
 use peering_net::tls::HostTls;
 use tokio::net::TcpListener;
 use tokio::task::spawn_local;
@@ -19,7 +19,7 @@ const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 pub async fn serve_listener(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, listener: TcpListener) {
     let gate = PreAuthGate::new(MAXIMUM_PRE_AUTH_CONNECTIONS);
     loop {
-        let Ok((stream, _address)) = listener.accept().await else {
+        let Ok((stream, address)) = listener.accept().await else {
             // Accept fails when the process is out of descriptors; waiting lets connections close before the next try.
             tokio::time::sleep(ACCEPT_RETRY).await;
             continue;
@@ -30,7 +30,9 @@ pub async fn serve_listener(shared: Shared, profile: Arc<HostProfile>, tls: Arc<
         }
         // Only latency suffers when the option cannot be set, so the connection is still served.
         let _nagle = disable_nagle(&stream);
-        let Some(permit) = gate.enter() else {
+        // Without probes a phone that vanished holds its socket until the application's silence limit.
+        let _keepalive = enable_keepalive(&stream);
+        let Some(permit) = gate.enter_from(address.ip()) else {
             continue;
         };
         let shared = shared.clone();

@@ -36,4 +36,10 @@ pub trait Capture {
     fn start(&mut self, display_id: u32) -> Result<(), CaptureError>;
     fn stop(&mut self);
     fn poll_frame(&mut self) -> Option<RawFrame>;
+
+    /// True when the capture has given up and only a `stop` and `start` can revive it. A capture that is merely waiting
+    /// to reacquire its source is not failed.
+    fn is_failed(&self) -> bool {
+        false
+    }
 }

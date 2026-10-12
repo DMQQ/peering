@@ -8,7 +8,8 @@ use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame}
 use windows::core::{Interface, HRESULT};
 use windows::Win32::Graphics::Direct3D11::{ID3D11Texture2D, D3D11_TEXTURE2D_DESC};
 use windows::Win32::Graphics::Dxgi::{
-    IDXGIOutputDuplication, IDXGIResource, DXGI_ERROR_ACCESS_LOST, DXGI_ERROR_WAIT_TIMEOUT, DXGI_OUTDUPL_FRAME_INFO,
+    IDXGIOutputDuplication, IDXGIResource, DXGI_ERROR_ACCESS_LOST, DXGI_ERROR_DEVICE_REMOVED, DXGI_ERROR_DEVICE_RESET,
+    DXGI_ERROR_INVALID_CALL, DXGI_ERROR_WAIT_TIMEOUT, DXGI_OUTDUPL_FRAME_INFO,
 };
 
 use crate::dda::{classify, CaptureState, Classification, HresultKind};
@@ -28,6 +29,8 @@ pub struct DesktopDuplicationCapture {
     state: CaptureState,
     target_device_name: Option<String>,
     gpu: Option<GpuContext>,
+    /// The device failed with a removal, reset or invalid call, so the next open creates a new one.
+    gpu_lost: bool,
     duplication: Option<IDXGIOutputDuplication>,
     frame_held: bool,
     captured: Option<FrameHandoff<ID3D11Texture2D>>,
@@ -47,6 +50,7 @@ impl DesktopDuplicationCapture {
             state: CaptureState::Idle,
             target_device_name: None,
             gpu: None,
+            gpu_lost: false,
             duplication: None,
             frame_held: false,
             captured: None,
@@ -75,11 +79,14 @@ impl DesktopDuplicationCapture {
 
     fn release_frame(&mut self) {
         self.captured = None;
-        if std::mem::take(&mut self.frame_held) {
-            if let Some(duplication) = &self.duplication {
-                // SAFETY: `frame_held` means a frame was acquired on this duplication and not yet released.
-                let _ = unsafe { duplication.ReleaseFrame() };
-            }
+        if !std::mem::take(&mut self.frame_held) {
+            return;
+        }
+        // SAFETY: `frame_held` means a frame was acquired on this duplication and not yet released.
+        let released = self.duplication.as_ref().map(|duplication| unsafe { duplication.ReleaseFrame() });
+        if let Some(Err(error)) = released {
+            let now = self.now();
+            self.on_acquire_error(kind_of(error.code()), now);
         }
     }
 
@@ -87,13 +94,32 @@ impl DesktopDuplicationCapture {
         let Some(device_name) = self.target_device_name.clone() else {
             return;
         };
-        match open_duplication(&device_name, self.gpu.as_ref()) {
+        match open_duplication(&device_name, self.reusable_gpu()) {
             Ok((gpu, duplication)) => {
                 self.gpu = Some(gpu);
+                self.gpu_lost = false;
                 self.duplication = Some(duplication);
                 self.state.reacquired();
             }
-            Err(_) => self.state.reacquire_failed(now),
+            Err(error) => {
+                self.note_device_loss(kind_of(error.code()));
+                self.state.reacquire_failed(now);
+            }
+        }
+    }
+
+    /// The device to open the next duplication on: the one already made, unless it failed.
+    fn reusable_gpu(&self) -> Option<&GpuContext> {
+        if self.gpu_lost {
+            None
+        } else {
+            self.gpu.as_ref()
+        }
+    }
+
+    fn note_device_loss(&mut self, kind: HresultKind) {
+        if kind == HresultKind::DeviceLost {
+            self.gpu_lost = true;
         }
     }
 
@@ -144,6 +170,11 @@ impl DesktopDuplicationCapture {
                 self.duplication = None;
                 self.state.access_lost(now);
             }
+            Classification::DeviceLost => {
+                self.duplication = None;
+                self.gpu_lost = true;
+                self.state.access_lost(now);
+            }
             Classification::Fatal => {
                 self.duplication = None;
                 self.state.fail();
@@ -157,6 +188,8 @@ fn kind_of(code: HRESULT) -> HresultKind {
         HresultKind::WaitTimeout
     } else if code == DXGI_ERROR_ACCESS_LOST {
         HresultKind::AccessLost
+    } else if code == DXGI_ERROR_DEVICE_REMOVED || code == DXGI_ERROR_DEVICE_RESET || code == DXGI_ERROR_INVALID_CALL {
+        HresultKind::DeviceLost
     } else {
         HresultKind::Other
     }
@@ -177,15 +210,17 @@ impl Capture for DesktopDuplicationCapture {
     fn start(&mut self, display_id: u32) -> Result<(), CaptureError> {
         self.stop();
         let device_name = device_name_for(display_id).ok_or(CaptureError::DisplayNotFound(display_id))?;
-        match open_duplication(&device_name, self.gpu.as_ref()) {
+        match open_duplication(&device_name, self.reusable_gpu()) {
             Ok((gpu, duplication)) => {
                 self.gpu = Some(gpu);
+                self.gpu_lost = false;
                 self.duplication = Some(duplication);
                 self.target_device_name = Some(device_name);
                 self.state.start();
                 Ok(())
             }
             Err(error) => {
+                self.note_device_loss(kind_of(error.code()));
                 self.state.fail();
                 Err(CaptureError::Failed(error.to_string()))
             }
@@ -197,6 +232,10 @@ impl Capture for DesktopDuplicationCapture {
         self.duplication = None;
         self.target_device_name = None;
         self.state.stop();
+    }
+
+    fn is_failed(&self) -> bool {
+        self.state.is_failed()
     }
 
     fn poll_frame(&mut self) -> Option<RawFrame> {
