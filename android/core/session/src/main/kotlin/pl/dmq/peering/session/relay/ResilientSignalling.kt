@@ -34,6 +34,7 @@ class ResilientSignalling(
     /** A lone send or receive is a request of its own, so it gets the same reopen-and-retry as [exchange]. */
     override suspend fun send(message: RelayClientMessage) = exchange { send(message) }
 
+    /** Bounded to [timeout] (10 s by default): a lone receive on a quiet connection fails with an [IOException]. */
     override suspend fun receive(): RelayServerMessage = exchange { receive() }
 
     override suspend fun <T> exchange(idempotent: Boolean, block: suspend Signalling.() -> T): T =

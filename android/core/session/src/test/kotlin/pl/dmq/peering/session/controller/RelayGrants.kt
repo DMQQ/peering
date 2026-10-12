@@ -8,7 +8,7 @@ import pl.dmq.peering.wire.RelayServerMessage
 import pl.dmq.peering.wire.Token
 
 /** The relay's answer to a connect: a control socket and a video lane at fixed addresses. */
-internal fun FakeSignalling.grantSession() {
+internal fun FakeSignalling.grantSession(remainingSeconds: Long? = null) {
     reply(
         RelayServerMessage.SessionReady(
             controlHost = "control.example",
@@ -17,6 +17,7 @@ internal fun FakeSignalling.grantSession() {
             videoPort = 4500,
             controlToken = Token(ByteArray(Token.SIZE) { 1 }),
             videoToken = Token(ByteArray(Token.SIZE) { 2 }),
+            remainingSeconds = remainingSeconds,
         ),
     )
 }

@@ -22,6 +22,7 @@ import pl.dmq.peering.wire.PreviewProxyEvent
 class PreviewRequestHandler(
     private val fetch: PreviewFetch,
     private val scope: CoroutineScope,
+    private val texts: PreviewTexts,
     private val firstByteTimeoutMillis: Long = FIRST_BYTE_TIMEOUT_MILLIS,
     private val chunkTimeoutMillis: Long = CHUNK_TIMEOUT_MILLIS,
     private val onPageFailure: (PreviewFailure) -> Unit,
@@ -35,7 +36,7 @@ class PreviewRequestHandler(
         }
         var current: PreviewAddress = first
         val verb = method.uppercase()
-        if (verb !in PreviewPolicy.carriedMethods) return PreviewReply.text(PreviewReply.NOT_IMPLEMENTED, "Preview: requests that send data are not carried")
+        if (verb !in PreviewPolicy.carriedMethods) return PreviewReply.text(PreviewReply.NOT_IMPLEMENTED, texts.dataNotCarried())
         val sent = PreviewPolicy.filteredRequestHeaders(headers.filterKeys { !it.equals("if-none-match", true) && !it.equals("if-modified-since", true) })
         repeat(MAX_REDIRECTS + 1) {
             val events = fetch(current.port, verb, current.target, sent).produceIn(scope)
@@ -70,7 +71,7 @@ class PreviewRequestHandler(
 
     private fun failureReply(isMainFrame: Boolean, reason: PreviewFailure): PreviewReply {
         if (isMainFrame) onPageFailure(reason)
-        return PreviewReply.failure(reason)
+        return PreviewReply.failure(reason, texts)
     }
 
     private companion object {

@@ -71,6 +71,13 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val discovery = DiscoveryHostSource(graph.sessions.discovery, graph.sessions.pins, hostNames, lanAddresses, aliases, scope)
     val billing = PlayBilling(graph.applicationContext, scope) { graph.sessions.identity.publicKey }.also { it.connect() }
     val sessionRecords = PersistedSessionRecords.load(preferences)
+    val relayAllowance = RelayAllowanceTracker(
+        PreferencesRelayUsageStore(preferences),
+        graph.sessions.clock,
+        ZoneId.systemDefault(),
+        billing.paidRelay,
+        scope,
+    )
     val holder = SessionHolder(
         SessionPortsFactory(
             graph.sessions,
@@ -80,23 +87,21 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
             billing,
             lanAddresses,
             ClipboardHistory(PreferencesKeyValueStore(preferences)),
+            relayAllowance::relayReportedRemaining,
         ) { devicePrefs.prefs.value.deviceName },
         hostNames,
         scope,
     )
+    init {
+        scope.launch { relayAllowance.trackSessions(relayInUse(holder.active)) }
+    }
+
     private val relayPresence = PresenceWatch(
         relay = graph.sessions.newRelayConnect(graph.sessions.newRelaySignalling()),
         hostIds = { graph.sessions.pins.hostIds() },
         clock = graph.sessions.clock,
         scope = scope,
     )
-    val relayAllowance = RelayAllowanceTracker(
-        PreferencesRelayUsageStore(preferences),
-        graph.sessions.clock,
-        ZoneId.systemDefault(),
-        billing.paidRelay,
-        scope,
-    ).also { tracker -> scope.launch { tracker.trackSessions(relayInUse(holder.active)) } }
     val invites = InvitePresenter(
         RelayInviteService(ReferralClient(graph.sessions.newRelaySignalling(), graph.sessions.identity, graph.sessions.clock)),
         scope,

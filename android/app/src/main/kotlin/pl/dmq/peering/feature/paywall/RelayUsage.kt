@@ -13,6 +13,10 @@ object RelayUsageLedger {
     fun added(stored: DailyRelayUsage?, today: LocalDate, seconds: Long): DailyRelayUsage =
         DailyRelayUsage(today, usedOn(stored, today) + seconds)
 
+    /** The relay's own count of the time left replaces the local one; a count above the daily limit means none is used. */
+    fun fromRemaining(today: LocalDate, remainingSeconds: Long): DailyRelayUsage =
+        DailyRelayUsage(today, (FREE_DAILY_RELAY_SECONDS - remainingSeconds).coerceIn(0L, FREE_DAILY_RELAY_SECONDS))
+
     /** The relay refused the session for quota, so the free time of [today] is taken whatever this phone counted. */
     fun spent(today: LocalDate): DailyRelayUsage = DailyRelayUsage(today, FREE_DAILY_RELAY_SECONDS)
 }

@@ -13,6 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import pl.dmq.peering.feature.agents.preview.PreviewFetch
 import pl.dmq.peering.feature.agents.preview.PreviewReply
+import pl.dmq.peering.feature.agents.preview.PreviewTexts
 import pl.dmq.peering.feature.agents.preview.PreviewRequestHandler
 import pl.dmq.peering.wire.PreviewFailure
 import pl.dmq.peering.wire.PreviewHeader
@@ -32,7 +33,13 @@ class PreviewRequestHandlerTest {
         flowOf(*answers.removeFirst().toTypedArray())
     }
 
-    private val handler = PreviewRequestHandler(fetch, scope) { pageFailures += it }
+    private object PlainTexts : PreviewTexts {
+        override fun failure(reason: PreviewFailure) = reason.name
+
+        override fun dataNotCarried() = "not carried"
+    }
+
+    private val handler = PreviewRequestHandler(fetch, scope, PlainTexts) { pageFailures += it }
 
     private fun ok(body: String, type: String = "text/html; charset=utf-8") = listOf(
         PreviewProxyEvent.Head(1, 200, listOf(PreviewHeader("Content-Type", type), PreviewHeader("ETag", "x"))),
@@ -173,7 +180,7 @@ class PreviewRequestHandlerTest {
                 }
             }
         }
-        val reply = PreviewRequestHandler(fetchForever, scope) { }.handle("http://localhost:3000/", "GET", emptyMap(), true)!!
+        val reply = PreviewRequestHandler(fetchForever, scope, PlainTexts) { }.handle("http://localhost:3000/", "GET", emptyMap(), true)!!
         reply.body.close()
         assertTrue(cancelled)
     }
@@ -181,7 +188,7 @@ class PreviewRequestHandlerTest {
     @Test
     fun aComputerThatNeverAnswersEndsInDisconnectedInsteadOfBlocking() {
         val silent: PreviewFetch = { _, _, _, _ -> flow { kotlinx.coroutines.awaitCancellation() } }
-        val quick = PreviewRequestHandler(silent, scope, firstByteTimeoutMillis = 50, chunkTimeoutMillis = 50) { pageFailures += it }
+        val quick = PreviewRequestHandler(silent, scope, PlainTexts, firstByteTimeoutMillis = 50, chunkTimeoutMillis = 50) { pageFailures += it }
         assertEquals(503, quick.handle("http://localhost:3000/", "GET", emptyMap(), true)!!.status)
         assertEquals(listOf(PreviewFailure.DISCONNECTED), pageFailures)
     }
@@ -195,9 +202,24 @@ class PreviewRequestHandlerTest {
                 kotlinx.coroutines.awaitCancellation()
             }
         }
-        val quick = PreviewRequestHandler(stalls, scope, firstByteTimeoutMillis = 1000, chunkTimeoutMillis = 50) { }
+        val quick = PreviewRequestHandler(stalls, scope, PlainTexts, firstByteTimeoutMillis = 1000, chunkTimeoutMillis = 50) { }
         val body = quick.handle("http://localhost:3000/a.bin", "GET", emptyMap(), false)!!.body
         assertEquals(7, body.read())
         assertThrows(IOException::class.java) { body.read() }
+    }
+
+    @Test
+    fun theWordsOfAFailureReplyComeFromTheTexts() {
+        val reply = handler.handle("http://example.com/", "GET", emptyMap(), false)!!
+
+        assertEquals("NOT_ALLOWED", reply.body.readBytes().decodeToString())
+    }
+
+    @Test
+    fun aRequestThatSendsDataIsAnsweredWithTheNotCarriedText() {
+        val reply = handler.handle("http://localhost:3000/", "POST", emptyMap(), false)!!
+
+        assertEquals(501, reply.status)
+        assertEquals("not carried", reply.body.readBytes().decodeToString())
     }
 }
