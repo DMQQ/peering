@@ -1,11 +1,15 @@
 package pl.dmq.peering.feature.remote
 
-enum class PanelTransition { RISE, FALL, CROSSFADE, NONE }
+/** The panel open after a dock button for [tapped] is pressed: the same button closes, another switches without closing. */
+fun panelAfterTap(open: SessionPanel?, tapped: SessionPanel): SessionPanel? = if (open == tapped) null else tapped
 
-/** Opening and closing move along the dock edge; one panel replacing another only fades, so nothing travels twice. */
-fun panelTransition(from: SessionPanel?, to: SessionPanel?): PanelTransition = when {
-    from == to -> PanelTransition.NONE
-    from == null -> PanelTransition.RISE
-    to == null -> PanelTransition.FALL
-    else -> PanelTransition.CROSSFADE
+/** What the floating surface holds: the panel to draw, kept as the last one while the surface is leaving. */
+class PanelMemory {
+    var panel: SessionPanel? = null
+        private set
+
+    fun shown(open: SessionPanel?): SessionPanel? {
+        if (open != null) panel = open
+        return panel
+    }
 }
