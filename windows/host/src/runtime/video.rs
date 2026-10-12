@@ -102,6 +102,7 @@ fn capture_notice(condition: Option<CaptureCondition>) -> Option<NoticePayload> 
 }
 
 pub fn catalogue_frame(catalog: &CaptureCatalog) -> Frame {
+    // A derived Serialize over strings and numbers: the display names come from the OS, and no field can make the writer fail.
     Frame::new(MessageKind::Catalog, serde_json::to_vec(catalog).expect("a catalogue always serialises"))
 }
 

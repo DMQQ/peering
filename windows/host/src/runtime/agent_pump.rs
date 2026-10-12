@@ -24,6 +24,7 @@ impl HostState {
         for (client_id, event) in events {
             let newest = self.sessions.iter().filter(|(_, slot)| slot.client_id == client_id).max_by_key(|(id, _)| **id);
             if let Some((_, slot)) = newest {
+                // Derived Serialize with string keys only: text from the CLI is just a string value, which cannot fail.
                 let payload = serde_json::to_vec(&event).expect("agent events always serialise");
                 outgoing.push(Outgoing { to: slot.outbound.clone(), frame: Frame::new(MessageKind::AgentEvent, payload) });
             }

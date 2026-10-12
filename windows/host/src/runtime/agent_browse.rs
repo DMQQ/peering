@@ -55,6 +55,7 @@ pub fn answer(browser: Arc<FolderBrowser>, path: Option<String>, outbound: Frame
                 message: BROWSE_TIMED_OUT.to_owned(),
             },
         };
+        // Derived Serialize with string keys only: text from the CLI or the phone is just a string value, which cannot fail.
         let payload = serde_json::to_vec(&event).expect("agent events always serialise");
         // The connection may have closed meanwhile; there is then nobody to tell.
         let _queued = outbound.send(Frame::new(MessageKind::AgentEvent, payload));

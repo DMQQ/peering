@@ -98,5 +98,6 @@ impl Connection {
 
 pub(super) fn error_frame(code: &str, message: &str) -> Frame {
     let payload = serde_json::json!({ "code": code, "message": message });
+    // A json! object of two strings.
     Frame::new(MessageKind::Error, serde_json::to_vec(&payload).expect("an error payload always serialises"))
 }

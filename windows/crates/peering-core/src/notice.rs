@@ -27,6 +27,7 @@ impl NoticeTracker {
 }
 
 pub fn notice_frame(payload: &NoticePayload) -> Frame {
+    // Derived Serialize over optional strings and a number.
     Frame::new(MessageKind::Notice, serde_json::to_vec(payload).expect("a notice always serialises"))
 }
 

@@ -1,4 +1,7 @@
 //! The state the connections share. It is locked only for short synchronous steps and never across an await.
+//!
+//! Lock order: the state lock, then the video coordinator's. The control channel and the peer address router are each
+//! taken alone, never with another lock held.
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};

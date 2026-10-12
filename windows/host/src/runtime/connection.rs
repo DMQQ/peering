@@ -253,6 +253,7 @@ impl Connection {
     }
 
     pub(super) fn send_event<T: serde::Serialize>(&self, event: &T) {
+        // Derived Serialize with string keys only: text from the CLI is just a string value, which cannot fail.
         self.send(Frame::new(MessageKind::AgentEvent, serde_json::to_vec(event).expect("agent events always serialise")));
     }
 
@@ -274,6 +275,7 @@ impl Connection {
         if self.profile.can_lock_screen {
             hello.capabilities.supports_lock_screen = Some(true);
         }
+        // The hello was decoded from our own derived type a moment ago, so writing it back cannot fail.
         Frame::new(MessageKind::ServerHello, serde_json::to_vec(&hello).expect("a hello always serialises"))
     }
 

@@ -95,6 +95,7 @@ fn uuid_v4(mut bytes: [u8; 16]) -> String {
 }
 
 fn event_frame(event: &TerminalEvent) -> Frame {
+    // Derived Serialize with string keys only: shell output is a byte array and names are strings, which cannot fail.
     Frame::new(MessageKind::TerminalEvent, serde_json::to_vec(event).expect("terminal events always serialise"))
 }
 

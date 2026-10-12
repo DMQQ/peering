@@ -203,13 +203,21 @@ impl HostState {
     }
 }
 
-/// Publishes the snapshot when the last one is older than the publish interval.
-pub(super) fn publish_if_due(state: &HostState, host_id: &str, control: &mut ControlChannel, now: f64) {
-    if control.last_publish.is_some_and(|published| now - published < PUBLISH_INTERVAL_SECONDS) {
-        return;
+impl ControlChannel {
+    /// The slot to publish the snapshot into when the last one is older than the publish interval, else `None`. The caller
+    /// builds the snapshot under the state lock and writes it here afterwards, so this lock is never held with that one.
+    pub(super) fn publish_due(&mut self, now: f64) -> Option<Arc<Mutex<HostSnapshot>>> {
+        if self.last_publish.is_some_and(|published| now - published < PUBLISH_INTERVAL_SECONDS) {
+            return None;
+        }
+        self.last_publish = Some(now);
+        Some(self.published.clone())
     }
-    control.last_publish = Some(now);
-    *lock(&control.published) = state.snapshot(host_id);
+}
+
+/// Writes a snapshot built under the state lock into the slot `publish_due` named.
+pub(super) fn publish(slot: &Mutex<HostSnapshot>, snapshot: HostSnapshot) {
+    *lock(slot) = snapshot;
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -218,7 +226,19 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Mutex};
+
     use super::super::test_support::{runtime, slot};
+    use super::{ControlChannel, HostSnapshot};
+
+    #[test]
+    fn the_snapshot_is_due_on_the_first_pass_and_then_once_per_interval() {
+        let (_commands, inbox) = std::sync::mpsc::channel();
+        let mut control = ControlChannel { published: Arc::new(Mutex::new(HostSnapshot::default())), commands: inbox, last_publish: None };
+        assert!(control.publish_due(10.0).is_some());
+        assert!(control.publish_due(10.5).is_none());
+        assert!(control.publish_due(11.0).is_some());
+    }
 
     #[test]
     fn a_ceiling_set_by_a_session_that_left_is_lifted_when_it_is_removed() {

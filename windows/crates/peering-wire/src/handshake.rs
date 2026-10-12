@@ -180,6 +180,7 @@ impl ErrorPayload {
     /// The frame that tells a client hosting stopped, so it ends instead of reconnecting in a loop.
     pub fn host_stopped_frame() -> Frame {
         let payload = Self { code: Self::HOST_STOPPED_CODE.to_owned(), message: "Hosting stopped on this PC.".to_owned() };
+        // Derived Serialize over strings.
         Frame::new(MessageKind::Error, serde_json::to_vec(&payload).expect("an error payload always serialises"))
     }
 }

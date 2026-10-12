@@ -232,6 +232,7 @@ pub(super) fn decode_control<T: DeserializeOwned>(frame: &Frame, kind: MessageKi
 
 pub(super) fn send_json<T: Serialize>(out: &mut Vec<SessionAction>, kind: MessageKind, value: &T) {
     // Protocol messages hold only strings, numbers, bools, options and byte arrays, which always serialise.
+    // Every message type here is a derived Serialize with string keys, so what a peer sent cannot make it fail.
     let payload = serde_json::to_vec(value).expect("protocol messages always serialise to JSON");
     out.push(SessionAction::Send(Frame::new(kind, payload)));
 }

@@ -14,7 +14,7 @@ use peering_core::video::recovery::LogGate;
 use tokio::task::{spawn_blocking, spawn_local, JoinError, JoinHandle};
 use tokio::time::{interval, MissedTickBehavior};
 
-use super::control::{publish_if_due, take_commands};
+use super::control::{publish, take_commands};
 use super::diagnostics;
 use super::lock::lock_ignoring_poison;
 use super::shared::{HostState, Shared};
@@ -115,11 +115,19 @@ pub(super) fn pump_video_inline(shared: &Shared, now: f64) -> Result<Vec<Outgoin
 /// them comes back as the payload for the supervisor.
 async fn run_video_pass(shared: &Shared, profile: &HostProfile, now: f64) -> std::thread::Result<VideoPass> {
     let (decisions, prepared) = catch_unwind(AssertUnwindSafe(|| {
-        let commands = take_commands(&mut lock_ignoring_poison(&shared.control));
+        let (commands, publish_slot) = {
+            let mut control = lock_ignoring_poison(&shared.control);
+            (take_commands(&mut control), control.publish_due(now))
+        };
         let mut state = shared.lock();
         let decisions = state.apply_commands(commands);
-        publish_if_due(&state, &profile.host_id, &mut lock_ignoring_poison(&shared.control), now);
-        (decisions, state.begin_video_pass(now))
+        let snapshot = publish_slot.as_ref().map(|_| state.snapshot(&profile.host_id));
+        let prepared = state.begin_video_pass(now);
+        drop(state);
+        if let (Some(slot), Some(snapshot)) = (publish_slot, snapshot) {
+            publish(&slot, snapshot);
+        }
+        (decisions, prepared)
     }))?;
     let video = prepared.video.clone();
     let pumped: PumpOutcome = spawn_blocking(move || video.pump(now)).await.map_err(worker_payload)?;

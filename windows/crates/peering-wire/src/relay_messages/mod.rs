@@ -194,6 +194,7 @@ pub enum RelayServerMessage {
 /// `preserve_order` feature is on, which this crate does not enable.
 pub fn encode_sorted(message: &impl Serialize) -> String {
     let value = serde_json::to_value(message).expect("relay messages hold only strings and integers");
+    // A serde_json::Value has string keys and finite numbers by construction.
     serde_json::to_string(&value).expect("a JSON value always serialises")
 }
 
