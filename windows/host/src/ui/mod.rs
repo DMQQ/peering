@@ -2,9 +2,12 @@
 //! what the models say and are compiled for Windows only.
 
 pub mod model;
+pub mod qr;
 
 #[cfg(windows)]
 mod app;
+#[cfg(windows)]
+mod pairing;
 #[cfg(windows)]
 mod tray;
 
