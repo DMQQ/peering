@@ -100,3 +100,163 @@ extension ClientSession {
         }
     }
 }
+
+extension ClientSession {
+    // MARK: - Connect
+
+    /// Runs the client side of the handshake and returns once the outcome is known. Returns rather than throws: every failure already reaches the UI as a ``Phase/failed(_:)`` event.
+    public func connect(to target: Target, timeout: TimeInterval = 10) async {
+        guard let generation = beginConnecting() else {
+            emit(.phase(.failed(Failure.busy.errorDescription ?? "busy")))
+            return
+        }
+        emit(.phase(.connecting))
+
+        let pinned: Data? = {
+            if case .discovered(let host) = target { return pins.pin(for: host.id) }
+            if case .relay(let hostID, _, _) = target { return pins.pin(for: hostID) }
+            // Looked up and not insisted on: a first pairing has no pin; the handshake still checks a stored one.
+            if case .relayPairing(let hostID, _, _) = target { return pins.pin(for: hostID) }
+            return nil
+        }()
+        lock.withLock {
+            pairingHostID = target.isFirstPairing ? target.hostID : nil
+            connectStage = target.startingStage
+        }
+
+        let connection = ClientConnection(label: "pl.dmq.peering.client.control")
+        connection.onFrame = { [weak self] frame in self?.handle(frame) }
+        connection.onClose = { [weak self] failure in self?.controlClosed(failure) }
+        let installed = lock.withLock { () -> Bool in
+            guard connectGeneration == generation else { return false }
+            control = connection
+            return true
+        }
+        guard installed else {
+            connection.cancel()
+            return
+        }
+
+        do {
+            switch target {
+            case .discovered(let host):
+                try await connection.connect(
+                    to: host.endpoint,
+                    identity: identity,
+                    pinnedServerKey: pinned,
+                    timeout: timeout
+                )
+            case .address(let host, let port):
+                try await connection.connect(
+                    host: host,
+                    port: port,
+                    identity: identity,
+                    pinnedServerKey: nil,
+                    timeout: timeout
+                )
+            case .relay(let hostID, _, let entitlement):
+                guard let pin = pins.pin(for: hostID) else {
+                    throw pins.isUnreadable ? Failure.pinsUnreadable : Failure.noPinOnFile(hostID: hostID)
+                }
+                try await openRelayTunnel(
+                    to: connection,
+                    generation: generation,
+                    hostID: hostID,
+                    entitlement: entitlement,
+                    pinnedServerKey: pin,
+                    timeout: timeout
+                )
+
+            case .relayPairing(let hostID, _, let entitlement):
+                try await openRelayTunnel(
+                    to: connection,
+                    generation: generation,
+                    hostID: hostID,
+                    entitlement: entitlement,
+                    pinnedServerKey: pinned,
+                    timeout: timeout
+                )
+            }
+        } catch {
+            // `disconnect()` invalidates the generation before cancelling whatever resources
+            // already exist. An older dial returning afterwards is finished, not a new failure
+            // belonging to the next session.
+            if error is ConnectAttemptEnded || !isCurrentAttempt(connection, generation: generation) {
+                connection.cancel()
+                return
+            }
+            if let e = error as? RelaySignallingError,
+               case .refused(let code, _) = e, code == "quotaExceeded" {
+                emit(.relayQuotaExceeded)
+            }
+            fail(Failure.describe(error), reason: FailureReason(error), cause: FailureCause(error))
+            return
+        }
+
+        guard isCurrentAttempt(connection, generation: generation) else {
+            connection.cancel()
+            return
+        }
+
+        lock.withLock { _serverKey = connection.observedServerKey }
+        emit(.note("Connected over \(connection.negotiatedTLSVersion)"))
+
+        connection.send(Frame(
+            kind: .connectionRole,
+            payload: Data([ConnectionRole.control.rawValue])
+        ))
+
+        // 2. Say who we are. `wantsPairing` is advisory: the Mac decides, because only the
+        //    Mac knows its own pin store.
+        let hostID = target.hostID
+        let knowsHost = hostID.map { pins.pin(for: $0) != nil } ?? false
+        connection.send(.clientHello, ClientHello(
+            clientID: clientID,
+            clientName: clientName,
+            protocolVersion: ProtocolInfo.version,
+            wantsPairing: !knowsHost,
+            // Declared on every connection: it restrains the Mac, whose picture would otherwise land in a client that cannot read it.
+            supportsClipboardImages: true,
+            supportsTextFocus: true,
+            supportsFieldState: true,
+            supportsPointerReport: true,
+            supportsAgentChat: true,
+            supportsAgentPermissionModes: true,
+            supportsAgentUsage: true,
+            resumeSource: knowsHost ? resumeSource : nil,
+            lostPairing: hostID != nil && !knowsHost ? true : nil,
+            sessionRef: sessionRef
+        ))
+
+        lock.withLock {
+            state = .awaitingServerHello
+            _phase = .handshaking
+            connectStage = .handshake
+        }
+        emit(.phase(.handshaking))
+        armHandshakeDeadline(generation: generation)
+        coalescer.start()
+    }
+
+
+    // MARK: - Pairing
+
+    /// `secret` is the one from the Mac's QR code; digits typed by hand have none, and the Mac then asks its own user.
+    public func confirmPairing(accepted: Bool, secret: Data? = nil) {
+        lock.lock()
+        let canConfirm = state == .awaitingUserConfirmation
+        if accepted, canConfirm { state = .awaitingPairResult }
+        let transcript = pairingTranscript
+        lock.unlock()
+
+        guard canConfirm else { return }
+        let proof = secret.flatMap { secret in transcript.map { PairingSAS.proof(secret: secret, transcript: $0) } }
+        connection()?.send(.pairConfirm, PairConfirm(accepted: accepted, proof: proof))
+
+        guard accepted else {
+            emit(.note("Pairing declined."))
+            disconnect()
+            return
+        }
+    }
+}

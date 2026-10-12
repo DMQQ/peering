@@ -138,3 +138,115 @@ extension ClientSession {
         beginDirectPath(secret: grant.secret)
     }
 }
+
+extension ClientSession {
+    // MARK: - Video
+
+    /// Opens the second socket. Safe to call repeatedly; only the first call does anything.
+    public func openVideoIfNeeded() {
+        lock.lock()
+        let alreadyOpen = video != nil
+        // A relayed session has no second socket: its control connection is its video connection, and the loopback this would dial is a consumed one-shot listener, which fails as "video connection ended" on a streaming session. See ``usesRelayedSingleStream``.
+        guard !alreadyOpen, !usesRelayedSingleStream, wantsPicture, state == .ready,
+              let serverKey = _serverKey,
+              let hello = _serverHello, let endpoint = control?.remoteEndpoint
+        else {
+            lock.unlock()
+            return
+        }
+        // An attempt now is the one the ladder was waiting for, so the wait goes; the rung is not given back, since a socket that opens and dies again must be counted.
+        let pending = videoReconnectTask
+        videoReconnectTask = nil
+        let connection = ClientConnection(label: "pl.dmq.peering.client.video")
+        video = connection
+        lock.unlock()
+        pending?.cancel()
+
+        connection.onFrame = { [weak self] frame in self?.handleVideoFrame(frame, from: .primary) }
+        connection.onClose = { [weak self, weak connection] failure in
+            guard let self, let connection else { return }
+            let (connectTask, generation, wasCurrent) = self.lock.withLock {
+                () -> (Task<Void, Never>?, UInt64, Bool) in
+                guard self.video === connection else {
+                    // A socket that something else replaced. Its close says nothing about the
+                    // session, and arming a reconnect over the socket that replaced it would be
+                    // dialling over a picture that is already there.
+                    return (nil, self.connectGeneration, false)
+                }
+                self.video = nil
+                let task = self.videoConnectTask
+                self.videoConnectTask = nil
+                return (task, self.connectGeneration, true)
+            }
+            connectTask?.cancel()
+            // A cancellation is our own doing; reporting it would show "video connection ended" after a deliberate disconnect.
+            guard failure != .cancelled else { return }
+            // Belongs to the socket that was actually carrying the picture: reporting a replaced
+            // socket's end would put "the picture has stopped" over a picture already flowing.
+            guard wasCurrent else { return }
+            self.emit(.video(.ended(failure.errorDescription ?? "video connection ended")))
+            self.scheduleVideoReconnect(generation: generation)
+        }
+
+        emit(.video(.connecting))
+
+        let task = Task { [weak self, weak connection] in
+            guard let self, let connection else { return }
+            do {
+                try await connection.connect(
+                    to: endpoint,
+                    identity: self.identity,
+                    pinnedServerKey: self.pins.pin(for: hello.serverID) ?? serverKey,
+                    timeout: 10
+                )
+            } catch {
+                guard !Task.isCancelled else { return }
+                self.emit(.video(.ended(
+                    (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                )))
+                return
+            }
+
+            guard !Task.isCancelled,
+                  // Asked again after the handshake because a pause can arrive during one: the role byte below makes the Mac start capturing.
+                  self.lock.withLock({ self.video === connection && self.wantsPicture })
+            else {
+                connection.cancel()
+                return
+            }
+
+            connection.send(Frame(
+                kind: .connectionRole,
+                payload: Data([ConnectionRole.video.rawValue])
+            ))
+            self.emit(.note("Video channel open; waiting for the Mac to start streaming."))
+        }
+        lock.withLock {
+            if video === connection {
+                videoConnectTask = task
+            } else {
+                task.cancel()
+            }
+        }
+    }
+
+    public func retryVideoAfterNetworkChange() {
+        lock.lock()
+        guard state == .ready, wantsPicture, !usesRelayedSingleStream else {
+            lock.unlock()
+            return
+        }
+        let pending = videoReconnectTask
+        videoReconnectTask = nil
+        videoReconnectLadder.reset()
+        let stale = video
+        video = nil
+        let connecting = videoConnectTask
+        videoConnectTask = nil
+        lock.unlock()
+        pending?.cancel()
+        connecting?.cancel()
+        stale?.cancel()
+        openVideoIfNeeded()
+    }
+}

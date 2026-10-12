@@ -75,16 +75,8 @@ final class SessionModel {
     var pairingLink: (url: URL, receivedAt: ContinuousClock.Instant)?
 
     /// Re-derived from Bonjour at the dial, which is the one moment it cannot be trusted: after a backgrounding its mDNS results are stale and a re-browse takes seconds. Kept on disk so a relaunch dials at once; an address from a network since left loses the race to the relay. See ``DialRace``.
-    private var lastLANHosts: [String: DiscoveredHost] = RememberedLANHosts.load() {
+    var lastLANHosts: [String: DiscoveredHost] = RememberedLANHosts.load() {
         didSet { RememberedLANHosts.save(lastLANHosts) }
-    }
-
-    func rememberLANHost(_ host: DiscoveredHost) {
-        lastLANHosts[host.id] = host
-    }
-
-    func rememberedLANHost(_ hostID: String) -> DiscoveredHost? {
-        lastLANHosts[hostID]
     }
 
     static let standardConnectTimeout: TimeInterval = 10
@@ -96,30 +88,6 @@ final class SessionModel {
     var relayPresence: [String: Bool] = [:]
     var relayReachable: Bool? = nil
 
-    /// Not a `Bool`: "not reachable" is two facts and only one is about the Mac.
-    enum Reachability: Equatable {
-        case nearby
-        case viaRelay
-        /// Not quite "switched off": a Mac can be awake on its own network while registered nowhere.
-        case notRegistered
-        case unknown
-
-        var isReachable: Bool {
-            switch self {
-            case .nearby, .viaRelay: return true
-            case .notRegistered, .unknown: return false
-            }
-        }
-    }
-
-    func reachability(ofHost hostID: String) -> Reachability {
-        if hosts.contains(where: { $0.id == hostID }) { return .nearby }
-        switch relayPresence[hostID] {
-        case true?: return .viaRelay
-        case false?: return .notRegistered
-        case nil: return .unknown
-        }
-    }
     var browseStatus = String(localized: "Looking for Macs on this network…")
     var tlsDescription: String?
 
@@ -362,52 +330,12 @@ final class SessionModel {
 
     static let resumeKey = "Peering.resumeWhenReachable"
 
-    /// Read off the session on screen, because the card describes one Mac.
-    var isReconnecting: Bool {
-        get { activeSession?.isReconnecting ?? false }
-        set { activeSession?.isReconnecting = newValue }
-    }
-
-    /// The rule is ``SessionResume``'s; screens ask here to read one answer.
-    var isResumingAfterDrop: Bool { activeSession?.isResumingAfterDrop ?? false }
-
-    var isBeingPutBack: Bool { activeSession?.isBeingPutBack ?? false }
-
-    /// Spread out: the usual cause is a sleeping Mac or a brief network loss, and retrying every second spends radio and battery on an unchanged answer. Five attempts over about forty seconds cover a Wi-Fi roam and a Mac waking.
-    static let reconnectDelays: [Duration] = [
-        .seconds(1), .seconds(2), .seconds(5), .seconds(10), .seconds(20),
-    ]
-
-    /// A resume is silent, so "still coming back" and "gone" look alike and the only difference the user can act on is how long they wonder: hence short, with a nearly immediate first rung.
-    /// The two ladders share a counter: `reconnectAttempt` indexes into whichever is in use and is carried across a dial, so the shorter simply runs out sooner.
-    /// Long enough to outlast the Mac app restarting (quit, relaunch, listening again), which takes more than the first three rungs: they ended the resume in about four seconds, before a restarted Mac was up.
-    static let resumeReconnectDelays: [Duration] = [
-        .milliseconds(250), .seconds(1), .seconds(3), .seconds(5), .seconds(8), .seconds(10),
-    ]
-
-    /// A rung is a wait plus a dial that can take ten seconds to fail, so "three rungs" is not a duration, and a dial that never answers is not bounded by the count. This bound does not depend on the network answering and covers the restoration, which dials once with no ladder.
-    static let reconnectWindow: TimeInterval = 30
-
-    var reconnectTask: Task<Void, Never>? {
-        get { activeSession?.reconnectTask }
-        set { activeSession?.reconnectTask = newValue }
-    }
-
-    var reconnectAttempt: Int {
-        get { activeSession?.reconnectAttempt ?? 0 }
-        set { activeSession?.reconnectAttempt = newValue }
-    }
-
     /// Coming back to the foreground races the teardown of the session that just ended: its cancelled socket is not finished with, so the connect aborts before it starts. It clears within a second and nobody asked for this attempt, so nobody is told.
     var isResuming = false
 
-    /// One flag for every Mac, so the last to finish clears it, asked of the sessions.
-    func clearResumingIfNothingIsUnderWay() {
-        guard !sessions.contains(where: { $0.isResumingAfterDrop }) else { return }
-        isResuming = false
-    }
-
     var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+    var backgroundNotice = BackgroundNoticeDebounce()
+    var backgroundNoticeTask: Task<Void, Never>?
 
     var thisDeviceDescription: String { "\(device.name) · \(device.id)" }
 

@@ -19,6 +19,24 @@ public enum PhoneFailure {
         case codeEntry, qr, commit, confirm, pinStore
     }
 
+    /// Why a pairing did not complete, from a closed set. Only `session` carries a name from outside this file, and that one is itself a closed enum.
+    public enum PairingReason: Equatable, Sendable {
+        case empty, pairingCodeNotAnID, notAPairingCode, notAnID, codeMismatch, cancelled
+        case session(ClientSession.FailureReason)
+
+        public var name: String {
+            switch self {
+            case .empty: "empty"
+            case .pairingCodeNotAnID: "pairingCodeNotAnID"
+            case .notAPairingCode: "notAPairingCode"
+            case .notAnID: "notAnID"
+            case .codeMismatch: "codeMismatch"
+            case .cancelled: "cancelled"
+            case .session(let reason): reason.rawValue
+            }
+        }
+    }
+
     public enum TransferDirection: String, Sendable {
         case up, down
     }
@@ -52,7 +70,7 @@ public enum PhoneFailure {
     }
 
     public static func agentProperties(stage: AgentStage, cause: Cause) -> [String: any Sendable] {
-        properties(stage: stage.rawValue, reason: cause.rawValue, code: nil)
+        properties(stage: stage, reason: cause.rawValue, code: nil)
     }
 
     /// What an error says about itself without its message: the broad kind, from the error's domain and code.
@@ -61,10 +79,14 @@ public enum PhoneFailure {
         case denied, notFound, diskFull, unreadable, hostReported, other
     }
 
-    public static func properties(stage: String?, reason: String, code: Int?, extra: [String: any Sendable] = [:]) -> [String: any Sendable] {
+    public static func properties(reason: String, code: Int?, extra: [String: any Sendable] = [:]) -> [String: any Sendable] {
+        properties(stage: Optional<PairingStage>.none, reason: reason, code: code, extra: extra)
+    }
+
+    public static func properties<Stage: RawRepresentable<String>>(stage: Stage?, reason: String, code: Int?, extra: [String: any Sendable] = [:]) -> [String: any Sendable] {
         var properties = extra
         properties["reason"] = reason
-        if let stage { properties["stage"] = stage }
+        if let stage { properties["stage"] = stage.rawValue }
         if let code { properties["error_code"] = code }
         return properties
     }
@@ -119,24 +141,24 @@ public enum PhoneFailure {
 
     // MARK: Pairing
 
-    public static func pairingReason(_ problem: PairingPayloadError) -> String {
+    public static func pairingReason(_ problem: PairingPayloadError) -> PairingReason {
         switch problem {
-        case .empty: "empty"
-        case .shortAuthenticationCode: "pairingCodeNotAnID"
-        case .unrecognisedCode: "notAPairingCode"
-        case .notAnIdentifier: "notAnID"
+        case .empty: .empty
+        case .shortAuthenticationCode: .pairingCodeNotAnID
+        case .unrecognisedCode: .notAPairingCode
+        case .notAnIdentifier: .notAnID
         }
     }
 
     /// The stage a refused pairing got to, from the reason and the connect stage the session had reached. A commitment that does not match the Mac's reveal reads as `handshake` at the pairing stage, and so as `commit`.
-    public static func pairingFailure(reason: ClientSession.FailureReason, stage: ConnectStage) -> (stage: PairingStage, reason: String)? {
+    public static func pairingFailure(reason: ClientSession.FailureReason, stage: ConnectStage) -> (stage: PairingStage, reason: PairingReason)? {
         switch reason {
-        case .pairingRefused: return (.confirm, reason.rawValue)
-        case .pairingNotSaved: return (.pinStore, reason.rawValue)
-        case .handshake where stage == .pairing: return (.commit, "codeMismatch")
+        case .pairingRefused: return (.confirm, .session(reason))
+        case .pairingNotSaved: return (.pinStore, .session(reason))
+        case .handshake where stage == .pairing: return (.commit, .codeMismatch)
         default:
             guard stage == .pairing else { return nil }
-            return (.commit, reason.rawValue)
+            return (.commit, .session(reason))
         }
     }
 
@@ -145,7 +167,7 @@ public enum PhoneFailure {
     public static func transferProperties(direction: TransferDirection, stage: TransferStage, error: Error, bytes: Int64?) -> [String: any Sendable] {
         let found = cause(of: error)
         return properties(
-            stage: stage.rawValue, reason: found.cause.rawValue, code: found.code,
+            stage: stage, reason: found.cause.rawValue, code: found.code,
             extra: ["direction": direction.rawValue, "size_bucket": bytes.map(ConnectionBuckets.bytes) ?? "unknown"]
         )
     }
@@ -209,6 +231,6 @@ public enum PhoneFailure {
 
     /// `OSStatus` from the keychain read, or -1 when the store was found but its contents would not decode.
     public static func pinStoreProperties(status: Int32?) -> [String: any Sendable] {
-        properties(stage: nil, reason: status == nil ? "undecodable" : "keychain", code: status.map(Int.init) ?? -1)
+        properties(reason: status == nil ? "undecodable" : "keychain", code: status.map(Int.init) ?? -1)
     }
 }
