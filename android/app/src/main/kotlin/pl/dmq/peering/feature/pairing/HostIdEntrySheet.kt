@@ -61,7 +61,7 @@ fun HostIdEntrySheet(
                     ControlRow(stringResource(R.string.pairing_entry_scan), AppIcons.qrScanner, Modifier.tappable(onScan))
                 }
             }
-            state.error?.let { Text(stringResource(it.messageRes()), style = PeeringText.caption, color = PeeringColors.ink) }
+            state.error?.let { Text(stringResource(it.messageRes()), style = PeeringText.caption, color = PeeringColors.danger) }
             PrimaryButton(stringResource(R.string.pairing_entry_submit), onClick = onSubmit, enabled = state.canSubmit)
         }
     }

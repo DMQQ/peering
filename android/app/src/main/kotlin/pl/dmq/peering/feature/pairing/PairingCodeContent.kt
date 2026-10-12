@@ -130,7 +130,7 @@ private fun ColumnScope.EnteringCode(screen: PairingCodeScreen.EnteringCode, act
     }
     if (actions.onScan != null) {
         Row(
-            Modifier.fillMaxWidth().height(40.dp).tappable(actions.onScan),
+            Modifier.fillMaxWidth().height(48.dp).tappable(actions.onScan),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {

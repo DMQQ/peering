@@ -43,7 +43,7 @@ internal fun SettingsTab(wiring: FeatureWiring) {
         plans -> {
             BackHandler { plans = false }
             PaywallRoute(
-                billing = StorePaywallBilling(wiring.billing) { context.findActivity() },
+                billing = remember(wiring) { StorePaywallBilling(wiring.billing) { context.findActivity() } },
                 allowance = wiring.relayAllowance.allowance,
                 reason = PaywallReason.Upgrade,
                 startsWithAllowanceNotice = false,

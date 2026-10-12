@@ -107,4 +107,35 @@ class OnboardingPresenterTest {
         assertTrue(store.isComplete())
         assertEquals(1, store.marks)
     }
+
+    @Test
+    fun startingFreeOnThePlansPageCompletesAndPersistsTheFirstRun() {
+        val store = FakeFirstRunStore()
+        val presenter = OnboardingPresenter(store, startAt = OnboardingStep.PLANS)
+
+        val action = plansAction(onPlans = true, freeChosen = true, entitled = false, hasProducts = true)
+        if (action == PlansAction.Finish) presenter.finish()
+
+        assertEquals(PlansAction.Finish, action)
+        assertTrue(presenter.ui.value.completed)
+        assertTrue(store.isComplete())
+    }
+
+    @Test
+    fun backWalksEveryTourPageToTheLandingInReverse() {
+        val presenter = OnboardingPresenter(FakeFirstRunStore(), startAt = OnboardingStep.PLANS)
+        val seen = mutableListOf(presenter.ui.value.step)
+        while (presenter.back()) seen += presenter.ui.value.step
+        assertEquals(OnboardingStep.entries.reversed(), seen)
+    }
+
+    @Test
+    fun goToJumpsBetweenTourPagesAndIsIgnoredOnceCompleted() {
+        val presenter = OnboardingPresenter(FakeFirstRunStore())
+        presenter.goTo(OnboardingStep.MOSAIC)
+        assertEquals(OnboardingStep.MOSAIC, presenter.ui.value.step)
+        presenter.finish()
+        presenter.goTo(OnboardingStep.PAIR)
+        assertEquals(OnboardingStep.MOSAIC, presenter.ui.value.step)
+    }
 }

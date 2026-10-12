@@ -22,12 +22,18 @@ data class HostListing(val paired: List<HostRow>, val nearby: List<HostRow>) {
                 else -> HostStatus.Unknown
             }
 
+            fun routeOf(id: String): HostRoute = when {
+                id in nearbyById -> HostRoute.Local
+                id in online -> HostRoute.Relay
+                else -> HostRoute.None
+            }
+
             val pairedRows = paired.map { host ->
-                HostRow(host.id, host.name ?: nearbyById[host.id]?.name, statusOf(host.id))
+                HostRow(host.id, host.name ?: nearbyById[host.id]?.name, statusOf(host.id), routeOf(host.id))
             }
             val nearbyRows = nearbyById.values
                 .filter { it.id !in pairedIds }
-                .map { HostRow(it.id, it.name, statusOf(it.id)) }
+                .map { HostRow(it.id, it.name, statusOf(it.id), HostRoute.Local) }
 
             return HostListing(
                 paired = HostOrdering.order(pairedRows),

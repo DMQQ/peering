@@ -7,7 +7,10 @@
     <string name="nav_faq">FAQ</string>
     <string name="faq_detail">Pairing, privacy, and what moves between your devices.</string>
 
-    <string name="connect_paired_heading">Trusted computers</string>
+    <string name="connect_paired_heading">Your computers</string>
+    <string name="connect_pair_new">Pair a new computer</string>
+    <string name="connect_status_local">On this network · tap to connect</string>
+    <string name="connect_status_relay">Online through the relay · tap to connect</string>
     <string name="connect_nearby_heading">Nearby</string>
     <string name="connect_search_again">Search again</string>
     <string name="connect_tagline">Your computer, from anywhere.</string>
@@ -421,6 +424,7 @@
     <string name="welcome_start">See how it works</string>
     <string name="tour_skip">Skip</string>
     <string name="tour_next">Next</string>
+    <string name="tour_back">Back</string>
     <string name="tour_get_started">Get started</string>
     <string name="tour_start_using">Start using Peering</string>
     <string name="tour_continue_with">Continue with %1$s · %2$s</string>
