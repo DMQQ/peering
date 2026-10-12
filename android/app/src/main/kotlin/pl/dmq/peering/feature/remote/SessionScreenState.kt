@@ -65,20 +65,22 @@ class SessionScreenState(openPanel: SessionPanel? = null, keyboardShown: Boolean
     fun backStep(): BackStep = BackStep.of(openPanel != null, keyboardShown)
 
     companion object {
+        /** Reads a saved bundle leniently: a field that is missing or no longer fits falls back to its default. */
+        internal fun restored(saved: List<Any?>): SessionScreenState {
+            val panel = (saved.getOrNull(0) as? String)?.let { name -> SessionPanel.entries.firstOrNull { it.name == name } }
+            val control = (saved.getOrNull(6) as? String)?.let { name -> InputMode.entries.firstOrNull { it.name == name } }
+            return SessionScreenState(openPanel = panel, keyboardShown = saved.getOrNull(1) as? Boolean ?: false).also {
+                it.dockExpanded = saved.getOrNull(2) as? Boolean ?: false
+                it.immersive = saved.getOrNull(3) as? Boolean ?: false
+                it.darkened = saved.getOrNull(4) as? Boolean ?: false
+                it.speed = saved.getOrNull(5) as? Double ?: JoystickMath.SPEEDS.first()
+                it.lastControl = if (control == null || control == InputMode.TRACKPAD) InputMode.DIRECT else control
+            }
+        }
+
         val Saver: Saver<SessionScreenState, Any> = listSaver(
             save = { listOf(it.openPanel?.name, it.keyboardShown, it.dockExpanded, it.immersive, it.darkened, it.speed, it.lastControl.name) },
-            restore = { saved ->
-                SessionScreenState(
-                    openPanel = (saved[0] as String?)?.let(SessionPanel::valueOf),
-                    keyboardShown = saved[1] as Boolean,
-                ).also {
-                    it.dockExpanded = saved[2] as Boolean
-                    it.immersive = saved[3] as Boolean
-                    it.darkened = saved[4] as Boolean
-                    it.speed = saved[5] as Double
-                    it.lastControl = InputMode.valueOf(saved[6] as String).let { mode -> if (mode == InputMode.TRACKPAD) InputMode.DIRECT else mode }
-                }
-            },
+            restore = ::restored,
         )
     }
 }

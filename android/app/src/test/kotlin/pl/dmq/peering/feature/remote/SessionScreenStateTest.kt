@@ -67,4 +67,23 @@ class SessionScreenStateTest {
         assertTrue(state.immersive)
         assertNull(state.openPanel)
     }
+
+    @Test
+    fun aSavedBundleWithAnUnknownPanelOrWrongTypesRestoresToDefaults() {
+        val restored = SessionScreenState.restored(listOf("GONE_PANEL", "yes", null, 1, "x", "fast", "NO_SUCH_MODE"))
+
+        assertNull(restored.openPanel)
+        assertFalse(restored.keyboardShown)
+        assertFalse(restored.dockExpanded)
+        assertEquals(InputMode.DIRECT, restored.lastControl)
+        assertEquals(JoystickMath.SPEEDS.first(), restored.speed, 0.0)
+    }
+
+    @Test
+    fun aShortSavedBundleRestoresWhatItHolds() {
+        val restored = SessionScreenState.restored(listOf("CLIPBOARD", true))
+
+        assertEquals(SessionPanel.CLIPBOARD, restored.openPanel)
+        assertTrue(restored.keyboardShown)
+    }
 }
