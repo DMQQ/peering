@@ -20,7 +20,7 @@ class DebugCommandReceiver : BroadcastReceiver() {
             is DebugCommand.Invalid -> Log.w(ACK_TAG, "rejected $cmd: ${parsed.reason}")
             is DebugCommand.Run -> {
                 val handled = try {
-                    TestBridge.invoke(parsed.action, parsed.argument)
+                    (parsed.action == "back" && TestBridge.invoke("hub-back", null)) || TestBridge.invoke(parsed.action, parsed.argument)
                 } catch (failure: RuntimeException) {
                     Log.e(ACK_TAG, "${parsed.action} failed", failure)
                     return

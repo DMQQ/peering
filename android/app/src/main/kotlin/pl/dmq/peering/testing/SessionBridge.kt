@@ -48,8 +48,8 @@ internal fun SessionBridge(
                 )
             },
             actions = mapOf(
-                "hub" to { arg -> hub(arg, shown.value, openHub, setRoute) },
-                "terminal-list" to { hub("terminals", shown.value, openHub, setRoute) },
+                "hub" to { arg -> hub(arg, openHub) },
+                "terminal-list" to { hub("terminals", openHub) },
                 "files-open" to { arg -> controller.files?.list(arg?.takeUnless { it == HOME }) },
                 "files-preview" to { arg -> arg?.let { controller.files?.preview(it) } },
             ),
@@ -57,11 +57,14 @@ internal fun SessionBridge(
     }
 }
 
-private fun hub(arg: String?, route: SessionRoute, openHub: () -> Unit, setRoute: (SessionRoute) -> Unit) {
+/** The hub is its own activity: a tab command opens it when it is not up, and close finishes it. */
+private fun hub(arg: String?, openHub: () -> Unit) {
     if (arg == "close") {
-        setRoute(SessionRoute.REMOTE)
+        TestBridge.invoke("hub-close", null)
         return
     }
-    if (route != SessionRoute.HUB) openHub()
-    TestBridge.invokeWhenAvailable("hub-tab", arg)
+    if (!TestBridge.invoke("hub-tab", arg)) {
+        openHub()
+        TestBridge.invokeWhenAvailable("hub-tab", arg)
+    }
 }

@@ -2,8 +2,8 @@ package pl.dmq.peering.ui.nav
 
 import androidx.compose.animation.AnimatedContent
 import pl.dmq.peering.ui.kit.modalMotion
-import pl.dmq.peering.ui.kit.pushMotion
 import pl.dmq.peering.ui.kit.motionTransition
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -63,8 +63,8 @@ import pl.dmq.peering.feature.remote.HubEntry
 import pl.dmq.peering.ui.theme.FailureNotice
 import pl.dmq.peering.ui.wiring.messageRes
 
-/** The screens a session presents over its remote screen. */
-enum class SessionRoute { REMOTE, HUB, PAYWALL }
+/** The screens a session presents over its remote screen. The hub is not one: it is its own activity. */
+enum class SessionRoute { REMOTE, PAYWALL }
 
 /**
  * The session's screens, one at a time. Back returns to the remote screen from the others. [onClose] leaves the screen
@@ -74,14 +74,11 @@ enum class SessionRoute { REMOTE, HUB, PAYWALL }
 internal fun SessionScreens(
     active: ActiveSession,
     picture: SurfacePicture,
-    drafts: ComposerDraftStore,
-    folderRecents: FolderRecentsStore,
     settings: SettingsStore,
     devicePrefs: DevicePreferences,
     macros: MacroStore,
     billing: PlayBilling,
     relayAllowance: RelayAllowanceTracker,
-    clock: Clock,
     onClose: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
@@ -100,7 +97,8 @@ internal fun SessionScreens(
             relayAllowance = relayAllowance.allowance,
             onDisconnect = onDisconnect,
             onLeave = onClose,
-            onOpen = { route = it },
+            onOpenHub = { context.startActivity(Intent(context, HubActivity::class.java)) },
+            onOpenPaywall = { route = SessionRoute.PAYWALL },
         )
     }
     val session by active.controller.state.collectAsState()
@@ -119,18 +117,12 @@ internal fun SessionScreens(
     AnimatedContent(
         targetState = route,
         transitionSpec = {
-            val kind = if (initialState == SessionRoute.HUB || targetState == SessionRoute.HUB) {
-                pushMotion(initialState == SessionRoute.HUB, targetState == SessionRoute.HUB)
-            } else {
-                modalMotion(initialState != SessionRoute.REMOTE, targetState != SessionRoute.REMOTE)
-            }
-            motionTransition(kind, 0)
+            motionTransition(modalMotion(initialState != SessionRoute.REMOTE, targetState != SessionRoute.REMOTE), 0)
         },
         label = "sessionRoute",
     ) { shown ->
         when (shown) {
             SessionRoute.REMOTE -> RemoteWithNotice(remote, session.phase)
-            SessionRoute.HUB -> SessionHub(active, drafts, folderRecents, clock) { route = SessionRoute.REMOTE }
             SessionRoute.PAYWALL -> PaywallRoute(
                 billing = StorePaywallBilling(billing) { context.findActivity() },
                 allowance = relayAllowance.allowance,
@@ -169,14 +161,12 @@ internal fun AgentsScreen(
     folderRecents: FolderRecentsStore,
     guideStore: KeyValueStore,
     clock: Clock,
-    onBack: () -> Unit,
 ) {
     val chat = active.controller.agentChat
     if (chat == null) {
-        Unavailable(R.string.session_unavailable_agents, onBack)
+        Unavailable(R.string.session_unavailable_agents)
         return
     }
-    BackHandler(onBack = onBack)
     AgentsRoute(
         port = remember(chat) { ChatAgentsPort(chat) },
         recents = remember(folderRecents, active.target.hostId) {
@@ -195,10 +185,9 @@ internal fun AgentsScreen(
 internal fun FilesScreen(active: ActiveSession, onBack: () -> Unit, hosted: Boolean = false) {
     val browser = active.controller.files
     if (browser == null) {
-        Unavailable(R.string.session_unavailable_files, onBack)
+        Unavailable(R.string.session_unavailable_files)
         return
     }
-    BackHandler(onBack = onBack)
     val resolver = LocalContext.current.contentResolver
     val scope = rememberCoroutineScope()
     val port = remember(browser) {
@@ -210,8 +199,7 @@ internal fun FilesScreen(active: ActiveSession, onBack: () -> Unit, hosted: Bool
 }
 
 @Composable
-private fun Unavailable(textRes: Int, onBack: () -> Unit) {
-    BackHandler(onBack = onBack)
+private fun Unavailable(textRes: Int) {
     Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Text(text = stringResource(textRes), style = MaterialTheme.typography.bodyMedium, color = PeeringColors.muted)
     }

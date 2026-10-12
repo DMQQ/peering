@@ -22,6 +22,7 @@ internal class SurfacePicture : VideoSink, SurfaceListener {
     private var surface: Surface? = null
     private var decoder: CodecDecoder? = null
     private var config: VideoStreamConfig? = null
+    private val returns = SurfaceReturn()
 
     /** The size of the stream the Mac is sending, or null before its first config. */
     val pixelSize: StateFlow<PixelSize?> = size.asStateFlow()
@@ -45,7 +46,12 @@ internal class SurfacePicture : VideoSink, SurfaceListener {
         config = null
     }
 
+    /** True when the last surface replaced one that was showing the stream, so the stream needs a fresh keyframe. */
+    var surfaceReturnedWithoutKeyframe = false
+        private set
+
     override fun onSurfaceAvailable(surface: Surface) {
+        surfaceReturnedWithoutKeyframe = returns.available()
         this.surface = surface
         val created = CodecDecoder(surface)
         decoder = created
@@ -55,6 +61,7 @@ internal class SurfacePicture : VideoSink, SurfaceListener {
     override fun onSurfaceSizeChanged(width: Int, height: Int) = Unit
 
     override fun onSurfaceGone() {
+        returns.gone(hadPicture = decoder != null && config != null)
         decoder?.onStop()
         decoder = null
         surface = null

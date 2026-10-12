@@ -161,14 +161,11 @@ internal fun ConnectTab(wiring: FeatureWiring) {
                 SessionScreens(
                     active = current,
                     picture = wiring.picture,
-                    drafts = wiring.drafts,
-                    folderRecents = wiring.folderRecents,
                     settings = wiring.settings,
                     devicePrefs = wiring.devicePrefs,
                     macros = wiring.macros,
                     billing = wiring.billing,
                     relayAllowance = wiring.relayAllowance,
-                    clock = wiring.clock,
                     onClose = { showingSession = false },
                     onDisconnect = {
                         showingSession = false

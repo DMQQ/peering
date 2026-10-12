@@ -58,7 +58,8 @@ fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = 
             !list.up() -> onBack()
         }
     }
-    BackHandler(onBack = ::goBack)
+    // A hosted page at its root leaves back to the hub's activity, so the system's own back animation can play.
+    BackHandler(enabled = !hosted || previewUi != null || listUi.isSelecting || searching || listUi.canGoUp, onBack = ::goBack)
 
     val pickDocuments = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         list.upload(uris.map { it.toString() })

@@ -6,6 +6,9 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
+    <!-- Opaque, with no windowAnimationStyle and no translucency, so the system's own activity transitions play. -->
+    <style name="Theme.Peering.Hub" parent="Theme.Peering" />
+
     <style name="Theme.Peering.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/backdrop</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>

@@ -1,7 +1,6 @@
 package pl.dmq.peering.ui.wiring
 
 import android.content.Context
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -29,8 +28,7 @@ import pl.dmq.peering.ui.theme.PeeringColors
 
 /** The Terminals page over the active session's shells, or a line saying there are none to offer. */
 @Composable
-internal fun TerminalHost(active: ActiveSession, guideStore: KeyValueStore, onFiles: (() -> Unit)?, onBack: () -> Unit) {
-    BackHandler(onBack = onBack)
+internal fun TerminalHost(active: ActiveSession, guideStore: KeyValueStore, onFiles: (() -> Unit)?) {
     val sessions = active.controller.terminals
     if (sessions == null) {
         Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {

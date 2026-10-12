@@ -1,5 +1,6 @@
 package pl.dmq.peering.ui.wiring
 
+import android.view.Surface
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +20,6 @@ import pl.dmq.peering.feature.remote.SurfaceListener
 import pl.dmq.peering.feature.remote.relayMinutesLeft
 import pl.dmq.peering.feature.settings.DevicePreferences
 import pl.dmq.peering.session.controller.SessionController
-import pl.dmq.peering.ui.nav.SessionRoute
 
 /** The remote screen over the live session: its state, its input, and the picture's surface. */
 internal class ControllerRemoteModel(
@@ -32,7 +32,8 @@ internal class ControllerRemoteModel(
     relayAllowance: StateFlow<RelayAllowance>,
     private val onDisconnect: () -> Unit,
     private val onLeave: () -> Unit,
-    private val onOpen: (SessionRoute) -> Unit,
+    private val onOpenHub: () -> Unit,
+    private val onOpenPaywall: () -> Unit,
 ) : RemoteModel {
     override val statusPillMemory = StatusPillMemory()
 
@@ -42,7 +43,13 @@ internal class ControllerRemoteModel(
 
     override val commands: CommandSink = CommandSink { controller.send(it) }
 
-    override val surface: SurfaceListener = picture
+    // The hub is its own activity, so this screen's surface is destroyed while it is open and the stream restarts on return.
+    override val surface: SurfaceListener = object : SurfaceListener by picture {
+        override fun onSurfaceAvailable(surface: Surface) {
+            picture.onSurfaceAvailable(surface)
+            if (picture.surfaceReturnedWithoutKeyframe) controller.retryPicture()
+        }
+    }
 
     override val clipboard: ClipboardPort = object : ClipboardPort {
         override val history = controller.clipboardHistory.entries
@@ -56,7 +63,7 @@ internal class ControllerRemoteModel(
 
     override fun onHubEntry(entry: HubEntry) {
         when (entry) {
-            HubEntry.HUB -> onOpen(SessionRoute.HUB)
+            HubEntry.HUB -> onOpenHub()
             HubEntry.DISCONNECT -> onDisconnect()
         }
     }
@@ -67,7 +74,7 @@ internal class ControllerRemoteModel(
         controller.retryPicture()
     }
 
-    override fun onRelayUpgradeRequested() = onOpen(SessionRoute.PAYWALL)
+    override fun onRelayUpgradeRequested() = onOpenPaywall()
 
     private fun hubCapabilities(): HubCapabilities =
         HubCapabilities(
