@@ -65,6 +65,7 @@ internal class ConnectedLink(
     private val clipboard: ClipboardHistory,
     private val tally: ByteTally,
     private val note: (String) -> Unit,
+    lanPeerKey: ByteArray?,
 ) {
     private val liveness = LivenessMonitor(clock)
     val commands = SessionCommands(hello)
@@ -78,7 +79,7 @@ internal class ConnectedLink(
     private val picture: PictureWatch = PictureWatch(
         clock,
         lane = route.path.takeIf { it == SessionRecord.Path.LAN }?.let {
-            LanVideoLane(videoConnector, route.videoPeer, PictureSink(streamRecord, selection::onVideoConfig, seen), tally)
+            LanVideoLane(videoConnector, route.videoPeer, lanPeerKey, PictureSink(streamRecord, selection::onVideoConfig, seen), tally)
         },
     )
     private var automatic: AutoQualityPolicy? = null

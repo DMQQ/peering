@@ -240,6 +240,7 @@ internal class LinkRunner(
         clipboard = ports.clipboardHistory,
         tally = recorder.tally,
         note = recorder::note,
+        lanPeerKey = ports.pins.pin(hello.serverID) ?: route.transport.peerPublicKey(),
     )
 
     private companion object {

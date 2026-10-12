@@ -64,6 +64,9 @@ class ControllerRig(
     /** When false, a picture connection cannot be opened, as when the host refuses it. */
     var videoReachable = true
 
+    /** The key the picture connection presents; a test sets another to stand for a spoofed address. */
+    var videoPeerKey: ByteArray = ScriptedPairingHost.HOST_KEY
+
     /** The picture connections opened so far, in order. */
     val videoConnections = mutableListOf<ScriptedVideoConnection>()
     val sink = FakeVideoSink()
@@ -83,7 +86,7 @@ class ControllerRig(
             routes += route
             if (route is ControlRoute.Video) {
                 check(videoReachable) { "the picture connection is refused" }
-                return@ControlConnector ScriptedVideoConnection().also { videoConnections += it }
+                return@ControlConnector ScriptedVideoConnection(videoPeerKey).also { videoConnections += it }
             }
             check(reachable) { "the host is not reachable" }
             if (route is ControlRoute.Direct && route.address in refusing) throw java.net.ConnectException("refused")
