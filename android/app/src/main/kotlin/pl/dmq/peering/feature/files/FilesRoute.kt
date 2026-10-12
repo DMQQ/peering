@@ -12,11 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -37,24 +34,18 @@ fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = 
     val preview = remember(port) { FilePreviewPresenter(port, scope) }
     val listUi by list.ui.collectAsState()
     val previewUi by preview.ui.collectAsState()
-    var searching by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(port) {
         if (port.state.value.listing == null) port.open(null)
     }
     FileLaunchers(list, preview)
-    ReportHubPage(HubTab.FILES, atRoot = previewUi == null && !searching)
-
-    fun closeSearch() {
-        list.setQuery("")
-        searching = false
-    }
+    ReportHubPage(HubTab.FILES, atRoot = previewUi == null)
 
     fun goBack() {
         when {
             previewUi != null -> preview.close()
             listUi.isSelecting -> list.clearSelection()
-            searching -> closeSearch()
+            listUi.query.isNotEmpty() -> list.setQuery("")
             !list.up() -> onBack()
         }
     }
@@ -73,15 +64,12 @@ fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = 
             when {
                 open != null -> PreviewTopBar(open, preview)
                 listUi.isSelecting -> Box(Modifier.belowHubSwitcher()) { SelectionTopBar(listUi, list) }
-                searching -> SearchTopBar(listUi.query, list::setQuery, ::closeSearch)
-                else -> Box(Modifier.belowHubSwitcher()) {
-                    FolderTopBar(listUi, list, onBack = if (hosted) null else ::goBack, onSearch = { searching = true })
-                }
+                !hosted -> FolderTopBar(listUi, onBack = ::goBack)
             }
         },
-        floatingActionButton = {
-            if (previewUi == null && !listUi.isSelecting && !searching && listUi.path != null) {
-                NewEntryButton(enabled = listUi.canChange, presenter = list, onUpload = { pickDocuments.launch(arrayOf("*/*")) })
+        bottomBar = {
+            if (previewUi == null && listUi.path != null) {
+                FilesBottomBar(listUi, list, onUpload = { pickDocuments.launch(arrayOf("*/*")) })
             }
         },
     ) { padding ->
@@ -89,8 +77,8 @@ fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = 
         if (open != null) {
             FilePreviewScreen(presenter = preview, modifier = Modifier.padding(padding))
         } else {
-            Column(modifier = Modifier.padding(padding)) {
-                if (listUi.breadcrumbs.isNotEmpty()) BreadcrumbBar(listUi.breadcrumbs, onGoTo = list::goTo)
+            val underSwitcher = if (hosted && !listUi.isSelecting) Modifier.belowHubSwitcher() else Modifier
+            Column(modifier = Modifier.padding(padding).then(underSwitcher)) {
                 FileBanners(listUi, list)
                 FileList(listUi, list, modifier = Modifier.weight(1f))
             }

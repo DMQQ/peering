@@ -4,6 +4,7 @@
     <string name="files_close_search">Close search</string>
     <string name="files_clear_query">Clear</string>
     <string name="files_refresh">Refresh</string>
+    <string name="files_sort">Change the order</string>
     <string name="files_more">More options</string>
     <string name="files_sort_by">Sort by</string>
     <string name="files_new">New</string>
