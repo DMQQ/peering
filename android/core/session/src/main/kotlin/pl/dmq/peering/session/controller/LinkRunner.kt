@@ -122,8 +122,8 @@ internal class LinkRunner(
         val frames = ReaderLoop.inbound()
         val handshakeDone = AtomicBoolean(false)
         val writer = WriterLoop(route.transport, recorder.tally)
-        launchLinkTask(ended) { writer.run() }
-        launchLinkTask(ended) {
+        launchLinkTask(ended, recorder::note) { writer.run() }
+        launchLinkTask(ended, recorder::note) {
             withContext(ports.readerContext) {
                 ReaderLoop(route.transport.received, frames, recorder.tally, { !handshakeDone.get() }) {
                     ended.complete(LinkEnd.Terminal(SessionFailure.MalformedFrame))
@@ -195,26 +195,7 @@ internal class LinkRunner(
         frames: ReceiveChannel<Frame>,
     ): ConnectedLink {
         services.attach(hello)
-        val live = ConnectedLink(
-            hello = hello,
-            route = route,
-            clock = ports.clock,
-            writer = writer,
-            frames = frames,
-            sink = ports.sink,
-            onPicture = onPicture,
-            videoConnector = ports.control,
-            selection = selection,
-            agent = services.agentChat,
-            files = services.fileBrowser,
-            terminals = services.terminals,
-            preview = services.preview,
-            relay = ports.relay?.let { RelayConnect(it.signalling, ports.identity, ports.clock) },
-            quality = ports.quality.choice(),
-            ceiling = QualityCeiling.of(route.path, ports.quality.unlimitedRelay()),
-            clipboard = ports.clipboardHistory,
-            tally = recorder.tally,
-        )
+        val live = connectedLink(hello, route, writer, frames)
         link = live
         everReady = true
         onReady()
@@ -233,6 +214,33 @@ internal class LinkRunner(
         }
         return live
     }
+
+    private fun connectedLink(
+        hello: ServerHello,
+        route: OpenedRoute,
+        writer: WriterLoop,
+        frames: ReceiveChannel<Frame>,
+    ) = ConnectedLink(
+        hello = hello,
+        route = route,
+        clock = ports.clock,
+        writer = writer,
+        frames = frames,
+        sink = ports.sink,
+        onPicture = onPicture,
+        videoConnector = ports.control,
+        selection = selection,
+        agent = services.agentChat,
+        files = services.fileBrowser,
+        terminals = services.terminals,
+        preview = services.preview,
+        relay = ports.relay?.let { RelayConnect(it.signalling, ports.identity, ports.clock) },
+        quality = ports.quality.choice(),
+        ceiling = QualityCeiling.of(route.path, ports.quality.unlimitedRelay()),
+        clipboard = ports.clipboardHistory,
+        tally = recorder.tally,
+        note = recorder::note,
+    )
 
     private companion object {
         const val CLIENT_PLATFORM = "android"
