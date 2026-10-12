@@ -4,14 +4,14 @@ import Foundation
 public struct HostErrorLimiter: Sendable {
     public static let window: TimeInterval = 60
 
-    private var lastSent: [HostEventCodes.ErrorCode: Date] = [:]
+    private var lastSent: [HostEventCodes.ErrorCode: ContinuousClock.Instant] = [:]
     private var suppressed: [HostEventCodes.ErrorCode: Int] = [:]
 
     public init() {}
 
     /// The number of occurrences this event stands for (1 or more), or `nil` when it is held back.
-    public mutating func admit(_ code: HostEventCodes.ErrorCode, at now: Date) -> Int? {
-        if let last = lastSent[code], now.timeIntervalSince(last) < Self.window {
+    public mutating func admit(_ code: HostEventCodes.ErrorCode, at now: ContinuousClock.Instant) -> Int? {
+        if let last = lastSent[code], now - last < .seconds(Self.window) {
             suppressed[code, default: 0] += 1
             return nil
         }

@@ -6,7 +6,7 @@ import Testing
 
 @Suite("Live Activity push planner")
 struct LiveActivityPushPlannerTests {
-    private let t0 = Date(timeIntervalSince1970: 1_000_000)
+    private let t0 = ContinuousClock.now
 
     private func tokens(_ kind: LiveActivityKind, token: String? = "aa", start: String? = nil) -> ActivityTokenPayload {
         ActivityTokenPayload(activity: kind, pushToken: token, pushToStartToken: start, environment: .production)

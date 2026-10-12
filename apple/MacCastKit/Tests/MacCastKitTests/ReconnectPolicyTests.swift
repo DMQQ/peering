@@ -4,7 +4,7 @@ import Testing
 @testable import MacCastKit
 
 struct ReconnectPolicyTests {
-    private let start = Date(timeIntervalSince1970: 5_000)
+    private let start = ContinuousClock.now
 
     @Test func delaysGrowWithEachFailureAndStopAtTheLast() {
         var policy = ReconnectPolicy()

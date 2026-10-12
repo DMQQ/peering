@@ -10,7 +10,7 @@ enum HostTelemetry {
     static func error(
         _ code: HostEventCodes.ErrorCode, stage: HostEventCodes.ErrorStage? = nil, errorCode: Int? = nil, recovered: Bool? = nil, sessionRef: String? = nil
     ) {
-        guard let count = limiter.withLock({ $0.admit(code, at: Date()) }) else { return }
+        guard let count = limiter.withLock({ $0.admit(code, at: .now) }) else { return }
         var properties: [String: Any] = ["code": code.rawValue, "count": count]
         if let stage { properties["stage"] = stage.rawValue }
         if let errorCode { properties["error_code"] = errorCode }

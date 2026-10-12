@@ -11,21 +11,21 @@ public struct NotificationHoldQueue<Item: Sendable>: Sendable {
     public struct Entry: Sendable {
         public let item: Item
         public let token: String
-        public let at: Date
+        public let at: ContinuousClock.Instant
     }
 
     private var entries: [Entry] = []
-    private var lastPlain: [String: Date] = [:]
+    private var lastPlain: [String: ContinuousClock.Instant] = [:]
 
     public init() {}
 
     public var count: Int { entries.count }
 
     /// - Returns: how many entries were dropped to make room, or nil when the new one was held back by the cooldown.
-    public mutating func add(_ item: Item, token: String, source: String?, answerable: Bool, now: Date) -> Int? {
+    public mutating func add(_ item: Item, token: String, source: String?, answerable: Bool, now: ContinuousClock.Instant) -> Int? {
         let key = token + "|" + (source ?? "")
         if !answerable {
-            if let last = lastPlain[key], now.timeIntervalSince(last) < Self.cooldown { return nil }
+            if let last = lastPlain[key], now - last < .seconds(Self.cooldown) { return nil }
             lastPlain[key] = now
         }
         var dropped = discardExpired(now: now)
@@ -37,7 +37,7 @@ public struct NotificationHoldQueue<Item: Sendable>: Sendable {
     }
 
     /// Takes everything still worth sending, oldest first.
-    public mutating func drain(now: Date) -> [Entry] {
+    public mutating func drain(now: ContinuousClock.Instant) -> [Entry] {
         _ = discardExpired(now: now)
         defer { entries.removeAll() }
         return entries
@@ -61,10 +61,10 @@ public struct NotificationHoldQueue<Item: Sendable>: Sendable {
         lastPlain.removeAll()
     }
 
-    private mutating func discardExpired(now: Date) -> Int {
+    private mutating func discardExpired(now: ContinuousClock.Instant) -> Int {
         let before = entries.count
-        entries.removeAll { now.timeIntervalSince($0.at) > Self.timeToLive }
-        lastPlain = lastPlain.filter { now.timeIntervalSince($0.value) <= Self.timeToLive }
+        entries.removeAll { now - $0.at > .seconds(Self.timeToLive) }
+        lastPlain = lastPlain.filter { now - $0.value <= .seconds(Self.timeToLive) }
         return before - entries.count
     }
 

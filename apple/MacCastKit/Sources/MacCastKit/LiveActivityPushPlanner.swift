@@ -3,7 +3,7 @@ import RemoteCore
 
 /// Decides which Live Activity pushes one phone is owed, from the true state and where the phone is.
 ///
-/// Pure: it takes the time as an argument and says when it next needs one (``nextDue``), so the host owns the timer and tests need no sleeping.
+/// Pure: it takes a monotonic instant as an argument and says when it next needs one (``nextDue``), so the host owns the timer and tests need no sleeping.
 public struct LiveActivityPushPlanner: Sendable {
     /// The relay lets a token through at one a second once its burst is spent.
     public static let minimumGap: TimeInterval = 1
@@ -15,7 +15,7 @@ public struct LiveActivityPushPlanner: Sendable {
         var lastSent: Sent?
         var startSent = false
         /// When the headline became work that has stopped, for the linger.
-        var settledSince: Date?
+        var settledSince: ContinuousClock.Instant?
         /// The state each chat was last announced in, so an alert goes out once per change and not again when the phone comes back.
         var announced: [String: LiveActivityChat.State] = [:]
     }
@@ -32,7 +32,7 @@ public struct LiveActivityPushPlanner: Sendable {
 
     private var channels: [LiveActivityKind: Channel] = [:]
     /// When each token was last pushed to. The relay limits per token, so the gap is too, whichever card the push was for.
-    private var lastPushAt: [String: Date] = [:]
+    private var lastPushAt: [String: ContinuousClock.Instant] = [:]
     private var latest: LiveActivityTruth?
     private var presence = PhonePresence.gone
     private var held = false
@@ -70,7 +70,7 @@ public struct LiveActivityPushPlanner: Sendable {
     public mutating func observe(
         _ truth: LiveActivityTruth?,
         presence: PhonePresence,
-        now: Date,
+        now: ContinuousClock.Instant,
         ignoringGap: Bool = false
     ) -> [LiveActivityCommand] {
         latest = truth
@@ -79,13 +79,13 @@ public struct LiveActivityPushPlanner: Sendable {
     }
 
     /// When an update held back for the rate limit should go, or a card about finished work should come down.
-    public var nextDue: Date? {
-        let lingering = channels.values.compactMap { channel -> Date? in
-            guard let due = channel.settledSince?.addingTimeInterval(Self.finishedLinger) else { return nil }
+    public var nextDue: ContinuousClock.Instant? {
+        let lingering = channels.values.compactMap { channel -> ContinuousClock.Instant? in
+            guard let due = channel.settledSince?.advanced(by: .seconds(Self.finishedLinger)) else { return nil }
             guard let token = channel.tokens?.pushToken, let last = lastPushAt[token] else { return due }
-            return max(due, last.addingTimeInterval(Self.minimumGap))
+            return max(due, last.advanced(by: .seconds(Self.minimumGap)))
         }
-        let gap = held ? lastPushAt.values.map { $0.addingTimeInterval(Self.minimumGap) } : []
+        let gap = held ? lastPushAt.values.map { $0.advanced(by: .seconds(Self.minimumGap)) } : []
         return (lingering + gap).min()
     }
 
@@ -95,13 +95,13 @@ public struct LiveActivityPushPlanner: Sendable {
     }
 
     /// Delivers the latest state for anything that was held back.
-    public mutating func due(now: Date) -> [LiveActivityCommand] {
+    public mutating func due(now: ContinuousClock.Instant) -> [LiveActivityCommand] {
         evaluate(now: now)
     }
 
-    private mutating func evaluate(now: Date, ignoringGap: Bool = false) -> [LiveActivityCommand] {
+    private mutating func evaluate(now: ContinuousClock.Instant, ignoringGap: Bool = false) -> [LiveActivityCommand] {
         held = false
-        lastPushAt = lastPushAt.filter { now.timeIntervalSince($0.value) < Self.minimumGap }
+        lastPushAt = lastPushAt.filter { now - $0.value < .seconds(Self.minimumGap) }
         guard presence != .foreground else {
             // The app shows its own state now, so what it shows when it leaves again is not what was last pushed.
             for kind in channels.keys {
@@ -117,7 +117,7 @@ public struct LiveActivityPushPlanner: Sendable {
     private mutating func command(
         for kind: LiveActivityKind,
         truth: LiveActivityTruth,
-        now: Date,
+        now: ContinuousClock.Instant,
         ignoringGap: Bool
     ) -> LiveActivityCommand? {
         guard var channel = channels[kind], let tokens = channel.tokens else { return nil }
@@ -132,7 +132,7 @@ public struct LiveActivityPushPlanner: Sendable {
         else { return nil }
         let sent = Self.sent(from: truth)
         guard event == .end || sent != channel.lastSent else { return nil }
-        if !ignoringGap, let sentAt = lastPushAt[token], now.timeIntervalSince(sentAt) < Self.minimumGap {
+        if !ignoringGap, let sentAt = lastPushAt[token], now - sentAt < .seconds(Self.minimumGap) {
             held = true
             return nil
         }
@@ -155,13 +155,13 @@ public struct LiveActivityPushPlanner: Sendable {
         truth: LiveActivityTruth,
         tokens: ActivityTokenPayload,
         channel: inout Channel,
-        now: Date
+        now: ContinuousClock.Instant
     ) -> LiveActivityCommand? {
         if truth.waitingCount == 0 { channel.startSent = false }
         guard kind == .agentChat, truth.phase != .ended,
               truth.waitingCount > 0, !channel.startSent, let startToken = tokens.pushToStartToken
         else { return nil }
-        if let sentAt = lastPushAt[startToken], now.timeIntervalSince(sentAt) < Self.minimumGap {
+        if let sentAt = lastPushAt[startToken], now - sentAt < .seconds(Self.minimumGap) {
             held = true
             return nil
         }
@@ -175,14 +175,14 @@ public struct LiveActivityPushPlanner: Sendable {
         for kind: LiveActivityKind,
         truth: LiveActivityTruth,
         channel: Channel,
-        now: Date
+        now: ContinuousClock.Instant
     ) -> LiveActivityCommand.Event? {
         switch kind {
         case .session:
             return truth.phase == .ended ? .end : .update
         case .agentChat:
             if truth.phase == .ended { return .end }
-            if let since = channel.settledSince, now >= since.addingTimeInterval(Self.finishedLinger), truth.topChat.map(Self.isSettled) == true {
+            if let since = channel.settledSince, now >= since.advanced(by: .seconds(Self.finishedLinger)), truth.topChat.map(Self.isSettled) == true {
                 return .end
             }
             if truth.chats.isEmpty {
@@ -198,7 +198,7 @@ public struct LiveActivityPushPlanner: Sendable {
     }
 
     /// Starts the linger clock when the headline becomes work that has stopped, and stops it when newer work takes the headline.
-    private static func settle(_ channel: inout Channel, headline: LiveActivityChat?, now: Date) {
+    private static func settle(_ channel: inout Channel, headline: LiveActivityChat?, now: ContinuousClock.Instant) {
         guard let headline, isSettled(headline) else {
             channel.settledSince = nil
             return

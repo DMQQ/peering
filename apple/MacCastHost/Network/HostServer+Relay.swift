@@ -7,7 +7,7 @@ extension HostServer {
         queue.async { [weak self] in
             guard let self, isListening else { return }
             let tunnelID = UUID()
-            guard connections.reserveTunnel(tunnelID, now: Date()) else {
+            guard connections.reserveTunnel(tunnelID, now: .now) else {
                 emit(.failed("Too many relay tunnels are waiting; one was refused"))
                 return
             }
