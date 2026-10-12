@@ -97,6 +97,7 @@ internal class LinkRunner(
             link = null
             currentEnd = null
             services.preview?.failAll()
+            services.fileBrowser?.onLinkLost()
             route.transport.close()
         }
     }

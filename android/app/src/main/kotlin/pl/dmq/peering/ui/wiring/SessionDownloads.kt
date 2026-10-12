@@ -1,5 +1,6 @@
 package pl.dmq.peering.ui.wiring
 
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +17,7 @@ import pl.dmq.peering.session.files.FileBrowser
 import pl.dmq.peering.session.files.FileTransfer
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * The bytes of the session's downloads, written in arrival order on one background thread. The coordinator is touched
@@ -27,6 +29,10 @@ internal class SessionDownloads : DownloadWriter {
     }
     private var coordinator: DownloadCoordinator? = null
     private val mutableDestinationFailed = MutableStateFlow(false)
+    private val pending = AtomicInteger(0)
+    private val caughtUp = Channel<Unit>(Channel.CONFLATED)
+
+    override val backlog: Int get() = pending.get()
 
     /** True once the chosen destination could not be opened or written; the download it belonged to has ended. */
     val destinationFailed: StateFlow<Boolean> = mutableDestinationFailed.asStateFlow()
@@ -43,7 +49,15 @@ internal class SessionDownloads : DownloadWriter {
     }
 
     override fun writeRange(offset: Long, bytes: ByteArray) {
-        writer.execute { settle { accept(offset, bytes) } }
+        pending.incrementAndGet()
+        writer.execute {
+            try {
+                settle { accept(offset, bytes) }
+            } finally {
+                pending.decrementAndGet()
+                caughtUp.trySend(Unit)
+            }
+        }
     }
 
     fun commit() = writer.execute { settle { complete() } }
@@ -58,6 +72,9 @@ internal class SessionDownloads : DownloadWriter {
      * failed mid-write is discarded and the Mac's transfer is stopped.
      */
     suspend fun watch(browser: FileBrowser) = coroutineScope {
+        launch {
+            for (signal in caughtUp) browser.resumeDownload()
+        }
         launch {
             destinationFailed.filter { it }.collect {
                 browser.cancelDownload()

@@ -57,6 +57,7 @@ internal class SessionServices(private val ports: SessionPorts, private val curr
                     currentLink()?.enqueue(Frame(MessageKind.TerminalRequest, request.toJson().toByteArray(Charsets.UTF_8)))
                 },
                 writeDownloadRange = ports.downloads::writeRange,
+                downloadBacklog = { ports.downloads.backlog },
             )
         }
     }
