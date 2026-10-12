@@ -84,8 +84,13 @@ public final class PinStore: @unchecked Sendable {
     @discardableResult
     public func removeAll() -> Bool {
         lock.withLock {
+            let previous = pins
             pins.removeAll()
-            return Self.write(pins, to: storage)
+            guard Self.write(pins, to: storage) else {
+                pins = previous
+                return false
+            }
+            return true
         }
     }
 

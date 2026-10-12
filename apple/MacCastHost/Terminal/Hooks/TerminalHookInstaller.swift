@@ -5,12 +5,15 @@ import MacCastKit
 enum TerminalHookInstaller {
     enum Failure: LocalizedError {
         case unreadableSettings
+        case unreadableFile(String)
         case unexpectedShape(String)
 
         var errorDescription: String? {
             switch self {
             case .unreadableSettings:
                 String(localized: "Claude Code's settings.json is not valid JSON, so Peering left it alone.")
+            case .unreadableFile(let reason):
+                String(localized: "Claude Code's settings.json could not be read (\(reason)), so Peering left it alone.")
             case .unexpectedShape(let key):
                 String(localized: "Claude Code's settings.json has an unexpected “\(key)”, so Peering left it alone.")
             }
@@ -59,7 +62,14 @@ enum TerminalHookInstaller {
     }
 
     private static func readSettings() throws -> [String: Any] {
-        guard let data = try? Data(contentsOf: settingsURL) else { return [:] }
+        let data: Data
+        do {
+            data = try Data(contentsOf: settingsURL)
+        } catch {
+            // Only a file that is not there is empty. One that exists and cannot be read is kept as it is: treating it as `{}` would write over it.
+            if SettingsFileRead.isAbsence(error) { return [:] }
+            throw Failure.unreadableFile(error.localizedDescription)
+        }
         guard !data.isEmpty else { return [:] }
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw Failure.unreadableSettings

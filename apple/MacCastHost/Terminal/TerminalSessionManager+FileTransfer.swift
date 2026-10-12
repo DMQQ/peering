@@ -1,49 +1,10 @@
 import Darwin
 import Foundation
+import MacCastKit
 import RemoteCore
 import os
 
 extension TerminalSessionManager {
-    /// A file being written, between the request that opened it and the piece that closes it.
-    final class PendingWrite: @unchecked Sendable {
-        let ownerClientID: String
-        let path: String
-        /// What the client said it was sending. The last piece is refused unless this many bytes
-        /// arrived, so a transfer that stopped early is a failed write rather than a short file.
-        let expected: Int
-        /// The destination as the filesystem will see it. Resolved once when the transfer opens
-        /// rather than at the move, because the scratch file has to be created in the same
-        /// directory as the file it becomes: a rename across volumes is a copy, and a copy is not
-        /// one step and can be left half done.
-        let target: URL
-        let staging: URL
-        var handle: FileHandle?
-        /// How many bytes have been appended. Touched only under the manager's lock.
-        var received = 0
-        /// The first thing that went wrong writing to disk, if anything did.
-        var failure: String?
-
-        init(ownerClientID: String, path: String, expected: Int, target: URL, staging: URL) {
-            self.ownerClientID = ownerClientID
-            self.path = path
-            self.expected = expected
-            self.target = target
-            self.staging = staging
-        }
-
-        func discard() {
-            try? handle?.close()
-            handle = nil
-            try? FileManager.default.removeItem(at: staging)
-        }
-    }
-
-    /// One terminal's write to one path.
-    struct WriteKey: Hashable {
-        let sessionID: UUID
-        let path: String
-    }
-
     /// A file about to be written, and the three ways that is refused before any of it travels.
     func beginWrite(
         id: UUID,
@@ -76,15 +37,28 @@ extension TerminalSessionManager {
         // this record) appends to a different file rather than into this one.
         let staging = target.deletingLastPathComponent()
             .appendingPathComponent(".\(target.lastPathComponent).peering-\(UUID().uuidString).part")
-        lock.withLock {
-            writes[key] = PendingWrite(
-                ownerClientID: ownerClientID,
-                path: url.path,
-                expected: totalBytes,
-                target: target,
-                staging: staging
+        let (replaced, refusedBusy) = lock.withLock { () -> (PendingWrite?, Bool) in
+            if writes[key] == nil, writes.count >= UploadWritePolicy.maximumConcurrentTransfers { return (nil, true) }
+            let previous = writes.updateValue(
+                PendingWrite(
+                    ownerClientID: ownerClientID,
+                    path: url.path,
+                    expected: totalBytes,
+                    target: target,
+                    staging: staging
+                ),
+                forKey: key
             )
+            return (previous, false)
         }
+        guard !refusedBusy else {
+            sink(.writeFailure(sessionID: id, path: path, message: FileWork.busyMessage))
+            return
+        }
+        // The record it replaces held a handle and a scratch file that nothing else will ever close.
+        if let replaced { Self.writeIO.async { replaced.discard() } }
+        rememberStagingFolder(target.deletingLastPathComponent())
+        startIdleSweepIfNeeded()
     }
 
     func write(
@@ -113,23 +87,30 @@ extension TerminalSessionManager {
         enum State {
             case more(PendingWrite, Data)
             case ready(PendingWrite, Data)
-            case refused(String)
+            case refused(String, PendingWrite?)
         }
         let state: State = lock.withLock {
             guard let pending = writes[key] else {
-                return .refused("That file is no longer being written. Choose it again.")
+                return .refused("That file is no longer being written. Choose it again.", nil)
             }
             // The declared size is the only thing that says when a file is whole, so a transfer
             // that has stopped agreeing with it has no correct end.
             guard pending.received + data.count <= pending.expected else {
                 writes.removeValue(forKey: key)
-                return .refused("That transfer sent more than it said it would.")
+                return .refused("That transfer sent more than it said it would.", pending)
+            }
+            // Bytes accepted faster than the disk takes them would sit in memory until the process is killed.
+            guard queuedWriteBytes.reserve(data.count) else {
+                writes.removeValue(forKey: key)
+                return .refused(String(localized: "This Mac's disk is not keeping up, so that transfer was stopped."), pending)
             }
             pending.received += data.count
+            pending.lastActivity = ProcessInfo.processInfo.systemUptime
             guard isLast else { return .more(pending, data) }
             guard pending.received == pending.expected else {
                 writes.removeValue(forKey: key)
-                return .refused("That transfer stopped before the whole file arrived.")
+                queuedWriteBytes.release(data.count)
+                return .refused("That transfer stopped before the whole file arrived.", pending)
             }
             writes.removeValue(forKey: key)
             return .ready(pending, data)
@@ -140,16 +121,16 @@ extension TerminalSessionManager {
             // The accounting happens here; the bytes go to disk on their own queue. The pieces are
             // enqueued in the order they arrived on one serial queue, so the file they build is the
             // same whether the handle is opened by the first piece or the twentieth.
-            Self.writeIO.async { Self.append(piece, to: pending) }
+            Self.writeIO.async {
+                Self.append(piece, to: pending)
+                self.lock.withLock { self.queuedWriteBytes.release(piece.count) }
+            }
 
-        case .refused(let message):
+        case .refused(let message, let abandoned):
             // Whatever was already appended is thrown away and the destination was never touched. A
             // refusal can arrive after several thousand pieces have gone to disk, which is why the
             // scratch file exists rather than the destination being written.
-            if let abandoned = lock.withLock({ writes[key] }) {
-                _ = lock.withLock { writes.removeValue(forKey: key) }
-                Self.writeIO.async { abandoned.discard() }
-            }
+            if let abandoned { Self.writeIO.async { abandoned.discard() } }
             sink(.writeFailure(sessionID: id, path: path, message: message))
 
         case .ready(let pending, let piece):
@@ -157,6 +138,7 @@ extension TerminalSessionManager {
             // queue is serial, so the move cannot overtake the bytes it is moving.
             Self.writeIO.async {
                 Self.append(piece, to: pending)
+                self.lock.withLock { self.queuedWriteBytes.release(piece.count) }
                 Self.finish(pending) { outcome in
                     // Answered with the path as it arrived, not the standardised one written to:
                     // same file, not always the same string, and the client is holding the one it
