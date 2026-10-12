@@ -21,8 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.kit.MenuItem
 import pl.dmq.peering.ui.kit.PeeringMenu
+import pl.dmq.peering.ui.kit.PeeringMenuItem
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.kit.rowSurface
@@ -65,11 +65,19 @@ internal fun HostRowItem(row: HostRow, paired: Boolean, onOpen: () -> Unit, onFo
 private fun TrustedMenu(onForget: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        Box(Modifier.size(36.dp).tappable({ open = true }), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(48.dp).tappable({ open = true }), contentAlignment = Alignment.Center) {
             Icon(AppIcons.more, stringResource(R.string.connect_more), tint = PeeringColors.muted, modifier = Modifier.size(22.dp))
         }
         PeeringMenu(open, { open = false }) {
-            MenuItem(stringResource(R.string.connect_forget), AppIcons.delete, { open = false; onForget() }, destructive = true)
+            PeeringMenuItem(
+                title = stringResource(R.string.connect_forget),
+                onClick = {
+                    open = false
+                    onForget()
+                },
+                icon = AppIcons.delete,
+                destructive = true,
+            )
         }
     }
 }

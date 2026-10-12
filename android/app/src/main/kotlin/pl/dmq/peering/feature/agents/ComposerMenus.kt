@@ -1,9 +1,6 @@
 package pl.dmq.peering.feature.agents
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -14,6 +11,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.kit.PeeringMenu
+import pl.dmq.peering.ui.kit.PeeringMenuDivider
+import pl.dmq.peering.ui.kit.PeeringMenuItem
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.wire.AgentPermissionMode
 
@@ -33,19 +33,12 @@ fun PermissionModeMenu(
                 color = PeeringColors.ink,
             )
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        PeeringMenu(open, { open = false }) {
             modes.forEach { mode ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(stringResource(permissionTitle(mode)), style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                stringResource(permissionDetail(PermissionModeCopy.detail(mode, agentID))),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = PeeringColors.muted,
-                            )
-                        }
-                    },
+                PeeringMenuItem(
+                    title = stringResource(permissionTitle(mode)),
+                    supporting = stringResource(permissionDetail(PermissionModeCopy.detail(mode, agentID))),
+                    selected = mode == current,
                     onClick = {
                         open = false
                         onPick(mode)
@@ -67,17 +60,20 @@ fun ModelMenu(
         TextButton(onClick = { open = true }, enabled = choices.isNotEmpty()) {
             Text(current ?: stringResource(R.string.composer_model_default), style = MaterialTheme.typography.labelLarge, color = PeeringColors.ink)
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.composer_model_default)) },
+        PeeringMenu(open, { open = false }) {
+            PeeringMenuItem(
+                title = stringResource(R.string.composer_model_default),
+                selected = current == null,
                 onClick = {
                     open = false
                     onPick(null)
                 },
             )
+            PeeringMenuDivider()
             choices.forEach { model ->
-                DropdownMenuItem(
-                    text = { Text(model) },
+                PeeringMenuItem(
+                    title = model,
+                    selected = model == current,
                     onClick = {
                         open = false
                         onPick(model)

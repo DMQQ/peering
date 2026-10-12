@@ -1,31 +1,37 @@
 package pl.dmq.peering.ui.kit
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import pl.dmq.peering.ui.theme.PeeringColors
 
-/** Material's dropdown menu on the palette's raised surface. Call it inside the anchor's box. */
+/**
+ * The one menu of the app: Material's dropdown on a large rounded container surface with a hairline outline and
+ * tonal elevation. It anchors to the box it is called inside and flips or shifts to stay on screen.
+ */
 @Composable
-fun PeeringMenu(expanded: Boolean, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, containerColor = PeeringColors.containerHigh, content = content)
+fun PeeringMenu(expanded: Boolean, onDismiss: () -> Unit, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        modifier = modifier.widthIn(min = 200.dp, max = 320.dp),
+        shape = MaterialTheme.shapes.large,
+        containerColor = PeeringColors.containerHigh,
+        tonalElevation = 3.dp,
+        shadowElevation = 8.dp,
+        border = BorderStroke(1.dp, PeeringColors.hairline),
+        content = content,
+    )
 }
 
+/** A rule between groups of items. */
 @Composable
-fun MenuItem(title: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier, destructive: Boolean = false, enabled: Boolean = true) {
-    val tint = if (destructive) PeeringColors.danger else PeeringColors.ink
-    DropdownMenuItem(
-        text = { Text(title, style = MaterialTheme.typography.bodyLarge) },
-        onClick = onClick,
-        modifier = modifier,
-        enabled = enabled,
-        trailingIcon = { Icon(icon, contentDescription = null) },
-        colors = androidx.compose.material3.MenuDefaults.itemColors(textColor = tint, trailingIconColor = tint),
-    )
+fun PeeringMenuDivider() {
+    HorizontalDivider(color = PeeringColors.hairline)
 }
