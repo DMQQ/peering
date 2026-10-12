@@ -1,47 +1,29 @@
 package pl.dmq.peering.feature.files
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.PeeringListItem
 import pl.dmq.peering.wire.RemoteDirectoryEntry
 
+/** One entry of a folder as a two line list item: a folder or file glyph, its name, and its kind or size. */
 @Composable
 fun FileEntryRow(entry: RemoteDirectoryEntry, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = MaterialTheme.shapes.small
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(PeeringColors.surface)
-            .border(1.dp, PeeringColors.hairline, shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(entry.name, style = MaterialTheme.typography.titleSmall, color = PeeringColors.ink, maxLines = 1)
-            Text(
-                detailText(entry),
-                style = MaterialTheme.typography.bodySmall,
-                color = PeeringColors.muted,
-                maxLines = 1,
-            )
-        }
-    }
+    val kind = FileEntryKind.of(entry)
+    val isFolder = kind == FileEntryKind.FOLDER || kind == FileEntryKind.FOLDER_LINK
+    PeeringListItem(
+        headline = entry.name,
+        supporting = detailText(entry),
+        onClick = onClick,
+        role = Role.Button,
+        bleed = false,
+        modifier = modifier,
+        leading = { Icon(if (isFolder) AppIcons.folder else AppIcons.file, contentDescription = null) },
+    )
 }
 
 @Composable

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.KeyboardCommandKey
 import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.Laptop
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Lock
@@ -102,6 +103,7 @@ object AppIcons {
     val fit: ImageVector get() = Icons.Outlined.FitScreen
     val menu: ImageVector get() = Icons.Outlined.Menu
     val trackpad: ImageVector get() = Icons.Outlined.Mouse
+    val file: ImageVector get() = Icons.AutoMirrored.Outlined.InsertDriveFile
     val folder: ImageVector get() = Icons.Outlined.Folder
     val power: ImageVector get() = Icons.Outlined.PowerSettingsNew
     val tune: ImageVector get() = Icons.Outlined.Tune

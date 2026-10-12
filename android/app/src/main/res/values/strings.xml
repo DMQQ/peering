@@ -277,6 +277,7 @@
     <string name="files_size_kilobytes">%1$s KB</string>
     <string name="files_size_megabytes">%1$s MB</string>
     <string name="files_size_gigabytes">%1$s GB</string>
+    <string name="files_back">Back</string>
     <string name="files_loading">Loading the folder</string>
     <string name="files_retry">Try again</string>
     <string name="files_folder_empty">This folder is empty.</string>

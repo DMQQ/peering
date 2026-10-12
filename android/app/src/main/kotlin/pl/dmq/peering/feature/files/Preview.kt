@@ -1,7 +1,6 @@
 package pl.dmq.peering.feature.files
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,8 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,8 +25,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
-import pl.dmq.peering.session.files.FilePath
 import pl.dmq.peering.wire.RemoteFileKind
+import pl.dmq.peering.ui.kit.PrimaryButton
 import pl.dmq.peering.ui.theme.PeeringColors
 
 /** One file opened for viewing, with its download beside it. */
@@ -40,21 +38,6 @@ fun FilePreviewScreen(presenter: FilePreviewPresenter, modifier: Modifier = Modi
         modifier = modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                FilePath.name(current.path),
-                style = MaterialTheme.typography.titleMedium,
-                color = PeeringColors.ink,
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                stringResource(R.string.preview_close),
-                style = MaterialTheme.typography.labelLarge,
-                color = PeeringColors.muted,
-                modifier = Modifier.clickable(onClick = presenter::close),
-            )
-        }
         PreviewBody(current.content, modifier = Modifier.weight(1f))
         DownloadRow(current.download, presenter)
     }
@@ -127,13 +110,7 @@ private fun PictureContent(bytes: ByteArray, modifier: Modifier) {
 @Composable
 private fun DownloadRow(status: DownloadStatus, presenter: FilePreviewPresenter) {
     when (status) {
-        DownloadStatus.Idle -> Button(
-            onClick = presenter::download,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = PeeringColors.ink, contentColor = PeeringColors.onInk),
-        ) {
-            Text(stringResource(R.string.preview_download), style = MaterialTheme.typography.labelLarge)
-        }
+        DownloadStatus.Idle -> PrimaryButton(title = stringResource(R.string.preview_download), onClick = presenter::download)
         is DownloadStatus.Running -> Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -149,12 +126,9 @@ private fun DownloadRow(status: DownloadStatus, presenter: FilePreviewPresenter)
                 color = PeeringColors.muted,
                 modifier = Modifier.weight(1f),
             )
-            Text(
-                stringResource(R.string.preview_cancel),
-                style = MaterialTheme.typography.labelLarge,
-                color = PeeringColors.ink,
-                modifier = Modifier.clickable(onClick = presenter::cancelDownload),
-            )
+            TextButton(onClick = presenter::cancelDownload) {
+                Text(stringResource(R.string.preview_cancel), color = PeeringColors.ink)
+            }
         }
         DownloadStatus.Finished -> Text(stringResource(R.string.preview_saved), style = MaterialTheme.typography.bodyMedium, color = PeeringColors.added)
         is DownloadStatus.Failed -> Text(

@@ -172,7 +172,7 @@ private fun FilesScreen(active: ActiveSession, onBack: () -> Unit) {
     }
     BackHandler(onBack = onBack)
     val resolver = LocalContext.current.contentResolver
-    FilesRoute(port = remember(browser) { SessionFileBrowsing(browser, active.downloads, resolver) })
+    FilesRoute(port = remember(browser) { SessionFileBrowsing(browser, active.downloads, resolver) }, onBack = onBack)
 }
 
 @Composable
