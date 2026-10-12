@@ -41,5 +41,5 @@ internal fun AgentChatSession.cardState(pendingApprovals: Int): SessionCardState
 internal fun AgentChatSession.pendingApprovalCount(): Int = pendingApprovals(transcript.rows).size
 
 internal fun AgentChatSession.lastReplyPreview(): String? =
-    transcript.rows.lastOrNull { it is TranscriptRow.AssistantText }
-        ?.let { (it as TranscriptRow.AssistantText).text.trim().takeIf(String::isNotEmpty) }
+    transcript.rows.filterIsInstance<TranscriptRow.AssistantText>().lastOrNull()
+        ?.let { it.text.trim().takeIf(String::isNotEmpty) }

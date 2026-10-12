@@ -136,8 +136,8 @@ private fun ClipboardOverview(actions: ClipboardActions, onHistory: () -> Unit, 
             detail = when {
                 host == null -> stringResource(R.string.clipboard_not_checked)
                 host is ClipboardContent.Image -> stringResource(R.string.clipboard_image)
-                !hasHostContent -> stringResource(R.string.clipboard_nothing_to_copy)
-                else -> (host as ClipboardContent.Text).text
+                host is ClipboardContent.Text && hasHostContent -> host.text
+                else -> stringResource(R.string.clipboard_nothing_to_copy)
             },
             empty = !hasHostContent,
             confirmed = confirmed == Side.COMPUTER,
@@ -166,7 +166,8 @@ private fun phoneDetail(phone: PhoneClip, feedback: ClipboardFeedback, imagesAll
         phone == PhoneClip.Empty -> stringResource(R.string.clipboard_nothing_copied)
         phone == PhoneClip.Other -> stringResource(R.string.clipboard_other_copied)
         phone is PhoneClip.Image -> stringResource(if (imagesAllowed) R.string.clipboard_image_copied else R.string.clipboard_image_unsupported)
-        else -> (phone as PhoneClip.Text).text
+        phone is PhoneClip.Text -> phone.text
+        else -> stringResource(R.string.clipboard_nothing_copied)
     }
 }
 
