@@ -13,7 +13,6 @@ import pl.dmq.peering.feature.settings.LegalDocument
 import pl.dmq.peering.feature.settings.LegalPageScreen
 import pl.dmq.peering.feature.settings.SettingsPresenter
 import pl.dmq.peering.feature.settings.SettingsRoute
-import pl.dmq.peering.ui.wiring.IdentityResetNotOffered
 import pl.dmq.peering.ui.wiring.openWebPage
 
 /** The Settings tab: its preferences, and the legal pages opened over it in the app. */
@@ -25,7 +24,6 @@ internal fun SettingsTab(wiring: FeatureWiring) {
     val presenter = remember(wiring, scope) {
         SettingsPresenter(
             trusted = wiring.trusted,
-            identity = IdentityResetNotOffered,
             preferences = wiring.settings,
             appVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty(),
             scope = scope,

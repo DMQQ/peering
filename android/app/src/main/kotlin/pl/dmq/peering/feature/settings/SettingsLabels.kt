@@ -14,7 +14,5 @@ internal fun StreamQuality.labelRes(): Int = when (this) {
 @StringRes
 internal fun SettingsMessage.messageRes(): Int = when (this) {
     SettingsMessage.ForgetFailed -> R.string.settings_forget_failed
-    SettingsMessage.ResetFailed -> R.string.settings_identity_reset_failed
-    SettingsMessage.ResetDone -> R.string.settings_identity_reset_done
     SettingsMessage.QualitySaveFailed -> R.string.settings_quality_save_failed
 }

@@ -4,9 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SettingsPresenterTest {
@@ -15,10 +13,9 @@ class SettingsPresenterTest {
 
     private fun presenter(
         trusted: InMemoryTrustedHostStore = InMemoryTrustedHostStore(listOf(alpha, bravo)),
-        identity: FakeIdentityReset = FakeIdentityReset(),
         settings: InMemorySettingsStore = InMemorySettingsStore(),
         scope: CoroutineScope,
-    ) = SettingsPresenter(trusted, identity, settings, appVersion = "0.1.0", scope = scope)
+    ) = SettingsPresenter(trusted, settings, appVersion = "0.1.0", scope = scope)
 
     @Test
     fun forgetAsksFirstAndRemovesTheHostOnConfirm() = runTest(UnconfinedTestDispatcher()) {
@@ -72,47 +69,6 @@ class SettingsPresenterTest {
 
         assertEquals(SettingsMessage.ForgetFailed, presenter.state.value.message)
         assertEquals(listOf(alpha), presenter.state.value.trustedHosts)
-    }
-
-    @Test
-    fun identityResetOnlyHappensAfterAConfirmedRequest() = runTest(UnconfinedTestDispatcher()) {
-        val identity = FakeIdentityReset()
-        val presenter = presenter(identity = identity, scope = backgroundScope)
-
-        presenter.confirmIdentityReset()
-        assertEquals(0, identity.resets)
-
-        presenter.requestIdentityReset()
-        assertTrue(presenter.state.value.identityResetPending)
-        presenter.cancelIdentityReset()
-        presenter.confirmIdentityReset()
-
-        assertEquals(0, identity.resets)
-        assertFalse(presenter.state.value.identityResetPending)
-    }
-
-    @Test
-    fun confirmedIdentityResetRunsOnceAndReportsDone() = runTest(UnconfinedTestDispatcher()) {
-        val identity = FakeIdentityReset()
-        val presenter = presenter(identity = identity, scope = backgroundScope)
-
-        presenter.requestIdentityReset()
-        presenter.confirmIdentityReset()
-        presenter.confirmIdentityReset()
-
-        assertEquals(1, identity.resets)
-        assertFalse(presenter.state.value.identityResetPending)
-        assertEquals(SettingsMessage.ResetDone, presenter.state.value.message)
-    }
-
-    @Test
-    fun aFailedIdentityResetSaysSo() = runTest(UnconfinedTestDispatcher()) {
-        val presenter = presenter(identity = FakeIdentityReset(succeeds = false), scope = backgroundScope)
-
-        presenter.requestIdentityReset()
-        presenter.confirmIdentityReset()
-
-        assertEquals(SettingsMessage.ResetFailed, presenter.state.value.message)
     }
 
     @Test

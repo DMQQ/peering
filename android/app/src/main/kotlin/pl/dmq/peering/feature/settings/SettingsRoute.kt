@@ -56,17 +56,10 @@ fun SettingsRoute(
         Spacer(Modifier.height(4.dp))
         StreamQualityCard(current = state.streamQuality, onChoose = presenter::chooseStreamQuality)
         TrustedHostsCard(hosts = state.trustedHosts, onForget = presenter::requestForget)
-        IdentityCard(onReset = presenter::requestIdentityReset)
         AboutCard(version = state.appVersion)
         LegalCard(onOpen = onOpenLegal)
     }
     if (state.forgetTarget != null) {
         ForgetConfirmDialog(onConfirm = presenter::confirmForget, onDismiss = presenter::cancelForget)
-    }
-    if (state.identityResetPending) {
-        IdentityResetDialog(
-            onConfirm = presenter::confirmIdentityReset,
-            onDismiss = presenter::cancelIdentityReset,
-        )
     }
 }

@@ -27,23 +27,3 @@ internal fun ForgetConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
         },
     )
 }
-
-@Composable
-internal fun IdentityResetDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = PeeringColors.backdrop,
-        title = { Text(stringResource(R.string.settings_identity_reset_title)) },
-        text = { Text(stringResource(R.string.settings_identity_warning)) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(R.string.settings_identity_reset_confirm), color = PeeringColors.danger)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.settings_cancel), color = PeeringColors.ink)
-            }
-        },
-    )
-}
