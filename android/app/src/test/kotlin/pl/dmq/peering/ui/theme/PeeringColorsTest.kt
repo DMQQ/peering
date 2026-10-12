@@ -30,7 +30,8 @@ class PeeringColorsTest {
         assertEquals(Triple(0xFF, 0xFF, 0xFF), PeeringColors.surface.rgb())
         assertEquals(0.07f, PeeringColors.surface.alpha, 0.005f)
         assertEquals(0.08f, PeeringColors.hairline.alpha, 0.005f)
-        assertEquals(0.62f, PeeringColors.muted.alpha, 0.005f)
+        assertEquals(0.60f, PeeringColors.muted.alpha, 0.005f)
+        assertEquals(0.30f, PeeringColors.tertiary.alpha, 0.005f)
         assertEquals(0.46f, PeeringColors.faint.alpha, 0.005f)
     }
 

@@ -10,9 +10,11 @@ object PeeringColors {
     val danger = Color(0xFFFA7366)
     val caution = Color(0xFFF7BF59)
     val added = Color(0xFF5CD182)
-    val sheet = Color(0xFF151517)
+    val sheet = Color(0xFF0A0A0B)
     val surface = Color(0x12FFFFFF)
     val hairline = Color(0x14FFFFFF)
-    val muted = Color(0x9EFFFFFF)
+    val muted = Color(0x99EBEBF5)
+    /** The system's tertiary label on dark. */
+    val tertiary = Color(0x4DEBEBF5)
     val faint = Color(0x75FFFFFF)
 }
