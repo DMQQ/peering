@@ -95,8 +95,11 @@ private fun ClipboardOverview(actions: ClipboardActions, onHistory: () -> Unit, 
     }
     fun sendPhoneImage(uri: Uri, paste: Boolean) {
         scope.launch {
-            val png = ClipboardImages.readPng(context, uri)
-            feedback = png?.let { actions.onSendImage(it, paste).feedback() } ?: ClipboardFeedback.Silent
+            feedback = when (val read = ClipboardImages.readPng(context, uri)) {
+                is ImageRead.Png -> actions.onSendImage(read.bytes, paste).feedback()
+                is ImageRead.TooLarge -> ClipboardFeedback.TooLarge(read.bytes)
+                ImageRead.Unreadable -> ClipboardFeedback.Silent
+            }
             if (feedback == ClipboardFeedback.Confirmed) confirmed = Side.PHONE
         }
     }

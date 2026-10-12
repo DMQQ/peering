@@ -5,16 +5,15 @@ import android.content.Intent
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.IOException
+import pl.dmq.peering.imaging.SharedFiles
 
 /** Hands a previewed file to the system's share sheet through a copy in the cache that only the receiver may read. */
 object FileShare {
     /** False when the copy could not be written. */
     fun share(context: Context, request: ShareRequest, chooserTitle: String): Boolean {
         val directory = File(context.cacheDir, SHARED_DIRECTORY)
-        val copy = File(directory, request.name)
-        try {
-            directory.mkdirs()
-            copy.writeBytes(request.bytes)
+        val copy = try {
+            SharedFiles.write(directory, request.bytes, extensionOf(request.name))
         } catch (failure: IOException) {
             return false
         }
@@ -27,5 +26,9 @@ object FileShare {
         return true
     }
 
+    private fun extensionOf(name: String): String =
+        name.substringAfterLast('.', "").filter { it.isLetterOrDigit() }.take(MAX_EXTENSION).ifEmpty { "bin" }
+
+    private const val MAX_EXTENSION = 8
     private const val SHARED_DIRECTORY = "shared"
 }
