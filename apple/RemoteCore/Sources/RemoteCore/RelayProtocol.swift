@@ -47,6 +47,8 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
     /// `source` is the terminal window the notification is about; omitted when nil.
     /// `action` makes the notification answerable from the Lock Screen: the category names its buttons and the ids say what they answer.
     case notifyDevice(token: String, title: String, body: String, source: String? = nil, action: RelayPushAction? = nil)
+    /// Only a registered Mac may send this. A push the relay does not send is answered with ``RelayServerMessage/activityRefused(_:)``.
+    case notifyActivity(RelayActivityPush)
 
     private enum CodingKeys: String, CodingKey {
         case type, name, protocolVersion, apiKey, plan, jwsRepresentation
@@ -59,6 +61,8 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
         case clientID = "clientId"
         case videoToken
         case token, title, body, source, category
+        case activityToken, activity, event, contentState, staleSeconds, priority
+        case attributesType, attributes, alertTitle, alertBody, environment
         case code
         case sessionID = "sessionId"
         case approvalID = "approvalId"
@@ -126,6 +130,19 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encodeIfPresent(action?.category, forKey: .category)
             try container.encodeIfPresent(action?.sessionID, forKey: .sessionID)
             try container.encodeIfPresent(action?.approvalID, forKey: .approvalID)
+        case .notifyActivity(let push):
+            try container.encode("notifyActivity", forKey: .type)
+            try container.encode(push.activityToken, forKey: .activityToken)
+            try container.encode(push.activity, forKey: .activity)
+            try container.encode(push.event, forKey: .event)
+            try container.encode(push.contentState, forKey: .contentState)
+            try container.encodeIfPresent(push.staleSeconds, forKey: .staleSeconds)
+            try container.encodeIfPresent(push.priority, forKey: .priority)
+            try container.encodeIfPresent(push.attributesType, forKey: .attributesType)
+            try container.encodeIfPresent(push.attributes, forKey: .attributes)
+            try container.encodeIfPresent(push.alertTitle, forKey: .alertTitle)
+            try container.encodeIfPresent(push.alertBody, forKey: .alertBody)
+            try container.encode(push.environment, forKey: .environment)
         }
     }
 
@@ -217,6 +234,8 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
     case pong
     case referral(RelayReferral)
     case error(code: String, message: String)
+    /// Answers a `notifyActivity` that was not sent.
+    case activityRefused(RelayActivityRefusal)
 
     private enum CodingKeys: String, CodingKey {
         case type, controlHost, controlPort, videoHost, videoPort
@@ -225,7 +244,7 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
         case deviceID = "deviceId"
         case hostID = "hostId"
         case online
-        case code, message
+        case code, message, reason
         case host, port
         case bonusSeconds, bonusEndsAt, redeemed, invitesEarned, invitesMax
     }
@@ -282,6 +301,8 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
                 code: try container.decode(String.self, forKey: .code),
                 message: try container.decode(String.self, forKey: .message)
             )
+        case "activityRefused":
+            self = .activityRefused(try container.decode(RelayActivityRefusal.self, forKey: .reason))
         default:
             throw RelayProtocolError.unknownMessage(type)
         }
