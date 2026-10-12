@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import pl.dmq.peering.session.ports.Clock
+import pl.dmq.peering.session.ports.KeyValueStore
 
 /**
  * The agents feature as one screen: the hub of chats, and the chat open on it. Everything the screens need arrives
@@ -25,8 +26,8 @@ fun AgentsRoute(
     chatSupported: Boolean,
     modelPickerSupported: Boolean,
     draftStore: ComposerDraftStore,
+    guideStore: KeyValueStore,
     clock: Clock,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -34,6 +35,7 @@ fun AgentsRoute(
     val hub = remember(port, declaredAgentIDs, chatSupported) {
         AgentsHubPresenter(port, declaredAgentIDs, chatSupported, folders, recents, clock, scope)
     }
+    val guide = remember(guideStore) { HubGuidePresenter(guideStore) }
     val chat = remember(port) { ChatPresenter(port, scope) }
     val transcript = remember(port) { TranscriptPresenter(port.chats, scope) }
     val composer = remember(port, modelPickerSupported) {
@@ -67,7 +69,7 @@ fun AgentsRoute(
         } else {
             HubScreen(
                 presenter = hub,
-                onBack = onBack,
+                guide = guide,
                 folders = folders,
                 onSessionOpened = { showingChat = true },
                 onChatStarted = { sessionsBeforeStart = chatState.sessions.map { it.id }.toSet() },

@@ -35,4 +35,6 @@ data class HubUi(
     val newChat: NewChatStep,
     val failure: String?,
     val recentFolders: List<String>,
+    /** True until the computer has answered the first listing of its conversations. */
+    val loading: Boolean = false,
 )

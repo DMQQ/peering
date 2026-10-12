@@ -43,7 +43,8 @@ internal fun SessionHub(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
-    val tabs = remember(active, context) {
+    val preferences = remember(context) { PreferencesKeyValueStore(context.getSharedPreferences("peering_hub", Context.MODE_PRIVATE)) }
+    val tabs = remember(active, preferences) {
         val offered = HubPresenter().offeredTabs(
             HubCapabilities(
                 agentChat = active.controller.agentChat != null,
@@ -51,7 +52,7 @@ internal fun SessionHub(
                 terminal = active.controller.terminals != null,
             ),
         )
-        HubTabsPresenter(offered, PreferencesKeyValueStore(context.getSharedPreferences("peering_hub", Context.MODE_PRIVATE)))
+        HubTabsPresenter(offered, preferences)
     }
     BackHandler(onBack = onClose)
     CompositionLocalProvider(LocalBorderless provides true) {
@@ -65,7 +66,7 @@ internal fun SessionHub(
             )
             Box(Modifier.weight(1f).consumeWindowInsets(WindowInsets.statusBars)) {
                 when (tabs.selected) {
-                    HubTab.AGENTS -> AgentsScreen(active, drafts, folderRecents, clock, onClose)
+                    HubTab.AGENTS -> AgentsScreen(active, drafts, folderRecents, preferences, clock, onClose)
                     HubTab.TERMINALS -> TerminalHost(active, onClose)
                     HubTab.FILES -> FilesScreen(active, onClose)
                     null -> LaunchedEffect(Unit) { onClose() }
