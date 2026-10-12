@@ -1,74 +1,113 @@
 package pl.dmq.peering.feature.files
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import pl.dmq.peering.R
 import pl.dmq.peering.session.files.FilePath
-import pl.dmq.peering.ui.kit.AppIcons
-import pl.dmq.peering.ui.theme.PeeringColors
 
-/** The files of one Mac under a top app bar: its folders, and the file open in the preview over them. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** The files of one computer: its folders under a path bar, and the file open in the preview over them. */
 @Composable
 fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val list = remember(port) { FileListPresenter(port, scope) }
     val preview = remember(port) { FilePreviewPresenter(port, scope) }
-    val previewState by preview.ui.collectAsState()
-    val destinationRequest by preview.destinationRequest.collectAsState()
-    val pickDestination = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(OCTET_STREAM)) {
-        preview.destinationChosen(it?.toString())
-    }
+    val listUi by list.ui.collectAsState()
+    val previewUi by preview.ui.collectAsState()
+    var searching by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(port) {
         if (port.state.value.listing == null) port.open(null)
     }
+    FileLaunchers(list, preview)
 
-    LaunchedEffect(destinationRequest) {
-        destinationRequest?.let { pickDestination.launch(FilePath.name(it)) }
+    fun closeSearch() {
+        list.setQuery("")
+        searching = false
+    }
+
+    fun goBack() {
+        when {
+            previewUi != null -> preview.close()
+            listUi.isSelecting -> list.clearSelection()
+            searching -> closeSearch()
+            !list.up() -> onBack()
+        }
+    }
+    BackHandler(onBack = ::goBack)
+
+    val pickDocuments = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        list.upload(uris.map { it.toString() })
     }
 
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text(previewState?.path?.let(FilePath::name) ?: stringResource(R.string.hub_files), maxLines = 1) },
-                navigationIcon = {
-                    val inPreview = previewState != null
-                    IconButton(onClick = if (inPreview) preview::close else onBack) {
-                        Icon(
-                            imageVector = if (inPreview) AppIcons.close else AppIcons.back,
-                            contentDescription = stringResource(if (inPreview) R.string.preview_close else R.string.files_back),
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, titleContentColor = PeeringColors.ink),
-            )
+            val open = previewUi
+            when {
+                open != null -> PreviewTopBar(open, preview)
+                listUi.isSelecting -> SelectionTopBar(listUi, list)
+                searching -> SearchTopBar(listUi.query, list::setQuery, ::closeSearch)
+                else -> FolderTopBar(listUi, list, onBack = ::goBack, onSearch = { searching = true })
+            }
+        },
+        floatingActionButton = {
+            if (previewUi == null && !listUi.isSelecting && !searching && listUi.path != null) {
+                NewEntryButton(enabled = listUi.canChange, presenter = list, onUpload = { pickDocuments.launch(arrayOf("*/*")) })
+            }
         },
     ) { padding ->
-        if (previewState != null) {
+        val open = previewUi
+        if (open != null) {
             FilePreviewScreen(presenter = preview, modifier = Modifier.padding(padding))
         } else {
-            FileList(presenter = list, modifier = Modifier.padding(padding))
+            Column(modifier = Modifier.padding(padding)) {
+                if (listUi.breadcrumbs.isNotEmpty()) BreadcrumbBar(listUi.breadcrumbs, onGoTo = list::goTo)
+                FileBanners(listUi, list)
+                FileList(listUi, list, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+    FileDialogHost(listUi.dialog, list)
+}
+
+/** The system pickers a download or a share needs, and what to do with what they return. */
+@Composable
+private fun FileLaunchers(list: FileListPresenter, preview: FilePreviewPresenter) {
+    val context = LocalContext.current
+    val chooserTitle = stringResource(R.string.preview_share)
+    val listDestination by list.destination.request.collectAsState()
+    val previewDestination by preview.destinationRequest.collectAsState()
+    val share by preview.shareRequest.collectAsState()
+    val saveListed = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(OCTET_STREAM)) {
+        list.destination.chosen(it?.toString())
+    }
+    val savePreviewed = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(OCTET_STREAM)) {
+        preview.destinationChosen(it?.toString())
+    }
+    LaunchedEffect(listDestination) { listDestination?.let { saveListed.launch(it.suggestedName) } }
+    LaunchedEffect(previewDestination) { previewDestination?.let { savePreviewed.launch(FilePath.name(it)) } }
+    LaunchedEffect(share) {
+        share?.let {
+            FileShare.share(context, it, chooserTitle)
+            preview.shareHandled()
         }
     }
 }

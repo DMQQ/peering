@@ -2,19 +2,34 @@ package pl.dmq.peering.ui.wiring
 
 import android.content.ContentResolver
 import android.net.Uri
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import pl.dmq.peering.feature.files.FileBrowsingPort
+import pl.dmq.peering.feature.files.InputChunks
 import pl.dmq.peering.session.files.FileBrowser
 import pl.dmq.peering.session.files.FileBrowserState
+import pl.dmq.peering.session.files.FileUpload
+import pl.dmq.peering.session.files.TransferLimits
 import pl.dmq.peering.wire.RemoteDirectoryEntry
+import pl.dmq.peering.wire.RemoteEntryKind
 import java.io.IOException
 
-/** The file screens over the session's browser, with downloads written to the document the user picked. */
+/**
+ * The file screens over the session's browser, with downloads written to the document the user picked and uploads
+ * read from the documents they chose. Uploads run on [scope] in the order given.
+ */
 internal class SessionFileBrowsing(
     private val browser: FileBrowser,
     private val downloads: SessionDownloads,
     private val resolver: ContentResolver,
+    override val online: StateFlow<Boolean>,
+    private val scope: CoroutineScope,
 ) : FileBrowsingPort {
+    private var uploading: Job? = null
+
     override val state: StateFlow<FileBrowserState> get() = browser.state
 
     override val destinationFailed: StateFlow<Boolean> get() = downloads.destinationFailed
@@ -31,7 +46,7 @@ internal class SessionFileBrowsing(
 
     override fun closePreview() = browser.closePreview()
 
-    override fun download(path: String, destination: String) {
+    override fun download(path: String, destination: String, isFolder: Boolean) {
         val sink = try {
             SafDownloadSink.open(resolver, Uri.parse(destination))
         } catch (failure: IOException) {
@@ -40,11 +55,51 @@ internal class SessionFileBrowsing(
             return downloads.refuse()
         }
         downloads.begin(sink)
-        browser.download(path)
+        if (isFolder) browser.downloadFolder(path) else browser.download(path)
     }
 
     override fun cancelDownload() {
         browser.cancelDownload()
         downloads.discard()
+    }
+
+    override fun create(name: String, kind: RemoteEntryKind) = browser.create(name, kind)
+
+    override fun rename(entry: RemoteDirectoryEntry, to: String) = browser.rename(entry, to)
+
+    override fun delete(entries: List<RemoteDirectoryEntry>) = browser.delete(entries)
+
+    override fun dismissFailures() = browser.dismissFailures()
+
+    override fun upload(sources: List<String>) {
+        val previous = uploading
+        uploading = scope.launch(Dispatchers.IO) {
+            previous?.join()
+            for (source in sources) {
+                if (!send(Uri.parse(source))) break
+            }
+        }
+    }
+
+    override fun cancelUpload() {
+        browser.cancelUpload()
+        uploading?.cancel()
+    }
+
+    private suspend fun send(uri: Uri): Boolean {
+        val document = SafUploadSource.query(resolver, uri)
+        if (document == null) {
+            browser.reportUnreadable(uri.lastPathSegment.orEmpty())
+            return false
+        }
+        try {
+            document.open().use { input ->
+                browser.upload(document.name, document.size, InputChunks(input, TransferLimits.UPLOAD_CHUNK_BYTES))
+            }
+        } catch (failure: IOException) {
+            browser.reportUnreadable(document.name)
+            return false
+        }
+        return browser.state.value.upload is FileUpload.Done
     }
 }

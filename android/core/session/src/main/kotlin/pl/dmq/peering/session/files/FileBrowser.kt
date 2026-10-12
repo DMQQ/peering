@@ -103,6 +103,12 @@ class FileBrowser(
         mutableState.first { it.upload !is FileUpload.Running }
     }
 
+    /** The phone could not open [name] to send it. */
+    fun reportUnreadable(name: String) {
+        val folder = mutableState.value.listing?.path ?: return
+        setUpload(FileUpload.Failed(FilePath.child(folder, name), UploadFailure.Unreadable))
+    }
+
     fun cancelUpload() {
         if (mutableState.value.upload is FileUpload.Running) setUpload(FileUpload.Idle)
     }

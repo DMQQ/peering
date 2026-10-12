@@ -7,7 +7,11 @@ data class FilePreviewUi(
     val path: String,
     val content: PreviewContent,
     val download: DownloadStatus,
-)
+    val wraps: Boolean,
+    val canShare: Boolean,
+) {
+    val canWrap: Boolean get() = content is PreviewContent.Text
+}
 
 sealed interface PreviewContent {
     data class Loading(val fraction: Double?) : PreviewContent
@@ -17,10 +21,23 @@ sealed interface PreviewContent {
         val shownBytes: Long,
         val totalBytes: Long,
         val isTruncated: Boolean,
+        val showsLineNumbers: Boolean = false,
+    ) : PreviewContent
+
+    data class Markdown(
+        val blocks: List<MarkdownBlock>,
+        val shownBytes: Long,
+        val totalBytes: Long,
+        val isTruncated: Boolean,
     ) : PreviewContent
 
     /** The bytes of a picture, decoded by the screen; the presenter does not decode them. */
     class Image(val bytes: ByteArray) : PreviewContent
+
+    data object Empty : PreviewContent
+
+    /** A picture or document cut at the cap, which cannot be drawn in part. */
+    data class TooLarge(val totalBytes: Long) : PreviewContent
 
     /** The file is not something this screen draws: text that is not UTF-8, or a kind it has no viewer for. */
     data class Unsupported(val kind: RemoteFileKind?) : PreviewContent
@@ -28,10 +45,13 @@ sealed interface PreviewContent {
     data class Failed(val message: String) : PreviewContent
 }
 
+/** A file handed to the system's share sheet. */
+class ShareRequest(val name: String, val bytes: ByteArray, val mimeType: String)
+
 sealed interface DownloadStatus {
     data object Idle : DownloadStatus
 
-    data class Running(val fraction: Double?, val isZipping: Boolean) : DownloadStatus
+    data class Running(val fraction: Double?, val isZipping: Boolean, val sourcePath: String) : DownloadStatus
 
     data object Finished : DownloadStatus
 

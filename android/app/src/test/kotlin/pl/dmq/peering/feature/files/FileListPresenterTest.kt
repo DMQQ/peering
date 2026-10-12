@@ -93,7 +93,7 @@ class FileListPresenterTest {
     fun openingAndNavigatingGoThroughThePort() = runTest {
         val port = FakeFileBrowsingPort(FileBrowserState(listing = listing("/a/b", folder("c"))))
         val presenter = presenter(port)
-        presenter.open(presenter.ui.value.entries.single())
+        presenter.tap(presenter.ui.value.entries.single())
         presenter.goTo("/a")
         presenter.refresh()
         presenter.up()

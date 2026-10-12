@@ -89,7 +89,7 @@ class FilePreviewPresenterTest {
     fun downloadForThisFileIsShownAsItRuns() = runTest {
         val plan = FileDownloadPlan(sessionID = "b", sourcePath = "/a/f", isFolder = false, readPath = "/a/f")
         val p = port(preview(RemoteFileKind.PDF, total = 1, complete = true), FileTransfer.Running(plan))
-        assertEquals(DownloadStatus.Running(fraction = null, isZipping = false), presenter(p).ui.value!!.download)
+        assertEquals(DownloadStatus.Running(fraction = null, isZipping = false, sourcePath = "/a/f"), presenter(p).ui.value!!.download)
     }
 
     @Test
