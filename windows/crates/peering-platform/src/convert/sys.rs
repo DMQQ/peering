@@ -77,6 +77,21 @@ impl Nv12Converter {
     }
 }
 
+fn create_output_view(
+    video_device: &ID3D11VideoDevice,
+    enumerator: &ID3D11VideoProcessorEnumerator,
+    texture: &ID3D11Texture2D,
+) -> Result<ID3D11VideoProcessorOutputView> {
+    let desc = D3D11_VIDEO_PROCESSOR_OUTPUT_VIEW_DESC {
+        ViewDimension: D3D11_VPOV_DIMENSION_TEXTURE2D,
+        Anonymous: D3D11_VIDEO_PROCESSOR_OUTPUT_VIEW_DESC_0 { Texture2D: D3D11_TEX2D_VPOV { MipSlice: 0 } },
+    };
+    let mut view = None;
+    // SAFETY: the texture, enumerator and description are live, and the out slot is valid.
+    unsafe { video_device.CreateVideoProcessorOutputView(texture, enumerator, &desc, Some(&mut view))? };
+    view.ok_or_else(|| Error::from(E_FAIL))
+}
+
 impl Stage {
     fn build(gpu: &GpuContext, input_size: (u32, u32), output_size: (u32, u32)) -> Result<Self> {
         let device = gpu.device.clone();
@@ -97,16 +112,7 @@ impl Stage {
         // SAFETY: the enumerator is live and processor index 0 is the one every device exposes.
         let processor = unsafe { video_device.CreateVideoProcessor(&enumerator, 0)? };
         let output_texture = create_nv12_texture(&device, output_size)?;
-        let output_desc = D3D11_VIDEO_PROCESSOR_OUTPUT_VIEW_DESC {
-            ViewDimension: D3D11_VPOV_DIMENSION_TEXTURE2D,
-            Anonymous: D3D11_VIDEO_PROCESSOR_OUTPUT_VIEW_DESC_0 { Texture2D: D3D11_TEX2D_VPOV { MipSlice: 0 } },
-        };
-        let mut output_view = None;
-        // SAFETY: the texture, enumerator and description are live, and the out slot is valid.
-        unsafe {
-            video_device.CreateVideoProcessorOutputView(&output_texture, &enumerator, &output_desc, Some(&mut output_view))?
-        };
-        let output_view = output_view.ok_or_else(|| Error::from(E_FAIL))?;
+        let output_view = create_output_view(&video_device, &enumerator, &output_texture)?;
         set_color_spaces(&video_context, &processor);
         Ok(Self {
             device,

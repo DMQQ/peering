@@ -122,43 +122,45 @@ impl HostApp {
     /// and the result is applied by a later frame; the frame rate goes to the host.
     fn apply_choice(&mut self, ctx: &egui::Context, choice: SettingsChoice) {
         match &choice {
-            SettingsChoice::StartAtLogin(wanted) => {
-                if !self.settings.begin_autostart() {
-                    return;
-                }
-                let wanted = *wanted;
-                let started = self.jobs.spawn("autostart", move || {
-                    let result = program_path().and_then(|path| {
-                        if wanted {
-                            autostart::write_run_key(&path)
-                        } else {
-                            autostart::remove_run_key()
-                        }
-                    });
-                    SettingsJob::AutostartWritten { wanted, result: result.map_err(|error| error.to_string()) }
-                });
-                if let Err(error) = started {
-                    self.settings.apply(SettingsJob::AutostartWritten { wanted, result: Err(error.to_string()) });
-                }
-            }
-            SettingsChoice::FixFirewall => {
-                if !self.settings.begin_firewall() {
-                    return;
-                }
-                let started = self.jobs.spawn("firewall", || match program_path() {
-                    Ok(path) => SettingsJob::Firewall(firewall::request_rule_elevated(&path, DEFAULT_PORT)),
-                    Err(error) => SettingsJob::Firewall(firewall::HelperResult::CouldNotStart(error.to_string())),
-                });
-                if let Err(error) = started {
-                    self.settings
-                        .apply(SettingsJob::Firewall(firewall::HelperResult::CouldNotStart(error.to_string())));
-                }
-            }
+            SettingsChoice::StartAtLogin(wanted) => self.change_autostart(*wanted),
+            SettingsChoice::FixFirewall => self.fix_firewall(),
             SettingsChoice::FrameRate(_) => {
                 if let Some(command) = settings_command(&choice) {
                     self.send(ctx, command);
                 }
             }
+        }
+    }
+
+    fn change_autostart(&mut self, wanted: bool) {
+        if !self.settings.begin_autostart() {
+            return;
+        }
+        let started = self.jobs.spawn("autostart", move || {
+            let result = program_path().and_then(|path| {
+                if wanted {
+                    autostart::write_run_key(&path)
+                } else {
+                    autostart::remove_run_key()
+                }
+            });
+            SettingsJob::AutostartWritten { wanted, result: result.map_err(|error| error.to_string()) }
+        });
+        if let Err(error) = started {
+            self.settings.apply(SettingsJob::AutostartWritten { wanted, result: Err(error.to_string()) });
+        }
+    }
+
+    fn fix_firewall(&mut self) {
+        if !self.settings.begin_firewall() {
+            return;
+        }
+        let started = self.jobs.spawn("firewall", || match program_path() {
+            Ok(path) => SettingsJob::Firewall(firewall::request_rule_elevated(&path, DEFAULT_PORT)),
+            Err(error) => SettingsJob::Firewall(firewall::HelperResult::CouldNotStart(error.to_string())),
+        });
+        if let Err(error) = started {
+            self.settings.apply(SettingsJob::Firewall(firewall::HelperResult::CouldNotStart(error.to_string())));
         }
     }
 

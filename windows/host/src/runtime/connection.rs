@@ -4,18 +4,19 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use peering_core::session::actions::SessionAction;
+use peering_core::pairing::ApprovalDecision;
 use peering_core::session::deps::{HostDeps, Random};
 use peering_core::session::handshake::{HostConfig, HostSession};
-use peering_core::session::liveness::{counts_as_life, LivenessTracker, Verdict};
-use peering_core::session::slots::{client_has_other_session, newest_session_for_key};
+use peering_core::session::liveness::{counts_as_life, LivenessTracker};
 use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
-use peering_wire::handshake::{ClientHello, ServerHello};
+use peering_wire::handshake::ClientHello;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::broadcast;
 use tokio::task::spawn_local;
 use tokio::time::interval;
 
+mod actions;
+mod lifecycle;
 mod register;
 
 use super::outbound::{outbound, FrameSender, OutboundReceiver};
@@ -120,54 +121,52 @@ impl Connection {
         let mut approvals = self.shared.approvals.subscribe();
         let mut approvals_open = true;
         loop {
-            tokio::select! {
-                read = reader.read(&mut chunk) => {
-                    let count = match read {
-                        Ok(0) | Err(_) => return,
-                        Ok(count) => count,
-                    };
-                    decoder.push(&chunk[..count]);
-                    loop {
-                        match decoder.next_frame() {
-                            Ok(Some(frame)) => {
-                                if self.on_frame(frame) == Flow::Closed {
-                                    return;
-                                }
-                            }
-                            Ok(None) => break,
-                            // A framing error means the byte stream is out of step; nothing after it can be trusted.
-                            Err(_) => return,
-                        }
-                    }
-                }
-                () = self.outbound.overflowed() => return,
-                _ = ticks.tick() => {
-                    if self.on_tick() == Flow::Closed {
-                        return;
-                    }
-                }
-                decision = approvals.recv(), if approvals_open => match decision {
-                    Ok(decision) if decision.session == self.session_id => {
-                        let actions = self.session.resolve_approval(decision.approved);
-                        if self.apply_all(actions) == Flow::Closed {
-                            return;
-                        }
-                    }
-                    Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
-                    Err(broadcast::error::RecvError::Closed) => approvals_open = false,
+            let flow = tokio::select! {
+                read = reader.read(&mut chunk) => match read {
+                    Ok(0) | Err(_) => Flow::Closed,
+                    Ok(count) => self.on_bytes(&mut decoder, &chunk[..count]),
                 },
+                () = self.outbound.overflowed() => Flow::Closed,
+                _ = ticks.tick() => self.on_tick(),
+                decision = approvals.recv(), if approvals_open => match decision {
+                    Ok(decision) => self.on_approval(decision),
+                    Err(broadcast::error::RecvError::Lagged(_)) => Flow::Open,
+                    Err(broadcast::error::RecvError::Closed) => {
+                        approvals_open = false;
+                        Flow::Open
+                    }
+                },
+            };
+            if flow == Flow::Closed {
+                return;
             }
         }
     }
 
-    pub(super) fn now(&self) -> f64 {
-        self.profile.clock.now_seconds()
+    /// Feeds bytes to the framer and handles each whole frame. A framing error means the byte stream is out of step, and
+    /// nothing after it can be trusted.
+    fn on_bytes(&mut self, decoder: &mut FrameDecoder, bytes: &[u8]) -> Flow {
+        decoder.push(bytes);
+        loop {
+            match decoder.next_frame() {
+                Ok(Some(frame)) => {
+                    if self.on_frame(frame) == Flow::Closed {
+                        return Flow::Closed;
+                    }
+                }
+                Ok(None) => return Flow::Open,
+                Err(_) => return Flow::Closed,
+            }
+        }
     }
 
-    /// True once the host has removed this connection's session, by forgetting the device or stopping hosting.
-    fn evicted(&self) -> bool {
-        let session = self.video_for_session.unwrap_or(self.session_id);
-        (self.registered || self.video_for_session.is_some()) && !self.shared.lock().sessions.contains_key(&session)
+    /// The Mac user's answer reaches every connection; only the session that asked acts on it.
+    fn on_approval(&mut self, decision: ApprovalDecision) -> Flow {
+        if decision.session != self.session_id {
+            return Flow::Open;
+        }
+        let actions = self.session.resolve_approval(decision.approved);
+        self.apply_all(actions)
     }
 
     fn on_frame(&mut self, frame: Frame) -> Flow {
@@ -196,133 +195,5 @@ impl Connection {
         if let Ok(hello) = serde_json::from_slice::<ClientHello>(&frame.payload) {
             self.supports_agent_chat = hello.capabilities.supports_agent_chat == Some(true);
         }
-    }
-
-    fn on_tick(&mut self) -> Flow {
-        if self.evicted() {
-            return Flow::Closed;
-        }
-        let now = self.now();
-        let phase = self.session.state().phase();
-        self.liveness.note_phase(phase, now);
-        let verdict = self.liveness.verdict_for(now, phase, self.video_for_session.is_some());
-        if verdict == Verdict::End || !self.shared.lock().hosting {
-            return Flow::Closed;
-        }
-        Flow::Open
-    }
-
-    fn apply_all(&mut self, actions: Vec<SessionAction>) -> Flow {
-        for action in actions {
-            if self.apply(action) == Flow::Closed {
-                return Flow::Closed;
-            }
-        }
-        Flow::Open
-    }
-
-    fn apply(&mut self, action: SessionAction) -> Flow {
-        match action {
-            SessionAction::Send(frame) => self.send(self.decorate(frame)),
-            SessionAction::Emit(event) => {
-                let now = self.now();
-                self.shared.lock().pairing.apply_event(self.session_id, &event, now);
-            }
-            SessionAction::Authorized => self.register(),
-            SessionAction::ForwardFrame(frame) => return self.on_ready(&frame),
-            SessionAction::ForwardCommand(command) => self.dispatch_command(command),
-            SessionAction::VideoConnection => {
-                self.pre_auth = None;
-                return self.attach_video();
-            }
-            SessionAction::RequestApproval { client_name } => {
-                let refused = self.shared.lock().pairing.request_approval(self.session_id, &client_name).err();
-                if let Some(decision) = refused {
-                    // This connection hears its own refusal on the approvals channel and answers the client.
-                    let _delivered = self.shared.approvals.send(decision);
-                }
-            }
-            SessionAction::Close(_) => return Flow::Closed,
-        }
-        Flow::Open
-    }
-
-    pub(super) fn send(&self, frame: Frame) {
-        // A writer that has stopped ends this connection on its next read, so a failed send needs no handling here.
-        let _queued = self.outbound.send(frame);
-    }
-
-    pub(super) fn send_event<T: serde::Serialize>(&self, event: &T) {
-        // Derived Serialize with string keys only: text from the CLI is just a string value, which cannot fail.
-        self.send(Frame::new(MessageKind::AgentEvent, serde_json::to_vec(event).expect("agent events always serialise")));
-    }
-
-    /// The host decorates its own hello with the services it runs, so the client sees what this build can do.
-    fn decorate(&self, frame: Frame) -> Frame {
-        if frame.kind != MessageKind::ServerHello {
-            return frame;
-        }
-        let Ok(mut hello) = serde_json::from_slice::<ServerHello>(&frame.payload) else {
-            return frame;
-        };
-        let agent_installed = self.shared.lock().agent_availability.installed(self.now());
-        if agent_installed {
-            hello.capabilities.supports_agent_chat = Some(true);
-            hello.capabilities.supports_agent_list = Some(true);
-            hello.agent_chat_agents = Some(peering_agent::manager::agent_chat_agents());
-        }
-        hello.capabilities.supports_file_browser = Some(true);
-        if self.profile.can_lock_screen {
-            hello.capabilities.supports_lock_screen = Some(true);
-        }
-        // The hello was decoded from our own derived type a moment ago, so writing it back cannot fail.
-        Frame::new(MessageKind::ServerHello, serde_json::to_vec(&hello).expect("a hello always serialises"))
-    }
-
-    fn attach_video(&mut self) -> Flow {
-        let Some(key) = self.peer.public_key.clone() else {
-            return Flow::Closed;
-        };
-        let mut guard = self.shared.lock();
-        let candidates = guard.sessions.iter().map(|(id, slot)| (*id, slot.peer_key.as_deref()));
-        let Some(session_id) = newest_session_for_key(candidates, &key) else {
-            return Flow::Closed;
-        };
-        let Some(slot) = guard.sessions.get_mut(&session_id) else {
-            return Flow::Closed;
-        };
-        slot.video_outbound = Some(self.outbound.clone());
-        self.video_for_session = Some(session_id);
-        guard.video.lock().request_resync();
-        Flow::Open
-    }
-
-    fn finish(&mut self) {
-        let mut guard = self.shared.lock();
-        let state = &mut *guard;
-        if let Some(session_id) = self.video_for_session.take() {
-            if let Some(slot) = state.sessions.get_mut(&session_id) {
-                if slot.video_outbound.as_ref().is_some_and(|sender| sender.same_channel(&self.outbound)) {
-                    slot.video_outbound = None;
-                }
-            }
-        }
-        if let Some(slot) = state.sessions.remove(&self.session_id) {
-            let siblings = state.sessions.iter().map(|(id, other)| (*id, other.client_id.as_str()));
-            let last_of_client = !client_has_other_session(siblings, &slot.client_id, self.session_id);
-            // The ceiling goes first: once capture stops, the encoder no longer takes a new bitrate.
-            state.refresh_bitrate_ceiling();
-            if last_of_client {
-                let mut video = state.video.lock();
-                video.detach(&slot.client_id);
-                video.stop_when_idle();
-            }
-            state.release_input_if_idle();
-            if last_of_client {
-                state.terminals.disconnect(&slot.client_id);
-            }
-        }
-        state.pairing.forget_session(self.session_id);
-        state.catalogues.forget(&self.session_id);
     }
 }

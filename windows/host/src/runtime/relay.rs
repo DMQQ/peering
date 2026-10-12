@@ -7,11 +7,12 @@ use std::time::Duration;
 use std::panic::AssertUnwindSafe;
 
 use futures_util::{FutureExt, SinkExt, StreamExt};
+use peering_core::ports::clock::Clock;
 use peering_core::relay::dial::{first_bytes, plan as dial_plan, DialPlan};
 use peering_core::relay::registration::{RegAction, RelayFault, RelayRegistration, RelaySession};
 use peering_core::video::recovery::LogGate;
 use peering_net::tls::HostTls;
-use peering_wire::relay_messages::{encode_sorted, RelayServerMessage};
+use peering_wire::relay_messages::encode_sorted;
 use peering_wire::relay_proof::ProofSigner;
 use rustls::crypto::ring::default_provider;
 use rustls::{ClientConfig, RootCertStore};
@@ -22,10 +23,14 @@ use tokio::time::{interval, timeout, Interval};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{connect_async_tls_with_config, Connector, MaybeTlsStream, WebSocketStream};
 
+mod incoming;
+
+use incoming::{on_socket_message, Incoming};
+
 use super::connection::serve_counted;
 use super::control::RelayStatus;
 use super::diagnostics;
-use super::peer_address::{peer_socket_addr, signalling_channel};
+use super::peer_address::signalling_channel;
 use super::pre_auth::{PreAuthGate, PreAuthPermit};
 use super::problem_source::ProblemSource;
 use super::random::unit_fraction;
@@ -79,10 +84,7 @@ async fn serve_connection(
 ) {
     let Dialer { shared, profile, tls, dials } = dialer;
     let clock = profile.clock.as_ref();
-    set_relay_status(shared, RelayStatus::Connecting);
-    let Ok(Ok(mut socket)) = timeout(CONNECT_TIMEOUT, connect(&relay.url)).await else {
-        set_relay_status(shared, RelayStatus::Retrying);
-        registration.on_disconnect(clock);
+    let Some(mut socket) = open_socket(relay, registration, shared, clock).await else {
         return;
     };
     let mut pending = registration.start(clock);
@@ -93,22 +95,10 @@ async fn serve_connection(
             break;
         }
         tokio::select! {
-            message = socket.next() => match message {
-                Some(Ok(Message::Text(text))) => {
-                    registration.note_frame(clock);
-                    let Ok(message) = serde_json::from_str::<RelayServerMessage>(&text) else { continue };
-                    if answer_ask(shared, &message) {
-                        continue;
-                    }
-                    pending = registration.on_message(message, clock);
-                    if registration.is_registered() {
-                        set_relay_status(shared, RelayStatus::Registered);
-                        shared.lock().clear_problem(ProblemSource::RelayClock);
-                    }
-                }
-                Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
-                // Pings, pongs and binary frames carry nothing for the registration but prove the socket is alive.
-                Some(Ok(_)) => registration.note_frame(clock),
+            message = socket.next() => match on_socket_message(message, registration, shared, clock) {
+                Incoming::Closed => break,
+                Incoming::Actions(actions) => pending = actions,
+                Incoming::Nothing => {}
             },
             Some(ask) = asks.recv() => {
                 if send_message(&mut socket, &ask).await.is_err() {
@@ -123,9 +113,27 @@ async fn serve_connection(
             }
         }
     }
+    close_link(registration, shared, clock);
+}
+
+/// The socket is gone: the lanes lose their signalling, the registration learns of it, and the window shows why.
+fn close_link(registration: &mut RelayRegistration, shared: &Shared, clock: &dyn Clock) {
     shared.peer_addresses().attach(None);
     registration.on_disconnect(clock);
     report_link_down(shared, registration.fault());
+}
+
+/// Dials the relay. A relay that does not answer in time is a disconnect for the registration, to be retried by its ladder.
+async fn open_socket(relay: &RelayConfig, registration: &mut RelayRegistration, shared: &Shared, clock: &dyn Clock) -> Option<Socket> {
+    set_relay_status(shared, RelayStatus::Connecting);
+    match timeout(CONNECT_TIMEOUT, connect(&relay.url)).await {
+        Ok(Ok(socket)) => Some(socket),
+        Ok(Err(_)) | Err(_) => {
+            set_relay_status(shared, RelayStatus::Retrying);
+            registration.on_disconnect(clock);
+            None
+        }
+    }
 }
 
 /// The relay is not reachable for now. A clock the relay refuses gets its own status and a sentence that says what to do,
@@ -170,24 +178,6 @@ async fn send_message<M: serde::Serialize>(socket: &mut Socket, message: &M) -> 
 
 fn set_relay_status(shared: &Shared, status: RelayStatus) {
     shared.lock().relay = status;
-}
-
-/// Hands the relay's answer to a video lane's `requestPeerAddress` to that lane. Returns true when the message was such an
-/// answer, which must not reach the registration: the registration treats any error as a reason to disconnect.
-fn answer_ask(shared: &Shared, message: &RelayServerMessage) -> bool {
-    match message {
-        RelayServerMessage::PeerAddress { host, port } => {
-            if let Some(address) = peer_socket_addr(host, *port) {
-                shared.peer_addresses().answer(address);
-            }
-            true
-        }
-        RelayServerMessage::Error { code, .. } if code == "peerAddressUnknown" => {
-            shared.peer_addresses().refuse();
-            true
-        }
-        _ => false,
-    }
 }
 
 /// What a dial to the relay's control port needs, and the cap on how many run at once.

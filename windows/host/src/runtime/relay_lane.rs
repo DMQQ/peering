@@ -15,7 +15,7 @@ use peering_wire::sealing::MAX_DATAGRAM_SIZE;
 use tokio::net::{lookup_host, UdpSocket};
 use tokio::time::interval;
 
-use super::ask_queue::AskSender;
+use super::ask_queue::{AskReceiver, AskSender};
 use super::outbound::OutboundReceiver;
 use super::peer_address::answer_channel;
 use super::shared::Shared;
@@ -31,7 +31,7 @@ pub async fn run(
     session_id: u64,
     endpoint: VideoEndpoint,
     token: [u8; 16],
-    mut outbound: OutboundReceiver<Vec<u8>>,
+    outbound: OutboundReceiver<Vec<u8>>,
 ) {
     let Some(relay) = resolve(&endpoint).await else {
         return;
@@ -39,33 +39,10 @@ pub async fn run(
     let Ok(socket) = bind_for(relay).await else {
         return;
     };
-    let (answers_tx, mut answers) = answer_channel();
+    let (answers_tx, answers) = answer_channel();
     let mut lane = RelayLane { shared, profile, session_id, socket, relay, token, knocker: DirectPathKnocker::new(), answers_tx };
-    if !lane.on_tick().await {
-        return;
-    }
-    let mut ticks = interval(TICK);
-    let mut buffer = vec![0u8; MAX_DATAGRAM_SIZE + 1];
-    loop {
-        tokio::select! {
-            received = lane.socket.recv_from(&mut buffer) => {
-                // A failed receive drops that datagram only. On an unconnected socket Windows reports an earlier send's
-                // ICMP error here, which says nothing about the datagrams still to come.
-                if let Ok((count, source)) = received {
-                    lane.on_arrival(&buffer[..count], source).await;
-                }
-            }
-            _ = ticks.tick() => {
-                if !lane.on_tick().await {
-                    return;
-                }
-            }
-            datagram = outbound.recv() => match datagram {
-                Some(datagram) => lane.on_outbound(&datagram).await,
-                None => return,
-            },
-            Some(address) = answers.recv() => lane.knocker.on_peer_address(address),
-        }
+    if lane.on_tick().await {
+        lane.serve(outbound, answers).await;
     }
 }
 
@@ -90,6 +67,33 @@ struct RelayLane {
 }
 
 impl RelayLane {
+    /// Reads the socket, the session's outgoing datagrams and the relay's answers until the session ends.
+    async fn serve(&mut self, mut outbound: OutboundReceiver<Vec<u8>>, mut answers: AskReceiver<SocketAddr>) {
+        let mut ticks = interval(TICK);
+        let mut buffer = vec![0u8; MAX_DATAGRAM_SIZE + 1];
+        loop {
+            tokio::select! {
+                received = self.socket.recv_from(&mut buffer) => {
+                    // A failed receive drops that datagram only. On an unconnected socket Windows reports an earlier send's
+                    // ICMP error here, which says nothing about the datagrams still to come.
+                    if let Ok((count, source)) = received {
+                        self.on_arrival(&buffer[..count], source).await;
+                    }
+                }
+                _ = ticks.tick() => {
+                    if !self.on_tick().await {
+                        return;
+                    }
+                }
+                datagram = outbound.recv() => match datagram {
+                    Some(datagram) => self.on_outbound(&datagram).await,
+                    None => return,
+                },
+                Some(address) = answers.recv() => self.knocker.on_peer_address(address),
+            }
+        }
+    }
+
     /// Keeps the binding alive and sends the knocks that are due. False once the session has ended.
     async fn on_tick(&mut self) -> bool {
         let now = self.profile.clock.now_seconds();

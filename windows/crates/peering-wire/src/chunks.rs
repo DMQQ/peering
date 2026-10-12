@@ -57,19 +57,17 @@ pub struct Reassembler {
     bytes: usize,
 }
 
-impl Default for Reassembler {
-    fn default() -> Self {
-        Self::new(MAX_REASSEMBLED)
-    }
+/// What a chunk's first bytes say about where it belongs.
+struct ChunkHeader {
+    inner: MessageKind,
+    frame_id: u32,
+    index: usize,
+    count: usize,
 }
 
-impl Reassembler {
-    pub fn new(max_reassembled: usize) -> Self {
-        Self { max_reassembled, frame_id: None, inner_kind: None, expected: 0, parts: HashMap::new(), bytes: 0 }
-    }
-
-    pub fn ingest(&mut self, frame: &Frame) -> Result<Option<Frame>, ChunkError> {
-        let payload = &frame.payload;
+impl ChunkHeader {
+    /// The header and the body behind it, refusing a chunk that is cut short, nested, out of range or too big.
+    fn parse(payload: &[u8]) -> Result<(Self, &[u8]), ChunkError> {
         if payload.len() < HEADER_SIZE {
             return Err(ChunkError::TruncatedHeader { have: payload.len() });
         }
@@ -84,19 +82,35 @@ impl Reassembler {
         if body.len() > CONTROL_CHUNK_SIZE {
             return Err(ChunkError::Oversized(body.len()));
         }
+        Ok((Self { inner, frame_id, index, count }, body))
+    }
+}
 
-        if self.frame_id != Some(frame_id) {
+impl Default for Reassembler {
+    fn default() -> Self {
+        Self::new(MAX_REASSEMBLED)
+    }
+}
+
+impl Reassembler {
+    pub fn new(max_reassembled: usize) -> Self {
+        Self { max_reassembled, frame_id: None, inner_kind: None, expected: 0, parts: HashMap::new(), bytes: 0 }
+    }
+
+    pub fn ingest(&mut self, frame: &Frame) -> Result<Option<Frame>, ChunkError> {
+        let (header, body) = ChunkHeader::parse(&frame.payload)?;
+        if self.frame_id != Some(header.frame_id) {
             self.clear();
-            self.frame_id = Some(frame_id);
-            self.inner_kind = Some(inner);
-            self.expected = count;
+            self.frame_id = Some(header.frame_id);
+            self.inner_kind = Some(header.inner);
+            self.expected = header.count;
         }
-        if Some(inner) != self.inner_kind || count != self.expected {
+        if Some(header.inner) != self.inner_kind || header.count != self.expected {
             return Ok(None);
         }
-        if !self.parts.contains_key(&index) {
+        if !self.parts.contains_key(&header.index) {
             self.bytes += body.len();
-            self.parts.insert(index, body.to_vec());
+            self.parts.insert(header.index, body.to_vec());
         }
         if self.bytes > self.max_reassembled {
             self.clear();
@@ -105,13 +119,17 @@ impl Reassembler {
         if self.parts.len() != self.expected {
             return Ok(None);
         }
+        Ok(Some(self.assemble(header.inner)))
+    }
+
+    /// Joins the parts in order and starts over.
+    fn assemble(&mut self, kind: MessageKind) -> Frame {
         let mut assembled = Vec::with_capacity(self.bytes);
         for i in 0..self.expected {
             assembled.extend_from_slice(&self.parts[&i]);
         }
-        let kind = inner;
         self.clear();
-        Ok(Some(Frame::new(kind, assembled)))
+        Frame::new(kind, assembled)
     }
 
     fn clear(&mut self) {

@@ -13,6 +13,14 @@ const QUIET_ZONE_MODULES: usize = 4;
 
 pub fn show(ui: &mut egui::Ui, model: &UiModel, now_unix: u64, commands: &mut Vec<RuntimeCommand>) {
     ui.heading(strings::PAIRING_TITLE);
+    show_panel(ui, model);
+    ui.separator();
+    show_approvals(ui, model, commands);
+    ui.separator();
+    show_devices(ui, model, now_unix, commands);
+}
+
+fn show_panel(ui: &mut egui::Ui, model: &UiModel) {
     match model.panel() {
         PairingPanel::NotHosting => {
             ui.label(strings::NEEDS_HOSTING);
@@ -31,7 +39,9 @@ pub fn show(ui: &mut egui::Ui, model: &UiModel, now_unix: u64, commands: &mut Ve
             }
         }
     }
-    ui.separator();
+}
+
+fn show_approvals(ui: &mut egui::Ui, model: &UiModel, commands: &mut Vec<RuntimeCommand>) {
     for approval in model.approvals() {
         ui.label(approval.prompt);
         if ui.button(strings::APPROVE).clicked() {
@@ -41,7 +51,9 @@ pub fn show(ui: &mut egui::Ui, model: &UiModel, now_unix: u64, commands: &mut Ve
             commands.push(approval.decline);
         }
     }
-    ui.separator();
+}
+
+fn show_devices(ui: &mut egui::Ui, model: &UiModel, now_unix: u64, commands: &mut Vec<RuntimeCommand>) {
     ui.heading(strings::DEVICES_HEADING);
     let devices = model.devices(now_unix);
     if devices.is_empty() {
