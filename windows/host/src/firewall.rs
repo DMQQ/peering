@@ -2,10 +2,13 @@
 //! host starts a copy of itself with `--firewall-rule <port>` through ShellExecuteW "runas"; that copy applies the rule.
 //! The builders are pure and tested natively. The Windows parts are unverified until run on Windows.
 
+use peering_core::settings::DEFAULT_PORT;
+
 pub const RULE_NAME: &str = "Peering Host";
 pub const HELPER_FLAG: &str = "--firewall-rule";
 
-/// The netsh arguments for an inbound TCP rule on `port` for the executable at `exe_path`, on private networks only.
+/// The netsh arguments for an inbound TCP rule on `port` for the executable at `exe_path`, on private networks only and
+/// only from the local subnet, so a router that forwards the port does not expose it.
 pub fn netsh_firewall_args(exe_path: &str, port: u16) -> Vec<String> {
     vec![
         "advfirewall".to_owned(),
@@ -18,19 +21,30 @@ pub fn netsh_firewall_args(exe_path: &str, port: u16) -> Vec<String> {
         "protocol=TCP".to_owned(),
         format!("localport={port}"),
         "profile=private".to_owned(),
+        "remoteip=localsubnet".to_owned(),
         format!("program={exe_path}"),
     ]
 }
 
-/// The arguments that remove the rule before it is added again, so a changed port or path never leaves a stale rule.
-pub fn netsh_delete_args() -> Vec<String> {
-    vec!["advfirewall".to_owned(), "firewall".to_owned(), "delete".to_owned(), "rule".to_owned(), format!("name={RULE_NAME}")]
+/// The arguments that remove this program's rule before it is added again, so a changed port never leaves a stale rule.
+/// The program is named so another application's rule of the same name is not removed with it.
+pub fn netsh_delete_args(exe_path: &str) -> Vec<String> {
+    vec![
+        "advfirewall".to_owned(),
+        "firewall".to_owned(),
+        "delete".to_owned(),
+        "rule".to_owned(),
+        format!("name={RULE_NAME}"),
+        format!("program={exe_path}"),
+    ]
 }
 
-/// The port named by a `--firewall-rule <port>` request, if the arguments are one.
+/// The port named by a `--firewall-rule <port>` request, if the arguments are one. The elevated copy trusts nothing it is
+/// handed, so only the host's own port is accepted: 0 and every other value are refused.
 pub fn helper_port(arguments: &[String]) -> Option<u16> {
     let position = arguments.iter().position(|argument| argument == HELPER_FLAG)?;
-    arguments.get(position + 1)?.parse().ok()
+    let port: u16 = arguments.get(position + 1)?.parse().ok()?;
+    (port == DEFAULT_PORT).then_some(port)
 }
 
 /// Joins arguments into one command line with the quoting Windows programs expect, for ShellExecuteW parameters.
@@ -93,9 +107,9 @@ pub fn request_rule_elevated(exe_path: &std::path::Path, port: u16) -> std::io::
 /// Replaces the host's inbound rule. Runs in the elevated copy started by `request_rule_elevated`.
 #[cfg(windows)]
 pub fn apply_rule(exe_path: &std::path::Path, port: u16) -> std::io::Result<()> {
-    // Deleting a rule that is not there fails, and that is the state wanted, so the delete result is not checked.
-    let _absent_or_removed = std::process::Command::new("netsh").args(netsh_delete_args()).status();
     let program = exe_path.to_string_lossy();
+    // Deleting a rule that is not there fails, and that is the state wanted, so the delete result is not checked.
+    let _absent_or_removed = std::process::Command::new("netsh").args(netsh_delete_args(&program)).status();
     let status = std::process::Command::new("netsh").args(netsh_firewall_args(&program, port)).status()?;
     status.success().then_some(()).ok_or_else(|| std::io::Error::other("netsh did not add the firewall rule"))
 }
@@ -109,7 +123,7 @@ mod tests {
     }
 
     #[test]
-    fn the_rule_allows_inbound_tcp_on_the_port_for_this_program_on_private_networks() {
+    fn the_rule_allows_inbound_tcp_on_the_port_for_this_program_from_the_local_subnet_on_private_networks() {
         let args = netsh_firewall_args(r"C:\Peering\peering-host.exe", 51515);
         assert_eq!(
             args,
@@ -124,6 +138,7 @@ mod tests {
                 "protocol=TCP",
                 "localport=51515",
                 "profile=private",
+                "remoteip=localsubnet",
                 r"program=C:\Peering\peering-host.exe",
             ])
         );
@@ -138,8 +153,10 @@ mod tests {
     }
 
     #[test]
-    fn the_delete_removes_the_named_rule() {
-        assert_eq!(netsh_delete_args().last().map(String::as_str), Some("name=Peering Host"));
+    fn the_delete_removes_only_the_rule_of_this_program() {
+        let args = netsh_delete_args(r"C:\Peering\peering-host.exe");
+        assert!(args.contains(&"name=Peering Host".to_owned()));
+        assert_eq!(args.last().map(String::as_str), Some(r"program=C:\Peering\peering-host.exe"));
     }
 
     #[test]
@@ -156,6 +173,8 @@ mod tests {
         assert_eq!(helper_port(&strings(&["--firewall-rule", "51515"])), Some(51515));
         assert_eq!(helper_port(&strings(&["--other", "1"])), None);
         assert_eq!(helper_port(&strings(&["--firewall-rule", "not-a-port"])), None);
+        assert_eq!(helper_port(&strings(&["--firewall-rule", "0"])), None);
+        assert_eq!(helper_port(&strings(&["--firewall-rule", "22"])), None);
         assert_eq!(helper_port(&strings(&["--firewall-rule"])), None);
     }
 }
