@@ -124,6 +124,9 @@ public struct FrameDecoder {
     private var buffer: [UInt8] = []
     private var readIndex = 0
 
+    /// The largest frame this decoder will buffer; lowered for a peer that has not authenticated.
+    public var frameLimit: UInt32 = FrameDecoder.maxFrameLength
+
     public init() {}
 
     public var bufferedByteCount: Int { buffer.count - readIndex }
@@ -144,7 +147,7 @@ public struct FrameDecoder {
             | UInt32(buffer[readIndex + 3])
 
         guard length >= 1 else { throw FramingError.zeroLengthFrame }
-        guard length <= Self.maxFrameLength else {
+        guard length <= frameLimit else {
             throw FramingError.frameTooLarge(declared: length)
         }
 
