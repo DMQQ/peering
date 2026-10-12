@@ -121,7 +121,7 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
 private fun dayLabel(day: HistoryDay): String = when (day) {
     HistoryDay.Today -> stringResource(R.string.agents_day_today)
     HistoryDay.Yesterday -> stringResource(R.string.agents_day_yesterday)
-    is HistoryDay.On -> day.date.format(java.time.format.DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
+    is HistoryDay.On -> day.date.format(java.time.format.DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH))
 }
 
 private fun timeLabel(unixSeconds: Long): String =

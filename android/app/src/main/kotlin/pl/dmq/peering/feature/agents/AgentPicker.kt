@@ -1,6 +1,5 @@
 package pl.dmq.peering.feature.agents
 
-import android.text.format.DateUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import pl.dmq.peering.ui.kit.relativeTime
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -125,6 +126,6 @@ private fun UsageLine(usage: AgentUsage?) {
 @Composable
 private fun lastUsed(usage: AgentUsage?): String {
     val unix = usage?.lastUsedUnix ?: return stringResource(R.string.agents_never_used)
-    val ago = DateUtils.getRelativeTimeSpanString(unix * 1_000L, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
+    val ago = LocalContext.current.resources.relativeTime(unix * 1_000L)
     return stringResource(R.string.agents_last_used, ago)
 }

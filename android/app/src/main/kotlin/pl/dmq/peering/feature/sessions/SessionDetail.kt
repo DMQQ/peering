@@ -1,6 +1,5 @@
 package pl.dmq.peering.feature.sessions
 
-import android.text.format.DateUtils
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,6 +13,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import pl.dmq.peering.ui.kit.relativeTime
+import pl.dmq.peering.ui.kit.englishDateTime
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -46,7 +47,7 @@ fun SessionDetail(record: SessionRecord, nowMillis: Long, onBack: () -> Unit, mo
             ControlsDivider()
             DetailRow(
                 stringResource(R.string.sessions_detail_started),
-                DateUtils.formatDateTime(context, record.startedAt, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH),
+                englishDateTime(record.startedAt),
             )
             ControlsDivider()
             DetailRow(stringResource(R.string.sessions_detail_duration), durationLabel(record.durationSeconds(nowMillis)))
@@ -84,5 +85,5 @@ internal fun SessionRecord.EndReason.labelRes(): Int = when (this) {
     SessionRecord.EndReason.FAILED -> R.string.sessions_ended_failed
 }
 
-internal fun relativeTime(thenMillis: Long, nowMillis: Long): String =
-    DateUtils.getRelativeTimeSpanString(thenMillis, nowMillis, DateUtils.MINUTE_IN_MILLIS).toString()
+internal fun relativeTime(resources: android.content.res.Resources, thenMillis: Long, nowMillis: Long): String =
+    resources.relativeTime(thenMillis, nowMillis)

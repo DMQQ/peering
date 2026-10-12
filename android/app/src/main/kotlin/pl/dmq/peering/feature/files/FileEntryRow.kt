@@ -1,6 +1,5 @@
 package pl.dmq.peering.feature.files
 
-import android.text.format.DateUtils
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -12,6 +11,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import pl.dmq.peering.ui.kit.englishDate
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,7 +65,7 @@ private fun detailText(row: FileRowUi): String {
     val entry = row.entry
     val size = if (entry.isDirectory) null else fileSizeLabel(entry.size)
     val date = remember(row.modifiedEpochMillis) {
-        row.modifiedEpochMillis?.let { DateUtils.formatDateTime(context, it, DATE_FLAGS) }
+        row.modifiedEpochMillis?.let { englishDate(it) }
     }
     val kind = when {
         entry.isSymlink && entry.isDirectory -> stringResource(R.string.files_folder_link)
@@ -75,4 +75,3 @@ private fun detailText(row: FileRowUi): String {
     return listOfNotNull(entry.permissions.takeIf { it.isNotEmpty() }, kind, date).joinToString(" · ")
 }
 
-private const val DATE_FLAGS = DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH or DateUtils.FORMAT_SHOW_YEAR

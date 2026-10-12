@@ -10,6 +10,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -100,7 +101,7 @@ private fun RecentRow(record: SessionRecord, nowMillis: Long, onClick: () -> Uni
             )
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(relativeTime(record.startedAt, nowMillis), style = PeeringText.caption2, color = PeeringColors.tertiary)
+            Text(relativeTime(LocalContext.current.resources, record.startedAt, nowMillis), style = PeeringText.caption2, color = PeeringColors.tertiary)
             Icon(AppIcons.chevronRight, contentDescription = null, tint = PeeringColors.tertiary, modifier = Modifier.size(14.dp))
         }
     }

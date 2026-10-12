@@ -1,6 +1,6 @@
 package pl.dmq.peering.feature.agents
 
-import android.text.format.DateUtils
+import android.content.res.Resources
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.widthIn
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import pl.dmq.peering.ui.kit.relativeTime
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -102,13 +104,12 @@ private fun LimitRows(limits: List<LimitUi>) {
                 )
             }
             Meter(left, if (left < 0.05) PeeringColors.danger else if (left < 0.2) PeeringColors.caution else PeeringColors.ink)
-            limit.resetsAtUnix?.let { Text(stringResource(R.string.agents_usage_renews, renewLabel(it)), style = PeeringText.caption, color = PeeringColors.muted) }
+            limit.resetsAtUnix?.let { Text(stringResource(R.string.agents_usage_renews, renewLabel(LocalContext.current.resources, it)), style = PeeringText.caption, color = PeeringColors.muted) }
         }
     }
 }
 
-private fun renewLabel(unixSeconds: Long): String =
-    DateUtils.getRelativeTimeSpanString(unixSeconds * 1_000L, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
+private fun renewLabel(resources: Resources, unixSeconds: Long): String = resources.relativeTime(unixSeconds * 1_000L)
 
 @Composable
 private fun ValueRow(label: String, value: String) {
