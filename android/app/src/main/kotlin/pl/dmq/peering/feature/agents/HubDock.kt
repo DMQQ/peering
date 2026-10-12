@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
-import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.PillShape
@@ -68,7 +67,8 @@ fun HubDock(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(HubDockMetrics.height)
-                .sessionSurface(PillShape)
+                .clip(PillShape)
+                .background(PeeringColors.ink)
                 .combinedClickable(
                     role = Role.Button,
                     onClick = if (agent != null) onChat else onChoose,
@@ -86,18 +86,18 @@ fun HubDock(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         ) {
-            Box(Modifier.size(32.dp).clip(PillShape).background(PeeringColors.ink), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(32.dp).clip(PillShape).background(PeeringColors.onInk), contentAlignment = Alignment.Center) {
                 Icon(
                     if (agent != null) AgentBrand.of(agent.id).icon() else AppIcons.sparkles,
                     contentDescription = null,
-                    tint = PeeringColors.onInk,
+                    tint = PeeringColors.ink,
                     modifier = Modifier.size(16.dp),
                 )
             }
             Text(
                 label,
                 style = PeeringText.subheadlineSemibold.copy(fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold),
-                color = PeeringColors.ink,
+                color = PeeringColors.onInk,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
