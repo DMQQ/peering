@@ -1,7 +1,6 @@
 package pl.dmq.peering.feature.onboarding
 
 import androidx.activity.compose.BackHandler
-import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +17,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +41,7 @@ import pl.dmq.peering.R
 import pl.dmq.peering.feature.paywall.PaywallPresenter
 import pl.dmq.peering.feature.paywall.PaywallUi
 import pl.dmq.peering.feature.paywall.PurchaseState
+import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.PageDots
 import pl.dmq.peering.ui.kit.PrimaryButton
 import pl.dmq.peering.ui.kit.rememberSheen
@@ -48,8 +50,6 @@ import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.peeringBackdrop
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
-
-private const val TAG = "PeeringTour"
 
 private val wordsHeight = 222.dp
 
@@ -75,9 +75,10 @@ internal fun TourScreen(
         snapshotFlow { pager.currentPage }.collect { presenter.goTo(tourPages[it].step) }
     }
     LaunchedEffect(paywall.purchase) { if (paywall.purchase == PurchaseState.PURCHASED) onFinished() }
-    BackHandler {
+    val goBack = {
         if (pager.currentPage > 0) scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } else presenter.back()
     }
+    BackHandler(onBack = { goBack() })
     val current = tourPages[pager.currentPage]
     val onPlans = current.content is TourContent.Plans
 
@@ -86,7 +87,7 @@ internal fun TourScreen(
             HorizontalPager(pager, Modifier.weight(1f)) { index ->
                 val page = tourPages[index]
                 if (page.content is TourContent.Plans) {
-                    PlansPage(page, paywall, freeChosen, plans, { freeChosen = it })
+                    PlansPage(page, paywall, freeChosen, plans, { freeChosen = it }, onFinished)
                 } else {
                     Column(Modifier.fillMaxSize().padding(horizontal = 22.dp).padding(bottom = 6.dp)) {
                         Spacer(
@@ -104,7 +105,6 @@ internal fun TourScreen(
                     enabled = !(onPlans && paywall.purchase == PurchaseState.PURCHASING),
                     onClick = {
                         val action = plansAction(onPlans, freeChosen, paywall.entitled, paywall.products.isNotEmpty())
-                        Log.i(TAG, "tour button on page ${pager.currentPage}: $action")
                         when (action) {
                             PlansAction.Next -> scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
                             PlansAction.Finish -> onFinished()
@@ -125,6 +125,10 @@ internal fun TourScreen(
             )
             SkipButton(onSkip, Modifier.align(Alignment.TopEnd))
         }
+        IconButton(
+            onClick = { goBack() },
+            modifier = Modifier.align(Alignment.TopStart).windowInsetsPadding(WindowInsets.statusBars).padding(start = 4.dp, top = 4.dp),
+        ) { Icon(AppIcons.back, contentDescription = stringResource(R.string.tour_back)) }
     }
 }
 
@@ -164,14 +168,22 @@ internal fun Heading(title: String, lit: Boolean) {
 }
 
 @Composable
-private fun PlansPage(page: TourPage, paywall: PaywallUi, freeChosen: Boolean, plans: PaywallPresenter, setFree: (Boolean) -> Unit) {
+private fun PlansPage(
+    page: TourPage,
+    paywall: PaywallUi,
+    freeChosen: Boolean,
+    plans: PaywallPresenter,
+    setFree: (Boolean) -> Unit,
+    onFinished: () -> Unit,
+) {
+    val onChooseFree = { if (freeChosen || paywall.products.isEmpty()) onFinished() else setFree(true) }
     Column(Modifier.fillMaxSize().padding(start = 22.dp, end = 22.dp, top = 14.dp, bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Heading(stringResource(page.title), lit = true)
         PlansHero(Modifier.weight(1f).fillMaxWidth().heightIn(min = 120.dp))
         PlansSection(
             ui = paywall,
             freeChosen = freeChosen,
-            onChooseFree = { setFree(true) },
+            onChooseFree = onChooseFree,
             onChoose = { setFree(false); plans.select(it) },
             onRetry = plans::load,
             modifier = Modifier.heightIn(max = 330.dp),

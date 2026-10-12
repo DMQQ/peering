@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -100,14 +102,9 @@ internal fun WelcomeLanding(onStart: () -> Unit, onSkip: () -> Unit, modifier: M
 
 @Composable
 internal fun SkipButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Text(
-        stringResource(R.string.tour_skip),
-        style = PeeringText.footnote,
-        color = PeeringColors.muted,
-        modifier = modifier
-            .windowInsetsPadding(WindowInsets.statusBars)
-            .clip(CircleShape)
-            .tappable(onClick)
-            .padding(horizontal = 18.dp, vertical = 12.dp),
-    )
+    TextButton(
+        onClick = onClick,
+        modifier = modifier.windowInsetsPadding(WindowInsets.statusBars).padding(end = 8.dp),
+        colors = ButtonDefaults.textButtonColors(contentColor = PeeringColors.muted),
+    ) { Text(stringResource(R.string.tour_skip)) }
 }

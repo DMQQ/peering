@@ -116,7 +116,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             )
             ConnectStage.Onboarding -> OnboardingRoute(
                 store = wiring.firstRun,
-                billing = StorePaywallBilling(wiring.billing) { context.findActivity() },
+                billing = remember(wiring) { StorePaywallBilling(wiring.billing) { context.findActivity() } },
                 onFinished = { onboarding = false },
             )
             ConnectStage.Pairing -> presenting?.let { current ->
