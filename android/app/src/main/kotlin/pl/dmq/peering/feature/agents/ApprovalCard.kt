@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import pl.dmq.peering.ui.theme.peeringShapes
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -52,8 +52,8 @@ fun ApprovalCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp)
-                .background(PeeringColors.surface, RoundedCornerShape(12.dp))
-                .border(1.dp, PeeringColors.hairline, RoundedCornerShape(12.dp))
+                .background(PeeringColors.surface, peeringShapes.extraSmall)
+                .border(1.dp, PeeringColors.hairline, peeringShapes.extraSmall)
                 .padding(12.dp),
         ) {
             SelectionContainer {

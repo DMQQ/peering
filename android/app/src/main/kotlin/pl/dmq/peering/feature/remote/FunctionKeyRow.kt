@@ -13,6 +13,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.theme.PillShape
 
 /** Esc, Tab and the arrows, then F1 to F12, in a scrolling row. Each press is sent with the modifiers latched on the bar. */
 @Composable
@@ -28,10 +29,10 @@ fun FunctionKeyRow(
         contentPadding = PaddingValues(horizontal = 8.dp),
     ) {
         items(EditingKey.entries) { key ->
-            SuggestionChip(onClick = { onEditingKey(key) }, label = { Text(key.label) })
+            SuggestionChip(onClick = { onEditingKey(key) }, label = { Text(key.label) }, shape = PillShape)
         }
         items(FunctionKey.entries) { key ->
-            SuggestionChip(onClick = { onKey(key) }, label = { Text(key.name) })
+            SuggestionChip(onClick = { onKey(key) }, label = { Text(key.name) }, shape = PillShape)
         }
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.theme.PillShape
 
 /** Latching modifier keys as Material filter chips: selected while held, with a lock mark once locked. */
 @Composable
@@ -33,6 +34,7 @@ fun ModifierBar(
                 label = {
                     Text(stringResource(key.labelRes()) + if (latch == ModifierLatch.LOCKED) " •" else "")
                 },
+                shape = PillShape,
                 modifier = Modifier.semantics { if (state != null) stateDescription = state },
             )
         }

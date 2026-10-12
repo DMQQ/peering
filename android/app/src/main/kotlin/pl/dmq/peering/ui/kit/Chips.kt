@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import pl.dmq.peering.ui.theme.PillShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +26,7 @@ import pl.dmq.peering.ui.theme.PeeringText
 fun CapsuleChip(title: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
-            .clip(CircleShape)
+            .clip(PillShape)
             .background(PeeringColors.surface)
             .tappable(onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
@@ -44,7 +44,7 @@ fun CircleIconButton(icon: ImageVector, description: String, onClick: () -> Unit
     Box(
         modifier = modifier
             .size(size)
-            .clip(CircleShape)
+            .clip(PillShape)
             .background(PeeringColors.surface)
             .tappable(onClick),
         contentAlignment = Alignment.Center,

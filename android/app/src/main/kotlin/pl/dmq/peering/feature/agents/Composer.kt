@@ -48,6 +48,7 @@ fun Composer(presenter: ComposerPresenter, modifier: Modifier = Modifier) {
                     )
                 },
                 maxLines = 6,
+                shape = MaterialTheme.shapes.large,
             )
             SendButton(ui.action, ui.actionEnabled, presenter::send, presenter::stop)
         }

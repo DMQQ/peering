@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.PillShape
 import pl.dmq.peering.ui.theme.peeringShapes
 
 /**
@@ -79,7 +80,7 @@ fun SessionOverlay(
                     AssistChip(
                         onClick = onFit,
                         label = { Text(stringResource(R.string.remote_zoom_percent, it), maxLines = 1) },
-                        shape = peeringShapes.extraLarge,
+                        shape = PillShape,
                     )
                 }
                 IconButton(onClick = onDisconnect) {

@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.CircleShape
+import pl.dmq.peering.ui.theme.PillShape
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -55,7 +55,7 @@ internal fun ScanOverlay(notice: ScanOutcome?, onClose: () -> Unit, showHint: Bo
                     .align(Alignment.BottomCenter)
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(horizontal = 24.dp, vertical = 28.dp)
-                    .chipSurface(CircleShape)
+                    .chipSurface(PillShape)
                     .padding(horizontal = 16.dp, vertical = 10.dp),
             )
         }

@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import pl.dmq.peering.ui.theme.PillShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,7 +65,7 @@ fun FloatingChips(chips: List<FloatingChip>, modifier: Modifier = Modifier) {
                         scaleY = 0.8f + 0.2f * progress
                         translationY = (1f - progress) * 14.dp.toPx() + sin(drift.value + index * 2f) * 4.dp.toPx()
                     }
-                    .chipSurface(CircleShape)
+                    .chipSurface(PillShape)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

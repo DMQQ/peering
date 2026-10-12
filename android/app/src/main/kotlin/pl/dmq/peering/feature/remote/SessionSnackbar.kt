@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.remote
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,6 +28,7 @@ fun SessionSnackbar(
         else -> return
     }
     Snackbar(
+        shape = MaterialTheme.shapes.large,
         modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
         action = if (retryable && !state.reconnecting) {
             { TextButton(onClick = onRetry) { Text(stringResource(R.string.overlay_picture_retry)) } }

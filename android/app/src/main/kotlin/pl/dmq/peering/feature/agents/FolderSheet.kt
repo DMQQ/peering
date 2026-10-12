@@ -64,6 +64,7 @@ fun FolderSheet(
                 onValueChange = folders::setQuery,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                shape = MaterialTheme.shapes.medium,
                 placeholder = { Text(stringResource(R.string.agents_search_folders)) },
             )
             Row(

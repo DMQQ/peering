@@ -31,6 +31,7 @@ fun PeeringTextField(
         onValueChange = onValueChange,
         modifier = modifier,
         singleLine = singleLine,
+        shape = MaterialTheme.shapes.medium,
         label = { Text(label) },
         textStyle = if (monospaced) style.copy(fontFamily = FontFamily.Monospace) else style,
         keyboardOptions = keyboardOptions,
