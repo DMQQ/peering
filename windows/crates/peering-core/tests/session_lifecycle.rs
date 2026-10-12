@@ -5,7 +5,9 @@ mod common;
 
 use common::*;
 use peering_core::fakes::input::RecordingInput;
-use peering_core::session::dispatch::dispatch;
+use peering_core::ports::input::TransformSnapshot;
+use peering_core::session::dispatch::{dispatch, DispatchContext};
+use peering_core::session::held_input::{HeldInput, TrackedInput};
 use peering_core::ports::capture::RawFrame;
 use peering_core::video::coordinator::VideoOutput;
 use peering_wire::command::RemoteCommand;
@@ -92,15 +94,22 @@ fn forgetting_the_choice_while_a_client_remains_keeps_it() {
 }
 
 #[test]
-#[ignore = "no public disconnect path reaches InputSink::release_all: the dispatcher never releases held input"]
 fn a_disconnect_releases_the_keys_and_buttons_the_client_left_down() {
     let (coordinator, _capture, _encoder) = watching_display_one();
     let mut control = CoordinatorControl { coordinator, now: 0.0, rejected: Vec::new() };
     let mut input = RecordingInput::default();
-    let mut ctx = dispatch_context(&mut input, &mut control, false);
-    dispatch(RemoteCommand::KeyDown { key_code: 0x10, modifiers: peering_wire::command::Modifiers::NONE }, &mut ctx);
+    let mut held = HeldInput::default();
+    let transform = TransformSnapshot { origin_x: 0, origin_y: 0, pixel_width: 1512, pixel_height: 982, scale: 2.0 };
+    {
+        let mut tracked = TrackedInput::new(&mut input, &mut held);
+        let mut ctx = DispatchContext { observe_mode: false, transform, input: &mut tracked, source: &mut control };
+        dispatch(RemoteCommand::KeyDown { key_code: 0x10, modifiers: peering_wire::command::Modifiers::NONE }, &mut ctx);
+    }
     assert_eq!(input.applied().len(), 1);
-    // Expected once the host has a disconnect entry point: it should release what the client left held down.
+
+    held.release_held(&transform, &mut input);
+
+    assert_eq!(input.applied().len(), 2, "the held key is released explicitly");
     assert_eq!(input.release_all_count(), 1);
 }
 
