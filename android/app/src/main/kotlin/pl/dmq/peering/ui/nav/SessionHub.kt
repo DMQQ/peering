@@ -1,7 +1,6 @@
 package pl.dmq.peering.ui.nav
 
 import android.content.Context
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
@@ -71,7 +70,6 @@ internal fun SessionHub(
     val chrome = remember { HubChrome() }
     val density = LocalDensity.current
     val switcherInset = with(density) { WindowInsets.statusBars.getTop(density).toDp() } + HubTabBarHeight
-    BackHandler(onBack = onClose)
     CompositionLocalProvider(
         LocalBorderless provides true,
         LocalHubChrome provides chrome,
@@ -80,12 +78,11 @@ internal fun SessionHub(
         Box(Modifier.fillMaxSize().background(PeeringColors.backdrop)) {
             Crossfade(targetState = tabs.selected, animationSpec = tween(HUB_SWAP_MS), label = "hubTab") { selected ->
                 when (selected) {
-                    HubTab.AGENTS -> AgentsScreen(active, drafts, folderRecents, preferences, clock, onClose)
+                    HubTab.AGENTS -> AgentsScreen(active, drafts, folderRecents, preferences, clock)
                     HubTab.TERMINALS -> TerminalHost(
                         active,
                         preferences,
                         onFiles = if (HubTab.FILES in tabs.offered) ({ tabs.select(HubTab.FILES) }) else null,
-                        onBack = onClose,
                     )
                     HubTab.FILES -> FilesScreen(active, onClose, hosted = true)
                     null -> LaunchedEffect(Unit) { onClose() }

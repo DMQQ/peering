@@ -27,6 +27,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".ui.nav.HubActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.Peering.Hub" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.shared"

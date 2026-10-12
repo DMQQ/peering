@@ -58,7 +58,8 @@ class MainActivity : FragmentActivity() {
 
     override fun onStop() {
         super.onStop()
-        if (appLock.isEnabled() && DeviceUnlock.isAvailable(this)) locked = true
+        val hubOnTop = (application as PeeringApplication).hubOpen
+        if (!hubOnTop && appLock.isEnabled() && DeviceUnlock.isAvailable(this)) locked = true
     }
 
     private fun requestUnlock() {
