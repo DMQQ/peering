@@ -60,8 +60,6 @@ extension HostModel {
         case .clientDisconnected(let clientID, let clientName):
             connectedClients.removeAll { $0.id == clientID }
             endSession(id: clientID)
-            // A phone that quits or is relaunched mid-pairing leaves a question nobody is asking: its buttons would answer a session that no longer exists.
-            if pairing?.clientName == clientName { pairing = nil }
             // The last one out stops the watch. Anybody still attached keeps being told.
             if connectedClients.isEmpty {
                 stopScreenWatch()
@@ -88,8 +86,8 @@ extension HostModel {
                 removeAllManagedVirtualDisplays()
             }
 
-        case .pairingCode(let code, let secret, let clientName, let isRemote):
-            pairing = PairingPrompt(clientName: clientName, code: code, secret: secret, isRemote: isRemote)
+        case .pairingCode(let sessionID, let code, let secret, let clientName, let isRemote):
+            pairing = PairingPrompt(sessionID: sessionID, clientName: clientName, code: code, secret: secret, isRemote: isRemote)
             record(isRemote
                    ? "Pairing request from \(clientName), over the relay"
                    : "Pairing request from \(clientName)")
@@ -97,11 +95,15 @@ extension HostModel {
             // digits are already on screen for the user to compare.
             hostLog.notice("pairing code displayed for \(clientName, privacy: .public)")
 
-        case .pairingNeedsApproval:
-            pairing?.needsApproval = true
+        case .pairingNeedsApproval(let sessionID, _):
+            if pairing?.sessionID == sessionID { pairing?.needsApproval = true }
 
-        case .pairingCompleted(let clientName, let accepted):
-            pairing = nil
+        case .pairingAbandoned(let sessionID):
+            // A phone that quits or is relaunched mid-pairing leaves a question nobody is asking: its buttons would answer a session that no longer exists.
+            if pairing?.sessionID == sessionID { pairing = nil }
+
+        case .pairingCompleted(let sessionID, let clientName, let accepted):
+            if pairing?.sessionID == sessionID { pairing = nil }
             lastOutcome = PairingOutcome(clientName: clientName, accepted: accepted)
             pairedClientIDs = pins?.peerIDs ?? []
             record(accepted ? "Paired with \(clientName)" : "Pairing with \(clientName) rejected")

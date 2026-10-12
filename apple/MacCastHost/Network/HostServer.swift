@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import MacCastKit
 import RemoteCore
 import os
 
@@ -20,15 +21,17 @@ final class HostServer: @unchecked Sendable {
 
     /// Ends sessions whose client has stopped answering, so a dead connection cannot outlive it.
     private var reaper: DispatchSourceTimer?
-    private var controlSessions: [HostSession] = []
-    private var pendingRelayBridges: [RelayTunnel] = []
-    private var activeRelayBridges: [RelayTunnel] = []
+    var controlSessions: [HostSession] = []
+    var pendingRelayBridges: [RelayTunnel] = []
+    var activeRelayBridges: [RelayTunnel] = []
+    var tunnelMatcher = RelayTunnelMatcher()
+    var pairingGate = PairingGate()
     private let terminalManager = TerminalSessionManager()
     private let agentManager = AgentSessionManager()
     private let previewProxy = PreviewProxyService()
 
     /// A relay session's local end, and the allocation the relay gave it.
-    private struct RelayTunnel {
+    struct RelayTunnel {
         let id: UUID
         let bridge: RelayControlBridge
         let session: RelaySession
@@ -45,8 +48,8 @@ final class HostServer: @unchecked Sendable {
     private var _onVideoKeyRequest: (@Sendable (Data?, RelaySession) -> Data?)?
     private var _onVideoEnabled: (@Sendable (Data?, Bool) -> Void)?
     private var _onClientVideoCodecs: (@Sendable (Data?, [String]?) -> Void)?
-    private var _onRequestClipboard: (@Sendable () -> ClipboardPayload?)?
-    private var _onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
+    private var _onRequestClipboard: (@Sendable (@escaping @Sendable (ClipboardPayload?) -> Void) -> Void)?
+    private var _onReceiveClipboard: (@Sendable (ClipboardPayload, @escaping @Sendable () -> Void) -> Void)?
 
     /// Answers an approval that belongs to a Claude Code hook in a terminal, not to a chat started from the phone.
     var externalApprovalResolver: (@Sendable (String, AgentApprovalDecision) -> Bool)? {
@@ -118,12 +121,12 @@ final class HostServer: @unchecked Sendable {
         set { callbackLock.withLock { _onClientVideoCodecs = newValue } }
     }
 
-    var onRequestClipboard: (@Sendable () -> ClipboardPayload?)? {
+    var onRequestClipboard: (@Sendable (@escaping @Sendable (ClipboardPayload?) -> Void) -> Void)? {
         get { callbackLock.withLock { _onRequestClipboard } }
         set { callbackLock.withLock { _onRequestClipboard = newValue } }
     }
 
-    var onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)? {
+    var onReceiveClipboard: (@Sendable (ClipboardPayload, @escaping @Sendable () -> Void) -> Void)? {
         get { callbackLock.withLock { _onReceiveClipboard } }
         set { callbackLock.withLock { _onReceiveClipboard = newValue } }
     }
@@ -164,9 +167,10 @@ final class HostServer: @unchecked Sendable {
     }
 
     /// The Mac user's answer to a pairing that arrived without the QR secret.
-    func resolvePairingApproval(approved: Bool) {
+    func resolvePairingApproval(sessionID: UUID, approved: Bool) {
         queue.async { [weak self] in
-            self?.controlSessions.forEach { $0.resolveApproval(approved: approved) }
+            guard let self, pairingGate.holds(sessionID) else { return }
+            controlSessions.first { $0.id == sessionID }?.resolveApproval(approved: approved)
         }
     }
 
@@ -180,6 +184,7 @@ final class HostServer: @unchecked Sendable {
 
     func start() throws {
         guard listener == nil else { return }
+        FileDescriptorLimit.raise()
         terminalManager.onPushNeeded = { [weak self] token, title, message in
             self?.onPushNeeded?(token, title, message)
         }
@@ -253,6 +258,7 @@ final class HostServer: @unchecked Sendable {
             for entry in videoConnections { entry.peer.cancel() }
             for tunnel in pendingRelayBridges { tunnel.bridge.cancel() }
             pendingRelayBridges.removeAll()
+            tunnelMatcher = RelayTunnelMatcher()
             videoConnections.removeAll()
             // A relayed session's notice travels through its bridge, so the bridge outlives it
             // briefly; cancelling now would drop the frame and the phone would read a network drop.
@@ -318,6 +324,7 @@ final class HostServer: @unchecked Sendable {
 
     /// Ends sessions whose client has stopped answering.
     private func reapSilentSessions() {
+        reapStalePairingAndTunnels()
         for session in controlSessions where !session.isVideoConnection {
             // A person has to find the Mac and click, so this wait is longer than a handshake's, and ends as a declined pairing so the card on the Mac goes away.
             if session.isAwaitingApproval {
@@ -350,8 +357,14 @@ final class HostServer: @unchecked Sendable {
     // MARK: - Connections
 
     private func accept(_ connection: NWConnection) {
-        let tunnel = pendingRelayBridges.isEmpty ? nil : pendingRelayBridges.removeFirst()
-        if let tunnel { activeRelayBridges.append(tunnel) }
+        let origin = ConnectionOrigin(connection)
+        let tunnel = claimRelayTunnel(loopbackPort: origin.loopbackPort)
+        let address = tunnel.map { "relay-\($0.id)" } ?? origin.address
+        guard admitBeforeAuthentication(address: address) else {
+            connection.cancel()
+            tunnel?.bridge.cancel()
+            return
+        }
         let relayBridge = tunnel?.bridge
         let peer = PeerConnection(connection: connection, queue: queue)
 
@@ -363,16 +376,27 @@ final class HostServer: @unchecked Sendable {
             // A relayed connection reaches this same `accept` through the loopback bridge, so
             // the pending allocation is the only thing that knows where it came from.
             arrivedThroughRelay: relayBridge != nil,
+            address: address,
             emit: { [weak self] event in self?.emit(event) }
         )
         session.onCommand = { [weak self] command in
             self?.onCommand?(command)
         }
-        session.onRequestClipboard = { [weak self] in
-            self?.onRequestClipboard?()
+        session.claimPairingPrompt = { [weak self, weak session] in
+            guard let self, let session else { return .anotherPairingInProgress }
+            return pairingGate.claim(session: session.id, address: address, now: Date())
         }
-        session.onReceiveClipboard = { [weak self] payload in
-            self?.onReceiveClipboard?(payload)
+        session.releasePairingPrompt = { [weak self, weak session] in
+            guard let self, let session else { return false }
+            return pairingGate.release(session: session.id)
+        }
+        session.onRequestClipboard = { [weak self] reply in
+            guard let handler = self?.onRequestClipboard else { return reply(nil) }
+            handler(reply)
+        }
+        session.onReceiveClipboard = { [weak self] payload, done in
+            guard let handler = self?.onReceiveClipboard else { return done() }
+            handler(payload, done)
         }
         session.onVideoTransportRequest = { [weak self, weak session] request in
             guard let self, let session else { return }
@@ -422,6 +446,7 @@ final class HostServer: @unchecked Sendable {
                 return
             }
 
+            videoPeer.limitFrames(to: nil)
             videoConnections.append((peer: videoPeer, clientKey: key))
             let previousClose = videoPeer.onClose
             videoPeer.onClose = { [weak self, weak videoPeer] error in
@@ -446,6 +471,7 @@ final class HostServer: @unchecked Sendable {
         session.onEnded = { [weak self] in
             guard let self else { return }
             controlSessions.removeAll { $0 === session }
+            releaseHeldInput(of: session)
             if !controlSessions.contains(where: { $0.isAuthorized && $0.clientID == session.clientID }) {
                 self.terminalManager.disconnect(clientID: session.clientID)
                 self.agentManager.disconnect(clientID: session.clientID)
@@ -475,8 +501,12 @@ final class HostServer: @unchecked Sendable {
     func connectThroughRelay(_ relaySession: RelaySession) {
         queue.async { [weak self] in
             guard let self, self.listener != nil else { return }
+            let tunnelID = UUID()
+            guard tunnelMatcher.add(tunnelID, now: Date()) else {
+                emit(.failed("Too many relay tunnels are waiting; one was refused"))
+                return
+            }
             do {
-                let tunnelID = UUID()
                 let bridge = try RelayControlBridge(
                     session: relaySession,
                     localPort: self.port,
@@ -493,6 +523,7 @@ final class HostServer: @unchecked Sendable {
                 ))
                 bridge.start()
             } catch {
+                self.tunnelMatcher.remove(tunnelID)
                 Analytics.failed(error, in: .network)
                 self.emit(.failed("Could not open the relay control tunnel: \(error.localizedDescription)"))
             }
@@ -502,6 +533,7 @@ final class HostServer: @unchecked Sendable {
     /// Drops a relay allocation whether its loopback connection was accepted yet or not.
     private func relayTunnelClosed(id: UUID) {
         pendingRelayBridges.removeAll { $0.id == id }
+        tunnelMatcher.remove(id)
         activeRelayBridges.removeAll { $0.id == id }
     }
 
@@ -557,7 +589,7 @@ final class HostServer: @unchecked Sendable {
         for entry in closing { entry.peer.cancel() }
     }
 
-    private func emit(_ event: HostEvent) {
+    func emit(_ event: HostEvent) {
         // A phone that reconnects, or races two routes, can still hold a second connection when one
         // closes. That close is not the phone leaving, and passing it on would end the live one's
         // session, watchers and shells. The closing session is still listed while it reports.

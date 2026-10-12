@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import MacCastKit
 import Network
 import RemoteCore
 import Security
@@ -157,8 +158,7 @@ extension HostSession {
         }
 
         if alreadyPaired {
-            state = .ready
-            onAuthorized?(connection)
+            becomeReady()
             return
         }
         try beginPairing()
@@ -168,6 +168,10 @@ extension HostSession {
     /// can grind a keypair until its own contribution reproduces the digits this host is about to
     /// put on screen. See ``PairingSAS``.
     func beginPairing() throws {
+        if let refusal = claimPairingPrompt?() {
+            refusePairing(refusal)
+            return
+        }
         let ephemeral = P256.KeyAgreement.PrivateKey()
         let nonce = try Self.randomBytes(32)
 
@@ -235,6 +239,7 @@ extension HostSession {
         pairingTranscript = transcript
         pairingSecret = try Self.randomBytes(16)
         emit(.pairingCode(
+            sessionID: id,
             code: PairingSAS.code(for: transcript),
             secret: pairingSecret,
             clientName: clientName,
@@ -251,10 +256,7 @@ extension HostSession {
         let confirm = try decode(PairConfirm.self, from: frame, as: .pairConfirm)
 
         guard confirm.accepted, let peerPublicKey else {
-            send(.pairResult, PairResult(accepted: false, reason: "The codes did not match."))
-            emit(.pairingCompleted(clientName: clientName, accepted: false))
-            state = .failed
-            connection.cancel()
+            rejectPairing(reason: "The codes did not match.")
             return
         }
 
@@ -269,7 +271,7 @@ extension HostSession {
         } else {
             // Digits typed by hand prove nothing: they can be computed from the handshake by anyone.
             state = .awaitingApproval
-            emit(.pairingNeedsApproval(clientName: clientName))
+            emit(.pairingNeedsApproval(sessionID: id, clientName: clientName))
         }
     }
 
@@ -282,9 +284,23 @@ extension HostSession {
         finishPairing(peerPublicKey: peerPublicKey)
     }
 
+    /// Ends a pairing this Mac's user did not get to see: the prompt is taken, or too many have been asked for.
+    private func refusePairing(_ refusal: PairingGate.Refusal) {
+        let reason: String
+        switch refusal {
+        case .anotherPairingInProgress: reason = "Another device is pairing with this Mac right now. Try again in a minute."
+        case .tooManyAttempts: reason = "Too many pairing attempts. Try again in a minute."
+        }
+        hostSessionLog.notice("refused a pairing attempt: \(String(describing: refusal), privacy: .public)")
+        send(.pairResult, PairResult(accepted: false, reason: reason))
+        state = .failed
+        connection.cancel()
+    }
+
     private func rejectPairing(reason: String) {
         send(.pairResult, PairResult(accepted: false, reason: reason))
-        emit(.pairingCompleted(clientName: clientName, accepted: false))
+        _ = releasePairingPrompt?()
+        emit(.pairingCompleted(sessionID: id, clientName: clientName, accepted: false))
         state = .failed
         connection.cancel()
     }
@@ -293,15 +309,19 @@ extension HostSession {
         guard pins.record(peerID: clientID, publicKey: peerPublicKey) else {
             // Reporting success would tell the user they are paired while the next connection
             // silently fails, so the write result is checked rather than assumed.
-            send(.pairResult, PairResult(accepted: false, reason: "Could not save the pairing."))
-            emit(.pairingCompleted(clientName: clientName, accepted: false))
-            state = .failed
-            connection.cancel()
+            rejectPairing(reason: "Could not save the pairing.")
             return
         }
 
         send(.pairResult, PairResult(accepted: true))
-        emit(.pairingCompleted(clientName: clientName, accepted: true))
+        _ = releasePairingPrompt?()
+        emit(.pairingCompleted(sessionID: id, clientName: clientName, accepted: true))
+        becomeReady()
+    }
+
+    /// Lifts the small frame cap that applies until the peer is known, then tells the server.
+    private func becomeReady() {
+        connection.limitFrames(to: nil)
         state = .ready
         onAuthorized?(connection)
     }

@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import MacCastKit
 import Network
 import RemoteCore
 import Security
@@ -13,17 +14,23 @@ extension HostSession {
             guard assembled || frame.payload.count <= Self.maxControlPayload else {
                 throw SessionError.malformedPayload(.command, SessionError.protocolMismatch(client: 0, host: 0))
             }
+            // A paste sent straight after a clipboard push must find what was pushed, and the pasteboard is written on the main thread without this queue waiting for it.
+            if clipboardWritesInFlight > 0, commandsHeldForClipboard.count < Self.maxCommandsHeldForClipboard {
+                commandsHeldForClipboard.append((frame, assembled))
+                return
+            }
             let command = try decode(RemoteCommand.self, from: frame, as: .command)
             switch command {
             case .requestClipboard:
-                sendClipboard(onRequestClipboard?() ?? .text(""))
+                requestClipboard()
             case .pushClipboard(let text):
-                onReceiveClipboard?(.text(text))
+                receiveClipboard(.text(text))
             case .pushClipboardImage(let png):
-                onReceiveClipboard?(.image(png))
+                receiveClipboard(.image(png))
             case .setVideoEnabled(let enabled):
                 perform(pictureState.pictureRequested(enabled))
             default:
+                heldInput.observe(command)
                 onCommand?(command)
             }
 
@@ -84,6 +91,41 @@ extension HostSession {
 
         default:
             throw SessionError.unexpectedMessage(frame.kind)
+        }
+    }
+
+    private func requestClipboard() {
+        guard let onRequestClipboard else {
+            sendClipboard(.text(""))
+            return
+        }
+        onRequestClipboard { [weak self] payload in
+            guard let self else { return }
+            connection.onQueue { [weak self] in self?.sendClipboard(payload ?? .text("")) }
+        }
+    }
+
+    private func receiveClipboard(_ payload: ClipboardPayload) {
+        guard let onReceiveClipboard else { return }
+        clipboardWritesInFlight += 1
+        onReceiveClipboard(payload) { [weak self] in
+            guard let self else { return }
+            connection.onQueue { [weak self] in self?.clipboardWriteFinished() }
+        }
+    }
+
+    private func clipboardWriteFinished() {
+        clipboardWritesInFlight -= 1
+        guard clipboardWritesInFlight == 0, state != .failed else { return }
+        let held = commandsHeldForClipboard
+        commandsHeldForClipboard = []
+        for (frame, assembled) in held {
+            do {
+                try handleCommand(frame, assembled: assembled)
+            } catch {
+                fail(error)
+                return
+            }
         }
     }
 
