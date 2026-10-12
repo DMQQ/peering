@@ -1,6 +1,7 @@
 @preconcurrency import ActivityKit
 import Foundation
 import MacCastKit
+import RemoteCore
 import os
 
 private let activityLog = Logger(subsystem: "pl.dmq.peering", category: "agent-activity")
@@ -28,7 +29,8 @@ final class AgentChatActivity {
         let state = AgentChatActivityAttributes.ContentState(
             chat: top,
             waiting: busy.filter { $0.state == .needsYou }.count,
-            working: busy.filter { $0.state == .working }.count
+            working: busy.filter { $0.state == .working }.count,
+            hostKey: top.hostID.map(HostKey.of)
         )
         if let activity {
             Task { await activity.update(ActivityContent(state: state, staleDate: nil)) }
@@ -37,12 +39,19 @@ final class AgentChatActivity {
         }
     }
 
-    /// Without this, an activity from a killed process keeps showing a chat that is no longer running.
+    /// A card from a killed process, or one the Mac started with a push, is taken over rather than ended: the next update rewrites it, and ends it when no chat is left.
     func adoptOrphan() {
-        guard activity == nil else { return }
-        for orphan in Activity<AgentChatActivityAttributes>.activities {
-            Task { await orphan.end(nil, dismissalPolicy: .immediate) }
+        for card in Activity<AgentChatActivityAttributes>.activities { adopt(card) }
+    }
+
+    func adopt(_ card: Activity<AgentChatActivityAttributes>) {
+        guard card.activityState == .active else { return }
+        if let activity, activity.id != card.id {
+            Task { await card.end(nil, dismissalPolicy: .immediate) }
+            return
         }
+        activity = card
+        observe(card)
     }
 
     func end() {
@@ -51,14 +60,31 @@ final class AgentChatActivity {
         Task { await activity.end(nil, dismissalPolicy: .immediate) }
     }
 
+    /// Passes the card's push token to the Mac, and notices when the Mac, the system or the user ends it so the handle does not block the next card.
+    private func observe(_ card: Activity<AgentChatActivityAttributes>) {
+        Task {
+            for await token in card.pushTokenUpdates {
+                LiveActivityTokens.shared.pushToken(token, for: .agentChat)
+            }
+        }
+        Task {
+            for await state in card.activityStateUpdates where state == .ended || state == .dismissed {
+                if activity?.id == card.id { activity = nil }
+                if activity == nil { LiveActivityTokens.shared.activityEnded(.agentChat) }
+                return
+            }
+        }
+    }
+
     private func start(_ state: AgentChatActivityAttributes.ContentState) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         do {
             activity = try Activity.request(
                 attributes: AgentChatActivityAttributes(),
                 content: ActivityContent(state: state, staleDate: nil),
-                pushType: nil
+                pushType: .token
             )
+            if let activity { observe(activity) }
         } catch {
             Analytics.failed(error, in: .liveActivity)
             activityLog.error("could not start agent Live Activity: \(String(describing: error), privacy: .public)")

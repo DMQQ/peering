@@ -1,4 +1,3 @@
-import ActivityKit
 import Foundation
 
 /// One agent chat as the widget and the Live Activity need it: plain values, since neither process links the app's transcript types.
@@ -57,13 +56,26 @@ nonisolated struct AgentChatSnapshot: Codable, Hashable, Identifiable {
             + (hostID.map { [URLQueryItem(name: "host", value: $0)] } ?? [])
         return components.url ?? URL(fileURLWithPath: "/")
     }
+
+    /// The chat and Mac a ``url`` names. A link with no valid chat id opens nothing.
+    static func parse(_ url: URL) -> (chatID: UUID, hostID: String?)? {
+        guard url.scheme == "peering", url.host == "chat",
+              let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+              let chatID = items.first(where: { $0.name == "id" })?.value.flatMap(UUID.init(uuidString:))
+        else { return nil }
+        let hostID = items.first(where: { $0.name == "host" })?.value
+        return (chatID, hostID?.isEmpty == false ? hostID : nil)
+    }
 }
 
-nonisolated struct AgentChatActivityAttributes: ActivityAttributes {
-    struct ContentState: Codable, Hashable {
-        /// The chat the card is about: the one waiting on the person, else the busiest.
-        var chat: AgentChatSnapshot
-        var waiting: Int
-        var working: Int
-    }
+/// What the agent chat card shows. Apart from its attributes so the Mac host, which has no ActivityKit, builds and encodes the same type the widget decodes.
+///
+/// A push from the Mac leaves the chat's title, folder and activity empty and names the Mac by `hostKey`: the card reads the words from the App Group store.
+nonisolated struct AgentChatActivityState: Codable, Hashable {
+    /// The chat the card is about: the one waiting on the person, else the busiest.
+    var chat: AgentChatSnapshot
+    var waiting: Int
+    var working: Int
+    /// ``HostKey`` of the Mac the chat runs on. Optional so a card started by an earlier build still decodes.
+    var hostKey: String?
 }

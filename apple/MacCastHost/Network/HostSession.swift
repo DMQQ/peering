@@ -78,6 +78,11 @@ final class HostSession: @unchecked Sendable {
 
     var onVideoEnabled: (@Sendable (Bool) -> Void)?
 
+    /// The client said it left or returned to the foreground.
+    var onClientBackground: (@Sendable (Bool) -> Void)?
+    /// The Live Activity push tokens the phone holds. Called only for an authorized session.
+    var onActivityToken: (@Sendable (ActivityTokenPayload) -> Void)?
+
     /// What the client said it decodes, or nil when it did not say. Called once, as soon as the hello is read.
     var onVideoCodecsDeclared: (@Sendable ([String]?) -> Void)?
 
@@ -125,6 +130,11 @@ final class HostSession: @unchecked Sendable {
     }
 
     var closedByHost = false
+    /// Ended because the client went quiet. That is a phone iOS froze, not a session the Mac chose to close.
+    var endedForSilence = false
+
+    /// Tells this connection apart from another of the same phone in the presence book.
+    let sessionID = UUID()
 
     var isAwaitingApproval: Bool { state == .awaitingApproval }
 

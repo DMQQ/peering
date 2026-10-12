@@ -133,3 +133,16 @@ extension ClientSession {
         connection()?.send(.clientState, ClientStatePayload(background: background))
     }
 }
+
+extension ClientSession {
+    /// Hands the host the Live Activity tokens it needs to push for a suspended phone. Only to a host that declared it and only once the session is ready; returns whether it went out, so the caller can try again when the session comes up.
+    @discardableResult
+    public func sendActivityToken(_ payload: ActivityTokenPayload) -> Bool {
+        let allowed = lock.withLock {
+            state == .ready && LiveActivityPushSupport.maySend(toHostDeclared: _serverHello?.supportsLiveActivityPush)
+        }
+        guard allowed, let connection = connection() else { return false }
+        connection.send(.activityToken, payload)
+        return true
+    }
+}

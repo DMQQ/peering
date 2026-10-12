@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import MacCastKit
 import RemoteCore
 import os
 
@@ -27,14 +28,13 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     var onPushNeeded: (@Sendable (String, String, String) -> Void)?
 
+    /// Where a phone is, so a push goes to one that is away or backgrounded. Set once before any phone connects.
+    var presence: (@Sendable (String) -> PhonePresence)?
+
+    /// The tokens of phones that are not looking at the app: no connection, or one that left the foreground.
     func allPushTokens() -> [String] {
-        // Read before the lock below rather than inside it: the store has a lock of its own, and one
-        // lock order held everywhere is one fewer way for the two to deadlock.
-        let tokens = PushTokenStore.shared.tokensByClient()
-        return lock.withLock {
-            tokens.compactMap { clientID, token in
-                sinks[clientID] == nil ? token : nil
-            }
+        PushTokenStore.shared.tokensByClient().compactMap { clientID, token in
+            PushPolicy.shouldPush(presence: presence?(clientID) ?? .gone, hasToken: true) ? token : nil
         }
     }
 

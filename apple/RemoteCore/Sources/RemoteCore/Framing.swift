@@ -77,6 +77,9 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
 
     /// The client app left or returned to the foreground. JSON-encoded ``ClientStatePayload``. Sent only to a host that declared ``ServerHello/supportsClientState``.
     case clientState = 0x23
+
+    /// The Live Activity push tokens the phone holds. JSON-encoded ``ActivityTokenPayload``. Sent only to a host that declared ``ServerHello/supportsLiveActivityPush``.
+    case activityToken = 0x24
 }
 
 public enum FramingError: Error, LocalizedError, Equatable, Sendable {

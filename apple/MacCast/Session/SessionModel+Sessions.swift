@@ -29,6 +29,10 @@ extension SessionModel {
         left?.refreshAudioMuteState()
         session.refreshAudioMuteState()
 
+        // Only the Mac the card follows pushes to it, so the one left is told to stop and the one arrived at is given the tokens.
+        LiveActivityTokens.shared.release(left?.wire)
+        LiveActivityTokens.shared.sendAll(to: session.wire)
+
         // Its own entry point rather than a phase change: the Mac arrived at has its own clock.
         SessionActivity.shared.followActiveSession(
             hostName: session.shownName ?? String(localized: "the Mac"),

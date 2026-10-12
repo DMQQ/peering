@@ -48,6 +48,9 @@ struct AgentChatScreen: View {
                     if model.agentSessions.count > 1 { tabStrip }
                     content(session)
                 }
+            } else if model.phase != .ready {
+                // Opened from a card while the Mac is still being reached: the chat is there once the list arrives.
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ended
             }
