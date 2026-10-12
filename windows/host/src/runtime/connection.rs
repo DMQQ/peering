@@ -262,6 +262,7 @@ impl Connection {
             let siblings = state.sessions.iter().map(|(id, other)| (*id, other.client_id.as_str()));
             if !client_has_other_session(siblings, &slot.client_id, self.session_id) {
                 state.video.detach(&slot.client_id);
+                state.video.stop_when_idle();
                 state.input.release_all();
                 state.terminals.disconnect(&slot.client_id);
             }

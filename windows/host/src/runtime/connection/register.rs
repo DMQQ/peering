@@ -6,6 +6,7 @@ use peering_wire::sealing::TOKEN_SIZE;
 use tokio::sync::mpsc;
 use tokio::task::spawn_local;
 
+use super::super::ready::error_frame;
 use super::super::relay_lane;
 use super::super::shared::SessionSlot;
 use super::super::VideoEndpoint;
@@ -16,7 +17,8 @@ impl Connection {
         let client_id = self.session.client_id().to_owned();
         let video_token = self.peer.video_token.unwrap_or([0u8; TOKEN_SIZE]);
         let relay_lane = self.relay_video().map(|(endpoint, token)| (endpoint, token, mpsc::unbounded_channel::<Vec<u8>>()));
-        let frames = {
+        let now = self.now();
+        let (frames, capture_failure) = {
             let mut guard = self.shared.lock();
             let state = &mut *guard;
             state.sessions.insert(
@@ -31,7 +33,8 @@ impl Connection {
                 },
             );
             state.video.attach(&client_id);
-            state.catalogue_frames_for(self.session_id)
+            let capture_failure = state.video.ensure_capturing(now).err().map(|error| error.to_string());
+            (state.catalogue_frames_for(self.session_id), capture_failure)
         };
         if let Some((endpoint, token, (_, outbound))) = relay_lane {
             spawn_local(relay_lane::run(
@@ -42,6 +45,9 @@ impl Connection {
                 token,
                 outbound,
             ));
+        }
+        if let Some(failure) = capture_failure {
+            self.send(error_frame("sourceUnavailable", &failure));
         }
         for frame in frames {
             self.send(frame);

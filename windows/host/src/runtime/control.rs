@@ -130,6 +130,7 @@ impl HostState {
         for (_, slot) in self.sessions.drain() {
             self.video.detach(&slot.client_id);
         }
+        self.video.stop_when_idle();
         self.input.release_all();
     }
 }
