@@ -265,6 +265,7 @@ final class SessionModel {
     let browser = HostBrowser()
 
     var networkWatcher: NetworkPathWatcher?
+    var networkContext: NetworkContext { networkWatcher?.context ?? NetworkContext() }
     let notifier = SessionNotifier.shared
 
     /// The browser replaces a dead one itself, but a suspended app is not running to do it, so the foreground is the moment to restart.

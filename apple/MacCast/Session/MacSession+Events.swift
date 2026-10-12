@@ -40,9 +40,13 @@ extension MacSession {
                 if !userEndedDeliberately, connectionPath == .relay {
                     model.relaySessionDropped = true
                 }
+                closeStretch()
                 finishSessionHistory()
             }
-            self.phase = phase
+            let cappedFailure = previous == .ready ? retryCapFailure(for: phase) : nil
+            if previous == .ready, case .failed = phase { noteDropped(capped: cappedFailure != nil) }
+            if cappedFailure != nil { shouldScheduleReconnect = false }
+            self.phase = cappedFailure ?? phase
             if phase == .ready {
                 model.pairedHostIDs = model.pins.hostIDs
                 // A handshake reaching `.ready` has just established or confirmed a pin, one of the few moments the paired list can change.
@@ -59,16 +63,7 @@ extension MacSession {
                 pendingSourceReassertion = true
             }
             if case .failed(let message) = phase {
-                Analytics.connectFailed(
-                    afterReady: hasBeenReady,
-                    reason: wire?.failureReason?.rawValue ?? "unknown",
-                    path: (connectionPath ?? .lan).rawValue,
-                    reconnectAttempt: model.reconnectAttempt,
-                    secondsIntoSession: sessionStartedAt.map { Int(Date().timeIntervalSince($0)) },
-                    appState: Analytics.name(of: UIApplication.shared.applicationState),
-                    pictureInPictureActive: SessionPiP.shared.isActive,
-                    video: wire?.videoDeliveryRecord
-                )
+                reportConnectFailure(appState: Analytics.name(of: UIApplication.shared.applicationState))
                 videoStatus = String(localized: "Stopped: \(message)")
             }
             if phase == .disconnected {
@@ -86,9 +81,7 @@ extension MacSession {
                     // The episode is over, so its clock goes with it: kept, the next drop would be judged against an expired window.
                     reconnectingSince = nil
                     sessionStartedAt = Date()
-                    if !hadBeenReady {
-                        Analytics.sessionStarted(path: (connectionPath ?? .lan).rawValue, plan: model.storeManager.access.plan)
-                    }
+                    noteReady(hadBeenReady: hadBeenReady)
                     beginSessionHistory(resuming: hadBeenReady)
                     UserDefaults.standard.set(true, forKey: SessionModel.resumeKey)
                     if let id = hostID {
@@ -306,9 +299,16 @@ extension MacSession {
                 // The cut is simultaneous: the relay reads one counter per client, so every spliced session is dropped at once. Ending only the Mac that noticed leaves dead tabs behind the sheet.
                 // The flag is cleared above so the ends this causes cannot re-enter this branch.
                 // Nothing is recorded here about who ended it: `disconnect(deliberate: false)` assigns that flag from its own argument, so an earlier write was overwritten before it could be read. The ladder arming after a cut is long-standing: the next attempt is refused for the same reason and answered by the branch below.
-                model.disconnect(deliberate: false)
+                model.disconnect(deliberate: false, endReason: .quota)
             } else if model.spentAllowance != nil {
                 // A later refusal from the same ladder has nothing to add: the explanation is on screen and the purchase screen must not cover it. The ladder re-arms on a failed attempt by design, so this is the second and third refusal of the same cut.
+                userEndedDeliberately = true
+                model.stopReconnecting()
+            } else if hasBeenReady {
+                // An automatic retry of a session that was working: explained by the sheet and never sold at, since the user did not walk into this.
+                model.spentAllowance = plan ?? .free
+                Analytics.relayAllowanceExhausted(path: connectionPath?.rawValue)
+                reportEnd(.quota)
                 userEndedDeliberately = true
                 model.stopReconnecting()
             } else {

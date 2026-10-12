@@ -66,19 +66,21 @@ extension SessionModel {
     }
 
     /// `deliberate` is "did the user mean it", not "who called": a tapped disconnect is silent, one iOS forced is not, since a banner is the only way they hear of it.
-    func disconnect(deliberate: Bool = true) {
+    func disconnect(deliberate: Bool = true, endReason: SessionEndReason = .backgrounded) {
         // Taken first: the card that outlives a non-deliberate end needs both, and below they are nil.
         let wasStartedAt = sessionStartedAt
         let wasPath = MacSession.activityPath(connectionPath)
         let analyticsPath = connectionPath?.rawValue ?? "unknown"
-        let videoDelivery = activeSession?.wire?.videoDeliveryRecord
 
         // Only for a deliberate end: a drop and the end iOS forces should find the session restored on return.
         if deliberate { UserDefaults.standard.set(false, forKey: Self.resumeKey) }
 
         // Every Mac, not the one on screen: the forced end is for the whole process.
         // Handed to each Mac rather than shared: a single record of "the user meant this" is consumed by the first session to answer, and the rest would arm a ladder that can never finish.
-        for session in sessions { session.endSession(deliberate: deliberate) }
+        for session in sessions {
+            session.reportEnd(deliberate ? .user : endReason)
+            session.endSession(deliberate: deliberate)
+        }
 
         // Forgotten on Disconnect: it is kept for coming back, and a user who disconnected said the opposite (it made a mosaic reappear on every connection).
         if deliberate {
@@ -108,7 +110,6 @@ extension SessionModel {
         SessionPiP.shared.detach()
 
         if deliberate {
-            Analytics.sessionEnded(path: analyticsPath, video: videoDelivery)
             PostHogLog.info("session disconnect requested", attributes: [
                 "connection_path": analyticsPath,
             ])
@@ -131,6 +132,7 @@ extension SessionModel {
         if wasActive { activeSessionID = nil }
 
         // The only evidence that the user, not the network, ended it: `wire` announces its own end after the phases have moved.
+        session.reportEnd(.user)
         session.endSession(deliberate: true)
 
         guard wasActive else {

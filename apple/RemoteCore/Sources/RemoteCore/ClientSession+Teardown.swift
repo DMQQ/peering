@@ -39,6 +39,7 @@ extension ClientSession {
         state = .failed
         _phase = .failed(message)
         _failureReason = reason
+        _failureDiagnosis = diagnosisLocked(reason: reason, detail: self.control?.errorDetail)
         let video = self.video
         let videoConnect = self.videoConnectTask
         let videoReconnect = self.videoReconnectTask

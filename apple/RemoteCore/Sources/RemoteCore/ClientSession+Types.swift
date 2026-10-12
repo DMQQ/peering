@@ -139,6 +139,14 @@ extension ClientSession {
             }
         }
 
+        /// A relayed dial asks the relay for a tunnel before it opens a socket; the others open the socket directly.
+        var startingStage: ConnectStage {
+            switch self {
+            case .relay, .relayPairing: return .resolving
+            case .discovered, .address: return .connecting
+            }
+        }
+
         var isFirstPairing: Bool {
             if case .relayPairing = self { return true }
             return false
