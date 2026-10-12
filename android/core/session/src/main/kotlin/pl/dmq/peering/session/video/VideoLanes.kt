@@ -86,6 +86,20 @@ class VideoLanes(
         }
     }
 
+    /**
+     * Opens one datagram that came straight from the Mac's own address. Such a datagram has no relay token, and a stranger's
+     * noise is dropped without counting as a failed relayed datagram. Returns true when it authenticated.
+     */
+    fun onDirectDatagram(bytes: ByteArray): Boolean {
+        val current = opener ?: return false
+        return try {
+            current.open(bytes)?.let(::onPrimaryFrame)
+            true
+        } catch (error: SealException) {
+            false
+        }
+    }
+
     /** Handles one frame that arrived on the control connection. Only video kinds and pongs are read here. */
     fun onControlFrame(frame: Frame): List<LaneOutput> = when (frame.kind) {
         MessageKind.VideoKey -> onKeyGrant(frame)

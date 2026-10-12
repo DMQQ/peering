@@ -11,6 +11,8 @@ import pl.dmq.peering.session.files.FileBrowser
 import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.session.ports.VideoSink
+import pl.dmq.peering.session.relay.DirectPathState
+import pl.dmq.peering.session.relay.RelayConnect
 import pl.dmq.peering.session.video.SourceSelection
 import pl.dmq.peering.session.video.VideoLanes
 import pl.dmq.peering.wire.AutoQualityPolicy
@@ -38,6 +40,7 @@ internal class ConnectedLink(
     selection: SourceSelection,
     agent: AgentChat?,
     files: FileBrowser?,
+    relay: RelayConnect?,
 ) {
     private val liveness = LivenessMonitor(clock)
     val commands = SessionCommands(hello)
@@ -52,6 +55,13 @@ internal class ConnectedLink(
     )
     private val router = FrameRouter(liveness, commands, lanes, selection, agent, files)
     private var pictureSeen = false
+    private val direct: DirectPathRunner? = route.datagrams?.let { datagrams ->
+        relay?.let { DirectPathRunner(lanes, datagrams, it, route.videoToken) }
+    }
+
+    /** The route the picture is on: [SessionRecord.Path.DIRECT] once the Mac's own address has authenticated. */
+    val path: SessionRecord.Path
+        get() = if (direct?.prober?.state is DirectPathState.Open) SessionRecord.Path.DIRECT else route.path
 
     /** The notice the host last set, or null when none stands. */
     var notice: String? = null
@@ -82,10 +92,17 @@ internal class ConnectedLink(
         route.datagrams?.let { datagrams ->
             launchLinkTask(ended) {
                 datagrams.received.collect { datagram ->
-                    val outcome = lanes.onDatagram(datagram.bytes)
-                    for (event in outcome.outputs.asEvents()) applyEvent(event, ended)
+                    if (datagram.source == route.videoPeer) {
+                        val outcome = lanes.onDatagram(datagram.bytes)
+                        for (event in outcome.outputs.asEvents()) applyEvent(event, ended)
+                    } else {
+                        direct?.onForeignDatagram(datagram.source, datagram.bytes)
+                    }
                 }
             }
+        }
+        direct?.let { runner ->
+            launchLinkTask(ended) { every(PROBE_INTERVAL) { runner.tick(clock.monotonicSeconds()) } }
         }
         launchLinkTask(ended) { every(COMMAND_INTERVAL) { commands.drain().forEach(writer::enqueue) } }
         launchLinkTask(ended) { every(PING_INTERVAL) { writer.enqueue(liveness.nextPing()) } }
@@ -123,6 +140,7 @@ internal class ConnectedLink(
         }
 
         val COMMAND_INTERVAL = 16.milliseconds
+        val PROBE_INTERVAL = 250.milliseconds
         val LANE_INTERVAL = 250.milliseconds
         val PING_INTERVAL = LivenessMonitor.PING_INTERVAL_SECONDS.seconds
         const val SILENCE_LIMIT_SECONDS = 3.0

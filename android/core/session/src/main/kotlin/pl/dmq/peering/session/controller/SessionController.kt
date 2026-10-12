@@ -18,6 +18,7 @@ import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.session.files.FileBrowser
 import pl.dmq.peering.session.history.SessionHistory
 import pl.dmq.peering.session.history.SessionRecord
+import pl.dmq.peering.session.relay.RelayConnect
 import pl.dmq.peering.session.video.SourceSelection
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.Frame
@@ -225,6 +226,7 @@ class SessionController(
             selection = selection,
             agent = services.agentChat,
             files = services.fileBrowser,
+            relay = ports.relay?.let { RelayConnect(it.signalling, ports.identity, ports.clock) },
         )
         link = live
         everReady = true
@@ -256,6 +258,7 @@ class SessionController(
                 latencyMillis = live.latencyMillis,
                 picture = live.pictureState(paused = !pictureEnabled),
                 notice = live.notice,
+                phase = it.phase.withPath(live.path),
             )
         }
     }
@@ -285,6 +288,9 @@ class SessionController(
         history.end(id, nowMillis(), reason)
         historyId = null
     }
+
+    private fun SessionPhase.withPath(path: SessionRecord.Path): SessionPhase =
+        if (this is SessionPhase.Ready && this.path != path) copy(path = path) else this
 
     private fun nowMillis(): Long = ports.clock.unixSeconds() * MILLIS_PER_SECOND
 
