@@ -48,30 +48,31 @@ fun SessionDock(
     onChord: (QuickAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    BoxWithConstraints(
         modifier
             .fillMaxWidth()
             .sessionSurface(if (expanded) peeringShapes.large else peeringShapes.medium)
             .blockTouches()
             .padding(ChromeMetrics.railPadding),
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            BoxWithConstraints(Modifier.weight(1f)) {
-                if (expanded) {
-                    DockGrid(groups, { c -> control(c, Modifier) }, onChord)
-                } else {
-                    val perPage = DockPaging.perPage(maxWidth.value, ChromeMetrics.dockSlotMinWidth.value)
-                    val paging = remember(groups, perPage) { DockPaging.layout(groups, perPage) }
-                    val applicationId = groups.firstOrNull { it.id.startsWith(DockGroups.APP_PREFIX) }?.id
-                    val state = rememberDockPagerState(paging, applicationId)
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        DockPager(paging, state, control, onChord, perPage)
-                        if (paging.pages.size > 1) DockPageDots(state, paging.pages.size, Modifier.padding(top = 2.dp))
-                    }
+        val barWidth = maxWidth
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (expanded) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) { DockGrid(groups, { c -> control(c, Modifier) }, onChord) }
+                    DockToggle(true) { onExpandedChange(false) }
                 }
+            } else {
+                val perPage = DockPaging.perPage((barWidth - ChromeMetrics.dockToggleWidth).value, ChromeMetrics.dockSlotMinWidth.value)
+                val paging = remember(groups, perPage) { DockPaging.layout(groups, perPage) }
+                val applicationId = groups.firstOrNull { it.id.startsWith(DockGroups.APP_PREFIX) }?.id
+                val state = rememberDockPagerState(paging, applicationId)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) { DockPager(paging, state, control, onChord, perPage) }
+                    DockToggle(false) { onExpandedChange(true) }
+                }
+                if (paging.pages.size > 1) DockPageDots(state, paging.pages.size, Modifier.padding(top = 2.dp))
             }
-            DockToggle(expanded) { onExpandedChange(!expanded) }
         }
     }
 }
