@@ -2,6 +2,7 @@ import AVFoundation
 import CoreGraphics
 import CoreMedia
 import Foundation
+import MacCastKit
 import RemoteCore
 import os
 

@@ -74,7 +74,7 @@ extension MosaicCompositor {
                     .stream(filter: tile.filter, configuration: tile.configuration)
                 )
             } catch {
-                Analytics.failed(error, in: .capture)
+                CaptureHostHooks.reportFailure(error)
                 let failure = CaptureError.from(error)
                 mosaicLog.error("mosaic tile \(index, privacy: .public) did not start: \(String(describing: failure), privacy: .public)")
                 if isCurrent(generation) { markDead(index) }
