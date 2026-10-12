@@ -12,19 +12,16 @@ import pl.dmq.peering.AppGraph
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import pl.dmq.peering.widget.WidgetLink
 import pl.dmq.peering.widget.WidgetPublisher
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import pl.dmq.peering.session.controller.SessionPhase
 import pl.dmq.peering.ui.wiring.PersistedSessionRecords
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.feature.scan.CameraQrSource
 import pl.dmq.peering.feature.onboarding.FaqScreen
 import pl.dmq.peering.ui.nav.ScreenRegistry
 import pl.dmq.peering.ui.wiring.ConnectivityNetworkSource
-import pl.dmq.peering.feature.connect.ConnectVia
 import pl.dmq.peering.ui.wiring.DiscoveryHostSource
 import pl.dmq.peering.ui.wiring.HostAliases
 import pl.dmq.peering.ui.wiring.PinTrustedHosts
@@ -42,9 +39,6 @@ import pl.dmq.peering.ui.wiring.relayInUse
 import pl.dmq.peering.ui.wiring.SessionPortsFactory
 import pl.dmq.peering.ui.wiring.SessionPresence
 import pl.dmq.peering.ui.wiring.SurfacePicture
-import pl.dmq.peering.ui.wiring.pairedTarget
-import pl.dmq.peering.session.controller.ConnectTarget
-import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.clipboard.ClipboardHistory
 import pl.dmq.peering.session.hosts.PersistedHostDirectory
 import pl.dmq.peering.session.hosts.RememberedLanAddresses
@@ -108,7 +102,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
         scope,
     )
     val presence = SessionPresence(holder, relayPresence)
-    private val pins = graph.sessions.pins
+    internal val pins = graph.sessions.pins
 
     /** Set by a widget tap that asked for a session; the Connect tab shows it and clears the flag. */
     val pendingSessionView = MutableStateFlow(false)
@@ -123,43 +117,6 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
                 .collect { sessionRecords.refresh() }
         }
     }
-
-    /** Starts a session with a paired Mac, over the local network when it is seen there. */
-    fun connectPaired(hostId: String) {
-        holder.connect(
-            pairedTarget(hostId, discovery.addressOf(hostId), lanAddresses.addressOf(hostId), devicePrefs.prefs.value.allowsRelay),
-        )
-    }
-
-    /** Opens the session already running with [hostId] when there is one, else starts a new one. */
-    fun connectOrResume(hostId: String) {
-        val live = holder.active.value
-        val phase = live?.controller?.state?.value?.phase
-        val running = phase != null && phase !is SessionPhase.Failed && phase != SessionPhase.Ended
-        if (live?.target?.hostId != hostId || !running) connectPaired(hostId)
-    }
-
-    /** Opens the computer a widget tap named, or the one last used. Only a paired computer is dialled: the link comes from outside the app. */
-    fun openFromWidget(link: WidgetLink) {
-        val hostId = link.targetHostId ?: holder.active.value?.target?.hostId ?: return
-        if (hostId !in pins.hostIds()) return
-        connectOrResume(hostId)
-        pendingSessionView.value = true
-    }
-
-    /** Dials a paired Mac over the one route the user chose. */
-    fun connectPairedVia(hostId: String, via: ConnectVia) {
-        val target = when (via) {
-            ConnectVia.Lan -> ConnectTarget.Paired(hostId, discovery.addressOf(hostId), lanAddresses.addressOf(hostId), relayAllowed = false)
-            ConnectVia.Relay -> ConnectTarget.Paired(hostId, null, null, relayAllowed = true)
-        }
-        holder.connect(target)
-    }
-
-    fun startPairing(hostId: String) = holder.connect(ConnectTarget.Pairing(hostId))
-
-    /** Dials a computer by address alone, the way for a network where it cannot be found by name. */
-    fun startPairingByAddress(address: PeerAddress) = holder.connect(ConnectTarget.Lan(address))
 
     fun install() {
         ScreenRegistry.connect = { ConnectTab(this) }

@@ -17,6 +17,7 @@ import pl.dmq.peering.ui.LockScreen
 import pl.dmq.peering.ui.debug.DebugPreview
 import pl.dmq.peering.ui.debug.PREVIEW_EXTRA
 import pl.dmq.peering.ui.nav.PeeringScaffold
+import pl.dmq.peering.ui.openFromWidget
 import pl.dmq.peering.ui.theme.PeeringTheme
 import pl.dmq.peering.ui.wiring.AppLock
 import pl.dmq.peering.ui.wiring.DeviceUnlock
