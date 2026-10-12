@@ -74,6 +74,7 @@ extension HostSession {
             let state = try decode(ClientStatePayload.self, from: frame, as: .clientState)
             hostSessionLog.notice("client \(state.background ? "left" : "returned to", privacy: .public) the foreground")
             perform(pictureState.clientBackground(state.background))
+            deliverWhatWasHeld(for: state.background)
 
         case .videoKeyRequest:
             guard frame.payload.count <= Self.maxControlPayload else {
@@ -98,7 +99,17 @@ extension HostSession {
 
     func sendTerminalEvent(_ event: TerminalEvent) {
         guard isAuthorized else { return }
+        if case .output = event, !outputGate.admitsTerminalOutput() { return }
         send(.terminalEvent, event)
+    }
+
+    /// On return, the agent events kept meanwhile go out in order, and the shells are replayed from the Mac's history if their output was not sent.
+    func deliverWhatWasHeld(for background: Bool) {
+        guard let returned = outputGate.clientBackground(background) else { return }
+        for event in returned.heldAgentEvents { send(.agentEvent, event) }
+        if returned.terminalNeedsReplay {
+            onTerminalRequest?(.list) { [weak self] event in self?.sendTerminalEvent(event) }
+        }
     }
 
     /// The restraint is on this side: a chat's events travel to the client that started it, and a
@@ -109,6 +120,7 @@ extension HostSession {
         // A frame kind an older phone cannot decode ends its session, so it is withheld from one.
         if case .permissionModeChanged = event, clientSupportsAgentPermissionModes != true { return }
         if case .usageChanged = event, clientSupportsAgentUsage != true { return }
+        if outputGate.holdsAgentEvent(event, cost: (try? MessageCodec.encode(event))?.count ?? 1024) { return }
         send(.agentEvent, event)
     }
 

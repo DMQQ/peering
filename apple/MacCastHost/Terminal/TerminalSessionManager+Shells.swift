@@ -43,12 +43,7 @@ extension TerminalSessionManager {
             guard let self, let session else { return }
             self.didExit(session, status: process.terminationStatus)
         }
-        master.readabilityHandler = { [weak self, weak session] handle in
-            guard let self, let session else { return }
-            let data = handle.availableData
-            if data.isEmpty { handle.readabilityHandler = nil; return }
-            self.received(data, from: session)
-        }
+        installReader(for: session)
 
         do {
             lock.withLock { sessions[id] = session }
@@ -64,6 +59,27 @@ extension TerminalSessionManager {
             try? master.close()
             try? slave.close()
             sink(.failed(sessionID: id, message: "Could not start the login shell: \(error.localizedDescription)"))
+        }
+    }
+
+    private func installReader(for session: Session) {
+        session.master.readabilityHandler = { [weak self, weak session] handle in
+            guard let self, let session else { return }
+            let data = handle.availableData
+            if data.isEmpty { handle.readabilityHandler = nil; return }
+            self.received(data, from: session)
+        }
+    }
+
+    /// Stops reading a client's shells while its connection is backed up. The kernel's pty buffer then fills and the program blocks on its own write, so nothing is lost and nothing piles up here.
+    func setOutputPaused(_ paused: Bool, clientID: String) {
+        let owned = lock.withLock { sessions.values.filter { $0.ownerClientID == clientID && $0.isRunning } }
+        for session in owned {
+            if paused {
+                session.master.readabilityHandler = nil
+            } else {
+                installReader(for: session)
+            }
         }
     }
 
@@ -176,6 +192,8 @@ extension TerminalSessionManager {
         lock.withLock {
             guard sessions[session.id] === session else { return }
             session.isRunning = false
+            // An exited shell keeps the tail that shows how it ended, not the 512 KB it can never add to.
+            session.history = Data(session.history.suffix(Self.exitedHistoryBytes))
         }
         send(.exited(sessionID: session.id, status: status), to: session.ownerClientID)
         terminalLog.notice("terminal \(session.id.uuidString, privacy: .public) exited with \(status)")
