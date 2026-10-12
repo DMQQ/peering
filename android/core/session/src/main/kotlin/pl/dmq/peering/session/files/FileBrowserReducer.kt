@@ -6,7 +6,8 @@ import pl.dmq.peering.wire.TerminalEvent
 /** Folds one Mac event into the browser. Events for another scope, or for no scope, leave the state as it is. */
 internal object FileBrowserReducer {
     fun onEvent(browserID: String, state: FileBrowserState, event: TerminalEvent): FileBrowserStep {
-        if (sessionOf(event) != browserID) return FileBrowserStep(state)
+        // The Mac echoes the id in uppercase, as Swift writes a UUID, so the match ignores case.
+        if (sessionOf(event)?.equals(browserID, ignoreCase = true) != true) return FileBrowserStep(state)
         return when (event) {
             is TerminalEvent.Directory -> directory(state, event.path, event.entries, event.truncated)
             is TerminalEvent.BrowseFailure -> browseFailure(state, event.path, event.message)

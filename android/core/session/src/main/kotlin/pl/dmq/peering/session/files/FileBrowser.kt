@@ -21,7 +21,7 @@ import java.util.UUID
  */
 class FileBrowser(
     private val supportsFileBrowser: Boolean,
-    private val browserID: String = UUID.randomUUID().toString(),
+    private val browserID: String = UUID.randomUUID().toString().uppercase(),
     private val send: (TerminalRequest) -> Unit,
     private val writeDownloadRange: (offset: Long, bytes: ByteArray) -> Unit,
 ) {

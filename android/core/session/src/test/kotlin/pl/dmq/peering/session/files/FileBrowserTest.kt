@@ -262,6 +262,12 @@ class FileBrowserTest {
     }
 
     @Test
+    fun aReplyThatEchoesTheScopeInAnotherCaseIsTaken() {
+        browser.onEvent(TerminalEvent.Directory(scope.lowercase(), "/Users/me", emptyList(), truncated = false))
+        assertEquals("/Users/me", browser.state.value.listing?.path)
+    }
+
+    @Test
     fun eventsForAnotherScopeAreIgnored() {
         browser.onEvent(TerminalEvent.Directory("someone-else", "/", emptyList(), truncated = false))
         assertNull(browser.state.value.listing)
