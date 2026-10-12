@@ -60,7 +60,7 @@ class SessionController(
     val state: StateFlow<SessionUiState> = mutableState.asStateFlow()
 
     private val selection = SourceSelection()
-    private var reconnect = ReconnectSupervisor()
+    private var reconnect = ReconnectSupervisor(ports.clock)
     private var job: Job? = null
     private var link: ConnectedLink? = null
     @Volatile private var pendingCode: PendingCode? = null
@@ -91,7 +91,7 @@ class SessionController(
     fun connect() {
         if (job?.isActive == true) return
         everReady = false
-        reconnect = ReconnectSupervisor()
+        reconnect = ReconnectSupervisor(ports.clock)
         update { it.copy(phase = SessionPhase.Connecting(target.path)) }
         job = scope.launch { lifecycle() }
     }
