@@ -7,7 +7,10 @@
     <string name="nav_faq">FAQ</string>
     <string name="faq_detail">Pairing, privacy, and what moves between your devices.</string>
 
-    <string name="connect_paired_heading">Trusted computers</string>
+    <string name="connect_paired_heading">Your computers</string>
+    <string name="connect_pair_new">Pair a new computer</string>
+    <string name="connect_status_local">On this network · tap to connect</string>
+    <string name="connect_status_relay">Online through the relay · tap to connect</string>
     <string name="connect_nearby_heading">Nearby</string>
     <string name="connect_search_again">Search again</string>
     <string name="connect_tagline">Your computer, from anywhere.</string>
