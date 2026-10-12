@@ -18,6 +18,7 @@ mod control;
 mod diagnostics;
 mod error;
 mod files;
+mod host_state;
 mod listener;
 mod lock;
 mod peer_address;
@@ -26,10 +27,12 @@ mod outbound;
 mod pins;
 mod pre_auth;
 mod problem_source;
+mod profile;
 mod random;
 mod ready;
 mod relay;
 mod relay_lane;
+mod serve;
 mod services;
 mod shared;
 mod supervise;
@@ -41,90 +44,27 @@ mod video_handle;
 mod video_pass;
 mod video_requests;
 
-use std::collections::HashMap;
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 
-use peering_agent::availability::{AgentAvailability, BinaryLocator};
-use peering_agent::browse::AgentBrowser;
-use peering_agent::manager::ClientAgents;
-use peering_core::catalogue::{CatalogueService, SessionCatalogue};
-use peering_core::files::browse::FileBrowser;
-use peering_core::ports::clock::Clock;
-use peering_core::session::deps::PinStore;
-use peering_core::pairing::{ApprovalDecision, PairingOffer, PairingService};
-use peering_core::video::coordinator::VideoCoordinator;
-use peering_net::identity::HostIdentity;
-use peering_net::tls::HostTls;
+use peering_core::pairing::{ApprovalDecision, PairingOffer};
 use peering_wire::relay_messages::RelayClientMessage;
-use tokio::net::TcpListener;
 use tokio::sync::broadcast;
-use tokio::task::{JoinHandle, LocalSet};
 
 pub use ask_queue::AskReceiver;
 pub use clock::SystemClock;
 pub use config::{RelayConfig, RuntimeConfig};
 pub use error::RuntimeError;
+pub use profile::{HostProfile, PeerInfo, VideoEndpoint};
 pub use control::{ApprovalView, DeviceView, HostHandle, HostSnapshot, OfferView, RelayStatus, RuntimeCommand};
 pub use services::{platform_services, HostServices, TerminalServices};
 
-use agent::StdLauncher;
-use agent_browse::DiskFolders;
 use control::ControlChannel;
-use notifications::WaitingNotifications;
 use peer_address::PeerAddressRouter;
-use pins::SecretPins;
-use problem_source::ProblemSource;
-use services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
 use shared::{HostState, Shared};
-use video_handle::VideoHandle;
 
 pub const DEFAULT_PORT: u16 = peering_core::settings::DEFAULT_PORT;
 const APPROVAL_CHANNEL_DEPTH: usize = 16;
-
-/// What the host says about itself in its hello, shared by every connection.
-pub struct HostProfile {
-    pub host_id: String,
-    pub host_name: String,
-    /// The 65 byte point of the identity key, as the certificate carries it.
-    pub identity_public_key: Vec<u8>,
-    /// Wake-on-LAN addresses for paired clients. Not collected yet, so the hello carries none.
-    pub mac_addresses: Vec<String>,
-    /// Whether the host can lock its workstation. `HostRuntime::new` sets this from the system adapter.
-    pub can_lock_screen: bool,
-    pub clock: Arc<dyn Clock>,
-}
-
-impl HostProfile {
-    pub fn from_identity(identity: &HostIdentity, host_name: &str, clock: Arc<dyn Clock>) -> Self {
-        Self {
-            host_id: identity.device_id().to_owned(),
-            host_name: host_name.to_owned(),
-            identity_public_key: identity.public_key_bytes(),
-            mac_addresses: Vec::new(),
-            can_lock_screen: false,
-            clock,
-        }
-    }
-}
-
-/// Who is on the other end of a connection, as the transport established it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PeerInfo {
-    pub public_key: Option<Vec<u8>>,
-    pub via_relay: bool,
-    /// The relay's video token for a relayed session; direct connections have none.
-    pub video_token: Option<[u8; 16]>,
-    /// Where the relay takes a relayed session's datagrams. Set with `video_token`.
-    pub video_endpoint: Option<VideoEndpoint>,
-}
-
-/// The relay's UDP port for a relayed session, as `sessionReady` names it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VideoEndpoint {
-    pub host: String,
-    pub port: u16,
-}
 
 #[derive(Clone)]
 pub struct HostRuntime {
@@ -136,44 +76,8 @@ pub struct HostRuntime {
 impl HostRuntime {
     /// Builds the shared state from the adapters. Must be called on the thread that runs the `LocalSet` from `run`.
     pub fn new(profile: HostProfile, services: HostServices) -> Result<Self, RuntimeError> {
-        let HostServices { capture, encoder, input, system, secrets, files, terminal, home_directory, agent_binaries } = services;
-        let agent_browser = Arc::new(AgentBrowser::new(DiskFolders(files.clone()), home_directory.clone()));
-        let profile = HostProfile { can_lock_screen: system.can_lock_workstation(), ..profile };
-        let terminals = terminal::manager(terminal, secrets.clone(), profile.clock.clone())?;
-        let secret_pins = Arc::new(SecretPins::open(secrets)?);
-        let pins_problem = secret_pins.load_problem();
-        let pins: Arc<dyn PinStore> = secret_pins;
-        let capture = SharedCapture::new(capture);
-        let state = HostState {
-            pins: pins.clone(),
-            pairing: PairingService::new(&profile.host_id, pins),
-            capture: capture.clone(),
-            catalogue: CatalogueService::new(),
-            catalogues: SessionCatalogue::new(),
-            video: VideoHandle::new(VideoCoordinator::new(capture, BoxedEncoder(encoder))),
-            input: BoxedInput(input),
-            hold: Default::default(),
-            system: BoxedSystem(system),
-            files: Arc::new(FileBrowser::new(SharedFileSystem(files), home_directory)),
-            agents: ClientAgents::new(StdLauncher::default),
-            agent_availability: agent_availability(agent_binaries, profile.clock.now_seconds()),
-            agent_browser,
-            terminals,
-            notifications: WaitingNotifications::default(),
-            sessions: HashMap::new(),
-            next_session: 0,
-            catalog_checked_at: None,
-            notices: peering_core::notice::NoticeTracker::default(),
-            notice_checked_at: None,
-            hosting: true,
-            relay: RelayStatus::Off,
-            problems: std::collections::BTreeMap::new(),
-            stopped: None,
-        };
-        let mut state = state;
-        if let Some(problem) = pins_problem {
-            state.set_problem(ProblemSource::PairedDevices, problem);
-        }
+        let profile = HostProfile { can_lock_screen: services.system.can_lock_workstation(), ..profile };
+        let state = HostState::new(&profile, services)?;
         let (approvals, _unused_receiver) = broadcast::channel::<ApprovalDecision>(APPROVAL_CHANNEL_DEPTH);
         let (commands, command_inbox) = mpsc::channel();
         let control = ControlChannel {
@@ -271,92 +175,4 @@ impl HostRuntime {
             None => false,
         }
     }
-
-    /// Starts the video pump and the command loop on the current local task set. `run` does this; tests call it directly.
-    pub fn start_pump(&self) {
-        self.spawn_pumps();
-    }
-
-    fn spawn_pumps(&self) -> PumpTasks {
-        let meter = supervise::PassMeter::new();
-        let published = lock::lock_ignoring_poison(&self.shared.control).published.clone();
-        supervise::spawn_hang_monitor(&meter, published);
-        PumpTasks {
-            video: video_pass::spawn_pump(self.shared.clone(), self.profile.clone(), meter),
-            agents: agent_pump::spawn_pump(self.shared.clone(), self.profile.clone()),
-        }
-    }
-
-    /// Runs the host until the process ends: binds the port, announces the host, and serves the relay and the pump.
-    pub fn run(self, config: RuntimeConfig, identity: HostIdentity) -> Result<(), RuntimeError> {
-        let executor = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(RuntimeError::Executor)?;
-        let local = LocalSet::new();
-        local.block_on(&executor, self.run_tasks(config, identity))
-    }
-
-    async fn run_tasks(self, config: RuntimeConfig, identity: HostIdentity) -> Result<(), RuntimeError> {
-        let tls = Arc::new(HostTls::new(&identity).map_err(|error| RuntimeError::Tls(error.to_string()))?);
-        let listener = TcpListener::bind(("0.0.0.0", config.port))
-            .await
-            .map_err(|source| RuntimeError::Bind { port: config.port, source })?;
-        let _advertisement = advertise::start(identity.device_id(), &self.profile.host_name, config.port)?;
-        let pumps = self.spawn_pumps();
-        if let Some(relay_config) = config.relay {
-            let relay_task = tokio::task::spawn_local(relay::run(
-                self.shared.clone(),
-                self.profile.clone(),
-                tls.clone(),
-                relay_config,
-                Box::new(identity),
-            ));
-            watch_relay(self.shared.clone(), relay_task);
-        }
-        let serving = listener::serve_listener(self.shared.clone(), self.profile, tls, listener);
-        tokio::select! {
-            () = serving => Ok(()),
-            stopped = watch_pumps(pumps) => Err(stopped),
-        }
-    }
-}
-
-struct PumpTasks {
-    video: JoinHandle<()>,
-    agents: JoinHandle<()>,
-}
-
-/// Waits for a pump that should never end. A pump that ended leaves the host serving a frozen picture, so it ends the
-/// host with the reason, which the window shows.
-async fn watch_pumps(pumps: PumpTasks) -> RuntimeError {
-    tokio::select! {
-        outcome = pumps.video => RuntimeError::TaskStopped { task: "video and command loop", reason: task_end_text(&outcome) },
-        outcome = pumps.agents => RuntimeError::TaskStopped { task: "agent output loop", reason: task_end_text(&outcome) },
-    }
-}
-
-/// A relay that ended only costs remote access, so it is shown as a problem and the host keeps serving the local network.
-fn watch_relay(shared: Shared, task: JoinHandle<()>) {
-    tokio::task::spawn_local(async move {
-        let outcome = task.await;
-        let mut state = shared.lock();
-        state.relay = RelayStatus::Off;
-        state.set_problem(ProblemSource::Relay, crate::strings::relay_task_stopped(&task_end_text(&outcome)));
-    });
-}
-
-fn task_end_text(outcome: &Result<(), tokio::task::JoinError>) -> String {
-    match outcome {
-        Ok(()) => "it returned".to_owned(),
-        Err(error) if error.is_panic() => "it panicked".to_owned(),
-        Err(error) => error.to_string(),
-    }
-}
-
-/// The first look for the agent CLI happens at startup, so the first hello does not wait for a search through `PATH`.
-fn agent_availability(locator: Box<dyn BinaryLocator>, now: f64) -> AgentAvailability {
-    let mut availability = AgentAvailability::new(locator, peering_agent::manager::AGENT_ID);
-    availability.check(now);
-    availability
 }
