@@ -149,3 +149,66 @@ extension ClientSession {
         return true
     }
 }
+
+extension ClientSession {
+    // MARK: - Ready
+
+    /// Sends a command through ``CommandCoalescer``. The only path input takes, so the 120 Hz to 60 Hz rule and never dropping a `mouseUp` hold in one place.
+    public func send(_ command: RemoteCommand) {
+        guard isReady else { return }
+        // The reconnect has to know which way the picture's switch was asked for, or a paused
+        // client would dial a socket that makes the Mac start capturing again. Recorded here
+        // rather than at the call site so the two can never be sent apart.
+        if case .setVideoEnabled(let enabled) = command { notePictureRequested(enabled) }
+        coalescer.enqueue(command)
+    }
+
+    public func selectCaptureSource(_ source: CaptureSource) {
+        send(.setCaptureSource(source))
+    }
+
+    /// Sends a terminal request directly on the authenticated control stream. Unlike pointer
+    /// moves, terminal bytes must never be coalesced or reordered.
+    public func sendTerminal(_ request: TerminalRequest) {
+        guard isReady else { return }
+        connection()?.send(.terminalRequest, request)
+    }
+
+    /// Sends a request and reports when the network has taken it, or that the session was not ready.
+    public func sendTerminal(_ request: TerminalRequest, completion: @escaping @Sendable (Error?) -> Void) {
+        guard isReady, let connection = connection() else { return completion(ClientConnection.Failure.cancelled) }
+        connection.send(.terminalRequest, request, completion: completion)
+    }
+
+    /// Sends one piece of a long transfer once `window` has room for it, and gives the room back when the network has taken it.
+    /// - Throws: ``SendWindowFailure`` when an earlier piece failed or the transfer was cancelled.
+    public func sendPaced(_ request: TerminalRequest, weight: Int, through window: SendWindow) async throws {
+        try await window.reserve(weight)
+        sendTerminal(request) { window.complete(weight, error: $0) }
+    }
+
+    /// Sends an agent chat request directly on the control stream, bypassing the coalescer: a coalesced prompt or approval would drop turns.
+    /// - Returns: `false` when there was no ready connection to hand it to. `true` is not delivery.
+    @discardableResult
+    public func sendAgent(_ request: AgentRequest) -> Bool {
+        guard isReady, let connection = connection() else { return false }
+        connection.send(.agentRequest, request)
+        return true
+    }
+
+    /// Puts a picture on the Mac's pasteboard. Sent on the control channel, not the coalescer: it is not a gesture, and the transport's ordering keeps it ahead of later keystrokes. Larger than one message is split by ``ClipboardTransfer``.
+    /// - Returns: `false` for a picture over the limit both ends carry, which nothing is sent for.
+    @discardableResult
+    public func pushClipboardImage(_ png: Data) -> Bool {
+        guard png.count <= ClipboardLimits.maxImageBytes else { return false }
+        guard isReady, let connection = connection() else { return false }
+        guard let payload = try? MessageCodec.encode(RemoteCommand.pushClipboardImage(png: png)) else {
+            return false
+        }
+        clipboardFrameID &+= 1
+        let frames = ClipboardTransfer.frames(kind: .command, payload: payload, frameID: clipboardFrameID)
+        guard !frames.isEmpty else { return false }
+        for frame in frames { connection.send(frame) }
+        return true
+    }
+}
