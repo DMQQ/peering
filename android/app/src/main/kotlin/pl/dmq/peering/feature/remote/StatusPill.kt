@@ -1,14 +1,7 @@
 package pl.dmq.peering.feature.remote
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +16,23 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlin.math.roundToInt
+import androidx.compose.ui.util.lerp
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,24 +89,49 @@ fun StatusPill(
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    AnimatedContent(
-        targetState = expanded,
-        modifier = modifier
-            .sessionSurface(peeringShapes.large)
-            .blockTouches(),
-        transitionSpec = {
-            (fadeIn(tween(160, delayMillis = 70, easing = LinearOutSlowInEasing)) togetherWith fadeOut(tween(90, easing = FastOutLinearInEasing)))
-                .using(SizeTransform(clip = true) { _, _ -> tween(260, easing = FastOutSlowInEasing) })
+    val progress = animateFloatAsState(if (expanded) 1f else 0f, tween(PILL_MILLIS, easing = FastOutSlowInEasing), label = "pill")
+    val showCollapsed by remember(expanded) { derivedStateOf { !expanded || progress.value < 1f } }
+    val showExpanded by remember(expanded) { derivedStateOf { expanded || progress.value > 0f } }
+    val corner = with(LocalDensity.current) { peeringShapes.large.topStart.toPx(Size(1f, 1f), this) }
+    val fill = PeeringColors.containerHigh
+    val side = with(LocalDensity.current) { SIDE_BUTTON_SPACE.toPx() }
+    Layout(
+        content = {
+            Box(Modifier.layoutId(COLLAPSED).graphicsLayer { alpha = (1f - progress.value * 2.2f).coerceIn(0f, 1f) }.blockTouches()) {
+                if (showCollapsed) CollapsedPill(ui, onTap)
+            }
+            Box(Modifier.layoutId(EXPANDED).graphicsLayer { alpha = ((progress.value - 0.35f) / 0.65f).coerceIn(0f, 1f) }.blockTouches()) {
+                if (showExpanded) ExpandedPill(ui, actions, onTap)
+            }
         },
-        label = "statusPill",
-    ) { open ->
-        if (open) {
-            ExpandedPill(ui, actions, onTap)
-        } else {
-            CollapsedPill(ui, onTap)
+        modifier = modifier.drawWithContent {
+            val inset = lerp(side, 0f, progress.value)
+            val face = Path().apply {
+                addRoundRect(RoundRect(inset, 0f, size.width - inset, size.height, CornerRadius(corner, corner)))
+            }
+            drawPath(face, fill)
+            clipPath(face) { this@drawWithContent.drawContent() }
+        },
+    ) { measurables, constraints ->
+        val p = progress.value
+        val inset = lerp(side, 0f, p).roundToInt()
+        val width = (constraints.maxWidth - inset * 2).coerceAtLeast(0)
+        val closed = measurables.first { it.layoutId == COLLAPSED }.measure(Constraints.fixedWidth(width))
+        val open = measurables.first { it.layoutId == EXPANDED }.measure(Constraints(minWidth = width, maxWidth = width))
+        val height = lerp(closed.height.toFloat(), maxOf(open.height, closed.height).toFloat(), p).roundToInt()
+        layout(constraints.maxWidth, height) {
+            closed.place(inset, 0)
+            open.place(inset, 0)
         }
     }
 }
+
+/** The room the lock and terminal buttons take on each side of the closed pill. */
+internal val SIDE_BUTTON_SPACE = 61.dp
+
+private const val PILL_MILLIS = 280
+private const val COLLAPSED = "collapsed"
+private const val EXPANDED = "expanded"
 
 @Composable
 private fun CollapsedPill(ui: StatusUi, onOpen: () -> Unit) {

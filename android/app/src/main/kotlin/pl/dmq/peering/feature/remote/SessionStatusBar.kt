@@ -40,23 +40,13 @@ fun SessionStatusBar(
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val inset = animateDpAsState(if (expanded) 0.dp else SIDE_BUTTON_SPACE, tween(260, easing = FastOutSlowInEasing), label = "pillInset")
     Box(modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
         Box(Modifier.align(Alignment.TopStart)) { LockButton(ui, actions) }
         Box(Modifier.align(Alignment.TopEnd)) { TerminalButton(ui.hubTabs.isNotEmpty(), actions.onOpenHub) }
-        StatusPill(ui, actions, expanded, onTap, Modifier.align(Alignment.TopStart).insetBy(inset))
+        StatusPill(ui, actions, expanded, onTap, Modifier.align(Alignment.TopStart).fillMaxWidth())
     }
 }
 
-/** The buttons stay where they are and the pill grows over them, so opening it moves nothing beside it. The inset is read while measuring, not while composing. */
-private fun Modifier.insetBy(inset: State<Dp>): Modifier = layout { measurable, constraints ->
-    val side = inset.value.roundToPx()
-    val width = (constraints.maxWidth - side * 2).coerceAtLeast(0)
-    val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width, minHeight = 0))
-    layout(constraints.maxWidth, placeable.height) { placeable.place(side, 0) }
-}
-
-private val SIDE_BUTTON_SPACE = 61.dp
 
 @Composable
 private fun LockButton(ui: StatusUi, actions: StatusActions) {
