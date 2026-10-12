@@ -167,6 +167,8 @@ impl HostRuntime {
             sessions: HashMap::new(),
             next_session: 0,
             catalog_checked_at: None,
+            notices: peering_core::notice::NoticeTracker::default(),
+            notice_checked_at: None,
             hosting: true,
             relay: RelayStatus::Off,
         };

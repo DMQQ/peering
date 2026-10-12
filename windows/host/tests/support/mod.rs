@@ -110,6 +110,10 @@ impl SystemActions for SharedSystem {
     fn lock_workstation(&mut self) -> Result<(), SystemError> {
         locked(&self.0).lock_workstation()
     }
+
+    fn session_notice(&self) -> Option<peering_wire::handshake::NoticePayload> {
+        locked(&self.0).session_notice()
+    }
 }
 
 pub struct Harness {

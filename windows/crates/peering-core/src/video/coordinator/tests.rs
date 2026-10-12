@@ -409,3 +409,24 @@ fn a_restarted_capture_gets_a_fresh_first_frame_grace() {
     assert!(!coordinator.watchdog_expired(101.0));
     assert!(coordinator.watchdog_expired(106.0));
 }
+
+#[test]
+fn a_capture_that_never_delivers_is_reported_once_per_start() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    assert!(!coordinator.take_watchdog_report(4.0));
+    assert!(coordinator.take_watchdog_report(5.0));
+    assert!(!coordinator.take_watchdog_report(6.0));
+    coordinator.set_source(display_source(2), 10.0).unwrap();
+    assert!(coordinator.take_watchdog_report(15.0));
+}
+
+#[test]
+fn a_capture_that_delivered_a_frame_is_never_reported() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    assert!(!coordinator.take_watchdog_report(60.0));
+}

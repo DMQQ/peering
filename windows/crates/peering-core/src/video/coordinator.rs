@@ -55,6 +55,7 @@ pub struct VideoCoordinator<C: Capture, E: Encoder> {
     reconfigure_pending: bool,
     capture_started_at: Option<f64>,
     frame_ever_seen: bool,
+    watchdog_reported: bool,
     last_frame_at: Option<f64>,
     dropped_frames: u64,
 }
@@ -78,6 +79,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
             reconfigure_pending: false,
             capture_started_at: None,
             frame_ever_seen: false,
+            watchdog_reported: false,
             last_frame_at: None,
             dropped_frames: 0,
         }
@@ -144,6 +146,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.last_config = None;
         self.capture_started_at = None;
         self.frame_ever_seen = false;
+        self.watchdog_reported = false;
     }
 
     /// Switches capture to a display. A switch to the source already running changes nothing.
@@ -176,6 +179,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.pacer.restart();
         self.capture_started_at = Some(now);
         self.frame_ever_seen = false;
+        self.watchdog_reported = false;
         Ok(())
     }
 
@@ -245,6 +249,15 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
     pub fn watchdog_expired(&self, now: f64) -> bool {
         !self.frame_ever_seen
             && self.capture_started_at.is_some_and(|started| now - started >= FIRST_FRAME_GRACE)
+    }
+
+    /// True once per capture start, the first time the watchdog has expired, so a silent capture is reported once.
+    pub fn take_watchdog_report(&mut self, now: f64) -> bool {
+        if self.watchdog_reported || !self.watchdog_expired(now) {
+            return false;
+        }
+        self.watchdog_reported = true;
+        true
     }
 
     pub fn running_source(&self) -> Option<&CaptureSource> {

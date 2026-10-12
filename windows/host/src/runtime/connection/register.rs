@@ -1,6 +1,7 @@
 //! Registering an authorised control connection as a session: its slot, its video state, and the relayed UDP lane when the
 //! session arrived through the relay.
 
+use peering_core::notice::notice_frame;
 use peering_core::video::lane::VideoLane;
 use peering_wire::sealing::TOKEN_SIZE;
 use tokio::sync::mpsc;
@@ -35,7 +36,9 @@ impl Connection {
             );
             state.video.attach(&client_id);
             let capture_failure = state.video.ensure_capturing(now).err().map(|error| error.to_string());
-            (state.catalogue_frames_for(self.session_id), capture_failure)
+            let mut frames = state.catalogue_frames_for(self.session_id);
+            frames.extend(state.notices.standing().map(notice_frame));
+            (frames, capture_failure)
         };
         if let Some((endpoint, token, (_, outbound))) = relay_lane {
             spawn_local(relay_lane::run(
