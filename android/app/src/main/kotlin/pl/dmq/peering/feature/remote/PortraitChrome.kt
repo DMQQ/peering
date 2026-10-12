@@ -47,7 +47,7 @@ internal fun PortraitChrome(
         }
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             SessionStatusBar(
-                state.status, handlers.status, state.statusExpanded, handlers.onStatusExpanded,
+                state.status, handlers.status, state.statusExpanded, handlers.onPillTap,
                 Modifier.padding(top = ChromeMetrics.edgeInset),
             )
             Box(Modifier.weight(1f))

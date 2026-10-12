@@ -61,12 +61,10 @@ class SessionScreenStateTest {
     @Test
     fun immersiveModePutsAwayWhatWasOpen() {
         state.togglePanel(SessionPanel.SHORTCUTS)
-        state.statusExpanded = true
 
         state.enterImmersive()
 
         assertTrue(state.immersive)
         assertNull(state.openPanel)
-        assertFalse(state.statusExpanded)
     }
 }

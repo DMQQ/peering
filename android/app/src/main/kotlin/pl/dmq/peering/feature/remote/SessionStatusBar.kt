@@ -31,7 +31,7 @@ fun SessionStatusBar(
     ui: StatusUi,
     actions: StatusActions,
     expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
+    onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -40,7 +40,7 @@ fun SessionStatusBar(
         horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         if (!expanded) LockButton(ui, actions)
-        StatusPill(ui, actions, expanded, onExpandedChange, Modifier.weight(1f))
+        StatusPill(ui, actions, expanded, onTap, Modifier.weight(1f))
         if (!expanded) TerminalButton(ui.terminalEntries, actions.onTerminalEntry)
     }
 }

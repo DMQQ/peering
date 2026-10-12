@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import kotlin.math.ln
 import kotlin.math.roundToInt
-import kotlinx.coroutines.delay
 import pl.dmq.peering.ui.kit.LocalBorderless
 import pl.dmq.peering.wire.MouseButton
 
@@ -68,15 +67,9 @@ fun RemoteRoute(model: RemoteModel) {
         canvas.onPictureChanged(state.picturePixels)
         if (prefs.fillsScreen) canvas.fillCanvas() else canvas.fitToCanvas()
     }
+    val pill = remember { StatusPillPresenter(scope) }
     val ready = state.hostName != null
-    LaunchedEffect(ready) { if (ready) screen.statusExpanded = true }
-    var touches by remember { mutableStateOf(0) }
-    LaunchedEffect(screen.statusExpanded, touches) {
-        if (screen.statusExpanded) {
-            delay(STATUS_OPEN_MILLIS)
-            screen.statusExpanded = false
-        }
-    }
+    LaunchedEffect(ready) { pill.onReady(ready) }
 
     SessionWindow()
     BackHandler {
@@ -87,7 +80,7 @@ fun RemoteRoute(model: RemoteModel) {
         }
     }
 
-    val handlers = chromeHandlers(model, screen, actions, canvas, keyboard, typed, latches) { touches++ }
+    val handlers = chromeHandlers(model, screen, pill, actions, canvas, keyboard, typed, latches)
     val chrome = ChromeState(
         shown = ChromePolicy.shown(screen.immersive, state.pictureState, state.reconnecting),
         immersive = screen.immersive,
@@ -100,7 +93,7 @@ fun RemoteRoute(model: RemoteModel) {
             zoomPercent = zoomPercent,
             terminalEntries = HubPresenter().terminalEntries(state.capabilities),
         ),
-        statusExpanded = screen.statusExpanded,
+        statusExpanded = pill.expanded,
         openPanel = screen.openPanel,
         keyboardShown = screen.keyboardShown,
         dockExpanded = screen.dockExpanded,
@@ -127,24 +120,27 @@ fun RemoteRoute(model: RemoteModel) {
 private fun chromeHandlers(
     model: RemoteModel,
     screen: SessionScreenState,
+    pill: StatusPillPresenter,
     actions: RemoteActions,
     canvas: RemoteCanvasPresenter,
     keyboard: KeyboardPresenter,
     typed: String,
     latches: Map<StickyModifier, ModifierLatch>,
-    onTouch: () -> Unit,
 ): ChromeHandlers = ChromeHandlers(
     status = StatusActions(
-        onLock = { onTouch(); actions.lock() },
-        onToggleDark = { onTouch(); actions.toggleDark() },
-        onToggleFill = { onTouch(); actions.toggleFill() },
-        onResetZoom = { onTouch(); canvas.fitToCanvas() },
-        onImmersive = screen::enterImmersive,
+        onLock = { pill.onInteraction(); actions.lock() },
+        onToggleDark = { pill.onInteraction(); actions.toggleDark() },
+        onToggleFill = { pill.onInteraction(); actions.toggleFill() },
+        onResetZoom = { pill.onInteraction(); canvas.fitToCanvas() },
+        onImmersive = {
+            pill.collapse()
+            screen.enterImmersive()
+        },
         onStepAway = model::onStepAway,
         onTerminalEntry = model::onHubEntry,
         onQuit = { screen.leaveAsked = true },
     ),
-    onStatusExpanded = { screen.statusExpanded = it },
+    onPillTap = pill::onTap,
     onReveal = screen::leaveImmersive,
     onRetry = model::onRetryPicture,
     onPanel = screen::togglePanel,
@@ -187,7 +183,6 @@ private fun zoomPosition(zoom: Double): Float =
     (ln(zoom) / ln(CanvasViewport.MAX_ZOOM)).coerceIn(0.0, 1.0).toFloat()
 
 private const val ZOOMED_PERCENT = 101
-private const val STATUS_OPEN_MILLIS = 2_500L
 private const val PIXELS_PER_POINT = 2.0
 private const val DEFAULT_WIDTH = 1440.0
 private const val DEFAULT_HEIGHT = 900.0

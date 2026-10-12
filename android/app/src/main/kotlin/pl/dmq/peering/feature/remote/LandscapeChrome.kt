@@ -47,7 +47,7 @@ internal fun LandscapeChrome(
             }
         }
         SessionStatusBar(
-            state.status, handlers.status, state.statusExpanded, handlers.onStatusExpanded,
+            state.status, handlers.status, state.statusExpanded, handlers.onPillTap,
             Modifier.align(Alignment.TopCenter).padding(top = ChromeMetrics.edgeInset).widthIn(max = barWidth),
         )
         if (!state.keyboardShown) {

@@ -17,7 +17,6 @@ class SessionScreenState(openPanel: SessionPanel? = null, keyboardShown: Boolean
         private set
     var keyboardShown by mutableStateOf(keyboardShown)
         private set
-    var statusExpanded by mutableStateOf(false)
     var dockExpanded by mutableStateOf(false)
     var immersive by mutableStateOf(false)
         private set
@@ -57,7 +56,6 @@ class SessionScreenState(openPanel: SessionPanel? = null, keyboardShown: Boolean
     fun enterImmersive() {
         immersive = true
         openPanel = null
-        statusExpanded = false
     }
 
     fun leaveImmersive() {

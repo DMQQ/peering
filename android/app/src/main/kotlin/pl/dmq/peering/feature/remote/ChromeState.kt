@@ -23,7 +23,7 @@ class ChromeState(
 /** Everything the session chrome can ask for. */
 class ChromeHandlers(
     val status: StatusActions,
-    val onStatusExpanded: (Boolean) -> Unit,
+    val onPillTap: () -> Unit,
     val onReveal: () -> Unit,
     val onRetry: () -> Unit,
     val onPanel: (SessionPanel) -> Unit,

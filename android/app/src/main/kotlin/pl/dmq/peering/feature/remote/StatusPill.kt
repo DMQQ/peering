@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -67,7 +68,7 @@ fun StatusPill(
     ui: StatusUi,
     actions: StatusActions,
     expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
+    onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -77,9 +78,9 @@ fun StatusPill(
             .animateContentSize(),
     ) {
         if (expanded) {
-            ExpandedPill(ui, actions) { onExpandedChange(false) }
+            ExpandedPill(ui, actions, onTap)
         } else {
-            CollapsedPill(ui) { onExpandedChange(true) }
+            CollapsedPill(ui, onTap)
         }
     }
 }
@@ -124,7 +125,7 @@ private fun ExpandedPill(ui: StatusUi, actions: StatusActions, onClose: () -> Un
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(
-            Modifier.fillMaxWidth().tappable(onClose),
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).tappable(onClose),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
