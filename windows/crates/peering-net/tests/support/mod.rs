@@ -5,6 +5,8 @@ use std::collections::HashMap;
 
 use peering_core::ports::secret_store::SecretStore;
 
+pub mod client;
+
 #[derive(Default)]
 pub struct MemorySecrets {
     values: RefCell<HashMap<String, Vec<u8>>>,
