@@ -470,9 +470,10 @@ final class HostServer: @unchecked Sendable {
             guard let self, let session else { return }
             self.terminalManager.handle(clientID: session.clientID, request: request, sink: sink)
         }
-        session.onTerminalBackPressure = { [weak self, weak session] backedUp in
+        session.onBackPressure = { [weak self, weak session] backedUp in
             guard let self, let session else { return }
             self.terminalManager.setOutputPaused(backedUp, clientID: session.clientID)
+            self.agentManager.setOutputPaused(backedUp, clientID: session.clientID)
         }
         session.onAgentRequest = { [weak self, weak session] request, sink in
             guard let self, let session else { return }
