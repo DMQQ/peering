@@ -26,12 +26,18 @@ import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.peeringShapes
 
-/** The page name in the display face with one line under it; the question mark appears once the guide has been read. */
+/** The page name ([title], Agents unless given another) in the display face with one line under it; the question mark appears once the guide has been read. */
 @Composable
-fun HubHeading(detail: String, showsHelp: Boolean, onHelp: () -> Unit, modifier: Modifier = Modifier) {
+fun HubHeading(
+    detail: String,
+    showsHelp: Boolean,
+    onHelp: () -> Unit,
+    modifier: Modifier = Modifier,
+    title: String = stringResource(R.string.agents_title),
+) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(R.string.agents_title), style = PeeringText.display(size = 34f, tracking = -0.8f), color = PeeringColors.ink)
+            Text(title, style = PeeringText.display(size = 34f, tracking = -0.8f), color = PeeringColors.ink)
             Text(detail, style = PeeringText.subheadline, color = PeeringColors.muted, maxLines = 1)
         }
         if (showsHelp) {

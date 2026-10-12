@@ -59,7 +59,7 @@ class TerminalTabActions(
 
 /**
  * The shells as a strip of monospaced names over a hairline, scrolled to keep the selection in view. The trailing
- * plus is pinned outside the scroller, so it stays put however long the row gets.
+ * plus, when [onNew] is given, is pinned outside the scroller, so it stays put however long the row gets.
  */
 @Composable
 fun TerminalTabStrip(
@@ -67,7 +67,7 @@ fun TerminalTabStrip(
     selectedID: String?,
     hasOutput: @Composable (TerminalTab) -> Boolean,
     actions: TerminalTabActions,
-    onNew: () -> Unit,
+    onNew: (() -> Unit)?,
     newEnabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -88,8 +88,10 @@ fun TerminalTabStrip(
                     TerminalTabChip(tab, tab.id == selectedID, terminalMark(tab, hasOutput(tab)), actions)
                 }
             }
-            IconButton(onClick = onNew, enabled = newEnabled, modifier = Modifier.padding(top = 4.dp).size(40.dp)) {
-                Icon(TerminalGlyphs.add, stringResource(R.string.terminal_new), tint = PeeringColors.ink, modifier = Modifier.size(20.dp))
+            if (onNew != null) {
+                IconButton(onClick = onNew, enabled = newEnabled, modifier = Modifier.padding(top = 4.dp).size(40.dp)) {
+                    Icon(TerminalGlyphs.add, stringResource(R.string.terminal_new), tint = PeeringColors.ink, modifier = Modifier.size(20.dp))
+                }
             }
         }
         HorizontalDivider(Modifier.align(Alignment.BottomCenter), color = PeeringColors.hairline)

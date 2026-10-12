@@ -17,16 +17,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.feature.agents.HubGuidePresenter
 import pl.dmq.peering.feature.terminal.QuickCommands
 import pl.dmq.peering.feature.terminal.TerminalPreferences
-import pl.dmq.peering.feature.terminal.TerminalRoute
+import pl.dmq.peering.feature.terminal.TerminalPage
 import pl.dmq.peering.feature.terminal.TerminalTextSizeSetting
 import pl.dmq.peering.session.controller.SessionPhase
+import pl.dmq.peering.session.ports.KeyValueStore
 import pl.dmq.peering.ui.theme.PeeringColors
 
-/** The terminal screen over the active session's shells, or a line saying there are none to offer. */
+/** The Terminals page over the active session's shells, or a line saying there are none to offer. */
 @Composable
-internal fun TerminalHost(active: ActiveSession, onBack: () -> Unit) {
+internal fun TerminalHost(active: ActiveSession, guideStore: KeyValueStore, onFiles: (() -> Unit)?, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     val sessions = active.controller.terminals
     if (sessions == null) {
@@ -45,5 +47,6 @@ internal fun TerminalHost(active: ActiveSession, onBack: () -> Unit) {
         val store = PreferencesKeyValueStore(context.getSharedPreferences("peering_terminal", Context.MODE_PRIVATE))
         TerminalPreferences(QuickCommands(store), TerminalTextSizeSetting(store))
     }
-    TerminalRoute(sessions = sessions, preferences = preferences, connected = phase.phase is SessionPhase.Ready, onBack = onBack, hosted = true)
+    val guide = remember(guideStore) { HubGuidePresenter(guideStore, HubGuidePresenter.TERMINALS_KEY) }
+    TerminalPage(sessions, preferences, guide, connected = phase.phase is SessionPhase.Ready, onFiles = onFiles)
 }

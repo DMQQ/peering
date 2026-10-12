@@ -5,7 +5,7 @@
     <string name="hub_close">Close</string>
     <string name="session_unavailable_terminal">This computer does not offer terminals.</string>
     <string name="terminal_title">Terminal</string>
-    <string name="terminal_back">Back to the session</string>
+    <string name="terminal_back">Back to terminals</string>
     <string name="terminal_new">New terminal</string>
     <string name="terminal_end_named">End %1$s</string>
     <string name="terminal_close_named">Close %1$s</string>
@@ -86,4 +86,24 @@
     <string name="terminal_key_page_up">Page up</string>
     <string name="terminal_key_page_down">Page down</string>
     <string name="terminal_key_insert">Insert</string>
+    <string name="terminal_list_title">Terminals</string>
+    <string name="terminal_list_detail">Shells running on your computer</string>
+    <string name="terminal_card_host">on your computer</string>
+    <string name="terminal_card_running">Running</string>
+    <string name="terminal_card_password">Password</string>
+    <string name="terminal_card_confirm">Confirm</string>
+    <string name="terminal_card_failed">Failed</string>
+    <string name="terminal_card_exited">Exited</string>
+    <string name="terminal_card_idle">Nothing running</string>
+    <string name="terminal_dock_files">Files</string>
+    <string name="terminal_dock_files_description">This computer\'s files</string>
+    <string name="terminal_guide_title">How terminals work</string>
+    <string name="terminal_guide_shell">A real shell on your computer</string>
+    <string name="terminal_guide_shell_detail">Each card is a shell running on the computer. It keeps running when you disconnect.</string>
+    <string name="terminal_guide_start">Start one</string>
+    <string name="terminal_guide_start_detail">The New terminal button in the bar opens a shell.</string>
+    <string name="terminal_guide_manage">Tap to open, hold to manage</string>
+    <string name="terminal_guide_manage_detail">Hold a card to rename it or end it.</string>
+    <string name="terminal_guide_needs_you">When a shell needs you</string>
+    <string name="terminal_guide_needs_you_detail">A card is marked when its shell stops to ask for a password or a confirmation.</string>
 </resources>

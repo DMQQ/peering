@@ -37,8 +37,7 @@ class TerminalPreferences(val quickCommands: QuickCommands, val textSize: Termin
 
 /**
  * The shells of one computer, laid out as the iPhone does: a strip of tabs, the output, the key deck and the command
- * line. [connected] is true while the session is live; each time it becomes true the list is asked for again, which
- * also replays the output after a reconnect. A [hosted] screen sits under a switcher that already names it and closes
+ * line. [connected] is true while the session is live. With [canCreate] false the strip has no plus (the list page starts shells) and [onEnded] runs after one is ended. A [hosted] screen sits under a switcher that already names it and closes
  * it, so it draws no bar of its own: a tab carries each shell's name, rename and end.
  */
 @Composable
@@ -49,6 +48,8 @@ fun TerminalRoute(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     hosted: Boolean = false,
+    canCreate: Boolean = true,
+    onEnded: (() -> Unit)? = null,
 ) {
     val state by sessions.state.collectAsState()
     val selected = state.selected
@@ -68,9 +69,6 @@ fun TerminalRoute(
     var pendingEnd by remember { mutableStateOf<TerminalTab?>(null) }
     val copied = stringResource(R.string.terminal_copied)
 
-    LaunchedEffect(sessions, connected) {
-        if (connected) sessions.attach()
-    }
     LaunchedEffect(state.failure) {
         state.failure?.let {
             snackbar.showSnackbar(it)
@@ -79,8 +77,12 @@ fun TerminalRoute(
     }
 
     fun hasOutput(tab: TerminalTab) = sessions.frames(tab.id).value.hasPrinted()
+    fun endNow(tab: TerminalTab) {
+        sessions.close(tab.id)
+        onEnded?.invoke()
+    }
     fun requestEnd(tab: TerminalTab) {
-        if (tab.isRunning || hasOutput(tab)) pendingEnd = tab else sessions.close(tab.id)
+        if (tab.isRunning || hasOutput(tab)) pendingEnd = tab else endNow(tab)
     }
     val tabActions = TerminalTabActions(
         onSelect = { sessions.select(it.id) },
@@ -107,7 +109,7 @@ fun TerminalRoute(
                         state.selectedID,
                         { rememberHasPrinted(sessions, it.id).value },
                         tabActions,
-                        onNew = sessions::open,
+                        onNew = if (canCreate) sessions::open else null,
                         newEnabled = connected,
                     )
                 }
@@ -184,7 +186,7 @@ fun TerminalRoute(
     }
     pendingEnd?.let { tab ->
         EndTerminalPrompt(tab, onKeep = { pendingEnd = null }, onEnd = {
-            sessions.close(tab.id)
+            endNow(tab)
             pendingEnd = null
         })
     }

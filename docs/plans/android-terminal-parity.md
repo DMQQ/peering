@@ -28,7 +28,6 @@ The previous version of this file claimed a match and listed rows that were not 
 
 | Element | Reason |
 |---------|--------|
-| "+" at the end of the tab strip | The iPhone makes a shell on its hub list page. Android has no such page, so the button is the way to start one |
 | Copy screen in the tab menu | The canvas has no text selection, where the iPhone has `textSelection` |
 | Ripples on sheet rows and menu items, system back, IME insets | Android behaviour |
 | Material icon set for glyphs | SF Symbols are not available. Sizes were matched, shapes differ slightly |
@@ -39,7 +38,7 @@ The previous version of this file claimed a match and listed rows that were not 
 
 | Element | iPhone | Why it remains |
 |---------|--------|----------------|
-| Terminals list page | The Terminals tab is a list of window cards (`TerminalWindowCard`) with a heading, a guide card and history, and a tap opens one shell on a pushed page with its own tab strip | The Android tab shows the shells directly. Building the card list is a separate feature, and the user asked for no extra top level chrome |
+| Terminals list page: folder picker on New terminal, per-shell folder and age, terminal history | The page, cards, guide, empty state and dock are built to the Swift values. The wire's create request carries no folder and the tab no start time, so New terminal starts a shell directly and a card says "on your computer" and "Running" (the Swift fallbacks). Cursor on a card is static (no looping animation) | 
 | Files toggle in the terminal bar | Browses the shell's folder | Android keeps files on its own tab |
 | Tour tips and the end-of-line "Done" accessory | iOS first-run tours, keyboard accessory | No equivalent on Android, the hide-keyboard key in the capsule covers Done |
 | Error and warning word tint on uncoloured lines | `TerminalStyledLine.kind` tints lines that look like errors | The Android emulator does not classify lines |

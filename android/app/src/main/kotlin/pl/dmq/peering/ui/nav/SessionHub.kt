@@ -72,7 +72,12 @@ internal fun SessionHub(
                 Crossfade(targetState = tabs.selected, animationSpec = tween(HUB_SWAP_MS), label = "hubTab") { selected ->
                     when (selected) {
                         HubTab.AGENTS -> AgentsScreen(active, drafts, folderRecents, preferences, clock, onClose)
-                        HubTab.TERMINALS -> TerminalHost(active, onClose)
+                        HubTab.TERMINALS -> TerminalHost(
+                            active,
+                            preferences,
+                            onFiles = if (HubTab.FILES in tabs.offered) ({ tabs.select(HubTab.FILES) }) else null,
+                            onBack = onClose,
+                        )
                         HubTab.FILES -> FilesScreen(active, onClose, hosted = true)
                         null -> LaunchedEffect(Unit) { onClose() }
                     }

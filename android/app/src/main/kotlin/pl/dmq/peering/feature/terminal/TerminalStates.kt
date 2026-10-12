@@ -9,21 +9,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import pl.dmq.peering.ui.theme.displayFamily
-import pl.dmq.peering.ui.theme.peeringShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -66,14 +59,23 @@ fun TerminalLoading(waitingForConnection: Boolean, modifier: Modifier = Modifier
     }
 }
 
-/** The list came back empty: a window with a command waiting in it, then the name and what a terminal here is. */
+/** The list came back empty inside a shell page: the same block as the list page, with its own way to start one. */
 @Composable
 fun TerminalEmpty(onNew: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 14.dp),
+        modifier.fillMaxSize().padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterVertically),
     ) {
+        TerminalEmptyBlock()
+        QuietButton(onClick = onNew) { Text(stringResource(R.string.terminal_new)) }
+    }
+}
+
+/** A window with a command waiting in it, then the name and what a terminal here is. */
+@Composable
+fun TerminalEmptyBlock(modifier: Modifier = Modifier) {
+    Column(modifier.padding(top = 14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(22.dp)) {
         EmptyWindow()
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
@@ -91,33 +93,19 @@ fun TerminalEmpty(onNew: () -> Unit, modifier: Modifier = Modifier) {
                 textAlign = TextAlign.Center,
             )
         }
-        QuietButton(onClick = onNew) { Text(stringResource(R.string.terminal_new)) }
     }
 }
 
-private val windowShape get() = peeringShapes.medium
-private val windowOutline = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.20f), Color.White.copy(alpha = 0.06f)))
-
 @Composable
 private fun EmptyWindow() {
-    Column(
-        Modifier.fillMaxWidth().clip(windowShape).border(1.dp, windowOutline, windowShape),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().height(38.dp).background(Color.White.copy(alpha = 0.04f)).padding(horizontal = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            repeat(3) { Box(Modifier.size(8.dp).background(Color.White.copy(alpha = 0.16f), CircleShape)) }
-        }
-        HorizontalDivider(color = PeeringColors.hairline)
-        Row(
-            Modifier.fillMaxWidth().height(74.dp).background(Color.Black.copy(alpha = 0.35f)).padding(16.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Text("swift test", color = Color.White.copy(alpha = 0.85f), fontSize = 14.sp, fontFamily = FontFamily.Monospace)
-            Spacer(Modifier.width(2.dp))
-            Box(Modifier.padding(top = 2.dp).size(width = 8.dp, height = 16.dp).background(Color.White.copy(alpha = 0.85f)))
+    TerminalWindowFrame {
+        TerminalWindowTitle(38.dp) { TerminalWindowDots() }
+        TerminalWindowBody(Modifier.height(74.dp), horizontal = 16.dp, vertical = 16.dp, contentMinHeight = 0.dp) {
+            Row(verticalAlignment = Alignment.Top) {
+                Text("swift test", color = Color.White.copy(alpha = 0.85f), fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                Spacer(Modifier.width(2.dp))
+                Box(Modifier.padding(top = 2.dp).size(width = 8.dp, height = 16.dp).background(Color.White.copy(alpha = 0.85f)))
+            }
         }
     }
 }
