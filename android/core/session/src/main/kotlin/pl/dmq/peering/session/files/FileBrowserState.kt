@@ -10,4 +10,6 @@ data class FileBrowserState(
     val browseFailure: String? = null,
     val preview: FilePreview? = null,
     val transfer: FileTransfer = FileTransfer.Idle,
+    val changes: FileChanges = FileChanges(),
+    val upload: FileUpload = FileUpload.Idle,
 )
