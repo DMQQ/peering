@@ -44,7 +44,6 @@ import pl.dmq.peering.ui.theme.FailureNotice
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
-import pl.dmq.peering.ui.theme.arrive
 import pl.dmq.peering.ui.theme.peeringBackdrop
 
 /** The pairing: four steps down one column, the code entry living inside the second. */
@@ -67,7 +66,7 @@ fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modif
                 },
                 style = PeeringText.display(size = 30f, tracking = -1f),
                 color = PeeringColors.ink,
-                modifier = Modifier.arrive(),
+                modifier = Modifier,
             )
             when (screen) {
                 is PairingCodeScreen.Failed -> Failure(screen, actions)
@@ -86,7 +85,7 @@ private fun Steps(screen: PairingCodeScreen, actions: PairingActions, hostName: 
     val done = screen is PairingCodeScreen.Done
     val connecting = screen is PairingCodeScreen.Connecting
     Column {
-        GuideStepRow(1, if (connecting) GuideStepState.Current else GuideStepState.Done, stringResource(R.string.pairing_step_found), Modifier.arrive(0)) {
+        GuideStepRow(1, if (connecting) GuideStepState.Current else GuideStepState.Done, stringResource(R.string.pairing_step_found), Modifier) {
             if (connecting) {
                 StepDetail(stringResource(R.string.pairing_step_connecting_detail))
                 PeeringSpinner(color = PeeringColors.ink)
@@ -94,7 +93,7 @@ private fun Steps(screen: PairingCodeScreen, actions: PairingActions, hostName: 
                 StepDetail(hostName?.let { stringResource(R.string.pairing_step_found_detail_named, it) } ?: stringResource(R.string.pairing_step_found_detail))
             }
         }
-        GuideStepRow(2, if (entering != null) GuideStepState.Current else if (connecting) GuideStepState.Pending else GuideStepState.Done, stringResource(R.string.pairing_step_code), Modifier.arrive(60)) {
+        GuideStepRow(2, if (entering != null) GuideStepState.Current else if (connecting) GuideStepState.Pending else GuideStepState.Done, stringResource(R.string.pairing_step_code), Modifier) {
             if (entering != null) EnteringCode(entering, actions, hostName) else if (!connecting) StepDetail(stringResource(R.string.pairing_step_code_done))
         }
         GuideStepRow(
@@ -105,14 +104,14 @@ private fun Steps(screen: PairingCodeScreen, actions: PairingActions, hostName: 
                 else -> GuideStepState.Current
             },
             stringResource(R.string.pairing_step_approve),
-            Modifier.arrive(120),
+            Modifier,
         ) {
             if (screen == PairingCodeScreen.Waiting) {
                 StepDetail(hostName?.let { stringResource(R.string.pairing_code_waiting_named, it) } ?: stringResource(R.string.pairing_code_waiting))
                 PeeringSpinner(color = PeeringColors.ink)
             }
         }
-        GuideStepRow(4, if (done) GuideStepState.Done else GuideStepState.Pending, stringResource(R.string.pairing_step_connected), Modifier.arrive(180), isLast = true) {
+        GuideStepRow(4, if (done) GuideStepState.Done else GuideStepState.Pending, stringResource(R.string.pairing_step_connected), Modifier, isLast = true) {
             if (done) StepDetail(stringResource(R.string.pairing_code_done)) else StepDetail(stringResource(R.string.pairing_step_connected_detail))
             if (done) PrimaryButton(stringResource(R.string.pairing_code_back), actions.onFinished, Modifier.padding(top = 8.dp))
         }

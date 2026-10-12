@@ -2,7 +2,7 @@ package pl.dmq.peering.ui
 
 import androidx.compose.animation.AnimatedContent
 import pl.dmq.peering.ui.kit.motionTransition
-import pl.dmq.peering.ui.kit.rememberAxisDistancePx
+import pl.dmq.peering.ui.kit.rememberMotionDistances
 import pl.dmq.peering.ui.kit.stageMotion
 import pl.dmq.peering.ui.nav.HideNavigationBar
 import androidx.compose.foundation.layout.Box
@@ -127,12 +127,12 @@ internal fun ConnectTab(wiring: FeatureWiring) {
         skipTour = { wiring.firstRun.markComplete(); onboarding = false },
         disconnect = { showingSession = false; wiring.holder.end() },
     )
-    val axisDistance = rememberAxisDistancePx()
+    val distances = rememberMotionDistances()
     AnimatedContent(
         targetState = stage,
         modifier = Modifier.fillMaxSize(),
         transitionSpec = {
-            motionTransition(stageMotion(initialState.depth, initialState.live, targetState.depth, targetState.live), axisDistance)
+            motionTransition(stageMotion(initialState.depth, initialState.live, targetState.depth, targetState.live), distances)
         },
         label = "connectStage",
     ) { shown ->

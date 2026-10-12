@@ -3,6 +3,7 @@ package pl.dmq.peering.feature.connect
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.animation.AnimatedVisibility
+import pl.dmq.peering.ui.kit.Motion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,7 +52,6 @@ import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.kit.rowSurface
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
-import pl.dmq.peering.ui.theme.arrive
 import pl.dmq.peering.ui.theme.peeringBackdrop
 
 /**
@@ -79,22 +79,22 @@ fun FirstConnectionScreen(state: ConnectUiState, actions: ConnectActions, onSkip
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(top = 48.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
-            Column(Modifier.arrive(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.first_title), style = PeeringText.display(size = 32f, tracking = -1f, lineHeight = 36f), color = PeeringColors.ink)
                 StepDetail(stringResource(R.string.first_subtitle))
             }
             Column {
-                GuideStepRow(1, if (ticked >= 1) GuideStepState.Done else GuideStepState.Current, stringResource(R.string.first_step_install), Modifier.arrive(60)) {
+                GuideStepRow(1, if (ticked >= 1) GuideStepState.Done else GuideStepState.Current, stringResource(R.string.first_step_install), Modifier) {
                     if (ticked < 1) InstallLink()
                 }
-                GuideStepRow(2, if (ticked >= 2) GuideStepState.Done else GuideStepState.Current, stringResource(R.string.first_step_open), Modifier.arrive(120)) {
+                GuideStepRow(2, if (ticked >= 2) GuideStepState.Done else GuideStepState.Current, stringResource(R.string.first_step_open), Modifier) {
                     if (ticked < 2) StepDetail(stringResource(R.string.first_step_open_detail))
                 }
-                GuideStepRow(3, if (ticked >= 2) GuideStepState.Current else GuideStepState.Pending, stringResource(R.string.first_step_choose), Modifier.arrive(180)) {
+                GuideStepRow(3, if (ticked >= 2) GuideStepState.Current else GuideStepState.Pending, stringResource(R.string.first_step_choose), Modifier) {
                     ChooseContent(found, ticked >= 2, actions, onEnterId = { entryOpen = true }, onEnterAddress = { addressOpen = true })
                 }
-                GuideStepRow(4, GuideStepState.Pending, stringResource(R.string.pairing_step_code), Modifier.arrive(240))
-                GuideStepRow(5, GuideStepState.Pending, stringResource(R.string.pairing_step_approve), Modifier.arrive(300), isLast = true)
+                GuideStepRow(4, GuideStepState.Pending, stringResource(R.string.pairing_step_code), Modifier)
+                GuideStepRow(5, GuideStepState.Pending, stringResource(R.string.pairing_step_approve), Modifier, isLast = true)
             }
         }
         TextButton(
@@ -127,7 +127,7 @@ private fun ChooseContent(found: List<HostRow>, ready: Boolean, actions: Connect
                 StepDetail(stringResource(R.string.first_looking))
             }
         }
-        AnimatedVisibility(found.isNotEmpty() && ready) {
+        AnimatedVisibility(found.isNotEmpty() && ready, enter = Motion.enter, exit = Motion.leave) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 found.forEach { host -> NearbyChoice(host) { actions.onPair(host.id) } }
             }

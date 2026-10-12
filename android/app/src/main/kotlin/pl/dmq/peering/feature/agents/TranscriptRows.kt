@@ -1,10 +1,5 @@
 package pl.dmq.peering.feature.agents
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,7 +35,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
-import kotlin.math.sin
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.PeeringMenu
@@ -164,7 +158,7 @@ fun TurnSummaryPill(summary: TurnSummaryUi) {
     )
 }
 
-/** Three dots passing a wave along, then the word, while the agent works. */
+/** Three still dots, then the word, while the agent works. */
 @Composable
 fun ThinkingRow() {
     val label = stringResource(R.string.agents_state_working)
@@ -180,24 +174,9 @@ fun ThinkingRow() {
 
 @Composable
 private fun Dots() {
-    val transition = rememberInfiniteTransition(label = "thinking")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            tween(1200, easing = LinearEasing),
-        ),
-        label = "wave",
-    )
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-        repeat(3) { index ->
-            val wave = (sin(phase - index * 0.9f) + 1f) / 2f
-            Box(
-                Modifier
-                    .size(5.dp)
-                    .padding(bottom = (3 * wave).dp)
-                    .background(PeeringColors.ink.copy(alpha = 0.3f + 0.6f * wave), CircleShape),
-            )
+        listOf(0.3f, 0.55f, 0.9f).forEach { alpha ->
+            Box(Modifier.size(5.dp).background(PeeringColors.ink.copy(alpha = alpha), CircleShape))
         }
     }
 }

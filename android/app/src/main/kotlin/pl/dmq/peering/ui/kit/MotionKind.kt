@@ -1,7 +1,7 @@
 package pl.dmq.peering.ui.kit
 
 /** The movement a change of screen gets; each kind is built in [motionTransition]. */
-enum class MotionKind { FADE_THROUGH, FORWARD, BACKWARD, CROSSFADE, FADE, MODAL_UP, MODAL_DOWN }
+enum class MotionKind { FORWARD, BACKWARD, CROSSFADE, MODAL_UP, MODAL_DOWN }
 
 /** Going deeper in a flow slides forward, coming back slides back, and a swap between peers only crossfades. */
 fun depthMotion(fromDepth: Int, toDepth: Int): MotionKind = when {
@@ -10,9 +10,9 @@ fun depthMotion(fromDepth: Int, toDepth: Int): MotionKind = when {
     else -> MotionKind.CROSSFADE
 }
 
-/** A screen that shows live video never slides: either side of it only fades. */
+/** A screen that shows live video never slides: either side of it only crossfades. */
 fun stageMotion(fromDepth: Int, fromLive: Boolean, toDepth: Int, toLive: Boolean): MotionKind =
-    if (fromLive || toLive) MotionKind.FADE else depthMotion(fromDepth, toDepth)
+    if (fromLive || toLive) MotionKind.CROSSFADE else depthMotion(fromDepth, toDepth)
 
 /** A full-height panel rises from the bottom edge and sinks back; one panel replacing another only crossfades. */
 fun modalMotion(fromModal: Boolean, toModal: Boolean): MotionKind = when {

@@ -1,8 +1,7 @@
 package pl.dmq.peering.ui.nav
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
+import pl.dmq.peering.ui.kit.Motion
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -31,8 +30,8 @@ fun PeeringScaffold(navController: NavHostController = rememberNavController()) 
             bottomBar = {
                 AnimatedVisibility(
                     visible = chrome.navigationBarVisible,
-                    enter = expandVertically(),
-                    exit = shrinkVertically(),
+                    enter = Motion.enter,
+                    exit = Motion.leave,
                 ) {
                     PeeringNavigationBar(
                         selected = PeeringDestination.entries.firstOrNull { it.route == currentRoute },

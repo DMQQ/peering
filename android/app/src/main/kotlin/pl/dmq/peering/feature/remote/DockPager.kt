@@ -14,6 +14,7 @@ import androidx.compose.foundation.pager.PagerSnapDistance
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import pl.dmq.peering.ui.kit.Motion
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -62,7 +63,7 @@ internal fun rememberDockPagerState(paging: DockPages, applicationId: String?): 
     val state = rememberPagerState { pageCount.value }
     val applicationPage = rememberUpdatedState(paging.pageOfApplication())
     LaunchedEffect(applicationId) {
-        applicationPage.value?.let { state.animateScrollToPage(it) }
+        applicationPage.value?.let { state.animateScrollToPage(it, animationSpec = Motion.spring()) }
     }
     return state
 }

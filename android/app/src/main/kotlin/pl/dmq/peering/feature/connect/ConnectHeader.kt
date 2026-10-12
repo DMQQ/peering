@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
-import pl.dmq.peering.ui.kit.rememberSheen
+import pl.dmq.peering.ui.kit.HeadingBrush
 import pl.dmq.peering.ui.theme.wordmarkStyle
 
 @Composable
@@ -32,7 +32,7 @@ internal fun ConnectHeader(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(16.dp))
         Text(
             text = stringResource(R.string.app_name),
-            style = wordmarkStyle.copy(brush = rememberSheen()),
+            style = wordmarkStyle.copy(brush = HeadingBrush),
             modifier = Modifier,
         )
         Text(

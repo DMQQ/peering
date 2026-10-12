@@ -1,7 +1,7 @@
 package pl.dmq.peering.feature.onboarding
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
+import pl.dmq.peering.ui.kit.Motion
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -35,7 +35,7 @@ internal fun TourStage(page: TourPage, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize()) {
         AnimatedContent(
             targetState = page,
-            transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(120)) },
+            transitionSpec = { fadeIn(Motion.fast()) togetherWith fadeOut(Motion.fast()) },
             label = "stage",
             contentKey = { it.step },
         ) { shown ->

@@ -22,6 +22,7 @@ import pl.dmq.peering.feature.remote.belowHubSwitcher
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.kit.listItemMotion
 import pl.dmq.peering.feature.agents.HubDockMetrics
 import pl.dmq.peering.feature.agents.HubGuidePresenter
 import pl.dmq.peering.feature.agents.HubHeading
@@ -76,7 +77,7 @@ fun TerminalListScreen(
                         onOpen = { presenter.open(card.id) },
                         onRename = { renaming = tab(card.id) },
                         onEnd = { ending = tab(card.id) },
-                        modifier = Modifier.animateItem(),
+                        modifier = listItemMotion(),
                     )
                 }
             }

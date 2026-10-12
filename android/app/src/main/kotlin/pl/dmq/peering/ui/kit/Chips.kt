@@ -26,9 +26,9 @@ import pl.dmq.peering.ui.theme.PeeringText
 fun CapsuleChip(title: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
+            .pressable(onClick)
             .clip(PillShape)
             .background(PeeringColors.surface)
-            .tappable(onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -44,9 +44,9 @@ fun CircleIconButton(icon: ImageVector, description: String, onClick: () -> Unit
     Box(
         modifier = modifier
             .size(size)
+            .pressable(onClick)
             .clip(PillShape)
-            .background(PeeringColors.surface)
-            .tappable(onClick),
+            .background(PeeringColors.surface),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = description, tint = PeeringColors.muted, modifier = Modifier.size(size * 0.5f))

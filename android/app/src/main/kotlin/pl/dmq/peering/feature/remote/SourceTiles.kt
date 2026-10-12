@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.SessionIcons
 import pl.dmq.peering.ui.kit.rememberDecodedBitmap
+import pl.dmq.peering.ui.kit.pressable
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -59,7 +60,7 @@ internal fun PreviewTile(tile: SourceTile, onClick: () -> Unit, modifier: Modifi
     Column(
         modifier
             .width(width)
-            .tappable(onClick)
+            .pressable(onClick)
             .semantics {
                 selected = tile.selected
                 contentDescription = listOfNotNull(tile.title, tile.subtitle).joinToString(", ")

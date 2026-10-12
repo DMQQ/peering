@@ -1,12 +1,9 @@
 package pl.dmq.peering.feature.files
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,8 +20,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import pl.dmq.peering.ui.kit.pressFeedback
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
@@ -92,14 +89,12 @@ private fun FileRowFrame(
     showsChevron: Boolean = true,
 ) {
     val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val dim = animateFloatAsState(if (pressed) 1f else 0f, tween(PRESS_MILLIS), label = "rowPress")
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .pressFeedback(source, scale = 1f)
             .background(if (isSelected) PeeringColors.selectedIndicator.copy(alpha = 0.5f) else Color.Transparent)
             .combinedClickable(interactionSource = source, indication = null, role = Role.Button, onClick = onClick, onLongClick = onLongClick)
-            .graphicsLayer { alpha = 1f - (1f - PRESSED_ALPHA) * dim.value }
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(11.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -144,5 +139,3 @@ private fun detailText(detail: FileRowDetail) = buildAnnotatedString {
 }
 
 private const val TILE_ALPHA = 0.14f
-private const val PRESS_MILLIS = 120
-private const val PRESSED_ALPHA = 0.6f

@@ -3,6 +3,7 @@ package pl.dmq.peering.ui.nav
 import androidx.compose.animation.AnimatedContent
 import pl.dmq.peering.ui.kit.modalMotion
 import pl.dmq.peering.ui.kit.motionTransition
+import pl.dmq.peering.ui.kit.rememberMotionDistances
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -114,10 +115,11 @@ internal fun SessionScreens(
     }
     BackHandler(enabled = route != SessionRoute.REMOTE) { route = SessionRoute.REMOTE }
     SessionBridge(active, route, openHub = { remote.onHubEntry(HubEntry.HUB) }, setRoute = { route = it })
+    val distances = rememberMotionDistances()
     AnimatedContent(
         targetState = route,
         transitionSpec = {
-            motionTransition(modalMotion(initialState != SessionRoute.REMOTE, targetState != SessionRoute.REMOTE), 0)
+            motionTransition(modalMotion(initialState != SessionRoute.REMOTE, targetState != SessionRoute.REMOTE), distances)
         },
         label = "sessionRoute",
     ) { shown ->

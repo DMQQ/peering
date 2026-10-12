@@ -1,7 +1,5 @@
 package pl.dmq.peering.feature.remote
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.animation.core.animateFloatAsState
+import pl.dmq.peering.ui.kit.Motion
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,7 +89,7 @@ fun StatusPill(
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val progress = animateFloatAsState(if (expanded) 1f else 0f, tween(PILL_MILLIS, easing = FastOutSlowInEasing), label = "pill")
+    val progress = animateFloatAsState(if (expanded) 1f else 0f, Motion.spring(), label = "pill")
     val showCollapsed by remember(expanded) { derivedStateOf { !expanded || progress.value < 1f } }
     val showExpanded by remember(expanded) { derivedStateOf { expanded || progress.value > 0f } }
     val collapsedCorner = with(LocalDensity.current) { ChromeMetrics.pillCollapsedRadius.toPx() }
@@ -132,7 +131,6 @@ fun StatusPill(
 /** The room the lock and terminal buttons take on each side of the closed pill. */
 internal val SIDE_BUTTON_SPACE = 61.dp
 
-private const val PILL_MILLIS = 280
 private const val COLLAPSED = "collapsed"
 private const val EXPANDED = "expanded"
 

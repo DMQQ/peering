@@ -23,6 +23,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.kit.listItemMotion
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.EmptyState
 import pl.dmq.peering.ui.theme.IconTile
@@ -83,6 +84,7 @@ internal fun HubList(
                         },
                         onPause = { presenter.endSession(card.id) },
                         onClose = { onClose(card) },
+                        modifier = listItemMotion(),
                     )
                 }
             }
