@@ -1,5 +1,6 @@
 package pl.dmq.peering.ui.debug
 
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -91,5 +92,5 @@ private fun connect(phase: NearbyPhase, listing: HostListing) {
 
 @Composable
 private fun sampleOnboarding(step: OnboardingStep) {
-    OnboardingRoute(store = SampleFirstRun, billing = SampleBilling, onFinished = {}, startAt = step)
+    OnboardingRoute(store = SampleFirstRun, billing = SampleBilling, onFinished = { Log.i("PeeringPreview", "first run finished") }, startAt = step)
 }

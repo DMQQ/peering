@@ -24,6 +24,7 @@ import pl.dmq.peering.R
 import pl.dmq.peering.billing.BillingUnavailable
 import pl.dmq.peering.ui.theme.OutlinedPanel
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.QuietButton
 
 /** The plans: why the paywall opened, every offer the store lists, buying and restoring. */
 @Composable
@@ -78,12 +79,9 @@ fun PaywallScreen(
         PurchaseMessage(ui.purchase)
         RestoreRow(ui.restore, onRestore = presenter::restore)
         Text(stringResource(R.string.paywall_renewal_note), style = MaterialTheme.typography.bodySmall, color = PeeringColors.faint)
-        Text(
-            stringResource(R.string.paywall_not_now),
-            style = MaterialTheme.typography.labelLarge,
-            color = PeeringColors.muted,
-            modifier = Modifier.clickable(onClick = onDismiss),
-        )
+        QuietButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.paywall_not_now))
+        }
     }
 }
 

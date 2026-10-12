@@ -9,9 +9,13 @@ import pl.dmq.peering.feature.paywall.RestoreOutcome
 
 /** Debug previews only: a first run that never completes and offers priced like the iPhone's. */
 internal object SampleFirstRun : FirstRunStore {
-    override fun isComplete(): Boolean = false
+    private var complete = false
 
-    override fun markComplete() = Unit
+    override fun isComplete(): Boolean = complete
+
+    override fun markComplete() {
+        complete = true
+    }
 }
 
 internal object SampleBilling : PaywallBilling {

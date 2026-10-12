@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.onboarding
 
+import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,6 +47,8 @@ import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.peeringBackdrop
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
+
+private const val TAG = "PeeringTour"
 
 private val wordsHeight = 222.dp
 
@@ -96,10 +99,12 @@ internal fun TourScreen(
                     title = buttonTitle(current, paywall, freeChosen),
                     enabled = !(onPlans && paywall.purchase == PurchaseState.PURCHASING),
                     onClick = {
-                        when {
-                            !onPlans -> scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
-                            paywall.entitled || freeChosen || paywall.products.isEmpty() -> onFinished()
-                            else -> plans.buy()
+                        val action = plansAction(onPlans, freeChosen, paywall.entitled, paywall.products.isNotEmpty())
+                        Log.i(TAG, "tour button on page ${pager.currentPage}: $action")
+                        when (action) {
+                            PlansAction.Next -> scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
+                            PlansAction.Finish -> onFinished()
+                            PlansAction.Buy -> plans.buy()
                         }
                     },
                 )

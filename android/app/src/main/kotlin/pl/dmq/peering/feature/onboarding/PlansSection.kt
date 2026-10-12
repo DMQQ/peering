@@ -42,12 +42,20 @@ internal fun PlansSection(ui: PaywallUi, freeChosen: Boolean, onChooseFree: () -
             PeeringSpinner(color = PeeringColors.ink)
             Text(stringResource(R.string.tour_plans_loading), style = PeeringText.caption, color = PeeringColors.muted)
         }
-        ui.products.isEmpty() -> Column(
-            modifier.fillMaxWidth().pressable(onRetry),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(stringResource(R.string.tour_plans_unreachable), style = PeeringText.caption, color = PeeringColors.muted, textAlign = TextAlign.Center)
+        ui.products.isEmpty() -> Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            PlanCard(
+                title = stringResource(R.string.tour_plan_free),
+                detail = stringResource(R.string.tour_plan_free_detail, (FREE_DAILY_RELAY_SECONDS / 60).toInt()),
+                selected = true,
+                onClick = onChooseFree,
+            )
+            Text(
+                stringResource(R.string.tour_plans_unreachable),
+                style = PeeringText.caption,
+                color = PeeringColors.muted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().pressable(onRetry),
+            )
         }
         else -> Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             PlanCard(

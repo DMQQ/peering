@@ -16,6 +16,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.QuietButton
 
 /** Shown when the relay ends a session because the day's free time is gone. The Mac's own network still works. */
 @Composable
@@ -57,11 +58,8 @@ fun AllowanceSpentScreen(
         ) {
             Text(stringResource(R.string.allowance_see_plans), style = MaterialTheme.typography.labelLarge)
         }
-        Text(
-            stringResource(R.string.paywall_not_now),
-            style = MaterialTheme.typography.labelLarge,
-            color = PeeringColors.muted,
-            modifier = Modifier.clickable(onClick = onDismiss),
-        )
+        QuietButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.paywall_not_now))
+        }
     }
 }
