@@ -142,7 +142,7 @@ private fun chromeHandlers(
         },
         onStepAway = model::onStepAway,
         onOpenHub = { model.onHubEntry(HubEntry.HUB) },
-        onQuit = { screen.leaveAsked = true },
+        onQuit = { model.onHubEntry(HubEntry.DISCONNECT) },
     ),
     onPillTap = pill::onTap,
     onReveal = screen::leaveImmersive,
