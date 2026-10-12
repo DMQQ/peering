@@ -3,6 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use peering_net::socket::disable_nagle;
 use peering_net::tls::HostTls;
 use tokio::net::TcpListener;
 use tokio::task::spawn_local;
@@ -24,6 +25,8 @@ pub async fn serve_listener(shared: Shared, profile: Arc<HostProfile>, tls: Arc<
         if !shared.lock().hosting {
             continue;
         }
+        // Only latency suffers when the option cannot be set, so the connection is still served.
+        let _nagle = disable_nagle(&stream);
         let shared = shared.clone();
         let profile = profile.clone();
         let tls = tls.clone();
