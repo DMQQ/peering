@@ -58,6 +58,8 @@ import pl.dmq.peering.ui.wiring.StorePaywallBilling
 import pl.dmq.peering.ui.wiring.TerminalHost
 import pl.dmq.peering.ui.wiring.SurfacePicture
 import pl.dmq.peering.ui.wiring.findActivity
+import pl.dmq.peering.testing.SessionBridge
+import pl.dmq.peering.feature.remote.HubEntry
 import pl.dmq.peering.ui.theme.FailureNotice
 import pl.dmq.peering.ui.wiring.messageRes
 
@@ -113,6 +115,7 @@ internal fun SessionScreens(
         }
     }
     BackHandler(enabled = route != SessionRoute.REMOTE) { route = SessionRoute.REMOTE }
+    SessionBridge(active, route, openHub = { remote.onHubEntry(HubEntry.HUB) }, setRoute = { route = it })
     AnimatedContent(
         targetState = route,
         transitionSpec = {

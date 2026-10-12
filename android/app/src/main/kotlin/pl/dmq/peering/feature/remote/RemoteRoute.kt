@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import kotlin.math.ln
 import kotlin.math.roundToInt
+import pl.dmq.peering.testing.RemoteBridge
 import pl.dmq.peering.ui.kit.LocalBorderless
 import pl.dmq.peering.wire.MouseButton
 import pl.dmq.peering.wire.SetCaptureSource
@@ -77,6 +78,7 @@ fun RemoteRoute(model: RemoteModel) {
     LaunchedEffect(ready) { pill.onReady(ready) }
 
     SessionWindow()
+    RemoteBridge(screen, pill, actions)
     BackHandler {
         when (screen.backStep()) {
             BackStep.CLOSE_PANEL -> screen.closePanel()

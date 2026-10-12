@@ -35,6 +35,7 @@ import pl.dmq.peering.feature.remote.HubTabsPresenter
 import pl.dmq.peering.feature.remote.LocalHubChrome
 import pl.dmq.peering.feature.remote.LocalHubSwitcherInset
 import pl.dmq.peering.session.ports.Clock
+import pl.dmq.peering.testing.HubBridge
 import pl.dmq.peering.ui.kit.LocalBorderless
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.wiring.ActiveSession
@@ -72,6 +73,7 @@ internal fun SessionHub(
     val density = LocalDensity.current
     val switcherInset = with(density) { WindowInsets.statusBars.getTop(density).toDp() } + HubTabBarHeight
     BackHandler(onBack = onClose)
+    HubBridge(tabs, chrome)
     CompositionLocalProvider(
         LocalBorderless provides true,
         LocalHubChrome provides chrome,

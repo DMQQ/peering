@@ -33,6 +33,7 @@ import pl.dmq.peering.ui.kit.SessionIcons
 import pl.dmq.peering.ui.kit.blockTouches
 import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.kit.tappable
+import pl.dmq.peering.testing.DockBridge
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PillShape
 
@@ -69,6 +70,7 @@ fun SessionDock(
                 val paging = remember(groups, perPage) { DockPaging.layout(groups, perPage) }
                 val applicationId = groups.firstOrNull { it.id.startsWith(DockGroups.APP_PREFIX) }?.id
                 val state = rememberDockPagerState(paging, applicationId)
+                DockBridge(state)
                 Row(
                     Modifier
                         .fillMaxWidth()

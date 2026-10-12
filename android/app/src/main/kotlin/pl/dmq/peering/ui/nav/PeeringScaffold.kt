@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import pl.dmq.peering.testing.NavBridge
 import pl.dmq.peering.ui.theme.peeringBackdrop
 
 @Composable
@@ -22,6 +23,7 @@ fun PeeringScaffold(navController: NavHostController = rememberNavController()) 
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val chrome = remember { RootChrome() }
     chrome.navigator = { navigateTo(navController, it) }
+    NavBridge(currentRoute) { navigateTo(navController, it) }
     CompositionLocalProvider(LocalRootChrome provides chrome) {
         Scaffold(
             modifier = Modifier.fillMaxSize().peeringBackdrop(),
