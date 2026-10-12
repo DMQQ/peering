@@ -1,0 +1,51 @@
+# Tests the Windows host.
+#
+# The logic crates have no Windows API dependency, so they are tested on Linux where runs are cheap. The Windows job builds
+# everything, including the host binary and the Windows API adapters, which cannot be compiled on another OS.
+# The protocol vectors in docs/protocol/vectors are inputs to the tests, so a change to them triggers this workflow too.
+
+name: windows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "windows/**"
+      - "docs/protocol/**"
+      - ".github/workflows/windows.yml"
+  pull_request:
+    paths:
+      - "windows/**"
+      - "docs/protocol/**"
+      - ".github/workflows/windows.yml"
+  workflow_dispatch:
+
+jobs:
+  logic:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: clippy
+      - run: cargo clippy --locked -p peering-wire -p peering-core -p peering-agent -p peering-net --all-targets
+      - run: cargo test --locked -p peering-wire -p peering-core -p peering-agent -p peering-net
+
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.1
+      - run: cargo test --locked --workspace
+      - run: cargo build --locked --release -p peering-host
+      - uses: actions/upload-artifact@v4
+        with:
+          name: peering-host-windows
+          path: windows/target/release/peering-host.exe
+          if-no-files-found: error

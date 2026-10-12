@@ -125,7 +125,7 @@ Owns: `.github/workflows/android.yml`. Deps: AND-001.
 Done: paths `android/**`, `docs/protocol/**`; runs `./gradlew :core:wire:test :core:session:test lint assembleDebug`; YAML parses.
 Commit: Add the Android CI workflow with path filters.
 
-CI-002 | todo | foundation | S : windows workflow
+CI-002 | done | foundation | S : windows workflow
 Owns: `.github/workflows/windows.yml`. Deps: WIN-001.
 Done: paths `windows/**`, `docs/protocol/**`; Linux job runs fmt, clippy and `cargo test -p peering-wire -p peering-core`; windows-latest job runs `cargo build --workspace`.
 Commit: Add the Windows CI workflow with path filters.
