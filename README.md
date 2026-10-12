@@ -1,11 +1,19 @@
 # Peering
 
-Your Mac's screen on your iPhone. Pair the two once on your own network, then reach the Mac from
-anywhere, end to end encrypted and straight between the devices where the network allows it.
+Your computer's screen on your phone. Pair the two once on your own network, then reach the computer
+from anywhere, end to end encrypted and straight between the devices where the network allows it.
+Phones: iPhone and Android. Computers: Mac, and Windows (in progress).
 
 [Website](https://getpeering.app) · [App Store](https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408)
 
-The repository is called MacCast. The products are **Peering** (iPhone) and **Peering Host** (Mac).
+The repository is called MacCast. The products are **Peering** (iPhone and Android) and **Peering Host**
+(Mac and Windows).
+
+| | Phone app | Host app | State |
+|---|---|---|---|
+| Apple | iPhone, `apple/MacCast/` | Mac, `apple/MacCastHost/` | Shipped, App Store |
+| Android | `android/` | | In testing on a device, not yet on Google Play |
+| Windows | | `windows/` | Rust host, built and tested on a Mac for the logic only, never run on Windows |
 
 ## What it does
 
@@ -17,7 +25,7 @@ The repository is called MacCast. The products are **Peering** (iPhone) and **Pe
 - **Pair with a code.** Both screens show six digits; confirming them pins each side's public key.
 - **Coding agents.** Run Claude Code, Codex or OpenCode on the Mac, chat with them from the phone,
   review diffs, commit and push, and answer permission prompts from the Lock Screen.
-- **Terminal and SSH.** Shells on the Mac or on any server you add.
+- **Terminal and SSH.** Shells on the computer or, on iPhone, on any server you add.
 - **Files.** Browse, preview, edit, upload and download on the Mac or over SSH.
 - **Virtual displays.** Give the phone its own screen instead of mirroring the Mac's.
 
@@ -38,12 +46,14 @@ That property is the product, and `relay/` is kept deliberately too simple to br
 | `apple/MacCastKit/` | Logic that needs no UI framework: agent parsing, review, plans, formatting. Has the tests |
 | `apple/RemoteCore/` | Shared protocol, framing, crypto and coordinate mapping |
 | `apple/SSHCore/` | SSH client used by the terminal and file browser |
+| `android/` | The Android app (Kotlin, Compose, Material 3): `core/wire` and `core/session` are plain Kotlin with JVM tests, `core/platform` and `app/` use Android. Home screen widgets for Quick Connect and Agents. See [android/README.md](android/README.md) |
+| `windows/` | The Windows host (Rust workspace): protocol, networking, capture and input, a tray window for the pairing code. See [windows/README.md](windows/README.md) |
 | `relay/` | `peeringd`, the Rust relay, and the marketing site in `relay/site/` |
 | `apple/MacCastWidget/`, `apple/MacCastHostWidget/`, `apple/Shared/` | Widgets and Live Activities |
 | `apple/MacCastTests/`, `apple/MacCastUITests/` | App-level tests |
 | `apple/Tools/`, `relay/tools/` | Build, install and check scripts; relay and site deploy scripts |
 | `marketing/` | App Store art, social media and release material |
-| `docs/` | Research notes |
+| `docs/` | Research notes, the wire protocol (`docs/protocol.md`) and the Android and Windows plans in `docs/plans/` |
 | `wiki/` | Design system, domain glossary, plans and App Store copy |
 
 ## Requirements
@@ -51,6 +61,8 @@ That property is the product, and `relay/` is kept deliberately too simple to br
 - Xcode with Swift 6
 - iOS 18.0 and macOS 15.0 deployment targets
 - Rust (see `relay/rust-toolchain.toml`) to build the relay
+- Android: JDK 17 and the Android SDK (platform 35)
+- Windows host: Rust and the Visual Studio C++ build tools, on a Windows machine
 
 ## Building
 
@@ -70,6 +82,13 @@ xcodebuild -project MacCast.xcodeproj -scheme MacCastHost \
 The Mac host is not sandboxed on purpose: a sandboxed app cannot post input events into other
 apps, which is its whole job. It is distributed outside the Mac App Store, updated through Sparkle.
 
+The Android app and the Windows host have their own build and run steps:
+
+```sh
+cd android && ./gradlew :app:assembleDebug          # Android app
+cd windows && cargo build --release -p peering-host # Windows host, on Windows
+```
+
 ## Testing
 
 ```sh
@@ -78,6 +97,8 @@ apple/Tools/check.sh --quick   # package tests only
 
 cd apple/MacCastKit && swift test
 cd relay && cargo test
+cd android && ./gradlew :core:wire:test :core:session:test :app:testDebugUnitTest
+cd windows && cargo test --workspace
 ```
 
 New logic goes in `MacCastKit` or `RemoteCore` with Swift Testing tests, so it can be checked
