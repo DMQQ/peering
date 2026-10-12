@@ -1,0 +1,155 @@
+use super::*;
+use peering_wire::command::Modifiers;
+
+fn desktop() -> VirtualDesktop {
+    VirtualDesktop { left: 0, top: 0, width: 1920, height: 1080 }
+}
+
+fn source(origin_x: i32, origin_y: i32, pixel_width: u32, pixel_height: u32) -> TransformSnapshot {
+    TransformSnapshot { origin_x, origin_y, pixel_width, pixel_height, scale: 1.0 }
+}
+
+fn point(x: f64, y: f64) -> NormalizedPoint {
+    NormalizedPoint { x, y }
+}
+
+fn move_flags() -> MouseFlags {
+    MouseFlags::MOVE | MouseFlags::ABSOLUTE | MouseFlags::VIRTUAL_DESKTOP
+}
+
+#[test]
+fn the_top_left_of_the_source_maps_to_the_desktop_origin() {
+    let spec = move_event(point(0.0, 0.0), &source(0, 0, 1920, 1080), desktop());
+    assert_eq!(spec, MouseEventSpec { flags: move_flags(), dx: 0, dy: 0, data: 0 });
+}
+
+#[test]
+fn the_bottom_right_of_the_source_maps_to_the_last_absolute_unit() {
+    let spec = move_event(point(1.0, 1.0), &source(0, 0, 1920, 1080), desktop());
+    assert_eq!((spec.dx, spec.dy), (65535, 65535));
+}
+
+#[test]
+fn a_second_monitor_left_of_the_primary_uses_the_negative_virtual_origin() {
+    let virtual_screen = VirtualDesktop { left: -1920, top: 0, width: 3840, height: 1080 };
+    let spec = move_event(point(0.0, 0.0), &source(-1920, 0, 1920, 1080), virtual_screen);
+    assert_eq!((spec.dx, spec.dy), (0, 0));
+    let centre = move_event(point(0.5, 0.5), &source(-1920, 0, 1920, 1080), virtual_screen);
+    assert_eq!((centre.dx, centre.dy), (16388, 32798));
+}
+
+#[test]
+fn an_out_of_range_point_stays_on_the_captured_source() {
+    let inside = move_event(point(1.0, 1.0), &source(0, 0, 800, 600), desktop());
+    let outside = move_event(point(7.0, 9.0), &source(0, 0, 800, 600), desktop());
+    assert_eq!(inside, outside);
+}
+
+#[test]
+fn each_button_maps_to_its_down_and_up_flags() {
+    assert_eq!(button_event(MouseButton::Left, true).flags, MouseFlags::LEFT_DOWN);
+    assert_eq!(button_event(MouseButton::Left, false).flags, MouseFlags::LEFT_UP);
+    assert_eq!(button_event(MouseButton::Right, true).flags, MouseFlags::RIGHT_DOWN);
+    assert_eq!(button_event(MouseButton::Right, false).flags, MouseFlags::RIGHT_UP);
+    assert_eq!(button_event(MouseButton::Middle, true).flags, MouseFlags::MIDDLE_DOWN);
+    assert_eq!(button_event(MouseButton::Middle, false).flags, MouseFlags::MIDDLE_UP);
+}
+
+#[test]
+fn one_downward_line_becomes_a_negative_wheel_delta_of_one_notch() {
+    let mut wheel = WheelAccumulator::default();
+    let events = wheel_events(0.0, 1.0, &mut wheel);
+    assert_eq!(events, vec![MouseEventSpec { flags: MouseFlags::WHEEL, dx: 0, dy: 0, data: -120 }]);
+}
+
+#[test]
+fn one_upward_line_becomes_a_positive_wheel_delta() {
+    let mut wheel = WheelAccumulator::default();
+    let events = wheel_events(0.0, -1.0, &mut wheel);
+    assert_eq!(events[0].data, 120);
+}
+
+#[test]
+fn horizontal_scroll_uses_the_horizontal_wheel_with_the_negated_sign() {
+    let mut wheel = WheelAccumulator::default();
+    let events = wheel_events(2.0, 0.0, &mut wheel);
+    assert_eq!(events, vec![MouseEventSpec { flags: MouseFlags::HWHEEL, dx: 0, dy: 0, data: -240 }]);
+}
+
+#[test]
+fn a_slow_scroll_moves_once_its_fractions_add_up_to_a_notch() {
+    let mut wheel = WheelAccumulator::default();
+    assert!(wheel_events(0.0, 0.25, &mut wheel).is_empty());
+    assert!(wheel_events(0.0, 0.25, &mut wheel).is_empty());
+    assert!(wheel_events(0.0, 0.25, &mut wheel).is_empty());
+    let events = wheel_events(0.0, 0.25, &mut wheel);
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].data, -120);
+}
+
+#[test]
+fn the_remainder_keeps_the_direction_of_the_pending_motion() {
+    let mut wheel = WheelAccumulator::default();
+    assert!(wheel_events(0.0, 0.5, &mut wheel).is_empty());
+    assert_eq!(wheel_events(0.0, 0.5, &mut wheel)[0].data, -120);
+    assert!(wheel_events(0.0, -0.5, &mut wheel).is_empty());
+    assert_eq!(wheel_events(0.0, -0.5, &mut wheel)[0].data, 120);
+}
+
+#[test]
+fn a_fractional_remainder_never_sends_more_than_it_has_gathered() {
+    let mut wheel = WheelAccumulator::default();
+    let total: i32 = (0..12).flat_map(|_| wheel_events(0.0, 0.25, &mut wheel)).map(|event| event.data).sum();
+    assert_eq!(total, -120 * 3);
+}
+
+#[test]
+fn non_finite_scroll_is_ignored_and_does_not_poison_the_remainder() {
+    let mut wheel = WheelAccumulator::default();
+    assert!(wheel_events(f64::NAN, f64::INFINITY, &mut wheel).is_empty());
+    assert_eq!(wheel_events(0.0, 1.0, &mut wheel)[0].data, -120);
+}
+
+#[test]
+fn a_mouse_down_is_followed_by_its_up_on_release_all() {
+    let mut injector = MouseInjector::default();
+    let down = injector.plan(&RemoteCommand::MouseDown { button: MouseButton::Right }, &source(0, 0, 1920, 1080), desktop());
+    assert_eq!(down, vec![button_event(MouseButton::Right, true)]);
+    assert_eq!(injector.release_events(), vec![button_event(MouseButton::Right, false)]);
+    assert!(injector.release_events().is_empty());
+}
+
+#[test]
+fn a_released_button_is_not_released_again() {
+    let mut injector = MouseInjector::default();
+    let transform = source(0, 0, 1920, 1080);
+    injector.plan(&RemoteCommand::MouseDown { button: MouseButton::Left }, &transform, desktop());
+    injector.plan(&RemoteCommand::MouseUp { button: MouseButton::Left }, &transform, desktop());
+    assert!(injector.release_events().is_empty());
+}
+
+#[test]
+fn a_repeated_down_holds_the_button_once() {
+    let mut injector = MouseInjector::default();
+    let transform = source(0, 0, 1920, 1080);
+    injector.plan(&RemoteCommand::MouseDown { button: MouseButton::Middle }, &transform, desktop());
+    injector.plan(&RemoteCommand::MouseDown { button: MouseButton::Middle }, &transform, desktop());
+    assert_eq!(injector.release_events(), vec![button_event(MouseButton::Middle, false)]);
+}
+
+#[test]
+fn release_all_clears_a_pending_wheel_remainder() {
+    let mut injector = MouseInjector::default();
+    let transform = source(0, 0, 1920, 1080);
+    injector.plan(&RemoteCommand::Scroll { dx: 0.0, dy: 0.5 }, &transform, desktop());
+    injector.release_events();
+    let after = injector.plan(&RemoteCommand::Scroll { dx: 0.0, dy: 0.5 }, &transform, desktop());
+    assert!(after.is_empty());
+}
+
+#[test]
+fn key_commands_produce_no_mouse_events() {
+    let mut injector = MouseInjector::default();
+    let command = RemoteCommand::KeyDown { key_code: 0, modifiers: Modifiers::NONE };
+    assert!(injector.plan(&command, &source(0, 0, 1920, 1080), desktop()).is_empty());
+}
