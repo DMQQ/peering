@@ -9,3 +9,13 @@ publish.workspace = true
 peering-wire = { path = "../peering-wire" }
 peering-core = { path = "../peering-core" }
 thiserror.workspace = true
+hex.workspace = true
+ring = "0.17"
+rcgen = "0.14"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
+rustls-pki-types = "1"
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "logging", "tls12"] }
+tokio = { version = "1", default-features = false, features = ["net", "io-util", "rt", "macros"] }
+x509-parser = "0.18"
+mdns-sd = "0.21.5"
+time = "0.3"
