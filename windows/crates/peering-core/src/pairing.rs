@@ -10,6 +10,8 @@ use crate::session::deps::PinStore;
 /// The code and QR content a phone scans or compares while pairing is under way.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PairingOffer {
+    /// The session that opened the offer. Only that session may replace or close it.
+    pub session: u64,
     pub code: String,
     pub secret_hex: String,
     pub client_name: String,
@@ -40,6 +42,9 @@ pub struct PairedDeviceEntry {
     pub last_seen_unix: u64,
 }
 
+/// Waiting approvals past this are refused outright, so a peer cannot bury the real prompt under its own.
+pub const MAXIMUM_PENDING_APPROVALS: usize = 4;
+
 pub struct PairingService {
     host_id: String,
     pins: Arc<dyn PinStore>,
@@ -60,11 +65,16 @@ impl PairingService {
     }
 
     /// Only the events that change what the user sees are read: a new code opens the offer, a finished
-    /// pairing closes it.
-    pub fn apply_event(&mut self, event: &HostEvent) {
+    /// pairing closes it. One pairing is active at a time: while `session` is not the one that opened the offer, its
+    /// events change nothing.
+    pub fn apply_event(&mut self, session: u64, event: &HostEvent) {
         match event {
             HostEvent::PairingCode { code, secret, client_name, via_relay } => {
+                if self.offer.as_ref().is_some_and(|offer| offer.session != session) {
+                    return;
+                }
                 self.offer = Some(PairingOffer {
+                    session,
                     code: code.clone(),
                     secret_hex: hex(secret),
                     client_name: client_name.clone(),
@@ -73,7 +83,7 @@ impl PairingService {
                     code_link: pairing_payload::code_link(code, Some(secret.as_slice())),
                 });
             }
-            HostEvent::PairingCompleted { .. } => self.offer = None,
+            HostEvent::PairingCompleted { .. } => self.close_offer_of(session),
             HostEvent::ClientConnected { .. } => {}
         }
     }
@@ -82,11 +92,15 @@ impl PairingService {
         self.offer.as_ref()
     }
 
-    pub fn request_approval(&mut self, session: u64, client_name: &str) -> u64 {
+    /// Queues a prompt for the user. When too many are waiting the answer comes back as a refusal for the caller to deliver.
+    pub fn request_approval(&mut self, session: u64, client_name: &str) -> Result<u64, ApprovalDecision> {
+        if self.approvals.len() >= MAXIMUM_PENDING_APPROVALS {
+            return Err(ApprovalDecision { session, approved: false });
+        }
         let id = self.next_approval_id;
         self.next_approval_id += 1;
         self.approvals.push(PendingApproval { id, session, client_name: client_name.to_owned() });
-        id
+        Ok(id)
     }
 
     pub fn pending_approvals(&self) -> &[PendingApproval] {
@@ -101,9 +115,16 @@ impl PairingService {
         self.decide(id, false)
     }
 
-    /// Drops the approvals of a session that ended before the Mac user answered.
+    /// Drops the approvals and the offer of a session that ended before the Mac user answered.
     pub fn forget_session(&mut self, session: u64) {
         self.approvals.retain(|approval| approval.session != session);
+        self.close_offer_of(session);
+    }
+
+    fn close_offer_of(&mut self, session: u64) {
+        if self.offer.as_ref().is_some_and(|offer| offer.session == session) {
+            self.offer = None;
+        }
     }
 
     pub fn paired_devices(&self) -> Vec<PairedDeviceEntry> {

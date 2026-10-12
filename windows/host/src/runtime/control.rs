@@ -57,6 +57,8 @@ pub struct HostSnapshot {
     pub devices: Vec<DeviceView>,
     /// The frame rate the encoder runs at, as the window's choice shows it.
     pub frame_rate: u32,
+    /// Why the runtime ended, once it has. The tray shows it instead of a healthy-looking status.
+    pub stopped: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,6 +84,14 @@ impl HostHandle {
 
     pub fn snapshot(&self) -> HostSnapshot {
         self.published.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
+    /// Records that the runtime ended, so the window says why instead of showing its last healthy snapshot.
+    pub fn report_stopped(&self, reason: String) {
+        let mut published = self.published.lock().unwrap_or_else(PoisonError::into_inner);
+        published.hosting = false;
+        published.connected_clients = 0;
+        published.stopped = Some(reason);
     }
 
     /// False once the runtime has stopped and no longer reads commands.
@@ -124,6 +134,7 @@ impl HostState {
                 .map(|device| DeviceView { id: device.id, name: device.name, last_seen_unix: device.last_seen_unix })
                 .collect(),
             frame_rate: self.video.frame_rate(),
+            stopped: None,
         }
     }
 

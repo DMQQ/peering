@@ -1,21 +1,25 @@
 //! The state the connections share. It is locked only for short synchronous steps and never across an await.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use peering_agent::manager::ClientAgents;
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
 use peering_core::notice::NoticeTracker;
 use peering_core::pairing::PairingService;
+use peering_core::ports::input::InputSink;
 use peering_core::session::deps::PinStore;
 use peering_core::terminal::manager::TerminalSessionManager;
 use peering_core::video::coordinator::VideoCoordinator;
 use peering_core::video::lane::VideoLane;
-use peering_wire::framing::Frame;
-use peering_wire::relay_messages::RelayClientMessage;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 
 use super::control::{ControlChannel, RelayStatus};
+use super::agent::StdLauncher;
+use super::agent_browse::FolderBrowser;
+use super::notifications::WaitingNotifications;
+use super::outbound::{FrameSender, Outbound};
 use super::peer_address::PeerAddressRouter;
 use super::services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
 
@@ -24,9 +28,9 @@ use super::services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, Shar
 pub struct SessionSlot {
     pub client_id: String,
     pub peer_key: Option<Vec<u8>>,
-    pub outbound: mpsc::UnboundedSender<Frame>,
-    pub video_outbound: Option<mpsc::UnboundedSender<Frame>>,
-    pub datagram_outbound: Option<mpsc::UnboundedSender<Vec<u8>>>,
+    pub outbound: FrameSender,
+    pub video_outbound: Option<FrameSender>,
+    pub datagram_outbound: Option<Outbound<Vec<u8>>>,
     pub lane: VideoLane,
 }
 
@@ -46,10 +50,13 @@ pub struct HostState {
     pub video: VideoCoordinator<SharedCapture, BoxedEncoder>,
     pub input: BoxedInput,
     pub system: BoxedSystem,
-    pub files: FileBrowser<SharedFileSystem>,
+    /// Shared so a request runs on the blocking pool with the state lock released.
+    pub files: Arc<FileBrowser<SharedFileSystem>>,
+    pub agents: ClientAgents<StdLauncher>,
+    pub agent_browser: Arc<FolderBrowser>,
     pub terminals: TerminalSessionManager,
     /// Push notifications for the relay to send once the host is registered with it, oldest first.
-    pub notifications: VecDeque<RelayClientMessage>,
+    pub notifications: WaitingNotifications,
     pub sessions: HashMap<u64, SessionSlot>,
     pub next_session: u64,
     pub catalog_checked_at: Option<f64>,
@@ -60,6 +67,14 @@ pub struct HostState {
 }
 
 impl HostState {
+    /// Lifts the keys and buttons the remote held, once no session is left to hold them. A phone that reconnects before
+    /// its old connection is reaped keeps the keys it is holding.
+    pub fn release_input_if_idle(&mut self) {
+        if self.sessions.is_empty() {
+            self.input.release_all();
+        }
+    }
+
     pub fn allocate_session(&mut self) -> u64 {
         self.next_session += 1;
         self.next_session

@@ -1,6 +1,7 @@
 //! Agent chat sessions: which CLI each chat runs, what each chat has said, and the events a client is sent for a
 //! request or a poll. Pure logic over `ClaudeAdapter`, so it runs with a fake process in tests.
 
+mod clients;
 mod commands;
 mod session;
 mod transcript;
@@ -12,6 +13,7 @@ mod tests_transcript;
 
 use crate::claude_adapter::{ClaudeAdapter, ClaudeResume, ProcessLauncher};
 use peering_wire::agent::{AgentEvent, AgentRequest, AgentStreamPayload};
+pub use clients::ClientAgents;
 use session::ManagedSession;
 use std::collections::BTreeMap;
 use std::path::Path;

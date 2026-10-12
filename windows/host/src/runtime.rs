@@ -8,13 +8,20 @@
 
 mod advertise;
 mod agent;
+mod agent_browse;
+mod agent_pump;
 mod clock;
+mod config;
 mod connection;
 mod control;
+mod error;
 mod files;
 mod listener;
 mod peer_address;
+mod notifications;
+mod outbound;
 mod pins;
+mod pre_auth;
 mod random;
 mod ready;
 mod relay;
@@ -25,15 +32,15 @@ mod terminal;
 mod video;
 mod video_requests;
 
-use std::collections::{HashMap, VecDeque};
-use std::io;
+use std::collections::HashMap;
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 
+use peering_agent::browse::AgentBrowser;
+use peering_agent::manager::ClientAgents;
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
 use peering_core::ports::clock::Clock;
-use peering_core::ports::secret_store::StoreError;
 use peering_core::session::deps::PinStore;
 use peering_core::pairing::{ApprovalDecision, PairingOffer, PairingService};
 use peering_core::video::coordinator::VideoCoordinator;
@@ -45,10 +52,15 @@ use tokio::sync::broadcast;
 use tokio::task::LocalSet;
 
 pub use clock::SystemClock;
+pub use config::{RelayConfig, RuntimeConfig};
+pub use error::RuntimeError;
 pub use control::{ApprovalView, DeviceView, HostHandle, HostSnapshot, OfferView, RelayStatus, RuntimeCommand};
 pub use services::{platform_services, HostServices, TerminalServices};
 
+use agent::StdLauncher;
+use agent_browse::DiskFolders;
 use control::ControlChannel;
+use notifications::WaitingNotifications;
 use peer_address::PeerAddressRouter;
 use pins::SecretPins;
 use services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
@@ -56,42 +68,6 @@ use shared::{HostState, Shared};
 
 pub const DEFAULT_PORT: u16 = peering_core::settings::DEFAULT_PORT;
 const APPROVAL_CHANNEL_DEPTH: usize = 16;
-
-#[derive(Debug, thiserror::Error)]
-pub enum RuntimeError {
-    #[error("the data directory is not set (LOCALAPPDATA is missing)")]
-    NoDataDirectory,
-    #[error(transparent)]
-    Store(#[from] StoreError),
-    #[error("the host identity could not be loaded: {0}")]
-    Identity(String),
-    #[error("the transport certificate could not be built: {0}")]
-    Tls(String),
-    #[error("port {port} could not be opened: {source}")]
-    Bind { port: u16, source: io::Error },
-    #[error("the host could not be announced on the network: {0}")]
-    Advertise(String),
-    #[error("the async runtime could not start: {0}")]
-    Executor(io::Error),
-    #[error("the window could not start: {0}")]
-    Window(String),
-    #[error("the firewall rule could not be added: {0}")]
-    Firewall(String),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RelayConfig {
-    pub url: String,
-    pub device_id: String,
-    pub name: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RuntimeConfig {
-    pub port: u16,
-    /// `None` keeps the host off the relay; LAN and direct clients still work.
-    pub relay: Option<RelayConfig>,
-}
 
 /// What the host says about itself in its hello, shared by every connection.
 pub struct HostProfile {
@@ -148,6 +124,7 @@ impl HostRuntime {
     /// Builds the shared state from the adapters. Must be called on the thread that runs the `LocalSet` from `run`.
     pub fn new(profile: HostProfile, services: HostServices) -> Result<Self, RuntimeError> {
         let HostServices { capture, encoder, input, system, secrets, files, terminal, home_directory } = services;
+        let agent_browser = Arc::new(AgentBrowser::new(DiskFolders(files.clone()), home_directory.clone()));
         let profile = HostProfile { can_lock_screen: system.can_lock_workstation(), ..profile };
         let terminals = terminal::manager(terminal, secrets.clone(), profile.clock.clone())?;
         let pins: Arc<dyn PinStore> = Arc::new(SecretPins::open(secrets)?);
@@ -161,9 +138,11 @@ impl HostRuntime {
             video: VideoCoordinator::new(capture, BoxedEncoder(encoder)),
             input: BoxedInput(input),
             system: BoxedSystem(system),
-            files: FileBrowser::new(SharedFileSystem(files), home_directory),
+            files: Arc::new(FileBrowser::new(SharedFileSystem(files), home_directory)),
+            agents: ClientAgents::new(StdLauncher::default),
+            agent_browser,
             terminals,
-            notifications: VecDeque::new(),
+            notifications: WaitingNotifications::default(),
             sessions: HashMap::new(),
             next_session: 0,
             catalog_checked_at: None,
@@ -273,6 +252,7 @@ impl HostRuntime {
     /// Starts the video pump and the command loop on the current local task set. `run` does this; tests call it directly.
     pub fn start_pump(&self) {
         video::spawn_pump(self.shared.clone(), self.profile.clone());
+        agent_pump::spawn_pump(self.shared.clone());
     }
 
     /// Runs the host until the process ends: binds the port, announces the host, and serves the relay and the pump.

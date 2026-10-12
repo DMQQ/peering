@@ -87,14 +87,20 @@ impl HeldKeys {
         self.keys.retain(|held| *held != target);
     }
 
-    /// Records modifiers this key's chord pressed. A repeated key down adds to the same entry, so nothing is lost on release.
+    /// Records modifiers this key's chord pressed. A repeated key down adds to the same entry, so nothing is lost on
+    /// release, and a modifier already recorded for the key is not recorded twice.
     fn record_chord(&mut self, keycode: u16, pressed: &[KeyTarget]) {
         if pressed.is_empty() {
             return;
         }
-        match self.chords.iter_mut().find(|(code, _)| *code == keycode) {
-            Some((_, existing)) => existing.extend_from_slice(pressed),
-            None => self.chords.push((keycode, pressed.to_vec())),
+        let Some((_, existing)) = self.chords.iter_mut().find(|(code, _)| *code == keycode) else {
+            self.chords.push((keycode, dedup(pressed)));
+            return;
+        };
+        for target in pressed {
+            if !existing.contains(target) {
+                existing.push(*target);
+            }
         }
     }
 
@@ -110,6 +116,16 @@ impl HeldKeys {
         self.chords.clear();
         self.keys.drain(..).rev().map(|target| scancode_spec(target, true, false)).collect()
     }
+}
+
+fn dedup(targets: &[KeyTarget]) -> Vec<KeyTarget> {
+    let mut unique: Vec<KeyTarget> = Vec::with_capacity(targets.len());
+    for target in targets {
+        if !unique.contains(target) {
+            unique.push(*target);
+        }
+    }
+    unique
 }
 
 fn scancode_spec(target: KeyTarget, key_up: bool, chord_modifier: bool) -> KeyEventSpec {

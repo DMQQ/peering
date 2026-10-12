@@ -12,6 +12,7 @@ use rcgen::{
 use ring::rand::{SecureRandom, SystemRandom};
 use ring::signature::{EcdsaKeyPair, KeyPair, ECDSA_P256_SHA256_ASN1_SIGNING};
 use time::{Duration, OffsetDateTime};
+use zeroize::Zeroizing;
 
 pub const KEY_SECRET_NAME: &str = "host-identity-key";
 pub const DEVICE_ID_SECRET_NAME: &str = "host-device-id";
@@ -44,7 +45,7 @@ pub enum IdentityError {
 pub struct HostIdentity {
     device_id: String,
     device_name: String,
-    pkcs8: Vec<u8>,
+    pkcs8: Zeroizing<Vec<u8>>,
     key_pair: EcdsaKeyPair,
     certificate_der: Vec<u8>,
 }
@@ -58,7 +59,7 @@ impl HostIdentity {
         Self::from_parts(device_id, device_name, pkcs8)
     }
 
-    fn from_parts(device_id: String, device_name: &str, pkcs8: Vec<u8>) -> Result<Self, IdentityError> {
+    fn from_parts(device_id: String, device_name: &str, pkcs8: Zeroizing<Vec<u8>>) -> Result<Self, IdentityError> {
         let key_pair = EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &pkcs8, &SystemRandom::new())
             .map_err(|_| IdentityError::KeyRejected)?;
         let certificate_der = mint_certificate(&pkcs8, device_name)?;
@@ -123,13 +124,13 @@ impl ProofSigner for HostIdentity {
     }
 }
 
-fn load_or_create_key(store: &dyn SecretStore) -> Result<Vec<u8>, IdentityError> {
+fn load_or_create_key(store: &dyn SecretStore) -> Result<Zeroizing<Vec<u8>>, IdentityError> {
     if let Some(stored) = store.read(KEY_SECRET_NAME).map_err(IdentityError::KeyUnreadable)? {
-        return Ok(stored);
+        return Ok(Zeroizing::new(stored));
     }
     let generated = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &SystemRandom::new())
         .map_err(|_| IdentityError::Random)?;
-    let pkcs8 = generated.as_ref().to_vec();
+    let pkcs8 = Zeroizing::new(generated.as_ref().to_vec());
     if !store.write(KEY_SECRET_NAME, &pkcs8) {
         return Err(IdentityError::KeyNotStored);
     }

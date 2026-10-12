@@ -268,3 +268,15 @@ fn no_reply_is_sealed_before_a_key_exists() {
     let mut lane = VideoLane::new(TOKEN);
     assert!(lane.seal_datagrams(MessageKind::Pong, b"x").is_empty());
 }
+
+#[test]
+fn the_shared_encoder_takes_the_lowest_ceiling_any_session_needs() {
+    assert_eq!(lowest_ceiling_kbps([None, Some(2_000), Some(3_000)]), Some(2_000));
+    assert_eq!(lowest_ceiling_kbps([Some(2_000), None]), Some(2_000));
+}
+
+#[test]
+fn no_ceiling_applies_when_no_session_asks_for_one() {
+    assert_eq!(lowest_ceiling_kbps([None, None]), None);
+    assert_eq!(lowest_ceiling_kbps(std::iter::empty()), None);
+}

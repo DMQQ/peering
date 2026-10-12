@@ -4,9 +4,12 @@
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use peering_core::ports::secret_store::{SecretStore, StoreError};
 
+#[cfg(windows)]
+mod acl;
 #[cfg(windows)]
 mod sys;
 
@@ -19,6 +22,11 @@ const DIRECTORY_NAME: &str = "Peering Host";
 pub trait Protector {
     fn protect(&self, plain: &[u8]) -> Option<Vec<u8>>;
     fn unprotect(&self, sealed: &[u8]) -> Option<Vec<u8>>;
+
+    /// Called before the first secret is written into `directory`, to limit who can open it.
+    fn prepare_directory(&self, _directory: &Path) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 /// One sealed file per secret name inside `directory`. A write goes to a temporary file that is renamed over the
@@ -26,6 +34,7 @@ pub trait Protector {
 pub struct SecretFiles<P: Protector> {
     directory: PathBuf,
     protector: P,
+    directory_prepared: AtomicBool,
 }
 
 #[cfg(windows)]
@@ -33,7 +42,19 @@ pub type DpapiStore = SecretFiles<DpapiProtector>;
 
 impl<P: Protector> SecretFiles<P> {
     pub fn new(directory: PathBuf, protector: P) -> Self {
-        Self { directory, protector }
+        Self { directory, protector, directory_prepared: AtomicBool::new(false) }
+    }
+
+    /// A directory that could not be restricted holds no secrets: the sealing alone should not be the only protection.
+    fn prepare_directory(&self) -> bool {
+        if self.directory_prepared.load(Ordering::Acquire) {
+            return true;
+        }
+        if self.protector.prepare_directory(&self.directory).is_err() {
+            return false;
+        }
+        self.directory_prepared.store(true, Ordering::Release);
+        true
     }
 }
 
@@ -68,7 +89,7 @@ impl<P: Protector> SecretStore for SecretFiles<P> {
         let Some(sealed) = self.protector.protect(value) else {
             return false;
         };
-        fs::create_dir_all(&self.directory).is_ok() && write_atomically(&path, &sealed).is_ok()
+        fs::create_dir_all(&self.directory).is_ok() && self.prepare_directory() && write_atomically(&path, &sealed).is_ok()
     }
 
     fn remove(&self, name: &str) -> bool {
@@ -101,11 +122,16 @@ fn write_and_rename(temporary: &Path, target: &Path, bytes: &[u8]) -> io::Result
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::Arc;
+
     use super::*;
 
     /// Reverses the bytes and tags them, so a sealed value is visibly different from the plain one.
     struct ReversingProtector {
         refuse_protect: bool,
+        prepared: Arc<AtomicUsize>,
+        refuse_directory: bool,
     }
 
     impl Protector for ReversingProtector {
@@ -122,6 +148,14 @@ mod tests {
             let (last, body) = sealed.split_last()?;
             (*last == 0xAA).then(|| body.iter().rev().copied().collect())
         }
+
+        fn prepare_directory(&self, _directory: &Path) -> io::Result<()> {
+            self.prepared.fetch_add(1, Ordering::SeqCst);
+            if self.refuse_directory {
+                return Err(io::Error::other("refused"));
+            }
+            Ok(())
+        }
     }
 
     struct TestDirectory(PathBuf);
@@ -134,7 +168,16 @@ mod tests {
         }
 
         fn store(&self, refuse_protect: bool) -> SecretFiles<ReversingProtector> {
-            SecretFiles::new(self.0.clone(), ReversingProtector { refuse_protect })
+            SecretFiles::new(
+                self.0.clone(),
+                ReversingProtector { refuse_protect, prepared: Arc::new(AtomicUsize::new(0)), refuse_directory: false },
+            )
+        }
+
+        fn store_counting_preparations(&self, refuse_directory: bool) -> (SecretFiles<ReversingProtector>, Arc<AtomicUsize>) {
+            let prepared = Arc::new(AtomicUsize::new(0));
+            let protector = ReversingProtector { refuse_protect: false, prepared: prepared.clone(), refuse_directory };
+            (SecretFiles::new(self.0.clone(), protector), prepared)
         }
     }
 
@@ -226,5 +269,22 @@ mod tests {
         assert_eq!(secret_path(base, "a.b"), None);
         assert_eq!(secret_path(base, ".."), None);
         assert_eq!(secret_path(base, "C:x"), None);
+    }
+
+    #[test]
+    fn the_directory_is_restricted_once_before_the_first_write() {
+        let dir = TestDirectory::new("prepare-once");
+        let (store, prepared) = dir.store_counting_preparations(false);
+        assert!(store.write("a", b"1"));
+        assert!(store.write("b", b"2"));
+        assert_eq!(prepared.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn a_directory_that_cannot_be_restricted_receives_no_secret() {
+        let dir = TestDirectory::new("prepare-refused");
+        let (store, _prepared) = dir.store_counting_preparations(true);
+        assert!(!store.write("host-key", b"secret"));
+        assert!(!dir.0.join("host-key").exists());
     }
 }

@@ -341,3 +341,11 @@ fn every_file_change_is_refused_with_the_failure_for_its_own_path() {
         assert!(!message.is_empty());
     }
 }
+
+#[test]
+fn a_request_that_timed_out_is_answered_with_the_failure_that_fits_it() {
+    let list = TerminalRequest::ListDirectory { session_id: "s".to_owned(), path: Some("/C:".to_owned()) };
+    let range = TerminalRequest::ReadRange { session_id: "s".to_owned(), path: "/C:/a".to_owned(), offset: 0 };
+    assert!(matches!(FileBrowser::<InMemoryFileSystem>::failure(&list, "slow"), Some(TerminalEvent::BrowseFailure { .. })));
+    assert!(matches!(FileBrowser::<InMemoryFileSystem>::failure(&range, "slow"), Some(TerminalEvent::TransferFailure { .. })));
+}

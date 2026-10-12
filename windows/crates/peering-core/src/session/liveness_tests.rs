@@ -77,3 +77,28 @@ fn a_video_connection_is_kept_however_long_it_is_silent() {
     assert_eq!(tracker.verdict_for(3600.0, HostPhase::Unauthenticated, true), Verdict::Keep);
     assert_eq!(tracker.verdict_for(3600.0, HostPhase::Unauthenticated, false), Verdict::End);
 }
+
+#[test]
+fn a_ping_does_not_keep_an_unauthenticated_connection_alive() {
+    assert!(!counts_as_life(HostPhase::Unauthenticated, MessageKind::Ping));
+    assert!(!counts_as_life(HostPhase::Unauthenticated, MessageKind::Command));
+}
+
+#[test]
+fn handshake_frames_count_before_authorisation() {
+    for kind in [MessageKind::ConnectionRole, MessageKind::ClientHello, MessageKind::PairCommit, MessageKind::PairReveal, MessageKind::PairConfirm] {
+        assert!(counts_as_life(HostPhase::Unauthenticated, kind), "{kind:?}");
+    }
+}
+
+#[test]
+fn a_client_awaiting_approval_is_kept_by_pings_only() {
+    assert!(counts_as_life(HostPhase::AwaitingApproval, MessageKind::Ping));
+    assert!(!counts_as_life(HostPhase::AwaitingApproval, MessageKind::Command));
+}
+
+#[test]
+fn every_frame_counts_once_authorised() {
+    assert!(counts_as_life(HostPhase::Authorized, MessageKind::Command));
+    assert!(counts_as_life(HostPhase::Authorized, MessageKind::Ping));
+}

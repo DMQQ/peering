@@ -2,7 +2,7 @@ use super::*;
 use crate::fakes::capture::FakeCapture;
 use crate::fakes::clock::FakeClock;
 use crate::fakes::encoder::FakeEncoder;
-use crate::ports::capture::DisplayInfo;
+use crate::ports::capture::{DisplayInfo, RawFrame};
 use crate::ports::clock::Clock;
 
 fn display(id: u32, is_primary: bool) -> DisplayInfo {
