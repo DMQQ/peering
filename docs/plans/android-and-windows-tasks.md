@@ -413,11 +413,11 @@ WIN-066 | done | S : BGRA to NV12 conversion. Owns `peering-platform/src/encode/
 WIN-067 | done | S : Media Foundation H.264 encoder. Owns `peering-platform/src/encode/mft.rs`. Deps WIN-066, WIN-026. Done: hardware first then software, low latency attributes, forced keyframe, bitrate change; produces AVCC and config via WIN-026; manual run. Commit: Encode H.264 with Media Foundation at low latency.
 WIN-068 | done | S : SendInput mouse and wheel. Owns `peering-platform/src/input/mouse.rs`. Deps WIN-025. Done: pure event builder tested; injection on Windows. Commit: Inject mouse and wheel input.
 WIN-069 | done | S : SendInput keyboard, Unicode text, release all. Owns `peering-platform/src/input/keyboard.rs`. Deps WIN-024. Done: builder tests, held key tracker releases all on disconnect. Commit: Inject keyboard and text input.
-WIN-070 | todo | S : DPI awareness manifest and rc. Owns `host/build.rs`, `host/app.manifest`. Deps none. Done: manifest declares Per-Monitor-V2. Commit: Declare per-monitor DPI awareness.
-WIN-071 | todo | S : host binary wiring (tokio runtime, listener, services). Owns `host/src/main.rs`, `host/src/runtime.rs`. Deps WIN-040..048, WIN-061. Done: starts, listens on 51515, advertises. Commit: Wire the host runtime together.
-WIN-072 | todo | S : tray icon and menu. Owns `host/src/tray.rs`. Deps WIN-071. Done: builds on Windows. Commit: Add the tray menu.
-WIN-073 | todo | S : pairing window (QR, code, devices). Owns `host/src/ui/pairing.rs`. Deps WIN-041, WIN-017. Done: builds. Commit: Show the pairing code and QR.
-WIN-074 | todo | S : autostart and firewall helper. Owns `host/src/autostart.rs`, `host/src/firewall.rs`. Deps WIN-071. Done: pure command builders tested. Commit: Start at login and offer a firewall fix.
+WIN-070 | done | S : DPI awareness manifest and rc. Owns `host/build.rs`, `host/app.manifest`. Deps none. Done: manifest declares Per-Monitor-V2. Commit: Declare per-monitor DPI awareness.
+WIN-071 | done | S : host binary wiring (tokio runtime, listener, services). Owns `host/src/main.rs`, `host/src/runtime.rs`. Deps WIN-040..048, WIN-061. Done: starts, listens on 51515, advertises. Commit: Wire the host runtime together.
+WIN-072 | done | S : tray icon and menu. Owns `host/src/tray.rs`. Deps WIN-071. Done: builds on Windows. Commit: Add the tray menu.
+WIN-073 | done | S : pairing window (QR, code, devices). Owns `host/src/ui/pairing.rs`. Deps WIN-041, WIN-017. Done: builds. Commit: Show the pairing code and QR.
+WIN-074 | done | S : autostart and firewall helper. Owns `host/src/autostart.rs`, `host/src/firewall.rs`. Deps WIN-071. Done: pure command builders tested. Commit: Start at login and offer a firewall fix.
 WIN-075 | done | S : secure desktop notice. Owns `peering-platform/src/session_state.rs`. Deps WIN-065. Done: detect access lost and lock state, emits the `notice` payload. Commit: Tell the client when the secure desktop blocks capture.
 
 ## Windows: flow tests (service level, fake ports, vectors)
@@ -434,20 +434,24 @@ WIN-098 | todo | integration | S : iPhone to the Windows host over LAN (mileston
 
 ## Follow-ups found by the flow tests and builders
 
-AND-134 | todo | S : map framing errors (unknown kind, oversize frame) from the decoder to a session failure in the connection layer. Owns `core/session/.../connection/` new file. Done: ErrorPathsTest asserts the failure reason, `./gradlew :core:session:test`.
-AND-135 | todo | S : call `CodecDecoder.flush()` on keyframe loss and declare manifest permissions (INTERNET, ACCESS_NETWORK_STATE, CHANGE_WIFI_MULTICAST_STATE) for the platform module. Owns `core/platform` manifest and a small policy class with a test.
+AND-134 | done | S : map framing errors (unknown kind, oversize frame) from the decoder to a session failure in the connection layer. Owns `core/session/.../connection/` new file. Done: ErrorPathsTest asserts the failure reason, `./gradlew :core:session:test`.
+AND-135 | done | S : call `CodecDecoder.flush()` on keyframe loss and declare manifest permissions (INTERNET, ACCESS_NETWORK_STATE, CHANGE_WIFI_MULTICAST_STATE) for the platform module. Owns `core/platform` manifest and a small policy class with a test.
 AND-136 | todo | S : AND-022b is done (relay proof fields on connectToHost and registerHost, RelayConnect sends the client proof); this entry records it.
 WIN-134 | done | S : a disconnect path that calls `InputSink::release_all` (the ignored lifecycle flow test names it). Owns `peering-core/src/session/` new file and un-ignores that test.
 WIN-135 | done | S : export the scripted launcher and pin store fakes behind a `testing` feature so flows stop re-implementing them. Owns `peering-agent/src/claude_adapter/fake.rs` exposure and `peering-core/src/session/test_support.rs`.
 AND-137 | done | S : SessionController, the coroutine orchestrator tying transport, state machine, lanes, reconnect, chat and files together (core:session/controller). Added because no task owned the glue. Being built in wave 7.
-AND-138 | todo | integration | S : wire the feature presenters to SessionController and register the routes (ScreenRegistry) in the app module. Owns `app/.../ui/Features.kt`. Done: `./gradlew :app:assembleDebug`; the connect, pairing, remote, agents, files, settings, paywall routes open with the real graph.
+AND-138 | done | integration | S : wire the feature presenters to SessionController and register the routes (ScreenRegistry) in the app module. Owns `app/.../ui/Features.kt`. Done: `./gradlew :app:assembleDebug`; the connect, pairing, remote, agents, files, settings, paywall routes open with the real graph.
 AND-139 | todo | S : camera QR scanner source (`QrSource` implementation with CameraX and ML Kit or ZXing). Needs a device to verify.
-WIN-136 | todo | S : change the `SecretStore::read` port to `Result<Option<Vec<u8>>, StoreError>` so a failed read is not mistaken for an absent key (identity would mint a new key and un-pair every device); update the DPAPI store, fakes and the identity test (the failed-read test is currently missing). Owns `peering-core/src/ports/secret_store.rs`, fakes, `peering-net/src/identity.rs`, `peering-platform/src/dpapi*`.
-WIN-137 | todo | S : texture handoff between capture, convert and the MFT encoder (the Encoder port carries no pixels; `MftEncoder::stage_texture` is called today). Define a `FrameSource` handoff in peering-platform and wire DDA -> NV12 -> MFT.
-WIN-138 | todo | integration | S : host runtime wiring (WIN-071 expanded): tokio runtime, TCP listener on 51515 with rustls, relay registration, session loops over the core state machines, capture to encode to lane. Owns `host/src/runtime*`.
-AND-140 | todo | S : `connection/HandshakeFrames.clientHello` omits `resumeSource`; SessionHandshake rewrites the hello on reconnect as a workaround. Fix it at the source and drop the workaround.
-AND-141 | todo | S : wire `DirectPathProber` into `SessionController` so the DIRECT path is produced and reported.
+WIN-136 | done | S : change the `SecretStore::read` port to `Result<Option<Vec<u8>>, StoreError>` so a failed read is not mistaken for an absent key (identity would mint a new key and un-pair every device); update the DPAPI store, fakes and the identity test (the failed-read test is currently missing). Owns `peering-core/src/ports/secret_store.rs`, fakes, `peering-net/src/identity.rs`, `peering-platform/src/dpapi*`.
+WIN-137 | done | S : texture handoff between capture, convert and the MFT encoder (the Encoder port carries no pixels; `MftEncoder::stage_texture` is called today). Define a `FrameSource` handoff in peering-platform and wire DDA -> NV12 -> MFT.
+WIN-138 | done | integration | S : host runtime wiring (WIN-071 expanded): tokio runtime, TCP listener on 51515 with rustls, relay registration, session loops over the core state machines, capture to encode to lane. Owns `host/src/runtime*`.
+AND-140 | done | S : `connection/HandshakeFrames.clientHello` omits `resumeSource`; SessionHandshake rewrites the hello on reconnect as a workaround. Fix it at the source and drop the workaround.
+AND-141 | done | S : wire `DirectPathProber` into `SessionController` so the DIRECT path is produced and reported.
 AND-142 | todo | S : decide identity reset exposure (the Swift settings say not to offer it because the free allowance is keyed to the client id) and the "per day" versus "rolling 24 hours" wording of the free allowance.
+WIN-139 | todo | S : expose the D3D11 device that DDA creates and bind `MftEncoder` to it, replacing the fail-closed `UnboundEncoder` in the runtime. Until this lands no video reaches a client on Windows. Needs a Windows machine to verify.
+WIN-140 | todo | S : relayed video over the UDP datagram lane in the host runtime (today relayed sessions use the control-connection fallback only). Owns `host/src/runtime/video.rs`.
+WIN-141 | todo | S : host Settings window entries for autostart and the firewall helper (executors exist), frame rate and lock screen requests applied.
+AND-143 | todo | S : bind relay presence, hostIds with names, file download forwarding, agent setModel/permission mode/browse through AgentChat, hub Quality entry, legal pages, paywall trigger, relay allowance tracking, reopening relay signalling after a drop (the stubs listed by the wiring builder).
 
 ## Windows: LATER and SKIP
 
