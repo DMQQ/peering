@@ -20,8 +20,9 @@ internal class PersistedSessionRecords(
     override val records: StateFlow<List<SessionRecord>> = current.asStateFlow()
 
     fun refresh() {
-        current.value = history.records
-        preferences.edit().putString(KEY, history.toJson()).apply()
+        val records = history.records
+        current.value = records
+        PreferenceWrites.shared.saveTextLater(preferences, KEY) { SessionHistory.toJson(records) }
     }
 
     companion object {

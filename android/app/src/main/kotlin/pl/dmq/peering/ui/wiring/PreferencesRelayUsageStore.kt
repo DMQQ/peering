@@ -17,7 +17,7 @@ internal class PreferencesRelayUsageStore(private val preferences: SharedPrefere
     }
 
     override fun save(usage: DailyRelayUsage) {
-        preferences.edit().putString(KEY_USAGE, "${usage.day}$SEPARATOR${usage.seconds}").apply()
+        PreferenceWrites.shared.save(preferences) { putString(KEY_USAGE, "${usage.day}$SEPARATOR${usage.seconds}") }
     }
 
     private companion object {
