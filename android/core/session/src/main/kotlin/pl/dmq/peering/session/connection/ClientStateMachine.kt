@@ -34,10 +34,19 @@ class ClientStateMachine(
     private var remoteCommitment: ByteArray? = null
     private var transcript: PairingTranscript? = null
 
-    /** Sends the connection role and the client hello. Call once, before any frame. */
+    /**
+     * Sends the connection role and the client hello. Call once, before any frame. The hello carries this device's name
+     * and resume source and the host only answers a hello, so it cannot wait for the host's id; but when the dialled
+     * host is already pinned its key can be checked first, and a different key gets nothing.
+     */
     fun start(): List<ClientAction> {
         check(state == ClientHandshakeState.Idle) { "the handshake was already started" }
-        val knowsHost = config.dialledHostId?.let { pins.pin(it) != null } ?: false
+        val dialled = config.dialledHostId
+        val pinned = dialled?.let { pins.pin(it) }
+        if (dialled != null && pinned != null && !MessageDigest.isEqual(pinned, config.serverKey)) {
+            return fail(FailureReason.PinMismatch(dialled))
+        }
+        val knowsHost = pinned != null
         state = ClientHandshakeState.AwaitingServerHello
         return listOf(
             ClientAction.Send(HandshakeFrames.connectionRole()),

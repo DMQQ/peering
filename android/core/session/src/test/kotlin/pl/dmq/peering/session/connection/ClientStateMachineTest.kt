@@ -232,6 +232,24 @@ class ClientStateMachineTest {
     }
 
     @Test
+    fun aDialledHostWithADifferentKeyIsRefusedBeforeAnythingIsSent() {
+        val pins = FakePinStore(mapOf(HostFrames.HOST_ID to ByteArray(65) { 0x9 }))
+
+        val actions = machine(pins, dialled = HostFrames.HOST_ID).start()
+
+        assertEquals(listOf(ClientAction.Failed(FailureReason.PinMismatch(HostFrames.HOST_ID))), actions)
+    }
+
+    @Test
+    fun aDialledHostWithTheRightKeyGetsTheHello() {
+        val pins = FakePinStore(mapOf(HostFrames.HOST_ID to HostFrames.hostKey))
+
+        val actions = machine(pins, dialled = HostFrames.HOST_ID).start()
+
+        assertEquals(MessageKind.ClientHello, actions[1].sentFrame().kind)
+    }
+
+    @Test
     fun aPinnedKeyThatDiffersFromTheTransportKeyFails() {
         val pins = FakePinStore(mapOf(HostFrames.HOST_ID to ByteArray(65) { 0x9 }))
         val machine = machine(pins)
