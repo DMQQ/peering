@@ -18,7 +18,7 @@ import pl.dmq.peering.wire.TerminalSessionInfo
 class TerminalListPresenterTest {
     private val sent = mutableListOf<TerminalRequest>()
     private val sessions = TerminalSessions(send = { sent += it })
-    private val presenter = TerminalListPresenter(sessions)
+    private val presenter = TerminalListPresenter(sessions, AgentLaunchHistory(FakeKeyValueStore()))
 
     private fun info(id: String, name: String = id) = TerminalSessionInfo(id, name, true, null, null)
 

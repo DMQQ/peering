@@ -32,6 +32,7 @@ import pl.dmq.peering.session.terminal.TerminalTab
 fun TerminalListScreen(
     sessions: TerminalSessions,
     presenter: TerminalListPresenter,
+    agentHistory: AgentLaunchHistory,
     guide: HubGuidePresenter,
     listState: LazyListState,
     connected: Boolean,
@@ -39,6 +40,10 @@ fun TerminalListScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by sessions.state.collectAsState()
+    val launches by agentHistory.all.collectAsState()
+    val now = remember(launches, state.installedAgents) { System.currentTimeMillis() }
+    val launchers = remember(state, launches, now) { TerminalListPresenter.launchers(state, launches, now) }
+    val historyRows = remember(launches, now) { TerminalListPresenter.historyRows(launches, now) }
     val cards = remember(state.tabs) { TerminalListPresenter.cards(state) }
     var renaming by remember { mutableStateOf<TerminalTab?>(null) }
     var ending by remember { mutableStateOf<TerminalTab?>(null) }
@@ -72,6 +77,17 @@ fun TerminalListScreen(
                         onEnd = { ending = tab(card.id) },
                         modifier = Modifier.animateItem(),
                     )
+                }
+            }
+            if (state.loaded) {
+                items(launchers, key = { "launch-" + it.agent.id }) { card ->
+                    LauncherCardRow(card, enabled = connected, onStart = { presenter.start(card.agent) })
+                }
+                if (historyRows.isNotEmpty()) {
+                    item(key = "history-heading") { LaunchHistoryHeading(onClear = presenter::clearHistory) }
+                    item(key = "history") {
+                        LaunchHistoryCard(historyRows, onRestart = { row -> TerminalAgent.byId(row.agentID)?.let(presenter::start) })
+                    }
                 }
             }
         }
