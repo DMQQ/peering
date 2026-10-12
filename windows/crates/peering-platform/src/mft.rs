@@ -1,1 +1,31 @@
-//! Placeholder owned by its task; see docs/plans/android-and-windows-tasks.md.
+//! H.264 encoder through Media Foundation, the `Encoder` port on Windows. Hardware MFTs are tried before the Microsoft
+//! software encoder. Input is an NV12 texture on the capture device, staged with `MftEncoder::stage_texture`; output is
+//! Annex-B from the MFT, converted to AVCC for the wire. The pure parts (settings, candidate order, timing, config
+//! changes) are tested on any OS; the Media Foundation calls live in `mft/sys.rs` and `mft/encoder.rs`.
+//!
+//! Compile-checked only, not run on Windows. Unverified: asynchronous hardware MFTs are not event driven yet (no
+//! METransformNeedInput or HaveOutput gating; only the MF_E_NOTACCEPTING drain-and-retry is in place); which
+//! CODECAPI_* properties each vendor accepts (the rate control, low latency and bitrate ones are required, GOP and
+//! B-picture count are best effort); the stream change renegotiation; the sample timing a hardware MFT expects; and the
+//! D3D11 device manager handoff on each vendor.
+
+mod candidates;
+mod config;
+mod settings;
+mod timing;
+
+#[cfg(windows)]
+mod encoder;
+#[cfg(windows)]
+mod sys;
+
+#[cfg(test)]
+mod tests;
+
+pub use candidates::{rank_candidates, CandidateInfo};
+pub use config::{h264_config, ConfigTracker};
+pub use settings::EncoderSettings;
+pub use timing::{frame_duration, frame_time, video_timestamp, HUNDRED_NANOSECONDS_PER_SECOND};
+
+#[cfg(windows)]
+pub use encoder::MftEncoder;
