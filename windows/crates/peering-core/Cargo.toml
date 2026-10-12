@@ -7,6 +7,8 @@ publish.workspace = true
 
 [features]
 testing = []
+# The Claude Code hook broker. Nothing in the host starts it yet: see windows/README.md.
+terminal-hooks = []
 
 [dependencies]
 peering-wire = { path = "../peering-wire" }

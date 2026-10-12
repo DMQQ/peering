@@ -71,6 +71,20 @@ folder is ignored by git.
 - `host`: the process. The runtime serves clients, `ui` holds the tray and pairing window, and `autostart` and
   `firewall` hold the start-at-login and firewall helpers.
 
+## Claude Code terminal hooks
+
+The hook server (`host/src/hooks`) and the broker behind it (`peering_core::terminal::hooks`) are built and tested, but
+nothing in the runtime starts them: there is no setting that turns them on, no token is minted, the settings file is never
+edited, the broker has no `Phones` implementation that sends through the relay, and a phone's Allow or Deny is not routed
+back to `HookBroker::resolve`. Those parts need a phone and a relay to check, so the hooks are compiled only with the cargo
+feature `terminal-hooks` (off by default):
+
+```
+cargo test --locked -p peering-host --features terminal-hooks
+```
+
+Until the wiring is done, the Windows host does not push Claude Code approvals to the phone.
+
 ## Status
 
 The Windows-only code has not yet been run on a Windows machine. The build steps and the installer script are written

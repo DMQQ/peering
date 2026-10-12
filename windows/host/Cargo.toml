@@ -5,6 +5,10 @@ edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+[features]
+# The hook server and installer for Claude Code. Nothing in the runtime starts them yet: see windows/README.md.
+terminal-hooks = ["peering-core/terminal-hooks"]
+
 [lib]
 path = "src/lib.rs"
 
