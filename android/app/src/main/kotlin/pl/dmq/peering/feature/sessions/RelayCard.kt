@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.paywall.RelayAllowance
@@ -49,7 +50,7 @@ internal fun RelayCard(allowance: RelayAllowance, meter: RelayMeter, onUpgrade: 
                 )
             }
             Meter(meter)
-            Text(stringResource(R.string.sessions_relay_period), style = PeeringText.caption, color = PeeringColors.muted)
+            Text(stringResource(R.string.sessions_relay_period), style = PeeringText.caption, color = PeeringColors.muted, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
             Text(stringResource(R.string.sessions_relay_note), style = PeeringText.caption2, color = PeeringColors.tertiary)
             if (meter.low) {
                 InkButton(onClick = onUpgrade, modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {

@@ -427,6 +427,7 @@
     <string name="scan_unavailable">This device has no camera. Type the computer\'s ID instead.</string>
     <string name="scan_not_pairing_code">That is not a Peering code. Point the camera at the code shown on your computer.</string>
     <string name="scan_code_mismatch">That code is not the one on your screen.</string>
+    <string name="first_scan_qr">Scan QR code</string>
     <string name="pairing_code_scan">Scan QR code instead</string>
     <string name="preview_destination_failed">The file could not be saved to the place you chose.</string>
     <string name="agents_recent_folders">Recent folders</string>
