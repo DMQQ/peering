@@ -289,21 +289,21 @@ AND-059 | todo | parallel-safe | S : billing gateway interface and Play adapter.
 ## Android: UI (parallel-safe, built against fakes, no UI tests)
 
 AND-060 | done | foundation | S : app module, Peering theme (tokens from the design rule), navigation shell. Owns `android/app/*` build files, `MainActivity.kt`, `theme/*`, `nav/*`. Deps AND-001. Done: `./gradlew :app:assembleDebug` builds; bottom nav Connect, Sessions, Settings; dynamic color. Commit: Add the Android app shell with Material 3 navigation.
-AND-061 | todo | S : connect screen (hosts list, presence, add by id). Port `HostPickerView*.swift`. Owns `feature/connect/ConnectScreen.kt`, `ConnectViewModel.kt`. Deps AND-060, AND-040. Done: view model unit test over fakes (list ordering, presence); builds. Commit: Add the Connect screen with discovered and paired hosts.
-AND-062 | todo | S : pairing screens (code entry, scanner, confirm digits). Port `PairingCode*.swift`, `PairingPrompt.swift`. Owns `feature/pairing/*`. Deps AND-060, AND-040, AND-017. Done: view model tests for digit comparison and cancel; builds. Commit: Add the pairing screens with code comparison.
-AND-063 | todo | S : remote canvas and gestures. Port `Remote/RemoteCanvas.swift`, `RemoteScreen+Gestures.swift`. Owns `feature/remote/RemoteScreen.kt`, `GestureLayer.kt`. Deps AND-057, AND-026. Done: feeds AND-026 model; builds. Commit: Add the remote screen with touch input.
-AND-064 | todo | S : keyboard capture and modifier bar. Port `KeyboardCapture.swift`, `ModifierBar.swift`. Owns `feature/remote/KeyboardBar.kt`. Deps AND-063, AND-025. Done: builds; routing tested in AND-025. Commit: Add the modifier bar and soft keyboard capture.
-AND-065 | todo | S : sources sheet (displays). Port `SourcesPanel.swift`. Owns `feature/remote/SourcesSheet.kt`. Deps AND-063, AND-046. Done: view model test maps catalogue to tiles; builds. Commit: Add the source picker sheet for displays.
-AND-066 | todo | S : session hub sheet. Port `RemoteScreen+Hub.swift`. Owns `feature/remote/HubSheet.kt`. Deps AND-063. Done: builds. Commit: Add the session hub sheet.
-AND-067 | todo | S : agents hub list. Port `Agent/Hub/*`. Owns `feature/agents/HubScreen.kt`. Deps AND-047. Done: view model test of card digest; builds. Commit: Add the agents hub screen.
-AND-068 | todo | S : transcript list UI. Port `Agent/Transcript/*`. Owns `feature/agents/TranscriptList.kt`, `MarkdownText.kt`. Deps AND-032. Done: builds. Commit: Render the agent transcript list.
-AND-069 | todo | S : approval card. Port `Agent/Approval/AgentApprovalSheet.swift`. Owns `feature/agents/ApprovalCard.kt`. Deps AND-033. Done: builds. Commit: Add the approval card.
-AND-070 | todo | S : composer. Port `Agent/Composer/*` (text, permission mode, model menu, interrupt). Owns `feature/agents/Composer.kt`. Deps AND-034. Done: builds. Commit: Add the agent composer.
-AND-071 | todo | S : files list UI. Port `Files/FileBrowserPanel*.swift`. Owns `feature/files/FileList.kt`. Deps AND-048. Done: builds. Commit: Add the file browser list.
-AND-072 | todo | S : file preview UI (text, image). Port `Files/FilePreviewPanel*.swift`. Owns `feature/files/Preview.kt`. Deps AND-048. Done: builds. Commit: Add file preview for text and images.
-AND-073 | todo | S : settings screen. Port `SettingsTab*.swift` (quality, trusted hosts, identity reset, about). Owns `feature/settings/*`. Deps AND-060, AND-052. Done: view model test for forget host; builds. Commit: Add the settings screen with trusted hosts.
-AND-074 | todo | S : paywall UI. Port `Store/Paywall*.swift`, `AllowanceSpentView.swift`. Owns `feature/paywall/*`. Deps AND-059. Done: view model test of states; builds. Commit: Add the paywall and relay allowance screens.
-AND-075 | todo | S : first run and FAQ. Port `Onboarding/FAQView.swift`, `FirstConnectionScreen.swift` (minimal). Owns `feature/onboarding/*`. Deps AND-060. Done: builds. Commit: Add minimal first run and FAQ screens.
+AND-061 | done | S : connect screen (hosts list, presence, add by id). Port `HostPickerView*.swift`. Owns `feature/connect/ConnectScreen.kt`, `ConnectViewModel.kt`. Deps AND-060, AND-040. Done: view model unit test over fakes (list ordering, presence); builds. Commit: Add the Connect screen with discovered and paired hosts.
+AND-062 | done | S : pairing screens (code entry, scanner, confirm digits). Port `PairingCode*.swift`, `PairingPrompt.swift`. Owns `feature/pairing/*`. Deps AND-060, AND-040, AND-017. Done: view model tests for digit comparison and cancel; builds. Commit: Add the pairing screens with code comparison.
+AND-063 | done | S : remote canvas and gestures. Port `Remote/RemoteCanvas.swift`, `RemoteScreen+Gestures.swift`. Owns `feature/remote/RemoteScreen.kt`, `GestureLayer.kt`. Deps AND-057, AND-026. Done: feeds AND-026 model; builds. Commit: Add the remote screen with touch input.
+AND-064 | done | S : keyboard capture and modifier bar. Port `KeyboardCapture.swift`, `ModifierBar.swift`. Owns `feature/remote/KeyboardBar.kt`. Deps AND-063, AND-025. Done: builds; routing tested in AND-025. Commit: Add the modifier bar and soft keyboard capture.
+AND-065 | done | S : sources sheet (displays). Port `SourcesPanel.swift`. Owns `feature/remote/SourcesSheet.kt`. Deps AND-063, AND-046. Done: view model test maps catalogue to tiles; builds. Commit: Add the source picker sheet for displays.
+AND-066 | done | S : session hub sheet. Port `RemoteScreen+Hub.swift`. Owns `feature/remote/HubSheet.kt`. Deps AND-063. Done: builds. Commit: Add the session hub sheet.
+AND-067 | done | S : agents hub list. Port `Agent/Hub/*`. Owns `feature/agents/HubScreen.kt`. Deps AND-047. Done: view model test of card digest; builds. Commit: Add the agents hub screen.
+AND-068 | done | S : transcript list UI. Port `Agent/Transcript/*`. Owns `feature/agents/TranscriptList.kt`, `MarkdownText.kt`. Deps AND-032. Done: builds. Commit: Render the agent transcript list.
+AND-069 | done | S : approval card. Port `Agent/Approval/AgentApprovalSheet.swift`. Owns `feature/agents/ApprovalCard.kt`. Deps AND-033. Done: builds. Commit: Add the approval card.
+AND-070 | done | S : composer. Port `Agent/Composer/*` (text, permission mode, model menu, interrupt). Owns `feature/agents/Composer.kt`. Deps AND-034. Done: builds. Commit: Add the agent composer.
+AND-071 | done | S : files list UI. Port `Files/FileBrowserPanel*.swift`. Owns `feature/files/FileList.kt`. Deps AND-048. Done: builds. Commit: Add the file browser list.
+AND-072 | done | S : file preview UI (text, image). Port `Files/FilePreviewPanel*.swift`. Owns `feature/files/Preview.kt`. Deps AND-048. Done: builds. Commit: Add file preview for text and images.
+AND-073 | done | S : settings screen. Port `SettingsTab*.swift` (quality, trusted hosts, identity reset, about). Owns `feature/settings/*`. Deps AND-060, AND-052. Done: view model test for forget host; builds. Commit: Add the settings screen with trusted hosts.
+AND-074 | done | S : paywall UI. Port `Store/Paywall*.swift`, `AllowanceSpentView.swift`. Owns `feature/paywall/*`. Deps AND-059. Done: view model test of states; builds. Commit: Add the paywall and relay allowance screens.
+AND-075 | done | S : first run and FAQ. Port `Onboarding/FAQView.swift`, `FirstConnectionScreen.swift` (minimal). Owns `feature/onboarding/*`. Deps AND-060. Done: builds. Commit: Add minimal first run and FAQ screens.
 AND-076 | done | integration | S : wire the app graph. Owns `app/.../AppGraph.kt`. Deps AND-050..055, AND-061. Done: app builds with real platform classes behind the ports. Commit: Assemble the Android dependency graph.
 
 ## Android: flow tests (JVM, fake transports, vectors; no UI)
@@ -439,12 +439,15 @@ AND-135 | todo | S : call `CodecDecoder.flush()` on keyframe loss and declare ma
 AND-136 | todo | S : AND-022b is done (relay proof fields on connectToHost and registerHost, RelayConnect sends the client proof); this entry records it.
 WIN-134 | done | S : a disconnect path that calls `InputSink::release_all` (the ignored lifecycle flow test names it). Owns `peering-core/src/session/` new file and un-ignores that test.
 WIN-135 | done | S : export the scripted launcher and pin store fakes behind a `testing` feature so flows stop re-implementing them. Owns `peering-agent/src/claude_adapter/fake.rs` exposure and `peering-core/src/session/test_support.rs`.
-AND-137 | todo | S : SessionController, the coroutine orchestrator tying transport, state machine, lanes, reconnect, chat and files together (core:session/controller). Added because no task owned the glue. Being built in wave 7.
+AND-137 | done | S : SessionController, the coroutine orchestrator tying transport, state machine, lanes, reconnect, chat and files together (core:session/controller). Added because no task owned the glue. Being built in wave 7.
 AND-138 | todo | integration | S : wire the feature presenters to SessionController and register the routes (ScreenRegistry) in the app module. Owns `app/.../ui/Features.kt`. Done: `./gradlew :app:assembleDebug`; the connect, pairing, remote, agents, files, settings, paywall routes open with the real graph.
 AND-139 | todo | S : camera QR scanner source (`QrSource` implementation with CameraX and ML Kit or ZXing). Needs a device to verify.
 WIN-136 | todo | S : change the `SecretStore::read` port to `Result<Option<Vec<u8>>, StoreError>` so a failed read is not mistaken for an absent key (identity would mint a new key and un-pair every device); update the DPAPI store, fakes and the identity test (the failed-read test is currently missing). Owns `peering-core/src/ports/secret_store.rs`, fakes, `peering-net/src/identity.rs`, `peering-platform/src/dpapi*`.
 WIN-137 | todo | S : texture handoff between capture, convert and the MFT encoder (the Encoder port carries no pixels; `MftEncoder::stage_texture` is called today). Define a `FrameSource` handoff in peering-platform and wire DDA -> NV12 -> MFT.
 WIN-138 | todo | integration | S : host runtime wiring (WIN-071 expanded): tokio runtime, TCP listener on 51515 with rustls, relay registration, session loops over the core state machines, capture to encode to lane. Owns `host/src/runtime*`.
+AND-140 | todo | S : `connection/HandshakeFrames.clientHello` omits `resumeSource`; SessionHandshake rewrites the hello on reconnect as a workaround. Fix it at the source and drop the workaround.
+AND-141 | todo | S : wire `DirectPathProber` into `SessionController` so the DIRECT path is produced and reported.
+AND-142 | todo | S : decide identity reset exposure (the Swift settings say not to offer it because the free allowance is keyed to the client id) and the "per day" versus "rolling 24 hours" wording of the free allowance.
 
 ## Windows: LATER and SKIP
 
