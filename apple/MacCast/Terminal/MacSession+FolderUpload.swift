@@ -202,60 +202,9 @@ extension MacSession {
     }
 
     func folderProgress(sessionID id: UUID) -> String? {
-        folderUploads[id]?.line()
-    }
-
-    /// **Read as it goes rather than whole, and that is the whole of this function.** A
-    /// sixty-four megabyte file read in one go is sixty-four megabytes held by an app that is also
-    /// decoding a picture and drawing a terminal, and the system kills that app. The user's view of
-    /// that failure is the app disappearing for no reason, with nothing to connect it to the upload
-    /// they just started.
-    /// **The reads are `async`, which is not decoration.** A blocking `FileHandle.read` called from
-    /// here would be a disk read on the main actor in the middle of a loop that already yields
-    /// between pieces, and the yielding is what this method is measured against: the picture behind
-    /// the panel has to keep moving while a file goes out. The async read suspends and lets
-    /// everything else on the main actor run, which the yield below then also does explicitly.
-    /// **A piece that goes missing does not leave the Mac hanging on a file it was promised.** The
-    /// size is known, so the last piece is the one that completes it; a file that shrank under us
-    /// between that size being asked for and this running ends the transfer with an empty last
-    /// piece rather than with nothing. That is the same message an empty file sends, and the Mac
-    /// replaces the file on it: the user gets the bytes that were actually there.
-    func send(contentsOf url: URL, totalBytes: Int, to path: String, sessionID id: UUID) async {
-        wire?.sendTerminal(.beginWrite(sessionID: id, path: path, totalBytes: totalBytes))
-
-        guard totalBytes > 0 else {
-            wire?.sendTerminal(.writeChunk(sessionID: id, path: path, data: Data(), isLast: true))
-            return
-        }
-
-        do {
-            let handle = try FileHandle(forReadingFrom: url)
-            defer { try? handle.close() }
-
-            var sent = 0
-            while true {
-                // `nil` and an empty `Data` mean the same thing here and are both the end of the
-                // file, so one `guard` covers the file shrinking under us and the file simply
-                // ending on a piece boundary.
-                guard let piece = try handle.read(upToCount: Self.writeChunkBytes), !piece.isEmpty
-                else {
-                    if sent < totalBytes {
-                        wire?.sendTerminal(.writeChunk(sessionID: id, path: path, data: Data(), isLast: true))
-                    }
-                    return
-                }
-
-                sent += piece.count
-                let isLast = sent >= totalBytes
-                wire?.sendTerminal(.writeChunk(sessionID: id, path: path, data: piece, isLast: isLast))
-                if isLast { return }
-                await Task.yield()
-            }
-        } catch {
-            Analytics.failed(error, in: .fileTransfer)
-            Analytics.fileTransferFailed(error, direction: .up, stage: .read, bytes: Int64(totalBytes))
-            writes.removeValue(forKey: id)
-            uploadFailures[id] = error.localizedDescription
-        }
+        if let line = folderUploads[id]?.line() { return line }
+        guard let write = writes[id], write.door == .upload else { return nil }
+        let name = write.path.split(separator: "/").last.map(String.init) ?? write.path
+        return String(localized: "Sending \u{201C}\(name)\u{201D}…")
     }
 }

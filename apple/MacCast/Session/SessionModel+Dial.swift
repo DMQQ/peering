@@ -117,7 +117,7 @@ extension SessionModel {
 
         // The episode begins with the dial, not only a rung: a restoration and the relay-to-LAN handover dial with no ladder, so a dial that never answers is otherwise unbounded. See `reconnectWindow`.
         if isResuming, session.reconnectingSince == nil {
-            session.reconnectingSince = Date()
+            session.reconnectingSince = .now
         }
 
         session.hostName = target.displayName

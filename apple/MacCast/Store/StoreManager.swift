@@ -117,11 +117,18 @@ final class StoreManager {
             .string(forKey: Self.planOverrideKey)
             .flatMap(RelayPlan.init(rawValue:))
 #endif
-        Task { [weak self] in
+        updatesTask = Task { [weak self] in
             for await result in Transaction.updates {
                 await self?.handleVerification(result)
             }
         }
+    }
+
+    // `nonisolated(unsafe)` so `deinit` can cancel it; written once in `init`.
+    @ObservationIgnored private nonisolated(unsafe) var updatesTask: Task<Void, Never>?
+
+    deinit {
+        updatesTask?.cancel()
     }
 
     /// A UUID kept in the Keychain. Not a credential: it grants nothing unless it is on the relay's server-side paid list (PEERINGD_PAID_KEYS), which nothing here can add it to.
@@ -132,7 +139,8 @@ final class StoreManager {
 
     func start() async {
         await refreshEntitlement()
-        await fetchProducts()
+        // Not awaited: with no network the retries take half a minute, and the caller has more to set up.
+        Task { await fetchProducts() }
     }
 
     /// Re-reads the entitlement when the app returns to the front. A lapsed subscription produces no transaction, only absence from `currentEntitlements`, so a lapse under a running app kept the old plan armed (Picture in Picture especially).
@@ -302,6 +310,19 @@ final class StoreManager {
     private func fetchProducts() async {
         // Cleared first so a retry returns to the spinner.
         productsUnavailable = false
+        let backoff = RetryBackoff()
+        var retry = 0
+        while true {
+            if await loadProducts() { return }
+            guard let delay = backoff.delay(beforeRetry: retry), !Task.isCancelled else { break }
+            retry += 1
+            try? await Task.sleep(for: delay)
+        }
+        productsUnavailable = true
+    }
+
+    /// `false` when the store could not be reached, so the caller may try again. An empty answer is the store's answer and is not retried.
+    private func loadProducts() async -> Bool {
         do {
             let loaded = try await Product.products(for: Array(Self.paidProductIDs))
             // Tier order, then monthly first: the store answers by price, which reorders cards when a price changes.
@@ -313,10 +334,11 @@ final class StoreManager {
             lifetimeProduct = loaded.first { $0.id == Self.lifetimeProductID }
             // An empty answer is not a slow one. The store has spoken.
             productsUnavailable = products.isEmpty
+            return true
         } catch {
             Analytics.failed(error, in: .purchase)
             storeLog.error("product fetch failed: \(error, privacy: .public)")
-            productsUnavailable = true
+            return false
         }
     }
 

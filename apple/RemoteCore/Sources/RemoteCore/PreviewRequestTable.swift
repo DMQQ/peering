@@ -4,6 +4,9 @@ import Foundation
 final class PreviewRequestTable: @unchecked Sendable {
     typealias Continuation = AsyncStream<PreviewProxyEvent>.Continuation
 
+    /// A reader that stops reading would otherwise let a page's body pile up without bound.
+    static let maximumBufferedEvents = 1024
+
     // Every property below is guarded by `lock`. Continuations are only resumed after it is released.
     private let lock = NSLock()
     private var waiting: [UInt32: Continuation] = [:]
@@ -26,8 +29,10 @@ final class PreviewRequestTable: @unchecked Sendable {
         let continuation = lock.withLock { () -> Continuation? in
             event.isFinal ? waiting.removeValue(forKey: event.requestID) : waiting[event.requestID]
         }
-        continuation?.yield(event)
-        if event.isFinal { continuation?.finish() }
+        guard let continuation else { return }
+        let result = continuation.yield(event)
+        // Ending the stream makes its termination handler tell the Mac to stop sending.
+        if event.isFinal { continuation.finish() } else if case .dropped = result { continuation.finish() }
     }
 
     /// The link to the Mac is gone: every waiting request ends with a reason instead of hanging.

@@ -125,33 +125,6 @@ extension MacSession {
         }
     }
 
-    /// **Awaited between pieces rather than sent in one loop**, and that is about the screen
-    /// rather than the wire. Encoding a piece and handing it to the connection happens on the main
-    /// actor, so a large upload is thousands of those in a row; yielding between them is not
-    /// concurrency, it is the chance for everything else waiting on the main actor, a redraw
-    /// above all, to run.
-    private func send(_ data: Data, to path: String, sessionID id: UUID) async {
-        wire?.sendTerminal(.beginWrite(sessionID: id, path: path, totalBytes: data.count))
-
-        guard !data.isEmpty else {
-            wire?.sendTerminal(.writeChunk(sessionID: id, path: path, data: Data(), isLast: true))
-            return
-        }
-
-        var offset = 0
-        while offset < data.count {
-            let end = min(offset + Self.writeChunkBytes, data.count)
-            wire?.sendTerminal(.writeChunk(
-                sessionID: id,
-                path: path,
-                data: data.subdata(in: offset..<end),
-                isLast: end == data.count
-            ))
-            offset = end
-            await Task.yield()
-        }
-    }
-
     /// Containment rather than equality, so a folder deleted from a listing takes every listing
     /// below it with it, and the key for the unresolved request — a path of `nil` — is left alone
     /// because it belongs to no folder at all.
@@ -203,6 +176,7 @@ extension MacSession {
         // A write made through this shell cannot be finished, because every piece after this one is
         // refused by the Mac for naming a terminal that is gone, so the panel stops saying it is
         // waiting for one. The text the editor holds is the panel's own and goes with it.
+        cancelUpload(sessionID: id)
         writes.removeValue(forKey: id)
         saveFailures.removeValue(forKey: id)
         uploadFailures.removeValue(forKey: id)
