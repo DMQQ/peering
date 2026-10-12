@@ -1,5 +1,5 @@
 #!/bin/bash
-# Everything that can fail before a phone is involved: package tests, then a compile of both apps.
+# Everything that can fail before a phone is involved: the string catalogs, package tests, then a compile of both apps.
 #
 #   Tools/check.sh           # tests and both builds
 #   Tools/check.sh --quick   # package tests only
@@ -28,6 +28,8 @@ step() {
         failed=1
     fi
 }
+
+step "String catalogs are fully translated" python3 Tools/check-localization.py
 
 for package in MacCastKit RemoteCore SSHCore; do
     step "$package tests" swift test --package-path "$package"
