@@ -74,22 +74,48 @@ class ClientStateMachineTest {
     }
 
     @Test
-    fun theFirstHelloCarriesTheResumeSourceAndThePlatformAndCodecs() {
+    fun theHelloToAKnownHostCarriesTheResumeSourceAndThePlatformAndCodecs() {
+        val config = ClientConfig(
+            HostFrames.CLIENT_ID,
+            "Phone",
+            HostFrames.HOST_ID,
+            HostFrames.hostKey,
+            resumeSource = CaptureSource.Display(7).toJson(),
+            clientPlatform = "android",
+            videoCodecs = listOf("hevc", "h264"),
+        )
+        val pins = FakePinStore(mapOf(HostFrames.HOST_ID to HostFrames.hostKey))
+        val actions = ClientStateMachine(config, pins, FixedRandom(1)).start()
+
+        val hello = WireJson.decodeFromString(ClientHello.serializer(), actions[1].sentFrame().payload.decodeToString())
+        assertEquals(CaptureSource.Display(7).toJson(), hello.resumeSource)
+        assertEquals("android", hello.clientPlatform)
+        assertEquals(listOf("hevc", "h264"), hello.videoCodecs)
+    }
+
+    @Test
+    fun theHelloToAnUnknownHostCarriesNoResumeSource() {
         val config = ClientConfig(
             HostFrames.CLIENT_ID,
             "Phone",
             null,
             HostFrames.hostKey,
             resumeSource = CaptureSource.Display(7).toJson(),
-            clientPlatform = "android",
-            videoCodecs = listOf("hevc", "h264"),
         )
         val actions = ClientStateMachine(config, FakePinStore(), FixedRandom(1)).start()
 
         val hello = WireJson.decodeFromString(ClientHello.serializer(), actions[1].sentFrame().payload.decodeToString())
-        assertEquals(CaptureSource.Display(7).toJson(), hello.resumeSource)
-        assertEquals("android", hello.clientPlatform)
-        assertEquals(listOf("hevc", "h264"), hello.videoCodecs)
+        assertNull(hello.resumeSource)
+    }
+
+    @Test
+    fun theHelloDoesNotDeclareTheTextFocusAndFieldStateFramesItDropsButDeclaresThePointerReport() {
+        val actions = machine().start()
+
+        val hello = WireJson.decodeFromString(ClientHello.serializer(), actions[1].sentFrame().payload.decodeToString())
+        assertNull(hello.supportsTextFocus)
+        assertNull(hello.supportsFieldState)
+        assertEquals(true, hello.supportsPointerReport)
     }
 
     @Test
