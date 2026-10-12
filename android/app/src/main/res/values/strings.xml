@@ -206,6 +206,9 @@
     <string name="overlay_path_lan">LAN</string>
     <string name="overlay_path_relay">Relay</string>
     <string name="overlay_path_direct">Direct</string>
+    <string name="overlay_path_lan_description">Connected over the local network</string>
+    <string name="overlay_path_relay_description">Connected through the relay</string>
+    <string name="overlay_path_direct_description">Connected directly, without the relay</string>
     <string name="overlay_picture_waiting">Waiting for the picture</string>
     <string name="overlay_picture_paused">Picture paused</string>
     <string name="overlay_quota_low">%1$d min of relay time left today</string>

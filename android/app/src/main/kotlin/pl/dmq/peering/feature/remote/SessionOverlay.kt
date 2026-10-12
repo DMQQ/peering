@@ -11,7 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
-import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.ui.theme.PeeringColors
 
 /** The status line over the top of the picture: latency, the path, the picture state and any relay notice. */
@@ -26,13 +25,7 @@ fun SessionOverlay(state: SessionOverlayState, modifier: Modifier = Modifier) {
                     color = PeeringColors.muted,
                 )
             }
-            state.path?.let { path ->
-                Text(
-                    text = stringResource(path.labelRes()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = PeeringColors.ink,
-                )
-            }
+            state.path?.let { path -> PathBadge(path) }
             state.picture.labelRes()?.let {
                 Text(
                     text = stringResource(it),
@@ -53,12 +46,6 @@ fun SessionOverlay(state: SessionOverlayState, modifier: Modifier = Modifier) {
             )
         }
     }
-}
-
-private fun SessionRecord.Path.labelRes(): Int = when (this) {
-    SessionRecord.Path.LAN -> R.string.overlay_path_lan
-    SessionRecord.Path.RELAY -> R.string.overlay_path_relay
-    SessionRecord.Path.DIRECT -> R.string.overlay_path_direct
 }
 
 private fun PictureState.labelRes(): Int? = when (this) {
