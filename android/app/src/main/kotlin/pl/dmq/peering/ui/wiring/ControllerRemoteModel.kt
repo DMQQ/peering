@@ -25,6 +25,7 @@ internal class ControllerRemoteModel(
     scope: CoroutineScope,
     override val quality: QualityPort,
     relayAllowance: StateFlow<RelayAllowance>,
+    private val onDisconnect: () -> Unit,
     private val onOpen: (SessionRoute) -> Unit,
 ) : RemoteModel {
     override val state: StateFlow<RemoteUiState> = combine(controller.state, picture.pixelSize, relayAllowance) { session, pixels, allowance ->
@@ -39,7 +40,7 @@ internal class ControllerRemoteModel(
         when (entry) {
             HubEntry.AGENTS -> onOpen(SessionRoute.AGENTS)
             HubEntry.FILES -> onOpen(SessionRoute.FILES)
-            HubEntry.DISCONNECT -> controller.disconnect()
+            HubEntry.DISCONNECT -> onDisconnect()
             HubEntry.SOURCES, HubEntry.QUALITY -> Unit
         }
     }

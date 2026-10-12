@@ -55,7 +55,7 @@ enum class SessionRoute { REMOTE, AGENTS, FILES, PAYWALL }
 
 /**
  * The session's screens, one at a time. Back returns to the remote screen first, then leaves the session through
- * [onClose] when the caller provides one.
+ * [onClose] when the caller provides one. [onDisconnect] runs when the user ends the session from the menu.
  */
 @Composable
 internal fun SessionScreens(
@@ -68,6 +68,7 @@ internal fun SessionScreens(
     relayAllowance: RelayAllowanceTracker,
     clock: Clock,
     onClose: (() -> Unit)?,
+    onDisconnect: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -80,6 +81,7 @@ internal fun SessionScreens(
             scope = scope,
             quality = ControllerQualityPort(active.controller, settings, scope),
             relayAllowance = relayAllowance.allowance,
+            onDisconnect = onDisconnect,
         ) { route = it }
     }
     val session by active.controller.state.collectAsState()

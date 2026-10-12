@@ -5,6 +5,7 @@ plugins {
 }
 
 android {
+    testOptions.unitTests.isReturnDefaultValues = true
     namespace = "pl.dmq.peering"
     compileSdk = 35
 
@@ -50,6 +51,7 @@ dependencies {
     implementation(libs.zxing.core)
     implementation(libs.billing.ktx)
     testImplementation(libs.junit)
+    testImplementation(testFixtures(project(":core:session")))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
 }

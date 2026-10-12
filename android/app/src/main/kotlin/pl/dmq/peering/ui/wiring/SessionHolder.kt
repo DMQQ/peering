@@ -19,7 +19,7 @@ import pl.dmq.peering.session.hosts.HostDirectory
  * gives itself when a session to it becomes ready. A dialled address with no known device ID is not remembered.
  */
 internal class SessionHolder(
-    private val factory: SessionPortsFactory,
+    private val factory: SessionOpener,
     private val directory: HostDirectory,
     private val scope: CoroutineScope,
 ) {
@@ -57,6 +57,7 @@ internal class SessionHolder(
     }
 
     fun end() {
+        Log.i(TAG, "session ended by the user")
         current.value?.close()
         naming?.cancel()
         naming = null

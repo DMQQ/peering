@@ -88,6 +88,10 @@ internal fun ConnectTab(wiring: FeatureWiring) {
                 relayAllowance = wiring.relayAllowance,
                 clock = wiring.clock,
                 onClose = { showingSession = false },
+                onDisconnect = {
+                    showingSession = false
+                    wiring.holder.end()
+                },
             )
             else -> ConnectRoute(
                 presenter = connect,

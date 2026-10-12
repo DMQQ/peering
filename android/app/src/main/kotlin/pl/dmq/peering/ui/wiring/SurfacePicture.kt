@@ -28,7 +28,9 @@ internal class SurfacePicture : VideoSink, SurfaceListener {
     override fun onConfig(config: VideoStreamConfig) {
         this.config = config
         size.value = PixelSize(config.pixelWidth.toDouble(), config.pixelHeight.toDouble())
-        decoder?.onConfig(config)
+        // A reconnect on the same screen has released the decoder but kept the surface, so the next config rebuilds it.
+        val live = decoder ?: surface?.let(::CodecDecoder)?.also { decoder = it }
+        live?.onConfig(config)
     }
 
     override fun onFrame(frame: EncodedVideoFrame) {

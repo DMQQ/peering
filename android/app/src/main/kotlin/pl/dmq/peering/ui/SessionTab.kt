@@ -36,6 +36,7 @@ internal fun SessionTab(wiring: FeatureWiring) {
             relayAllowance = wiring.relayAllowance,
             clock = wiring.clock,
             onClose = null,
+            onDisconnect = wiring.holder::end,
         )
     } else {
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp).padding(top = 16.dp)) {

@@ -20,8 +20,8 @@ internal class SessionPortsFactory(
     private val history: SessionHistory,
     private val quality: QualitySource,
     private val billing: Billing,
-) {
-    fun open(target: ConnectTarget, scope: CoroutineScope): ActiveSession {
+) : SessionOpener {
+    override fun open(target: ConnectTarget, scope: CoroutineScope): ActiveSession {
         val lane = if (target.mayUseRelay()) UdpLane.bind() else null
         val relay = lane?.let { RelayPorts(sessions.newRelaySignalling(), it, billing::entitlement) }
         val downloads = SessionDownloads()

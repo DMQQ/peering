@@ -3,7 +3,9 @@ package pl.dmq.peering.ui.wiring
 import android.util.Log
 import java.net.InetSocketAddress
 import java.net.Socket
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import pl.dmq.peering.platform.net.TlsFactory
 import pl.dmq.peering.session.controller.ControlConnector
@@ -13,10 +15,18 @@ import pl.dmq.peering.session.ports.ControlTransport
 /** Dials the control connection over TLS: straight to the Mac, or through the relay with the token written first. */
 internal class ControlSockets(private val tls: TlsFactory) : ControlConnector {
     override suspend fun open(route: ControlRoute): ControlTransport = withContext(Dispatchers.IO) {
-        when (route) {
+        val transport = when (route) {
             is ControlRoute.Direct -> openDirect(route)
             is ControlRoute.Relayed -> openRelayed(route)
         }
+        // A blocking connect cannot be interrupted, so a session ended meanwhile would otherwise leave this socket open.
+        try {
+            ensureActive()
+        } catch (cancelled: CancellationException) {
+            transport.close()
+            throw cancelled
+        }
+        transport
     }
 
     private fun openDirect(route: ControlRoute.Direct): ControlTransport {

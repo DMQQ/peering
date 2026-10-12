@@ -138,6 +138,8 @@ class SessionController(
     fun disconnect() {
         if (job?.isActive != true) return
         job?.cancel()
+        pendingCode?.answer?.cancel()
+        pendingCode = null
         endHistory(SessionRecord.EndReason.USER_ENDED)
         update { it.copy(phase = SessionPhase.Ended) }
     }
