@@ -3,9 +3,7 @@
 package pl.dmq.peering.session.controller
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -116,7 +114,7 @@ class PairingSessionTest {
     }
 
     @Test
-    fun aTargetThatAlreadyHoldsTheQrSecretNeverAsksForTheCode() = runTest {
+    fun aTargetThatHoldsTheQrSecretStillWaitsForTheDisplayedCodeAndRefusesAWrongOne() = runTest {
         val secret = ByteArray(32) { 0x5A }
         val rig = ControllerRig(
             backgroundScope,
@@ -125,14 +123,19 @@ class PairingSessionTest {
             ScriptedMac(alreadyPaired = false, qrSecret = secret),
             FakePinStore(),
         )
-        val phases = mutableListOf<SessionPhase>()
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { rig.controller.state.collect { phases += it.phase } }
 
         rig.controller.connect()
         settle()
+        assertTrue(rig.controller.state.value.phase is SessionPhase.EnteringPairingCode)
+        assertEquals(null, rig.mac.connections.single().host.confirmation)
 
+        assertEquals(CodeCheck.Mismatch, rig.controller.submitPairingCode(otherThan(shownCode(rig))))
+        assertEquals(null, rig.mac.connections.single().host.confirmation)
+
+        assertEquals(CodeCheck.Match, rig.controller.submitPairingCode(shownCode(rig)))
+        settle()
         assertTrue(rig.controller.state.value.phase is SessionPhase.Ready)
-        assertTrue(phases.none { it is SessionPhase.EnteringPairingCode })
+        assertTrue(rig.mac.connections.single().host.confirmation?.proofBytes != null)
     }
 
     @Test

@@ -298,7 +298,6 @@ class SessionController(
         if (ended.isCompleted) ended.getCompleted() as? LinkEnd.Terminal else null
 
     private suspend fun awaitPairing(code: String): PairingDecision {
-        (target as? ConnectTarget.Pairing)?.qrSecret?.let { return PairingDecision(accepted = true, secret = it) }
         update { it.copy(phase = SessionPhase.EnteringPairingCode(attempts = 0)) }
         val pending = PendingCode(PairingCodeGate(code), CompletableDeferred())
         pendingCode = pending
