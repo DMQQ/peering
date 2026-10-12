@@ -21,7 +21,7 @@ extension HomeTab {
 
         // A first pairing that found nothing: the relay answers the same whether the Mac is asleep or the ID was mistyped, and the ID is what the user can check.
         if let pairingID = model.remotePairingHostID,
-           normalized.contains(String(localized: "not currently registered with the relay")) {
+           model.failureCause == .relayHostOffline {
             return FailurePresentation(
                 title: String(localized: "No Mac answered"),
                 message: String(localized: "Nothing is registered with the relay under \(pairingID). Check that the whole ID was copied or scanned from the Mac, and that the Mac is awake with Peering running."),
@@ -29,7 +29,7 @@ extension HomeTab {
             )
         }
 
-        if normalized.contains(String(localized: "not currently registered with the relay")) {
+        if model.failureCause == .relayHostOffline {
             return FailurePresentation(
                 title: String(localized: "Mac is not available"),
                 message: String(localized: "The relay is working, but this Mac is not connected to it. Make sure the Mac is awake and Peering is running there."),

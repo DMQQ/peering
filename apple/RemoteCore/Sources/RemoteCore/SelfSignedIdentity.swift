@@ -49,6 +49,12 @@ public final class SelfSignedIdentity: @unchecked Sendable {
         case identityNotRemoved
         case signing(String)
 
+        /// The Keychain itself refused, which unlocking the device can fix; every other case is a fault in making the key.
+        public var isKeychainRefusal: Bool {
+            if case .keychain = self { return true }
+            return false
+        }
+
         public var errorDescription: String? {
             switch self {
             case .keyGeneration(let detail):

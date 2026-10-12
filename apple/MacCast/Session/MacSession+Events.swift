@@ -47,7 +47,8 @@ extension MacSession {
             let cappedFailure = previous == .ready ? retryCapFailure(for: phase) : nil
             if previous == .ready, case .failed = phase { noteDropped(capped: cappedFailure != nil) }
             if cappedFailure != nil { shouldScheduleReconnect = false }
-            self.phase = cappedFailure ?? phase
+            failureCause = cappedFailure == nil ? wire?.failureCause : nil
+            self.phase = cappedFailure ?? FailureText.localized(phase, cause: failureCause)
             if phase == .ready {
                 model.pairedHostIDs = model.pins.hostIDs
                 // A handshake reaching `.ready` has just established or confirmed a pin, one of the few moments the paired list can change.

@@ -44,6 +44,9 @@ final class MacSession: Identifiable {
 
     var phase: ClientSession.Phase = .idle
 
+    /// Why ``phase`` failed, when the wording could be chosen here. The picker reads it instead of searching the sentence.
+    var failureCause: ClientSession.FailureCause?
+
     var wire: ClientSession?
 
     var hostID: String?

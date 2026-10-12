@@ -820,6 +820,64 @@
         }
       }
     },
+    "Enter the Mac's device ID, or scan its code." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gib die Geräte-ID des Mac ein oder scanne seinen Code."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce el ID de dispositivo del Mac o escanea su código."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saisissez l'ID de l'appareil du Mac ou scannez son code."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inserisci l'ID dispositivo del Mac o scansiona il suo codice."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MacのデバイスIDを入力するか、そのコードをスキャンしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac의 기기 ID를 입력하거나 코드를 스캔하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Digite o ID do dispositivo do Mac ou escaneie o código dele."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Введите ID устройства Mac или отсканируйте его код."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入 Mac 的设备 ID，或扫描它的二维码。"
+          }
+        }
+      }
+    },
     "Every open shell on this phone will be closed." : {
       "localizations" : {
         "de" : {
@@ -1110,6 +1168,992 @@
         }
       }
     },
+    "That Mac is not currently registered with the relay." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Mac ist derzeit nicht beim Relay registriert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese Mac no está registrado actualmente en el relay."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce Mac n'est pas actuellement enregistré auprès du relais."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quel Mac non è attualmente registrato sul relay."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのMacは現在リレーに登録されていません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해당 Mac은 현재 릴레이에 등록되어 있지 않습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esse Mac não está registrado no relay no momento."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот Mac сейчас не зарегистрирован на релее."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该 Mac 当前未在中继上注册。"
+          }
+        }
+      }
+    },
+    "That QR code is not a Peering pairing code. In Peering on the Mac, the code to scan is beside the device ID." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser QR-Code ist kein Peering-Kopplungscode. In Peering auf dem Mac steht der zu scannende Code neben der Geräte-ID."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese código QR no es un código de emparejamiento de Peering. En Peering en el Mac, el código que hay que escanear está junto al ID de dispositivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce code QR n'est pas un code d'association Peering. Dans Peering sur le Mac, le code à scanner se trouve à côté de l'ID de l'appareil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quel codice QR non è un codice di abbinamento di Peering. In Peering sul Mac, il codice da scansionare è accanto all'ID dispositivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのQRコードはPeeringのペアリングコードではありません。Mac上のPeeringでは、スキャンするコードはデバイスIDの隣にあります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "그 QR 코드는 Peering 페어링 코드가 아닙니다. Mac의 Peering에서 스캔할 코드는 기기 ID 옆에 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esse código QR não é um código de pareamento do Peering. No Peering do Mac, o código a escanear fica ao lado do ID do dispositivo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот QR-код не является кодом связывания Peering. В Peering на Mac нужный код находится рядом с ID устройства."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该二维码不是 Peering 的配对码。在 Mac 上的 Peering 中，要扫描的二维码位于设备 ID 旁边。"
+          }
+        }
+      }
+    },
+    "The connection to the Mac failed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Verbindung zum Mac ist fehlgeschlagen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falló la conexión con el Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion au Mac a échoué."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connessione al Mac non è riuscita."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macとの接続に失敗しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac과의 연결에 실패했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A conexão com o Mac falhou."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось подключиться к Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "与 Mac 的连接失败。"
+          }
+        }
+      }
+    },
+    "The connection to the Mac was interrupted." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Verbindung zum Mac wurde unterbrochen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se interrumpió la conexión con el Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion au Mac a été interrompue."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connessione al Mac è stata interrotta."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macとの接続が中断されました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac과의 연결이 중단되었습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A conexão com o Mac foi interrompida."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Соединение с Mac прервано."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "与 Mac 的连接被中断。"
+          }
+        }
+      }
+    },
+    "The connection to the Mac was lost." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Verbindung zum Mac ist abgebrochen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se perdió la conexión con el Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion au Mac a été perdue."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connessione al Mac è andata persa."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macとの接続が失われました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac과의 연결이 끊어졌습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A conexão com o Mac foi perdida."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Соединение с Mac потеряно."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "与 Mac 的连接已断开。"
+          }
+        }
+      }
+    },
+    "The Keychain would not give up this device's key. Unlock the iPhone and reopen Peering." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Schlüsselbund hat den Schlüssel dieses Geräts nicht herausgegeben. Entsperre das iPhone und öffne Peering erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El llavero no entregó la clave de este dispositivo. Desbloquea el iPhone y vuelve a abrir Peering."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le trousseau n'a pas donné accès à la clé de cet appareil. Déverrouillez l'iPhone et rouvrez Peering."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il portachiavi non ha fornito la chiave di questo dispositivo. Sblocca l'iPhone e riapri Peering."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キーチェーンからこのデバイスのキーを取り出せませんでした。iPhoneのロックを解除してPeeringを開き直してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "키체인에서 이 기기의 키를 가져오지 못했습니다. iPhone 잠금을 해제하고 Peering을 다시 여세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Chaveiro não liberou a chave deste dispositivo. Desbloqueie o iPhone e abra o Peering de novo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Связка ключей не выдала ключ этого устройства. Разблокируйте iPhone и снова откройте Peering."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "钥匙串未提供此设备的密钥。请解锁 iPhone 并重新打开 Peering。"
+          }
+        }
+      }
+    },
+    "The Mac closed the connection." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac hat die Verbindung geschlossen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac cerró la conexión."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac a fermé la connexion."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac ha chiuso la connessione."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macが接続を閉じました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 연결을 닫았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac encerrou a conexão."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac закрыл соединение."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 已关闭连接。"
+          }
+        }
+      }
+    },
+    "The Mac closed the connection. It may have quit, restarted, or gone to sleep." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac hat die Verbindung geschlossen. Möglicherweise wurde er beendet, neu gestartet oder in den Ruhezustand versetzt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac cerró la conexión. Puede que se haya cerrado, reiniciado o puesto en reposo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac a fermé la connexion. Il a peut-être quitté l'app, redémarré ou être passé en veille."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac ha chiuso la connessione. Potrebbe essere stato chiuso, riavviato o messo in stop."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macが接続を閉じました。終了、再起動、またはスリープした可能性があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 연결을 닫았습니다. 종료되었거나, 다시 시작되었거나, 잠자기 상태가 되었을 수 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac encerrou a conexão. Ele pode ter sido fechado, reiniciado ou entrado em repouso."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac закрыл соединение. Возможно, он завершил работу, перезагрузился или перешёл в режим сна."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 已关闭连接。它可能已退出、重启或进入睡眠。"
+          }
+        }
+      }
+    },
+    "The Mac connected but did not finish setting up the session. Check that it is awake and try again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac hat sich verbunden, aber die Sitzung nicht fertig eingerichtet. Prüfe, ob er wach ist, und versuche es erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac se conectó pero no terminó de configurar la sesión. Comprueba que está despierto e inténtalo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac s'est connecté mais n'a pas fini de mettre en place la session. Vérifiez qu'il est éveillé et réessayez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac si è connesso ma non ha completato la configurazione della sessione. Controlla che sia sveglio e riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macは接続されましたが、セッションの設定を完了できませんでした。Macが起動していることを確認して、もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 연결되었지만 세션 설정을 끝내지 못했습니다. Mac이 깨어 있는지 확인하고 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac se conectou, mas não terminou de configurar a sessão. Verifique se ele está acordado e tente de novo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac подключился, но не завершил настройку сеанса. Проверьте, что он не спит, и повторите попытку."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 已连接，但没有完成会话的设置。请确认它处于唤醒状态，然后重试。"
+          }
+        }
+      }
+    },
+    "The Mac could not be reached on this network." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac war in diesem Netzwerk nicht erreichbar."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo llegar al Mac en esta red."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac est injoignable sur ce réseau."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac non è raggiungibile su questa rete."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このネットワークではMacに接続できませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 네트워크에서 Mac에 연결할 수 없었습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível alcançar o Mac nesta rede."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "До Mac не удалось добраться в этой сети."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在此网络上无法连接到 Mac。"
+          }
+        }
+      }
+    },
+    "The Mac did not answer in time. Check that it is awake and on the same network." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac hat nicht rechtzeitig geantwortet. Prüfe, ob er wach und im selben Netzwerk ist."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac no respondió a tiempo. Comprueba que está despierto y en la misma red."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac n'a pas répondu à temps. Vérifiez qu'il est éveillé et sur le même réseau."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac non ha risposto in tempo. Controlla che sia sveglio e sulla stessa rete."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macが時間内に応答しませんでした。Macが起動していて、同じネットワークにあることを確認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 제때 응답하지 않았습니다. Mac이 깨어 있고 같은 네트워크에 있는지 확인하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac não respondeu a tempo. Verifique se ele está acordado e na mesma rede."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac не ответил вовремя. Проверьте, что он не спит и находится в той же сети."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 未能及时响应。请确认它处于唤醒状态且在同一网络中。"
+          }
+        }
+      }
+    },
+    "The Mac did not answer. Check that both devices are on the same network." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac hat nicht geantwortet. Prüfe, ob beide Geräte im selben Netzwerk sind."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac no respondió. Comprueba que ambos dispositivos están en la misma red."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac n'a pas répondu. Vérifiez que les deux appareils sont sur le même réseau."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac non ha risposto. Controlla che i due dispositivi siano sulla stessa rete."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macが応答しませんでした。2台のデバイスが同じネットワークにあることを確認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 응답하지 않았습니다. 두 기기가 같은 네트워크에 있는지 확인하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac não respondeu. Verifique se os dois dispositivos estão na mesma rede."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac не ответил. Проверьте, что оба устройства находятся в одной сети."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 没有响应。请确认两台设备在同一网络中。"
+          }
+        }
+      }
+    },
+    "The Mac is switched off or asleep." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac ist ausgeschaltet oder im Ruhezustand."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac está apagado o en reposo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac est éteint ou en veille."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac è spento o in stop."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macの電源が切れているか、スリープ中です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 꺼져 있거나 잠자기 상태입니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac está desligado ou em repouso."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac выключен или находится в режиме сна."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 已关机或处于睡眠状态。"
+          }
+        }
+      }
+    },
+    "The Mac refused the connection. Check that Peering is running on it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac hat die Verbindung abgelehnt. Prüfe, ob Peering darauf läuft."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac rechazó la conexión. Comprueba que Peering se está ejecutando en él."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac a refusé la connexion. Vérifiez que Peering y est en cours d'exécution."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac ha rifiutato la connessione. Controlla che Peering sia in esecuzione."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macが接続を拒否しました。MacでPeeringが動いていることを確認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 연결을 거부했습니다. Mac에서 Peering이 실행 중인지 확인하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac recusou a conexão. Verifique se o Peering está em execução nele."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac отклонил соединение. Проверьте, что на нём запущен Peering."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 拒绝了连接。请确认 Peering 正在其上运行。"
+          }
+        }
+      }
+    },
+    "The Mac sent something this app could not read. Update Peering on both devices and try again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac hat etwas gesendet, das diese App nicht lesen konnte. Aktualisiere Peering auf beiden Geräten und versuche es erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac envió algo que esta app no pudo leer. Actualiza Peering en ambos dispositivos e inténtalo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac a envoyé quelque chose que cette app n'a pas pu lire. Mettez Peering à jour sur les deux appareils et réessayez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac ha inviato qualcosa che questa app non è riuscita a leggere. Aggiorna Peering su entrambi i dispositivi e riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macから、このアプリで読み取れないデータが送られてきました。両方のデバイスでPeeringをアップデートして、もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac에서 이 앱이 읽을 수 없는 내용을 보냈습니다. 두 기기 모두에서 Peering을 업데이트한 다음 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac enviou algo que este app não conseguiu ler. Atualize o Peering nos dois dispositivos e tente de novo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac отправил данные, которые это приложение не смогло прочитать. Обновите Peering на обоих устройствах и повторите попытку."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 发来了此 App 无法读取的内容。请在两台设备上更新 Peering，然后重试。"
+          }
+        }
+      }
+    },
+    "The Mac stopped answering. It may have moved networks, or the connection was interrupted." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac antwortet nicht mehr. Möglicherweise hat er das Netzwerk gewechselt oder die Verbindung wurde unterbrochen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac dejó de responder. Puede que haya cambiado de red o que se haya interrumpido la conexión."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac a cessé de répondre. Il a peut-être changé de réseau, ou la connexion a été interrompue."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac ha smesso di rispondere. Potrebbe aver cambiato rete, oppure la connessione è stata interrotta."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macが応答しなくなりました。別のネットワークに移ったか、接続が中断された可能性があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 응답하지 않습니다. 다른 네트워크로 옮겨졌거나 연결이 중단되었을 수 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac parou de responder. Ele pode ter mudado de rede, ou a conexão foi interrompida."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac перестал отвечать. Возможно, он перешёл в другую сеть или соединение прервалось."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 不再响应。它可能切换了网络，或者连接被中断。"
+          }
+        }
+      }
+    },
+    "The pairing succeeded but this device could not save it. Check that the Keychain is available." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Kopplung war erfolgreich, aber dieses Gerät konnte sie nicht speichern. Prüfe, ob der Schlüsselbund verfügbar ist."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El emparejamiento se completó, pero este dispositivo no pudo guardarlo. Comprueba que el llavero está disponible."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'association a réussi, mais cet appareil n'a pas pu l'enregistrer. Vérifiez que le trousseau est disponible."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'abbinamento è riuscito, ma questo dispositivo non è riuscito a salvarlo. Controlla che il portachiavi sia disponibile."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリングは成功しましたが、このデバイスでは保存できませんでした。キーチェーンを利用できることを確認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링은 성공했지만 이 기기에서 저장하지 못했습니다. 키체인을 사용할 수 있는지 확인하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O pareamento foi concluído, mas este dispositivo não conseguiu salvá-lo. Verifique se o Chaveiro está disponível."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Связывание выполнено, но это устройство не смогло его сохранить. Проверьте, доступна ли связка ключей."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "配对已成功，但此设备无法保存。请确认钥匙串可用。"
+          }
+        }
+      }
+    },
     "The picture stopped and this Mac could not start it again. Reconnect to try once more, or check Screen Recording and the display on the Mac." : {
       "localizations" : {
         "de" : {
@@ -1164,6 +2208,412 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "画面已停止，这台 Mac 无法重新启动它。请重新连接再试一次，或检查 Mac 上的“屏幕录制”和显示器。"
+          }
+        }
+      }
+    },
+    "The relay answered in a way this app could not use. Try again in a moment." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Relay hat auf eine Weise geantwortet, die diese App nicht verwenden konnte. Versuche es gleich noch einmal."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El relay respondió de una forma que esta app no pudo usar. Inténtalo de nuevo en un momento."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le relais a répondu d'une manière que cette app n'a pas pu exploiter. Réessayez dans un instant."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il relay ha risposto in un modo che questa app non ha potuto usare. Riprova tra un attimo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リレーから、このアプリで扱えない応答が返されました。少し待ってからもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "릴레이가 이 앱에서 사용할 수 없는 방식으로 응답했습니다. 잠시 후 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O relay respondeu de uma forma que este app não conseguiu usar. Tente de novo em instantes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Релей ответил так, что приложение не смогло это использовать. Повторите попытку через минуту."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中继的响应方式此 App 无法使用。请稍后重试。"
+          }
+        }
+      }
+    },
+    "The relay did not answer in time." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Relay hat nicht rechtzeitig geantwortet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El relay no respondió a tiempo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le relais n'a pas répondu à temps."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il relay non ha risposto in tempo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リレーが時間内に応答しませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "릴레이가 제때 응답하지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O relay não respondeu a tempo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Релей не ответил вовремя."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中继未能及时响应。"
+          }
+        }
+      }
+    },
+    "The video channel did not come back." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Videokanal ist nicht zurückgekehrt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El canal de vídeo no se restableció."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le canal vidéo n'est pas revenu."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il canale video non è tornato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "映像の経路が復旧しませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "영상 채널이 복구되지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O canal de vídeo não voltou."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Видеоканал не восстановился."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视频通道未能恢复。"
+          }
+        }
+      }
+    },
+    "This device could not open the connection it needs." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Gerät konnte die benötigte Verbindung nicht öffnen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este dispositivo no pudo abrir la conexión que necesita."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil n'a pas pu ouvrir la connexion dont il a besoin."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo dispositivo non è riuscito ad aprire la connessione necessaria."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデバイスは必要な接続を開けませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기에서 필요한 연결을 열지 못했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este dispositivo não conseguiu abrir a conexão de que precisa."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это устройство не смогло открыть нужное соединение."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此设备无法打开所需的连接。"
+          }
+        }
+      }
+    },
+    "This device is not on a network." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Gerät ist mit keinem Netzwerk verbunden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este dispositivo no está conectado a ninguna red."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil n'est connecté à aucun réseau."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo dispositivo non è collegato a nessuna rete."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデバイスはネットワークに接続されていません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기는 네트워크에 연결되어 있지 않습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este dispositivo não está em nenhuma rede."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это устройство не подключено к сети."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此设备未连接到网络。"
+          }
+        }
+      }
+    },
+    "This device's key could not be created or read." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Schlüssel dieses Geräts konnte nicht erstellt oder gelesen werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo crear ni leer la clave de este dispositivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La clé de cet appareil n'a pas pu être créée ni lue."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile creare o leggere la chiave di questo dispositivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデバイスのキーを作成または読み取れませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기의 키를 만들거나 읽지 못했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível criar ou ler a chave deste dispositivo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось создать или прочитать ключ этого устройства."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法创建或读取此设备的密钥。"
+          }
+        }
+      }
+    },
+    "This iPhone could not read its saved pairings from the Keychain. Unlock the iPhone and try again. Nothing was changed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses iPhone konnte seine gespeicherten Kopplungen nicht aus dem Schlüsselbund lesen. Entsperre das iPhone und versuche es erneut. Nichts wurde geändert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este iPhone no pudo leer sus emparejamientos guardados del llavero. Desbloquea el iPhone e inténtalo de nuevo. No se ha cambiado nada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet iPhone n'a pas pu lire ses associations enregistrées dans le trousseau. Déverrouillez l'iPhone et réessayez. Rien n'a été modifié."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo iPhone non è riuscito a leggere dal portachiavi gli abbinamenti salvati. Sblocca l'iPhone e riprova. Non è stato modificato nulla."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このiPhoneは、保存されているペアリングをキーチェーンから読み取れませんでした。iPhoneのロックを解除して、もう一度お試しください。何も変更されていません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 iPhone이 키체인에서 저장된 페어링을 읽지 못했습니다. iPhone 잠금을 해제하고 다시 시도하세요. 변경된 것은 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este iPhone não conseguiu ler os pareamentos salvos no Chaveiro. Desbloqueie o iPhone e tente de novo. Nada foi alterado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот iPhone не смог прочитать сохранённые связывания из связки ключей. Разблокируйте iPhone и повторите попытку. Ничего не изменено."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 iPhone 无法从钥匙串读取已保存的配对。请解锁 iPhone 后重试。没有任何内容被更改。"
           }
         }
       }
@@ -1338,6 +2788,122 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这台 Mac 的屏幕已进入睡眠。"
+          }
+        }
+      }
+    },
+    "This session is already connecting or connected." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Sitzung wird bereits verbunden oder ist schon verbunden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta sesión ya se está conectando o ya está conectada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette session est déjà en cours de connexion ou connectée."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa sessione si sta già connettendo o è già connessa."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このセッションはすでに接続中、または接続済みです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 세션은 이미 연결 중이거나 연결되어 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta sessão já está conectando ou já está conectada."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот сеанс уже подключается или подключён."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此会话已在连接中或已连接。"
+          }
+        }
+      }
+    },
+    "Those six digits are the pairing code, not the Mac's ID. Scan the QR code beside the device ID in Peering on the Mac." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese sechs Ziffern sind der Kopplungscode, nicht die ID des Mac. Scanne den QR-Code neben der Geräte-ID in Peering auf dem Mac."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esos seis dígitos son el código de emparejamiento, no el ID del Mac. Escanea el código QR junto al ID de dispositivo en Peering en el Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ces six chiffres sont le code d'association, pas l'ID du Mac. Scannez le code QR à côté de l'ID de l'appareil dans Peering sur le Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quelle sei cifre sono il codice di abbinamento, non l'ID del Mac. Scansiona il codice QR accanto all'ID dispositivo in Peering sul Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "その6桁の数字はペアリングコードで、MacのIDではありません。Mac上のPeeringで、デバイスIDの隣にあるQRコードをスキャンしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "그 여섯 자리 숫자는 페어링 코드이며 Mac의 ID가 아닙니다. Mac의 Peering에서 기기 ID 옆에 있는 QR 코드를 스캔하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esses seis dígitos são o código de pareamento, não o ID do Mac. Escaneie o código QR ao lado do ID do dispositivo no Peering do Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эти шесть цифр — код связывания, а не ID Mac. Отсканируйте QR-код рядом с ID устройства в Peering на Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这六位数字是配对码，不是 Mac 的 ID。请在 Mac 上的 Peering 中扫描设备 ID 旁边的二维码。"
           }
         }
       }
@@ -2034,6 +3600,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "· %lld 个接口"
+          }
+        }
+      }
+    },
+    "“%@” is not a Mac's device ID. An ID is the 36-character code, with hyphens, that Peering shows on the Mac." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ ist keine Geräte-ID eines Mac. Eine ID ist der 36-stellige Code mit Bindestrichen, den Peering auf dem Mac anzeigt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» no es el ID de dispositivo de un Mac. Un ID es el código de 36 caracteres, con guiones, que Peering muestra en el Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "« %@ » n'est pas l'ID d'appareil d'un Mac. Un ID est le code de 36 caractères, avec des tirets, que Peering affiche sur le Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» non è l'ID dispositivo di un Mac. Un ID è il codice di 36 caratteri, con trattini, che Peering mostra sul Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」はMacのデバイスIDではありません。IDは、Mac上のPeeringに表示される、ハイフン付きの36文字のコードです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”은(는) Mac의 기기 ID가 아닙니다. ID는 Mac의 Peering에 표시되는, 하이픈이 포함된 36자 코드입니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” não é o ID de dispositivo de um Mac. Um ID é o código de 36 caracteres, com hifens, que o Peering mostra no Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» не является ID устройства Mac. ID — это 36-символьный код с дефисами, который Peering показывает на Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”不是 Mac 的设备 ID。ID 是 Peering 在 Mac 上显示的、带连字符的 36 位代码。"
           }
         }
       }

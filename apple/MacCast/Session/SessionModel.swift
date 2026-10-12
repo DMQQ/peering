@@ -164,6 +164,8 @@ final class SessionModel {
     }()
 
     /// The phase carries it, and the picker needs it: otherwise an instantly failed connection looks like a button that did nothing.
+    var failureCause: ClientSession.FailureCause? { activeSession?.failureCause }
+
     var failureMessage: String? {
         if case .failed(let message) = phase { return message }
         return nil
@@ -303,7 +305,7 @@ final class SessionModel {
             identity = try SelfSignedIdentity.loadOrCreate(role: .client, commonName: device.name)
         } catch {
             Analytics.failed(error, in: .security)
-            identityFailure = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            identityFailure = FailureText.identityMessage(for: error)
             modelLog.error("could not load the client identity: \(String(describing: error), privacy: .public)")
         }
 

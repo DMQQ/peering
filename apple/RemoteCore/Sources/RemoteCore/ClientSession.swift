@@ -47,6 +47,7 @@ public final class ClientSession: @unchecked Sendable {
     let previewRequests = PreviewRequestTable()
     var _phase: Phase = .idle
     var _failureReason: FailureReason?
+    var _failureCause: FailureCause?
     var control: ClientConnection?
     var video: ClientConnection?
     var videoConnectTask: Task<Void, Never>?
@@ -210,6 +211,8 @@ public final class ClientSession: @unchecked Sendable {
     public var phase: Phase { lock.withLock { _phase } }
     /// Set with ``Phase/failed(_:)`` and cleared when a new connection begins.
     public var failureReason: FailureReason? { lock.withLock { _failureReason } }
+    /// What to tell the person, from a closed set, when the failure has a wording that needs no names or numbers. Set and cleared with ``failureReason``.
+    public var failureCause: FailureCause? { lock.withLock { _failureCause } }
     /// Set with ``failureReason`` and cleared with it.
     public var failureDiagnosis: FailureDiagnosis? { lock.withLock { _failureDiagnosis } }
     /// From the dial to ``Phase/ready``, `nil` before the session is ready.
@@ -307,7 +310,7 @@ public final class ClientSession: @unchecked Sendable {
                case .refused(let code, _) = e, code == "quotaExceeded" {
                 emit(.relayQuotaExceeded)
             }
-            fail(Failure.describe(error), reason: FailureReason(error))
+            fail(Failure.describe(error), reason: FailureReason(error), cause: FailureCause(error))
             return
         }
 
@@ -456,7 +459,7 @@ public final class ClientSession: @unchecked Sendable {
             }
             guard silent else { return }
             clientSessionLog.error("no answer within \(grace, privacy: .public)s of being asked; failing the session")
-            self.fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsiveAfterCheck)
+            self.fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsiveAfterCheck, cause: .hostUnresponsive)
         }
     }
 
