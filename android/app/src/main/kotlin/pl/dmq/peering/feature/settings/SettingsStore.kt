@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.Flow
 interface SettingsStore {
     fun streamQuality(): Flow<StreamQuality>
 
+    fun currentStreamQuality(): StreamQuality
+
     /** False when the value did not persist, so the screen must not show it as chosen. */
     fun saveStreamQuality(quality: StreamQuality): Boolean
 }

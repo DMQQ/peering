@@ -18,6 +18,7 @@ import pl.dmq.peering.session.video.VideoLanes
 import pl.dmq.peering.wire.AutoQualityPolicy
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.ServerHello
+import pl.dmq.peering.wire.QualityTier
 import pl.dmq.peering.wire.SetStreamQuality
 import pl.dmq.peering.wire.VideoTransportKind
 import kotlin.math.roundToInt
@@ -41,6 +42,8 @@ internal class ConnectedLink(
     agent: AgentChat?,
     files: FileBrowser?,
     relay: RelayConnect?,
+    private val quality: QualityChoice,
+    private val ceiling: QualityTier,
 ) {
     private val liveness = LivenessMonitor(clock)
     val commands = SessionCommands(hello)
@@ -55,6 +58,7 @@ internal class ConnectedLink(
     )
     private val router = FrameRouter(liveness, commands, lanes, selection, agent, files)
     private var pictureSeen = false
+    private var automatic: AutoQualityPolicy? = null
     private val direct: DirectPathRunner? = route.datagrams?.let { datagrams ->
         relay?.let { DirectPathRunner(lanes, datagrams, it, route.videoToken) }
     }
@@ -80,7 +84,7 @@ internal class ConnectedLink(
 
     /** Starts the link's loops in this scope. [ended] completes with the reason the link stopped. */
     fun CoroutineScope.serve(ended: CompletableDeferred<LinkEnd>, onTick: () -> Unit) {
-        commands.offer(SetStreamQuality(fps = 0, bitrateKbps = AutoQualityPolicy(route.path.qualityPath()).tier.kbps))
+        applyQuality(quality, ceiling)
         launchLinkTask(ended) {
             if (route.path == SessionRecord.Path.RELAY) {
                 for (event in lanes.start().asEvents()) applyEvent(event, ended)
@@ -109,10 +113,35 @@ internal class ConnectedLink(
         launchLinkTask(ended) {
             every(LANE_INTERVAL) {
                 for (event in lanes.tick(clock.monotonicSeconds()).asEvents()) applyEvent(event, ended)
+                steerAutomatic()
                 if (liveness.isSilent(clock.monotonicSeconds(), SILENCE_LIMIT_SECONDS)) ended.complete(LinkEnd.Lost)
                 onTick()
             }
         }
+    }
+
+    /** Holds the rate the user chose, or starts the policy that moves it, capped at [ceiling]. */
+    fun applyQuality(choice: QualityChoice, ceiling: QualityTier) {
+        when (choice) {
+            QualityChoice.Automatic -> {
+                val policy = AutoQualityPolicy(route.path.qualityPath(), ceiling)
+                automatic = policy
+                commands.offer(SetStreamQuality(fps = 0, bitrateKbps = policy.tier.kbps))
+            }
+            is QualityChoice.Fixed -> {
+                automatic = null
+                commands.offer(SetStreamQuality(fps = 0, bitrateKbps = minOf(choice.tier, ceiling).kbps))
+            }
+        }
+    }
+
+    /** The policy reads latency only: the decoder's dropped-frame count is not carried to this layer. */
+    private fun steerAutomatic() {
+        val policy = automatic ?: return
+        if (lanes.delivery.transport == VideoTransportKind.CONTROL) return
+        val latency = liveness.smoothedLatencyMillis() ?: return
+        val tier = policy.observe(latency, newDroppedFrames = 0) ?: return
+        commands.offer(SetStreamQuality(fps = 0, bitrateKbps = tier.kbps))
     }
 
     private suspend fun applyEvent(event: SessionEvent, ended: CompletableDeferred<LinkEnd>) {

@@ -12,6 +12,12 @@ interface RemoteModel {
     /** Receives the picture's surface, for the decoder to draw into. */
     val surface: SurfaceListener
 
-    /** A hub entry the remote screen does not open itself: Agents, Files, Quality or Disconnect. */
+    /** The picture quality the sheet reads and changes. */
+    val quality: QualityPort
+
+    /** A hub entry the remote screen does not open itself: Agents, Files or Disconnect. */
     fun onHubEntry(entry: HubEntry)
+
+    /** A quality the session cannot stream without more relay time was picked: the paywall opens. */
+    fun onRelayUpgradeRequested()
 }

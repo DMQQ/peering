@@ -15,6 +15,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,9 +33,14 @@ fun RemoteRoute(model: RemoteModel) {
     val keyboard = remember(model) { KeyboardPresenter(model.commands) }
     val sources = remember(model) { SourcesPresenter(model.commands) }
     val hub = remember { HubPresenter() }
+    val scope = rememberCoroutineScope()
+    val qualitySheet = remember(model) {
+        QualitySheetPresenter(model.quality, scope, onNeedsUpgrade = model::onRelayUpgradeRequested)
+    }
     val latches by keyboard.latches.collectAsState()
     var sourcesOpen by rememberSaveable { mutableStateOf(false) }
     var hubOpen by rememberSaveable { mutableStateOf(false) }
+    var qualityOpen by rememberSaveable { mutableStateOf(false) }
     var keyboardShown by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(state.inputMode) { canvas.setMode(state.inputMode) }
@@ -92,12 +98,19 @@ fun RemoteRoute(model: RemoteModel) {
                 onDismiss = { sourcesOpen = false },
             )
         }
+        if (qualityOpen) {
+            QualitySheet(presenter = qualitySheet, onDismiss = { qualityOpen = false })
+        }
         if (hubOpen) {
             HubSheet(
                 entries = hub.entries(state.capabilities),
                 onSelect = { entry ->
                     hubOpen = false
-                    if (entry == HubEntry.SOURCES) sourcesOpen = true else model.onHubEntry(entry)
+                    when (entry) {
+                        HubEntry.SOURCES -> sourcesOpen = true
+                        HubEntry.QUALITY -> qualityOpen = true
+                        else -> model.onHubEntry(entry)
+                    }
                 },
                 onDismiss = { hubOpen = false },
             )

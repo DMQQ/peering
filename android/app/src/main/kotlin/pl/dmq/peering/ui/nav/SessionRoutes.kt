@@ -32,11 +32,13 @@ import pl.dmq.peering.feature.paywall.PaywallReason
 import pl.dmq.peering.feature.paywall.PaywallRoute
 import pl.dmq.peering.feature.remote.RemoteModel
 import pl.dmq.peering.feature.remote.RemoteRoute
+import pl.dmq.peering.feature.settings.SettingsStore
 import pl.dmq.peering.session.controller.SessionPhase
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.wiring.ActiveSession
 import pl.dmq.peering.ui.wiring.ChatAgentsPort
+import pl.dmq.peering.ui.wiring.ControllerQualityPort
 import pl.dmq.peering.ui.wiring.ControllerRemoteModel
 import pl.dmq.peering.ui.wiring.SessionFileBrowsing
 import pl.dmq.peering.ui.wiring.StorePaywallBilling
@@ -58,12 +60,17 @@ internal fun SessionScreens(
     picture: SurfacePicture,
     drafts: ComposerDraftStore,
     folderRecents: FolderRecentsStore,
+    settings: SettingsStore,
     clock: Clock,
     onClose: (() -> Unit)?,
 ) {
     val scope = rememberCoroutineScope()
     var route by rememberSaveable { mutableStateOf(SessionRoute.REMOTE) }
-    val remote = remember(active) { ControllerRemoteModel(active.controller, picture, scope) { route = it } }
+    val remote = remember(active) {
+        ControllerRemoteModel(active.controller, picture, scope, ControllerQualityPort(active.controller, settings, scope)) {
+            route = it
+        }
+    }
     val session by active.controller.state.collectAsState()
     val browser = active.controller.files
     LaunchedEffect(browser) { browser?.let { active.downloads.watch(it) } }

@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import pl.dmq.peering.SessionFactory
 import pl.dmq.peering.platform.net.UdpLane
 import pl.dmq.peering.session.controller.ConnectTarget
+import pl.dmq.peering.session.controller.QualitySource
 import pl.dmq.peering.session.controller.RelayPorts
 import pl.dmq.peering.session.controller.SessionController
 import pl.dmq.peering.session.controller.SessionPorts
@@ -16,6 +17,7 @@ internal class SessionPortsFactory(
     private val sessions: SessionFactory,
     private val picture: VideoSink,
     private val history: SessionHistory,
+    private val quality: QualitySource,
 ) {
     fun open(target: ConnectTarget, scope: CoroutineScope): ActiveSession {
         val lane = if (target is ConnectTarget.Relay) UdpLane.bind() else null
@@ -32,6 +34,7 @@ internal class SessionPortsFactory(
             sink = picture,
             downloads = downloads,
             relay = relay,
+            quality = quality,
         )
         return ActiveSession(target, SessionController(scope, target, ports, history), lane, downloads)
     }

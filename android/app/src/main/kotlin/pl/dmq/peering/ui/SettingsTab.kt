@@ -1,18 +1,27 @@
 package pl.dmq.peering.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import pl.dmq.peering.feature.settings.LegalDocument
+import pl.dmq.peering.feature.settings.LegalPageScreen
 import pl.dmq.peering.feature.settings.SettingsPresenter
 import pl.dmq.peering.feature.settings.SettingsRoute
 import pl.dmq.peering.ui.wiring.IdentityResetNotOffered
+import pl.dmq.peering.ui.wiring.openWebPage
 
-/** The Settings tab. Legal pages are not bundled yet, so opening one does nothing for now. */
+/** The Settings tab: its preferences, and the legal pages opened over it in the app. */
 @Composable
 internal fun SettingsTab(wiring: FeatureWiring) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    var legal by rememberSaveable { mutableStateOf<LegalDocument?>(null) }
     val presenter = remember(wiring, scope) {
         SettingsPresenter(
             trusted = wiring.trusted,
@@ -22,5 +31,11 @@ internal fun SettingsTab(wiring: FeatureWiring) {
             scope = scope,
         )
     }
-    SettingsRoute(presenter = presenter, onOpenLegal = {})
+    val document = legal
+    if (document == null) {
+        SettingsRoute(presenter = presenter, onOpenLegal = { legal = it })
+    } else {
+        BackHandler { legal = null }
+        LegalPageScreen(document = document, onOpenWebPage = { context.openWebPage(it) })
+    }
 }

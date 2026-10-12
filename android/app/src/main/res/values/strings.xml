@@ -329,4 +329,18 @@
     <string name="pairing_code_scan">Scan the code on your Mac</string>
     <string name="preview_destination_failed">The file could not be saved to the place you chose.</string>
     <string name="agents_recent_folders">Recent folders</string>
+    <string name="settings_legal_open_source">Open source notices</string>
+    <string name="legal_read_online">Read it on the web</string>
+    <string name="legal_no_browser">No browser is available to open this page.</string>
+    <string name="legal_privacy_body">Peering does not collect analytics.\n\nKept on this phone: the keys that identify this phone to your Macs, the list of Macs you have paired, and the relay time used each day.\n\nSent between this phone and your Mac: the picture, your keyboard and pointer input, and the files and agent chats you open. The connection is encrypted end to end. When a session goes through the relay, the relay forwards only that ciphertext and cannot read the screen, the input or the files.\n\nThe camera is used only to read the pairing code on your Mac. Local network access is used to find your Macs.</string>
+    <string name="legal_terms_body">Peering lets you see and control a Mac that you own or are allowed to operate. Use it only on Macs you are authorised to control.\n\nRelay time: a relayed session is free for 30 minutes per day. Paid access removes the daily limit. Purchases are handled by Google Play and follow its refund rules.\n\nThe app is provided as it is, without warranty. The complete terms are on the web page.</string>
+    <string name="legal_open_source_body">Peering is built with open source software under the Apache License 2.0:\n\nKotlin and kotlinx (coroutines, serialization)\nJetpack Compose and AndroidX\nMaterial 3 for Compose\nOkHttp\nZXing\nCameraX</string>
+    <string name="quality_title">Picture quality</string>
+    <string name="quality_auto">Auto</string>
+    <string name="quality_low">Low, 2 Mbps</string>
+    <string name="quality_medium">Medium, 8 Mbps</string>
+    <string name="quality_high">High, 20 Mbps</string>
+    <string name="quality_explanation">Auto moves the rate with the connection: down when frames arrive late or drop, up again after a stretch of clean ones. A fixed level holds its rate.</string>
+    <string name="quality_relay_cap">On a relayed connection the picture stays at 8 Mbps unless this phone has unlimited relay time.</string>
+    <string name="quality_save_failed">The choice could not be saved on this phone.</string>
 </resources>

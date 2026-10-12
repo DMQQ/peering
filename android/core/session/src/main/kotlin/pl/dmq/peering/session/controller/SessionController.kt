@@ -22,11 +22,9 @@ import pl.dmq.peering.session.relay.RelayConnect
 import pl.dmq.peering.session.video.SourceSelection
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.Frame
-import pl.dmq.peering.wire.QualityTier
 import pl.dmq.peering.wire.RemoteCommand
 import pl.dmq.peering.wire.ServerHello
 import pl.dmq.peering.wire.SetCaptureSource
-import pl.dmq.peering.wire.SetStreamQuality
 import pl.dmq.peering.wire.SetVideoEnabled
 import kotlin.coroutines.coroutineContext
 
@@ -113,8 +111,12 @@ class SessionController(
         return sent
     }
 
-    /** Asks the host for a stream of [tier]'s bitrate, leaving the frame rate to the host. */
-    fun setQuality(tier: QualityTier): Boolean = send(SetStreamQuality(fps = 0, bitrateKbps = tier.kbps))
+    /** Applies the stream quality to the live session. False when no session is running. */
+    fun setQuality(choice: QualityChoice): Boolean {
+        val live = link ?: return false
+        live.applyQuality(choice, QualityCeiling.of(live.path, ports.quality.unlimitedRelay()))
+        return true
+    }
 
     /** The network moved, so the reconnect ladder starts again from its shortest step. */
     fun networkChanged() {
@@ -242,6 +244,8 @@ class SessionController(
             agent = services.agentChat,
             files = services.fileBrowser,
             relay = ports.relay?.let { RelayConnect(it.signalling, ports.identity, ports.clock) },
+            quality = ports.quality.choice(),
+            ceiling = QualityCeiling.of(route.path, ports.quality.unlimitedRelay()),
         )
         link = live
         everReady = true
@@ -274,6 +278,7 @@ class SessionController(
                 picture = live.pictureState(paused = !pictureEnabled),
                 notice = live.notice,
                 phase = it.phase.withPath(live.path),
+                qualityCeiling = QualityCeiling.of(live.path, ports.quality.unlimitedRelay()),
             )
         }
     }

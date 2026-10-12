@@ -12,6 +12,8 @@ internal class PreferencesSettingsStore(private val preferences: SharedPreferenc
 
     override fun streamQuality(): Flow<StreamQuality> = quality.asStateFlow()
 
+    override fun currentStreamQuality(): StreamQuality = quality.value
+
     override fun saveStreamQuality(quality: StreamQuality): Boolean {
         val saved = preferences.edit().putString(KEY_STREAM_QUALITY, quality.stored()).commit()
         if (saved) this.quality.value = quality

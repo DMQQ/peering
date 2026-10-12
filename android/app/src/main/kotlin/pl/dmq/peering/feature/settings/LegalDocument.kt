@@ -1,3 +1,3 @@
 package pl.dmq.peering.feature.settings
 
-enum class LegalDocument { Privacy, Terms }
+enum class LegalDocument { Privacy, Terms, OpenSource }

@@ -22,4 +22,5 @@ class SessionPorts(
     val sink: VideoSink,
     val downloads: DownloadWriter,
     val relay: RelayPorts? = null,
+    val quality: QualitySource = QualitySource.Default,
 )

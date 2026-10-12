@@ -9,6 +9,7 @@ import pl.dmq.peering.feature.remote.CommandSink
 import pl.dmq.peering.feature.remote.HubCapabilities
 import pl.dmq.peering.feature.remote.HubEntry
 import pl.dmq.peering.feature.remote.InputMode
+import pl.dmq.peering.feature.remote.QualityPort
 import pl.dmq.peering.feature.remote.RemoteModel
 import pl.dmq.peering.feature.remote.RemoteUiState
 import pl.dmq.peering.feature.remote.SurfaceListener
@@ -20,6 +21,7 @@ internal class ControllerRemoteModel(
     private val controller: SessionController,
     private val picture: SurfacePicture,
     scope: CoroutineScope,
+    override val quality: QualityPort,
     private val onOpen: (SessionRoute) -> Unit,
 ) : RemoteModel {
     override val state: StateFlow<RemoteUiState> = combine(controller.state, picture.pixelSize) { session, pixels ->
@@ -38,6 +40,8 @@ internal class ControllerRemoteModel(
             HubEntry.SOURCES, HubEntry.QUALITY -> Unit
         }
     }
+
+    override fun onRelayUpgradeRequested() = onOpen(SessionRoute.PAYWALL)
 
     private fun hubCapabilities(): HubCapabilities =
         HubCapabilities(agentChat = controller.agentChat != null, fileBrowser = controller.files != null)

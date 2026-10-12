@@ -12,6 +12,8 @@ class InMemorySettingsStore(
 
     override fun streamQuality(): Flow<StreamQuality> = quality
 
+    override fun currentStreamQuality(): StreamQuality = quality.value
+
     override fun saveStreamQuality(quality: StreamQuality): Boolean {
         saved += quality
         if (saveSucceeds) this.quality.value = quality

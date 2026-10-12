@@ -2,6 +2,7 @@ package pl.dmq.peering.ui
 
 import android.content.SharedPreferences
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import pl.dmq.peering.AppGraph
 import pl.dmq.peering.session.history.SessionHistory
 import pl.dmq.peering.session.ports.Clock
@@ -15,9 +16,12 @@ import pl.dmq.peering.ui.wiring.PreferencesKeyValueStore
 import pl.dmq.peering.ui.wiring.PreferencesFirstRunStore
 import pl.dmq.peering.ui.wiring.PreferencesSettingsStore
 import pl.dmq.peering.ui.wiring.SessionHolder
+import pl.dmq.peering.ui.wiring.PaidRelayStatus
+import pl.dmq.peering.ui.wiring.PeeringQualitySource
 import pl.dmq.peering.ui.wiring.SessionPortsFactory
 import pl.dmq.peering.ui.wiring.SessionPresence
 import pl.dmq.peering.ui.wiring.SurfacePicture
+import pl.dmq.peering.ui.wiring.UnboundBilling
 import pl.dmq.peering.ui.wiring.pairedTarget
 import pl.dmq.peering.session.controller.ConnectTarget
 import pl.dmq.peering.session.hosts.PersistedHostDirectory
@@ -35,7 +39,12 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val hostNames = PersistedHostDirectory(PreferencesKeyValueStore(preferences))
     val trusted = PinTrustedHosts(graph.sessions.pins, hostNames)
     val discovery = DiscoveryHostSource(graph.sessions.discovery, graph.sessions.pins, hostNames, scope)
-    val holder = SessionHolder(SessionPortsFactory(graph.sessions, picture, SessionHistory.fromJson(EMPTY_HISTORY)), hostNames, scope)
+    val paidRelay = PaidRelayStatus(UnboundBilling).also { scope.launch { it.refresh() } }
+    val holder = SessionHolder(
+        SessionPortsFactory(graph.sessions, picture, SessionHistory.fromJson(EMPTY_HISTORY), PeeringQualitySource(settings, paidRelay)),
+        hostNames,
+        scope,
+    )
     private val relayPresence = PresenceWatch(
         relay = graph.sessions.newRelayConnect(graph.sessions.newRelaySignalling()),
         hostIds = { graph.sessions.pins.hostIds() },
