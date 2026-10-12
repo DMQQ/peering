@@ -3,7 +3,6 @@ package pl.dmq.peering.feature.pairing
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.IconButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -50,7 +49,7 @@ import pl.dmq.peering.ui.theme.peeringBackdrop
 
 /** The pairing: four steps down one column, the code entry living inside the second. */
 @Composable
-fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modifier: Modifier = Modifier) {
+fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modifier: Modifier = Modifier, hostName: String? = null) {
     Column(modifier.fillMaxSize().peeringBackdrop().windowInsetsPadding(WindowInsets.statusBars).imePadding()) {
         val leaves = screen is PairingCodeScreen.Failed || screen is PairingCodeScreen.Done
         IconButton(onClick = if (leaves) actions.onFinished else actions.onCancel, modifier = Modifier.padding(start = 4.dp, top = 4.dp)) {
@@ -61,14 +60,18 @@ fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modif
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
             Text(
-                stringResource(if (screen is PairingCodeScreen.Done) R.string.pairing_code_done_title else R.string.pairing_code_title),
-                style = MaterialTheme.typography.headlineMedium,
+                when {
+                    screen is PairingCodeScreen.Done -> stringResource(R.string.pairing_code_done_title)
+                    hostName != null -> stringResource(R.string.pairing_code_title_named, hostName)
+                    else -> stringResource(R.string.pairing_code_title)
+                },
+                style = PeeringText.display(size = 30f, tracking = -1f),
                 color = PeeringColors.ink,
                 modifier = Modifier.arrive(),
             )
             when (screen) {
                 is PairingCodeScreen.Failed -> Failure(screen, actions)
-                else -> Steps(screen, actions)
+                else -> Steps(screen, actions, hostName)
             }
         }
         if (screen !is PairingCodeScreen.Failed && screen !is PairingCodeScreen.Done) {
@@ -78,7 +81,7 @@ fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modif
 }
 
 @Composable
-private fun Steps(screen: PairingCodeScreen, actions: PairingActions) {
+private fun Steps(screen: PairingCodeScreen, actions: PairingActions, hostName: String?) {
     val entering = screen as? PairingCodeScreen.EnteringCode
     val done = screen is PairingCodeScreen.Done
     val connecting = screen is PairingCodeScreen.Connecting
@@ -88,11 +91,11 @@ private fun Steps(screen: PairingCodeScreen, actions: PairingActions) {
                 StepDetail(stringResource(R.string.pairing_step_connecting_detail))
                 PeeringSpinner(color = PeeringColors.ink)
             } else {
-                StepDetail(stringResource(R.string.pairing_step_found_detail))
+                StepDetail(hostName?.let { stringResource(R.string.pairing_step_found_detail_named, it) } ?: stringResource(R.string.pairing_step_found_detail))
             }
         }
         GuideStepRow(2, if (entering != null) GuideStepState.Current else if (connecting) GuideStepState.Pending else GuideStepState.Done, stringResource(R.string.pairing_step_code), Modifier.arrive(60)) {
-            if (entering != null) EnteringCode(entering, actions) else if (!connecting) StepDetail(stringResource(R.string.pairing_step_code_done))
+            if (entering != null) EnteringCode(entering, actions, hostName) else if (!connecting) StepDetail(stringResource(R.string.pairing_step_code_done))
         }
         GuideStepRow(
             3,
@@ -105,7 +108,7 @@ private fun Steps(screen: PairingCodeScreen, actions: PairingActions) {
             Modifier.arrive(120),
         ) {
             if (screen == PairingCodeScreen.Waiting) {
-                StepDetail(stringResource(R.string.pairing_code_waiting))
+                StepDetail(hostName?.let { stringResource(R.string.pairing_code_waiting_named, it) } ?: stringResource(R.string.pairing_code_waiting))
                 PeeringSpinner(color = PeeringColors.ink)
             }
         }
@@ -117,8 +120,8 @@ private fun Steps(screen: PairingCodeScreen, actions: PairingActions) {
 }
 
 @Composable
-private fun ColumnScope.EnteringCode(screen: PairingCodeScreen.EnteringCode, actions: PairingActions) {
-    StepDetail(stringResource(R.string.pairing_code_detail))
+private fun ColumnScope.EnteringCode(screen: PairingCodeScreen.EnteringCode, actions: PairingActions, hostName: String?) {
+    StepDetail(hostName?.let { stringResource(R.string.pairing_code_detail_named, it) } ?: stringResource(R.string.pairing_code_detail))
     PairingCodeCells(attempts = screen.attempts, wrong = screen.error != null, onComplete = actions.onDigitsEntered)
     if (screen.error != null) {
         val left = (MAX_PAIRING_ATTEMPTS - screen.attempts).coerceAtLeast(1)

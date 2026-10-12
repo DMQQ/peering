@@ -15,6 +15,7 @@ fun PairingCodeRoute(
     onFinished: () -> Unit,
     modifier: Modifier = Modifier,
     onScanRequested: (() -> Unit)?,
+    hostName: String? = null,
 ) {
     val screen by presenter.state.collectAsState()
     LaunchedEffect(screen) {
@@ -31,5 +32,5 @@ fun PairingCodeRoute(
     BackHandler {
         if (screen is PairingCodeScreen.Failed || screen is PairingCodeScreen.Done) onFinished() else presenter.cancel()
     }
-    PairingCodeContent(screen = screen, actions = actions, modifier = modifier)
+    PairingCodeContent(screen = screen, actions = actions, modifier = modifier, hostName = hostName)
 }

@@ -1,6 +1,5 @@
 package pl.dmq.peering.feature.onboarding
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,7 +16,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
-import pl.dmq.peering.feature.paywall.FREE_DAILY_RELAY_SECONDS
 import pl.dmq.peering.feature.paywall.PaywallUi
 import pl.dmq.peering.feature.paywall.PlanOffer
 import pl.dmq.peering.feature.paywall.RestoreState
@@ -43,40 +41,27 @@ internal fun PlansSection(ui: PaywallUi, freeChosen: Boolean, onChooseFree: () -
             PeeringSpinner(color = PeeringColors.ink)
             Text(stringResource(R.string.tour_plans_loading), style = PeeringText.caption, color = PeeringColors.muted)
         }
-        ui.products.isEmpty() -> Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            PlanCard(
-                title = stringResource(R.string.tour_plan_free),
-                detail = stringResource(R.string.tour_plan_free_detail, (FREE_DAILY_RELAY_SECONDS / 60).toInt()),
-                selected = true,
-                onClick = onChooseFree,
-            )
+        ui.products.isEmpty() -> Column(
+            modifier.fillMaxWidth().tappable(onRetry),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            PeeringSpinner(color = PeeringColors.ink)
             Text(
                 stringResource(ui.unavailable?.explanationRes() ?: R.string.tour_plans_unreachable),
                 style = PeeringText.caption,
                 color = PeeringColors.muted,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().tappable(onRetry),
             )
         }
-        else -> Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            PlanCard(
-                title = stringResource(R.string.tour_plan_free),
-                detail = stringResource(R.string.tour_plan_free_detail, (FREE_DAILY_RELAY_SECONDS / 60).toInt()),
-                selected = freeChosen,
-                onClick = onChooseFree,
-            )
-            ui.products.forEach { product ->
-                PlanCard(
-                    title = stringResource(product.offer.titleRes()),
-                    detail = stringResource(product.offer.detailRes()),
-                    selected = !freeChosen && product.offer == ui.selected,
-                    onClick = { onChoose(product.offer) },
-                    price = product.displayPrice,
-                    priceCaption = stringResource(product.offer.captionRes()),
-                    badge = if (product.offer == PlanOffer.LIFETIME) stringResource(R.string.tour_plan_best_value) else null,
-                )
-            }
-        }
+        else -> PlanOfferCards(
+            products = ui.products,
+            selected = ui.selected,
+            onChoose = onChoose,
+            modifier = modifier.verticalScroll(rememberScrollState()),
+            freeChosen = freeChosen,
+            onChooseFree = onChooseFree,
+        )
     }
 }
 
@@ -103,25 +88,4 @@ internal fun LegalLinks(restore: RestoreState, onRestore: () -> Unit, modifier: 
 @Composable
 private fun LinkText(text: String, onClick: () -> Unit) {
     Text(text, style = PeeringText.caption2.copy(fontSize = PeeringText.caption.fontSize), color = PeeringColors.muted, modifier = Modifier.tappable(onClick).padding(vertical = 4.dp))
-}
-
-@StringRes
-private fun PlanOffer.titleRes(): Int = when (this) {
-    PlanOffer.MONTHLY -> R.string.paywall_offer_monthly
-    PlanOffer.YEARLY -> R.string.paywall_offer_yearly
-    PlanOffer.LIFETIME -> R.string.paywall_offer_lifetime
-}
-
-@StringRes
-private fun PlanOffer.detailRes(): Int = when (this) {
-    PlanOffer.MONTHLY -> R.string.paywall_offer_monthly_detail
-    PlanOffer.YEARLY -> R.string.paywall_offer_yearly_detail
-    PlanOffer.LIFETIME -> R.string.paywall_offer_lifetime_detail
-}
-
-@StringRes
-private fun PlanOffer.captionRes(): Int = when (this) {
-    PlanOffer.MONTHLY -> R.string.tour_plan_per_month
-    PlanOffer.YEARLY -> R.string.tour_plan_per_year
-    PlanOffer.LIFETIME -> R.string.tour_plan_one_time
 }

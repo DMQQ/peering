@@ -4,6 +4,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,7 +33,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -130,7 +133,12 @@ private fun ChooseContent(found: List<HostRow>, ready: Boolean, actions: Connect
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Alternative(stringResource(R.string.first_enter_id), AppIcons.number, onEnterId, Modifier.weight(1f))
+            val scan = actions.onScan
+            if (scan != null) {
+                Alternative(stringResource(R.string.first_scan_qr), AppIcons.qrScanner, scan, Modifier.weight(1f))
+            } else {
+                Alternative(stringResource(R.string.first_enter_id), AppIcons.number, onEnterId, Modifier.weight(1f))
+            }
             Alternative(stringResource(R.string.first_enter_address), AppIcons.keyboard, onEnterAddress, Modifier.weight(1f))
         }
     }
@@ -168,11 +176,36 @@ private fun Alternative(title: String, icon: androidx.compose.ui.graphics.vector
 @Composable
 private fun InstallLink() {
     val uri = LocalUriHandler.current
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).rowSurface().tappable({ uri.openUri("https://getpeering.app/download") }).padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(stringResource(R.string.tour_download_address), style = PeeringText.subheadlineSemibold.copy(fontWeight = FontWeight.SemiBold), color = PeeringColors.ink, modifier = Modifier.weight(1f), maxLines = 1)
-        Icon(AppIcons.openExternal, null, tint = PeeringColors.muted, modifier = Modifier.size(16.dp))
+    val clipboard = LocalClipboardManager.current
+    val address = stringResource(R.string.tour_download_address)
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(2_000)
+            copied = false
+        }
+    }
+    Row(Modifier.fillMaxWidth().rowSurface(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.weight(1f).heightIn(min = 48.dp).tappable({ uri.openUri("https://getpeering.app/download") }).padding(start = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(address, style = PeeringText.subheadlineSemibold, color = PeeringColors.ink, modifier = Modifier.weight(1f), maxLines = 1)
+            Icon(AppIcons.openExternal, null, tint = PeeringColors.muted, modifier = Modifier.padding(horizontal = 8.dp).size(16.dp))
+        }
+        Box(
+            Modifier.size(48.dp).tappable({
+                clipboard.setText(AnnotatedString(address))
+                copied = true
+            }),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                if (copied) AppIcons.check else AppIcons.copy,
+                stringResource(if (copied) R.string.tour_download_copied else R.string.tour_download_copy),
+                tint = if (copied) PeeringColors.ink else PeeringColors.muted,
+                modifier = Modifier.size(18.dp),
+            )
+        }
     }
 }

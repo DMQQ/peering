@@ -53,7 +53,7 @@
     <string name="connect_status_unknown">Not nearby · will try relay</string>
     <string name="connect_forget">Forget</string>
     <string name="connect_forget_title">Forget this computer?</string>
-    <string name="connect_forget_text">This computer will be removed from paired computers. You can pair it again at any time.</string>
+    <string name="connect_forget_text">This computer will be removed from Trusted computers. You can re-pair it at any time.</string>
     <string name="connect_forget_confirm">Forget</string>
     <string name="connect_cancel">Cancel</string>
     <string name="connect_forget_failed">This computer could not be forgotten. Try again.</string>
@@ -70,6 +70,10 @@
     <string name="pairing_error_not_pairing_code">That QR code is not a Peering pairing code.</string>
     <string name="pairing_error_not_identifier">That is not a computer\'s device ID.</string>
     <string name="pairing_code_title">Pair with your computer</string>
+    <string name="pairing_code_title_named">Pair with “%1$s”</string>
+    <string name="pairing_step_found_detail_named">Connected to “%1$s”. It is showing six digits.</string>
+    <string name="pairing_code_detail_named">Peering on “%1$s” is showing six digits.</string>
+    <string name="pairing_code_waiting_named">Click Approve on “%1$s”. It is asking whether you entered the code.</string>
     <string name="pairing_code_done_title">Paired</string>
     <string name="pairing_step_found">Computer found</string>
     <string name="pairing_step_found_detail">Connected. It is showing six digits.</string>
@@ -245,7 +249,7 @@
     <string name="settings_version">Version %1$s</string>
     <string name="settings_legal_heading">Legal</string>
     <string name="settings_legal_privacy">Privacy policy</string>
-    <string name="settings_legal_terms">Terms of service</string>
+    <string name="settings_legal_terms">Terms of use</string>
     <string name="approval_allow">Allow</string>
     <string name="approval_deny">Deny</string>
     <string name="approval_back">Back</string>
@@ -367,7 +371,7 @@
     <string name="paywall_try_again">Try again</string>
     <string name="paywall_buy">Continue</string>
     <string name="paywall_contacting_store">Contacting the store…</string>
-    <string name="paywall_purchase_pending">Waiting for approval. Nothing is charged until whoever has to approve it does.</string>
+    <string name="paywall_purchase_pending">Waiting for approval. This plan starts as soon as whoever has to approve it does, and nothing is charged until then.</string>
     <string name="paywall_purchase_done">Thanks. Unlimited relay time is on for this device.</string>
     <string name="paywall_purchase_failed">The purchase did not go through. Try again.</string>
     <string name="paywall_restore">Restore purchases</string>
@@ -377,11 +381,11 @@
     <string name="paywall_renewal_note">The subscription renews every month until cancelled, and you can cancel any time in your store settings. Lifetime is a single payment that does not renew.</string>
     <string name="paywall_not_now">Not now</string>
     <string name="paywall_title_upgrade">Connect from anywhere</string>
-    <string name="paywall_title_spent">Your free relay time is used up</string>
+    <string name="paywall_title_spent">Keep going from anywhere</string>
     <string name="paywall_title_low">Running low on relay time</string>
-    <string name="paywall_detail_upgrade">Reaching a computer away from your own network is metered. Free includes %1$s of relay a day. Paid removes the limit.</string>
-    <string name="paywall_detail_spent">Free includes %1$s of relay a day, and today it is spent. Paid removes the limit.</string>
-    <string name="paywall_detail_low">%1$s left today. When it runs out, reaching a computer on another network stops until the allowance comes back.</string>
+    <string name="paywall_detail_upgrade">Reaching a computer away from your own network is metered. Free includes %1$s of relay a day. Pro removes the limit.</string>
+    <string name="paywall_detail_spent">Your free relay time for today is used up. Upgrade to connect from anywhere without limits.</string>
+    <string name="paywall_detail_low">%1$s left today. When it runs out, reaching a computer on another network stops until the allowance comes back. Pro removes the limit.</string>
     <string name="paywall_offer_subscription">Subscription</string>
     <string name="paywall_offer_subscription_detail">Unlimited relay, renewed every month</string>
     <string name="paywall_offer_lifetime">Lifetime</string>
@@ -423,6 +427,7 @@
     <string name="scan_unavailable">This device has no camera. Type the computer\'s ID instead.</string>
     <string name="scan_not_pairing_code">That is not a Peering code. Point the camera at the code shown on your computer.</string>
     <string name="scan_code_mismatch">That code is not the one on your screen.</string>
+    <string name="first_scan_qr">Scan QR code</string>
     <string name="pairing_code_scan">Scan QR code instead</string>
     <string name="preview_destination_failed">The file could not be saved to the place you chose.</string>
     <string name="agents_recent_folders">Recent folders</string>

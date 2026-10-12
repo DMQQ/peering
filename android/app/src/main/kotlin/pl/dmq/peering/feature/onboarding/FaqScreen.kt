@@ -22,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.ControlsCard
@@ -73,7 +74,7 @@ private fun FaqRow(item: FaqItem) {
         if (open) {
             Text(
                 stringResource(item.answerRes),
-                style = PeeringText.subheadline,
+                style = PeeringText.subheadline.copy(fontSize = 16.sp, lineHeight = 21.sp),
                 color = PeeringColors.muted,
                 modifier = Modifier.padding(bottom = 12.dp),
             )

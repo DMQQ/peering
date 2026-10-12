@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,10 +38,10 @@ import kotlinx.coroutines.launch
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.paywall.PaywallPresenter
 import pl.dmq.peering.feature.paywall.PaywallUi
+import pl.dmq.peering.feature.paywall.PlanOffer
 import pl.dmq.peering.feature.paywall.PurchaseState
-import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.PageDots
-import pl.dmq.peering.ui.kit.PrimaryButton
+import pl.dmq.peering.ui.kit.WelcomePrimaryButton
 import pl.dmq.peering.ui.kit.rememberSheen
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -100,7 +98,7 @@ internal fun TourScreen(
             }
             PageDots(tourPages.size, pager.currentPage, Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 20.dp))
             Box(Modifier.windowInsetsPadding(WindowInsets.navigationBars).padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 18.dp)) {
-                PrimaryButton(
+                WelcomePrimaryButton(
                     title = buttonTitle(current, paywall, freeChosen),
                     enabled = !(onPlans && paywall.purchase == PurchaseState.PURCHASING),
                     onClick = {
@@ -125,10 +123,6 @@ internal fun TourScreen(
             )
             SkipButton(onSkip, Modifier.align(Alignment.TopEnd))
         }
-        IconButton(
-            onClick = { goBack() },
-            modifier = Modifier.align(Alignment.TopStart).windowInsetsPadding(WindowInsets.statusBars).padding(start = 4.dp, top = 4.dp),
-        ) { Icon(AppIcons.back, contentDescription = stringResource(R.string.tour_back)) }
     }
 }
 
@@ -140,18 +134,9 @@ private fun buttonTitle(page: TourPage, paywall: PaywallUi, freeChosen: Boolean)
     return when {
         freeChosen || product == null -> stringResource(R.string.tour_start_using)
         paywall.purchase == PurchaseState.PURCHASING -> stringResource(R.string.paywall_contacting_store)
-        else -> stringResource(R.string.tour_continue_with, planName(product.offer), product.displayPrice)
+        else -> product.buttonTitle()
     }
 }
-
-@Composable
-private fun planName(offer: pl.dmq.peering.feature.paywall.PlanOffer): String = stringResource(
-    when (offer) {
-        pl.dmq.peering.feature.paywall.PlanOffer.MONTHLY -> R.string.paywall_offer_monthly
-        pl.dmq.peering.feature.paywall.PlanOffer.YEARLY -> R.string.paywall_offer_yearly
-        pl.dmq.peering.feature.paywall.PlanOffer.LIFETIME -> R.string.paywall_offer_lifetime
-    },
-)
 
 @Composable
 private fun Words(page: TourPage, isCurrent: Boolean) {

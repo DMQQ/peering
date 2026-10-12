@@ -55,6 +55,8 @@ internal fun ConnectTab(wiring: FeatureWiring) {
     var onboarding by remember { mutableStateOf(!wiring.firstRun.isComplete()) }
     var pairing by remember { mutableStateOf<PairingCodePresenter?>(null) }
     var pairingSession by remember { mutableStateOf<ActiveSession?>(null) }
+    var pairingHostName by remember { mutableStateOf<String?>(null) }
+    val hostNames = remember { mutableMapOf<String, String>() }
     var firstConnectionDismissed by rememberSaveable { mutableStateOf(false) }
     var showingSession by rememberSaveable { mutableStateOf(false) }
     var scanning by remember { mutableStateOf<ScanPurpose?>(null) }
@@ -73,6 +75,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             },
             onPair = { hostId ->
                 val session = wiring.startPairing(hostId)
+                pairingHostName = hostNames[hostId]
                 pairingSession = session
                 pairing = PairingCodePresenter(ControllerPairingSession(session.controller, scope), scope)
                 onboarding = false
@@ -81,6 +84,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             },
             onConnectAddress = { address ->
                 val session = wiring.startPairingByAddress(PeerAddress(address.host, address.port))
+                pairingHostName = null
                 pairingSession = session
                 pairing = PairingCodePresenter(ControllerPairingSession(session.controller, scope), scope)
                 onboarding = false
@@ -99,6 +103,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
         if (pairing != null && active !== pairingSession) pairing = null
     }
     val connectState by connect.state.collectAsState()
+    connectState.listing.nearby.forEach { row -> row.name?.let { hostNames[row.id] = it } }
     val firstConnection = !firstConnectionDismissed && connectState.listing.paired.isEmpty()
     val session = active
     val presenting = pairing
@@ -138,6 +143,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
                         pairing = null
                     },
                     onScanRequested = { scanning = ScanPurpose.ConfirmCode },
+                    hostName = pairingHostName,
                 )
             }
             ConnectStage.Session -> session?.let { current ->

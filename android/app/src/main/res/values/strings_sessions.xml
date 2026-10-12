@@ -4,7 +4,7 @@
     <string name="sessions_relay">Relay</string>
     <string name="sessions_relay_free">Free relay time</string>
     <string name="sessions_relay_left">%1$s left</string>
-    <string name="sessions_relay_period">today</string>
+    <string name="sessions_relay_period">last 24 hours</string>
     <string name="sessions_relay_note">Your allowance is measured in relay time, not a fixed number of sessions. What is shown here is estimated from the sessions recorded on this device.</string>
     <string name="sessions_upgrade">Upgrade to Pro</string>
     <string name="sessions_recent">Recent connections</string>

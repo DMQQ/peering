@@ -6,9 +6,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
@@ -21,7 +25,7 @@ import pl.dmq.peering.ui.kit.ControlsCard
 import pl.dmq.peering.ui.kit.ControlsDivider
 import pl.dmq.peering.ui.kit.PeeringSheet
 import pl.dmq.peering.ui.kit.PeeringTextField
-import pl.dmq.peering.ui.kit.PrimaryButton
+import pl.dmq.peering.ui.kit.InkButton
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -42,7 +46,7 @@ fun HostIdEntrySheet(
     val clipboard = LocalClipboardManager.current
     PeeringSheet(onDismiss) {
         Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            Text(stringResource(R.string.pairing_entry_heading), style = MaterialTheme.typography.headlineMedium, color = PeeringColors.ink)
+            Text(stringResource(R.string.pairing_entry_heading), style = PeeringText.display(size = 34f, tracking = -1.2f), color = PeeringColors.ink)
             ControlsCard(stringResource(R.string.pairing_entry_card), footer = stringResource(R.string.pairing_entry_detail)) {
                 PeeringTextField(
                     value = state.text,
@@ -62,7 +66,11 @@ fun HostIdEntrySheet(
                 }
             }
             state.error?.let { Text(stringResource(it.messageRes()), style = PeeringText.caption, color = PeeringColors.danger) }
-            PrimaryButton(stringResource(R.string.pairing_entry_submit), onClick = onSubmit, enabled = state.canSubmit)
+            InkButton(onClick = onSubmit, modifier = Modifier.fillMaxWidth().height(44.dp), enabled = state.canSubmit) {
+                Text(stringResource(R.string.pairing_entry_submit), style = PeeringText.subheadlineSemibold)
+                Spacer(Modifier.width(8.dp))
+                Icon(AppIcons.arrowForward, null, Modifier.size(16.dp))
+            }
         }
     }
 }
