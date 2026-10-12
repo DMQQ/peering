@@ -170,6 +170,7 @@
     <string name="sources_section_applications">Applications</string>
     <string name="sources_section_windows">Windows</string>
     <string name="sources_waiting">Waiting for the list of screens from your computer.</string>
+    <string name="sources_empty_title">No displays yet</string>
     <string name="sources_empty">This computer has not listed any displays.</string>
     <string name="sources_resolution">%1$d x %2$d</string>
     <string name="sources_showing">Showing</string>

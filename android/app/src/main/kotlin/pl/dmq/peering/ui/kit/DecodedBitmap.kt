@@ -1,0 +1,33 @@
+package pl.dmq.peering.ui.kit
+
+import android.graphics.BitmapFactory
+import android.util.LruCache
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+private const val CACHE_BYTES = 8 * 1024 * 1024
+
+private val bitmaps = object : LruCache<String, ImageBitmap>(CACHE_BYTES) {
+    override fun sizeOf(key: String, value: ImageBitmap): Int = value.width * value.height * 4
+}
+
+/**
+ * Decodes an encoded image off the main thread and remembers it by [key], so a list that scrolls or a sheet that
+ * reopens does not decode again. [key] must change whenever the picture does. Null while decoding or when it cannot be read.
+ */
+@Composable
+fun rememberDecodedBitmap(key: String?, bytes: () -> ByteArray?): State<ImageBitmap?> =
+    produceState<ImageBitmap?>(initialValue = key?.let(bitmaps::get), key) {
+        if (key == null) {
+            value = null
+            return@produceState
+        }
+        value = bitmaps.get(key) ?: withContext(Dispatchers.Default) {
+            bytes()?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }?.asImageBitmap()
+        }?.also { bitmaps.put(key, it) }
+    }

@@ -1,6 +1,7 @@
 package pl.dmq.peering.feature.remote
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import pl.dmq.peering.wire.CaptureCatalog
@@ -10,6 +11,8 @@ import pl.dmq.peering.wire.CaptureSourceKind
 import pl.dmq.peering.wire.PixelSize
 import pl.dmq.peering.wire.RemoteCommand
 import pl.dmq.peering.wire.SetCaptureSource
+import pl.dmq.peering.wire.SourceThumbnail
+import pl.dmq.peering.wire.WatchSourceThumbnails
 
 class SourcesPresenterTest {
     private val sink = RecordingCommandSink()
@@ -87,6 +90,36 @@ class SourcesPresenterTest {
         presenter.choose(tile)
 
         assertEquals(listOf<RemoteCommand>(SetCaptureSource(CaptureSource.Window(9))), sink.sent)
+    }
+
+    @Test
+    fun `a tile carries the host's icon, picture and kind`() {
+        val thumbnail = SourceThumbnail(160, 100, byteArrayOf(1, 2))
+        val descriptor = application(42, "Notes").copy(iconPNGData = "AQI=", thumbnail = thumbnail)
+
+        val tile = presenter.build(CaptureCatalog(applications = listOf(descriptor)), null)
+            .sections.flatMap { it.tiles }.single()
+
+        assertEquals("AQI=", tile.iconData)
+        assertEquals(thumbnail, tile.thumbnail)
+        assertEquals(CaptureSourceKind.APPLICATION, tile.kind)
+    }
+
+    @Test
+    fun `a source with no icon or picture has neither`() {
+        val tile = presenter.build(CaptureCatalog(displays = listOf(display(1, "A", 1.0, 1.0))), null)
+            .sections.single().tiles.single()
+
+        assertNull(tile.iconData)
+        assertNull(tile.thumbnail)
+    }
+
+    @Test
+    fun `watching pictures sends the watch command both ways`() {
+        presenter.watchThumbnails(true)
+        presenter.watchThumbnails(false)
+
+        assertEquals(listOf<RemoteCommand>(WatchSourceThumbnails(true), WatchSourceThumbnails(false)), sink.sent)
     }
 
     private fun display(id: Long, title: String, width: Double, height: Double) = CaptureSourceDescriptor(
