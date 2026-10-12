@@ -25,6 +25,7 @@ const END_DISMISSAL_SECONDS: u64 = 4 * 60 * 60;
 const BURST: f64 = 5.0;
 const REFILL_PER_SECOND: f64 = 1.0;
 const MAX_TRACKED_TOKENS: usize = 64;
+const MAX_TRACKED_TOKENS_PER_PROCESS: usize = 4096;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -267,17 +268,42 @@ pub fn build(push: &ActivityPush, now: u64) -> Result<ActivityRequest, ActivityR
 ///
 /// Apple throttles Live Activity pushes per activity, and a push over its budget is dropped there
 /// without telling anyone, so spending the budget here costs nothing a retry would not.
-#[derive(Default)]
 pub struct ActivityLimiter {
     buckets: HashMap<String, (f64, Instant)>,
+    capacity: usize,
+}
+
+impl Default for ActivityLimiter {
+    fn default() -> Self {
+        Self::with_capacity(MAX_TRACKED_TOKENS)
+    }
+}
+
+/// The same budget shared by every connection, so a token cannot be hammered through many sockets.
+pub struct SharedActivityBudget(std::sync::Mutex<ActivityLimiter>);
+
+impl Default for SharedActivityBudget {
+    fn default() -> Self {
+        Self(std::sync::Mutex::new(ActivityLimiter::with_capacity(MAX_TRACKED_TOKENS_PER_PROCESS)))
+    }
+}
+
+impl SharedActivityBudget {
+    pub fn allow(&self, token: &str, now: Instant) -> bool {
+        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).allow(token, now)
+    }
 }
 
 impl ActivityLimiter {
+    fn with_capacity(capacity: usize) -> Self {
+        Self { buckets: HashMap::new(), capacity }
+    }
+
     pub fn allow(&mut self, token: &str, now: Instant) -> bool {
-        if !self.buckets.contains_key(token) && self.buckets.len() >= MAX_TRACKED_TOKENS {
+        if !self.buckets.contains_key(token) && self.buckets.len() >= self.capacity {
             let refilled = Duration::from_secs_f64(BURST / REFILL_PER_SECOND);
             self.buckets.retain(|_, (_, last)| now.saturating_duration_since(*last) < refilled);
-            if self.buckets.len() >= MAX_TRACKED_TOKENS {
+            if self.buckets.len() >= self.capacity {
                 return false;
             }
         }
@@ -603,5 +629,19 @@ mod tests {
         assert_eq!(refusal_for_undecodable(r#"{"type":"nonsense"}"#), None);
         assert_eq!(refusal_for_undecodable("not json"), None);
         assert_eq!(refusal_for_undecodable(r#"{"requestId":"r"}"#), None);
+    }
+
+    #[test]
+    fn the_shared_budget_is_spent_across_every_connection_that_uses_a_token() {
+        let budget = SharedActivityBudget::default();
+        let now = Instant::now();
+        let allowed = (0..20)
+            .filter(|_| {
+                let mut connection = ActivityLimiter::default();
+                connection.allow("token", now) && budget.allow("token", now)
+            })
+            .count();
+        assert_eq!(allowed, 5, "a fresh connection each time does not buy a fresh burst");
+        assert!(budget.allow("another", now), "other tokens have their own budget");
     }
 }

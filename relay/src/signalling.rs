@@ -108,6 +108,8 @@ pub struct Settings {
     /// Whether `ConnectToHost` may only reach a host whose registration proved its device key.
     /// See `Config::require_proven_hosts`.
     pub require_proven_hosts: bool,
+    /// Live Activity pushes per token across every connection. See `activity::SharedActivityBudget`.
+    pub activity_budget: Arc<activity::SharedActivityBudget>,
 }
 
 /// The plan a connect is metered by, how it was arrived at, and why a purchase was refused.
@@ -678,7 +680,8 @@ fn notify_activity(
     if !matches!(push::target_for(&push.activity_token), PushTarget::Apns(_)) {
         return refuse(ActivityRefusal::InvalidToken);
     }
-    if !state.activity_limiter.allow(&push.activity_token, Instant::now()) {
+    let now = Instant::now();
+    if !state.activity_limiter.allow(&push.activity_token, now) || !settings.activity_budget.allow(&push.activity_token, now) {
         TALLY.activity(ActivityOutcome::DroppedRate);
         return None;
     }
@@ -1442,6 +1445,7 @@ mod tests {
             play: None,
             limiter: Arc::new(crate::limits::PeerLimiter::default()),
             require_proven_hosts: false,
+            activity_budget: Default::default(),
         }
     }
 
@@ -1498,6 +1502,21 @@ mod tests {
             assert!(ask_as_host(&mut state, activity_message(&token)).await.is_some());
         }
         assert_eq!(ask_as_host(&mut state, activity_message(&token)).await, None);
+    }
+
+    #[tokio::test]
+    async fn a_token_cannot_be_hammered_through_many_connections() {
+        let settings = default_settings();
+        let token = "ab".repeat(32);
+        let (tx, _rx) = channel();
+        let registry = Arc::new(Registry::new(usize::MAX));
+        let mut answered = 0;
+        for _ in 0..20 {
+            let mut state = ConnectionState { registered_as: Some("mac".into()), ..Default::default() };
+            let reply = dispatch(activity_message(&token), &tx, &registry, &HostRegistry::new(), &settings, "127.0.0.1", &mut state).await;
+            answered += usize::from(reply.is_some());
+        }
+        assert_eq!(answered, 5, "a new connection each time does not reset the token's budget");
     }
 
     #[test]

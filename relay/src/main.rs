@@ -305,6 +305,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         play,
         limiter,
         require_proven_hosts: config.require_proven_hosts,
+        activity_budget: Default::default(),
     };
 
     let bindings = hosts.clone();

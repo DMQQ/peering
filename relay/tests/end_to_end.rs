@@ -173,6 +173,7 @@ async fn start_configured(
             play: None,
             limiter,
             require_proven_hosts,
+            activity_budget: Default::default(),
         },
         None,
     ));
