@@ -85,12 +85,30 @@ data class NoticePayload(
     val lockedDisplayID: Long? = null,
 )
 
-/** What the host's clipboard holds. An older host sends only [text], with no [kind]: absent means text. */
+/** What the host's clipboard holds. An older host sends only [text], with no [kind]: absent means text. [image] is padded base64 PNG. */
 @Serializable
-data class ClipboardPayload(val kind: String? = null, val text: String? = null) {
+data class ClipboardPayload(val kind: String? = null, val text: String? = null, val image: String? = null) {
     /** The text, or null when the clipboard holds something else, such as an image. */
     val plainText: String? get() = if (kind == null || kind == "text") text else null
+
+    /** The PNG, or null when the payload is not an image, is empty, is over [MAX_CLIPBOARD_IMAGE_BYTES] or is not base64. */
+    val pngBytes: ByteArray?
+        get() {
+            if (kind != "image" || image.isNullOrEmpty()) return null
+            val bytes = try {
+                image.fromBase64()
+            } catch (error: IllegalArgumentException) {
+                return null
+            }
+            return bytes.takeIf { it.isNotEmpty() && it.size <= MAX_CLIPBOARD_IMAGE_BYTES }
+        }
 }
+
+/** The largest picture either end carries, as the host's own limit. */
+const val MAX_CLIPBOARD_IMAGE_BYTES = 8 * 1024 * 1024
+
+/** Above [MAX_CLIPBOARD_IMAGE_BYTES] because the host guards the base64 form. */
+const val MAX_CLIPBOARD_REASSEMBLED_BYTES = 12 * 1024 * 1024
 
 /** A pong is matched to its ping by [sequence]. */
 @Serializable
