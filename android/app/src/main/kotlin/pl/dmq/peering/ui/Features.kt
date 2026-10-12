@@ -11,6 +11,7 @@ import pl.dmq.peering.ui.wiring.DiscoveryHostSource
 import pl.dmq.peering.ui.wiring.PinTrustedHosts
 import pl.dmq.peering.ui.wiring.PreferencesComposerDrafts
 import pl.dmq.peering.ui.wiring.PreferencesFolderRecents
+import pl.dmq.peering.ui.wiring.PreferencesKeyValueStore
 import pl.dmq.peering.ui.wiring.PreferencesFirstRunStore
 import pl.dmq.peering.ui.wiring.PreferencesSettingsStore
 import pl.dmq.peering.ui.wiring.SessionHolder
@@ -19,6 +20,7 @@ import pl.dmq.peering.ui.wiring.SessionPresence
 import pl.dmq.peering.ui.wiring.SurfacePicture
 import pl.dmq.peering.ui.wiring.pairedTarget
 import pl.dmq.peering.session.controller.ConnectTarget
+import pl.dmq.peering.session.hosts.PersistedHostDirectory
 import pl.dmq.peering.session.relay.PresenceWatch
 
 /** The adapters the screens share, built once for the process. [install] points the tab slots at the real screens. */
@@ -30,9 +32,10 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val folderRecents = PreferencesFolderRecents(preferences)
     val firstRun = PreferencesFirstRunStore(preferences)
     val settings = PreferencesSettingsStore(preferences)
-    val trusted = PinTrustedHosts(graph.sessions.pins)
-    val discovery = DiscoveryHostSource(graph.sessions.discovery, graph.sessions.pins, scope)
-    val holder = SessionHolder(SessionPortsFactory(graph.sessions, picture, SessionHistory.fromJson(EMPTY_HISTORY)), scope)
+    val hostNames = PersistedHostDirectory(PreferencesKeyValueStore(preferences))
+    val trusted = PinTrustedHosts(graph.sessions.pins, hostNames)
+    val discovery = DiscoveryHostSource(graph.sessions.discovery, graph.sessions.pins, hostNames, scope)
+    val holder = SessionHolder(SessionPortsFactory(graph.sessions, picture, SessionHistory.fromJson(EMPTY_HISTORY)), hostNames, scope)
     private val relayPresence = PresenceWatch(
         relay = graph.sessions.newRelayConnect(graph.sessions.newRelaySignalling()),
         hostIds = { graph.sessions.pins.hostIds() },
