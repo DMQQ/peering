@@ -35,7 +35,8 @@ fun RemoteRoute(model: RemoteModel) {
     val scope = rememberCoroutineScope()
     val prefsNow = rememberUpdatedState(prefs)
     val stateNow = rememberUpdatedState(state)
-    val input = remember(model) { ObserveGate(model.commands) { prefsNow.value.interaction == InputMode.OBSERVE } }
+    val tracker = remember(model) { PointerTracker(model.commands) { pointerSize(stateNow.value) } }
+    val input = remember(model) { ObserveGate(tracker) { prefsNow.value.interaction == InputMode.OBSERVE } }
     val canvas = remember(model) { RemoteCanvasPresenter(input, prefsNow.value.interaction) }
     val keyboard = remember(model) { KeyboardPresenter(input) { prefsNow.value.keyboardMode } }
     val sources = remember(model) { SourcesPresenter(input) }
@@ -44,6 +45,7 @@ fun RemoteRoute(model: RemoteModel) {
         RemoteActions(model, input, screen, canvas, keyboard, { prefsNow.value }, { pointerSize(stateNow.value) }, scope)
     }
     val canvasState by canvas.state.collectAsState()
+    val cursor by tracker.position.collectAsState()
     val typed by keyboard.typedPreview.collectAsState()
     val latches by keyboard.latches.collectAsState()
     var lastHostName by rememberSaveable { mutableStateOf<String?>(null) }
@@ -108,6 +110,8 @@ fun RemoteRoute(model: RemoteModel) {
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             Box(modifier = Modifier.fillMaxSize().imePadding()) {
                 RemoteCanvas(presenter = canvas, surface = model.surface, modifier = Modifier.fillMaxSize().displayCutoutPadding())
+                val shown = prefs.interaction != InputMode.OBSERVE && state.pictureState == PictureState.LIVE
+                canvasState.picture?.takeIf { shown }?.let { CursorGlyph(cursor, it, Modifier.displayCutoutPadding()) }
                 RemoteChrome(chrome, handlers, panel = { RemotePanel(it, panelContext) })
             }
             KeyboardBridge(presenter = keyboard, shown = screen.keyboardShown)
