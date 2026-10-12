@@ -81,7 +81,9 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun followSession() {
-        val holder = (application as PeeringApplication).wiring?.holder ?: return
+        val holder = checkNotNull((application as PeeringApplication).wiring) {
+            "PeeringApplication.onCreate builds the wiring before any activity starts"
+        }.holder
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 holder.active.collect {
