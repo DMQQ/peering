@@ -2,6 +2,7 @@ package pl.dmq.peering.ui.wiring
 
 import pl.dmq.peering.DebugLog
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -53,6 +54,7 @@ internal class SessionPortsFactory(
             log = { message -> DebugLog.d(TAG) { message } },
             lanReached = lanAddresses::remember,
             clipboardHistory = clipboardHistory,
+            readerContext = Dispatchers.Default,
         )
         val controller = SessionController(scope, target, ports, history)
         val networkWatch = sessions.networkChanges.followMoves(scope, controller::networkChanged)
