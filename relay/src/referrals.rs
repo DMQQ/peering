@@ -144,11 +144,17 @@ struct Inner {
     grants: HashMap<String, Vec<u64>>,
     earned: HashMap<String, u32>,
     /// The day number and how many redemptions were accepted in it.
-    today: (u64, u32),
+    today: DayCount,
     /// Redemptions accepted today per network.
     by_address: HashMap<IpAddr, AddressCount>,
     /// Counts address entries as they are created, so the oldest can be told from the newest.
     address_clock: u64,
+}
+
+#[derive(Default)]
+struct DayCount {
+    day: u64,
+    count: u32,
 }
 
 struct AddressCount {
@@ -253,10 +259,10 @@ impl Referrals {
                 return Err(ReferralError::AlreadyRedeemed);
             }
             let day = now / DAY_SECS;
-            if inner.today.0 != day {
-                inner.today = (day, 0);
+            if inner.today.day != day {
+                inner.today = DayCount { day, count: 0 };
             }
-            if inner.redeemed.len() >= MAX_REDEMPTIONS || inner.today.1 >= MAX_REDEMPTIONS_PER_DAY {
+            if inner.redeemed.len() >= MAX_REDEMPTIONS || inner.today.count >= MAX_REDEMPTIONS_PER_DAY {
                 return Err(ReferralError::Busy);
             }
             let network = peer.map(network_of);
@@ -273,7 +279,7 @@ impl Referrals {
             }
             let earns = inner.earned.get(&owner).copied().unwrap_or(0) < self.terms.max_paid_invites;
             inner.apply_redemption(identity, &owner, now, earns, self.terms.duration_secs);
-            inner.today.1 += 1;
+            inner.today.count += 1;
             lines.push(Line::Redeem { r: identity.to_string(), o: owner, at: now, e: earns });
             (inner.standing_of(identity, now, self.terms), lines)
         };

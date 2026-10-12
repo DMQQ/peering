@@ -1146,7 +1146,7 @@ async fn dispatch(
                 return Some(ServerMessage::error("invalid", "field too long"));
             }
             if !state.push_limiter.allow(Instant::now()) {
-                warn!(host = %tag(&host_id), "notifyDevice over its budget, dropped");
+                warn!(host_id = %tag(&host_id), "notifyDevice over its budget, dropped");
                 return None;
             }
             // The Mac's ID is the relay's own record of who asked, not something the Mac says about
