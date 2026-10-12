@@ -61,6 +61,7 @@ extension HostModel {
             MainActor.assumeIsolated { self?.coordinator?.refreshCatalog() }
         }
         self.spaceObserver = spaceObserver
+        startCaptureEnvironmentWatch()
 
         let resolver = ScreenCaptureSourceResolver { [weak self] immediate in
             Task { @MainActor [weak self] in
@@ -91,6 +92,9 @@ extension HostModel {
                 self.apply(.failed(error.localizedDescription))
                 self.announceCaptureProblem(error)
             }
+        }
+        coordinator.onCaptureRestored = { [weak self] in
+            Task { @MainActor [weak self] in self?.captureWasRestored() }
         }
         coordinator.onInputTransform = { [weak self] transform in
             // Straight through, not hopped to the main actor: `input` is not UI state and its
@@ -366,6 +370,7 @@ extension HostModel {
             NSWorkspace.shared.notificationCenter.removeObserver(observer)
             spaceObserver = nil
         }
+        stopCaptureEnvironmentWatch()
         status = .idle
     }
 

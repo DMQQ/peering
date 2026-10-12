@@ -14,6 +14,10 @@ enum CaptureError: LocalizedError, Equatable {
     case streamStopped(code: Int, description: String)
     case streamFailed(String)
     case encodingFailed(String)
+    case recoveryFailed(attempts: Int)
+
+    /// Carried in ``NoticePayload/code`` for a client that wants to act on it.
+    static let recoveryFailedNoticeCode = "capture-recovery-failed"
 
     var errorDescription: String? {
         switch self {
@@ -38,6 +42,9 @@ enum CaptureError: LocalizedError, Equatable {
 
         case .encodingFailed(let detail):
             return "The encoder rejected a frame: \(detail)"
+
+        case .recoveryFailed(let attempts):
+            return String(localized: "Capture could not be restored after \(attempts) tries.")
         }
     }
 
@@ -53,6 +60,12 @@ enum CaptureError: LocalizedError, Equatable {
                 message: "This Mac cannot record its screen. Someone there has to allow Screen Recording for Peering in System Settings, then quit Peering on the Mac and open it again.",
                 symbol: "rectangle.slash"
             )
+        case .recoveryFailed:
+            return NoticePayload(
+                message: String(localized: "The picture stopped and this Mac could not start it again. Reconnect to try once more, or check Screen Recording and the display on the Mac."),
+                symbol: "exclamationmark.triangle",
+                code: Self.recoveryFailedNoticeCode
+            )
         case .sourceUnavailable, .catalogUnavailable, .streamStopped, .streamFailed, .encodingFailed:
             return nil
         }
@@ -62,7 +75,7 @@ enum CaptureError: LocalizedError, Equatable {
     var isExpectedState: Bool {
         switch self {
         case .screenRecordingDenied, .streamStopped: return true
-        case .sourceUnavailable, .catalogUnavailable, .streamFailed, .encodingFailed: return false
+        case .sourceUnavailable, .catalogUnavailable, .streamFailed, .encodingFailed, .recoveryFailed: return false
         }
     }
 

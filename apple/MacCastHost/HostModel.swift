@@ -242,6 +242,7 @@ final class HostModel {
     var pins: PinStore?
     var identity: SelfSignedIdentity?
     var spaceObserver: NSObjectProtocol?
+    var captureEnvironmentObservers: [(center: NotificationCenter, observer: NSObjectProtocol)] = []
 
     /// Bounded: an unbounded array in @Observable state re-renders forever.
     static let maxEvents = 60

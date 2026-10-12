@@ -120,6 +120,7 @@ extension VideoCoordinator {
     static let firstAskGrace = Duration.seconds(1)
 
     func scheduleEnsureCapturingLocked(generation: UInt64) {
+        recovery.reset()
         scheduleLifecycleLocked { [weak self] in
             guard let self, self.hasAudience(generation: generation) else { return }
 
