@@ -13,6 +13,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import pl.dmq.peering.ui.LockScreen
 import pl.dmq.peering.ui.debug.DebugPreview
 import pl.dmq.peering.ui.debug.PREVIEW_EXTRA
@@ -53,6 +57,7 @@ class MainActivity : FragmentActivity() {
             Toast.makeText(this, R.string.connect_lock_lapsed, Toast.LENGTH_LONG).show()
         }
         locked = appLock.isEnabled() && deviceLockAvailable
+        announceUnreadablePairings()
         val preview = if (BuildConfig.DEBUG) intent.getStringExtra(PREVIEW_EXTRA) else null
         if (savedInstanceState == null) openWidgetLink(intent)
         setContent {
@@ -62,6 +67,15 @@ class MainActivity : FragmentActivity() {
                     locked -> LockScreen(onUnlock = ::requestUnlock)
                     else -> PeeringScaffold(connectRequests)
                 }
+            }
+        }
+    }
+
+    private fun announceUnreadablePairings() {
+        val graph = (application as PeeringApplication).graph
+        lifecycleScope.launch {
+            if (withContext(Dispatchers.Default) { graph.takePairingsUnreadable() }) {
+                Toast.makeText(this@MainActivity, R.string.connect_pairings_unreadable, Toast.LENGTH_LONG).show()
             }
         }
     }

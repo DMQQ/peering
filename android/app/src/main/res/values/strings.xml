@@ -46,6 +46,7 @@
     <string name="connect_protect_body">Ask for your fingerprint, face or device passcode when Peering is opened again.</string>
     <string name="connect_protect_reason">Protect access to your paired computers.</string>
     <string name="connect_unlock">Unlock</string>
+    <string name="connect_pairings_unreadable">Your pairings could not be read from the secure storage on this phone. Pair with your Macs again.</string>
     <string name="connect_lock_lapsed">The screen lock was removed from this phone, so Peering no longer asks to unlock. Turn the lock on again in Settings once the phone has one.</string>
     <string name="connect_unlock_title">Peering is locked</string>
     <string name="connect_unnamed_host">A computer</string>

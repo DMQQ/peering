@@ -17,12 +17,14 @@ object PinCodec {
     }
 
     /** Anything that is not a well formed pin file reads as no pins. Entries with a wrong key size are dropped. */
-    fun decode(bytes: ByteArray?): Map<String, ByteArray> {
-        if (bytes == null) return emptyMap()
+    fun decode(bytes: ByteArray?): Map<String, ByteArray> = bytes?.let(::parse) ?: emptyMap()
+
+    /** The pins in [bytes], or null when they are not a well formed pin file. */
+    fun parse(bytes: ByteArray): Map<String, ByteArray>? {
         val parsed = try {
             Json.decodeFromString(serializer, bytes.toString(Charsets.UTF_8))
         } catch (_: SerializationException) {
-            return emptyMap()
+            return null
         }
         return parsed.mapNotNull { (hostId, text) -> decodeKey(text)?.let { hostId to it } }.toMap()
     }

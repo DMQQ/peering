@@ -14,8 +14,6 @@ import java.security.spec.ECGenParameterSpec
 import java.time.Duration
 import java.time.Instant
 import java.util.Date
-import java.util.Locale
-import java.util.UUID
 import javax.security.auth.x500.X500Principal
 import pl.dmq.peering.platform.net.TlsCredentials
 import pl.dmq.peering.session.ports.DeviceIdentity
@@ -23,7 +21,6 @@ import pl.dmq.peering.session.ports.SecretStore
 
 internal const val IDENTITY_ALIAS = "pl.dmq.peering.identity"
 private const val ANDROID_KEY_STORE = "AndroidKeyStore"
-private const val CLIENT_ID_KEY = "pl.dmq.peering.clientId"
 private const val SIGNATURE_ALGORITHM = "SHA256withECDSA"
 private const val CURVE = "secp256r1"
 private val notBeforeMargin: Duration = Duration.ofHours(1)
@@ -47,7 +44,7 @@ class KeystoreIdentity(
         certificates.map { it as? X509Certificate ?: throw IllegalStateException("identity is not an X.509 certificate") }
     }
 
-    override val clientId: String by lazy { storedClientId() ?: createClientId() }
+    override val clientId: String by lazy { ClientIds.resolve(secrets) }
 
     override val publicKey: ByteArray
         get() {
@@ -92,18 +89,12 @@ class KeystoreIdentity(
 
     /** TLS 1.3 has Conscrypt sign with NONEwithECDSA, which a Keystore key only allows when it was made with DIGEST_NONE. Keys made earlier lack it and fail the handshake. */
     private fun signsRawDigests(): Boolean {
-        val key = keyStore.getKey(IDENTITY_ALIAS, null) as? PrivateKey ?: return false
-        val info = KeyFactory.getInstance(key.algorithm, ANDROID_KEY_STORE).getKeySpec(key, KeyInfo::class.java)
+        val info = try {
+            val key = keyStore.getKey(IDENTITY_ALIAS, null) as? PrivateKey ?: throw IllegalStateException("identity private key missing")
+            KeyFactory.getInstance(key.algorithm, ANDROID_KEY_STORE).getKeySpec(key, KeyInfo::class.java)
+        } catch (failure: RuntimeException) {
+            throw IllegalStateException("identity key could not be read", failure)
+        }
         return KeyProperties.DIGEST_NONE in info.digests
-    }
-
-    private fun storedClientId(): String? =
-        secrets.get(CLIENT_ID_KEY)?.toString(Charsets.UTF_8)?.takeIf { it.isNotEmpty() }
-
-    private fun createClientId(): String {
-        val id = UUID.randomUUID().toString().uppercase(Locale.ROOT)
-        val stored = secrets.put(CLIENT_ID_KEY, id.toByteArray(Charsets.UTF_8))
-        check(stored) { "client id could not be stored" }
-        return id
     }
 }
