@@ -59,12 +59,38 @@ pub fn write_run_key(exe_path: &Path) -> std::io::Result<()> {
     outcome.succeeded().then_some(()).ok_or_else(|| std::io::Error::other(format!("reg could not write the Run entry: {}", outcome.describe())))
 }
 
+/// What the lookup of the Run entry says about removing it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Removal {
+    /// The entry is there and has to be deleted.
+    Delete,
+    /// `reg` reported the entry missing, which is the outcome asked for.
+    AlreadyAbsent,
+    /// `reg` did not answer (it timed out, did not start or failed another way), so nothing is known about the entry.
+    Unknown(String),
+}
+
+/// `reg query` exits 1 for a missing value. Any other failure leaves the entry's state unknown, and removing must not
+/// claim success for an entry that may still be there.
+pub fn removal_after_query(query: &crate::tools::ToolOutcome) -> Removal {
+    use crate::tools::ToolOutcome;
+    match query {
+        ToolOutcome::Succeeded => Removal::Delete,
+        ToolOutcome::Failed(Some(1)) => Removal::AlreadyAbsent,
+        other => Removal::Unknown(other.describe()),
+    }
+}
+
 /// `reg delete` fails for a missing entry and for a real error alike, so the entry is looked up first: absent is the
-/// outcome asked for, and a delete that fails on a present entry is an error.
+/// outcome asked for, and a lookup that gave no answer is an error rather than a success.
 #[cfg(windows)]
 pub fn remove_run_key() -> std::io::Result<()> {
-    if !reg(&reg_query_args()).succeeded() {
-        return Ok(());
+    match removal_after_query(&reg(&reg_query_args())) {
+        Removal::AlreadyAbsent => return Ok(()),
+        Removal::Unknown(reason) => {
+            return Err(std::io::Error::other(format!("reg could not tell whether the Run entry exists: {reason}")));
+        }
+        Removal::Delete => {}
     }
     let outcome = reg(&reg_delete_args());
     outcome.succeeded().then_some(()).ok_or_else(|| std::io::Error::other(format!("reg could not remove the Run entry: {}", outcome.describe())))
@@ -101,6 +127,21 @@ mod tests {
     fn a_path_with_a_double_quote_is_refused() {
         let result = run_key_command(&PathBuf::from(r#"C:\Bad"Name\peering-host.exe"#));
         assert_eq!(result, Err(AutostartError::Quote));
+    }
+
+    #[test]
+    fn a_found_entry_is_deleted_and_a_missing_one_is_already_gone() {
+        use crate::tools::ToolOutcome;
+        assert_eq!(removal_after_query(&ToolOutcome::Succeeded), Removal::Delete);
+        assert_eq!(removal_after_query(&ToolOutcome::Failed(Some(1))), Removal::AlreadyAbsent);
+    }
+
+    #[test]
+    fn a_lookup_that_timed_out_or_failed_otherwise_does_not_count_as_absent() {
+        use crate::tools::ToolOutcome;
+        for outcome in [ToolOutcome::TimedOut, ToolOutcome::Failed(Some(5)), ToolOutcome::Failed(None), ToolOutcome::NotStarted("x".to_owned())] {
+            assert!(matches!(removal_after_query(&outcome), Removal::Unknown(_)), "{outcome:?}");
+        }
     }
 
     #[test]
