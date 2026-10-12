@@ -71,6 +71,7 @@ final class VideoDatagramLane: @unchecked Sendable {
         let task = Task { [weak self] in
             guard let self else { return }
             let relay = self.relay
+            let lookup = RelayPeerLookup(url: ProtocolInfo.relaySignallingURL)
 
 // Quick while there is any prospect of it working, then slow for the rest of the session: the
 // fast phase is what opens the path, and the slow one recovers a mapping that expired.
@@ -78,10 +79,7 @@ final class VideoDatagramLane: @unchecked Sendable {
             while !Task.isCancelled {
                 if attempt % Self.rediscoverEvery == 0 {
                     do {
-                        if let address = try await RelaySignallingConnection.discoverPeer(
-                            at: ProtocolInfo.relaySignallingURL,
-                            videoToken: relay.videoToken
-                        ) {
+                        if let address = try await lookup.address(videoToken: relay.videoToken) {
                             self.clearDiscoveryFailure()
                             let peer = "\(address.host):\(address.port)"
                             do {
@@ -110,6 +108,7 @@ final class VideoDatagramLane: @unchecked Sendable {
                 let interval: Duration = attempt <= 12 ? .milliseconds(250) : .seconds(5)
                 try? await Task.sleep(for: interval)
             }
+            await lookup.close()
         }
         let previous = lock.withLock { () -> Task<Void, Never>? in
             guard !stopped else {
