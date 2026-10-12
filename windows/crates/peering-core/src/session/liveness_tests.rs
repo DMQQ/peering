@@ -125,3 +125,31 @@ fn the_background_flag_does_not_stretch_the_limits_before_authorisation() {
     tracker.set_background(true);
     assert_eq!(tracker.verdict(UNAUTHENTICATED_SILENCE_SECONDS + 0.5, HostPhase::Unauthenticated), Verdict::End);
 }
+
+#[test]
+fn a_session_that_keeps_pinging_while_awaiting_approval_is_ended_at_the_absolute_limit() {
+    let clock = FakeClock::new(0.0, 0);
+    let mut tracker = tracker_at_clock_start(&clock);
+    tracker.note_phase(HostPhase::AwaitingApproval, clock.now_seconds());
+    for _ in 0..24 {
+        clock.advance(5.0);
+        tracker.heard(clock.now_seconds());
+        tracker.note_phase(HostPhase::AwaitingApproval, clock.now_seconds());
+    }
+    assert_eq!(tracker.verdict(clock.now_seconds(), HostPhase::AwaitingApproval), Verdict::Keep, "exactly 120 s is allowed");
+    clock.advance(1.0);
+    tracker.heard(clock.now_seconds());
+    assert_eq!(tracker.verdict(clock.now_seconds(), HostPhase::AwaitingApproval), Verdict::End);
+}
+
+#[test]
+fn leaving_the_approval_wait_forgets_how_long_it_lasted() {
+    let clock = FakeClock::new(0.0, 0);
+    let mut tracker = tracker_at_clock_start(&clock);
+    tracker.note_phase(HostPhase::AwaitingApproval, clock.now_seconds());
+    clock.advance(100.0);
+    tracker.note_phase(HostPhase::Authorized, clock.now_seconds());
+    clock.advance(100.0);
+    tracker.heard(clock.now_seconds());
+    assert_eq!(tracker.verdict(clock.now_seconds(), HostPhase::Authorized), Verdict::Keep);
+}

@@ -8,6 +8,9 @@ use super::state::HostPhase;
 pub const AUTHORISED_SILENCE_SECONDS: f64 = 60.0;
 pub const UNAUTHENTICATED_SILENCE_SECONDS: f64 = 30.0;
 pub const AWAITING_APPROVAL_SILENCE_SECONDS: f64 = 120.0;
+/// The most time a session may spend waiting for the user's answer, whatever it sends meanwhile. Pings keep a session alive,
+/// so without this a peer could hold the approval slot for as long as it liked.
+pub const AWAITING_APPROVAL_ABSOLUTE_SECONDS: f64 = 120.0;
 pub const REAPER_INTERVAL_SECONDS: f64 = 5.0;
 /// An authorised client the OS has frozen in the background says nothing, so it is given longer before it is reaped.
 pub const BACKGROUND_SILENCE_SECONDS: f64 = 180.0;
@@ -48,15 +51,25 @@ pub enum Verdict {
 pub struct LivenessTracker {
     last_heard: f64,
     background: bool,
+    awaiting_since: Option<f64>,
 }
 
 impl LivenessTracker {
     pub fn started_at(now: f64) -> Self {
-        Self { last_heard: now, background: false }
+        Self { last_heard: now, background: false, awaiting_since: None }
     }
 
     pub fn heard(&mut self, now: f64) {
         self.last_heard = now;
+    }
+
+    /// Tells the tracker which phase the session is in, so it can time how long approval has been awaited.
+    pub fn note_phase(&mut self, phase: HostPhase, now: f64) {
+        if phase == HostPhase::AwaitingApproval {
+            self.awaiting_since.get_or_insert(now);
+        } else {
+            self.awaiting_since = None;
+        }
     }
 
     /// The client reported it left or returned to the foreground. Returning restores the normal limit.
@@ -79,7 +92,8 @@ impl LivenessTracker {
 
     /// A session is ended only once its silence is longer than the limit, so a frame exactly at the limit keeps it.
     pub fn verdict(&self, now: f64, phase: HostPhase) -> Verdict {
-        if now - self.last_heard > self.limit_seconds(phase) {
+        let waited_too_long = self.awaiting_since.is_some_and(|since| now - since > AWAITING_APPROVAL_ABSOLUTE_SECONDS);
+        if waited_too_long || now - self.last_heard > self.limit_seconds(phase) {
             Verdict::End
         } else {
             Verdict::Keep

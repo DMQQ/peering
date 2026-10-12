@@ -8,7 +8,7 @@ use crate::session::actions::HostEvent;
 use crate::session::deps::PinStore;
 
 /// The code and QR content a phone scans or compares while pairing is under way.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PairingOffer {
     /// The session that opened the offer. Only that session may replace or close it.
     pub session: u64,
@@ -18,6 +18,8 @@ pub struct PairingOffer {
     pub via_relay: bool,
     pub host_link: String,
     pub code_link: String,
+    /// When the offer opened, in the caller's seconds.
+    pub opened_at: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,6 +43,10 @@ pub struct PairedDeviceEntry {
     pub name: String,
     pub last_seen_unix: u64,
 }
+
+/// An offer older than this may be replaced by another session's, so a peer that opened one and went quiet cannot keep the
+/// pairing screen from everyone else.
+pub const OFFER_LIFETIME_SECONDS: f64 = 120.0;
 
 /// Waiting approvals past this are refused outright, so a peer cannot bury the real prompt under its own.
 pub const MAXIMUM_PENDING_APPROVALS: usize = 4;
@@ -66,11 +72,12 @@ impl PairingService {
 
     /// Only the events that change what the user sees are read: a new code opens the offer, a finished
     /// pairing closes it. One pairing is active at a time: while `session` is not the one that opened the offer, its
-    /// events change nothing.
-    pub fn apply_event(&mut self, session: u64, event: &HostEvent) {
+    /// events change nothing, unless the offer has outlived `OFFER_LIFETIME_SECONDS`. A session that renews its own offer
+    /// keeps the time it first opened it.
+    pub fn apply_event(&mut self, session: u64, event: &HostEvent, now: f64) {
         match event {
             HostEvent::PairingCode { code, secret, client_name, via_relay } => {
-                if self.offer.as_ref().is_some_and(|offer| offer.session != session) {
+                if self.offer.as_ref().is_some_and(|offer| offer.session != session && now - offer.opened_at <= OFFER_LIFETIME_SECONDS) {
                     return;
                 }
                 self.offer = Some(PairingOffer {
@@ -81,6 +88,7 @@ impl PairingService {
                     via_relay: *via_relay,
                     host_link: pairing_payload::host_link(&self.host_id),
                     code_link: pairing_payload::code_link(code, Some(secret.as_slice())),
+                    opened_at: self.offer.as_ref().filter(|offer| offer.session == session).map_or(now, |offer| offer.opened_at),
                 });
             }
             HostEvent::PairingCompleted { .. } => self.close_offer_of(session),

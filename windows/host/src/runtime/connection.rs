@@ -203,7 +203,9 @@ impl Connection {
             return Flow::Closed;
         }
         let now = self.now();
-        let verdict = self.liveness.verdict_for(now, self.session.state().phase(), self.video_for_session.is_some());
+        let phase = self.session.state().phase();
+        self.liveness.note_phase(phase, now);
+        let verdict = self.liveness.verdict_for(now, phase, self.video_for_session.is_some());
         if verdict == Verdict::End || !self.shared.lock().hosting {
             return Flow::Closed;
         }
@@ -222,7 +224,10 @@ impl Connection {
     fn apply(&mut self, action: SessionAction) -> Flow {
         match action {
             SessionAction::Send(frame) => self.send(self.decorate(frame)),
-            SessionAction::Emit(event) => self.shared.lock().pairing.apply_event(self.session_id, &event),
+            SessionAction::Emit(event) => {
+                let now = self.now();
+                self.shared.lock().pairing.apply_event(self.session_id, &event, now);
+            }
             SessionAction::Authorized => self.register(),
             SessionAction::ForwardFrame(frame) => return self.on_ready(&frame),
             SessionAction::ForwardCommand(command) => self.dispatch_command(command),

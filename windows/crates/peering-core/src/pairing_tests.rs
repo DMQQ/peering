@@ -26,7 +26,7 @@ fn code_event() -> HostEvent {
 #[test]
 fn a_pairing_code_event_opens_the_offer_with_its_qr_strings() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    pairing.apply_event(1, &code_event());
+    pairing.apply_event(1, &code_event(), 0.0);
 
     let offer = pairing.offer().expect("an offer is shown");
     assert_eq!(offer.code, "365357");
@@ -40,20 +40,20 @@ fn a_pairing_code_event_opens_the_offer_with_its_qr_strings() {
 #[test]
 fn a_finished_pairing_closes_the_offer() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    pairing.apply_event(1, &code_event());
-    pairing.apply_event(1, &HostEvent::PairingCompleted { client_name: "Pixel 9".to_owned(), accepted: true });
+    pairing.apply_event(1, &code_event(), 0.0);
+    pairing.apply_event(1, &HostEvent::PairingCompleted { client_name: "Pixel 9".to_owned(), accepted: true }, 0.0);
     assert_eq!(pairing.offer(), None);
 }
 
 #[test]
 fn a_client_connecting_leaves_the_offer_alone() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    pairing.apply_event(1, &code_event());
+    pairing.apply_event(1, &code_event(), 0.0);
     pairing.apply_event(1, &HostEvent::ClientConnected {
         client_id: "c".to_owned(),
         client_name: "Other".to_owned(),
         via_relay: false,
-    });
+    }, 0.0);
     assert_eq!(pairing.offer().map(|offer| offer.code.as_str()), Some("365357"));
 }
 
@@ -137,29 +137,50 @@ fn revoking_an_unknown_device_reports_nothing_removed() {
 #[test]
 fn a_second_session_cannot_replace_the_offer_of_the_first() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    pairing.apply_event(1, &code_event());
+    pairing.apply_event(1, &code_event(), 0.0);
     let intruder = HostEvent::PairingCode {
         code: "111111".to_owned(),
         secret: vec![1],
         client_name: "Intruder".to_owned(),
         via_relay: false,
     };
-    pairing.apply_event(2, &intruder);
+    pairing.apply_event(2, &intruder, 0.0);
     assert_eq!(pairing.offer().map(|offer| offer.code.as_str()), Some("365357"));
+}
+
+#[test]
+fn a_second_session_takes_over_an_offer_that_outlived_its_lifetime() {
+    let mut pairing = service(Arc::new(MemoryPins::default()));
+    pairing.apply_event(1, &code_event(), 0.0);
+    let newer = HostEvent::PairingCode { code: "222222".to_owned(), secret: vec![2], client_name: "Newer".to_owned(), via_relay: false };
+    pairing.apply_event(2, &newer, OFFER_LIFETIME_SECONDS);
+    assert_eq!(pairing.offer().map(|offer| offer.code.as_str()), Some("365357"), "still inside its lifetime");
+    pairing.apply_event(2, &newer, OFFER_LIFETIME_SECONDS + 0.5);
+    assert_eq!(pairing.offer().map(|offer| (offer.session, offer.code.as_str())), Some((2, "222222")));
+}
+
+#[test]
+fn a_session_renewing_its_own_offer_does_not_extend_its_lifetime() {
+    let mut pairing = service(Arc::new(MemoryPins::default()));
+    pairing.apply_event(1, &code_event(), 0.0);
+    pairing.apply_event(1, &code_event(), 100.0);
+    let newer = HostEvent::PairingCode { code: "222222".to_owned(), secret: vec![2], client_name: "Newer".to_owned(), via_relay: false };
+    pairing.apply_event(2, &newer, 121.0);
+    assert_eq!(pairing.offer().map(|offer| offer.session), Some(2));
 }
 
 #[test]
 fn a_second_session_cannot_close_the_offer_of_the_first() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    pairing.apply_event(1, &code_event());
-    pairing.apply_event(2, &HostEvent::PairingCompleted { client_name: "Other".to_owned(), accepted: false });
+    pairing.apply_event(1, &code_event(), 0.0);
+    pairing.apply_event(2, &HostEvent::PairingCompleted { client_name: "Other".to_owned(), accepted: false }, 0.0);
     assert!(pairing.offer().is_some());
 }
 
 #[test]
 fn the_offer_goes_when_its_session_ends_without_finishing() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    pairing.apply_event(1, &code_event());
+    pairing.apply_event(1, &code_event(), 0.0);
     pairing.forget_session(1);
     assert_eq!(pairing.offer(), None);
 }
@@ -167,16 +188,16 @@ fn the_offer_goes_when_its_session_ends_without_finishing() {
 #[test]
 fn a_new_pairing_can_start_once_the_old_session_is_gone() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    pairing.apply_event(1, &code_event());
+    pairing.apply_event(1, &code_event(), 0.0);
     pairing.forget_session(1);
-    pairing.apply_event(2, &code_event());
+    pairing.apply_event(2, &code_event(), 0.0);
     assert_eq!(pairing.offer().map(|offer| offer.session), Some(2));
 }
 
 #[test]
 fn forgetting_another_session_keeps_the_offer() {
     let mut pairing = service(Arc::new(MemoryPins::default()));
-    pairing.apply_event(1, &code_event());
+    pairing.apply_event(1, &code_event(), 0.0);
     pairing.forget_session(2);
     assert!(pairing.offer().is_some());
 }
