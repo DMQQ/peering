@@ -2,7 +2,7 @@ package pl.dmq.peering.feature.paywall
 
 class FakePaywallBilling(
     var products: List<PaywallProduct> = listOf(
-        PaywallProduct(PlanOffer.SUBSCRIPTION, "relay_monthly", "2.99"),
+        PaywallProduct(PlanOffer.MONTHLY, "relay_monthly", "2.99"),
         PaywallProduct(PlanOffer.LIFETIME, "relay_lifetime", "19.99"),
     ),
     var productsError: Exception? = null,

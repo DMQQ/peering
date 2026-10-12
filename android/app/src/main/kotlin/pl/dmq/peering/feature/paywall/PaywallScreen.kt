@@ -19,7 +19,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.annotation.StringRes
 import pl.dmq.peering.R
+import pl.dmq.peering.billing.BillingUnavailable
 import pl.dmq.peering.ui.theme.OutlinedPanel
 import pl.dmq.peering.ui.theme.PeeringColors
 
@@ -46,6 +48,9 @@ fun PaywallScreen(
             ui.loading -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             ui.loadFailed || ui.products.isEmpty() -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.paywall_prices_unavailable), style = MaterialTheme.typography.titleSmall, color = PeeringColors.ink)
+                ui.unavailable?.let { reason ->
+                    Text(stringResource(reason.explanationRes()), style = MaterialTheme.typography.bodyMedium, color = PeeringColors.muted)
+                }
                 Text(
                     stringResource(R.string.paywall_try_again),
                     style = MaterialTheme.typography.labelLarge,
@@ -115,19 +120,35 @@ private fun OfferRow(product: PaywallProduct, selected: Boolean, onClick: () -> 
             .clickable(onClick = onClick),
     ) {
         Text(
-            stringResource(if (product.offer == PlanOffer.SUBSCRIPTION) R.string.paywall_offer_subscription else R.string.paywall_offer_lifetime),
+            stringResource(product.offer.titleRes()),
             style = MaterialTheme.typography.titleMedium,
             color = if (selected) PeeringColors.accent else PeeringColors.ink,
         )
         Text(product.displayPrice, style = MaterialTheme.typography.bodyMedium, color = PeeringColors.ink)
-        Text(
-            stringResource(
-                if (product.offer == PlanOffer.SUBSCRIPTION) R.string.paywall_offer_subscription_detail else R.string.paywall_offer_lifetime_detail,
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = PeeringColors.muted,
-        )
+        Text(stringResource(product.offer.detailRes()), style = MaterialTheme.typography.bodySmall, color = PeeringColors.muted)
     }
+}
+
+@StringRes
+private fun PlanOffer.titleRes(): Int = when (this) {
+    PlanOffer.MONTHLY -> R.string.paywall_offer_monthly
+    PlanOffer.YEARLY -> R.string.paywall_offer_yearly
+    PlanOffer.LIFETIME -> R.string.paywall_offer_lifetime
+}
+
+@StringRes
+private fun PlanOffer.detailRes(): Int = when (this) {
+    PlanOffer.MONTHLY -> R.string.paywall_offer_monthly_detail
+    PlanOffer.YEARLY -> R.string.paywall_offer_yearly_detail
+    PlanOffer.LIFETIME -> R.string.paywall_offer_lifetime_detail
+}
+
+@StringRes
+private fun BillingUnavailable.explanationRes(): Int = when (this) {
+    BillingUnavailable.NotSupported -> R.string.paywall_unavailable_not_supported
+    BillingUnavailable.StoreUnreachable -> R.string.paywall_unavailable_unreachable
+    BillingUnavailable.NotConfigured -> R.string.paywall_unavailable_not_configured
+    is BillingUnavailable.Refused -> R.string.paywall_unavailable_refused
 }
 
 @Composable

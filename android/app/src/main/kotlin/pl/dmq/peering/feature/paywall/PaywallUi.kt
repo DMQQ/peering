@@ -1,5 +1,7 @@
 package pl.dmq.peering.feature.paywall
 
+import pl.dmq.peering.billing.BillingUnavailable
+
 enum class PurchaseState {
     IDLE,
     PURCHASING,
@@ -21,6 +23,7 @@ data class PaywallUi(
     val loading: Boolean = true,
     val products: List<PaywallProduct> = emptyList(),
     val loadFailed: Boolean = false,
+    val unavailable: BillingUnavailable? = null,
     val selected: PlanOffer? = null,
     val entitled: Boolean = false,
     val purchase: PurchaseState = PurchaseState.IDLE,

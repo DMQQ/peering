@@ -29,6 +29,7 @@ import pl.dmq.peering.feature.agents.FolderRecents
 import pl.dmq.peering.feature.agents.FolderRecentsStore
 import pl.dmq.peering.feature.files.FilesRoute
 import pl.dmq.peering.feature.paywall.PaywallReason
+import pl.dmq.peering.billing.PlayBilling
 import pl.dmq.peering.feature.paywall.PaywallRoute
 import pl.dmq.peering.feature.remote.RemoteModel
 import pl.dmq.peering.feature.remote.RemoteRoute
@@ -43,7 +44,7 @@ import pl.dmq.peering.ui.wiring.ControllerRemoteModel
 import pl.dmq.peering.ui.wiring.SessionFileBrowsing
 import pl.dmq.peering.ui.wiring.StorePaywallBilling
 import pl.dmq.peering.ui.wiring.SurfacePicture
-import pl.dmq.peering.ui.wiring.UnboundBilling
+import pl.dmq.peering.ui.wiring.findActivity
 import pl.dmq.peering.ui.wiring.UntrackedRelayAllowance
 import pl.dmq.peering.ui.wiring.messageRes
 
@@ -61,10 +62,12 @@ internal fun SessionScreens(
     drafts: ComposerDraftStore,
     folderRecents: FolderRecentsStore,
     settings: SettingsStore,
+    billing: PlayBilling,
     clock: Clock,
     onClose: (() -> Unit)?,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var route by rememberSaveable { mutableStateOf(SessionRoute.REMOTE) }
     val remote = remember(active) {
         ControllerRemoteModel(active.controller, picture, scope, ControllerQualityPort(active.controller, settings, scope)) {
@@ -82,7 +85,7 @@ internal fun SessionScreens(
         SessionRoute.AGENTS -> AgentsScreen(active, drafts, folderRecents, clock) { route = SessionRoute.REMOTE }
         SessionRoute.FILES -> FilesScreen(active) { route = SessionRoute.REMOTE }
         SessionRoute.PAYWALL -> PaywallRoute(
-            billing = StorePaywallBilling(UnboundBilling),
+            billing = StorePaywallBilling(billing) { context.findActivity() },
             allowance = UntrackedRelayAllowance.allowance,
             reason = PaywallReason.Upgrade,
             startsWithAllowanceNotice = false,

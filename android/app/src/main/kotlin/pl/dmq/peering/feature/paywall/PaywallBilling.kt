@@ -1,8 +1,9 @@
 package pl.dmq.peering.feature.paywall
 
-/** The two ways to pay for unlimited relay time. */
+/** The ways to pay for unlimited relay time: the two subscription periods, and the one-time lifetime purchase. */
 enum class PlanOffer {
-    SUBSCRIPTION,
+    MONTHLY,
+    YEARLY,
     LIFETIME,
 }
 
@@ -27,8 +28,8 @@ enum class RestoreOutcome {
 }
 
 /**
- * What the paywall needs from the store. The store implementation is chosen per distribution and is not bound yet.
- * [products] may throw when the store cannot be reached; the purchase and restore calls report their outcome instead.
+ * What the paywall needs from the store. [products] throws [PaywallUnavailable] when the store cannot give the offers;
+ * the purchase and restore calls report their outcome instead.
  */
 interface PaywallBilling {
     suspend fun products(): List<PaywallProduct>

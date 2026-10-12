@@ -4,6 +4,7 @@ import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import pl.dmq.peering.SessionFactory
 import pl.dmq.peering.platform.net.UdpLane
+import pl.dmq.peering.billing.Billing
 import pl.dmq.peering.session.controller.ConnectTarget
 import pl.dmq.peering.session.controller.QualitySource
 import pl.dmq.peering.session.controller.RelayPorts
@@ -18,10 +19,11 @@ internal class SessionPortsFactory(
     private val picture: VideoSink,
     private val history: SessionHistory,
     private val quality: QualitySource,
+    private val billing: Billing,
 ) {
     fun open(target: ConnectTarget, scope: CoroutineScope): ActiveSession {
         val lane = if (target is ConnectTarget.Relay) UdpLane.bind() else null
-        val relay = lane?.let { RelayPorts(sessions.newRelaySignalling(), it) }
+        val relay = lane?.let { RelayPorts(sessions.newRelaySignalling(), it, billing::entitlement) }
         val downloads = SessionDownloads()
         val ports = SessionPorts(
             identity = sessions.identity,

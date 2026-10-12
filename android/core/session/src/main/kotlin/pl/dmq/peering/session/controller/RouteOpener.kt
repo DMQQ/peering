@@ -25,7 +25,7 @@ internal class RouteOpener(private val target: ConnectTarget, private val ports:
         val relay = checkNotNull(ports.relay) { "a relay target needs the relay ports" }
         val session = guarded {
             RelayConnect(relay.signalling, ports.identity, ports.clock)
-                .requestSession(hostId, ports.identity.clientId)
+                .requestSession(hostId, ports.identity.clientId, relay.entitlement())
         }
         val transport = guarded { ports.control.open(ControlRoute.Relayed(session.controlHandoff())) }
         return OpenedRoute(transport, target.path, session.video, session.videoTokenBytes, relay.datagrams)

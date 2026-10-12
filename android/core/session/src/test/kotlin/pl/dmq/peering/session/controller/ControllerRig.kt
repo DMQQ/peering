@@ -13,6 +13,7 @@ import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.testing.FakeDatagramTransport
 import pl.dmq.peering.session.testing.FakeIdentity
 import pl.dmq.peering.session.testing.FakePinStore
+import pl.dmq.peering.session.relay.RelayEntitlement
 import pl.dmq.peering.session.testing.FakeSignalling
 import pl.dmq.peering.session.testing.FakeVideoSink
 import pl.dmq.peering.session.testing.FixedRandom
@@ -27,6 +28,7 @@ class ControllerRig(
     val target: ConnectTarget,
     val mac: ScriptedMac = ScriptedMac(),
     val pins: FakePinStore = FakePinStore(mapOf(ScriptedPairingHost.HOST_ID to ScriptedPairingHost.HOST_KEY)),
+    val entitlement: RelayEntitlement = RelayEntitlement(),
 ) {
     val routes = mutableListOf<ControlRoute>()
 
@@ -57,7 +59,7 @@ class ControllerRig(
         },
         sink = sink,
         downloads = DownloadWriter { offset, bytes -> downloads[offset] = bytes },
-        relay = RelayPorts(signalling, datagrams),
+        relay = RelayPorts(signalling, datagrams) { entitlement },
     )
 
     val controller = SessionController(scope, target, ports, history)

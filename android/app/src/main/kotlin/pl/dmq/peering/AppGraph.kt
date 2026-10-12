@@ -21,6 +21,8 @@ import pl.dmq.peering.session.ports.SecretStore
 class AppGraph(context: Context) {
     private val appContext = context.applicationContext
 
+    val applicationContext: Context get() = appContext
+
     private val secureDirectory: File by lazy {
         File(appContext.filesDir, "secure").apply { mkdirs() }
     }

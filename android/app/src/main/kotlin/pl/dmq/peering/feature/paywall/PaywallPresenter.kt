@@ -21,23 +21,28 @@ class PaywallPresenter(
     }
 
     fun load() {
-        model.update { it.copy(loading = true, loadFailed = false) }
+        model.update { it.copy(loading = true, loadFailed = false, unavailable = null) }
         scope.launch {
             val loaded = try {
-                billing.products() to true
+                billing.products() to null
             } catch (error: CancellationException) {
                 throw error
+            } catch (error: PaywallUnavailable) {
+                emptyList<PaywallProduct>() to error.reason
             } catch (error: Exception) {
-                emptyList<PaywallProduct>() to false
+                emptyList<PaywallProduct>() to null
             }
             val entitled = billing.hasPaidRelayAccess()
+            val products = loaded.first
             model.update { current ->
                 current.copy(
                     loading = false,
-                    products = loaded.first,
-                    loadFailed = !loaded.second,
-                    selected = current.selected ?: loaded.first.firstOrNull { it.offer == PlanOffer.SUBSCRIPTION }?.offer
-                        ?: loaded.first.firstOrNull()?.offer,
+                    products = products,
+                    loadFailed = products.isEmpty(),
+                    unavailable = loaded.second,
+                    selected = current.selected?.takeIf { chosen -> products.any { it.offer == chosen } }
+                        ?: products.firstOrNull { it.offer == PlanOffer.MONTHLY }?.offer
+                        ?: products.firstOrNull()?.offer,
                     entitled = entitled,
                 )
             }

@@ -16,7 +16,7 @@ class PaywallPresenterTest {
         val ui = presenter(FakePaywallBilling()).ui.value
         assertFalse(ui.loading)
         assertEquals(2, ui.products.size)
-        assertEquals(PlanOffer.SUBSCRIPTION, ui.selected)
+        assertEquals(PlanOffer.MONTHLY, ui.selected)
         assertFalse(ui.loadFailed)
     }
 
@@ -102,7 +102,7 @@ class PaywallPresenterTest {
     @Test
     fun aMissingOfferCannotBeSelected() = runTest {
         val presenter = presenter(FakePaywallBilling(products = listOf(PaywallProduct(PlanOffer.LIFETIME, "x", "1"))))
-        presenter.select(PlanOffer.SUBSCRIPTION)
+        presenter.select(PlanOffer.MONTHLY)
         assertEquals(PlanOffer.LIFETIME, presenter.ui.value.selected)
     }
 
