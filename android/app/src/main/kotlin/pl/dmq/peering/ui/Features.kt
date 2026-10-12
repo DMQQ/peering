@@ -1,5 +1,6 @@
 package pl.dmq.peering.ui
 
+import pl.dmq.peering.feature.connect.ConnectUiState
 import android.content.SharedPreferences
 import android.os.Build
 import pl.dmq.peering.ui.wiring.PreferencesDevicePreferences
@@ -50,6 +51,9 @@ import pl.dmq.peering.session.relay.PresenceWatch
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences: SharedPreferences) {
     val picture = SurfacePicture()
+
+    /** What the Connect tab showed last, so coming back to it starts from that and not from an empty list. */
+    var lastConnectState: ConnectUiState? = null
     val qrSource = CameraQrSource()
     val network = ConnectivityNetworkSource(graph.applicationContext)
     val clock: Clock = graph.sessions.clock

@@ -8,6 +8,7 @@ import pl.dmq.peering.ui.nav.HideNavigationBar
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -93,6 +94,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             },
             scope = scope,
             network = wiring.network,
+            initial = wiring.lastConnectState,
         )
     }
     DisposableEffect(wiring) {
@@ -104,6 +106,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
         if (pairing != null && active !== pairingSession) pairing = null
     }
     val connectState by connect.state.collectAsState()
+    SideEffect { wiring.lastConnectState = connectState }
     connectState.listing.nearby.forEach { row -> row.name?.let { hostNames[row.id] = it } }
     val firstConnection = !firstConnectionDismissed && connectState.listing.paired.isEmpty()
     val session = active

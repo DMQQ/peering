@@ -23,6 +23,7 @@ class ConnectPresenter(
     private val scope: CoroutineScope,
     network: NetworkSource = NetworkSource.Always,
     private val searchWindowMillis: Long = SEARCH_WINDOW_MILLIS,
+    initial: ConnectUiState? = null,
 ) {
     val entry = HostIdEntryPresenter(qrSource, scope, onAccepted = { pair(it) })
 
@@ -53,7 +54,7 @@ class ConnectPresenter(
             message = failure,
             entry = entryState,
         )
-    }.stateIn(scope, SharingStarted.Eagerly, ConnectUiState(entry = entry.state.value))
+    }.stateIn(scope, SharingStarted.Eagerly, initial?.copy(entry = entry.state.value) ?: ConnectUiState(entry = entry.state.value))
 
     init {
         startSearchWindow()
