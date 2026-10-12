@@ -37,23 +37,7 @@ pub const SECRET: [u8; 16] = [0x5E; 16];
 pub const UNIX_NOW: u64 = 1_800_000_000;
 pub const MAC_ADDRESS: &str = "aa:bb:cc:dd:ee:ff";
 
-/// Hands the host the same values every time, so a test can check the host's commitment against them.
-pub struct FixedRandom;
-
-impl Random for FixedRandom {
-    fn ephemeral_public_key(&mut self) -> Vec<u8> {
-        HOST_EPHEMERAL.to_vec()
-    }
-
-    fn nonce(&mut self) -> Vec<u8> {
-        HOST_NONCE.to_vec()
-    }
-
-    fn secret(&mut self) -> Vec<u8> {
-        SECRET.to_vec()
-    }
-}
-
+pub use peering_core::session::test_support::FixedRandom;
 
 pub fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)

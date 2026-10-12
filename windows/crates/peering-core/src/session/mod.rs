@@ -8,5 +8,5 @@ pub mod held_input;
 pub mod liveness;
 pub mod state;
 
-#[cfg(test)]
-pub(crate) mod test_support;
+#[cfg(any(test, feature = "testing"))]
+pub mod test_support;

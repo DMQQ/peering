@@ -2,69 +2,14 @@
 #![allow(dead_code)]
 
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use peering_agent::claude_adapter::{ChildProcess, LaunchSpec, ProcessLauncher, ReadResult};
 use peering_agent::manager::AgentSessionManager;
 use peering_wire::agent::{AgentEvent, AgentRequest, AgentSessionInfo, AgentStreamEvent, AgentStreamPayload};
 use serde_json::{json, Value};
 
 pub const APPROVAL_ID: &str = "49f17c21-744b-4bc7-a5ee-4ecf7225a13c";
 
-#[derive(Debug, Default)]
-pub struct Script {
-    pub output: std::collections::VecDeque<String>,
-    pub closed: bool,
-    pub written: Vec<String>,
-    pub interrupts: usize,
-    pub launches: Vec<LaunchSpec>,
-}
-
-pub type SharedScript = Arc<Mutex<Script>>;
-
-pub fn locked(script: &SharedScript) -> MutexGuard<'_, Script> {
-    script.lock().unwrap_or_else(PoisonError::into_inner)
-}
-
-/// A child process that prints the scripted lines and records what it is sent.
-pub struct ScriptedChild(pub SharedScript);
-
-impl ChildProcess for ScriptedChild {
-    fn write_line(&mut self, line: &str) -> bool {
-        locked(&self.0).written.push(line.to_owned());
-        true
-    }
-
-    fn read_line(&mut self) -> ReadResult {
-        let mut script = locked(&self.0);
-        match script.output.pop_front() {
-            Some(line) => ReadResult::Line(line),
-            None if script.closed => ReadResult::Closed,
-            None => ReadResult::Pending,
-        }
-    }
-
-    fn interrupt(&mut self) {
-        locked(&self.0).interrupts += 1;
-    }
-
-    fn kill(&mut self) {
-        locked(&self.0).closed = true;
-    }
-
-    fn exit_status(&mut self) -> Option<i32> {
-        locked(&self.0).closed.then_some(0)
-    }
-}
-
-pub struct ScriptedLauncher(pub SharedScript);
-
-impl ProcessLauncher for ScriptedLauncher {
-    fn spawn(&mut self, command: LaunchSpec) -> Box<dyn ChildProcess> {
-        locked(&self.0).launches.push(command);
-        Box::new(ScriptedChild(Arc::clone(&self.0)))
-    }
-}
+pub use peering_agent::claude_adapter::fake::{lock as locked, ScriptedLauncher, SharedScript};
 
 pub struct Chat {
     pub manager: AgentSessionManager<ScriptedLauncher>,
@@ -83,7 +28,7 @@ pub fn fixture(name: &str) -> Vec<String> {
 
 pub fn start_chat() -> Chat {
     let script = SharedScript::default();
-    let mut manager = AgentSessionManager::new(ScriptedLauncher(Arc::clone(&script)));
+    let mut manager = AgentSessionManager::new(ScriptedLauncher::new(&script));
     let directory = std::env::temp_dir().join("peering-agent-turn-flow");
     let events = manager.handle(AgentRequest::Start {
         agent_id: "claude".to_owned(),

@@ -1,64 +1,12 @@
 //! Pairing fakes and the phone that pairs with the host.
 
 use super::*;
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
 
 use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::handshake::{ClientHello, PairConfirm, PairingCommit, PairingReveal};
 use peering_wire::sas::{self, PairingTranscript};
-use peering_core::session::deps::PairedDevice;
 
-/// A pin store kept in a map. `set_fail_writes(true)` makes `record` report failure and store nothing.
-#[derive(Default)]
-pub struct MemoryPins {
-    devices: Mutex<HashMap<String, PairedDevice>>,
-    fail_writes: AtomicBool,
-}
-
-impl MemoryPins {
-    pub fn with_device(device: PairedDevice) -> Self {
-        let pins = Self::default();
-        locked(&pins.devices).insert(device.id.clone(), device);
-        pins
-    }
-
-    pub fn set_fail_writes(&self, fail: bool) {
-        self.fail_writes.store(fail, Ordering::SeqCst);
-    }
-}
-
-impl PinStore for MemoryPins {
-    fn pin_for(&self, client_id: &str) -> Option<Vec<u8>> {
-        locked(&self.devices).get(client_id).map(|device| device.public_key.clone())
-    }
-
-    fn record(&self, device: &PairedDevice) -> bool {
-        if self.fail_writes.load(Ordering::SeqCst) {
-            return false;
-        }
-        locked(&self.devices).insert(device.id.clone(), device.clone());
-        true
-    }
-
-    fn mark_seen(&self, client_id: &str, unix_seconds: u64) {
-        if let Some(device) = locked(&self.devices).get_mut(client_id) {
-            device.last_seen_unix = unix_seconds;
-        }
-    }
-
-    fn devices(&self) -> Vec<PairedDevice> {
-        let mut devices: Vec<PairedDevice> = locked(&self.devices).values().cloned().collect();
-        devices.sort_by(|a, b| a.id.cmp(&b.id));
-        devices
-    }
-
-    fn revoke(&self, client_id: &str) -> bool {
-        locked(&self.devices).remove(client_id).is_some()
-    }
-}
-
+pub use peering_core::session::test_support::MemoryPins;
 
 /// A phone that pairs with the host, computing the code from the values it actually received.
 pub struct PairingClient {

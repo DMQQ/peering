@@ -6,8 +6,8 @@ mod arguments;
 mod control;
 mod launch;
 
-#[cfg(test)]
-pub(crate) mod fake;
+#[cfg(any(test, feature = "testing"))]
+pub mod fake;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
