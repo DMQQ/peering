@@ -240,7 +240,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
-        _ => None,
+        _ => {
+            let missing = config.missing_apns_settings();
+            if !missing.is_empty() {
+                warn!(missing = ?missing, "APNs is only partly configured, so iPhone pushes are OFF");
+            }
+            None
+        }
     };
 
     let fcm = match &config.fcm_service_account {

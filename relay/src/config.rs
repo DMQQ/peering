@@ -262,6 +262,9 @@ pub struct TlsFiles {
 pub enum ConfigError {
     BadAddress(&'static str, String),
     BadDuration(&'static str, String),
+    /// A duration that must be positive was zero: a zero TTL expires every session as it is made,
+    /// and a zero timeout drops every socket before it can say hello.
+    ZeroDuration(&'static str),
     /// A certificate without its key, or a key without its certificate.
     HalfATlsPair(&'static str),
     BadPort(&'static str, String),
@@ -275,6 +278,9 @@ impl fmt::Display for ConfigError {
             Self::BadAddress(name, value) => write!(f, "{name} is not a valid address: {value:?}"),
             Self::BadDuration(name, value) => {
                 write!(f, "{name} is not a whole number of seconds: {value:?}")
+            }
+            Self::ZeroDuration(name) => {
+                write!(f, "{name} is 0, which would end every session or socket at once; use a positive number of seconds")
             }
             Self::HalfATlsPair(missing) => {
                 write!(f, "{missing} is set but its partner is not; TLS needs both")
@@ -292,6 +298,21 @@ impl fmt::Display for ConfigError {
 impl std::error::Error for ConfigError {}
 
 impl Config {
+    /// The `PEERINGD_APNS_*` settings that are missing when some but not all four are set. APNs
+    /// then stays off, which looks exactly like a relay that has no push configured.
+    pub fn missing_apns_settings(&self) -> Vec<&'static str> {
+        let present = [
+            ("PEERINGD_APNS_KEY_ID", self.apns_key_id.is_some()),
+            ("PEERINGD_APNS_TEAM_ID", self.apns_team_id.is_some()),
+            ("PEERINGD_APNS_BUNDLE_ID", self.apns_bundle_id.is_some()),
+            ("PEERINGD_APNS_KEY", self.apns_key.is_some()),
+        ];
+        if present.iter().all(|(_, set)| !set) {
+            return Vec::new();
+        }
+        present.iter().filter(|(_, set)| !set).map(|(name, _)| *name).collect()
+    }
+
     pub fn from_env() -> Result<Self, ConfigError> {
         Self::from_lookup(|name| env::var(name).ok())
     }
@@ -336,12 +357,10 @@ impl Config {
             public_video_port: optional_port(&get, "PEERINGD_PUBLIC_VIDEO_PORT")?,
             public_host: get("PEERINGD_PUBLIC_HOST"),
             tls,
-            session_ttl: Duration::from_secs(seconds(&get, "PEERINGD_SESSION_TTL", 300)?),
+            session_ttl: Duration::from_secs(positive_seconds(&get, "PEERINGD_SESSION_TTL", 300)?),
             plans: PlanAllowances {
-                free_seconds: Some(seconds(&get, "PEERINGD_FREE_MINUTES", DEFAULT_FREE_MINUTES)? * 60),
-                relay_seconds: Some(
-                    seconds(&get, "PEERINGD_RELAY_MINUTES", DEFAULT_RELAY_MINUTES)? * 60,
-                ),
+                free_seconds: Some(scaled_seconds(&get, "PEERINGD_FREE_MINUTES", DEFAULT_FREE_MINUTES, 60)?),
+                relay_seconds: Some(scaled_seconds(&get, "PEERINGD_RELAY_MINUTES", DEFAULT_RELAY_MINUTES, 60)?),
             },
             paid_keys,
             trust_claimed_plans: boolean(&get, "PEERINGD_TRUST_CLAIMED_PLANS", false)?,
@@ -370,18 +389,18 @@ impl Config {
             },
             referrals: get("PEERINGD_REFERRALS").map(PathBuf::from),
             referral_terms: ReferralTerms {
-                bonus_seconds: seconds(&get, "PEERINGD_REFERRAL_BONUS_MINUTES", 30)? * 60,
-                duration_secs: seconds(&get, "PEERINGD_REFERRAL_DAYS", 7)? * 24 * 3600,
+                bonus_seconds: scaled_seconds(&get, "PEERINGD_REFERRAL_BONUS_MINUTES", 30, 60)?,
+                duration_secs: scaled_seconds(&get, "PEERINGD_REFERRAL_DAYS", 7, 24 * 3600)?,
                 max_paid_invites: seconds(&get, "PEERINGD_REFERRAL_MAX_INVITES", 5)?.min(u32::MAX as u64) as u32,
             },
             max_sessions: count(&get, "PEERINGD_MAX_SESSIONS", DEFAULT_MAX_SESSIONS)?,
             max_connections: count(&get, "PEERINGD_MAX_CONNECTIONS", DEFAULT_MAX_CONNECTIONS)?,
-            handshake_timeout: Duration::from_secs(seconds(
+            handshake_timeout: Duration::from_secs(positive_seconds(
                 &get,
                 "PEERINGD_HANDSHAKE_SECONDS",
                 DEFAULT_HANDSHAKE_SECONDS,
             )?),
-            idle_timeout: Duration::from_secs(seconds(
+            idle_timeout: Duration::from_secs(positive_seconds(
                 &get,
                 "PEERINGD_IDLE_SECONDS",
                 DEFAULT_IDLE_SECONDS,
@@ -450,6 +469,22 @@ fn seconds(get: Lookup<'_>, name: &'static str, default: u64) -> Result<u64, Con
             .parse()
             .map_err(|_| ConfigError::BadDuration(name, raw.clone())),
     }
+}
+
+fn positive_seconds(get: Lookup<'_>, name: &'static str, default: u64) -> Result<u64, ConfigError> {
+    match seconds(get, name, default)? {
+        0 => Err(ConfigError::ZeroDuration(name)),
+        value => Ok(value),
+    }
+}
+
+/// A count of minutes or days read as seconds. Checked, because an absurd value must be refused at
+/// startup rather than wrap into a small one (or panic) in a release build.
+fn scaled_seconds(get: Lookup<'_>, name: &'static str, default: u64, factor: u64) -> Result<u64, ConfigError> {
+    let units = seconds(get, name, default)?;
+    units
+        .checked_mul(factor)
+        .ok_or_else(|| ConfigError::BadDuration(name, units.to_string()))
 }
 
 /// A positive count, for the two ceilings.
@@ -602,6 +637,41 @@ mod tests {
             configured(&[("PEERINGD_SESSION_TTL", "soon")]),
             Err(ConfigError::BadDuration(_, _))
         ));
+    }
+
+    #[test]
+    fn zero_durations_that_would_end_everything_are_refused_by_name() {
+        for name in ["PEERINGD_SESSION_TTL", "PEERINGD_HANDSHAKE_SECONDS", "PEERINGD_IDLE_SECONDS"] {
+            let error = configured(&[(name, "0")]).unwrap_err();
+            assert!(matches!(error, ConfigError::ZeroDuration(_)));
+            assert!(error.to_string().contains(name));
+        }
+    }
+
+    #[test]
+    fn a_referral_period_that_overflows_is_refused_rather_than_wrapped() {
+        let error = configured(&[("PEERINGD_REFERRAL_DAYS", "9223372036854775807")]).unwrap_err();
+        assert!(matches!(error, ConfigError::BadDuration("PEERINGD_REFERRAL_DAYS", _)));
+        assert!(matches!(
+            configured(&[("PEERINGD_FREE_MINUTES", "18446744073709551615")]),
+            Err(ConfigError::BadDuration("PEERINGD_FREE_MINUTES", _))
+        ));
+        assert_eq!(configured(&[("PEERINGD_REFERRAL_DAYS", "3")]).unwrap().referral_terms.duration_secs, 3 * 86_400);
+    }
+
+    #[test]
+    fn a_half_set_apns_configuration_names_what_is_missing() {
+        assert!(configured(&[]).unwrap().missing_apns_settings().is_empty());
+        let config = configured(&[("PEERINGD_APNS_KEY_ID", "K"), ("PEERINGD_APNS_TEAM_ID", "T")]).unwrap();
+        assert_eq!(config.missing_apns_settings(), ["PEERINGD_APNS_BUNDLE_ID", "PEERINGD_APNS_KEY"]);
+        let full = configured(&[
+            ("PEERINGD_APNS_KEY_ID", "K"),
+            ("PEERINGD_APNS_TEAM_ID", "T"),
+            ("PEERINGD_APNS_BUNDLE_ID", "b"),
+            ("PEERINGD_APNS_KEY", "/k.p8"),
+        ])
+        .unwrap();
+        assert!(full.missing_apns_settings().is_empty());
     }
 
     #[test]
