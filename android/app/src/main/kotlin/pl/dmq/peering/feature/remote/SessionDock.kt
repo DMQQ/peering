@@ -48,30 +48,38 @@ fun SessionDock(
     onChord: (QuickAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(
-        modifier
-            .fillMaxWidth()
-            .sessionSurface(if (expanded) peeringShapes.large else peeringShapes.medium)
-            .blockTouches()
-            .padding(ChromeMetrics.railPadding),
-    ) {
+    BoxWithConstraints(modifier.fillMaxWidth()) {
         val barWidth = maxWidth
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             if (expanded) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .sessionSurface(peeringShapes.large)
+                        .blockTouches()
+                        .padding(ChromeMetrics.railPadding),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Box(Modifier.weight(1f)) { DockGrid(groups, { c -> control(c, Modifier) }, onChord) }
                     DockToggle(true) { onExpandedChange(false) }
                 }
             } else {
-                val perPage = DockPaging.perPage((barWidth - ChromeMetrics.dockToggleWidth).value, ChromeMetrics.dockSlotMinWidth.value)
+                val perPage = DockPaging.perPage((barWidth - ChromeMetrics.dockToggleWidth - ChromeMetrics.railPadding * 2).value, ChromeMetrics.dockSlotMinWidth.value)
                 val paging = remember(groups, perPage) { DockPaging.layout(groups, perPage) }
                 val applicationId = groups.firstOrNull { it.id.startsWith(DockGroups.APP_PREFIX) }?.id
                 val state = rememberDockPagerState(paging, applicationId)
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                if (paging.pages.size > 1) DockPageDots(state, paging.pages.size, Modifier.padding(bottom = 6.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .sessionSurface(peeringShapes.medium)
+                        .blockTouches()
+                        .padding(ChromeMetrics.railPadding),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Box(Modifier.weight(1f)) { DockPager(paging, state, control, onChord, perPage) }
                     DockToggle(false) { onExpandedChange(true) }
                 }
-                if (paging.pages.size > 1) DockPageDots(state, paging.pages.size, Modifier.padding(top = 2.dp))
             }
         }
     }

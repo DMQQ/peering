@@ -183,7 +183,7 @@ internal fun PillChip(spec: PillChipSpec, modifier: Modifier = Modifier) {
     val content = spec.tint ?: if (spec.destructive) PeeringColors.onInk else PeeringColors.ink
     Row(
         modifier = modifier
-            .height(36.dp)
+            .height(30.dp)
             .clip(PillShape)
             .background(fill)
             .tappable(spec.onClick)

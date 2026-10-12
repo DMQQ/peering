@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.feature.pairing.HostIdEntrySheet
 import pl.dmq.peering.ui.kit.cardBackground
-import pl.dmq.peering.ui.theme.arrive
 
 /**
  * The Connect layout: the header, a note until a first computer is trusted, then one card holding Nearby, Another
@@ -45,8 +44,8 @@ fun ConnectScreen(
     ) {
         ConnectHeader()
         state.message?.let { message -> FailureCard(message, actions.onDismissMessage) }
-        if (state.listing.paired.isEmpty()) FirstConnectionCard(Modifier.arrive(delayMillis = 80, once = "connect.first"))
-        Column(Modifier.fillMaxWidth().arrive(delayMillis = 120, once = "connect.hosts").cardBackground()) {
+        if (state.listing.paired.isEmpty()) FirstConnectionCard(Modifier)
+        Column(Modifier.fillMaxWidth().cardBackground()) {
             NearbySection(
                 state.nearbyPhase, state.listing.nearby, actions,
                 onConnectByAddress = { addressOpen = true },
@@ -57,7 +56,7 @@ fun ConnectScreen(
             HorizontalDivider(color = DIVIDER)
             PairedSection(state.listing.paired, actions, Modifier.padding(16.dp))
         }
-        ProtectionCard(protection, Modifier.arrive(delayMillis = 180, once = "connect.protection"))
+        ProtectionCard(protection)
     }
     if (entryOpen) {
         HostIdEntrySheet(

@@ -21,6 +21,9 @@ private const val BAND = 0.34f
 private const val CROSSING_MILLIS = 1600
 private const val START_DELAY_MILLIS = 500L
 
+/** Off: a moving highlight on a heading read as cheap. Kept so the paint can be restored in one place. */
+private const val SHEEN_ENABLED = false
+
 private class SheenBrush(private val phase: Float) : ShaderBrush() {
     override fun createShader(size: Size): Shader {
         val base = Color.White.copy(alpha = BASE_ALPHA)
@@ -45,7 +48,7 @@ private class SheenBrush(private val phase: Float) : ShaderBrush() {
 fun rememberSheen(active: Boolean = true): Brush {
     val crossing = remember { Animatable(-BAND / 2) }
     LaunchedEffect(active) {
-        if (active && crossing.value < 0f) {
+        if (SHEEN_ENABLED && active && crossing.value < 0f) {
             delay(START_DELAY_MILLIS)
             crossing.animateTo(1f + BAND / 2, tween(CROSSING_MILLIS, easing = LinearEasing))
         }

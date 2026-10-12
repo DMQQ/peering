@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
-import pl.dmq.peering.ui.theme.arrive
 import pl.dmq.peering.ui.kit.rememberSheen
 import pl.dmq.peering.ui.theme.wordmarkStyle
 
@@ -28,19 +27,19 @@ internal fun ConnectHeader(modifier: Modifier = Modifier) {
             painter = painterResource(R.drawable.pears),
             contentDescription = null,
             alignment = Alignment.CenterStart,
-            modifier = Modifier.size(72.dp).arrive(once = "connect.icon"),
+            modifier = Modifier.size(72.dp),
         )
         Spacer(Modifier.height(16.dp))
         Text(
             text = stringResource(R.string.app_name),
             style = wordmarkStyle.copy(brush = rememberSheen()),
-            modifier = Modifier.arrive(delayMillis = 70, once = "connect.title"),
+            modifier = Modifier,
         )
         Text(
             text = stringResource(R.string.connect_tagline),
             style = PeeringText.subheadline,
             color = PeeringColors.muted,
-            modifier = Modifier.padding(top = 6.dp).arrive(delayMillis = 140, once = "connect.subtitle"),
+            modifier = Modifier.padding(top = 6.dp),
         )
     }
 }
