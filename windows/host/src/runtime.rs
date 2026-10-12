@@ -1,1 +1,220 @@
-//! Placeholder owned by its task; see docs/plans/android-and-windows-tasks.md.
+//! The host runtime: a current-thread tokio runtime with a `LocalSet`, serving the TCP listener, the relay registration,
+//! the video pump and the mDNS advertisement over the core's synchronous state machines. Sessions are not `Send` (the
+//! core holds boxed randomness and clocks), so every task is local and the shared state is only locked briefly.
+//!
+//! Module map: `listener` accepts, `connection` frames one connection and applies the core's actions, `ready` handles
+//! authorised frames, `video` pumps capture and encode, `relay` keeps the relay registration, `agent` and `files` serve
+//! the chat and file requests, `pins` stores paired devices, `services` holds the platform adapters.
+
+mod advertise;
+mod agent;
+mod clock;
+mod connection;
+mod files;
+mod listener;
+mod pins;
+mod random;
+mod ready;
+mod relay;
+mod services;
+mod shared;
+mod video;
+
+use std::collections::HashMap;
+use std::io;
+use std::sync::{Arc, Mutex};
+
+use peering_core::catalogue::{CatalogueService, SessionCatalogue};
+use peering_core::files::browse::FileBrowser;
+use peering_core::ports::clock::Clock;
+use peering_core::ports::secret_store::StoreError;
+use peering_core::session::deps::PinStore;
+use peering_core::pairing::{ApprovalDecision, PairingOffer, PairingService};
+use peering_core::video::coordinator::VideoCoordinator;
+use peering_net::identity::HostIdentity;
+use peering_net::tls::HostTls;
+use tokio::net::TcpListener;
+use tokio::sync::broadcast;
+use tokio::task::LocalSet;
+
+pub use clock::SystemClock;
+pub use services::{platform_services, HostServices};
+
+use pins::SecretPins;
+use services::{BoxedEncoder, BoxedInput, SharedCapture, SharedFileSystem};
+use shared::{HostState, Shared};
+
+pub const DEFAULT_PORT: u16 = peering_core::settings::DEFAULT_PORT;
+const APPROVAL_CHANNEL_DEPTH: usize = 16;
+
+#[derive(Debug, thiserror::Error)]
+pub enum RuntimeError {
+    #[error("the data directory is not set (LOCALAPPDATA is missing)")]
+    NoDataDirectory,
+    #[error(transparent)]
+    Store(#[from] StoreError),
+    #[error("the host identity could not be loaded: {0}")]
+    Identity(String),
+    #[error("the transport certificate could not be built: {0}")]
+    Tls(String),
+    #[error("port {port} could not be opened: {source}")]
+    Bind { port: u16, source: io::Error },
+    #[error("the host could not be announced on the network: {0}")]
+    Advertise(String),
+    #[error("the async runtime could not start: {0}")]
+    Executor(io::Error),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RelayConfig {
+    pub url: String,
+    pub device_id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeConfig {
+    pub port: u16,
+    /// `None` keeps the host off the relay; LAN and direct clients still work.
+    pub relay: Option<RelayConfig>,
+}
+
+/// What the host says about itself in its hello, shared by every connection.
+pub struct HostProfile {
+    pub host_id: String,
+    pub host_name: String,
+    /// The 65 byte point of the identity key, as the certificate carries it.
+    pub identity_public_key: Vec<u8>,
+    /// Wake-on-LAN addresses for paired clients. Not collected yet, so the hello carries none.
+    pub mac_addresses: Vec<String>,
+    pub clock: Arc<dyn Clock>,
+}
+
+impl HostProfile {
+    pub fn from_identity(identity: &HostIdentity, host_name: &str, clock: Arc<dyn Clock>) -> Self {
+        Self {
+            host_id: identity.device_id().to_owned(),
+            host_name: host_name.to_owned(),
+            identity_public_key: identity.public_key_bytes(),
+            mac_addresses: Vec::new(),
+            clock,
+        }
+    }
+}
+
+/// Who is on the other end of a connection, as the transport established it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PeerInfo {
+    pub public_key: Option<Vec<u8>>,
+    pub via_relay: bool,
+    /// The relay's video token for a relayed session; direct connections have none.
+    pub video_token: Option<[u8; 16]>,
+}
+
+#[derive(Clone)]
+pub struct HostRuntime {
+    shared: Shared,
+    profile: Arc<HostProfile>,
+}
+
+impl HostRuntime {
+    /// Builds the shared state from the adapters. Must be called on the thread that runs the `LocalSet` from `run`.
+    pub fn new(profile: HostProfile, services: HostServices) -> Result<Self, RuntimeError> {
+        let HostServices { capture, encoder, input, secrets, files, home_directory } = services;
+        let pins: Arc<dyn PinStore> = Arc::new(SecretPins::open(secrets)?);
+        let capture = SharedCapture::new(capture);
+        let state = HostState {
+            pins: pins.clone(),
+            pairing: PairingService::new(&profile.host_id, pins),
+            capture: capture.clone(),
+            catalogue: CatalogueService::new(),
+            catalogues: SessionCatalogue::new(),
+            video: VideoCoordinator::new(capture, BoxedEncoder(encoder)),
+            input: BoxedInput(input),
+            files: FileBrowser::new(SharedFileSystem(files), home_directory),
+            sessions: HashMap::new(),
+            next_session: 0,
+            catalog_checked_at: None,
+        };
+        let (approvals, _unused_receiver) = broadcast::channel::<ApprovalDecision>(APPROVAL_CHANNEL_DEPTH);
+        Ok(Self {
+            shared: Shared { state: Arc::new(Mutex::new(state)), approvals },
+            profile: Arc::new(profile),
+        })
+    }
+
+    /// Serves one connection over any byte stream. The TCP listener calls this after TLS; tests call it over in-memory
+    /// streams with a peer key they choose. Must run inside the `LocalSet`.
+    pub async fn serve_stream<S>(&self, stream: S, peer: PeerInfo)
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + 'static,
+    {
+        connection::serve(self.shared.clone(), self.profile.clone(), stream, peer).await;
+    }
+
+    /// One pass of the video pump at `now`, delivered to the connections. The timer calls this every frame interval.
+    pub fn pump_video(&self, now: f64) -> Result<(), peering_core::video::coordinator::CoordinatorError> {
+        let outgoing = self.shared.lock().pump_video(now)?;
+        video::deliver(outgoing);
+        Ok(())
+    }
+
+    /// The pairing offer the Mac shows: the six digit code, the QR secret and the client it is for, if one is waiting.
+    pub fn pairing_offer(&self) -> Option<PairingOffer> {
+        self.shared.lock().pairing.offer().cloned()
+    }
+
+    /// Approves a pairing that arrived without the QR secret. Returns false when no such request is pending.
+    pub fn approve(&self, approval_id: u64) -> bool {
+        self.decide(approval_id, true)
+    }
+
+    pub fn decline(&self, approval_id: u64) -> bool {
+        self.decide(approval_id, false)
+    }
+
+    fn decide(&self, approval_id: u64, approved: bool) -> bool {
+        let decision = {
+            let mut state = self.shared.lock();
+            if approved { state.pairing.approve(approval_id) } else { state.pairing.decline(approval_id) }
+        };
+        match decision {
+            Some(decision) => {
+                // No connection waiting on the decision means the client already left; nothing is lost.
+                let _delivered = self.shared.approvals.send(decision);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Runs the host until the process ends: binds the port, announces the host, and serves the relay and the pump.
+    pub fn run(self, config: RuntimeConfig, identity: HostIdentity) -> Result<(), RuntimeError> {
+        let executor = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(RuntimeError::Executor)?;
+        let local = LocalSet::new();
+        local.block_on(&executor, self.run_tasks(config, identity))
+    }
+
+    async fn run_tasks(self, config: RuntimeConfig, identity: HostIdentity) -> Result<(), RuntimeError> {
+        let tls = Arc::new(HostTls::new(&identity).map_err(|error| RuntimeError::Tls(error.to_string()))?);
+        let listener = TcpListener::bind(("0.0.0.0", config.port))
+            .await
+            .map_err(|source| RuntimeError::Bind { port: config.port, source })?;
+        let _advertisement = advertise::start(identity.device_id(), &self.profile.host_name, config.port)?;
+        video::spawn_pump(self.shared.clone(), self.profile.clock.clone());
+        if let Some(relay_config) = config.relay {
+            tokio::task::spawn_local(relay::run(
+                self.shared.clone(),
+                self.profile.clone(),
+                tls.clone(),
+                relay_config,
+                Box::new(identity),
+            ));
+        }
+        listener::serve_listener(self.shared, self.profile, tls, listener).await;
+        Ok(())
+    }
+}

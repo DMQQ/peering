@@ -1,0 +1,166 @@
+//! The video pump: capture and encode for the attached clients, each output handed to every client's lane, and the
+//! display catalogue refreshed as displays change.
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use peering_core::ports::clock::Clock;
+use peering_core::ports::input::TransformSnapshot;
+use peering_core::ports::capture::DisplayInfo;
+use peering_core::session::dispatch::SourceControl;
+use peering_core::video::coordinator::{CoordinatorError, VideoCoordinator};
+use peering_core::video::lane::LaneSend;
+use peering_wire::framing::{Frame, MessageKind};
+use peering_wire::source::CaptureCatalog;
+use peering_wire::source::CaptureSource;
+use tokio::sync::mpsc::UnboundedSender;
+use tokio::task::spawn_local;
+use tokio::time::interval;
+
+use super::services::{BoxedEncoder, SharedCapture};
+use super::shared::{HostState, Shared};
+
+const PUMP_INTERVAL: Duration = Duration::from_millis(16);
+const CATALOGUE_CHECK_SECONDS: f64 = 1.0;
+
+/// A frame bound for one connection, sent after the state lock is released.
+pub struct Outgoing {
+    pub to: UnboundedSender<Frame>,
+    pub frame: Frame,
+}
+
+/// The dispatcher's view of the video coordinator. A capture source that cannot be used is kept for the caller to report.
+pub struct CoordinatorControl<'a> {
+    video: &'a mut VideoCoordinator<SharedCapture, BoxedEncoder>,
+    now: f64,
+    pub failure: Option<String>,
+}
+
+impl<'a> CoordinatorControl<'a> {
+    pub fn new(video: &'a mut VideoCoordinator<SharedCapture, BoxedEncoder>, now: f64) -> Self {
+        Self { video, now, failure: None }
+    }
+}
+
+impl SourceControl for CoordinatorControl<'_> {
+    fn set_source(&mut self, source: CaptureSource) {
+        if let Err(error) = self.video.set_source(source, self.now) {
+            self.failure.get_or_insert_with(|| error.to_string());
+        }
+    }
+
+    fn set_quality(&mut self, _fps: Option<u32>, bitrate_kbps: Option<u32>) {
+        // The coordinator paces frames at its own rate, so a frame-rate request is not applied yet.
+        if let Some(kbps) = bitrate_kbps {
+            self.video.set_quality(i64::from(kbps));
+        }
+    }
+
+    fn set_video_enabled(&mut self, enabled: bool) {
+        self.video.set_video_enabled(enabled);
+    }
+
+    fn lock_screen(&mut self) {
+        // Locking the workstation is not wired yet; the command is accepted and has no effect.
+    }
+}
+
+/// The transform a remote pointer is mapped through: the captured display, else the primary, else the first.
+pub fn transform_for(displays: &[DisplayInfo], source: Option<&CaptureSource>) -> TransformSnapshot {
+    let captured = match source {
+        Some(CaptureSource::Display { id }) => displays.iter().find(|display| display.id == *id),
+        _ => None,
+    };
+    let chosen = captured.or_else(|| displays.iter().find(|display| display.is_primary)).or_else(|| displays.first());
+    match chosen {
+        Some(display) => TransformSnapshot {
+            origin_x: display.origin_x,
+            origin_y: display.origin_y,
+            pixel_width: display.pixel_width,
+            pixel_height: display.pixel_height,
+            scale: display.scale,
+        },
+        None => TransformSnapshot { origin_x: 0, origin_y: 0, pixel_width: 1, pixel_height: 1, scale: 1.0 },
+    }
+}
+
+pub fn catalogue_frame(catalog: &CaptureCatalog) -> Frame {
+    Frame::new(MessageKind::Catalog, serde_json::to_vec(catalog).expect("a catalogue always serialises"))
+}
+
+impl HostState {
+    /// Refreshes the catalogue from the displays now attached and returns the frames due for `session`.
+    pub fn catalogue_frames_for(&mut self, session: u64) -> Vec<Frame> {
+        let displays = self.capture.displays();
+        self.catalogue.update(&displays);
+        let Some(catalog) = self.catalogue.current().cloned() else {
+            return Vec::new();
+        };
+        self.catalogues.due(&session, &catalog).iter().map(catalogue_frame).collect()
+    }
+
+    pub fn active_transform(&self) -> TransformSnapshot {
+        let displays = self.capture.displays();
+        transform_for(&displays, self.video.running_source())
+    }
+
+    /// One pass of the pump: refresh the catalogue when due, capture and encode, and route each output to the lanes.
+    pub fn pump_video(&mut self, now: f64) -> Result<Vec<Outgoing>, CoordinatorError> {
+        let mut outgoing = Vec::new();
+        if self.catalog_checked_at.is_none_or(|checked| now - checked >= CATALOGUE_CHECK_SECONDS) {
+            self.catalog_checked_at = Some(now);
+            let ids: Vec<u64> = self.sessions.keys().copied().collect();
+            for session in ids {
+                for frame in self.catalogue_frames_for(session) {
+                    if let Some(slot) = self.sessions.get(&session) {
+                        outgoing.push(Outgoing { to: slot.outbound.clone(), frame });
+                    }
+                }
+            }
+        }
+        for output in self.video.pump(now)? {
+            for slot in self.sessions.values_mut() {
+                let Ok(sends) = slot.lane.send(&output, now) else {
+                    // The next keyframe resynchronises a client whose lane could not take this output.
+                    continue;
+                };
+                let to = slot.video_outbound.clone().unwrap_or_else(|| slot.outbound.clone());
+                for send in sends {
+                    match send {
+                        LaneSend::ControlFrames(frames) => {
+                            outgoing.extend(frames.into_iter().map(|frame| Outgoing { to: to.clone(), frame }));
+                        }
+                        // Keys are never granted yet, so the lane produces no datagrams and this arm is not reached.
+                        LaneSend::Datagram(_) => {}
+                    }
+                }
+            }
+        }
+        Ok(outgoing)
+    }
+}
+
+/// Runs the pump on a timer for the life of the host.
+pub async fn run_pump(shared: Shared, clock: Arc<dyn Clock>) {
+    let mut ticks = interval(PUMP_INTERVAL);
+    loop {
+        ticks.tick().await;
+        let now = clock.now_seconds();
+        let outgoing = shared.lock().pump_video(now);
+        // A failed pass is retried on the next tick. Until one succeeds the client sees no new picture.
+        if let Ok(outgoing) = outgoing {
+            deliver(outgoing);
+        }
+    }
+}
+
+pub fn deliver(outgoing: Vec<Outgoing>) {
+    for item in outgoing {
+        // A connection whose writer has stopped ends on its own; a frame for it is dropped.
+        let _queued = item.to.send(item.frame);
+    }
+}
+
+pub fn spawn_pump(shared: Shared, clock: Arc<dyn Clock>) {
+    spawn_local(run_pump(shared, clock));
+}
