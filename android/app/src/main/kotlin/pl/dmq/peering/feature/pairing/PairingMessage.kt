@@ -26,4 +26,10 @@ sealed interface PairingMessage {
     data object TooManyAttempts : PairingMessage
 
     data object Unreachable : PairingMessage
+
+    data object ConnectionRefused : PairingMessage
+
+    data object TlsFailed : PairingMessage
+
+    data object TimedOut : PairingMessage
 }

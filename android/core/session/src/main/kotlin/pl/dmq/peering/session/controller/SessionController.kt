@@ -184,7 +184,7 @@ class SessionController(
                 is HandshakeOutcome.Ready -> result.hello
                 is HandshakeOutcome.Refused -> return@coroutineScope LinkOutcome.Refused(SessionFailure.Handshake(result.reason))
                 HandshakeOutcome.Lost -> return@coroutineScope terminalEnd(ended)?.let(LinkOutcome::Ended)
-                    ?: LinkOutcome.Unreachable(SessionFailure.Unreachable)
+                    ?: LinkOutcome.Unreachable(SessionFailure.ConnectionFailed(ConnectFailureKind.Timeout, "The host closed the connection or stopped answering during the handshake"))
             }
             val live = startSession(hello, route, writer, frames)
             with(live) { serve(ended) { publish(live) } }

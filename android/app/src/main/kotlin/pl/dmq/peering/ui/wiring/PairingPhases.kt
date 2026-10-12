@@ -8,7 +8,10 @@ import pl.dmq.peering.session.controller.SessionPhase
 /** The pairing screen's view of a session: the code being typed, the outcome, or still waiting. */
 internal fun SessionPhase.toPairingPhase(): PairingPhase = when (this) {
     is SessionPhase.EnteringPairingCode -> PairingPhase.EnteringCode(attempts, error)
-    is SessionPhase.Failed -> PairingPhase.Failed(reason.toFailureReason())
+    is SessionPhase.Failed -> when (val failure = reason) {
+        is SessionFailure.ConnectionFailed -> PairingPhase.ConnectionFailed(failure.kind, failure.cause)
+        else -> PairingPhase.Failed(failure.toFailureReason())
+    }
     is SessionPhase.Ready -> PairingPhase.Done
     SessionPhase.Idle, SessionPhase.Ended, is SessionPhase.Connecting, is SessionPhase.Reconnecting -> PairingPhase.Waiting
 }

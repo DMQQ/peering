@@ -55,6 +55,37 @@ class RouteOpenerTest {
         assertEquals(1, rig.routes.size)
     }
 
+    @Test
+    fun aFailureKeepsItsKindAndTheCauseText() = runTest {
+        val rig = rig(ConnectTarget.Lan(stale))
+        rig.refusing += stale
+        rig.refusing += stale.copy(port = 51515)
+
+        rig.controller.connect()
+        advanceTimeBy(100)
+        runCurrent()
+
+        val failed = rig.controller.state.value.phase as SessionPhase.Failed
+        val reason = failed.reason as SessionFailure.ConnectionFailed
+        assertEquals(ConnectFailureKind.Refused, reason.kind)
+        assertEquals("ConnectException: refused", reason.cause)
+        assertTrue(failed.canRetry)
+    }
+
+    @Test
+    fun anUnreachableHostIsReportedAsSuchWithItsCause() = runTest {
+        val rig = rig(ConnectTarget.Lan(stale))
+        rig.reachable = false
+
+        rig.controller.connect()
+        advanceTimeBy(100)
+        runCurrent()
+
+        val reason = (rig.controller.state.value.phase as SessionPhase.Failed).reason as SessionFailure.ConnectionFailed
+        assertEquals(ConnectFailureKind.Unreachable, reason.kind)
+        assertEquals("IllegalStateException: the host is not reachable", reason.cause)
+    }
+
     private fun kotlinx.coroutines.test.TestScope.rig(target: ConnectTarget) = ControllerRig(
         backgroundScope,
         testScheduler,

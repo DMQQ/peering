@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.session.controller.MAX_PAIRING_ATTEMPTS
+import pl.dmq.peering.ui.theme.FailureNotice
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.InkButton
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -63,12 +64,7 @@ fun PairingCodeContent(screen: PairingCodeScreen, actions: PairingActions, modif
                 color = PeeringColors.ink,
                 actions = actions,
             )
-            is PairingCodeScreen.Failed -> Outcome(
-                icon = { IconTile(Icons.Filled.ErrorOutline, size = 56.dp) },
-                text = screen.message.text(),
-                color = PeeringColors.danger,
-                actions = actions,
-            )
+            is PairingCodeScreen.Failed -> Failure(screen, actions)
             PairingCodeScreen.Cancelled -> Unit
         }
     }
@@ -124,6 +120,19 @@ private fun ColumnScope.Outcome(icon: @Composable () -> Unit, text: String, colo
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             icon()
             Text(text, style = MaterialTheme.typography.bodyLarge, color = color, textAlign = TextAlign.Center)
+        }
+    }
+    InkButton(onClick = actions.onFinished, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.pairing_code_back))
+    }
+}
+
+@Composable
+private fun ColumnScope.Failure(screen: PairingCodeScreen.Failed, actions: PairingActions) {
+    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            IconTile(Icons.Filled.ErrorOutline, size = 56.dp)
+            FailureNotice(screen.message.text(), screen.details)
         }
     }
     InkButton(onClick = actions.onFinished, modifier = Modifier.fillMaxWidth()) {

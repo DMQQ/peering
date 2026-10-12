@@ -72,7 +72,7 @@
     <string name="pairing_failed_declined">The codes did not match, so the pairing was stopped.</string>
     <string name="pairing_failed_not_saved">The Mac approved the pairing, but this device could not save it. Try again.</string>
     <string name="pairing_failed_too_many">That code was wrong too many times, so the pairing was stopped. Start again to get a new code.</string>
-    <string name="pairing_failed_unreachable">The Mac could not be reached on this network. Check that both are on the same Wi-Fi.</string>
+    <string name="pairing_failed_unreachable">Could not reach the computer. Check that it is on the same network and that Peering Host is running.</string>
     <string name="agents_title">Agents</string>
     <string name="agents_new_chat">New chat</string>
     <string name="agents_unsupported">This Mac does not offer agent chats yet.</string>
@@ -336,7 +336,11 @@
     <string name="session_failed_version">The relay speaks another version of Peering. Update the app.</string>
     <string name="session_failed_offline">The Mac is offline.</string>
     <string name="session_failed_relay">The relay refused the session.</string>
-    <string name="session_failed_unreachable">The Mac could not be reached.</string>
+    <string name="session_failed_unreachable">Could not reach the computer. Check that it is on the same network and that Peering Host is running.</string>
+    <string name="session_failed_refused">The computer refused the connection. Check that Peering Host is running and not paused, then try again.</string>
+    <string name="session_failed_tls">The secure connection to the computer could not be set up. Update Peering on both devices and try again.</string>
+    <string name="session_failed_timeout">The computer did not answer in time. Check that it is awake and on the same network.</string>
+    <string name="failure_details">Details</string>
     <string name="session_failed_not_found">The Mac was not found on this network.</string>
     <string name="session_failed_malformed">The Mac sent data this app could not read, so the session was ended.</string>
     <string name="session_failed_lost">The connection was lost and could not be restored.</string>

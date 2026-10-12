@@ -47,6 +47,7 @@ import pl.dmq.peering.ui.wiring.SessionFileBrowsing
 import pl.dmq.peering.ui.wiring.StorePaywallBilling
 import pl.dmq.peering.ui.wiring.SurfacePicture
 import pl.dmq.peering.ui.wiring.findActivity
+import pl.dmq.peering.ui.theme.FailureNotice
 import pl.dmq.peering.ui.wiring.messageRes
 
 /** The screens a session presents over its remote screen. */
@@ -117,13 +118,14 @@ private fun RemoteWithNotice(remote: RemoteModel, phase: SessionPhase) {
         SessionPhase.Ended -> stringResource(R.string.session_ended)
         else -> null
     }
+    val details = (phase as? SessionPhase.Failed)?.reason?.cause
     if (notice != null) {
         Column(
             modifier = Modifier.fillMaxSize().padding(24.dp),
             verticalArrangement = Arrangement.Bottom,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(text = notice, style = MaterialTheme.typography.bodyMedium, color = PeeringColors.danger)
+            FailureNotice(message = notice, details = details)
         }
     }
 }

@@ -51,7 +51,7 @@ fun DebugPreview(name: String) {
             "pairing_too_many" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.TooManyAttempts), PairingActions())
             "pairing_wait" -> PairingCodeContent(PairingCodeScreen.Waiting, PairingActions())
             "pairing_done" -> PairingCodeContent(PairingCodeScreen.Done, PairingActions())
-            "pairing_failed" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.Unreachable), PairingActions())
+            "pairing_failed" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.Unreachable, "ConnectException: failed to connect to /192.168.1.20 (port 51515)"), PairingActions())
             "scan_denied" -> ScanMessage(
                 icon = Icons.Filled.NoPhotography,
                 title = stringResource(R.string.scan_denied_title),

@@ -1,6 +1,7 @@
 package pl.dmq.peering.feature.pairing
 
 import pl.dmq.peering.session.connection.FailureReason
+import pl.dmq.peering.session.controller.ConnectFailureKind
 
 internal fun FailureReason.toPairingMessage(): PairingMessage = when (this) {
     is FailureReason.UnexpectedFrame -> PairingMessage.UnexpectedFrame
@@ -14,4 +15,11 @@ internal fun FailureReason.toPairingMessage(): PairingMessage = when (this) {
     FailureReason.PairingDeclined -> PairingMessage.Declined
     FailureReason.PairingNotSaved -> PairingMessage.NotSaved
     FailureReason.Unreachable -> PairingMessage.Unreachable
+}
+
+internal fun ConnectFailureKind.toPairingMessage(): PairingMessage = when (this) {
+    ConnectFailureKind.Unreachable -> PairingMessage.Unreachable
+    ConnectFailureKind.Refused -> PairingMessage.ConnectionRefused
+    ConnectFailureKind.TlsFailed -> PairingMessage.TlsFailed
+    ConnectFailureKind.Timeout -> PairingMessage.TimedOut
 }

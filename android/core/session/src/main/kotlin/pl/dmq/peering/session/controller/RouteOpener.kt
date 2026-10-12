@@ -70,7 +70,7 @@ internal class RouteOpener(private val target: ConnectTarget, private val ports:
     } catch (failure: CancellationException) {
         throw failure
     } catch (failure: Exception) {
-        throw ConnectFailure(SessionFailure.Unreachable)
+        throw ConnectFailure(SessionFailure.ConnectionFailed(ConnectFailureKind.of(failure), ConnectFailureKind.describe(failure)))
     }
 
     private fun relayFailure(failure: RelaySessionException): SessionFailure = when (failure) {

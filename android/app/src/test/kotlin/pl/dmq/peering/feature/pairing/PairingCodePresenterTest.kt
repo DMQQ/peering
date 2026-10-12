@@ -9,6 +9,7 @@ import org.junit.Test
 import pl.dmq.peering.feature.scan.ScanOutcome
 import pl.dmq.peering.session.connection.FailureReason
 import pl.dmq.peering.session.controller.CodeCheck
+import pl.dmq.peering.session.controller.ConnectFailureKind
 import pl.dmq.peering.session.controller.PairingCodeError
 import pl.dmq.peering.wire.PairingPayload
 
@@ -146,5 +147,18 @@ class PairingCodePresenterTest {
         seen += presenter.state.value.toString()
 
         assertFalse(seen.any { "042317" in it })
+    }
+
+    @Test
+    fun aConnectionFailureShowsItsMessageAndDetails() = runTest(UnconfinedTestDispatcher()) {
+        val session = FakePairingSession()
+        val presenter = PairingCodePresenter(session, backgroundScope)
+
+        session.emit(PairingPhase.ConnectionFailed(ConnectFailureKind.Refused, "ConnectException: refused"))
+
+        assertEquals(
+            PairingCodeScreen.Failed(PairingMessage.ConnectionRefused, "ConnectException: refused"),
+            presenter.state.value,
+        )
     }
 }

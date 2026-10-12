@@ -9,7 +9,7 @@ sealed interface PairingCodeScreen {
 
     data object Done : PairingCodeScreen
 
-    data class Failed(val message: PairingMessage) : PairingCodeScreen
+    data class Failed(val message: PairingMessage, val details: String? = null) : PairingCodeScreen
 
     data object Cancelled : PairingCodeScreen
 }

@@ -1,5 +1,6 @@
 package pl.dmq.peering.ui.wiring
 
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,12 +25,14 @@ internal class SessionHolder(
 ) {
     private val current = MutableStateFlow<ActiveSession?>(null)
     private var naming: Job? = null
+    private var failures: Job? = null
 
     val active: StateFlow<ActiveSession?> = current.asStateFlow()
 
     fun connect(target: ConnectTarget): ActiveSession {
         current.value?.close()
         naming?.cancel()
+        failures?.cancel()
         val session = factory.open(target, scope)
         current.value = session
         naming = scope.launch {
@@ -39,6 +42,13 @@ internal class SessionHolder(
                 .distinctUntilChanged()
                 .collect { ready -> target.hostId?.let { directory.remember(it, ready.hostName, ready.path) } }
         }
+        failures = scope.launch {
+            session.controller.state
+                .map { it.phase }
+                .filterIsInstance<SessionPhase.Failed>()
+                .distinctUntilChanged()
+                .collect { failed -> Log.w(TAG, "session failed: ${failed.reason.javaClass.simpleName}, ${failed.reason.cause}") }
+        }
         session.controller.connect()
         return session
     }
@@ -47,6 +57,12 @@ internal class SessionHolder(
         current.value?.close()
         naming?.cancel()
         naming = null
+        failures?.cancel()
+        failures = null
         current.value = null
+    }
+
+    private companion object {
+        const val TAG = "PeeringSession"
     }
 }

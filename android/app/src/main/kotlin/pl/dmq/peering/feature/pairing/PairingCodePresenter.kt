@@ -60,6 +60,7 @@ class PairingCodePresenter(
             PairingPhase.Waiting -> PairingCodeScreen.Waiting
             PairingPhase.Done -> PairingCodeScreen.Done
             is PairingPhase.Failed -> PairingCodeScreen.Failed(phase.reason.toPairingMessage())
+            is PairingPhase.ConnectionFailed -> PairingCodeScreen.Failed(phase.kind.toPairingMessage(), phase.cause)
         }
     }
 

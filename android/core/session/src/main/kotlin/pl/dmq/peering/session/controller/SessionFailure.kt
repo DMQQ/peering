@@ -7,6 +7,9 @@ sealed interface SessionFailure {
     /** Whether trying again can succeed. A refused pin or a protocol mismatch will not change by itself. */
     val canRetry: Boolean
 
+    /** What the underlying exception said, for a details view and the log. Null when there is nothing beyond the type. */
+    val cause: String? get() = null
+
     /** The handshake was refused, or the host's answer did not fit this phone. */
     data class Handshake(val reason: FailureReason) : SessionFailure {
         override val canRetry: Boolean
@@ -33,11 +36,12 @@ sealed interface SessionFailure {
 
     /** The relay refused the session for another reason. */
     data class RelayRefused(val code: String, val detail: String) : SessionFailure {
+        override val cause: String get() = "$code: $detail"
         override val canRetry: Boolean get() = false
     }
 
-    /** The host could not be reached on the network, or did not complete the handshake in time. */
-    data object Unreachable : SessionFailure {
+    /** The connection could not be opened, or the host did not complete the handshake in time. */
+    data class ConnectionFailed(val kind: ConnectFailureKind, override val cause: String?) : SessionFailure {
         override val canRetry: Boolean get() = true
     }
 
