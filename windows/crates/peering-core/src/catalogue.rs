@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 
+use peering_wire::frame_budget::{longest_prefix, CONTROL_LIST_BUDGET};
 use peering_wire::source::{CaptureCatalog, CaptureSourceDescriptor};
 
 use crate::ports::capture::DisplayInfo;
@@ -48,7 +49,7 @@ impl CatalogueService {
 fn build_catalog(displays: &[DisplayInfo]) -> CaptureCatalog {
     let mut ordered: Vec<&DisplayInfo> = displays.iter().collect();
     ordered.sort_by_key(|display| (!display.is_primary, display.id));
-    let descriptors = ordered
+    let descriptors: Vec<CaptureSourceDescriptor> = ordered
         .iter()
         .enumerate()
         .map(|(index, display)| {
@@ -56,7 +57,8 @@ fn build_catalog(displays: &[DisplayInfo]) -> CaptureCatalog {
             CaptureSourceDescriptor::display(display.id, &title, display.pixel_width, display.pixel_height)
         })
         .collect();
-    CaptureCatalog { displays: descriptors, ..CaptureCatalog::default() }
+    let (displays, _) = longest_prefix(descriptors, CONTROL_LIST_BUDGET);
+    CaptureCatalog { displays, ..CaptureCatalog::default() }
 }
 
 /// What each session has already been sent. A session that has not received the catalogue gets it, whatever the others
@@ -112,6 +114,14 @@ mod tests {
 
     fn titles(catalog: &CaptureCatalog) -> Vec<&str> {
         catalog.displays.iter().map(|descriptor| descriptor.title.as_str()).collect()
+    }
+
+    #[test]
+    fn the_catalogue_frame_stays_under_the_64_kib_rule_however_many_displays_there_are() {
+        let displays: Vec<DisplayInfo> = (0..1_000).map(|id| display(id, id == 0, 1920)).collect();
+        let catalog = build_catalog(&displays);
+        assert!(catalog.displays.len() < 1_000);
+        assert!(serde_json::to_vec(&catalog).expect("a catalogue serialises").len() < 64 * 1024);
     }
 
     #[test]

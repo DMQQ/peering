@@ -3,6 +3,7 @@
 pub mod browse;
 pub mod fake;
 pub mod path;
+mod pieces;
 mod preview;
 pub mod vfs;
 

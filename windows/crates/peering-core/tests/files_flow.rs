@@ -224,7 +224,7 @@ fn a_binary_file_that_is_not_a_known_type_is_not_previewed_as_text() {
 }
 
 #[test]
-fn a_folder_with_more_than_the_listing_limit_is_truncated_and_says_so() {
+fn a_folder_too_big_for_one_frame_is_truncated_and_says_so() {
     let mut fs = InMemoryFileSystem::default();
     fs.add_folder("C:\\Big", 1.0);
     for index in 0..=MAXIMUM_LISTING_ENTRIES {
@@ -235,20 +235,22 @@ fn a_folder_with_more_than_the_listing_limit_is_truncated_and_says_so() {
     let TerminalEvent::Directory { entries, truncated, .. } = event else {
         panic!("expected a directory");
     };
-    assert_eq!(entries.len(), MAXIMUM_LISTING_ENTRIES);
+    assert!(entries.len() < MAXIMUM_LISTING_ENTRIES);
     assert!(truncated);
+    let again = TerminalEvent::Directory { session_id: SESSION.to_owned(), path: "/C:/Big".to_owned(), entries, truncated };
+    assert!(serde_json::to_vec(&again).expect("an event serialises").len() < 64 * 1024);
 }
 
 #[test]
-fn a_folder_at_exactly_the_listing_limit_is_not_marked_truncated() {
+fn a_folder_that_fits_one_frame_is_not_marked_truncated() {
     let mut fs = InMemoryFileSystem::default();
     fs.add_folder("C:\\Exact", 1.0);
-    for index in 0..MAXIMUM_LISTING_ENTRIES {
+    for index in 0..300 {
         fs.add_file(&format!("C:\\Exact\\file{index:05}.txt"), b"x", 1.0);
     }
     let event = list(&FileBrowser::new(fs, "C:\\Exact"), Some("/C:/Exact"));
 
-    assert!(matches!(&event, TerminalEvent::Directory { truncated: false, entries, .. } if entries.len() == MAXIMUM_LISTING_ENTRIES));
+    assert!(matches!(&event, TerminalEvent::Directory { truncated: false, entries, .. } if entries.len() == 300));
 }
 
 #[test]

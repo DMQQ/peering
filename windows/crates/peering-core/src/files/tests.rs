@@ -112,14 +112,41 @@ fn permissions_and_modification_dates_are_synthesised_for_each_entry() {
 }
 
 #[test]
-fn a_listing_past_the_entry_cap_is_cut_and_marked_truncated() {
+fn a_listing_too_big_for_one_frame_is_cut_and_marked_truncated() {
     let mut fs = InMemoryFileSystem::default();
     for index in 0..=MAXIMUM_LISTING_ENTRIES {
         fs.add_file(&format!("C:\\Big\\file{index:05}.txt"), b"", 0.0);
     }
-    let (_, entries, truncated) = directory(list(&FileBrowser::new(fs, HOME), Some("/C:/Big")));
-    assert_eq!(entries.len(), MAXIMUM_LISTING_ENTRIES);
+    let event = list(&FileBrowser::new(fs, HOME), Some("/C:/Big"));
+    assert!(serde_json::to_vec(&event).expect("an event serialises").len() < 64 * 1024);
+    let (_, entries, truncated) = directory(event);
+    assert!(entries.len() < MAXIMUM_LISTING_ENTRIES);
     assert!(truncated);
+}
+
+#[test]
+fn a_big_preview_crosses_in_pieces_that_each_fit_a_frame_and_join_back() {
+    let mut fs = InMemoryFileSystem::default();
+    let text: Vec<u8> = (0..MAXIMUM_TEXT_PREVIEW_BYTES).map(|index| b'a' + u8::try_from(index % 26).unwrap_or(0)).collect();
+    fs.add_file("C:\\Logs\\long.txt", &text, 0.0);
+    let request = TerminalRequest::ReadFile { session_id: SESSION.to_owned(), path: "/C:/Logs/long.txt".to_owned() };
+    let events = FileBrowser::new(fs, HOME).answer_in_frames(&request);
+    assert_eq!(events.len(), 4);
+    let mut joined = Vec::new();
+    for (position, event) in events.iter().enumerate() {
+        assert!(serde_json::to_vec(event).expect("an event serialises").len() < 64 * 1024);
+        let TerminalEvent::FileContents { offset, data, is_last, .. } = event else { panic!("expected file contents") };
+        assert_eq!(usize::try_from(*offset).unwrap_or(usize::MAX), joined.len());
+        assert_eq!(*is_last, position == 3);
+        joined.extend_from_slice(data);
+    }
+    assert_eq!(joined, text);
+}
+
+#[test]
+fn a_request_this_service_does_not_serve_has_no_frames() {
+    let request = TerminalRequest::List {};
+    assert!(browser().answer_in_frames(&request).is_empty());
 }
 
 #[test]

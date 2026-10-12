@@ -3,6 +3,7 @@
 
 mod clients;
 mod commands;
+mod fit;
 mod session;
 mod transcript;
 

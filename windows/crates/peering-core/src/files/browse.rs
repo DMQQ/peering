@@ -1,10 +1,12 @@
 //! Answers the terminal requests that read folders and files. Mirrors `TerminalSessionManager+FileBrowsing.swift`,
 //! `TerminalSessionManager+Download.swift` and `DirectoryListing.swift`.
 
+use peering_wire::frame_budget::{longest_prefix, CONTROL_LIST_BUDGET};
 use peering_wire::files::{RemoteDirectoryEntry, RemoteFileOperation};
 use peering_wire::terminal::{TerminalEvent, TerminalRequest};
 
 use super::path::{self, VirtualPath};
+use super::pieces::in_pieces;
 use super::preview::{self, NOT_A_FILE, RANGE_CHUNK_BYTES};
 use super::vfs::{FileSystem, RawEntry};
 
@@ -58,6 +60,12 @@ impl<F: FileSystem> FileBrowser<F> {
             }),
             _ => None,
         }
+    }
+
+    /// The events that answer a request, each small enough for one control frame. Empty for a request this service
+    /// does not serve.
+    pub fn answer_in_frames(&self, request: &TerminalRequest) -> Vec<TerminalEvent> {
+        self.answer(request).map_or_else(Vec::new, in_pieces)
     }
 
     /// The event that tells the client a request it made could not be served in time.
@@ -152,13 +160,16 @@ fn operation_path(operation: &RemoteFileOperation) -> &str {
 }
 
 fn listing(session_id: &str, path: &str, raw: Vec<RawEntry>) -> TerminalEvent {
-    let entries = sorted_folders_first(raw.iter().map(entry).collect());
-    let truncated = entries.len() > MAXIMUM_LISTING_ENTRIES;
+    let mut entries = sorted_folders_first(raw.iter().map(entry).collect());
+    let over_count = entries.len() > MAXIMUM_LISTING_ENTRIES;
+    entries.truncate(MAXIMUM_LISTING_ENTRIES);
+    let room = CONTROL_LIST_BUDGET.saturating_sub(path.len() * 6 + session_id.len());
+    let (entries, over_size) = longest_prefix(entries, room);
     TerminalEvent::Directory {
         session_id: session_id.to_owned(),
         path: path.to_owned(),
-        entries: entries.into_iter().take(MAXIMUM_LISTING_ENTRIES).collect(),
-        truncated,
+        entries,
+        truncated: over_count || over_size,
     }
 }
 

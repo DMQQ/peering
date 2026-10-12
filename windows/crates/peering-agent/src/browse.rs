@@ -5,6 +5,7 @@ mod path;
 mod tests;
 
 use peering_wire::agent::AgentEvent;
+use peering_wire::frame_budget::{longest_prefix, CONTROL_LIST_BUDGET};
 use serde_json::{json, Value};
 
 use path::{virtual_of, InvalidPath, VirtualPath};
@@ -78,12 +79,13 @@ fn folder_json(mut listed: Vec<ListedEntry>) -> Vec<Value> {
 }
 
 fn directory(path: &str, mut entries: Vec<Value>) -> AgentEvent {
-    let truncated = entries.len() > MAXIMUM_ENTRIES;
+    let over_count = entries.len() > MAXIMUM_ENTRIES;
     entries.truncate(MAXIMUM_ENTRIES);
+    let (entries, over_size) = longest_prefix(entries, CONTROL_LIST_BUDGET.saturating_sub(path.len() * 6));
     AgentEvent::Directory {
         path: path.to_owned(),
         entries,
-        truncated,
+        truncated: over_count || over_size,
     }
 }
 

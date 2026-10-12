@@ -128,12 +128,12 @@ impl Connection {
 fn answer_browse(browser: Arc<FileBrowser<SharedFileSystem>>, request: TerminalRequest, outbound: FrameSender) {
     spawn_local(async move {
         let asked = request.clone();
-        let work = tokio::task::spawn_blocking(move || browser.answer(&request));
-        let event = match tokio::time::timeout(BROWSE_TIMEOUT, work).await {
-            Ok(Ok(event)) => event,
-            Ok(Err(_)) | Err(_) => FileBrowser::<SharedFileSystem>::failure(&asked, BROWSE_TIMED_OUT),
+        let work = tokio::task::spawn_blocking(move || browser.answer_in_frames(&request));
+        let events = match tokio::time::timeout(BROWSE_TIMEOUT, work).await {
+            Ok(Ok(events)) => events,
+            Ok(Err(_)) | Err(_) => FileBrowser::<SharedFileSystem>::failure(&asked, BROWSE_TIMED_OUT).into_iter().collect(),
         };
-        if let Some(event) = event {
+        for event in events {
             // The connection may have closed meanwhile; there is then nobody to tell.
             let _queued = outbound.send(event_frame(&event));
         }

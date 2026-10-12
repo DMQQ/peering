@@ -1,10 +1,12 @@
 //! The events a chat keeps, so a client that comes back can ask for what it missed.
 
+use super::fit::fitted;
 use peering_wire::agent::{AgentStreamEvent, AgentStreamPayload};
 
 pub const MAXIMUM_TRANSCRIPT_BYTES: usize = 512 * 1024;
 pub const MAXIMUM_REPLAY_EVENTS: usize = 200;
-pub const REPLAY_CHUNK_BYTES: usize = 64 * 1024;
+/// Encoded bytes of events per replay chunk, so the frame with its wrapper stays well under 64 KiB.
+pub const REPLAY_CHUNK_BYTES: usize = 32 * 1024;
 /// What a payload that is not text counts for, so the budget sees every event.
 const FIXED_PAYLOAD_BYTES: usize = 64;
 
@@ -52,6 +54,7 @@ impl TranscriptLog {
     }
 
     pub fn append(&mut self, payload: AgentStreamPayload) -> AgentStreamEvent {
+        let payload = fitted(payload);
         // A reply's final text replaces the deltas that built it, so replay does not send the text twice.
         if matches!(payload, AgentStreamPayload::TextFinal { .. }) {
             self.drop_trailing_deltas();
@@ -73,7 +76,7 @@ impl TranscriptLog {
         let mut current: Vec<AgentStreamEvent> = Vec::new();
         let mut size = 0;
         for event in self.events.iter().filter(|event| event.index > since) {
-            let event_size = approximate_bytes(&event.payload);
+            let event_size = encoded_bytes(event);
             let full = current.len() >= MAXIMUM_REPLAY_EVENTS || size + event_size > REPLAY_CHUNK_BYTES;
             if !current.is_empty() && full {
                 chunks.push(std::mem::take(&mut current));
@@ -135,6 +138,10 @@ impl TranscriptLog {
             .nth(1)
             .map(|(position, _)| position)
     }
+}
+
+fn encoded_bytes(event: &AgentStreamEvent) -> usize {
+    serde_json::to_vec(event).map_or(0, |encoded| encoded.len() + 1)
 }
 
 fn approximate_bytes(payload: &AgentStreamPayload) -> usize {

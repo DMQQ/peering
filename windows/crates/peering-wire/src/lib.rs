@@ -7,6 +7,7 @@ pub mod command;
 pub mod drop_policy;
 pub mod fallback;
 pub mod files;
+pub mod frame_budget;
 pub mod framing;
 pub mod handshake;
 pub mod keymap;

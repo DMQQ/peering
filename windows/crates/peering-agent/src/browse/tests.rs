@@ -186,13 +186,14 @@ fn a_denied_folder_reports_that_windows_refused() {
 }
 
 #[test]
-fn a_listing_past_the_entry_cap_is_cut_and_marked_truncated() {
+fn a_listing_too_big_for_one_frame_is_cut_and_marked_truncated() {
     let many: Vec<ListedEntry> = (0..=MAXIMUM_ENTRIES).map(|index| folder(&format!("d{index:05}"), None)).collect();
     let lister = FakeLister::default().with_folder("C:\\Big", many);
     let event = AgentBrowser::new(lister, PROFILE).browse(Some("/C:/Big"));
+    assert!(serde_json::to_vec(&event).expect("an event serialises").len() < 64 * 1024);
     match event {
         AgentEvent::Directory { entries, truncated, .. } => {
-            assert_eq!(entries.len(), MAXIMUM_ENTRIES);
+            assert!(entries.len() < MAXIMUM_ENTRIES);
             assert!(truncated);
         }
         other => panic!("expected a directory, got {other:?}"),
