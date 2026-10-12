@@ -20,6 +20,9 @@ sealed class RemoteCommand {
     /** Pointer and keyboard input, which a host in observe mode refuses. */
     open val isUserInput: Boolean get() = false
 
+    /** What a mosaic refuses: a point or a keystroke, since it cannot tell which window they mean. Space switching still works. */
+    val isBlockedByMosaic: Boolean get() = isUserInput && this !is SwitchSpace && this !is SwitchToSpace
+
     fun toJson(): String = encodeRemoteCommand(this)
 
     companion object {
