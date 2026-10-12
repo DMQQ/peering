@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -97,35 +98,52 @@ fun TerminalWindowCard(
                 },
         ) {
             TerminalWindowTitle(46.dp) {
-                TerminalWindowDots()
-                Spacer(Modifier.width(10.dp))
-                CardName(card.name, Modifier.weight(1f))
-                Spacer(Modifier.width(6.dp))
-                CardStatus(card.state)
-                Spacer(Modifier.width(10.dp))
-                Icon(AppIcons.chevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(14.dp))
+                CardTitleContent(card)
             }
             CardScreen(preview, card.isRunning)
         }
-        PeeringMenu(menuOpen, { menuOpen = false }) {
-            PeeringMenuItem(
-                title = rename,
-                icon = AppIcons.edit,
-                onClick = {
-                    menuOpen = false
-                    onRename()
-                },
-            )
-            PeeringMenuItem(
-                title = end,
-                icon = AppIcons.close,
-                destructive = true,
-                onClick = {
-                    menuOpen = false
-                    onEnd()
-                },
-            )
-        }
+        CardMenu(menuOpen, { menuOpen = false }, rename, end, onRename, onEnd)
+    }
+}
+
+@Composable
+private fun RowScope.CardTitleContent(card: TerminalCard) {
+    TerminalWindowDots()
+    Spacer(Modifier.width(10.dp))
+    CardName(card.name, Modifier.weight(1f))
+    Spacer(Modifier.width(6.dp))
+    CardStatus(card.state)
+    Spacer(Modifier.width(10.dp))
+    Icon(AppIcons.chevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(14.dp))
+}
+
+@Composable
+private fun CardMenu(
+    open: Boolean,
+    onDismiss: () -> Unit,
+    rename: String,
+    end: String,
+    onRename: () -> Unit,
+    onEnd: () -> Unit,
+) {
+    PeeringMenu(open, onDismiss) {
+        PeeringMenuItem(
+            title = rename,
+            icon = AppIcons.edit,
+            onClick = {
+                onDismiss()
+                onRename()
+            },
+        )
+        PeeringMenuItem(
+            title = end,
+            icon = AppIcons.close,
+            destructive = true,
+            onClick = {
+                onDismiss()
+                onEnd()
+            },
+        )
     }
 }
 

@@ -30,14 +30,7 @@ internal class RouteRace(private val attempts: List<Attempt>) {
         fun startNext() {
             val attempt = attempts[started++]
             running++
-            launch {
-                val outcome = try {
-                    Outcome(attempt.open(), null)
-                } catch (failure: ConnectFailure) {
-                    Outcome(null, failure)
-                }
-                if (outcomes.trySend(outcome).isFailure) outcome.route?.transport?.close()
-            }
+            launch { deliver(attempt, outcomes) }
         }
 
         try {
@@ -60,6 +53,15 @@ internal class RouteRace(private val attempts: List<Attempt>) {
             outcomes.close()
             closeUnread(outcomes)
         }
+    }
+
+    private suspend fun deliver(attempt: Attempt, outcomes: Channel<Outcome>) {
+        val outcome = try {
+            Outcome(attempt.open(), null)
+        } catch (failure: ConnectFailure) {
+            Outcome(null, failure)
+        }
+        if (outcomes.trySend(outcome).isFailure) outcome.route?.transport?.close()
     }
 
     /** The next outcome, or null when the next attempt is due to start: its delay passed, or nothing is running to wait for. */

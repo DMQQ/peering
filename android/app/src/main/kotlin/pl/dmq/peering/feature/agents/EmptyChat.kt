@@ -77,40 +77,18 @@ fun EmptyChat(
         verticalArrangement = Arrangement.Center,
     ) {
         AgentTile(ui.agentID)
-        Text(
-            stringResource(if (ui.ended) R.string.agents_chat_ended_title else R.string.agents_empty_chat_title),
-            style = PeeringText.display(size = 30f, tracking = -0.9f),
-            color = PeeringColors.ink,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp),
-        )
+        ChatTitle(ui.ended)
         if (ui.ended) {
-            Text(
-                stringResource(R.string.agents_empty_chat_ended),
-                style = PeeringText.footnote,
-                color = PeeringColors.muted,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 14.dp, start = 12.dp, end = 12.dp),
-            )
+            EndedNote()
         } else {
-            Column(Modifier.padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (!guideSeen) ChatGuide { guideSeen = true }
-                suggestions.forEach { suggestion ->
-                    val title = stringResource(suggestion.title)
-                    SuggestionRow(suggestion.icon, title, stringResource(suggestion.detail), onClick = { onSuggest(title) })
-                }
-                templates.forEach { template ->
-                    SuggestionRow(
-                        AgentIcons.savedPrompt,
-                        template.text,
-                        stringResource(R.string.agents_template_yours),
-                        onClick = { onSuggest(template.text) },
-                        removeLabel = stringResource(R.string.agents_template_remove),
-                        onRemove = { onRemoveTemplate(template.id) },
-                    )
-                }
-                AddTemplateButton { addingTemplate = true }
-            }
+            ChatStarters(
+                guideSeen = guideSeen,
+                onGuideSeen = { guideSeen = true },
+                templates = templates,
+                onSuggest = onSuggest,
+                onRemoveTemplate = onRemoveTemplate,
+                onAddTemplate = { addingTemplate = true },
+            )
         }
     }
     if (addingTemplate) {
@@ -121,6 +99,57 @@ fun EmptyChat(
             },
             onDismiss = { addingTemplate = false },
         )
+    }
+}
+
+@Composable
+private fun ChatTitle(ended: Boolean) {
+    Text(
+        stringResource(if (ended) R.string.agents_chat_ended_title else R.string.agents_empty_chat_title),
+        style = PeeringText.display(size = 30f, tracking = -0.9f),
+        color = PeeringColors.ink,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(top = 8.dp),
+    )
+}
+
+@Composable
+private fun EndedNote() {
+    Text(
+        stringResource(R.string.agents_empty_chat_ended),
+        style = PeeringText.footnote,
+        color = PeeringColors.muted,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(top = 14.dp, start = 12.dp, end = 12.dp),
+    )
+}
+
+@Composable
+private fun ChatStarters(
+    guideSeen: Boolean,
+    onGuideSeen: () -> Unit,
+    templates: List<PromptTemplate>,
+    onSuggest: (String) -> Unit,
+    onRemoveTemplate: (String) -> Unit,
+    onAddTemplate: () -> Unit,
+) {
+    Column(Modifier.padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!guideSeen) ChatGuide(onGuideSeen)
+        suggestions.forEach { suggestion ->
+            val title = stringResource(suggestion.title)
+            SuggestionRow(suggestion.icon, title, stringResource(suggestion.detail), onClick = { onSuggest(title) })
+        }
+        templates.forEach { template ->
+            SuggestionRow(
+                AgentIcons.savedPrompt,
+                template.text,
+                stringResource(R.string.agents_template_yours),
+                onClick = { onSuggest(template.text) },
+                removeLabel = stringResource(R.string.agents_template_remove),
+                onRemove = { onRemoveTemplate(template.id) },
+            )
+        }
+        AddTemplateButton(onAddTemplate)
     }
 }
 

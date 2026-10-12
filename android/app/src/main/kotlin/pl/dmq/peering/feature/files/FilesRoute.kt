@@ -56,6 +56,30 @@ fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = 
         list.upload(uris.map { it.toString() })
     }
 
+    FilesScaffold(
+        listUi = listUi,
+        previewUi = previewUi,
+        list = list,
+        preview = preview,
+        hosted = hosted,
+        onBack = ::goBack,
+        onUpload = { pickDocuments.launch(arrayOf("*/*")) },
+        modifier = modifier,
+    )
+    FileDialogHost(listUi.dialog, list)
+}
+
+@Composable
+private fun FilesScaffold(
+    listUi: FileListUi,
+    previewUi: FilePreviewUi?,
+    list: FileListPresenter,
+    preview: FilePreviewPresenter,
+    hosted: Boolean,
+    onBack: () -> Unit,
+    onUpload: () -> Unit,
+    modifier: Modifier,
+) {
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
@@ -64,12 +88,12 @@ fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = 
             when {
                 open != null -> PreviewTopBar(open, preview)
                 listUi.isSelecting -> Box(Modifier.belowHubSwitcher()) { SelectionTopBar(listUi, list) }
-                !hosted -> FolderTopBar(listUi, onBack = ::goBack)
+                !hosted -> FolderTopBar(listUi, onBack = onBack)
             }
         },
         bottomBar = {
             if (previewUi == null && listUi.path != null) {
-                FilesBottomBar(listUi, list, onUpload = { pickDocuments.launch(arrayOf("*/*")) })
+                FilesBottomBar(listUi, list, onUpload = onUpload)
             }
         },
     ) { padding ->
@@ -84,7 +108,6 @@ fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = 
             }
         }
     }
-    FileDialogHost(listUi.dialog, list)
 }
 
 /** The system pickers a download or a share needs, and what to do with what they return. */

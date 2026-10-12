@@ -22,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import kotlin.math.ln
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
+import pl.dmq.peering.feature.settings.DevicePrefs
 import pl.dmq.peering.testing.RemoteBridge
 import pl.dmq.peering.ui.kit.LocalBorderless
 import pl.dmq.peering.wire.MouseButton
@@ -35,84 +37,26 @@ fun RemoteRoute(model: RemoteModel) {
     val customMacros by model.macros.custom.collectAsState()
     val screen = rememberSaveable(saver = SessionScreenState.Saver) { SessionScreenState() }
     val scope = rememberCoroutineScope()
-    val prefsNow = rememberUpdatedState(prefs)
-    val stateNow = rememberUpdatedState(state)
-    val tracker = remember(model) { PointerTracker(MosaicGate(model.commands) { stateNow.value.showsMosaic }) { pointerSize(stateNow.value) } }
-    val input = remember(model) { ObserveGate(tracker) { prefsNow.value.interaction == InputMode.OBSERVE } }
-    val canvas = remember(model) { RemoteCanvasPresenter(input, prefsNow.value.interaction) { tracker.position.value } }
-    val keyboard = remember(model) { KeyboardPresenter(input) { prefsNow.value.keyboardMode } }
-    val sources = remember(model) { SourcesPresenter(input) }
-    val quality = remember(model) { QualitySheetPresenter(model.quality, scope, onNeedsUpgrade = model::onRelayUpgradeRequested) }
-    val actions = remember(model) {
-        RemoteActions(model, input, screen, canvas, keyboard, { prefsNow.value }, { pointerSize(stateNow.value) }, scope)
-    }
+    val presenters = rememberSessionPresenters(model, state, prefs, screen, scope)
+    val canvas = presenters.canvas
+    val keyboard = presenters.keyboard
+    val actions = presenters.actions
     canvas.onTileTapped = { source -> model.commands.send(SetCaptureSource(source)) }
     val canvasState by canvas.state.collectAsState()
-    val cursor by tracker.position.collectAsState()
+    val cursor by presenters.tracker.position.collectAsState()
     val typed by keyboard.typedPreview.collectAsState()
     val latches by keyboard.latches.collectAsState()
     var lastHostName by rememberSaveable { mutableStateOf<String?>(null) }
     state.hostName?.let { lastHostName = it }
-
-    val overlay = SessionOverlayState.of(
-        hostName = lastHostName,
-        latencyMs = state.latencyMs,
-        path = state.path,
-        picture = state.pictureState,
-        reconnecting = state.reconnecting,
-        relayMinutesLeft = state.relayMinutesLeft,
-    )
-    val zoomPercent = (canvasState.viewport.zoom * 100).roundToInt().takeIf { it > ZOOMED_PERCENT }
-
-    LaunchedEffect(prefs.interaction) {
-        canvas.setMode(prefs.interaction)
-        if (prefs.interaction != InputMode.OBSERVE) screen.lastControl = prefs.interaction
-    }
-    LaunchedEffect(state.hostPointer) { state.hostPointer?.let { tracker.report(it.point) } }
-    LaunchedEffect(state.mosaic) { canvas.setMosaic(state.mosaic) }
-    LaunchedEffect(state.picturePixels, prefs.fillsScreen) {
-        canvas.onPictureChanged(state.picturePixels)
-        if (prefs.fillsScreen) canvas.fillCanvas() else canvas.fitToCanvas()
-    }
-    val pill = remember { StatusPillPresenter(scope, memory = model.statusPillMemory) }
-    val ready = state.hostName != null
-    LaunchedEffect(ready) { pill.onReady(ready) }
-
+    val overlay = sessionOverlay(state, lastHostName)
+    SessionEffects(state, prefs, screen, canvas, presenters.tracker)
+    val pill = rememberStatusPill(model, scope, ready = state.hostName != null)
     SessionWindow()
     RemoteBridge(screen, pill, actions, model.clipboard)
-    BackHandler {
-        when (screen.backStep()) {
-            BackStep.CLOSE_PANEL -> screen.closePanel()
-            BackStep.HIDE_KEYBOARD -> screen.hideKeyboard()
-            BackStep.ASK_TO_LEAVE -> screen.leaveAsked = true
-        }
-    }
-
+    RemoteBackHandler(screen)
     val handlers = chromeHandlers(model, screen, pill, actions, canvas, keyboard, typed, latches)
-    val chrome = ChromeState(
-        shown = ChromePolicy.shown(screen.immersive, state.pictureState, state.reconnecting),
-        immersive = screen.immersive,
-        overlay = overlay,
-        status = StatusUi(
-            overlay = overlay,
-            sourceTitle = state.sourceTitle,
-            mosaicWindows = state.mosaic?.tiles?.size,
-            darkened = screen.darkened,
-            fills = prefs.fillsScreen,
-            zoomPercent = zoomPercent,
-            hubTabs = HubPresenter().offeredTabs(state.capabilities),
-        ),
-        statusExpanded = pill.expanded,
-        openPanel = screen.openPanel,
-        keyboardShown = screen.keyboardShown,
-        dockExpanded = screen.dockExpanded,
-        interaction = prefs.interaction,
-        profile = ApplicationProfiles.forBundle(state.sourceBundleId),
-        wheelPosition = if (prefs.interaction == InputMode.OBSERVE) zoomPosition(canvasState.viewport.zoom) else null,
-        speedText = screen.speedBadge,
-        mosaic = state.showsMosaic,
-    )
-    val panelContext = PanelContext(model, state, prefs, screen, actions, keyboard, sources, quality, customMacros, overlay)
+    val chrome = chromeState(state, prefs, screen, overlay, pill, canvasState.viewport.zoom)
+    val panelContext = PanelContext(model, state, prefs, screen, actions, keyboard, presenters.sources, presenters.quality, customMacros, overlay)
 
     CompositionLocalProvider(LocalBorderless provides true) {
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -127,6 +71,120 @@ fun RemoteRoute(model: RemoteModel) {
         }
     }
 }
+
+private class SessionPresenters(
+    val tracker: PointerTracker,
+    val canvas: RemoteCanvasPresenter,
+    val keyboard: KeyboardPresenter,
+    val sources: SourcesPresenter,
+    val quality: QualitySheetPresenter,
+    val actions: RemoteActions,
+)
+
+@Composable
+private fun rememberSessionPresenters(
+    model: RemoteModel,
+    state: RemoteUiState,
+    prefs: DevicePrefs,
+    screen: SessionScreenState,
+    scope: CoroutineScope,
+): SessionPresenters {
+    val prefsNow = rememberUpdatedState(prefs)
+    val stateNow = rememberUpdatedState(state)
+    return remember(model) {
+        val tracker = PointerTracker(MosaicGate(model.commands) { stateNow.value.showsMosaic }) { pointerSize(stateNow.value) }
+        val input = ObserveGate(tracker) { prefsNow.value.interaction == InputMode.OBSERVE }
+        val canvas = RemoteCanvasPresenter(input, prefsNow.value.interaction) { tracker.position.value }
+        val keyboard = KeyboardPresenter(input) { prefsNow.value.keyboardMode }
+        SessionPresenters(
+            tracker = tracker,
+            canvas = canvas,
+            keyboard = keyboard,
+            sources = SourcesPresenter(input),
+            quality = QualitySheetPresenter(model.quality, scope, onNeedsUpgrade = model::onRelayUpgradeRequested),
+            actions = RemoteActions(model, input, screen, canvas, keyboard, { prefsNow.value }, { pointerSize(stateNow.value) }, scope),
+        )
+    }
+}
+
+private fun sessionOverlay(state: RemoteUiState, hostName: String?): SessionOverlayState =
+    SessionOverlayState.of(
+        hostName = hostName,
+        latencyMs = state.latencyMs,
+        path = state.path,
+        picture = state.pictureState,
+        reconnecting = state.reconnecting,
+        relayMinutesLeft = state.relayMinutesLeft,
+    )
+
+@Composable
+private fun SessionEffects(
+    state: RemoteUiState,
+    prefs: DevicePrefs,
+    screen: SessionScreenState,
+    canvas: RemoteCanvasPresenter,
+    tracker: PointerTracker,
+) {
+    LaunchedEffect(prefs.interaction) {
+        canvas.setMode(prefs.interaction)
+        if (prefs.interaction != InputMode.OBSERVE) screen.lastControl = prefs.interaction
+    }
+    LaunchedEffect(state.hostPointer) { state.hostPointer?.let { tracker.report(it.point) } }
+    LaunchedEffect(state.mosaic) { canvas.setMosaic(state.mosaic) }
+    LaunchedEffect(state.picturePixels, prefs.fillsScreen) {
+        canvas.onPictureChanged(state.picturePixels)
+        if (prefs.fillsScreen) canvas.fillCanvas() else canvas.fitToCanvas()
+    }
+}
+
+@Composable
+private fun rememberStatusPill(model: RemoteModel, scope: CoroutineScope, ready: Boolean): StatusPillPresenter {
+    val pill = remember { StatusPillPresenter(scope, memory = model.statusPillMemory) }
+    LaunchedEffect(ready) { pill.onReady(ready) }
+    return pill
+}
+
+@Composable
+private fun RemoteBackHandler(screen: SessionScreenState) {
+    BackHandler {
+        when (screen.backStep()) {
+            BackStep.CLOSE_PANEL -> screen.closePanel()
+            BackStep.HIDE_KEYBOARD -> screen.hideKeyboard()
+            BackStep.ASK_TO_LEAVE -> screen.leaveAsked = true
+        }
+    }
+}
+
+private fun chromeState(
+    state: RemoteUiState,
+    prefs: DevicePrefs,
+    screen: SessionScreenState,
+    overlay: SessionOverlayState,
+    pill: StatusPillPresenter,
+    zoom: Double,
+): ChromeState = ChromeState(
+    shown = ChromePolicy.shown(screen.immersive, state.pictureState, state.reconnecting),
+    immersive = screen.immersive,
+    overlay = overlay,
+    status = StatusUi(
+        overlay = overlay,
+        sourceTitle = state.sourceTitle,
+        mosaicWindows = state.mosaic?.tiles?.size,
+        darkened = screen.darkened,
+        fills = prefs.fillsScreen,
+        zoomPercent = (zoom * 100).roundToInt().takeIf { it > ZOOMED_PERCENT },
+        hubTabs = HubPresenter().offeredTabs(state.capabilities),
+    ),
+    statusExpanded = pill.expanded,
+    openPanel = screen.openPanel,
+    keyboardShown = screen.keyboardShown,
+    dockExpanded = screen.dockExpanded,
+    interaction = prefs.interaction,
+    profile = ApplicationProfiles.forBundle(state.sourceBundleId),
+    wheelPosition = if (prefs.interaction == InputMode.OBSERVE) zoomPosition(zoom) else null,
+    speedText = screen.speedBadge,
+    mosaic = state.showsMosaic,
+)
 
 @Composable
 private fun chromeHandlers(
@@ -163,18 +221,7 @@ private fun chromeHandlers(
     onChord = { action -> if (action.confirms) screen.quitAsked = true else actions.sendKey(action.keyCode, action.modifiers) },
     onMode = actions::toggleMode,
     onNotch = actions::wheelNotch,
-    pointer = PointerActions(
-        onBack = { actions.sendKey(LEFT, pl.dmq.peering.wire.Modifiers.COMMAND) },
-        onEnter = keyboard::pressEnter,
-        joystick = JoystickActions(
-            onMove = actions::joystickMove,
-            onTap = { actions.click(MouseButton.LEFT) },
-            onRightClick = { actions.click(MouseButton.RIGHT) },
-            onDoubleTap = actions::stepSpeed,
-        ),
-        pointWidth = actions.pointerSize().first,
-        pointHeight = actions.pointerSize().second,
-    ),
+    pointer = pointerActions(actions, keyboard),
     keyboardKeys = KeyboardKeys(
         latches = latches,
         typed = typed,
@@ -185,6 +232,20 @@ private fun chromeHandlers(
         onDelete = keyboard::onSoftKeyboardDelete,
     ),
 )
+
+private fun pointerActions(actions: RemoteActions, keyboard: KeyboardPresenter): PointerActions =
+    PointerActions(
+        onBack = { actions.sendKey(LEFT, pl.dmq.peering.wire.Modifiers.COMMAND) },
+        onEnter = keyboard::pressEnter,
+        joystick = JoystickActions(
+            onMove = actions::joystickMove,
+            onTap = { actions.click(MouseButton.LEFT) },
+            onRightClick = { actions.click(MouseButton.RIGHT) },
+            onDoubleTap = actions::stepSpeed,
+        ),
+        pointWidth = actions.pointerSize().first,
+        pointHeight = actions.pointerSize().second,
+    )
 
 /**
  * The picture's size in the computer's points, which the joystick's travel and the drawn cursor are both measured in.

@@ -86,21 +86,26 @@ fun HubDock(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         ) {
-            Box(Modifier.size(32.dp).clip(PillShape).background(PeeringColors.onInk), contentAlignment = Alignment.Center) {
-                Icon(
-                    if (agent != null) AgentBrand.of(agent.id).icon() else AppIcons.sparkles,
-                    contentDescription = null,
-                    tint = PeeringColors.ink,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-            Text(
-                label,
-                style = PeeringText.subheadlineSemibold.copy(fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold),
-                color = PeeringColors.onInk,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            DockContent(agent, label)
         }
     }
+}
+
+@Composable
+private fun DockContent(agent: AgentOption?, label: String) {
+    Box(Modifier.size(32.dp).clip(PillShape).background(PeeringColors.onInk), contentAlignment = Alignment.Center) {
+        Icon(
+            if (agent != null) AgentBrand.of(agent.id).icon() else AppIcons.sparkles,
+            contentDescription = null,
+            tint = PeeringColors.ink,
+            modifier = Modifier.size(16.dp),
+        )
+    }
+    Text(
+        label,
+        style = PeeringText.subheadlineSemibold.copy(fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold),
+        color = PeeringColors.onInk,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }

@@ -53,34 +53,44 @@ fun SessionDetail(record: SessionRecord, nowMillis: Long, onBack: () -> Unit, mo
             Text(record.hostName, style = PeeringText.headline, color = PeeringColors.ink, maxLines = 1, modifier = Modifier.weight(1f))
             CopyLogButton(logText)
         }
-        ControlsCard(stringResource(R.string.sessions_detail_connection)) {
-            DetailRow(stringResource(R.string.sessions_detail_computer), record.hostName)
+        SessionConnectionCard(record, nowMillis)
+        SessionLogCard(record)
+    }
+}
+
+@Composable
+private fun SessionConnectionCard(record: SessionRecord, nowMillis: Long) {
+    ControlsCard(stringResource(R.string.sessions_detail_connection)) {
+        DetailRow(stringResource(R.string.sessions_detail_computer), record.hostName)
+        ControlsDivider()
+        DetailRow(stringResource(R.string.sessions_detail_path), stringResource(record.path.nameRes()))
+        ControlsDivider()
+        DetailRow(
+            stringResource(R.string.sessions_detail_started),
+            englishDateTime(record.startedAt),
+        )
+        ControlsDivider()
+        DetailRow(stringResource(R.string.sessions_detail_duration), durationLabel(record.durationSeconds(nowMillis)))
+        record.reason?.let {
             ControlsDivider()
-            DetailRow(stringResource(R.string.sessions_detail_path), stringResource(record.path.nameRes()))
-            ControlsDivider()
-            DetailRow(
-                stringResource(R.string.sessions_detail_started),
-                englishDateTime(record.startedAt),
-            )
-            ControlsDivider()
-            DetailRow(stringResource(R.string.sessions_detail_duration), durationLabel(record.durationSeconds(nowMillis)))
-            record.reason?.let {
-                ControlsDivider()
-                DetailRow(stringResource(R.string.sessions_detail_ended), stringResource(it.labelRes()))
-            }
-            ControlsDivider()
-            DetailRow(stringResource(R.string.sessions_detail_received), fileSizeLabel(record.bytesReceived))
-            ControlsDivider()
-            DetailRow(stringResource(R.string.sessions_detail_sent), fileSizeLabel(record.bytesSent))
+            DetailRow(stringResource(R.string.sessions_detail_ended), stringResource(it.labelRes()))
         }
-        ControlsCard(stringResource(R.string.sessions_detail_log)) {
-            if (record.logs.isEmpty()) {
-                Text(stringResource(R.string.sessions_detail_log_empty), style = PeeringText.subheadline, color = PeeringColors.muted)
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    record.logs.forEach { entry ->
-                        Text(entry, style = PeeringText.caption.copy(fontFamily = FontFamily.Monospace), color = PeeringColors.muted)
-                    }
+        ControlsDivider()
+        DetailRow(stringResource(R.string.sessions_detail_received), fileSizeLabel(record.bytesReceived))
+        ControlsDivider()
+        DetailRow(stringResource(R.string.sessions_detail_sent), fileSizeLabel(record.bytesSent))
+    }
+}
+
+@Composable
+private fun SessionLogCard(record: SessionRecord) {
+    ControlsCard(stringResource(R.string.sessions_detail_log)) {
+        if (record.logs.isEmpty()) {
+            Text(stringResource(R.string.sessions_detail_log_empty), style = PeeringText.subheadline, color = PeeringColors.muted)
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                record.logs.forEach { entry ->
+                    Text(entry, style = PeeringText.caption.copy(fontFamily = FontFamily.Monospace), color = PeeringColors.muted)
                 }
             }
         }

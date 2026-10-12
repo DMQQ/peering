@@ -83,25 +83,37 @@ fun SourcesPanel(
                 },
             )
         }
-        if (catalog == null || (catalog.displays + catalog.applications + catalog.windows).isEmpty()) {
-            Waiting()
+        SourceLists(catalog, chosen, building, query, presenter, onBuilding = { building = it }, onPicked)
+    }
+}
+
+@Composable
+private fun SourceLists(
+    catalog: CaptureCatalog?,
+    chosen: CaptureSource?,
+    building: MosaicPicks?,
+    query: String,
+    presenter: SourcesPresenter,
+    onBuilding: (MosaicPicks?) -> Unit,
+    onPicked: () -> Unit,
+) {
+    if (catalog == null || (catalog.displays + catalog.applications + catalog.windows).isEmpty()) {
+        Waiting()
+        return
+    }
+    val marking = Marking(chosen, building)
+    val pick = { tile: SourceTile ->
+        if (building != null) {
+            onBuilding(building.toggled(tile.source))
         } else {
-            val marking = Marking(chosen, building)
-            val pick = { tile: SourceTile ->
-                val picks = building
-                if (picks != null) {
-                    building = picks.toggled(tile.source)
-                } else {
-                    presenter.choose(tile)
-                    onPicked()
-                }
-            }
-            Screens(catalog, marking, presenter, query, pick)
-            val groups = SourceGrouping.filtered(SourceGrouping.applicationGroups(catalog.applications, catalog.windows), query)
-            groups.forEach { group -> ApplicationSection(group, marking, presenter, pick, onPicked) }
-            if (building == null) InstalledGrid(SourceGrouping.installedNotRunning(catalog, query), presenter, onPicked)
+            presenter.choose(tile)
+            onPicked()
         }
     }
+    Screens(catalog, marking, presenter, query, pick)
+    val groups = SourceGrouping.filtered(SourceGrouping.applicationGroups(catalog.applications, catalog.windows), query)
+    groups.forEach { group -> ApplicationSection(group, marking, presenter, pick, onPicked) }
+    if (building == null) InstalledGrid(SourceGrouping.installedNotRunning(catalog, query), presenter, onPicked)
 }
 
 @Composable

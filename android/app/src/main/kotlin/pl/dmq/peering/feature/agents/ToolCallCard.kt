@@ -50,7 +50,6 @@ import pl.dmq.peering.ui.theme.peeringShapes
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ToolCallCard(row: TranscriptRow.ToolCall, expanded: Boolean, onToggle: () -> Unit, onReview: (String) -> Unit) {
-    val clipboard = LocalClipboardManager.current
     var menuOpen by remember { mutableStateOf(false) }
     val awaiting = row.status as? ToolStatus.AwaitingApproval
     Box {
@@ -66,28 +65,34 @@ fun ToolCallCard(row: TranscriptRow.ToolCall, expanded: Boolean, onToggle: () ->
             Header(row, expanded)
             if (expanded) Details(row)
         }
-        PeeringMenu(menuOpen, { menuOpen = false }) {
-            row.output?.takeIf { it.isNotEmpty() }?.let { output ->
-                PeeringMenuItem(stringResource(R.string.agents_copy_output), icon = AppIcons.copy, onClick = {
-                    menuOpen = false
-                    clipboard.setText(AnnotatedString(output))
-                })
-            }
-            row.call.detail?.takeIf { it.isNotEmpty() }?.let { detail ->
-                PeeringMenuItem(stringResource(R.string.agents_copy_call, row.call.title), icon = AppIcons.copy, onClick = {
-                    menuOpen = false
-                    clipboard.setText(AnnotatedString(detail))
-                })
-            }
-            PeeringMenuItem(
-                stringResource(if (expanded) R.string.agents_hide_details else R.string.agents_show_details),
-                icon = AppIcons.expand,
-                onClick = {
-                    menuOpen = false
-                    onToggle()
-                },
-            )
+        ToolCallMenu(row, expanded, menuOpen, onDismiss = { menuOpen = false }, onToggle = onToggle)
+    }
+}
+
+@Composable
+private fun ToolCallMenu(row: TranscriptRow.ToolCall, expanded: Boolean, open: Boolean, onDismiss: () -> Unit, onToggle: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
+    PeeringMenu(open, onDismiss) {
+        row.output?.takeIf { it.isNotEmpty() }?.let { output ->
+            PeeringMenuItem(stringResource(R.string.agents_copy_output), icon = AppIcons.copy, onClick = {
+                onDismiss()
+                clipboard.setText(AnnotatedString(output))
+            })
         }
+        row.call.detail?.takeIf { it.isNotEmpty() }?.let { detail ->
+            PeeringMenuItem(stringResource(R.string.agents_copy_call, row.call.title), icon = AppIcons.copy, onClick = {
+                onDismiss()
+                clipboard.setText(AnnotatedString(detail))
+            })
+        }
+        PeeringMenuItem(
+            stringResource(if (expanded) R.string.agents_hide_details else R.string.agents_show_details),
+            icon = AppIcons.expand,
+            onClick = {
+                onDismiss()
+                onToggle()
+            },
+        )
     }
 }
 

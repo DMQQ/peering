@@ -49,12 +49,7 @@ import pl.dmq.peering.ui.theme.PillShape
 /** A web page served by the computer's own loopback, shown on the phone through the connection the session already has. */
 @Composable
 fun PreviewScreen(fetch: PreviewFetch, onClose: () -> Unit, modifier: Modifier = Modifier) {
-    val scope = rememberCoroutineScope()
-    val presenter = remember(fetch) { PreviewPresenter(fetch, scope) }
-    val context = LocalContext.current
-    val web = remember(presenter) { PreviewWeb(context, presenter, fetch) }
-    DisposableEffect(web) { onDispose(web::close) }
-    LaunchedEffect(presenter) { presenter.detect() }
+    val (presenter, web) = rememberPreview(fetch)
     val ui by presenter.ui.collectAsState()
     var typed by remember { mutableStateOf("") }
     var typedEdited by remember { mutableStateOf(false) }
@@ -81,24 +76,49 @@ fun PreviewScreen(fetch: PreviewFetch, onClose: () -> Unit, modifier: Modifier =
                 onBack = web::goBack,
                 onReload = web::reload,
             )
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                if (ui.phase == PreviewPhase.IDLE) {
-                    PreviewStart(ui, onOpenPort = { typed = "localhost:$it"; open() }, onLookAgain = presenter::detect)
-                } else if (ui.phase == PreviewPhase.FAILED) {
-                    PreviewFailureView(ui.failure, onRetry = web::reload)
-                }
-                PageLayer(web, visible = ui.phase == PreviewPhase.LOADING || ui.phase == PreviewPhase.LOADED, loading = ui.phase == PreviewPhase.LOADING)
-            }
-            ui.notice?.let { notice ->
-                Text(
-                    stringResource(if (notice == PreviewNotice.ONLY_LOOPBACK) R.string.preview_notice_only_loopback else R.string.preview_notice_links_outside),
-                    style = PeeringText.caption,
-                    color = PeeringColors.caution,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                )
-            }
+            PreviewStage(
+                ui = ui,
+                web = web,
+                onOpenPort = { typed = "localhost:$it"; open() },
+                onLookAgain = presenter::detect,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+            )
+            ui.notice?.let { NoticeLine(it) }
         }
     }
+}
+
+@Composable
+private fun rememberPreview(fetch: PreviewFetch): Pair<PreviewPresenter, PreviewWeb> {
+    val scope = rememberCoroutineScope()
+    val presenter = remember(fetch) { PreviewPresenter(fetch, scope) }
+    val context = LocalContext.current
+    val web = remember(presenter) { PreviewWeb(context, presenter, fetch) }
+    DisposableEffect(web) { onDispose(web::close) }
+    LaunchedEffect(presenter) { presenter.detect() }
+    return presenter to web
+}
+
+@Composable
+private fun PreviewStage(ui: PreviewUi, web: PreviewWeb, onOpenPort: (Int) -> Unit, onLookAgain: () -> Unit, modifier: Modifier) {
+    Box(modifier) {
+        if (ui.phase == PreviewPhase.IDLE) {
+            PreviewStart(ui, onOpenPort = onOpenPort, onLookAgain = onLookAgain)
+        } else if (ui.phase == PreviewPhase.FAILED) {
+            PreviewFailureView(ui.failure, onRetry = web::reload)
+        }
+        PageLayer(web, visible = ui.phase == PreviewPhase.LOADING || ui.phase == PreviewPhase.LOADED, loading = ui.phase == PreviewPhase.LOADING)
+    }
+}
+
+@Composable
+private fun NoticeLine(notice: PreviewNotice) {
+    Text(
+        stringResource(if (notice == PreviewNotice.ONLY_LOOPBACK) R.string.preview_notice_only_loopback else R.string.preview_notice_links_outside),
+        style = PeeringText.caption,
+        color = PeeringColors.caution,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+    )
 }
 
 @Composable

@@ -63,22 +63,7 @@ fun ChangeFileScreen(changes: ChangesPresenter, entry: ChangeEntryUi, onBack: ()
     BackHandler { if (target != null) target = null else onBack() }
 
     Column(modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) {
-                Icon(AppIcons.back, contentDescription = stringResource(R.string.changes_back), tint = PeeringColors.ink)
-            }
-            Text(
-                entry.name,
-                style = PeeringText.subheadlineSemibold.copy(fontSize = 17.sp),
-                color = PeeringColors.ink,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = { target = CommentTarget.WholeFile }) {
-                Icon(AppIcons.edit, contentDescription = stringResource(R.string.changes_comment_file), tint = PeeringColors.ink)
-            }
-        }
+        ChangeFileBar(entry.name, onBack, onComment = { target = CommentTarget.WholeFile })
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 28.dp)) {
             item(key = "header") { Header(entry) }
             if (lines.isEmpty()) {
@@ -99,6 +84,26 @@ fun ChangeFileScreen(changes: ChangesPresenter, entry: ChangeEntryUi, onBack: ()
                 },
                 onCancel = { target = null },
             )
+        }
+    }
+}
+
+@Composable
+private fun ChangeFileBar(name: String, onBack: () -> Unit, onComment: () -> Unit) {
+    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onBack) {
+            Icon(AppIcons.back, contentDescription = stringResource(R.string.changes_back), tint = PeeringColors.ink)
+        }
+        Text(
+            name,
+            style = PeeringText.subheadlineSemibold.copy(fontSize = 17.sp),
+            color = PeeringColors.ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onComment) {
+            Icon(AppIcons.edit, contentDescription = stringResource(R.string.changes_comment_file), tint = PeeringColors.ink)
         }
     }
 }
@@ -149,30 +154,10 @@ private fun DiffBlock(
 
 @Composable
 private fun DiffRow(line: DiffLine, selected: Boolean, onClick: () -> Unit) {
-    val fill = when {
-        selected -> PeeringColors.ink.copy(alpha = 0.14f)
-        line.kind == DiffLineKind.ADDED -> PeeringColors.added.copy(alpha = 0.14f)
-        line.kind == DiffLineKind.REMOVED -> PeeringColors.danger.copy(alpha = 0.14f)
-        line.kind == DiffLineKind.HUNK -> PeeringColors.ink.copy(alpha = 0.04f)
-        else -> Color.Transparent
-    }
-    val mark = when (line.kind) {
-        DiffLineKind.ADDED -> "+"
-        DiffLineKind.REMOVED -> "-"
-        DiffLineKind.HUNK -> "@"
-        DiffLineKind.CONTEXT -> " "
-    }
-    val markColour = when (line.kind) {
-        DiffLineKind.ADDED -> PeeringColors.added
-        DiffLineKind.REMOVED -> PeeringColors.danger
-        else -> PeeringColors.ink.copy(alpha = 0.3f)
-    }
-    val textAlpha = when (line.kind) {
-        DiffLineKind.ADDED -> 0.95f
-        DiffLineKind.REMOVED -> 0.8f
-        DiffLineKind.CONTEXT -> 0.7f
-        DiffLineKind.HUNK -> 0.4f
-    }
+    val fill = diffFill(line.kind, selected)
+    val mark = diffMark(line.kind)
+    val markColour = diffMarkColour(line.kind)
+    val textAlpha = diffTextAlpha(line.kind)
     val mono = PeeringText.caption.copy(fontFamily = FontFamily.Monospace)
     Row(
         Modifier
@@ -192,4 +177,34 @@ private fun DiffRow(line: DiffLine, selected: Boolean, onClick: () -> Unit) {
         Text(mark, style = mono.copy(fontWeight = FontWeight.SemiBold), color = markColour, modifier = Modifier.width(9.dp))
         Text(line.text, style = mono, color = PeeringColors.ink.copy(alpha = textAlpha), modifier = Modifier.weight(1f))
     }
+}
+
+@Composable
+private fun diffFill(kind: DiffLineKind, selected: Boolean): Color = when {
+    selected -> PeeringColors.ink.copy(alpha = 0.14f)
+    kind == DiffLineKind.ADDED -> PeeringColors.added.copy(alpha = 0.14f)
+    kind == DiffLineKind.REMOVED -> PeeringColors.danger.copy(alpha = 0.14f)
+    kind == DiffLineKind.HUNK -> PeeringColors.ink.copy(alpha = 0.04f)
+    else -> Color.Transparent
+}
+
+private fun diffMark(kind: DiffLineKind): String = when (kind) {
+    DiffLineKind.ADDED -> "+"
+    DiffLineKind.REMOVED -> "-"
+    DiffLineKind.HUNK -> "@"
+    DiffLineKind.CONTEXT -> " "
+}
+
+@Composable
+private fun diffMarkColour(kind: DiffLineKind): Color = when (kind) {
+    DiffLineKind.ADDED -> PeeringColors.added
+    DiffLineKind.REMOVED -> PeeringColors.danger
+    else -> PeeringColors.ink.copy(alpha = 0.3f)
+}
+
+private fun diffTextAlpha(kind: DiffLineKind): Float = when (kind) {
+    DiffLineKind.ADDED -> 0.95f
+    DiffLineKind.REMOVED -> 0.8f
+    DiffLineKind.CONTEXT -> 0.7f
+    DiffLineKind.HUNK -> 0.4f
 }

@@ -7,6 +7,7 @@ import pl.dmq.peering.ui.kit.Motion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -44,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.pairing.Failure
-import pl.dmq.peering.feature.pairing.HostIdEntrySheet
 import pl.dmq.peering.feature.pairing.PairingActions
 import pl.dmq.peering.feature.pairing.PairingCodeScreen
 import pl.dmq.peering.ui.kit.GuideStepRow
@@ -74,9 +74,33 @@ fun FirstConnectionScreen(
 ) {
     val found = state.listing.nearby
     val inPairing = pairing != null && pairingActions != null
-    var ticked by remember { mutableIntStateOf(0) }
+    val ticked = rememberFirstConnectionTicks(found)
     var entryOpen by rememberSaveable { mutableStateOf(false) }
     var addressOpen by rememberSaveable { mutableStateOf(false) }
+    Column(modifier.fillMaxSize().peeringBackdrop().windowInsetsPadding(WindowInsets.statusBars).imePadding()) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(top = 48.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(28.dp),
+        ) {
+            FirstConnectionHeader(pairing)
+            if (pairing is PairingCodeScreen.Failed && pairingActions != null) {
+                Failure(pairing, pairingActions)
+            } else {
+                FirstConnectionSteps(
+                    found, ticked, inPairing, pairing, pairingActions, hostName, actions,
+                    onEnterId = { entryOpen = true },
+                    onEnterAddress = { addressOpen = true },
+                )
+            }
+        }
+        FirstConnectionFooter(pairing, pairingActions, onSkip)
+    }
+    ConnectEntrySheets(state, actions, entryOpen, addressOpen, { entryOpen = it }, { addressOpen = it })
+}
+
+@Composable
+private fun rememberFirstConnectionTicks(found: List<HostRow>): Int {
+    var ticked by remember { mutableIntStateOf(0) }
     LaunchedEffect(found.isEmpty()) {
         if (found.isEmpty()) {
             ticked = 0
@@ -87,64 +111,64 @@ fun FirstConnectionScreen(
             ticked = 2
         }
     }
-    Column(modifier.fillMaxSize().peeringBackdrop().windowInsetsPadding(WindowInsets.statusBars).imePadding()) {
-        Column(
-            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(top = 48.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(28.dp),
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(if (pairing == PairingCodeScreen.Done) R.string.pairing_code_done_title else R.string.first_title), style = PeeringText.display(size = 32f, tracking = -1f, lineHeight = 36f), color = PeeringColors.ink)
-                StepDetail(stringResource(R.string.first_subtitle))
-            }
-            if (pairing is PairingCodeScreen.Failed && pairingActions != null) {
-                Failure(pairing, pairingActions)
-            } else {
-                Column {
-                    val installed = if (inPairing) 2 else ticked
-                    GuideStepRow(1, if (installed >= 1) GuideStepState.Done else GuideStepState.Current, stringResource(R.string.first_step_install), Modifier) {
-                        if (installed < 1) InstallLink()
-                    }
-                    GuideStepRow(2, if (installed >= 2) GuideStepState.Done else GuideStepState.Current, stringResource(R.string.first_step_open), Modifier) {
-                        if (installed < 2) StepDetail(stringResource(R.string.first_step_open_detail))
-                    }
-                    if (pairing != null && pairingActions != null) {
-                        PairingSteps(pairing, pairingActions, hostName)
-                    } else {
-                        val steps = firstConnectionSteps(null, listReady = ticked >= 2)
-                        GuideStepRow(3, steps.choose, stringResource(R.string.first_step_choose), Modifier) {
-                            ChooseContent(found, ticked >= 2, actions, onEnterId = { entryOpen = true }, onEnterAddress = { addressOpen = true })
-                        }
-                        GuideStepRow(4, steps.code, stringResource(R.string.pairing_step_code), Modifier)
-                        GuideStepRow(5, steps.approve, stringResource(R.string.pairing_step_approve), Modifier, isLast = true)
-                    }
-                }
-            }
+    return ticked
+}
+
+@Composable
+private fun FirstConnectionHeader(pairing: PairingCodeScreen?) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(if (pairing == PairingCodeScreen.Done) R.string.pairing_code_done_title else R.string.first_title), style = PeeringText.display(size = 32f, tracking = -1f, lineHeight = 36f), color = PeeringColors.ink)
+        StepDetail(stringResource(R.string.first_subtitle))
+    }
+}
+
+@Composable
+private fun FirstConnectionSteps(
+    found: List<HostRow>,
+    ticked: Int,
+    inPairing: Boolean,
+    pairing: PairingCodeScreen?,
+    pairingActions: PairingActions?,
+    hostName: String?,
+    actions: ConnectActions,
+    onEnterId: () -> Unit,
+    onEnterAddress: () -> Unit,
+) {
+    Column {
+        val installed = if (inPairing) 2 else ticked
+        GuideStepRow(1, if (installed >= 1) GuideStepState.Done else GuideStepState.Current, stringResource(R.string.first_step_install), Modifier) {
+            if (installed < 1) InstallLink()
         }
-        val footer = when {
-            pairing == null -> R.string.first_later to onSkip
-            pairingActions != null && pairing !is PairingCodeScreen.Failed && pairing != PairingCodeScreen.Done ->
-                R.string.pairing_code_cancel to pairingActions.onCancel
-            else -> null
+        GuideStepRow(2, if (installed >= 2) GuideStepState.Done else GuideStepState.Current, stringResource(R.string.first_step_open), Modifier) {
+            if (installed < 2) StepDetail(stringResource(R.string.first_step_open_detail))
         }
-        if (footer != null) {
-            TextButton(
-                onClick = footer.second,
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 8.dp),
-                colors = ButtonDefaults.textButtonColors(contentColor = PeeringColors.muted),
-            ) { Text(stringResource(footer.first)) }
+        if (pairing != null && pairingActions != null) {
+            PairingSteps(pairing, pairingActions, hostName)
+        } else {
+            val steps = firstConnectionSteps(null, listReady = ticked >= 2)
+            GuideStepRow(3, steps.choose, stringResource(R.string.first_step_choose), Modifier) {
+                ChooseContent(found, ticked >= 2, actions, onEnterId = onEnterId, onEnterAddress = onEnterAddress)
+            }
+            GuideStepRow(4, steps.code, stringResource(R.string.pairing_step_code), Modifier)
+            GuideStepRow(5, steps.approve, stringResource(R.string.pairing_step_approve), Modifier, isLast = true)
         }
     }
-    if (entryOpen) {
-        HostIdEntrySheet(
-            state = state.entry,
-            onTextChanged = actions.onEntryTextChanged,
-            onSubmit = actions.onEntrySubmit,
-            onScan = actions.onScan?.let { scan -> { entryOpen = false; scan() } },
-            onDismiss = { entryOpen = false },
-        )
+}
+
+@Composable
+private fun ColumnScope.FirstConnectionFooter(pairing: PairingCodeScreen?, pairingActions: PairingActions?, onSkip: () -> Unit) {
+    val footer = when {
+        pairing == null -> R.string.first_later to onSkip
+        pairingActions != null && pairing !is PairingCodeScreen.Failed && pairing != PairingCodeScreen.Done ->
+            R.string.pairing_code_cancel to pairingActions.onCancel
+        else -> null
     }
-    if (addressOpen) {
-        ManualAddressSheet(onConnect = { host, port -> addressOpen = false; actions.onConnectAddress(host, port) }, onDismiss = { addressOpen = false })
+    if (footer != null) {
+        TextButton(
+            onClick = footer.second,
+            modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 8.dp),
+            colors = ButtonDefaults.textButtonColors(contentColor = PeeringColors.muted),
+        ) { Text(stringResource(footer.first)) }
     }
 }
 

@@ -41,25 +41,10 @@ internal fun HubList(
     onSessionOpened: () -> Unit,
     onChatStarted: () -> Unit,
 ) {
-    val open = ui.sessions.count { it.state != SessionCardState.ENDED && it.state != SessionCardState.FAILED }
-    val detail = if (open > 0) {
-        pluralStringResource(R.plurals.agents_open_on_computer, open, open)
-    } else {
-        stringResource(R.string.agents_detail_idle)
-    }
+    val detail = hubDetail(ui)
     val history = remember(ui.history, ui.resumable) { HubHistory.entries(ui) }
     val elsewhere = remember(ui.resumable) { HubHistory.activeOnComputer(ui) }
-    val run: (HistoryEntry) -> Unit = remember(presenter, onSessionOpened, onChatStarted) {
-        { entry ->
-            when (val action = entry.action) {
-                is HistoryAction.OpenPaused -> {
-                    presenter.openSession(action.sessionID)
-                    onSessionOpened()
-                }
-                is HistoryAction.Resume -> if (presenter.resume(action.resumableID, anyway = action.openElsewhere)) onChatStarted()
-            }
-        }
-    }
+    val run = remember(presenter, onSessionOpened, onChatStarted) { historyRunner(presenter, onSessionOpened, onChatStarted) }
     val bottom = (if (ui.agents.isEmpty()) 28.dp else HubDockMetrics.clearance) +
         WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val hasChats = ui.sessions.isNotEmpty() || history.isNotEmpty() || elsewhere.isNotEmpty()
@@ -72,23 +57,7 @@ internal fun HubList(
         if (guide.visible) item(key = "guide") { HubGuideCard(onDismiss = guide::dismiss) }
         if (ui.sessions.isNotEmpty()) {
             section(key = "chats", label = R.string.agents_chats_title, icon = AgentIcons.chats) {
-                items(ui.sessions, key = { it.id }) { card ->
-                    SessionCardRow(
-                        card = card,
-                        onOpen = {
-                            presenter.openSession(card.id)
-                            onSessionOpened()
-                        },
-                        onNewChatHere = {
-                            presenter.newChatHere(card.id)
-                            onChatStarted()
-                        },
-                        onRename = { onRename(card) },
-                        onPause = { presenter.endSession(card.id) },
-                        onClose = { onClose(card) },
-                        modifier = listItemMotion(),
-                    )
-                }
+                sessionCards(ui.sessions, presenter, onRename, onClose, onSessionOpened, onChatStarted)
             }
         }
         if (elsewhere.isNotEmpty()) {
@@ -102,6 +71,57 @@ internal fun HubList(
                 item(key = "history-card") { HistoryCard(history, onRun = run) }
             }
         }
+    }
+}
+
+@Composable
+private fun hubDetail(ui: HubUi): String {
+    val open = ui.sessions.count { it.state != SessionCardState.ENDED && it.state != SessionCardState.FAILED }
+    return if (open > 0) {
+        pluralStringResource(R.plurals.agents_open_on_computer, open, open)
+    } else {
+        stringResource(R.string.agents_detail_idle)
+    }
+}
+
+private fun historyRunner(
+    presenter: AgentsHubPresenter,
+    onSessionOpened: () -> Unit,
+    onChatStarted: () -> Unit,
+): (HistoryEntry) -> Unit = { entry ->
+    when (val action = entry.action) {
+        is HistoryAction.OpenPaused -> {
+            presenter.openSession(action.sessionID)
+            onSessionOpened()
+        }
+        is HistoryAction.Resume -> if (presenter.resume(action.resumableID, anyway = action.openElsewhere)) onChatStarted()
+    }
+}
+
+private fun LazyListScope.sessionCards(
+    sessions: List<SessionCard>,
+    presenter: AgentsHubPresenter,
+    onRename: (SessionCard) -> Unit,
+    onClose: (SessionCard) -> Unit,
+    onSessionOpened: () -> Unit,
+    onChatStarted: () -> Unit,
+) {
+    items(sessions, key = { it.id }) { card ->
+        SessionCardRow(
+            card = card,
+            onOpen = {
+                presenter.openSession(card.id)
+                onSessionOpened()
+            },
+            onNewChatHere = {
+                presenter.newChatHere(card.id)
+                onChatStarted()
+            },
+            onRename = { onRename(card) },
+            onPause = { presenter.endSession(card.id) },
+            onClose = { onClose(card) },
+            modifier = listItemMotion(),
+        )
     }
 }
 
