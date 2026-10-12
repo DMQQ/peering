@@ -32,3 +32,6 @@ val DockCollapsedShape = RoundedCornerShape(35.dp)
 val DockExpandedShape = RoundedCornerShape(28.dp)
 val ChipKeyShape = RoundedCornerShape(9.dp)
 val CompactKeyShape = RoundedCornerShape(10.dp)
+
+/** The 28 point icon tile of a file row, radius 8 as the iPhone draws it. */
+val FileTileShape = RoundedCornerShape(8.dp)
