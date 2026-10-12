@@ -55,7 +55,7 @@ video, and serves signalling in plaintext. That is exactly right for pointing bo
 | `PEERINGD_SESSION_TTL` | `300` | Seconds a session survives without activity |
 | `PEERINGD_MAX_SESSIONS` | `1000` | Sessions that may exist at once. A session costs a kilobyte of bookkeeping before its splice exists (see Cost), and asking for one is unauthenticated, so this is what turns "someone loops `ConnectToHost`" from an OOM kill into a refusal. Zero is refused as a value: a relay that answers nothing looks healthy, and that is an outage nobody diagnoses from the config |
 | `PEERINGD_MAX_CONNECTIONS` | `4096` | Sockets that may be open on the signalling listener at once. Has to be larger than the number of registered Macs, since each holds its registration socket open for as long as it runs. A connection beyond it is closed rather than queued |
-| `PEERINGD_MAX_SIGNALLING_PER_IP` | `256` | Signalling sockets one peer address may hold at once. Generous because many users share a NAT; the global `PEERINGD_MAX_CONNECTIONS` is what this stops one address from spending. IPv6 peers count by /64. A loopback peer (nginx on the same box) is never limited, so behind a proxy the per address limits do not apply to signalling |
+| `PEERINGD_MAX_SIGNALLING_PER_IP` | `256` | Signalling sockets one peer address may hold at once. Generous because many users share a NAT; the global `PEERINGD_MAX_CONNECTIONS` is what this stops one address from spending. IPv6 peers count by /64. A loopback peer (nginx on the same box) is taken to be the client named by `CF-Connecting-IP`, else the left-most valid `X-Forwarded-For` entry, else `X-Real-IP`, and is exempt only when none is valid (health checks). The headers are ignored for any non-loopback peer, so a direct client cannot spoof its address. The same address drives the allocation rate and unspliced limits |
 | `PEERINGD_MAX_CONTROL_PER_IP` | `512` | Control sockets one peer address may hold, waiting for a peer or spliced. Control is not proxied, so this always sees real addresses |
 | `PEERINGD_SESSIONS_PER_IP_PER_MINUTE` | `120` | Sessions one signalling peer address may allocate per minute. Over it the answer is `tooManySessions` |
 | `PEERINGD_MAX_UNSPLICED_PER_IP` | `64` | Sessions one address may have allocated whose two control ends have not both arrived. A fake host that never connects can otherwise keep every session alive against the TTL |
@@ -396,6 +396,9 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # CF-Connecting-IP, when Cloudflare is in front, is passed to the relay untouched by nginx,
+        # and the relay prefers it. The per address limits read these three headers from this proxy
+        # only (it connects from loopback); a direct client's headers are ignored.
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # Not optional. A Mac that is registered holds this socket open and says nothing for
@@ -461,6 +464,9 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # CF-Connecting-IP, when Cloudflare is in front, is passed to the relay untouched by nginx,
+        # and the relay prefers it. The per address limits read these three headers from this proxy
+        # only (it connects from loopback); a direct client's headers are ignored.
 
         # Only the WebSocket needs this. A Mac that is registered holds its socket open and says
         # nothing for minutes at a time, and nginx closes an idle proxied connection at 60

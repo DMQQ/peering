@@ -1397,3 +1397,43 @@ async fn closing_a_connection_removes_every_id_it_registered() {
         ServerMessage::HostPresence { host_id: "second".into(), online: false }
     );
 }
+
+async fn connect_behind_proxy(port: u16, client: &str) -> Result<Ws, tokio_tungstenite::tungstenite::Error> {
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+    let mut request = format!("ws://127.0.0.1:{port}").into_client_request().unwrap();
+    request.headers_mut().insert("CF-Connecting-IP", client.parse().unwrap());
+    let (ws, _) = timeout(PATIENCE, tokio_tungstenite::connect_async(request)).await.expect("answers")?;
+    Ok(ws)
+}
+
+#[tokio::test]
+async fn clients_behind_a_loopback_proxy_are_limited_by_their_forwarded_address() {
+    let relay = start_configured(
+        Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default())),
+        Duration::from_secs(10),
+        Duration::from_secs(90),
+        Duration::from_secs(45),
+        IpLimits { signalling_connections: 1, ..IpLimits::default() },
+        false,
+    )
+    .await;
+
+    let mut first = connect_behind_proxy(relay.signal_port, "198.51.100.1").await.unwrap();
+    let mut second = connect_behind_proxy(relay.signal_port, "198.51.100.2").await.unwrap();
+    for ws in [&mut first, &mut second] {
+        send(ws, &ClientMessage::Ping).await;
+        assert_eq!(next_message(ws).await, ServerMessage::Pong, "different addresses have separate limits");
+    }
+
+    let mut over = connect_behind_proxy(relay.signal_port, "198.51.100.1").await.unwrap();
+    let _ = over.send(Message::Text(serde_json::to_string(&ClientMessage::Ping).unwrap().into())).await;
+    let answered = timeout(Duration::from_secs(1), over.next()).await;
+    assert!(
+        !matches!(answered, Ok(Some(Ok(Message::Text(_))))),
+        "one forwarded address cannot exceed its cap"
+    );
+
+    let mut plain = connect(relay.signal_port).await;
+    send(&mut plain, &ClientMessage::Ping).await;
+    assert_eq!(next_message(&mut plain).await, ServerMessage::Pong, "a loopback peer with no header is exempt");
+}

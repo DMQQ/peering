@@ -482,6 +482,34 @@ pub async fn serve(
     }
 }
 
+/// Parses an address as a proxy writes it: bare, with a port, or a bracketed IPv6 literal.
+fn parse_forwarded(raw: &str) -> Option<IpAddr> {
+    let raw = raw.trim();
+    raw.parse::<IpAddr>()
+        .ok()
+        .or_else(|| raw.parse::<std::net::SocketAddr>().ok().map(|a| a.ip()))
+        .or_else(|| raw.strip_prefix('[')?.strip_suffix(']')?.parse().ok())
+}
+
+/// The client address a loopback proxy reports, in the order `CF-Connecting-IP`, the left-most
+/// valid `X-Forwarded-For` entry, `X-Real-IP`. A peer that is not loopback is a direct client, and
+/// is never allowed to name another address, so this is `None` for it, and for headers that
+/// carry nothing valid.
+fn forwarded_address(peer: IpAddr, headers: &http::HeaderMap) -> Option<IpAddr> {
+    let canonical = match peer {
+        IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or(peer, IpAddr::V4),
+        v4 => v4,
+    };
+    if !canonical.is_loopback() {
+        return None;
+    }
+    let text = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
+    text("cf-connecting-ip")
+        .and_then(parse_forwarded)
+        .or_else(|| text("x-forwarded-for").and_then(|list| list.split(',').find_map(parse_forwarded)))
+        .or_else(|| text("x-real-ip").and_then(parse_forwarded))
+}
+
 /// `Ok(None)` is an address with no accounting, which is every address when `peer` is unknown.
 fn admit_peer(
     limiter: &Arc<PeerLimiter>,
@@ -493,6 +521,7 @@ fn admit_peer(
     }
 }
 
+#[allow(clippy::result_large_err)] // the handshake callback's error type is tungstenite's
 async fn handle<S>(
     stream: S,
     peer: Option<IpAddr>,
@@ -512,9 +541,21 @@ async fn handle<S>(
     config.max_frame_size = Some(64 * 1024);
     // Bounded, for the same reason the TLS handshake above is: this is a second place a peer can
     // arrive and then say nothing, and without a deadline the connection it holds is held for ever.
+    let forwarded: Arc<std::sync::Mutex<Option<IpAddr>>> = Arc::default();
+    let record = Arc::clone(&forwarded);
     let ws = match time::timeout(
         settings.handshake_timeout,
-        tokio_tungstenite::accept_async_with_config(stream, Some(config)),
+        tokio_tungstenite::accept_hdr_async_with_config(
+            stream,
+            move |request: &tokio_tungstenite::tungstenite::handshake::server::Request,
+                  response: tokio_tungstenite::tungstenite::handshake::server::Response| {
+                if let Some(ip) = peer.and_then(|peer| forwarded_address(peer, request.headers())) {
+                    *record.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(ip);
+                }
+                Ok(response)
+            },
+            Some(config),
+        ),
     )
     .await
     {
@@ -535,7 +576,21 @@ async fn handle<S>(
     // That is what lets the select below own `sink` exclusively: a reply written straight to the
     // sink from the read arm would need it borrowed in both arms at once.
     let (tx, mut rx) = mpsc::channel::<ServerMessage>(32);
-    let mut state = ConnectionState { peer, ..ConnectionState::default() };
+    // Behind a local reverse proxy the socket peer is loopback and the client's address is in the
+    // headers; its limits are taken here, once the upgrade has said who it is.
+    let forwarded = forwarded.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
+    let _forwarded_slot = match forwarded {
+        Some(ip) => match settings.limiter.admit_signalling(ip) {
+            Some(slot) => Some(slot),
+            None => {
+                TALLY.refused(Refusal::PerIpLimit);
+                debug!(%ip, "refused a forwarded signalling connection: this address is at its limit");
+                return;
+            }
+        },
+        None => None,
+    };
+    let mut state = ConnectionState { peer: forwarded.or(peer), ..ConnectionState::default() };
     // One write is given as long as the handshake was: a peer that stops reading must not hold a
     // task, and the idle deadline below is not polled while a write is pending.
     let write_timeout = settings.handshake_timeout;
@@ -2026,5 +2081,59 @@ mod tests {
         let finished = time::timeout(Duration::from_secs(3), server).await;
         assert!(finished.is_ok(), "a peer that never reads must not hold the connection past the write timeout");
         flood.abort();
+    }
+
+    fn headers(pairs: &[(&str, &str)]) -> http::HeaderMap {
+        let mut map = http::HeaderMap::new();
+        for (name, value) in pairs {
+            map.insert(http::HeaderName::from_bytes(name.as_bytes()).unwrap(), value.parse().unwrap());
+        }
+        map
+    }
+
+    #[test]
+    fn a_loopback_peer_may_name_its_client_in_the_proxy_headers() {
+        let loopback: IpAddr = "127.0.0.1".parse().unwrap();
+        let all = headers(&[("cf-connecting-ip", "198.51.100.1"), ("x-forwarded-for", "198.51.100.2"), ("x-real-ip", "198.51.100.3")]);
+        assert_eq!(forwarded_address(loopback, &all), Some("198.51.100.1".parse().unwrap()));
+        assert_eq!(
+            forwarded_address("::1".parse().unwrap(), &headers(&[("x-real-ip", "198.51.100.3")])),
+            Some("198.51.100.3".parse().unwrap())
+        );
+    }
+
+    #[test]
+    fn the_left_most_valid_forwarded_for_entry_is_the_client() {
+        let loopback: IpAddr = "127.0.0.1".parse().unwrap();
+        let list = headers(&[("x-forwarded-for", "unknown, 203.0.113.9:4000 , 10.0.0.1")]);
+        assert_eq!(forwarded_address(loopback, &list), Some("203.0.113.9".parse().unwrap()));
+        let v6 = headers(&[("x-forwarded-for", "[2001:db8::1]:443, 10.0.0.1")]);
+        assert_eq!(forwarded_address(loopback, &v6), Some("2001:db8::1".parse().unwrap()));
+    }
+
+    #[test]
+    fn a_direct_client_cannot_name_another_address() {
+        let direct: IpAddr = "203.0.113.50".parse().unwrap();
+        assert_eq!(forwarded_address(direct, &headers(&[("cf-connecting-ip", "198.51.100.1")])), None);
+    }
+
+    #[test]
+    fn garbage_in_the_proxy_headers_falls_back_to_the_peer() {
+        let loopback: IpAddr = "127.0.0.1".parse().unwrap();
+        let garbage = headers(&[("cf-connecting-ip", "not-an-ip"), ("x-forwarded-for", "nope, 999.1.1.1"), ("x-real-ip", "")]);
+        assert_eq!(forwarded_address(loopback, &garbage), None);
+    }
+
+    #[test]
+    fn forwarded_v6_clients_are_limited_by_their_prefix() {
+        let limiter = Arc::new(PeerLimiter::new(crate::limits::IpLimits {
+            signalling_connections: 1,
+            ..Default::default()
+        }));
+        let loopback: IpAddr = "127.0.0.1".parse().unwrap();
+        let first = forwarded_address(loopback, &headers(&[("cf-connecting-ip", "2001:db8:5:6::1")])).unwrap();
+        let sibling = forwarded_address(loopback, &headers(&[("cf-connecting-ip", "2001:db8:5:6:aaaa::2")])).unwrap();
+        let _held = limiter.admit_signalling(first).unwrap();
+        assert!(limiter.admit_signalling(sibling).is_none());
     }
 }
