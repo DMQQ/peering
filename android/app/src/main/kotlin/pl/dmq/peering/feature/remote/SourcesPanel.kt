@@ -64,6 +64,13 @@ fun SourcesPanel(
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SearchField(query, { query = it }, stringResource(R.string.sources_search), filled = true, height = 34.dp)
         MosaicEntry(mosaic, building, presenter, onBuild = { building = it }, onPicked)
+        val showing = mosaic?.active
+        if (showing != null && building == null) {
+            MosaicTileEditor(
+                editorTiles(presenter.arrangementOf(showing), catalog),
+                onEdit = { edit -> presenter.edit(showing, edit, PixelSize(metrics.widthPixels.toDouble(), metrics.heightPixels.toDouble()), catalog) },
+            )
+        }
         building?.let { picks ->
             MosaicPickerBar(
                 picks,

@@ -4,7 +4,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AllInclusive
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.filled.CheckCircle as CheckCircleFilled
@@ -109,6 +113,10 @@ object AppIcons {
     val pictureInPicture: ImageVector get() = Icons.Outlined.PictureInPictureAlt
     val lockedPhone: ImageVector get() = Icons.Outlined.PhonelinkLock
     val grid: ImageVector get() = Icons.Outlined.GridView
+    val arrowUp: ImageVector get() = Icons.Outlined.ArrowUpward
+    val arrowDown: ImageVector get() = Icons.Outlined.ArrowDownward
+    val grow: ImageVector get() = Icons.Outlined.Add
+    val shrink: ImageVector get() = Icons.Outlined.Remove
     val tap: ImageVector get() = Icons.Outlined.TouchApp
     val notification: ImageVector get() = Icons.Outlined.NotificationsActive
     val unlimited: ImageVector get() = Icons.Outlined.AllInclusive
