@@ -56,6 +56,7 @@ object FaqEntries {
                 FaqItem(R.string.faq_black_question, R.string.faq_black_answer),
                 FaqItem(R.string.faq_soft_question, R.string.faq_soft_answer),
                 FaqItem(R.string.faq_network_question, R.string.faq_network_answer),
+                FaqItem(R.string.faq_background_question, R.string.faq_background_answer),
             ),
         ),
         FaqSection(

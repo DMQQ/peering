@@ -145,6 +145,15 @@ class LivenessMonitorTest {
     }
 
     @Test
+    fun resettingTheSilenceCountsFromNow() {
+        clock.advance(20.0)
+
+        monitor.resetSilence()
+
+        assertEquals(0.0, monitor.silenceSeconds(clock.monotonicSeconds()), 1e-9)
+    }
+
+    @Test
     fun aConnectionIsSilentOnlyPastItsLimit() {
         clock.advance(10.0)
         assertFalse(monitor.isSilent(clock.monotonicSeconds(), limitSeconds = 10.0))

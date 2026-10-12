@@ -81,6 +81,7 @@ internal class ConnectedLink(
         },
     )
     private var automatic: AutoQualityPolicy? = null
+    private var backgrounded = false
     private val direct: DirectPathRunner? = route.datagrams?.let { datagrams ->
         relay?.let { DirectPathRunner(lanes, datagrams, it, route.videoToken) }
     }
@@ -140,6 +141,8 @@ internal class ConnectedLink(
 
     /** Tells the host the phone left or returned to the foreground. False when the host did not declare that it understands. */
     fun reportBackground(background: Boolean): Boolean {
+        if (backgrounded && !background) liveness.resetSilence()
+        backgrounded = background
         if (!HostCapability.ClientState.declaredBy(hello)) return false
         val payload = WireJson.encodeToString(ClientStatePayload.serializer(), ClientStatePayload(background))
         writer.enqueue(Frame(MessageKind.ClientState, payload.toByteArray(Charsets.UTF_8)))
@@ -182,7 +185,7 @@ internal class ConnectedLink(
             every(LANE_INTERVAL) {
                 for (event in lanes.tick(clock.monotonicSeconds()).asEvents()) applyEvent(event, ended)
                 steerAutomatic()
-                if (liveness.isSilent(clock.monotonicSeconds(), SILENCE_LIMIT_SECONDS)) ended.complete(LinkEnd.Lost)
+                if (liveness.isSilent(clock.monotonicSeconds(), SilencePolicy.limitSeconds(backgrounded))) ended.complete(LinkEnd.Lost)
                 onTick()
             }
         }
@@ -249,6 +252,5 @@ internal class ConnectedLink(
         val PROBE_INTERVAL = 250.milliseconds
         val LANE_INTERVAL = 250.milliseconds
         val PING_INTERVAL = LivenessMonitor.PING_INTERVAL_SECONDS.seconds
-        const val SILENCE_LIMIT_SECONDS = 3.0
     }
 }

@@ -32,6 +32,19 @@ Needs the Android SDK (platform 35) and JDK 17. `android/local.properties` holds
 The phone and the Mac must be on the same Wi-Fi network for the local discovery path. Allow the local network and camera
 permissions when asked. For the relay path no network setup is needed.
 
+## Sessions and the background
+
+A session lasts while the app is on screen. Peering has no foreground service, so Android may stop the connection of an
+app that is in the background (Doze, app standby, battery limits). The app copes in three ways:
+
+* While the process is backgrounded the host may stay silent for 30 s instead of 3 s before the link counts as lost.
+* A session lost while the app was away is started once more when the app returns to the foreground. A second failure is
+  shown to the user, who taps the computer to connect again.
+* The FAQ tells the user this (Troubleshooting, "What happens when I leave the app?").
+
+A foreground service was left out on purpose: it needs a persistent notification and a Play policy declaration, and a
+phone remote that keeps a connection open for hours in a pocket is not the use it is built for.
+
 ## First run against a Mac host
 
 See `docs/plans/interop-android-mac.md` for the on-device checklist (pairing, video, input).
