@@ -1,18 +1,14 @@
 package pl.dmq.peering.feature.remote
 
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.terminal.TerminalGlyphs
 import pl.dmq.peering.ui.kit.AppIcons
-import pl.dmq.peering.ui.kit.PeeringListItem
+import pl.dmq.peering.ui.kit.ChoiceRow
 import pl.dmq.peering.ui.kit.PeeringSheet
 import pl.dmq.peering.ui.kit.PeeringSwitch
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -30,38 +26,38 @@ fun HubSheet(
     onDismiss: () -> Unit,
 ) {
     PeeringSheet(onDismiss = onDismiss, title = stringResource(R.string.hub_title)) {
-        PeeringListItem(
-            headline = stringResource(R.string.remote_pointer_title),
-            supporting = stringResource(
-                if (mode == InputMode.TRACKPAD) R.string.remote_pointer_trackpad else R.string.remote_pointer_touch,
+        ChoiceRow(
+            icon = if (mode == InputMode.TRACKPAD) AppIcons.trackpad else AppIcons.tap,
+            title = stringResource(R.string.remote_pointer_title),
+            description = stringResource(
+                if (mode == InputMode.TRACKPAD) R.string.remote_pointer_trackpad_description else R.string.remote_pointer_touch_description,
             ),
             onClick = onToggleMode,
-            role = Role.Button,
-            bleed = false,
-            leading = { Icon(if (mode == InputMode.TRACKPAD) AppIcons.trackpad else AppIcons.tap, contentDescription = null) },
         )
-        PeeringListItem(
-            headline = stringResource(R.string.remote_immersive_title),
-            supporting = stringResource(R.string.remote_immersive_description),
+        ChoiceRow(
+            icon = AppIcons.fit,
+            title = stringResource(R.string.remote_immersive_title),
+            description = stringResource(R.string.remote_immersive_description),
             onClick = onToggleImmersive,
             role = Role.Switch,
-            bleed = false,
-            leading = { Icon(AppIcons.fit, contentDescription = null) },
             trailing = { PeeringSwitch(checked = immersive, onCheckedChange = { onToggleImmersive() }) },
         )
         entries.forEach { entry ->
-            if (entry == HubEntry.DISCONNECT) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = PeeringColors.hairline)
-            val tint = if (entry == HubEntry.DISCONNECT) PeeringColors.danger else PeeringColors.ink
-            PeeringListItem(
-                headline = stringResource(entry.labelRes()),
+            ChoiceRow(
+                icon = entry.icon(),
+                title = stringResource(entry.labelRes()),
+                description = entry.descriptionRes()?.let { stringResource(it) },
                 onClick = { onSelect(entry) },
-                role = Role.Button,
-                tint = tint,
-                bleed = false,
-                leading = { Icon(entry.icon(), contentDescription = null) },
+                tint = if (entry == HubEntry.DISCONNECT) PeeringColors.danger else PeeringColors.ink,
             )
         }
     }
+}
+
+private fun HubEntry.descriptionRes(): Int? = when (this) {
+    HubEntry.QUALITY -> R.string.hub_quality_description
+    HubEntry.DISCONNECT -> R.string.hub_disconnect_description
+    HubEntry.SOURCES, HubEntry.AGENTS, HubEntry.FILES, HubEntry.TERMINAL -> null
 }
 
 private fun HubEntry.icon(): ImageVector = when (this) {

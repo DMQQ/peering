@@ -219,6 +219,8 @@
     <string name="approval_cancelled">Cancelled, the turn ended first</string>
 
     <string name="remote_pointer_trackpad">Trackpad</string>
+    <string name="remote_pointer_trackpad_description">Trackpad: drag to move the cursor, tap to click. Tap to switch to touch.</string>
+    <string name="remote_pointer_touch_description">Touch: tap where you want to click. Tap to switch to trackpad.</string>
     <string name="remote_pointer_touch">Touch</string>
     <string name="remote_pointer_title">Pointer</string>
     <string name="remote_fit_description">Fit the picture to the screen</string>
@@ -242,6 +244,9 @@
     <string name="hub_files">Files</string>
     <string name="hub_quality">Quality</string>
     <string name="hub_disconnect">Disconnect</string>
+    <string name="hub_quality_description">Picture sharpness and data use</string>
+    <string name="hub_disconnect_description">End the session and return to Connect</string>
+    <string name="choice_selected">Selected</string>
     <string name="overlay_latency">%1$d ms</string>
     <string name="overlay_path_lan">LAN</string>
     <string name="overlay_path_relay">Relay</string>
@@ -407,6 +412,10 @@
     <string name="quality_low">Low, 2 Mbps</string>
     <string name="quality_medium">Medium, 8 Mbps</string>
     <string name="quality_high">High, 20 Mbps</string>
+    <string name="quality_auto_description">Follows your connection, up or down</string>
+    <string name="quality_low_description">Least data, a softer picture</string>
+    <string name="quality_medium_description">A good balance for most connections</string>
+    <string name="quality_high_description">The sharpest picture, needs a fast link</string>
     <string name="quality_explanation">Auto moves the rate with the connection: down when frames arrive late or drop, up again after a stretch of clean ones. A fixed level holds its rate.</string>
     <string name="quality_relay_cap">On a relayed connection the picture stays at 8 Mbps unless this phone has unlimited relay time.</string>
     <string name="quality_save_failed">The choice could not be saved on this phone.</string>

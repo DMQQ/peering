@@ -52,6 +52,13 @@ import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material.icons.outlined.Window
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.FolderZip
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.SignalCellularAlt
+import androidx.compose.material.icons.outlined.SignalCellularAlt1Bar
+import androidx.compose.material.icons.outlined.SignalCellularAlt2Bar
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /** The Material Symbols the screens share, named for the idea they carry rather than for the glyph. */
@@ -107,4 +114,11 @@ object AppIcons {
     val folder: ImageVector get() = Icons.Outlined.Folder
     val power: ImageVector get() = Icons.Outlined.PowerSettingsNew
     val tune: ImageVector get() = Icons.Outlined.Tune
+    val signalLow: ImageVector get() = Icons.Outlined.SignalCellularAlt1Bar
+    val signalMedium: ImageVector get() = Icons.Outlined.SignalCellularAlt2Bar
+    val signalHigh: ImageVector get() = Icons.Outlined.SignalCellularAlt
+    val image: ImageVector get() = Icons.Outlined.Image
+    val code: ImageVector get() = Icons.Outlined.Code
+    val archive: ImageVector get() = Icons.Outlined.FolderZip
+    val document: ImageVector get() = Icons.Outlined.Description
 }
