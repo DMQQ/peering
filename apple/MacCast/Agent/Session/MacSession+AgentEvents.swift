@@ -45,6 +45,7 @@ extension MacSession {
         case .stream(let id, let streamEvent):
             guard let index = agentSessions.firstIndex(where: { $0.id == id }) else { return }
             let before = agentSessions[index].transcript.state
+            if case .approvalResolved(let approvalID, _) = streamEvent.payload { resolvedApprovalIDs.insert(approvalID) }
             agentSessions[index].transcript.apply(streamEvent)
             announceAgentChange(at: index, from: before)
             flushAgentQueue(id, state: agentSessions[index].transcript.state)
@@ -119,6 +120,7 @@ extension MacSession {
             }
 
         case .failed(let id, let message):
+            Analytics.agentFailed(stage: id == nil ? .start : .stream)
             #if DEBUG
             if let id, AgentSeed.owns(id) { return }
             #endif

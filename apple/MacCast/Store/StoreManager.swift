@@ -117,11 +117,18 @@ final class StoreManager {
             .string(forKey: Self.planOverrideKey)
             .flatMap(RelayPlan.init(rawValue:))
 #endif
-        Task { [weak self] in
+        updatesTask = Task { [weak self] in
             for await result in Transaction.updates {
                 await self?.handleVerification(result)
             }
         }
+    }
+
+    // `nonisolated(unsafe)` so `deinit` can cancel it; written once in `init`.
+    @ObservationIgnored private nonisolated(unsafe) var updatesTask: Task<Void, Never>?
+
+    deinit {
+        updatesTask?.cancel()
     }
 
     /// A UUID kept in the Keychain. Not a credential: it grants nothing unless it is on the relay's server-side paid list (PEERINGD_PAID_KEYS), which nothing here can add it to.
@@ -132,7 +139,8 @@ final class StoreManager {
 
     func start() async {
         await refreshEntitlement()
-        await fetchProducts()
+        // Not awaited: with no network the retries take half a minute, and the caller has more to set up.
+        Task { await fetchProducts() }
     }
 
     /// Re-reads the entitlement when the app returns to the front. A lapsed subscription produces no transaction, only absence from `currentEntitlements`, so a lapse under a running app kept the old plan armed (Picture in Picture especially).
@@ -188,6 +196,7 @@ final class StoreManager {
             }
         } catch {
             Analytics.failed(error, in: .purchase)
+            Analytics.purchaseFailed(error, product: Self.analyticsName(for: product.id))
             purchaseError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             storeLog.error("purchase failed: \(error, privacy: .public)")
             return .failed
@@ -301,6 +310,19 @@ final class StoreManager {
     private func fetchProducts() async {
         // Cleared first so a retry returns to the spinner.
         productsUnavailable = false
+        let backoff = RetryBackoff()
+        var retry = 0
+        while true {
+            if await loadProducts() { return }
+            guard let delay = backoff.delay(beforeRetry: retry), !Task.isCancelled else { break }
+            retry += 1
+            try? await Task.sleep(for: delay)
+        }
+        productsUnavailable = true
+    }
+
+    /// `false` when the store could not be reached, so the caller may try again. An empty answer is the store's answer and is not retried.
+    private func loadProducts() async -> Bool {
         do {
             let loaded = try await Product.products(for: Array(Self.paidProductIDs))
             // Tier order, then monthly first: the store answers by price, which reorders cards when a price changes.
@@ -312,10 +334,11 @@ final class StoreManager {
             lifetimeProduct = loaded.first { $0.id == Self.lifetimeProductID }
             // An empty answer is not a slow one. The store has spoken.
             productsUnavailable = products.isEmpty
+            return true
         } catch {
             Analytics.failed(error, in: .purchase)
             storeLog.error("product fetch failed: \(error, privacy: .public)")
-            productsUnavailable = true
+            return false
         }
     }
 
@@ -355,7 +378,8 @@ final class StoreManager {
             await tx.finish()
             await refreshEntitlement()
             return true
-        case .unverified(_, let error):
+        case .unverified(let transaction, let error):
+            Analytics.receiptVerificationFailed(error, product: Self.analyticsName(for: transaction.productID))
             storeLog.error("transaction not verified: \(error, privacy: .public)")
             return false
         }
@@ -366,7 +390,8 @@ final class StoreManager {
     private static let keychainService = "pl.dmq.peering"
     private static let keychainAccount = "relayApiKey"
 
-    private func persistedKey() -> String {
+    /// `nil` when the Keychain cannot be read: minting a key then would be a different key on every call, none of them on the paid list.
+    private func persistedKey() -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
@@ -382,7 +407,8 @@ final class StoreManager {
             return key
         }
         if lookup != errSecItemNotFound {
-            storeLog.error("the relay key could not be read from the keychain: OSStatus \(lookup, privacy: .public); the relay is being given a new one")
+            storeLog.error("the relay key could not be read from the keychain: OSStatus \(lookup, privacy: .public)")
+            return nil
         }
         let key = UUID().uuidString
         let attrs: [String: Any] = [

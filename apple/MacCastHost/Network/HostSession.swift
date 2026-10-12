@@ -1,6 +1,8 @@
 import CryptoKit
 import Foundation
+import MacCastKit
 import Network
+import MacCastKit
 import RemoteCore
 import Security
 import os
@@ -57,6 +59,8 @@ final class HostSession: @unchecked Sendable {
         }
     }
 
+    /// Names this connection where a client name would not do: two devices can share one.
+    let id = UUID()
     let connection: PeerConnection
     let identity: SelfSignedIdentity
     let device: DeviceIdentity
@@ -65,6 +69,17 @@ final class HostSession: @unchecked Sendable {
 
     /// Whether this connection arrived through the relay rather than from this network.
     let arrivedThroughRelay: Bool
+
+    /// Where it connected from, for the limits on connections that have not authenticated.
+    let address: String
+
+    /// What this client has pressed and not released, so leaving can release exactly that.
+    var heldInput = HeldInputLedger()
+
+    /// Asks for the Mac's one unauthenticated pairing prompt; nil when granted.
+    var claimPairingPrompt: (@Sendable () -> PairingGate.Refusal?)?
+    /// Gives the prompt back; whether this session was holding it.
+    var releasePairingPrompt: (@Sendable () -> Bool)?
 
     var onCommand: (@Sendable (RemoteCommand) -> Void)?
     var onVideoConnection: (@Sendable (PeerConnection) -> Void)?
@@ -87,8 +102,13 @@ final class HostSession: @unchecked Sendable {
     var onVideoCodecsDeclared: (@Sendable ([String]?) -> Void)?
 
     /// Called when the client requests the clipboard. Return `nil` to send nothing.
-    var onRequestClipboard: (@Sendable () -> ClipboardPayload?)?
-    var onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
+    /// Answers through `reply` once the pasteboard has been read, on whatever thread that happens on; nil sends nothing.
+    var onRequestClipboard: (@Sendable (@escaping @Sendable (ClipboardPayload?) -> Void) -> Void)?
+    /// Calls `done` once the pasteboard has been written.
+    var onReceiveClipboard: (@Sendable (ClipboardPayload, @escaping @Sendable () -> Void) -> Void)?
+    var clipboardWritesInFlight = 0
+    var commandsHeldForClipboard: [(Frame, Bool)] = []
+    static let maxCommandsHeldForClipboard = 64
     /// Terminal requests are routed only after this session reaches the authenticated state.
     var onTerminalRequest: (@Sendable (TerminalRequest, @escaping @Sendable (TerminalEvent) -> Void) -> Void)?
     var onAgentRequest: (@Sendable (AgentRequest, @escaping @Sendable (AgentEvent) -> Void) -> Void)?
@@ -118,6 +138,12 @@ final class HostSession: @unchecked Sendable {
 
     /// What the client said about being in the background, and the picture decision that follows from it.
     var pictureState = ClientPictureState()
+
+    /// Terminal output and agent events for a client that is away. See ``ClientOutputGate``.
+    let outputGate = ClientOutputGate()
+
+    /// The control stream has more waiting to go out than the phone is taking (true), or has caught up (false).
+    var onTerminalBackPressure: (@Sendable (Bool) -> Void)?
 
     /// How long this session may stay silent: longer once the client said it left the foreground.
     var silenceLimit: TimeInterval {
@@ -154,6 +180,7 @@ final class HostSession: @unchecked Sendable {
         device: DeviceIdentity,
         pins: PinStore,
         arrivedThroughRelay: Bool,
+        address: String,
         emit: @escaping @Sendable (HostEvent) -> Void
     ) {
         self.connection = connection
@@ -161,6 +188,7 @@ final class HostSession: @unchecked Sendable {
         self.device = device
         self.pins = pins
         self.arrivedThroughRelay = arrivedThroughRelay
+        self.address = address
         self.emit = emit
     }
 
@@ -168,8 +196,10 @@ final class HostSession: @unchecked Sendable {
         connection.onFrame = { [weak self] frame in
             self?.handle(frame)
         }
+        connection.limitFrames(to: PreAuthAdmission.maximumFrameBeforeReady)
         connection.onClose = { [weak self] error in
             guard let self else { return }
+            if releasePairingPrompt?() == true { emit(.pairingAbandoned(sessionID: id)) }
 
             // Runs on the same serial queue as `handle`, so `state` is safe to read here. A close
             // that follows our own `fail` carries no new information, and the "Operation canceled"
@@ -180,11 +210,15 @@ final class HostSession: @unchecked Sendable {
 
             // Only for a connection that was announced, or a client failing during TLS or before
             // its hello produces "Unknown device disconnected" for a device never seen to arrive.
+            if error != nil, announced { HostSessionFacts.shared.connectionFailed(clientID: clientID) }
             if announced {
                 emit(.clientDisconnected(clientID: clientID, clientName: clientName))
             }
 
             onEnded?()
+        }
+        connection.onBackPressure = { [weak self] change in
+            self?.onTerminalBackPressure?(change == .backedUp)
         }
         connection.start()
     }

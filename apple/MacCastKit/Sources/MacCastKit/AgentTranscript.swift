@@ -216,18 +216,25 @@ public struct AgentTranscript: Equatable {
         trimIfNeeded()
     }
 
+    /// Frees memory under pressure by dropping whole turns from the front, keeping the latest turn however large.
+    public mutating func trimForMemoryPressure() {
+        while trimIfNeeded(limit: AgentLimits.memoryPressureTranscriptBytes) {}
+    }
+
     /// Drops whole turns from the front once the transcript outgrows its budget.
-    private mutating func trimIfNeeded() {
-        guard bytes > AgentLimits.maximumTranscriptBytes else { return }
+    @discardableResult
+    private mutating func trimIfNeeded(limit: Int = AgentLimits.maximumTranscriptBytes) -> Bool {
+        guard bytes > limit else { return false }
         let turnStarts = items.indices.filter { index in
             if case .user = items[index] { return true }
             return false
         }
-        guard turnStarts.count > 1, let cut = turnStarts.dropFirst().first else { return }
+        guard turnStarts.count > 1, let cut = turnStarts.dropFirst().first else { return false }
         let dropped = items[0..<cut]
         bytes -= dropped.reduce(0) { $0 + Self.approximateBytes(of: $1) }
         items.removeFirst(cut)
         truncatedAtFront = true
+        return true
     }
 
     private static func approximateBytes(of item: AgentTranscriptItem) -> Int {

@@ -15,8 +15,10 @@ final class SSHModel {
     var terminals: [SSHTerminal] = []
     var selectedTerminalID: UUID?
 
+    /// The prompt on screen, always the head of ``keyQueue``.
     var keyPrompt: SSHKeyPrompt?
-    var keyAnswer: CheckedContinuation<Bool, Never>?
+    /// `nonisolated(unsafe)` so `deinit` can resume what is left; every other access is on the main actor.
+    @ObservationIgnored nonisolated(unsafe) var keyQueue = PromptQueue<PendingKeyPrompt>()
 
     var selectedTerminal: SSHTerminal? {
         guard let id = selectedTerminalID else { return nil }
@@ -56,6 +58,10 @@ final class SSHModel {
     let credentials = SSHCredentialStore()
     let passcodes = SSHPasscodeStore()
     let historyStore = SSHConnectionHistoryStore()
+
+    deinit {
+        for pending in keyQueue.removeAll() { pending.continuation.resume(returning: false) }
+    }
 
     init() {
         saved = store.load()

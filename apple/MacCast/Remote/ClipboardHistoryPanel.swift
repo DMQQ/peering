@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SwiftUI
 
@@ -99,6 +100,7 @@ struct ClipboardHistoryPanel: View {
         .buttonStyle(RailButtonStyle(scale: 0.98))
         .contextMenu {
             Button("Send to Mac", systemImage: "arrow.up.doc") { model.pushToMac(entry) }
+                .disabled(ControlTextPolicy.verdict(forClipboardOrPrompt: entry.text) != .fits)
                 .menuInk()
             Button("Delete", systemImage: "trash", role: .destructive) {
                 model.removeClipboardEntry(entry.id)

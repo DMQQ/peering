@@ -73,6 +73,15 @@ struct HomeTab: View {
                                     )
                             }
 
+                            if model.pinsUnreadableNoticeShown {
+                                pinsUnreadableCard
+                                    .connectEntrance(
+                                        visible: sectionsVisible,
+                                        delay: 0.05,
+                                        reduceMotion: reduceMotion
+                                    )
+                            }
+
                             resumeCard
                                 .connectEntrance(
                                     visible: sectionsVisible,

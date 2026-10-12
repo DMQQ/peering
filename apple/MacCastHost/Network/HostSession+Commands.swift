@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import MacCastKit
 import Network
 import RemoteCore
 import Security
@@ -13,17 +14,23 @@ extension HostSession {
             guard assembled || frame.payload.count <= Self.maxControlPayload else {
                 throw SessionError.malformedPayload(.command, SessionError.protocolMismatch(client: 0, host: 0))
             }
+            // A paste sent straight after a clipboard push must find what was pushed, and the pasteboard is written on the main thread without this queue waiting for it.
+            if clipboardWritesInFlight > 0, commandsHeldForClipboard.count < Self.maxCommandsHeldForClipboard {
+                commandsHeldForClipboard.append((frame, assembled))
+                return
+            }
             let command = try decode(RemoteCommand.self, from: frame, as: .command)
             switch command {
             case .requestClipboard:
-                sendClipboard(onRequestClipboard?() ?? .text(""))
+                requestClipboard()
             case .pushClipboard(let text):
-                onReceiveClipboard?(.text(text))
+                receiveClipboard(.text(text))
             case .pushClipboardImage(let png):
-                onReceiveClipboard?(.image(png))
+                receiveClipboard(.image(png))
             case .setVideoEnabled(let enabled):
                 perform(pictureState.pictureRequested(enabled))
             default:
+                heldInput.observe(command)
                 onCommand?(command)
             }
 
@@ -75,6 +82,7 @@ extension HostSession {
             hostSessionLog.notice("client \(state.background ? "left" : "returned to", privacy: .public) the foreground")
             perform(pictureState.clientBackground(state.background))
             onClientBackground?(state.background)
+            deliverWhatWasHeld(for: state.background)
 
         case .activityToken:
             guard frame.payload.count <= Self.maxControlPayload else {
@@ -100,6 +108,41 @@ extension HostSession {
         }
     }
 
+    private func requestClipboard() {
+        guard let onRequestClipboard else {
+            sendClipboard(.text(""))
+            return
+        }
+        onRequestClipboard { [weak self] payload in
+            guard let self else { return }
+            connection.onQueue { [weak self] in self?.sendClipboard(payload ?? .text("")) }
+        }
+    }
+
+    private func receiveClipboard(_ payload: ClipboardPayload) {
+        guard let onReceiveClipboard else { return }
+        clipboardWritesInFlight += 1
+        onReceiveClipboard(payload) { [weak self] in
+            guard let self else { return }
+            connection.onQueue { [weak self] in self?.clipboardWriteFinished() }
+        }
+    }
+
+    private func clipboardWriteFinished() {
+        clipboardWritesInFlight -= 1
+        guard clipboardWritesInFlight == 0, state != .failed else { return }
+        let held = commandsHeldForClipboard
+        commandsHeldForClipboard = []
+        for (frame, assembled) in held {
+            do {
+                try handleCommand(frame, assembled: assembled)
+            } catch {
+                fail(error)
+                return
+            }
+        }
+    }
+
     /// Resuming attaches the video connection again, which asks the encoder for a keyframe.
     private func perform(_ action: ClientPictureState.Action) {
         switch action {
@@ -111,7 +154,17 @@ extension HostSession {
 
     func sendTerminalEvent(_ event: TerminalEvent) {
         guard isAuthorized else { return }
+        if case .output = event, !outputGate.admitsTerminalOutput() { return }
         send(.terminalEvent, event)
+    }
+
+    /// On return, the agent events kept meanwhile go out in order, and the shells are replayed from the Mac's history if their output was not sent.
+    func deliverWhatWasHeld(for background: Bool) {
+        guard let returned = outputGate.clientBackground(background) else { return }
+        for event in returned.heldAgentEvents { send(.agentEvent, event) }
+        if returned.terminalNeedsReplay {
+            onTerminalRequest?(.list) { [weak self] event in self?.sendTerminalEvent(event) }
+        }
     }
 
     /// The restraint is on this side: a chat's events travel to the client that started it, and a
@@ -122,6 +175,7 @@ extension HostSession {
         // A frame kind an older phone cannot decode ends its session, so it is withheld from one.
         if case .permissionModeChanged = event, clientSupportsAgentPermissionModes != true { return }
         if case .usageChanged = event, clientSupportsAgentUsage != true { return }
+        if outputGate.holdsAgentEvent(event, cost: (try? MessageCodec.encode(event))?.count ?? 1024) { return }
         send(.agentEvent, event)
     }
 

@@ -26,31 +26,33 @@ final class SSHFileService {
 
     /// Never throws: the caller is a continuation that must be resumed exactly once.
     func answer(_ request: SSHBrowseRequest) async {
+        guard !request.reply.isAnswered else { return }
         do {
             switch request.kind {
             case .list:
-                request.continuation.resume(returning: .listing(try await directory(at: request.path)))
+                request.reply.resume(returning: .listing(try await directory(at: request.path)))
             case .preview:
-                request.continuation.resume(returning: .contents(try await contents(at: request.path)))
+                request.reply.resume(returning: .contents(try await contents(at: request.path)))
             case .write(let contents):
-                request.continuation.resume(
+                request.reply.resume(
                     returning: .written(try await write(contents, to: request.path))
                 )
             case .change(let operation):
-                request.continuation.resume(
+                request.reply.resume(
                     returning: .changed(note: try await change(operation))
                 )
             }
         } catch let error as SSHSessionError {
-            request.continuation.resume(throwing: error)
+            request.reply.resume(throwing: error)
         } catch {
-            request.continuation.resume(throwing: SSHSessionError.browse(Self.describe(error)))
+            request.reply.resume(throwing: SSHSessionError.browse(Self.describe(error)))
         }
     }
+}
 
+/// Carries the service to the one task that answers browse requests. The service's own state is touched only there, and the client's calls hop onto NIO event loops, so using it beside the command loop's forwards is safe.
+struct SSHFileWorker: @unchecked Sendable {
+    let service: SSHFileService
 
-
-
-
-
+    init(_ service: SSHFileService) { self.service = service }
 }

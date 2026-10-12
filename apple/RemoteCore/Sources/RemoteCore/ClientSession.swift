@@ -133,6 +133,13 @@ public final class ClientSession: @unchecked Sendable {
     }
     var _resumeSource: CaptureSource?
 
+    /// Sent in the hello so the Mac can tag its own events with the phone's. See ``ClientHello/sessionRef``.
+    public var sessionRef: String? {
+        get { lock.withLock { _sessionRef } }
+        set { lock.withLock { _sessionRef = newValue } }
+    }
+    var _sessionRef: String?
+
     /// The device ID a first pairing was dialled by, checked against the Mac's answer.
     var pairingHostID: String?
 
@@ -267,7 +274,7 @@ public final class ClientSession: @unchecked Sendable {
                 )
             case .relay(let hostID, _, let entitlement):
                 guard let pin = pins.pin(for: hostID) else {
-                    throw Failure.noPinOnFile(hostID: hostID)
+                    throw pins.isUnreadable ? Failure.pinsUnreadable : Failure.noPinOnFile(hostID: hostID)
                 }
                 try await openRelayTunnel(
                     to: connection,
@@ -335,7 +342,8 @@ public final class ClientSession: @unchecked Sendable {
             supportsAgentPermissionModes: true,
             supportsAgentUsage: true,
             resumeSource: knowsHost ? resumeSource : nil,
-            lostPairing: hostID != nil && !knowsHost ? true : nil
+            lostPairing: hostID != nil && !knowsHost ? true : nil,
+            sessionRef: sessionRef
         ))
 
         lock.withLock {
@@ -344,6 +352,7 @@ public final class ClientSession: @unchecked Sendable {
             connectStage = .handshake
         }
         emit(.phase(.handshaking))
+        armHandshakeDeadline(generation: generation)
         coalescer.start()
     }
 
@@ -392,10 +401,26 @@ public final class ClientSession: @unchecked Sendable {
         connection()?.send(.terminalRequest, request)
     }
 
+    /// Sends a request and reports when the network has taken it, or that the session was not ready.
+    public func sendTerminal(_ request: TerminalRequest, completion: @escaping @Sendable (Error?) -> Void) {
+        guard isReady, let connection = connection() else { return completion(ClientConnection.Failure.cancelled) }
+        connection.send(.terminalRequest, request, completion: completion)
+    }
+
+    /// Sends one piece of a long transfer once `window` has room for it, and gives the room back when the network has taken it.
+    /// - Throws: ``SendWindowFailure`` when an earlier piece failed or the transfer was cancelled.
+    public func sendPaced(_ request: TerminalRequest, weight: Int, through window: SendWindow) async throws {
+        try await window.reserve(weight)
+        sendTerminal(request) { window.complete(weight, error: $0) }
+    }
+
     /// Sends an agent chat request directly on the control stream, bypassing the coalescer: a coalesced prompt or approval would drop turns.
-    public func sendAgent(_ request: AgentRequest) {
-        guard isReady else { return }
-        connection()?.send(.agentRequest, request)
+    /// - Returns: `false` when there was no ready connection to hand it to. `true` is not delivery.
+    @discardableResult
+    public func sendAgent(_ request: AgentRequest) -> Bool {
+        guard isReady, let connection = connection() else { return false }
+        connection.send(.agentRequest, request)
+        return true
     }
 
     /// Puts a picture on the Mac's pasteboard. Sent on the control channel, not the coalescer: it is not a gesture, and the transport's ordering keeps it ahead of later keystrokes. Larger than one message is split by ``ClipboardTransfer``.

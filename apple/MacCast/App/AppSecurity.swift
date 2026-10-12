@@ -75,10 +75,14 @@ struct SecuredRootView<Content: View>: View {
     private var canAuthenticate: Bool { DeviceAuthentication.isAvailable }
 
     private let content: Content
+    private let onLockChange: (Bool) -> Void
 
-    init(@ViewBuilder content: () -> Content) {
+    init(onLockChange: @escaping (Bool) -> Void = { _ in }, @ViewBuilder content: () -> Content) {
+        self.onLockChange = onLockChange
         self.content = content()
     }
+
+    private var isLocked: Bool { isProtectionEnabled && !isUnlocked }
 
     var body: some View {
         ZStack {
@@ -121,6 +125,7 @@ struct SecuredRootView<Content: View>: View {
                 }
             }
         }
+        .onChange(of: isLocked, initial: true) { _, locked in onLockChange(locked) }
         .task {
             if isProtectionEnabled { unlock() } else { isUnlocked = true }
         }

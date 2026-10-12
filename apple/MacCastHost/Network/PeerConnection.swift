@@ -1,4 +1,5 @@
 import Foundation
+import MacCastKit
 import Network
 import RemoteCore
 import Security
@@ -9,11 +10,14 @@ final class PeerConnection: @unchecked Sendable {
 
     var onFrame: (@Sendable (Frame) -> Void)?
     var onClose: (@Sendable (Error?) -> Void)?
+    /// Fires when the bytes handed to this connection and not yet sent pass 4 MB, and again when they fall below 1 MB.
+    var onBackPressure: (@Sendable (OutboundBackPressure.Change) -> Void)?
 
     private let queue: DispatchQueue
     private let lock = NSLock()
     private var decoder = FrameDecoder()
     private var closed = false
+    private var pressure = OutboundBackPressure()  // guarded by lock
 
     init(connection: NWConnection, queue: DispatchQueue) {
         self.connection = connection
@@ -42,15 +46,38 @@ final class PeerConnection: @unchecked Sendable {
     }
 
     func send(_ data: Data) {
-        connection.send(content: data, completion: .contentProcessed { _ in })
+        send(data) { _ in }
     }
 
+    /// The completion runs when the network stack has taken the bytes, which is what the count of bytes in flight is built on.
     func send(_ data: Data, completion: @escaping @Sendable (Error?) -> Void) {
-        connection.send(content: data, completion: .contentProcessed(completion))
+        let size = data.count
+        notify(lock.withLock { pressure.queued(size) })
+        connection.send(content: data, completion: .contentProcessed { [weak self] error in
+            if let self { notify(lock.withLock { pressure.completed(size) }) }
+            completion(error)
+        })
+    }
+
+    var isBackedUp: Bool { lock.withLock { pressure.isBackedUp } }
+
+    private func notify(_ change: OutboundBackPressure.Change?) {
+        guard let change else { return }
+        onBackPressure?(change)
     }
 
     func cancel() {
         connection.cancel()
+    }
+
+    /// Runs `work` on the queue this connection's callbacks arrive on.
+    func onQueue(_ work: @escaping @Sendable () -> Void) {
+        queue.async(execute: work)
+    }
+
+    /// Caps the frame size this connection will buffer, or lifts the cap with nil. A peer that has not proved who it is gets a small one.
+    func limitFrames(to limit: UInt32?) {
+        lock.withLock { decoder.frameLimit = limit ?? FrameDecoder.maxFrameLength }
     }
 
     private func receiveNext() {

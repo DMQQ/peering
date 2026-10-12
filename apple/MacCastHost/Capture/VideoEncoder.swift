@@ -109,12 +109,16 @@ final class VideoEncoder: @unchecked Sendable {
     private var forceKeyframePending = false
     private var encodedCount = 0
     private var droppedCount = 0
+    private var sessionFailed = false
     private var _onFrame: (@Sendable (EncodedFrame) -> Void)?
     private var _onFailure: (@Sendable (CaptureError) -> Void)?
 
     let codec: VideoCodec
     let pixelSize: CGSize
     let frameRate: Int
+
+    /// Set when VideoToolbox refused a frame or reported an error for one: after sleep or a GPU reset the session stays dead, so the pipeline replaces it instead of feeding it.
+    var hasFailed: Bool { lock.withLock { sessionFailed } }
 
     var onFrame: (@Sendable (EncodedFrame) -> Void)? {
         get { lock.withLock { _onFrame } }
@@ -275,6 +279,7 @@ final class VideoEncoder: @unchecked Sendable {
         }
 
         guard status == noErr else {
+            lock.withLock { sessionFailed = true }
             throw CaptureError.encodingFailed("the session refused a frame (VideoToolbox error \(status))")
         }
 
@@ -337,7 +342,12 @@ final class VideoEncoder: @unchecked Sendable {
 
         guard status == noErr, let sampleBuffer else {
             let error = CaptureError.encodingFailed("the encoder produced no frame (VideoToolbox error \(status))")
-            let failure = lock.withLock { _onFailure }
+            let failure = lock.withLock { () -> (@Sendable (CaptureError) -> Void)? in
+                // A session already shut down is one that was replaced, and its last frames failing is no news.
+                guard session != nil else { return nil }
+                sessionFailed = true
+                return _onFailure
+            }
             failure?(error)
             return
         }

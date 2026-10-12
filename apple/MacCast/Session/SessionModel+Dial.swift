@@ -78,10 +78,10 @@ extension SessionModel {
         }
         if old == nil {
             switch target {
-            case .discovered: Analytics.connectStarted(route: .discovered)
-            case .relay: Analytics.connectStarted(route: .relay)
-            case .relayPairing: Analytics.connectStarted(route: .pairing)
-            case .address: Analytics.connectStarted(route: .address)
+            case .discovered: Analytics.connectStarted(route: .discovered, sessionRef: session.telemetry.sessionRef)
+            case .relay: Analytics.connectStarted(route: .relay, sessionRef: session.telemetry.sessionRef)
+            case .relayPairing: Analytics.connectStarted(route: .pairing, sessionRef: session.telemetry.sessionRef)
+            case .address: Analytics.connectStarted(route: .address, sessionRef: session.telemetry.sessionRef)
             }
         }
         // Fresh for the path this session just chose: the policy's tier is tuned per path.
@@ -117,7 +117,7 @@ extension SessionModel {
 
         // The episode begins with the dial, not only a rung: a restoration and the relay-to-LAN handover dial with no ladder, so a dial that never answers is otherwise unbounded. See `reconnectWindow`.
         if isResuming, session.reconnectingSince == nil {
-            session.reconnectingSince = Date()
+            session.reconnectingSince = .now
         }
 
         session.hostName = target.displayName
@@ -202,6 +202,7 @@ extension SessionModel {
             }
         )
         box.wire = wire
+        wire.sessionRef = session.telemetry.sessionRef
         return (wire, gate)
     }
 }

@@ -19,6 +19,9 @@ final class SessionNotifier {
     /// Kept rather than dropped: a phone that never registered looks exactly like a Mac that never sent anything, and this is the only evidence. Shown in Settings.
     private(set) var remoteTokenFailure: String?
 
+    private var registrationBackoff = PushRegistrationBackoff()
+    private var registrationRetry: Task<Void, Never>?
+
     private init() {}
 
     // MARK: - Permission
@@ -57,9 +60,19 @@ final class SessionNotifier {
         return settings.authorizationStatus == .authorized
     }
 
+    /// Every time the app comes to the front: permission granted in Settings, or a network that has come back, would otherwise change nothing until relaunch.
+    func registerIfAuthorised() {
+        Task {
+            if await refreshAuthorization() { UIApplication.shared.registerForRemoteNotifications() }
+        }
+    }
+
     func remoteTokenDidChange(_ token: Data) {
         remoteToken = token
         remoteTokenFailure = nil
+        registrationBackoff.succeeded()
+        registrationRetry?.cancel()
+        registrationRetry = nil
         NotificationCenter.default.post(name: Self.remoteTokenChangedName, object: nil)
     }
 
@@ -67,6 +80,13 @@ final class SessionNotifier {
         remoteToken = nil
         remoteTokenFailure = error.localizedDescription
         notifierLog.error("could not register for push: \(error.localizedDescription, privacy: .public)")
+        let delay = registrationBackoff.failed()
+        registrationRetry?.cancel()
+        registrationRetry = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            self?.registerIfAuthorised()
+        }
     }
 
     // MARK: - Banners

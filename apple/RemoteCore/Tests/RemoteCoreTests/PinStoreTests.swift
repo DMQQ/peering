@@ -6,24 +6,37 @@ import Testing
 /// Storage that answers as told and records what was asked, since a Keychain cannot be made to misbehave on cue.
 private final class FakeStorage: PinStorage, @unchecked Sendable {
     private let lock = NSLock()
-    private var stored: Data?
-    private var _written: [Data] = []
+    private var slots: [PinSlot: Data] = [:]
     private var failsWrites = false
+    private var unavailable = false
+    private var failsBackupWrites = false
+    private var _written: [Data] = []
 
-    init(stored: Data? = nil, failsWrites: Bool = false) {
-        self.stored = stored
+    init(stored: Data? = nil, backup: Data? = nil, failsWrites: Bool = false, unavailable: Bool = false) {
+        slots[.primary] = stored
+        slots[.backup] = backup
         self.failsWrites = failsWrites
+        self.unavailable = unavailable
     }
 
     var written: [Data] { lock.withLock { _written } }
     func failWrites(_ failing: Bool) { lock.withLock { failsWrites = failing } }
+    func failBackupWrites(_ failing: Bool) { lock.withLock { failsBackupWrites = failing } }
+    func lock(_ locked: Bool) { lock.withLock { unavailable = locked } }
+    func stored(_ slot: PinSlot) -> Data? { lock.withLock { slots[slot] } }
+    func lose(_ slot: PinSlot) { lock.withLock { slots[slot] = nil } }
 
-    func read() -> Data? { lock.withLock { stored } }
-
-    func write(_ data: Data) -> Bool {
+    func read(_ slot: PinSlot) -> PinStorageRead {
         lock.withLock {
-            guard !failsWrites else { return false }
-            stored = data
+            if unavailable { return .unavailable }
+            return slots[slot].map { .found($0) } ?? .notFound
+        }
+    }
+
+    func write(_ data: Data, to slot: PinSlot) -> Bool {
+        lock.withLock {
+            guard !failsWrites, !unavailable, !(slot == .backup && failsBackupWrites) else { return false }
+            slots[slot] = data
             _written.append(data)
             return true
         }
@@ -86,7 +99,23 @@ struct PinStoreTests {
         #expect(store.peerIDs.isEmpty)
     }
 
-    /// Unreadable bytes are an empty store, not a refusal to run: the cost is a re-pairing rather than the app.
+    @Test func aFailedRemoveAllKeepsEveryPinInMemoryAndInStorage() {
+        let storage = FakeStorage()
+        let store = PinStore(storage: storage)
+        #expect(store.record(peerID: "mac-1", publicKey: mac))
+        #expect(store.record(peerID: "phone-1", publicKey: phone))
+
+        storage.failWrites(true)
+        #expect(!store.removeAll())
+        #expect(store.pin(for: "mac-1") == mac)
+        #expect(store.pin(for: "phone-1") == phone)
+
+        storage.failWrites(false)
+        #expect(store.removeAll())
+        #expect(store.peerIDs.isEmpty)
+    }
+
+    /// Unreadable bytes with no backup are an empty store, not a refusal to run: the cost is a re-pairing rather than the app.
     @Test func unreadableBytesAreAnEmptyStoreRatherThanAFailure() {
         let storage = FakeStorage(stored: Data("not json at all".utf8))
         let store = PinStore(storage: storage)
@@ -117,5 +146,92 @@ struct PinStoreTests {
 
         #expect(store.removeAll())
         #expect(store.isEmpty)
+    }
+
+    @Test func aStoreThatCannotBeReadRefusesToRecordAndKeepsTheOtherPins() {
+        let storage = FakeStorage()
+        #expect(PinStore(storage: storage).record(peerID: "phone-a", publicKey: phone))
+
+        storage.lock(true)
+        let store = PinStore(storage: storage)
+        #expect(!store.isAvailable)
+        #expect(!store.record(peerID: "phone-b", publicKey: mac))
+
+        storage.lock(false)
+        #expect(store.record(peerID: "phone-b", publicKey: mac))
+        #expect(store.peerIDs == ["phone-a", "phone-b"])
+        #expect(PinStore(storage: storage).peerIDs == ["phone-a", "phone-b"])
+    }
+
+    @Test func aStoreThatCameUpLockedRecoversItsPinsOnTheNextLookup() {
+        let storage = FakeStorage()
+        #expect(PinStore(storage: storage).record(peerID: "phone-a", publicKey: phone))
+
+        storage.lock(true)
+        let store = PinStore(storage: storage)
+        #expect(!store.contains(publicKey: phone))
+
+        storage.lock(false)
+        #expect(store.contains(publicKey: phone))
+        #expect(store.isAvailable)
+    }
+
+    @Test func aStoreIsReadAgainBeforeEveryChange() {
+        let storage = FakeStorage()
+        let stale = PinStore(storage: storage)
+        let other = PinStore(storage: storage)
+        #expect(other.record(peerID: "phone-a", publicKey: phone))
+
+        #expect(stale.record(peerID: "phone-b", publicKey: mac))
+        #expect(PinStore(storage: storage).peerIDs == ["phone-a", "phone-b"])
+    }
+
+    @Test func removalsAndClearingAreRefusedWhileTheStoreIsLocked() {
+        let storage = FakeStorage()
+        let store = PinStore(storage: storage)
+        #expect(store.record(peerID: "phone-a", publicKey: phone))
+
+        storage.lock(true)
+        #expect(!store.remove(peerID: "phone-a"))
+        #expect(!store.removeAll())
+
+        storage.lock(false)
+        #expect(store.pin(for: "phone-a") == phone)
+    }
+
+    @Test func everyWriteLandsInTheBackupToo() {
+        let storage = FakeStorage()
+        let store = PinStore(storage: storage)
+        #expect(store.record(peerID: "phone-a", publicKey: phone))
+        #expect(storage.stored(.backup) == storage.stored(.primary))
+        #expect(storage.stored(.backup) != nil)
+    }
+
+    @Test func aLostPrimaryIsRestoredFromTheBackup() {
+        let storage = FakeStorage()
+        #expect(PinStore(storage: storage).record(peerID: "phone-a", publicKey: phone))
+        storage.lose(.primary)
+
+        let store = PinStore(storage: storage)
+        #expect(store.pin(for: "phone-a") == phone)
+        #expect(store.record(peerID: "phone-b", publicKey: mac))
+        #expect(storage.stored(.primary) != nil)
+    }
+
+    @Test func aCorruptPrimaryFallsBackToTheBackup() {
+        let valid = FakeStorage()
+        #expect(PinStore(storage: valid).record(peerID: "phone-a", publicKey: phone))
+        let storage = FakeStorage(stored: Data("garbage".utf8), backup: valid.stored(.backup))
+
+        #expect(PinStore(storage: storage).pin(for: "phone-a") == phone)
+    }
+
+    @Test func aBackupThatCannotBeWrittenDoesNotFailThePairing() {
+        let storage = FakeStorage()
+        storage.failBackupWrites(true)
+        let store = PinStore(storage: storage)
+
+        #expect(store.record(peerID: "phone-a", publicKey: phone))
+        #expect(store.pin(for: "phone-a") == phone)
     }
 }

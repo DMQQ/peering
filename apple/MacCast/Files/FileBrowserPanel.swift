@@ -25,6 +25,9 @@ struct FileBrowserPanel: View {
     /// For the folder upload, a run of hundreds of operations the user cannot see. A sentence rather than a bar: entries differ in size, so a count-filled bar would lie about how much is left.
     var progress: String? = nil
 
+    /// Present while an upload is running: draws a stop button on the progress line.
+    var onCancelProgress: (() -> Void)? = nil
+
     var onOpen: (RemoteDirectoryEntry) -> Void
     var onNavigate: (String) -> Void
     /// The folder the browser may not climb out of; nil leaves it free, as on a server.

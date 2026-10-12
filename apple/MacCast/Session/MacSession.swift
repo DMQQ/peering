@@ -155,7 +155,7 @@ final class MacSession: Identifiable {
     var reconnectTask: Task<Void, Never>?
 
     /// Carried across a dial like ``hasBeenReady`` and ``reconnectAttempt``, since each rung builds a new object. See ``SessionModel/reconnectWindow``.
-    var reconnectingSince: Date?
+    var reconnectingSince: ContinuousClock.Instant?
 
     /// Carried across a retry like the facts above. See ``SessionTelemetry``.
     var telemetry = SessionTelemetry()
@@ -303,6 +303,8 @@ final class MacSession: Identifiable {
     var agentSessions: [RemoteAgentSession] = []
     /// Messages typed while a turn runs: the CLIs take one question at a time, so the rest wait here and go as each turn ends.
     var agentQueues: [UUID: AgentPromptQueue] = [:]
+    /// Approvals the Mac has reported resolved on this connection; an answer is delivered only once its id is here. See ``ApprovalAnswerPolicy``.
+    @ObservationIgnored var resolvedApprovalIDs: Set<String> = []
     /// The chat list's own copy, rebuilt at most a few times a second: see ``AgentCardDigest``.
     var agentCards: [AgentCardDigest] = []
     @ObservationIgnored var agentPauses = AgentPauseClock()
@@ -360,6 +362,9 @@ final class MacSession: Identifiable {
     /// Kept apart by door: a failed save is a file to correct, a failed upload a file to choose again. Read through ``saveFailure(sessionID:)`` and ``uploadFailure(sessionID:)``.
     var saveFailures: [UUID: String] = [:]
     var uploadFailures: [UUID: String] = [:]
+
+    /// The send window of the transfer in the air per terminal, kept so the cancel button can reach it.
+    var uploadWindows: [UUID: SendWindow] = [:]
 
     struct FileChange: Equatable {
         /// Held rather than only the path: the answer says what happened but not what was asked, and a rename's path is built from both.

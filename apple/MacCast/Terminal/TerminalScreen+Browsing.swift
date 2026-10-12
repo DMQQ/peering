@@ -45,6 +45,7 @@ extension TerminalScreen {
                     waitingHint: String(localized: "Your Mac is probably asking whether Peering may open this folder. That is a normal macOS question, asked once per folder. Choose Allow on the Mac and the list appears here. Peering only reads folders you open from here."),
                     // Progress of a folder being sent, or what the last one came to.
                     progress: model.downloadProgress(sessionID: terminal.id) ?? model.folderProgress(sessionID: terminal.id),
+                    onCancelProgress: model.isUploading(sessionID: terminal.id) ? { model.cancelUpload(sessionID: terminal.id) } : nil,
                     onOpen: { open($0, in: terminal) },
                     onNavigate: { navigate(to: $0, in: terminal) },
                     onRevealPath: { reveal($0, in: terminal) },

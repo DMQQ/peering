@@ -216,6 +216,7 @@ Hello flags are the whole capability mechanism. A flag absent or false means uns
 
 Additive fields, read by the Mac host from the build after the shipped one (older builds ignore them): `ClientHello.clientPlatform`,
 `ClientHello.videoCodecs` (ordered array of `"h264"`/`"hevc"`, best first), `ServerHello.hostPlatform` (`"macos"` from the Mac host).
+`ClientHello.sessionRef` (optional string, 8 lowercase hex characters, random per connection attempt and kept across automatic resumes) is an analytics tag only: the Mac copies it onto its own events when it is well formed and otherwise drops it. Android and Windows clients do not send it.
 A client that omits `videoCodecs` is assumed to decode both. A client that lists codecs without the host's choice (HEVC by default)
 gets H.264 for the stream it is served; the host restarts capture when the served client needs another codec.
 

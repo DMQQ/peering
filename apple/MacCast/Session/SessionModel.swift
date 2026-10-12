@@ -68,8 +68,11 @@ final class SessionModel {
     }
     var hosts: [DiscoveredHost] = []
 
+    /// Read when a stream is set up and re-read when the system flips it. See ``PowerSavingPolicy``.
+    var isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
+
     /// A `peering://pair` link opened from outside the app (the system camera on the Mac's QR code). Held rather than acted on, because the card that checks it only exists once a Mac is asking; see ``PairingPrompt``.
-    var pairingLink: (url: URL, receivedAt: Date)?
+    var pairingLink: (url: URL, receivedAt: ContinuousClock.Instant)?
 
     /// Re-derived from Bonjour at the dial, which is the one moment it cannot be trusted: after a backgrounding its mDNS results are stale and a re-browse takes seconds. Kept on disk so a relaunch dials at once; an address from a network since left loses the race to the relay. See ``DialRace``.
     private var lastLANHosts: [String: DiscoveredHost] = RememberedLANHosts.load() {
@@ -171,6 +174,9 @@ final class SessionModel {
 
     /// Set when the device's own identity could not be loaded: without a client certificate there is
     var identityFailure: String?
+
+    /// Raised once when the saved pairings could not be read; ``HostPickerView`` shows a card until it is dismissed.
+    var pinsUnreadableNoticeShown = false
 
     // MARK: - User choices
 

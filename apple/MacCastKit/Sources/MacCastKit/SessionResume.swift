@@ -8,8 +8,17 @@ public enum SessionResume {
         case stopAndShowFailure
     }
 
-    public static func failureAction(hasBeenReady: Bool) -> FailureAction {
-        hasBeenReady ? .retrySilently : .stopAndShowFailure
+    /// A different Mac answered, or the pairing is gone: another rung dials the same thing and fails the same way, while the user is the only one who can fix it.
+    public static func isTerminal(_ reason: ClientSession.FailureReason) -> Bool {
+        switch reason {
+        case .pinMismatch, .hostIDMismatch, .noPinOnFile, .protocolMismatch: return true
+        default: return false
+        }
+    }
+
+    public static func failureAction(hasBeenReady: Bool, reason: ClientSession.FailureReason? = nil) -> FailureAction {
+        if let reason, isTerminal(reason) { return .stopAndShowFailure }
+        return hasBeenReady ? .retrySilently : .stopAndShowFailure
     }
 
     /// `hasBeenReady` is carried across the dial the ladder makes, else the new object looks like a first open. The phase covers what the flags cannot: they outlive the moment they described, so a consumed `userEndedDeliberately` after Disconnect leaves a ready session that is not being put back.

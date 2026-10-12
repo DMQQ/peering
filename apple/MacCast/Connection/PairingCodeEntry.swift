@@ -79,7 +79,7 @@ struct PairingCodeEntry: View {
     private func takePairingLink() {
         guard let link = model.pairingLink, submitted == nil else { return }
         model.pairingLink = nil
-        guard Date().timeIntervalSince(link.receivedAt) < 60 else { return }
+        guard ContinuousClock.now - link.receivedAt < .seconds(60) else { return }
         let payload = link.url.absoluteString
         guard let scanned = PairingPayload.code(from: payload) else { return }
         accept(scanned, payload: payload)

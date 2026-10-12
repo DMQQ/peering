@@ -19,6 +19,12 @@ final class TerminalSessionManager: @unchecked Sendable {
     var sessions: [UUID: Session] = [:]
     var sinks: [String: Sink] = [:]
     var writes: [WriteKey: PendingWrite] = [:]
+    /// Bytes accepted from the network and not yet on disk. Guarded by ``lock``.
+    var queuedWriteBytes = QueuedByteBudget()
+    /// Guarded by ``lock``.
+    var idleSweepTimer: DispatchSourceTimer?
+    /// The zips each client asked for, removed when it leaves. Guarded by ``lock``.
+    var archiveDirectories: [String: [URL]] = [:]
 
     /// The file-browsing scopes that are not shells, by the id the phone made for each.
     var browsers: [UUID: String] = [:]
@@ -49,6 +55,7 @@ final class TerminalSessionManager: @unchecked Sendable {
     }
     static let maximumHistoryBytes = 512 * 1024
     static let historySlackBytes = 64 * 1024
+    static let exitedHistoryBytes = 8 * 1024
     static let maximumSessionsPerClient = 10
 
     /// How large a file this Mac will take from a phone.
@@ -65,25 +72,11 @@ final class TerminalSessionManager: @unchecked Sendable {
     static let previewChunkBytes = 32 * 1024
     static let binaryProbeBytes = RemoteFileKind.probeBytes
 
-    static func probeAgents(_ reply: @escaping @Sendable ([String]) -> Void) {
-        let names = ["claude", "codex", "opencode", "hermes", "gemini", "aider"]
+    init() {
+        // Off the caller's thread: a folder with many leftovers is slow to clear and nothing waits for it.
         DispatchQueue.global(qos: .utility).async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh")
-            process.arguments = ["-l", "-i", "-c", "for c in \(names.joined(separator: " ")); do command -v $c >/dev/null 2>&1 && echo $c; done"]
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = FileHandle.nullDevice
-            process.standardInput = FileHandle.nullDevice
-            do { try process.run() } catch { reply(names); return }
-            let deadline = DispatchTime.now() + .seconds(6)
-            let group = DispatchGroup()
-            group.enter()
-            DispatchQueue.global().async { process.waitUntilExit(); group.leave() }
-            if group.wait(timeout: deadline) == .timedOut { process.terminate(); reply(names); return }
-            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            let found = output.split(separator: "\n").map { String($0) }.filter { names.contains($0) }
-            reply(found)
+            Self.removeAllArchives()
+            Self.sweepStagingFilesAtLaunch()
         }
     }
 
@@ -116,7 +109,7 @@ final class TerminalSessionManager: @unchecked Sendable {
             }
 
         case .create:
-            let count = lock.withLock { sessions.values.filter { $0.ownerClientID == clientID }.count }
+            let count = lock.withLock { sessions.values.filter { $0.ownerClientID == clientID && $0.isRunning }.count }
             guard count < Self.maximumSessionsPerClient else {
                 sink(.failed(sessionID: nil, message: "Terminal session limit reached."))
                 return
@@ -175,7 +168,7 @@ final class TerminalSessionManager: @unchecked Sendable {
                 sink(.failed(sessionID: id, message: "That terminal is no longer running."))
                 return
             }
-            archiveFolder(id: id, path: path, sink: sink)
+            archiveFolder(id: id, path: path, ownerClientID: clientID, sink: sink)
 
         case .beginWrite(let id, let path, let totalBytes):
             guard canBrowse(id, ownerClientID: clientID) else {
@@ -263,6 +256,7 @@ final class TerminalSessionManager: @unchecked Sendable {
             _ = sinks.removeValue(forKey: clientID)
             return mine
         }
+        removeArchives(for: clientID)
         // The pieces have to be deleted, not merely dropped: they are on somebody's disk as a
         // scratch file beside the destination, and leaving those behind fills a folder with the
         // ghosts of every failed upload. On the write queue, so the removal lands after any append

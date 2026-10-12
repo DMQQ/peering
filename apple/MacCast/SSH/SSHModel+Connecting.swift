@@ -35,11 +35,12 @@ extension SSHModel {
             credentials.save(credential, for: host.id)
         }
 
+        let terminalID = UUID()
         let session = SSHSession(host: host, credential: credential, knownHosts: knownHosts) { [weak self] prompt in
-            await self?.ask(about: prompt) ?? false
+            await self?.ask(about: prompt, owner: terminalID) ?? false
         }
 
-        let terminal = SSHTerminal(host: host, session: session, credential: credential)
+        let terminal = SSHTerminal(id: terminalID, host: host, session: session, credential: credential)
         terminals.append(terminal)
         selectedTerminalID = terminal.id
         hostSessions[host.id, default: []].append(session)
@@ -67,7 +68,11 @@ extension SSHModel {
                             isSSH: true
                         )
                     }
+                case .outputDropped:
+                    let notice = String(localized: "[Output was dropped because the screen could not keep up.]")
+                    _ = terminal.append(Data("\r\n\(notice)\r\n".utf8))
                 case .failed(let error):
+                    Analytics.sshFailed(error, afterConnected: false)
                     let reason = Self.describe(error)
                     terminal.setPhase(.ended(reason))
                     self?.clearPendingBrowsing(for: terminal.id)
@@ -108,6 +113,7 @@ extension SSHModel {
 
     func close(_ terminal: SSHTerminal) {
         terminal.session.close()
+        refuseKeyPrompts(ownedBy: terminal.id)
         forgetBrowsing(for: terminal.id)
         terminals.removeAll { $0.id == terminal.id }
         if selectedTerminalID == terminal.id {

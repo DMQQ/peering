@@ -153,6 +153,6 @@ public enum PairingPayload {
 
     /// Exactly six digits. A mistyped device ID can be six digits too, so shape is checked first.
     public static func isShortAuthenticationCode(_ text: String) -> Bool {
-        text.count == PairingSAS.digitCount && text.allSatisfy(\.isNumber)
+        text.count == PairingSAS.digitCount && text.allSatisfy { $0.isASCII && $0.isNumber }
     }
 }

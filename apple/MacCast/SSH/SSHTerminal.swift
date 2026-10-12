@@ -21,7 +21,7 @@ final class SSHTerminal: Identifiable {
         case ended(String?)
     }
 
-    let id = UUID()
+    let id: UUID
     let host: SSHHost
     let session: SSHSession
 
@@ -47,11 +47,13 @@ final class SSHTerminal: Identifiable {
     }
 
     init(
+        id: UUID = UUID(),
         host: SSHHost,
         session: SSHSession,
         credential: SSHCredential,
         startedAt: Date = Date()
     ) {
+        self.id = id
         self.host = host
         self.session = session
         self.credential = credential
@@ -82,6 +84,14 @@ final class SSHTerminal: Identifiable {
         return attentionDetector.receive(chunk)
     }
 
+    func trimForMemoryPressure() {
+        let keep = scrollbackLimit / 4
+        guard output.count > keep else { return }
+        let dropped = output.count - keep
+        output = Data(output.dropFirst(dropped))
+        screenFeed.discardFront(dropped)
+    }
+
     func userDidRespond() {
         attentionDetector.userDidRespond()
     }
@@ -94,4 +104,9 @@ final class SSHTerminal: Identifiable {
 struct SSHKeyPrompt: Identifiable {
     let id = UUID()
     let prompt: SSHHostKeyPrompt
+}
+
+struct PendingKeyPrompt {
+    let prompt: SSHKeyPrompt
+    let continuation: CheckedContinuation<Bool, Never>
 }

@@ -4,7 +4,7 @@ import RemoteCore
 import os
 
 extension TerminalSessionManager {
-    enum PreviewOutcome {
+    enum PreviewOutcome: Sendable {
         case contents(Data, kind: RemoteFileKind, totalBytes: Int)
         case failure(String)
     }
@@ -24,17 +24,21 @@ extension TerminalSessionManager {
         let directory = URL(fileURLWithPath: path).standardizedFileURL
 
         // No notice while it waits: the phone's own "Waiting for your Mac" state explains a slow read, and a failure sent here would be drawn as an error.
-        DispatchQueue.global(qos: .userInitiated).async {
-            switch DirectoryListing.entries(in: directory) {
-            case .entries(let entries, let truncated):
+        FileWork.run(work: { DirectoryListing.entries(in: directory) }) { outcome in
+            switch outcome {
+            case .done(.entries(let entries, let truncated)):
                 sink(.directory(
                     sessionID: id,
                     path: directory.path,
                     entries: entries,
                     truncated: truncated
                 ))
-            case .failure(let message):
+            case .done(.failure(let message)):
                 sink(.browseFailure(sessionID: id, path: directory.path, message: message))
+            case .timedOut:
+                sink(.browseFailure(sessionID: id, path: directory.path, message: FileWork.timedOutMessage))
+            case .busy:
+                sink(.browseFailure(sessionID: id, path: directory.path, message: FileWork.busyMessage))
             }
         }
     }
@@ -50,12 +54,16 @@ extension TerminalSessionManager {
         }
         let url = URL(fileURLWithPath: path).standardizedFileURL
 
-        DispatchQueue.global(qos: .userInitiated).async {
-            switch Self.contents(of: url) {
-            case .contents(let data, let kind, let totalBytes):
+        FileWork.run(work: { Self.contents(of: url) }) { outcome in
+            switch outcome {
+            case .done(.contents(let data, let kind, let totalBytes)):
                 Self.send(data, kind: kind, totalBytes: totalBytes, id: id, path: url.path, sink: sink)
-            case .failure(let message):
+            case .done(.failure(let message)):
                 sink(.browseFailure(sessionID: id, path: url.path, message: message))
+            case .timedOut:
+                sink(.browseFailure(sessionID: id, path: url.path, message: FileWork.timedOutMessage))
+            case .busy:
+                sink(.browseFailure(sessionID: id, path: url.path, message: FileWork.busyMessage))
             }
         }
     }

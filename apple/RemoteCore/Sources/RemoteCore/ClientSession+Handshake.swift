@@ -61,6 +61,9 @@ extension ClientSession {
                 return
             }
             emit(.note("The Mac's key matches the pin stored for it."))
+        } else if pins.isUnreadable {
+            fail(Failure.pinsUnreadable)
+            return
         } else if hello.alreadyPaired {
             // An unpinned Mac's own claim proves nothing: an impostor can make it, and trusting it
             // would pin the impostor's key without any code comparison. The user pairs again.
@@ -203,6 +206,10 @@ extension ClientSession {
         lock.unlock()
 
         if let hello, let serverKey, !pins.record(hostID: hello.serverID, publicKey: serverKey) {
+            if pins.isUnreadable {
+                fail(Failure.pinsUnreadable)
+                return
+            }
             fail("The pairing succeeded but this device could not save it. Check that the Keychain is available.", reason: .pairingNotSaved)
             return
         }

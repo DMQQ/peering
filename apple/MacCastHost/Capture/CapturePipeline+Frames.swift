@@ -1,6 +1,7 @@
 import CoreMedia
 import CoreVideo
 import Foundation
+import MacCastKit
 import RemoteCore
 import ScreenCaptureKit
 import os
@@ -42,6 +43,8 @@ extension CapturePipeline {
 
         let encoder: VideoEncoder
         let current = lock.withLock { self.encoder }
+        // Not fed: it has reported its failure and is waiting to be replaced by the recovery.
+        if let current, current.hasFailed { return }
         if let current, current.pixelSize == size {
             encoder = current
         } else {
@@ -75,12 +78,13 @@ extension CapturePipeline {
         replacement.onFrame = { [weak self] encoded in self?.deliver(encoded, source: source) }
         replacement.onFailure = { [weak self] error in self?.report(error) }
 
+        if current != nil { HostSessionFacts.shared.noteEncoderRestart() }
         // A new session owes a keyframe whether or not one was asked for.
         lock.withLock {
             encoder = replacement
             awaitsKeyframe = true
         }
-// Shut down only after the swap, so nothing can hand a frame to a dead session.
+        // Shut down only after the swap, so nothing can hand a frame to a dead session.
         current?.shutdown()
 
         pipelineLog.notice("""
@@ -99,9 +103,16 @@ extension CapturePipeline {
         consumer?(encoded, source)
     }
 
-    /// The session decides what a stop means: wake restarts the stream, a revoked permission shows an explanation.
+    /// The coordinator decides what a stop means: most are rebuilt, a revoked permission shows an explanation.
+    /// The log line is rate limited because a dead encoder reports from every frame it had in flight.
     func report(_ error: CaptureError) {
-        let failure = lock.withLock { _onFailure }
+        let (failure, admission) = lock.withLock {
+            (_onFailure, failureLogGate.admit(at: ProcessInfo.processInfo.systemUptime))
+        }
+        if case .log(let suppressed) = admission {
+            let text = error.errorDescription ?? "unknown"
+            pipelineLog.error("capture reported: \(text, privacy: .public) (\(suppressed, privacy: .public) similar held back)")
+        }
         failure?(error)
     }
 }

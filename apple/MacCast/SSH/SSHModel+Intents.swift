@@ -34,7 +34,12 @@ extension SSHModel {
         TerminalActivity.shared.update(serverName: name, startedAt: startedAt, shellCount: live.count)
     }
 
+    func trimMemory() {
+        for terminal in terminals { terminal.trimForMemoryPressure() }
+    }
+
     func closeAllShells() {
+        refuseKeyPrompts()
         for terminal in terminals {
             terminal.session.close()
         }

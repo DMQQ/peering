@@ -5,6 +5,8 @@ import UIKit
 
 /// What a Mac's session remembers for analytics and for the retry cap, carried across the new object each automatic retry builds.
 struct SessionTelemetry {
+    /// New for every manual connect and kept across automatic resumes, so both ends' events for one session share it.
+    let sessionRef = SessionRef.make()
     var routes = RouteAttemptLog()
     var dropStreak = DropStreak()
     var tally = SessionTally()
@@ -67,7 +69,7 @@ extension MacSession {
             path: (connectionPath ?? .lan).rawValue,
             plan: model.storeManager.access.plan,
             millisecondsToReady: wire?.millisecondsToReady,
-            telemetry: ConnectionTelemetry.properties(for: connectionContext(), diagnosis: nil)
+            telemetry: ConnectionTelemetry.properties(for: connectionContext(), diagnosis: nil).merging(refProperty) { $1 }
         )
     }
 
@@ -111,8 +113,11 @@ extension MacSession {
             pictureInPictureActive: SessionPiP.shared.isActive,
             video: wire?.videoDeliveryRecord,
             consecutiveDrops: telemetry.dropStreak.count,
-            telemetry: ConnectionTelemetry.properties(for: connectionContext(), diagnosis: wire?.failureDiagnosis)
+            telemetry: ConnectionTelemetry.properties(for: connectionContext(), diagnosis: wire?.failureDiagnosis).merging(refProperty) { $1 }
         )
+        if let reason, let pairing = PhoneFailure.pairingFailure(reason: reason, stage: wire?.failureDiagnosis?.stage ?? .connecting) {
+            Analytics.pairingFailed(stage: pairing.stage, reason: pairing.reason, sessionRef: telemetry.sessionRef)
+        }
     }
 
     /// Once per session, and only for one that reached ready: a dial the user cancelled was never a session.
@@ -120,7 +125,7 @@ extension MacSession {
         guard hasBeenReady, !telemetry.endReported else { return }
         telemetry.endReported = true
         closeStretch()
-        var properties = ConnectionTelemetry.properties(for: connectionContext(), diagnosis: nil)
+        var properties = ConnectionTelemetry.properties(for: connectionContext(), diagnosis: nil).merging(refProperty) { $1 }
         properties.merge(ConnectionTelemetry.endProperties(
             reason: reason,
             durationSeconds: telemetry.tally.seconds,
@@ -130,6 +135,8 @@ extension MacSession {
         )) { _, new in new }
         Analytics.sessionEnded(path: connectionPath?.rawValue ?? "unknown", video: wire?.videoDeliveryRecord, telemetry: properties)
     }
+
+    private var refProperty: [String: any Sendable] { ["session_ref": telemetry.sessionRef] }
 
     private func connectionContext() -> ConnectionTelemetry.Context {
         let network = model.networkContext

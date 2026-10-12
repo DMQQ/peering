@@ -61,6 +61,7 @@ extension HostModel {
             MainActor.assumeIsolated { self?.coordinator?.refreshCatalog() }
         }
         self.spaceObserver = spaceObserver
+        startCaptureEnvironmentWatch()
 
         let resolver = ScreenCaptureSourceResolver { [weak self] immediate in
             Task { @MainActor [weak self] in
@@ -88,9 +89,13 @@ extension HostModel {
         coordinator.onFailure = { [weak self] error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                HostTelemetry.capture(error)
                 self.apply(.failed(error.localizedDescription))
                 self.announceCaptureProblem(error)
             }
+        }
+        coordinator.onCaptureRestored = { [weak self] in
+            Task { @MainActor [weak self] in self?.captureWasRestored() }
         }
         coordinator.onInputTransform = { [weak self] transform in
             // Straight through, not hopped to the main actor: `input` is not UI state and its
@@ -265,12 +270,15 @@ extension HostModel {
         }
 
         // Asked of the pasteboard, not one type: only this end can tell a picture from text. Hops to the main thread because NSPasteboard is not safe elsewhere.
-        server.onRequestClipboard = {
-            DispatchQueue.main.sync { ClipboardPasteboard.read() }
+        server.onRequestClipboard = { reply in
+            DispatchQueue.main.async { reply(ClipboardPasteboard.read()) }
         }
-        server.onReceiveClipboard = { payload in
-            // Synchronous, so a ⌘V sent straight after the push pastes what was pushed.
-            DispatchQueue.main.sync { ClipboardPasteboard.write(payload) }
+        // The session holds later commands until `done`, so a ⌘V sent straight after the push pastes what was pushed without the network queue waiting on the main thread.
+        server.onReceiveClipboard = { payload, done in
+            DispatchQueue.main.async {
+                ClipboardPasteboard.write(payload)
+                done()
+            }
         }
 
         self.server = server
@@ -373,6 +381,7 @@ extension HostModel {
             NSWorkspace.shared.notificationCenter.removeObserver(observer)
             spaceObserver = nil
         }
+        stopCaptureEnvironmentWatch()
         status = .idle
     }
 
@@ -418,6 +427,7 @@ extension HostModel {
             UserDefaults.standard.removeObject(forKey: Self.clientNamesKey)
             // And the tokens: a token lets this Mac reach a phone with no session, so an unpaired device would keep being told about terminals. See PushTokenStore.
             PushTokenStore.shared.forgetAll()
+            relayRegistration?.dropAllPending()
             record("All paired clients removed")
         } else {
             record("Could not clear paired clients", level: .failure)
@@ -425,7 +435,8 @@ extension HostModel {
     }
 
     func resolvePairing(approved: Bool) {
-        server?.resolvePairingApproval(approved: approved)
+        guard let sessionID = pairing?.sessionID else { return }
+        server?.resolvePairingApproval(sessionID: sessionID, approved: approved)
     }
 
     /// Drops a connection but leaves the phone trusted: the pin stays, so it reconnects without a pairing code.
@@ -450,6 +461,7 @@ extension HostModel {
         clientNames.removeValue(forKey: clientID)
         UserDefaults.standard.set(clientNames, forKey: Self.clientNamesKey)
         // The token goes with the pin, or a phone no longer trusted could still be reached with no session up.
+        if let token = PushTokenStore.shared.token(for: clientID) { relayRegistration?.dropPending(token: token) }
         PushTokenStore.shared.forget(clientID: clientID)
         record("Forgot \(name)")
     }

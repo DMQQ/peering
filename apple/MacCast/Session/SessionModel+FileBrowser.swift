@@ -72,6 +72,10 @@ extension SessionModel {
         activeSession?.uploadItems(urls, sessionID: id)
     }
 
+    func isUploading(sessionID id: UUID) -> Bool { activeSession?.isUploading(sessionID: id) ?? false }
+
+    func cancelUpload(sessionID id: UUID) { activeSession?.cancelUpload(sessionID: id) }
+
     func folderProgress(sessionID id: UUID) -> String? {
         activeSession?.folderProgress(sessionID: id)
     }

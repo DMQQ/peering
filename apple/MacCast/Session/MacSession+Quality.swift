@@ -17,8 +17,23 @@ extension MacSession {
 
     /// Uncapped off the relay for every plan: two devices that reach each other directly spend nobody's bandwidth. A relayed session is the operator's link, and the lifetime purchase buys 20 Mbps there instead of 8.
     var videoCeiling: AutoQualityPolicy.Tier {
+        PowerSavingPolicy.ceiling(planCeiling, isLowPowerMode: model.isLowPowerMode)
+    }
+
+    private var planCeiling: AutoQualityPolicy.Tier {
         guard autoQualityPath == .relay else { return .high }
         return model.storeManager.relayPlan.isUnlimited ? .high : .medium
+    }
+
+    /// Sends the rate again under the ceiling as it now stands, for Low Power Mode turning on or off.
+    func refreshQualityCeiling() {
+        guard wire != nil else { return }
+        if let bitrateKbps = model.streamQuality.bitrateKbps {
+            send(.setStreamQuality(fps: 0, bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps)))
+        } else {
+            autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath, ceiling: videoCeiling)
+            send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
+        }
     }
 
     /// Turning manual on lands on the level picked last or the policy's current rate, so the picture does not jump.
@@ -29,7 +44,7 @@ extension MacSession {
     /// The save makes the Settings row and this one the same setting.
     func setStreamQuality(_ quality: StreamQuality) {
         // The one rung a plan can be short of, only while bytes are carried. Asking opens the paywall rather than being quietly capped, since a silently soft picture reads as broken. High off the relay is not gated: see ``videoCeiling``.
-        if quality == .high, videoCeiling == .medium {
+        if quality == .high, planCeiling == .medium {
             model.paywallReason = .upgrade
             return
         }

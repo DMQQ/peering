@@ -5,6 +5,7 @@ public enum RelaySignallingError: LocalizedError, Sendable, Equatable {
     case hostOffline(String)
     case refused(code: String, message: String)
     case unexpectedResponse
+    case timedOut
 
     public var errorDescription: String? {
         switch self {
@@ -12,6 +13,7 @@ public enum RelaySignallingError: LocalizedError, Sendable, Equatable {
         case .hostOffline: return "That Mac is not currently registered with the relay."
         case .refused(_, let message): return "The relay refused the session: \(message)"
         case .unexpectedResponse: return "The relay answered in an unexpected order."
+        case .timedOut: return "The relay did not answer in time."
         }
     }
 }
@@ -51,7 +53,26 @@ public final class RelaySignallingConnection: @unchecked Sendable {
         hostID: String,
         clientID: String,
         entitlement: RelayEntitlement = RelayEntitlement(),
-        clientProof: RelayDeviceProof? = nil
+        clientProof: RelayDeviceProof? = nil,
+        deadline: TimeInterval = ConnectDeadlines.relayRequest
+    ) async throws -> RelaySession {
+        do {
+            return try await Deadline.run(seconds: deadline) {
+                try await exchangeSession(
+                    at: url, hostID: hostID, clientID: clientID, entitlement: entitlement, clientProof: clientProof
+                )
+            }
+        } catch is Deadline.Exceeded {
+            throw RelaySignallingError.timedOut
+        }
+    }
+
+    private static func exchangeSession(
+        at url: URL,
+        hostID: String,
+        clientID: String,
+        entitlement: RelayEntitlement,
+        clientProof: RelayDeviceProof?
     ) async throws -> RelaySession {
         let connection = RelaySignallingConnection(url: url)
         return try await withTaskCancellationHandler {
@@ -133,7 +154,20 @@ public final class RelaySignallingConnection: @unchecked Sendable {
         at url: URL,
         videoToken: Data,
         attempts: Int = 8,
-        interval: Duration = .milliseconds(150)
+        interval: Duration = .milliseconds(150),
+        deadline: TimeInterval = ConnectDeadlines.peerDiscovery
+    ) async throws -> RelayPeerAddress? {
+        do {
+            return try await Deadline.run(seconds: deadline) {
+                try await askForPeer(at: url, videoToken: videoToken, attempts: attempts, interval: interval)
+            }
+        } catch is Deadline.Exceeded {
+            throw RelaySignallingError.timedOut
+        }
+    }
+
+    private static func askForPeer(
+        at url: URL, videoToken: Data, attempts: Int, interval: Duration
     ) async throws -> RelayPeerAddress? {
         let connection = RelaySignallingConnection(url: url)
         return try await withTaskCancellationHandler {

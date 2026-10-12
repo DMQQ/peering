@@ -38,6 +38,8 @@ public enum SSHSessionEvent: Sendable {
     case connected
     /// Bytes from the server. stdout and stderr arrive as one stream: on a PTY they are the same descriptor.
     case output(Data)
+    /// The reader fell behind and the oldest events were discarded.
+    case outputDropped
     case failed(SSHSessionError)
     case closed
 }
@@ -199,11 +201,15 @@ final class SSHConnectionFlag: @unchecked Sendable {
 public final class SSHSession: Sendable {
     public let events: AsyncStream<SSHSessionEvent>
 
-    private let emit: AsyncStream<SSHSessionEvent>.Continuation
+    private let emit: SSHEventSink
     private let commands: AsyncStream<SSHCommand>
     private let issue: AsyncStream<SSHCommand>.Continuation
     private let shell: ShellHandle
     private let isUp = SSHConnectionFlag()
+    private let isCloseRequested = SSHConnectionFlag()
+
+    /// How long a file request may wait for the server before the caller is told it did not answer.
+    static let browseTimeout = Duration.seconds(30)
 
     private let endpoint: SSHEndpoint
     private let username: String
@@ -231,7 +237,7 @@ public final class SSHSession: Sendable {
         )
         let (commands, issue) = AsyncStream<SSHCommand>.makeStream()
         self.events = events
-        self.emit = emit
+        self.emit = SSHEventSink(emit)
         self.commands = commands
         self.issue = issue
     }
@@ -249,7 +255,9 @@ public final class SSHSession: Sendable {
         issue.yield(.resize(columns: columns, rows: rows))
     }
 
+    /// Also covers a close that arrives while still connecting: `run` checks the flag once the dial returns, since Citadel's connect cannot be cancelled and gives up on its own after 15 seconds.
     public func close() {
+        isCloseRequested.value = true
         issue.yield(.close)
     }
 
@@ -323,9 +331,10 @@ public final class SSHSession: Sendable {
         guard shell.isAttached else { throw SSHSessionError.notConnected }
 
         return try await withCheckedThrowingContinuation { continuation in
-            let request = SSHBrowseRequest(kind: kind, path: path, continuation: continuation)
+            let reply = SSHBrowseReply(continuation)
+            let request = SSHBrowseRequest(kind: kind, path: path, reply: reply)
             if case .terminated = issue.yield(.browse(request)) {
-                continuation.resume(throwing: SSHSessionError.notConnected)
+                reply.resume(throwing: SSHSessionError.notConnected)
             }
         }
     }
@@ -368,7 +377,8 @@ public final class SSHSession: Sendable {
                 authenticationMethod: try authenticationMethod(),
                 hostKeyValidator: .custom(delegate),
                 // `.never`, not a default: Citadel's reconnect loop re-dials from its own close handler, an unbounded retry against a server that is down.
-                reconnect: .never
+                reconnect: .never,
+                connectTimeout: .seconds(15)
             )
         } catch let error as SSHSessionError {
             emit.yield(.failed(error))
@@ -376,6 +386,13 @@ public final class SSHSession: Sendable {
             return
         } catch {
             emit.yield(.failed(.transport(String(describing: error))))
+            emit.finish()
+            return
+        }
+
+        if isCloseRequested.value {
+            try? await client.close()
+            emit.yield(.closed)
             emit.finish()
             return
         }
@@ -431,6 +448,13 @@ public final class SSHSession: Sendable {
                 // Created here and never stored: it holds the client, which does not leave this task.
                 let files = SSHFileService(client: client)
 
+                // The one task that touches `files` after this point, so the service needs no lock; the loop below only hands it requests.
+                let (browseRequests, browseIssue) = AsyncStream<SSHBrowseRequest>.makeStream()
+                let worker = SSHFileWorker(files)
+                let browseWorker = Task {
+                    for await request in browseRequests { await worker.service.answer(request) }
+                }
+
                 let reader = Task {
                     do {
                         for try await chunk in boxed.inbound {
@@ -453,8 +477,9 @@ public final class SSHSession: Sendable {
                     case .resize(let columns, let rows):
                         do { try await shell.resize(columns: columns, rows: rows) } catch { sessionLog.error("resize failed") }
                     case .browse(let request):
-                        // Answered in line, the one place the terminal can stall: a task of its own cannot have the non-`Sendable` client, and an `@unchecked` box is a bad trade for one round trip.
-                        await files.answer(request)
+                        // Queued for the worker above, so a server that never answers a file request cannot hold up keystrokes and resizes.
+                        request.reply.expire(after: Self.browseTimeout)
+                        browseIssue.yield(request)
                     case .forward(let request):
                         // Answered in line for the same reason; the bytes are pumped outside by a task with only `Sendable` handles.
                         do {
@@ -476,6 +501,8 @@ public final class SSHSession: Sendable {
                 // Finishing the stream here, before the shell is closed, means a late request is refused by the `yield` rather than sitting in a buffer and taking its continuation down.
                 issue.finish()
 
+                browseIssue.finish()
+                browseWorker.cancel()
                 reader.cancel()
                 _ = await reader.value
             }

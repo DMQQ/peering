@@ -155,4 +155,23 @@ struct FramingTests {
             }
         }
     }
+
+    @Test func aLoweredFrameLimitRefusesALargerDeclaredFrame() {
+        var decoder = FrameDecoder()
+        decoder.frameLimit = 64 * 1024
+        decoder.append(Data([0x00, 0x10, 0x00, 0x00, MessageKind.command.rawValue]))
+
+        #expect(throws: FramingError.frameTooLarge(declared: 0x0010_0000)) {
+            _ = try decoder.next()
+        }
+    }
+
+    @Test func aLiftedFrameLimitAcceptsTheLargerFrameAgain() throws {
+        var decoder = FrameDecoder()
+        decoder.frameLimit = 64 * 1024
+        decoder.frameLimit = FrameDecoder.maxFrameLength
+        decoder.append(Data([0x00, 0x10, 0x00, 0x00, MessageKind.command.rawValue]))
+
+        #expect(try decoder.next() == nil)
+    }
 }
