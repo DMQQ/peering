@@ -1,7 +1,9 @@
 package pl.dmq.peering.ui
 
 import android.content.SharedPreferences
+import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import pl.dmq.peering.AppGraph
 import pl.dmq.peering.session.history.SessionHistory
 import pl.dmq.peering.session.ports.Clock
@@ -16,7 +18,10 @@ import pl.dmq.peering.ui.wiring.PreferencesFirstRunStore
 import pl.dmq.peering.ui.wiring.PreferencesSettingsStore
 import pl.dmq.peering.ui.wiring.SessionHolder
 import pl.dmq.peering.billing.PlayBilling
+import pl.dmq.peering.feature.paywall.RelayAllowanceTracker
 import pl.dmq.peering.ui.wiring.PeeringQualitySource
+import pl.dmq.peering.ui.wiring.PreferencesRelayUsageStore
+import pl.dmq.peering.ui.wiring.relayInUse
 import pl.dmq.peering.ui.wiring.SessionPortsFactory
 import pl.dmq.peering.ui.wiring.SessionPresence
 import pl.dmq.peering.ui.wiring.SurfacePicture
@@ -55,6 +60,13 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
         clock = graph.sessions.clock,
         scope = scope,
     )
+    val relayAllowance = RelayAllowanceTracker(
+        PreferencesRelayUsageStore(preferences),
+        graph.sessions.clock,
+        ZoneId.systemDefault(),
+        billing.paidRelay,
+        scope,
+    ).also { tracker -> scope.launch { tracker.trackSessions(relayInUse(holder.active)) } }
     val presence = SessionPresence(holder, relayPresence)
 
     /** Starts a session with a paired Mac, over the local network when it is seen there. */

@@ -31,9 +31,11 @@ import pl.dmq.peering.feature.files.FilesRoute
 import pl.dmq.peering.feature.paywall.PaywallReason
 import pl.dmq.peering.billing.PlayBilling
 import pl.dmq.peering.feature.paywall.PaywallRoute
+import pl.dmq.peering.feature.paywall.RelayAllowanceTracker
 import pl.dmq.peering.feature.remote.RemoteModel
 import pl.dmq.peering.feature.remote.RemoteRoute
 import pl.dmq.peering.feature.settings.SettingsStore
+import pl.dmq.peering.session.controller.SessionFailure
 import pl.dmq.peering.session.controller.SessionPhase
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -45,7 +47,6 @@ import pl.dmq.peering.ui.wiring.SessionFileBrowsing
 import pl.dmq.peering.ui.wiring.StorePaywallBilling
 import pl.dmq.peering.ui.wiring.SurfacePicture
 import pl.dmq.peering.ui.wiring.findActivity
-import pl.dmq.peering.ui.wiring.UntrackedRelayAllowance
 import pl.dmq.peering.ui.wiring.messageRes
 
 /** The screens a session presents over its remote screen. */
@@ -63,20 +64,34 @@ internal fun SessionScreens(
     folderRecents: FolderRecentsStore,
     settings: SettingsStore,
     billing: PlayBilling,
+    relayAllowance: RelayAllowanceTracker,
     clock: Clock,
     onClose: (() -> Unit)?,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var route by rememberSaveable { mutableStateOf(SessionRoute.REMOTE) }
+    var spentPaywall by rememberSaveable { mutableStateOf(false) }
     val remote = remember(active) {
-        ControllerRemoteModel(active.controller, picture, scope, ControllerQualityPort(active.controller, settings, scope)) {
-            route = it
-        }
+        ControllerRemoteModel(
+            controller = active.controller,
+            picture = picture,
+            scope = scope,
+            quality = ControllerQualityPort(active.controller, settings, scope),
+            relayAllowance = relayAllowance.allowance,
+        ) { route = it }
     }
     val session by active.controller.state.collectAsState()
     val browser = active.controller.files
     LaunchedEffect(browser) { browser?.let { active.downloads.watch(it) } }
+    LaunchedEffect(session.phase) {
+        val phase = session.phase
+        if (phase is SessionPhase.Failed && phase.reason == SessionFailure.Quota) {
+            relayAllowance.relayRefusedQuota()
+            spentPaywall = true
+            route = SessionRoute.PAYWALL
+        }
+    }
     BackHandler(enabled = route != SessionRoute.REMOTE || onClose != null) {
         if (route != SessionRoute.REMOTE) route = SessionRoute.REMOTE else onClose?.invoke()
     }
@@ -86,8 +101,8 @@ internal fun SessionScreens(
         SessionRoute.FILES -> FilesScreen(active) { route = SessionRoute.REMOTE }
         SessionRoute.PAYWALL -> PaywallRoute(
             billing = StorePaywallBilling(billing) { context.findActivity() },
-            allowance = UntrackedRelayAllowance.allowance,
-            reason = PaywallReason.Upgrade,
+            allowance = relayAllowance.allowance,
+            reason = if (spentPaywall) PaywallReason.RelayTimeSpent else PaywallReason.Upgrade,
             startsWithAllowanceNotice = false,
             onDismiss = { route = SessionRoute.REMOTE },
         )

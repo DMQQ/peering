@@ -51,6 +51,20 @@ internal fun AboutCard(version: String) {
 }
 
 @Composable
+internal fun RelayTimeCard(onSeePlans: () -> Unit) {
+    SettingsCard(heading = stringResource(R.string.settings_relay_heading)) {
+        Text(
+            text = stringResource(R.string.settings_relay_free),
+            style = MaterialTheme.typography.bodyMedium,
+            color = PeeringColors.muted,
+        )
+        TextButton(onClick = onSeePlans) {
+            Text(stringResource(R.string.settings_relay_see_plans), style = MaterialTheme.typography.labelLarge, color = PeeringColors.ink)
+        }
+    }
+}
+
+@Composable
 internal fun LegalCard(onOpen: (LegalDocument) -> Unit) {
     SettingsCard(heading = stringResource(R.string.settings_legal_heading)) {
         Column(modifier = Modifier.fillMaxWidth()) {

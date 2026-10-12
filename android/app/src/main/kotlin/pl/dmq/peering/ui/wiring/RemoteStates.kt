@@ -15,6 +15,7 @@ internal fun remoteUiState(
     picturePixels: PixelSize?,
     capabilities: HubCapabilities,
     inputMode: InputMode,
+    relayMinutesLeft: Int?,
 ): RemoteUiState {
     val ready = session.phase as? SessionPhase.Ready
     return RemoteUiState(
@@ -24,7 +25,7 @@ internal fun remoteUiState(
         latencyMs = session.latencyMillis,
         path = ready?.path,
         pictureState = session.picture.toScreenPicture(),
-        relayMinutesLeft = null,
+        relayMinutesLeft = relayMinutesLeft,
         capabilities = capabilities,
         inputMode = inputMode,
     )

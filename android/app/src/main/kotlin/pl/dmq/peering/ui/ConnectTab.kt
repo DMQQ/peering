@@ -84,6 +84,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
                 folderRecents = wiring.folderRecents,
                 settings = wiring.settings,
                 billing = wiring.billing,
+                relayAllowance = wiring.relayAllowance,
                 clock = wiring.clock,
                 onClose = { showingSession = false },
             )

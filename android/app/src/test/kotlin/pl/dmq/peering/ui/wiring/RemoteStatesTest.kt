@@ -23,20 +23,21 @@ class RemoteStatesTest {
             picture = SessionPictureState.Live,
         )
 
-        val state = remoteUiState(session, pixels, capabilities, InputMode.TRACKPAD)
+        val state = remoteUiState(session, pixels, capabilities, InputMode.TRACKPAD, relayMinutesLeft = 12)
 
         assertEquals(SessionRecord.Path.DIRECT, state.path)
         assertEquals(42, state.latencyMs)
         assertEquals(PictureState.LIVE, state.pictureState)
         assertEquals(pixels, state.picturePixels)
         assertEquals(capabilities, state.capabilities)
+        assertEquals(12, state.relayMinutesLeft)
     }
 
     @Test
     fun aSessionThatIsNotReadyHasNoPath() {
         val session = SessionUiState(phase = SessionPhase.Reconnecting(1), picture = SessionPictureState.Connecting)
 
-        val state = remoteUiState(session, null, HubCapabilities.NONE, InputMode.TRACKPAD)
+        val state = remoteUiState(session, null, HubCapabilities.NONE, InputMode.TRACKPAD, relayMinutesLeft = null)
 
         assertEquals(null, state.path)
         assertEquals(PictureState.WAITING, state.pictureState)

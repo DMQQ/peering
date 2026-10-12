@@ -25,6 +25,7 @@ import pl.dmq.peering.ui.theme.peeringBackdrop
 fun SettingsRoute(
     presenter: SettingsPresenter,
     onOpenLegal: (LegalDocument) -> Unit,
+    onSeePlans: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by presenter.state.collectAsState()
@@ -57,6 +58,7 @@ fun SettingsRoute(
         StreamQualityCard(current = state.streamQuality, onChoose = presenter::chooseStreamQuality)
         TrustedHostsCard(hosts = state.trustedHosts, onForget = presenter::requestForget)
         AboutCard(version = state.appVersion)
+        RelayTimeCard(onSeePlans = onSeePlans)
         LegalCard(onOpen = onOpenLegal)
     }
     if (state.forgetTarget != null) {

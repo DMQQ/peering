@@ -29,6 +29,7 @@ internal fun SessionTab(wiring: FeatureWiring) {
             folderRecents = wiring.folderRecents,
             settings = wiring.settings,
             billing = wiring.billing,
+            relayAllowance = wiring.relayAllowance,
             clock = wiring.clock,
             onClose = null,
         )

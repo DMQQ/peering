@@ -351,4 +351,7 @@
     <string name="paywall_unavailable_unreachable">Google Play could not be reached. Check the connection and try again.</string>
     <string name="paywall_unavailable_not_configured">The relay plans are not set up in Google Play for this app yet.</string>
     <string name="paywall_unavailable_refused">Google Play refused to list the relay plans. Try again later.</string>
+    <string name="settings_relay_heading">Relay time</string>
+    <string name="settings_relay_free">Reaching a Mac away from your own network uses relay time. Free includes 30 minutes a day. Paid access removes the limit.</string>
+    <string name="settings_relay_see_plans">See the plans</string>
 </resources>

@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import pl.dmq.peering.feature.paywall.RelayAllowance
 import pl.dmq.peering.feature.remote.CommandSink
 import pl.dmq.peering.feature.remote.HubCapabilities
 import pl.dmq.peering.feature.remote.HubEntry
@@ -13,6 +14,7 @@ import pl.dmq.peering.feature.remote.QualityPort
 import pl.dmq.peering.feature.remote.RemoteModel
 import pl.dmq.peering.feature.remote.RemoteUiState
 import pl.dmq.peering.feature.remote.SurfaceListener
+import pl.dmq.peering.feature.remote.relayMinutesLeft
 import pl.dmq.peering.session.controller.SessionController
 import pl.dmq.peering.ui.nav.SessionRoute
 
@@ -22,10 +24,11 @@ internal class ControllerRemoteModel(
     private val picture: SurfacePicture,
     scope: CoroutineScope,
     override val quality: QualityPort,
+    relayAllowance: StateFlow<RelayAllowance>,
     private val onOpen: (SessionRoute) -> Unit,
 ) : RemoteModel {
-    override val state: StateFlow<RemoteUiState> = combine(controller.state, picture.pixelSize) { session, pixels ->
-        remoteUiState(session, pixels, hubCapabilities(), InputMode.TRACKPAD)
+    override val state: StateFlow<RemoteUiState> = combine(controller.state, picture.pixelSize, relayAllowance) { session, pixels, allowance ->
+        remoteUiState(session, pixels, hubCapabilities(), InputMode.TRACKPAD, relayMinutesLeft(allowance))
     }.stateIn(scope, SharingStarted.Eagerly, RemoteUiState.INITIAL)
 
     override val commands: CommandSink = CommandSink { controller.send(it) }
