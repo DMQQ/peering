@@ -186,15 +186,22 @@ private fun chromeHandlers(
     ),
 )
 
-/** The picture's size in the computer's points: its pixels over two, the factor of a Retina screen, or a laptop's size before the catalogue says. */
+/**
+ * The picture's size in the computer's points, which the joystick's travel and the drawn cursor are both measured in.
+ * The catalogue reports a MacBook's display in points already (1512 wide) and a larger one in pixels, so only a size past
+ * [MAX_POINT_WIDTH] is halved. Halving always made the drawn cursor run twice as far as the real pointer.
+ */
 private fun pointerSize(state: RemoteUiState): Pair<Double, Double> =
-    state.picturePixels?.let { (it.width / PIXELS_PER_POINT) to (it.height / PIXELS_PER_POINT) } ?: (DEFAULT_WIDTH to DEFAULT_HEIGHT)
+    state.picturePixels?.let {
+        val perPoint = if (it.width > MAX_POINT_WIDTH) 2.0 else 1.0
+        (it.width / perPoint) to (it.height / perPoint)
+    } ?: (DEFAULT_WIDTH to DEFAULT_HEIGHT)
 
 /** Where [zoom] sits on the wheel's gauge, 0 at the least and 1 at the most, on a log scale. */
 private fun zoomPosition(zoom: Double): Float =
     (ln(zoom) / ln(CanvasViewport.MAX_ZOOM)).coerceIn(0.0, 1.0).toFloat()
 
 private const val ZOOMED_PERCENT = 101
-private const val PIXELS_PER_POINT = 2.0
+private const val MAX_POINT_WIDTH = 2560.0
 private const val DEFAULT_WIDTH = 1440.0
 private const val DEFAULT_HEIGHT = 900.0
