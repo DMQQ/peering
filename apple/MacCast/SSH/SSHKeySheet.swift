@@ -350,7 +350,7 @@ struct SSHKeyImportSheet: View {
             }
             failure = nil
         } catch let error as SSHKeyError {
-            failure = error.message
+            failure = HostWireText.localized(error.message)
         } catch {
             failure = error.localizedDescription
         }
@@ -367,7 +367,7 @@ struct SSHKeyImportSheet: View {
             pending = try SSHKeyPair.imported(text, passphrase: usesPassphrase ? passphrase : nil).labelled(label)
             failure = nil
         } catch let error as SSHKeyError {
-            failure = error.message
+            failure = HostWireText.localized(error.message)
         } catch {
             failure = String(localized: "That file could not be read: \(error.localizedDescription)")
         }

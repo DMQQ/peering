@@ -18,10 +18,12 @@ import pl.dmq.peering.wire.VideoStreamConfig
  * exists; a config that arrives before the surface waits for it. Every call comes on the main thread, where the session
  * scope and the screen both run, so no lock guards the decoder.
  */
-internal class SurfacePicture : VideoSink, SurfaceListener {
+internal class SurfacePicture(
+    private val createDecoder: (Surface) -> VideoSink = ::CodecDecoder,
+) : VideoSink, SurfaceListener {
     private val size = MutableStateFlow<PixelSize?>(null)
     private var surface: Surface? = null
-    private var decoder: CodecDecoder? = null
+    private var decoder: VideoSink? = null
     private var config: VideoStreamConfig? = null
     private val returns = SurfaceReturn()
     private var crashed = false
@@ -33,7 +35,7 @@ internal class SurfacePicture : VideoSink, SurfaceListener {
         this.config = config
         size.value = PixelSize(config.pixelWidth.toDouble(), config.pixelHeight.toDouble())
         // A reconnect on the same screen has released the decoder but kept the surface, so the next config rebuilds it.
-        val live = decoder ?: surface?.let(::CodecDecoder)?.also { decoder = it }
+        val live = decoder ?: surface?.let(createDecoder)?.also { decoder = it }
         guarded(live) { it.onConfig(config) }
     }
 
@@ -52,14 +54,19 @@ internal class SurfacePicture : VideoSink, SurfaceListener {
     override val decoderFailed: Boolean get() = crashed || decoder?.decoderFailed == true
 
     /** A decoder that throws past its own recovery is dropped, so the picture reads as failed and the session lives. */
-    private fun guarded(target: CodecDecoder?, call: (CodecDecoder) -> Unit) {
+    private fun guarded(target: VideoSink?, call: (VideoSink) -> Unit) {
         target ?: return
         try {
             call(target)
         } catch (error: RuntimeException) {
             DebugLog.w(TAG, { "the decoder threw past its recovery" }, error)
             crashed = true
-            decoder = null
+            if (decoder === target) decoder = null
+            try {
+                target.onStop()
+            } catch (stopError: RuntimeException) {
+                DebugLog.w(TAG, { "releasing the crashed decoder failed" }, stopError)
+            }
         }
     }
 
@@ -69,8 +76,10 @@ internal class SurfacePicture : VideoSink, SurfaceListener {
 
     override fun onSurfaceAvailable(surface: Surface) {
         surfaceReturnedWithoutKeyframe = returns.available()
+        guarded(decoder) { it.onStop() }
+        decoder = null
         this.surface = surface
-        val created = CodecDecoder(surface)
+        val created = createDecoder(surface)
         decoder = created
         crashed = false
         config?.let { guarded(created) { decoder -> decoder.onConfig(it) } }

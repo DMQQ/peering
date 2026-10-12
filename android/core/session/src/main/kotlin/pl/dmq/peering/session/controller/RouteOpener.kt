@@ -94,6 +94,7 @@ internal class RouteOpener(
             RelayConnect(relay.signalling, ports.identity, ports.clock)
                 .requestSession(hostId, ports.identity.clientId, relay.entitlement())
         }
+        session.remainingSeconds?.let(relay.onRemainingSeconds)
         val transport = guarded { ports.control.open(ControlRoute.Relayed(session.controlHandoff())) }
         return OpenedRoute(transport, SessionRecord.Path.RELAY, session.video, session.videoTokenBytes, relay.datagrams)
     }

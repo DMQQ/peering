@@ -126,14 +126,5 @@ private fun failureText(failure: PreviewFailure?): Pair<String, String> {
         PreviewFailure.TIMED_OUT -> R.string.preview_fail_timed_out
         else -> R.string.preview_fail_other
     }
-    val detail = when (failure) {
-        PreviewFailure.NOT_LISTENING -> R.string.preview_fail_not_listening_detail
-        PreviewFailure.DISCONNECTED -> R.string.preview_fail_disconnected_detail
-        PreviewFailure.TIMED_OUT -> R.string.preview_fail_timed_out_detail
-        PreviewFailure.TOO_LARGE -> R.string.preview_fail_too_large_detail
-        PreviewFailure.NOT_ALLOWED, PreviewFailure.INVALID_REQUEST -> R.string.preview_fail_not_allowed_detail
-        PreviewFailure.BUSY -> R.string.preview_fail_busy_detail
-        PreviewFailure.FAILED, null -> R.string.preview_fail_failed_detail
-    }
-    return stringResource(title) to stringResource(detail)
+    return stringResource(title) to stringResource(previewFailureDetail(failure))
 }

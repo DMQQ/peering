@@ -16,12 +16,14 @@ final class VirtualDisplay {
         case unavailable
         case refused(CGSize)
 
-        var errorDescription: String? {
+        var errorDescription: String? { message.englishText }
+
+        var message: LocalizedStringResource {
             switch self {
             case .unavailable:
-                return "This Mac's system software does not have the virtual display API."
+                "This Mac's system software does not have the virtual display API."
             case .refused(let size):
-                return "The system refused a \(Int(size.width))×\(Int(size.height)) virtual display."
+                "The system refused a \(Int(size.width))×\(Int(size.height)) virtual display."
             }
         }
     }

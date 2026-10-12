@@ -108,7 +108,7 @@ struct AgentTranscriptRow: View {
             HStack(spacing: 6) {
                 Image(systemName: "info.circle")
                     .font(.caption)
-                Text(text)
+                Text(HostWireText.localized(text))
                     .font(.footnote)
             }
             .foregroundStyle(.white.opacity(0.5))
@@ -117,7 +117,7 @@ struct AgentTranscriptRow: View {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.caption)
-                Text(text)
+                Text(HostWireText.localized(text))
                     .font(.footnote)
             }
             .foregroundStyle(ColorPalette.danger)

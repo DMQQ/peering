@@ -86,7 +86,7 @@ struct LidCloseSleepRow: View {
 
     /// The price, before anything is asked for.
     private var explanation: String {
-        """
+        String(localized: """
         macOS keeps a Mac awake with its lid shut only through pmset, and that needs administrator \
         rights. Peering will ask for your password once and leave a rule at \
         /etc/sudoers.d/peering-sleep.
@@ -98,7 +98,7 @@ struct LidCloseSleepRow: View {
         While it is on, the Mac does not sleep at all, on battery included, so leave it open to the \
         air rather than shut in a bag. Peering turns it back off when it quits and when you switch \
         this off.
-        """
+        """)
     }
 
     /// The switch asks first or acts, depending on whether the price has been paid before.

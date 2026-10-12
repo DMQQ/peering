@@ -107,7 +107,7 @@ struct SSHTab: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    TabScreenHeader("Servers", detail: String(localized: "Shells on machines you added by hand."))
+                    TabScreenHeader(String(localized: "Servers"), detail: String(localized: "Shells on machines you added by hand."))
 
                     // A shell keeps running while the list is up, so the list must offer a way back to it.
                     if !model.openShells.isEmpty {

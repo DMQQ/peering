@@ -4,9 +4,9 @@ import android.media.MediaCodec
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.Build
-import android.util.Log
 import android.view.Surface
 import java.nio.ByteBuffer
+import pl.dmq.peering.platform.PlatformLog
 import pl.dmq.peering.session.ports.VideoSink
 import pl.dmq.peering.wire.EncodedVideoFrame
 import pl.dmq.peering.wire.VideoCodecProbe
@@ -14,9 +14,9 @@ import pl.dmq.peering.wire.VideoStreamConfig
 import pl.dmq.peering.wire.avccToAnnexB
 
 /**
- * Decodes straight to a Surface. Frames arrive from one thread, in decode order. A frame that cannot be queued is
- * dropped and the decoder waits for the next keyframe, so a stall costs a moment of picture, not the stream. A codec
- * that fails for good is built again, a few times, and then [decoderFailed] reads true.
+ * Decodes straight to a Surface. Frames arrive from one thread, in decode order, so a frame never waits for an input
+ * buffer. One that cannot be queued is dropped and the decoder waits for the next keyframe, so a stall costs a moment
+ * of picture, not the stream. A codec that fails for good is built again, a few times, and then [decoderFailed] reads true.
  */
 class CodecDecoder(private val surface: Surface) : VideoSink {
     private var codec: MediaCodec? = null
@@ -47,7 +47,7 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
         } catch (error: IllegalStateException) {
             rebuild(error)
         } catch (error: RuntimeException) {
-            Log.w(TAG, "dropped a frame the decoder could not take", error)
+            PlatformLog.w(TAG, { "dropped a frame the decoder could not take" }, error)
             keyframes.onInputDropped()
         }
     }
@@ -86,14 +86,14 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
     }
 
     private fun rebuild(error: Exception) {
-        Log.w(TAG, "the decoder failed", error)
+        PlatformLog.w(TAG, { "the decoder failed" }, error)
         release()
         val config = current ?: return
         if (recovery.onFatal(config)) start(config)
     }
 
     private fun queue(decoder: MediaCodec, data: ByteArray, presentationUs: Long): Boolean {
-        val index = decoder.dequeueInputBuffer(INPUT_TIMEOUT_US)
+        val index = decoder.dequeueInputBuffer(NO_WAIT)
         if (index < 0) return false
         val buffer = decoder.getInputBuffer(index) ?: return false
         if (data.size > buffer.capacity()) {
@@ -137,12 +137,12 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
         try {
             decoder.stop()
         } catch (error: RuntimeException) {
-            Log.w(TAG, "stopping the decoder failed", error)
+            PlatformLog.w(TAG, { "stopping the decoder failed" }, error)
         } finally {
             try {
                 decoder.release()
             } catch (error: RuntimeException) {
-                Log.w(TAG, "releasing the decoder failed", error)
+                PlatformLog.w(TAG, { "releasing the decoder failed" }, error)
             }
         }
     }
@@ -152,7 +152,7 @@ class CodecDecoder(private val surface: Surface) : VideoSink {
 
     private companion object {
         const val TAG = "PeeringDecoder"
-        const val INPUT_TIMEOUT_US = 10_000L
+        const val NO_WAIT = 0L
         const val MICROS_PER_SECOND = 1_000_000.0
     }
 }

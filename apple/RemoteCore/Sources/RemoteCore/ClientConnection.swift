@@ -10,43 +10,6 @@ let transportLog = Logger(subsystem: "pl.dmq.peering", category: "client")
 /// Deliberately not an actor: the app target defaults to `MainActor` isolation, and a video frame
 /// arriving on the main thread is a stutter in the UI that is trying to draw it.
 public final class ClientConnection: @unchecked Sendable {
-    public enum Failure: LocalizedError, Sendable, Equatable {
-        case invalidPort(UInt16)
-        case timedOut(TimeInterval)
-        case cancelled
-        case hostClosed
-        case refused(String)
-        case transport(String)
-        case network(NetworkFailureText.Kind)
-        /// The byte stream could not be framed.
-        case malformed(String)
-
-        public var errorDescription: String? {
-            switch self {
-            case .invalidPort(let port):
-                return "\(port) is not a usable TCP port."
-            case .timedOut(let seconds):
-                return "Timed out after \(Int(seconds))s waiting for the Mac to answer."
-            case .cancelled:
-                return "Connection cancelled."
-            case .hostClosed:
-                return "The Mac closed the connection."
-            case .refused(let message):
-                return "The Mac refused the session: \(message)"
-            case .transport(let message), .malformed(let message):
-                return message
-            case .network(let kind):
-                return NetworkFailureText.sentence(for: kind)
-            }
-        }
-
-        /// A network error keeps its kind, so the app can word it; anything else keeps the sentence it already has.
-        static func transport(from error: Error) -> Failure {
-            if let network = error as? NWError { return .network(NetworkFailureText.kind(of: network)) }
-            if error is FramingError { return .malformed(NetworkFailureText.describe(error)) }
-            return .transport(NetworkFailureText.describe(error))
-        }
-    }
 
     private let queue: DispatchQueue
     private let lock = NSLock()
@@ -54,7 +17,7 @@ public final class ClientConnection: @unchecked Sendable {
     private var _connection: NWConnection?
 
     /// Read on whichever thread asks (a foreground check, a send) while the network queue clears it in `finish`, so every access takes the lock: an unguarded class reference torn between the two is a use after free.
-    private var connection: NWConnection? {
+    var connection: NWConnection? {
         get { lock.withLock { _connection } }
         set { lock.withLock { _connection = newValue } }
     }
@@ -231,50 +194,6 @@ public final class ClientConnection: @unchecked Sendable {
             return task
         }
         handle?.cancel()
-    }
-
-    // MARK: - Send
-
-    /// A payload over ``ProtocolInfo/maxControlPayload`` is dropped here: the Mac treats it as malformed and ends the session, and the resume then replays it.
-    public func send(_ frame: Frame) {
-        guard let connection else { return }
-        guard frame.payload.count <= ProtocolInfo.maxControlPayload else {
-            transportLog.error("dropped a \(String(describing: frame.kind), privacy: .public) frame of \(frame.payload.count) bytes, over the control limit")
-            return
-        }
-        connection.send(content: FrameEncoder.encode(frame), completion: .contentProcessed { _ in })
-    }
-
-    /// Reports once the network stack has taken the frame, or why it could not: the signal a long transfer paces itself on.
-    public func send<T: Encodable>(
-        _ kind: MessageKind,
-        _ value: T,
-        completion: @escaping @Sendable (Error?) -> Void
-    ) {
-        guard let connection else { return completion(Failure.cancelled) }
-        do {
-            let frame = Frame(kind: kind, payload: try MessageCodec.encode(value))
-            connection.send(content: FrameEncoder.encode(frame), completion: .contentProcessed { completion($0) })
-        } catch {
-            completion(error)
-        }
-    }
-
-/// Encodes and sends a command. An encode failure is a programming error, so it is logged, not thrown.
-    public func send(_ command: RemoteCommand) {
-        do {
-            send(Frame(kind: .command, payload: try MessageCodec.encode(command)))
-        } catch {
-            transportLog.error("could not encode \(String(describing: command), privacy: .public): \(error)")
-        }
-    }
-
-    public func send<T: Encodable>(_ kind: MessageKind, _ value: T) {
-        do {
-            send(Frame(kind: kind, payload: try MessageCodec.encode(value)))
-        } catch {
-            transportLog.error("could not encode a \(String(describing: kind), privacy: .public) payload")
-        }
     }
 
     // MARK: - Receive

@@ -15,16 +15,6 @@ final class MacSession: Identifiable {
     /// Per Mac: one can be on this network while another is across the country, and the picture ceiling differs. See ``videoCeiling``.
     typealias ConnectionPath = MacCastKit.ConnectionPath
 
-    /// Mapped because the raw values differ on purpose: this one is shouted at a diagnostics panel, the card's is set in a chip.
-    static func activityPath(_ path: ConnectionPath?) -> SessionActivityAttributes.Path? {
-        switch path {
-        case .lan: return .lan
-        case .relay: return .relay
-        case .direct: return .direct
-        case nil: return nil
-        }
-    }
-
     // MARK: - Identity
 
     /// Not the Mac's ID: a Mac can be connected twice in a launch (a drop, a reconnect) and the tab strip must tell them apart.
@@ -116,27 +106,6 @@ final class MacSession: Identifiable {
     /// Set once and never cleared: the object is one attempt at one Mac, and everything that must know the user meant it (retry ladder, screens asking whether it is being put back) reads it long after the transition. Clearing it left a Quit showing "reconnecting" until tapped twice.
     /// Per Mac: `disconnect()` ends every Mac at once, and with one shared flag the first consumed it and the rest read as dropped.
     var userEndedDeliberately = false
-
-    /// The record is filed first because everything it describes is cleared below, and the player is released because its `deinit` stops the engine.
-    func endSession(deliberate: Bool) {
-        userEndedDeliberately = deliberate
-        finishSessionHistory()
-        connectTask?.cancel()
-        connectTask = nil
-        // Cleared here rather than in `stopReconnecting()`, which every rung calls before dialling: this is the end of the episode, and that is not.
-        reconnectingSince = nil
-        stopReconnecting()
-        dialRace?.cancel()
-        wire?.disconnect()
-        wire = nil
-        videoPoll?.cancel()
-        videoPoll = nil
-        audioPlayer = nil
-        connectionPath = nil
-        sessionStartedAt = nil
-        picturePaused = false
-        phase = .disconnected
-    }
 
     // MARK: - Coming back after a drop
 
@@ -391,29 +360,7 @@ final class MacSession: Identifiable {
     /// Not in ``uploadFailures`` or ``browseFailures``: a browse failure replaces the list with a full-panel state, which a failed rename must not do; this one is drawn above the list.
     var changeFailures: [UUID: String] = [:]
 
-
-    // MARK: - Sending
-
-    /// Everything goes through the session's coalescer, so the rules about what may be merged and what must never be dropped live in one place.
-    func send(_ command: RemoteCommand) {
-        wire?.send(command)
-    }
-
     // MARK: - Quality
 
     var isAutomaticQuality: Bool { model.streamQuality == .auto }
-
-
-    // MARK: - Notes
-
-    func append(note: String) {
-        notes.append(note)
-        if notes.count > 12 { notes.removeFirst(notes.count - 12) }
-        if activeSessionHistoryID != nil {
-            activeSessionLogs.append(note)
-            if activeSessionLogs.count > Self.sessionLogLimit {
-                activeSessionLogs.removeFirst(activeSessionLogs.count - Self.sessionLogLimit)
-            }
-        }
-    }
 }

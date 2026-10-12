@@ -50,7 +50,7 @@ extension ClientSession {
         // A new session starts wanting a picture. Left standing, a session that had been paused and
         // then reused would open no video socket for the whole of its second life.
         wantsPicture = true
-        clientBackgrounded = false
+        clientNotice.startOver()
         wantsVideoDatagrams = false
         videoOpener = nil
         // Dropped with the lane it belongs to. The sealer in particular: a new session mints a new

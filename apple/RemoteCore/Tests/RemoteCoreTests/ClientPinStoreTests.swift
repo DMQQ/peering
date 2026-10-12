@@ -29,6 +29,9 @@ private final class FakeKeychain: ClientPinBacking, @unchecked Sendable {
     func failWrites() { lock.withLock { failingWrites = true } }
     func corruptPrimary() { lock.withLock { items["primary"] = Data("not json".utf8) } }
     func deletePrimary() { lock.withLock { items["primary"] = nil } }
+    func deleteBackup() { lock.withLock { items["backup"] = nil } }
+    func corruptBackup() { lock.withLock { items["backup"] = Data("not json".utf8) } }
+    var primaryBytes: Data? { lock.withLock { items["primary"] } }
 }
 
 @Suite struct ClientPinStoreTests {
@@ -125,4 +128,57 @@ private final class FakeKeychain: ClientPinBacking, @unchecked Sendable {
 
         #expect(!ClientPinStore(backing: FakeKeychain()).takeUnreadableNotice())
     }
+
+    @Test func aCorruptPrimaryWithNoBackupIsUnreadableAndNeverOverwritten() {
+        let keychain = FakeKeychain()
+        _ = ClientPinStore(backing: keychain).record(hostID: "mac", publicKey: key)
+        keychain.corruptPrimary()
+        keychain.deleteBackup()
+        let raised = Raised()
+        let alarm = PinStoreAlarm()
+        alarm.install { raised.add($0) }
+        let store = ClientPinStore(backing: keychain, alarm: alarm)
+        #expect(store.isUnreadable)
+        #expect(raised.all == [nil])
+        #expect(store.record(hostID: "new", publicKey: other) == false)
+        #expect(keychain.primaryBytes == Data("not json".utf8))
+    }
+
+    @Test func aCorruptBackupWithNoPrimaryIsUnreadableToo() {
+        let keychain = FakeKeychain()
+        _ = ClientPinStore(backing: keychain).record(hostID: "mac", publicKey: key)
+        keychain.deletePrimary()
+        keychain.corruptBackup()
+        #expect(ClientPinStore(backing: keychain, alarm: PinStoreAlarm()).isUnreadable)
+    }
+
+    @Test func anAlarmRaisedBeforeAnyHandlerExistsIsDeliveredOnInstall() {
+        let keychain = FakeKeychain()
+        keychain.lockKeychain()
+        let alarm = PinStoreAlarm()
+        _ = ClientPinStore(backing: keychain, alarm: alarm)
+        let raised = Raised()
+        alarm.install { raised.add($0) }
+        #expect(raised.all == [errSecInteractionNotAllowed])
+        alarm.install { raised.add($0) }
+        #expect(raised.all.count == 1)
+    }
+
+    @Test func aHandlerThatReEntersTheStoreIsRunOutsideTheLock() {
+        let keychain = FakeKeychain()
+        let alarm = PinStoreAlarm()
+        let store = ClientPinStore(backing: keychain, alarm: alarm)
+        let seen = Raised()
+        alarm.install { _ in seen.add(store.isUnreadable ? 1 : 0) }
+        keychain.lockKeychain()
+        #expect(store.record(hostID: "new", publicKey: other) == false)
+        #expect(seen.all == [1])
+    }
+}
+
+private final class Raised: @unchecked Sendable {
+    private let lock = NSLock()
+    private var statuses: [Int32?] = []
+    func add(_ status: Int32?) { lock.withLock { statuses.append(status) } }
+    var all: [Int32?] { lock.withLock { statuses } }
 }

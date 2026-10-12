@@ -66,3 +66,26 @@ extension ClientSession {
         emit(.latency(milliseconds: reported))
     }
 }
+
+extension ClientSession {
+    // MARK: - Liveness
+
+    /// Fails the session unless the Mac answers within a few round trips, for when a session may look healthy with nothing under it (network just changed, app just resumed). The wait scales with the measured round trip so a same-Wi-Fi Mac is not made to wait out a relay-sized figure.
+    public func verifyStillAnswering() {
+        let askedAt = Self.monotonicNow()
+        let (isReady, roundTrip) = lock.withLock { (state == .ready, latency.reported) }
+        guard isReady else { return }
+        let grace = Self.answerGrace(roundTripMilliseconds: roundTrip)
+        sendPing()
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(grace))
+            guard let self else { return }
+            let silent = self.lock.withLock {
+                self.state == .ready && (self.lastControlReplyAt ?? 0) < askedAt
+            }
+            guard silent else { return }
+            clientSessionLog.error("no answer within \(grace, privacy: .public)s of being asked; failing the session")
+            self.fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.", reason: .unresponsiveAfterCheck, cause: .hostUnresponsive)
+        }
+    }
+}

@@ -31,7 +31,11 @@ internal fun text(color: ColorProvider, size: Int, weight: FontWeight = FontWeig
     TextStyle(color = color, fontSize = size.sp, fontWeight = weight)
 
 internal fun openLink(context: Context, link: String): Action =
-    actionStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)).setClass(context, MainActivity::class.java))
+    actionStartActivity(
+        Intent(Intent.ACTION_VIEW, Uri.parse(link))
+            .setClass(context, MainActivity::class.java)
+            .putExtra(LinkNonce.EXTRA, LinkNonce.load(context.noBackupFilesDir)),
+    )
 
 @Composable
 internal fun Icon(drawable: Int, color: ColorProvider, size: Int, modifier: GlanceModifier = GlanceModifier) {

@@ -139,7 +139,7 @@ struct AgentCommitSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             Label(resultTitle(result), systemImage: result.succeeded ? "checkmark.circle" : "exclamationmark.triangle")
                 .font(.system(size: 15, weight: .semibold)).foregroundStyle(ColorPalette.ink)
-            Text(verbatim: result.message).font(.system(size: 12, design: .monospaced))
+            Text(verbatim: HostWireText.localized(result.message)).font(.system(size: 12, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.7)).textSelection(.enabled)
         }
         .padding(16)
@@ -172,7 +172,7 @@ struct AgentCommitSheet: View {
             case .nothingToPush:
                 Text("Everything on this branch is already pushed.").font(.subheadline).foregroundStyle(.secondary)
             case .blocked(let reason):
-                Text(verbatim: reason).font(.subheadline).foregroundStyle(.secondary)
+                Text(verbatim: HostWireText.localized(reason)).font(.subheadline).foregroundStyle(.secondary)
             }
         }
         .padding(16)

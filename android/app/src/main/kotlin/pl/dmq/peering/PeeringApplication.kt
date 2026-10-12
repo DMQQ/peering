@@ -5,6 +5,7 @@ import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import pl.dmq.peering.platform.PlatformLog
 import pl.dmq.peering.ui.FeatureWiring
 import pl.dmq.peering.ui.wiring.HubDependencies
 
@@ -24,6 +25,7 @@ class PeeringApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        PlatformLog.enabled = BuildConfig.DEBUG
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate + survivableErrorHandler())
         val preferences = getSharedPreferences(MainActivity.PREFERENCES_NAME, Context.MODE_PRIVATE)
         val wiring = FeatureWiring(graph, scope, preferences)

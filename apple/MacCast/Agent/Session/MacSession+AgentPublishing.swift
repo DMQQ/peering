@@ -55,7 +55,7 @@ extension MacSession {
                 symbol: "exclamationmark.triangle.fill",
                 title: session.title,
                 summary: String(localized: "The chat stopped with an error."),
-                body: session.failure,
+                body: HostWireText.localized(session.failure),
                 needsYou: true,
                 target: .chat(session.id)
             )

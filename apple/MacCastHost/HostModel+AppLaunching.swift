@@ -76,13 +76,29 @@ extension HostModel {
         return byFrame ?? byName
     }
 
+    private static func windowNotFound(for action: WindowAction) -> LocalizedStringResource {
+        switch action {
+        case .close: "Could not find that window to close"
+        case .minimize: "Could not find that window to minimize"
+        case .zoom: "Could not find that window to zoom"
+        }
+    }
+
+    private static func windowButtonMissing(for action: WindowAction) -> LocalizedStringResource {
+        switch action {
+        case .close: "That window has no close button"
+        case .minimize: "That window has no minimize button"
+        case .zoom: "That window has no zoom button"
+        }
+    }
+
     /// Presses a window's close, minimise or zoom button, then refreshes the catalogue so the
     /// phone's list follows.
     func performWindowAction(_ action: WindowAction, windowID: CGWindowID) {
         guard let pid = Self.owningProcess(of: .window(windowID)),
               let window = Self.accessibilityWindow(windowID, ofProcess: pid)
         else {
-            record("Could not find that window to \(action.rawValue)", level: .failure)
+            record(Self.windowNotFound(for: action), level: .failure)
             return
         }
         let buttonAttribute = switch action {
@@ -97,7 +113,7 @@ extension HostModel {
         } else if action == .minimize {
             AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
         } else {
-            record("That window has no \(action.rawValue) button", level: .failure)
+            record(Self.windowButtonMissing(for: action), level: .failure)
             return
         }
         Task { @MainActor [weak self] in
@@ -387,8 +403,7 @@ extension HostModel {
                 }
             }
             if let lastError { Analytics.failed(lastError, in: .appLaunching) }
-            let message = (lastError as? LocalizedError)?.errorDescription
-                ?? lastError.map(String.init(describing:))
+            let message: LocalizedStringResource = lastError.map(HostFailureText.resource(for:))
                 ?? "The application did not expose a capturable window."
             await MainActor.run { self.record("Could not switch to application: \(message)", level: .failure) }
         }

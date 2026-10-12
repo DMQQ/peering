@@ -71,7 +71,7 @@ extension HostStatusView {
 
                     // Two sentences: on the network the phone reads the code and this person confirms; over the relay this person reads the digits out.
                     Text(pairing.isRemote
-                         ? "This iPhone reached this Mac over the relay, so it is not on this network. Read the six digits out to whoever is holding it: they enter them on the iPhone, and the pairing only goes through if they match."
+                         ? String(localized: "This iPhone reached this Mac over the relay, so it is not on this network. Read the six digits out to whoever is holding it: they enter them on the iPhone, and the pairing only goes through if they match.")
                          : String(localized: "Scan this code with Peering, or enter the six digits on \(pairing.clientName)."))
                         .font(.callout)
                         .foregroundStyle(HostPalette.muted)

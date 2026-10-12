@@ -40,7 +40,7 @@ extension HostModel {
             identity = try SelfSignedIdentity.loadOrCreate(role: .server, commonName: device.name)
         } catch {
             Analytics.failed(error, in: .network)
-            let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            let message = HostFailureText.resource(for: error)
             status = .failed(message)
             record("Identity unavailable: \(message)", level: .failure)
             return
@@ -90,7 +90,7 @@ extension HostModel {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 HostTelemetry.capture(error)
-                self.apply(.failed(error.localizedDescription))
+                self.apply(.failed(verbatim: error.localizedDescription))
                 self.announceCaptureProblem(error)
             }
         }
@@ -343,7 +343,7 @@ extension HostModel {
             server.externalApprovalResolver = terminalHooks.resolver
         } catch {
             Analytics.failed(error, in: .network)
-            let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            let message = HostFailureText.resource(for: error)
             status = .failed(message)
             record(message)
             Analytics.serverStartFailed()
@@ -404,8 +404,7 @@ extension HostModel {
                 self?.pendingCaptureSource = nil
             } catch {
                 Analytics.failed(error, in: .capture)
-                let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-                self?.record("Could not switch capture source: \(message)", level: .failure)
+                self?.record("Could not switch capture source: \(HostFailureText.resource(for: error))", level: .failure)
                 // And the Mac stops offering it: a window that closed or one ScreenCaptureKit lists but will not render would otherwise stay in the picker as a dead row. Windows and applications only. See CaptureSourceResolver/markUncapturable(_:).
                 if let capture = error as? CaptureError, case .sourceUnavailable = capture {
                     switch source {

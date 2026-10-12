@@ -104,7 +104,7 @@ extension HostStatusView {
         let rates = model.resources.rates
         let memory = model.resources.memoryBytes
         return overviewTile(symbol: "gauge.with.dots.needle.50percent", title: String(localized: "Cost to this Mac")) {
-            Text(rates.map { String(localized: "\(HostResourceSampler.cpuPercent($0)) CPU") } ?? "Measuring…")
+            Text(rates.map { String(localized: "\(HostResourceSampler.cpuPercent($0)) CPU") } ?? String(localized: "Measuring…"))
                 .font(.system(size: 14, weight: .semibold).monospacedDigit())
                 .contentTransition(.numericText())
             Text([

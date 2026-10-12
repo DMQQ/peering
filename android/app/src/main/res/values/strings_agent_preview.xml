@@ -27,4 +27,5 @@
     <string name="preview_fail_not_allowed_detail">The preview can only open plain pages on localhost.</string>
     <string name="preview_fail_busy_detail">Too many requests are waiting. Try again in a moment.</string>
     <string name="preview_fail_failed_detail">The computer could not fetch it.</string>
+    <string name="preview_reply_not_carried">Requests that send data are not carried by the preview.</string>
 </resources>

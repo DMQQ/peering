@@ -58,6 +58,18 @@ class RelayConnectTest {
     }
 
     @Test
+    fun theRemainingSecondsOfTheGrantAreCarriedOntoTheSession() = runTest {
+        signalling.reply(sessionReady().copy(remainingSeconds = 1703))
+        assertEquals(1703L, relay.requestSession("host-1", "client-1").remainingSeconds)
+    }
+
+    @Test
+    fun aGrantWithoutRemainingSecondsLeavesThemNull() = runTest {
+        signalling.reply(sessionReady())
+        assertNull(relay.requestSession("host-1", "client-1").remainingSeconds)
+    }
+
+    @Test
     fun connectCarriesTheClientProofOverTheClientIdAndTheClockTime() = runTest {
         signalling.reply(sessionReady())
 

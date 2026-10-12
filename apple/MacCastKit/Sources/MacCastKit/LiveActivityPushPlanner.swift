@@ -7,13 +7,12 @@ import RemoteCore
 public struct LiveActivityPushPlanner: Sendable {
     /// The relay lets a token through at one a second once its burst is spent.
     public static let minimumGap: TimeInterval = 1
-    /// How long a card about finished work stays up for a tap before the Mac takes it down.
+    /// How long a card about finished work stays up for a tap. The Mac sends the `end` at this mark and the card goes with it.
     public static let finishedLinger: TimeInterval = 30 * 60
 
     private struct Channel {
         var tokens: ActivityTokenPayload?
         var lastSent: Sent?
-        var lastSentAt: Date?
         var startSent = false
         /// When the headline became work that has stopped, for the linger.
         var settledSince: Date?
@@ -32,6 +31,8 @@ public struct LiveActivityPushPlanner: Sendable {
     }
 
     private var channels: [LiveActivityKind: Channel] = [:]
+    /// When each token was last pushed to. The relay limits per token, so the gap is too, whichever card the push was for.
+    private var lastPushAt: [String: Date] = [:]
     private var latest: LiveActivityTruth?
     private var presence = PhonePresence.gone
     private var held = false
@@ -65,17 +66,26 @@ public struct LiveActivityPushPlanner: Sendable {
         }
     }
 
-    /// Records the state and returns what is due now.
-    public mutating func observe(_ truth: LiveActivityTruth?, presence: PhonePresence, now: Date) -> [LiveActivityCommand] {
+    /// Records the state and returns what is due now. `ignoringGap` is for the host stopping, whose `end` has no later chance to go.
+    public mutating func observe(
+        _ truth: LiveActivityTruth?,
+        presence: PhonePresence,
+        now: Date,
+        ignoringGap: Bool = false
+    ) -> [LiveActivityCommand] {
         latest = truth
         self.presence = presence
-        return evaluate(now: now)
+        return evaluate(now: now, ignoringGap: ignoringGap)
     }
 
     /// When an update held back for the rate limit should go, or a card about finished work should come down.
     public var nextDue: Date? {
-        let lingering = channels.values.compactMap { $0.settledSince?.addingTimeInterval(Self.finishedLinger) }
-        let gap = held ? channels.values.compactMap { $0.lastSentAt?.addingTimeInterval(Self.minimumGap) } : []
+        let lingering = channels.values.compactMap { channel -> Date? in
+            guard let due = channel.settledSince?.addingTimeInterval(Self.finishedLinger) else { return nil }
+            guard let token = channel.tokens?.pushToken, let last = lastPushAt[token] else { return due }
+            return max(due, last.addingTimeInterval(Self.minimumGap))
+        }
+        let gap = held ? lastPushAt.values.map { $0.addingTimeInterval(Self.minimumGap) } : []
         return (lingering + gap).min()
     }
 
@@ -89,8 +99,9 @@ public struct LiveActivityPushPlanner: Sendable {
         evaluate(now: now)
     }
 
-    private mutating func evaluate(now: Date) -> [LiveActivityCommand] {
+    private mutating func evaluate(now: Date, ignoringGap: Bool = false) -> [LiveActivityCommand] {
         held = false
+        lastPushAt = lastPushAt.filter { now.timeIntervalSince($0.value) < Self.minimumGap }
         guard presence != .foreground else {
             // The app shows its own state now, so what it shows when it leaves again is not what was last pushed.
             for kind in channels.keys {
@@ -100,10 +111,15 @@ public struct LiveActivityPushPlanner: Sendable {
             return []
         }
         guard let truth = latest else { return [] }
-        return LiveActivityKind.allCases.compactMap { command(for: $0, truth: truth, now: now) }
+        return LiveActivityKind.allCases.compactMap { command(for: $0, truth: truth, now: now, ignoringGap: ignoringGap) }
     }
 
-    private mutating func command(for kind: LiveActivityKind, truth: LiveActivityTruth, now: Date) -> LiveActivityCommand? {
+    private mutating func command(
+        for kind: LiveActivityKind,
+        truth: LiveActivityTruth,
+        now: Date,
+        ignoringGap: Bool
+    ) -> LiveActivityCommand? {
         guard var channel = channels[kind], let tokens = channel.tokens else { return nil }
         defer { channels[kind] = channel }
 
@@ -116,13 +132,13 @@ public struct LiveActivityPushPlanner: Sendable {
         else { return nil }
         let sent = Self.sent(from: truth)
         guard event == .end || sent != channel.lastSent else { return nil }
-        if event != .end, let sentAt = channel.lastSentAt, now.timeIntervalSince(sentAt) < Self.minimumGap {
+        if !ignoringGap, let sentAt = lastPushAt[token], now.timeIntervalSince(sentAt) < Self.minimumGap {
             held = true
             return nil
         }
         let alert = event == .end ? nil : Self.alert(for: truth, channel: &channel, kind: kind)
         channel.lastSent = sent
-        channel.lastSentAt = now
+        lastPushAt[token] = now
         Self.settle(&channel, headline: kind == .agentChat ? truth.topChat : nil, now: now)
         if event == .end {
             // The activity is over; a later one can only be started by a push-to-start token.
@@ -134,7 +150,7 @@ public struct LiveActivityPushPlanner: Sendable {
     }
 
     /// No activity is running to update, so only something that needs the person justifies starting one.
-    private func start(
+    private mutating func start(
         _ kind: LiveActivityKind,
         truth: LiveActivityTruth,
         tokens: ActivityTokenPayload,
@@ -145,8 +161,12 @@ public struct LiveActivityPushPlanner: Sendable {
         guard kind == .agentChat, truth.phase != .ended,
               truth.waitingCount > 0, !channel.startSent, let startToken = tokens.pushToStartToken
         else { return nil }
+        if let sentAt = lastPushAt[startToken], now.timeIntervalSince(sentAt) < Self.minimumGap {
+            held = true
+            return nil
+        }
         channel.startSent = true
-        channel.lastSentAt = now
+        lastPushAt[startToken] = now
         if let top = truth.topChat { channel.announced[top.id] = top.state }
         return make(kind, .start, startToken, tokens.environment, truth, alert: .needsApproval)
     }
@@ -214,7 +234,7 @@ public struct LiveActivityPushPlanner: Sendable {
             truth: truth,
             priority: alert == nil ? nil : 10,
             alert: alert,
-            dismissalSeconds: event == .end && settledChat ? UInt32(Self.finishedLinger) : nil
+            dismissalSeconds: event == .end && settledChat ? 0 : nil
         )
     }
 

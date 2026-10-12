@@ -16,6 +16,28 @@ public enum ClientStateSupport {
     }
 }
 
+/// What the app last asked the Mac to be told, and what the Mac has been told, so a notice that could not go yet goes when it can.
+struct ClientStateNotice: Equatable {
+    private(set) var wanted = false
+    private(set) var sent = false
+
+    mutating func want(_ background: Bool) {
+        wanted = background
+    }
+
+    /// - Returns: the state to send now, or nil when the Mac already has it, is not ready, or did not declare it takes the notice.
+    mutating func takePending(isReady: Bool, hostDeclared: Bool?) -> Bool? {
+        guard isReady, ClientStateSupport.maySend(toHostDeclared: hostDeclared), sent != wanted else { return nil }
+        sent = wanted
+        return wanted
+    }
+
+    /// A new session knows nothing of what an earlier one was told.
+    mutating func startOver() {
+        sent = false
+    }
+}
+
 /// How long the host lets a session stay silent before ending it.
 public enum SessionSilenceLimits {
     public static let authorized: TimeInterval = 60

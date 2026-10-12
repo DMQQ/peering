@@ -13,7 +13,7 @@ extension AgentChangesScreen {
                 DiffCounts(added: overview.added, removed: overview.removed, font: .system(size: 13, weight: .semibold, design: .monospaced))
             }
             if let message = overview.message {
-                Text(verbatim: message).font(.caption).foregroundStyle(.secondary)
+                Text(verbatim: HostWireText.localized(message)).font(.caption).foregroundStyle(.secondary)
             }
             if overview.isTruncated {
                 Text("This project is large, so only part of it is listed.").font(.caption).foregroundStyle(.secondary)

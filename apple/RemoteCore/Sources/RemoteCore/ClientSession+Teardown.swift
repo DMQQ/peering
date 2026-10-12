@@ -77,3 +77,48 @@ extension ClientSession {
         control?.cancel()
     }
 }
+
+extension ClientSession {
+    // MARK: - Teardown
+
+    public func disconnect() {
+        lock.lock()
+        connectGeneration &+= 1
+        let control = self.control
+        let video = self.video
+        let videoConnect = self.videoConnectTask
+        let videoReconnect = self.videoReconnectTask
+        let relayProxy = self.relayProxy
+        let datagrams = self.videoDatagrams
+        self.control = nil
+        self.video = nil
+        self.videoConnectTask = nil
+        self.videoReconnectTask = nil
+        self.relayProxy = nil
+        self.videoDatagrams = nil
+        self.relaySession = nil
+        directPathTask?.cancel()
+        directPathTask = nil
+        reportedPath = .relay
+        usesRelayedSingleStream = false
+        pingTask?.cancel()
+        pingTask = nil
+        let videoWatch = stopVideoWatchLocked()
+        state = .idle
+        _phase = .disconnected
+        ephemeral = nil
+        nonce = nil
+        remoteCommitment = nil
+        lock.unlock()
+
+        videoWatch?.cancel()
+        videoConnect?.cancel()
+        videoReconnect?.cancel()
+        coalescer.flush()
+        video?.cancel()
+        datagrams?.cancel()
+        control?.cancel()
+        relayProxy?.cancel()
+        emit(.phase(.disconnected))
+    }
+}

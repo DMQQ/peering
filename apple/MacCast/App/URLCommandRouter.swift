@@ -8,16 +8,12 @@ import SwiftUI
 @Observable
 @MainActor
 final class URLCommandRouter {
-    /// Starts locked until the root view says otherwise, so a link that launches the app cannot beat the lock.
-    private(set) var isLocked = true
+    private var gate = URLCommandGate()
     /// The ending command waiting for an answer; the alert reads it.
-    var confirming: URLCommand?
-    private var held: URLCommand?
+    var confirming: URLCommand? { gate.confirming }
 
     func setLocked(_ locked: Bool, model: SessionModel, servers: SSHModel) {
-        isLocked = locked
-        guard !locked, let command = held else { return }
-        held = nil
+        guard let command = gate.setLocked(locked) else { return }
         handle(command, model: model, servers: servers)
     }
 
@@ -27,22 +23,21 @@ final class URLCommandRouter {
     }
 
     func confirm(model: SessionModel, servers: SSHModel) {
-        guard let command = confirming else { return }
-        confirming = nil
+        guard let command = gate.confirm() else { return }
         perform(command, model: model, servers: servers)
     }
 
+    func cancelConfirmation() {
+        gate.cancelConfirmation()
+    }
+
     private func handle(_ command: URLCommand, model: SessionModel, servers: SSHModel) {
-        switch URLCommandPolicy.decide(
+        guard let ready = gate.submit(
             command,
-            isLocked: isLocked,
             hasLiveSession: model.sessions.contains { $0.isLive },
             hasLiveShells: !servers.openShells.isEmpty
-        ) {
-        case .run: perform(command, model: model, servers: servers)
-        case .confirm: confirming = command
-        case .holdUntilUnlock: held = command
-        }
+        ) else { return }
+        perform(ready, model: model, servers: servers)
     }
 
     private func perform(_ command: URLCommand, model: SessionModel, servers: SSHModel) {

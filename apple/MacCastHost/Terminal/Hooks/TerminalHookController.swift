@@ -23,7 +23,7 @@ final class TerminalHookController {
     }
 
     func attach(tokens: @escaping @Sendable () -> [String], push: @escaping ClaudeHookBroker.Push) {
-        broker = ClaudeHookBroker(tokens: tokens, push: push)
+        broker = ClaudeHookBroker(tokens: tokens, push: push, words: .localized)
         listenIfInstalled()
     }
 

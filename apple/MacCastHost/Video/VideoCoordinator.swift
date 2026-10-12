@@ -59,7 +59,7 @@ final class VideoCoordinator: @unchecked Sendable {
 
     /// Called for anything the user should see in the host window. `@Sendable` because this
     /// fires from the capture queue, not the main actor.
-    var onStatus: (@Sendable (String) -> Void)?
+    var onStatus: (@Sendable (LocalizedStringResource) -> Void)?
     var onFailure: (@Sendable (CaptureError) -> Void)?
     /// The first picture after a failure the phone was told about.
     var onCaptureRestored: (@Sendable () -> Void)?

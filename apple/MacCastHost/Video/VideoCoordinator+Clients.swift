@@ -176,11 +176,11 @@ extension VideoCoordinator {
 // A client that asked for no frames is still here, and the status line has to be able to tell that
 // from a client that left: "no video clients" over a session that is still up reads as a bug.
                 let paused = self.lock.withLock { !self.audience.pausedConnections.isEmpty }
-                let reason = paused
+                let reason: LocalizedStringResource = paused
                     ? "Capture stopped · paused by the client"
                     : "Capture stopped · no video clients"
                 self.onStatus?(reason)
-                coordinatorLog.notice("\(reason, privacy: .public)")
+                coordinatorLog.notice("\(reason.englishText, privacy: .public)")
             }
         }
     }

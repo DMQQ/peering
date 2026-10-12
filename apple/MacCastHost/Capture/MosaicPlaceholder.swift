@@ -139,16 +139,16 @@ extension MosaicPlaceholder.Content {
             let running = NSRunningApplication(processIdentifier: processID)
             return Self(
                 title: descriptor?.title ?? running?.localizedName,
-                message: running == nil ? "This application has quit" : "No windows open",
+                message: running == nil ? String(localized: "This application has quit") : String(localized: "No windows open"),
                 icon: icon ?? running?.icon
             )
         case .window:
-            return Self(title: descriptor?.title, message: "This window has closed", icon: icon)
+            return Self(title: descriptor?.title, message: String(localized: "This window has closed"), icon: icon)
         case .display:
-            return Self(title: descriptor?.title, message: "This display is not available", icon: icon)
+            return Self(title: descriptor?.title, message: String(localized: "This display is not available"), icon: icon)
         case .mosaic:
 // Unreachable: a mosaic is never one of its own tiles. Said rather than crashed.
-            return Self(title: nil, message: "Nothing to show", icon: nil)
+            return Self(title: nil, message: String(localized: "Nothing to show"), icon: nil)
         }
     }
 
@@ -156,7 +156,7 @@ extension MosaicPlaceholder.Content {
     static func empty(descriptor: CaptureSourceDescriptor?) -> Self {
         Self(
             title: descriptor?.title,
-            message: "Nothing to show",
+            message: String(localized: "Nothing to show"),
             icon: descriptor?.iconPNGData.flatMap { NSImage(data: $0) }
         )
     }

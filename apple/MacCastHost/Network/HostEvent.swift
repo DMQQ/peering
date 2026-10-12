@@ -16,7 +16,30 @@ enum HostEvent: Sendable {
     /// The session holding the prompt ended before an answer.
     case pairingAbandoned(sessionID: UUID)
 
-    case failed(String)
+    case failed(LocalizedStringResource)
+}
+
+extension HostEvent {
+    /// Text that is already a finished sentence from the system or a library, shown as written.
+    static func failed(verbatim text: String) -> HostEvent {
+        .failed("\(text)")
+    }
+
+    static func failed(because error: any Error) -> HostEvent {
+        .failed(HostFailureText.resource(for: error))
+    }
+}
+
+enum HostFailureText {
+    /// Our own errors word themselves in the Mac's language; anything else is shown as it was written.
+    static func resource(for error: any Error) -> LocalizedStringResource {
+        switch error {
+        case let error as HostSession.SessionError: error.message
+        case let error as HostServer.Failure: error.message
+        case let error as VirtualDisplay.Failure: error.message
+        default: "\((error as? LocalizedError)?.errorDescription ?? "\(error)")"
+        }
+    }
 }
 
 /// A device connected to this Mac right now.

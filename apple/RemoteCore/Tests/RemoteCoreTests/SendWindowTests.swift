@@ -29,7 +29,7 @@ struct SendWindowTests {
         var state = SendWindowState(limit: 100)
         _ = state.reserve(10)
         state.complete(10, errorText: "broken pipe")
-        #expect(state.reserve(1) == .refused(SendWindowFailure(message: "broken pipe")))
+        #expect(state.reserve(1) == .refused(SendWindowFailure.failed("broken pipe")))
     }
 
     @Test func cancellationIsDistinguishableFromAnError() {
@@ -46,7 +46,7 @@ struct SendWindowTests {
         var state = SendWindowState(limit: 100)
         state.complete(0, errorText: "first")
         state.complete(0, errorText: "second")
-        #expect(state.failure?.message == "first")
+        #expect(state.failure == .failed("first"))
     }
 
     @Test func reservationWithinTheLimitReturnsWithoutWaiting() async throws {
@@ -61,6 +61,20 @@ struct SendWindowTests {
         let waiting = Task { try await window.reserve(50) }
         window.complete(100, error: nil)
         try await waiting.value
+    }
+
+    @Test func cancellingTheWaitingTaskEndsTheWaitWithCancellationError() async throws {
+        let window = SendWindow(limit: 10)
+        try await window.reserve(10)
+        let waiting = Task { try await window.reserve(5) }
+        waiting.cancel()
+        await #expect(throws: CancellationError.self) { try await waiting.value }
+    }
+
+    @Test func aWindowCancelIsASendWindowFailureThatSaysCancelled() async throws {
+        let window = SendWindow(limit: 10)
+        window.cancel()
+        await #expect(throws: SendWindowFailure.cancelled) { try await window.reserve(1) }
     }
 
     @Test func cancelFailsAWaitingReservation() async throws {

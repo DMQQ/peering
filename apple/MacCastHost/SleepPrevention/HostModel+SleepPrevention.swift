@@ -184,7 +184,7 @@ extension HostModel {
         // straight back. See ``keepAwakeReleasedByHand``.
         keepAwakeReleasedByHand = true
         await applyKeepAwakeSchedule()
-        record(String(localized: "Let this Mac sleep on its own again; the switches are still set as you left them."))
+        record("Let this Mac sleep on its own again; the switches are still set as you left them.")
     }
 
     /// Asked late on purpose: the last disconnect is often not somebody leaving (an app switch, a dropped connection), so asking at once was a reaction and two hours later is a reminder.
@@ -255,10 +255,9 @@ extension HostModel {
             // nil removes the key; the read at launch expects that, not a sentinel.
             UserDefaults.standard.set(hour, forKey: Self.wakeScheduleHourKey)
             if let hour {
-                // record takes a plain string: interpolation, not os_log (privacy: belongs to the logger).
-                record(String(localized: "This Mac will wake itself at \(LidCloseSleep.hourString(hour).prefix(5)) every day"))
+                record("This Mac will wake itself at \(String(LidCloseSleep.hourString(hour).prefix(5))) every day")
             } else {
-                record(String(localized: "The daily wake is off; this Mac sleeps until something wakes it"))
+                record("The daily wake is off; this Mac sleeps until something wakes it")
             }
         case .cancelled:
             return
@@ -468,7 +467,7 @@ extension HostModel {
         case .done:
             await checkLidCloseSleepRule()
             guard lidCloseRuleInstalled == true else {
-                lidCloseFailure = "The rule was written, but sudo does not report it. This Mac has not been changed."
+                lidCloseFailure = String(localized: "The rule was written, but sudo does not report it. This Mac has not been changed.")
                 record("The administrator sleep rule was installed but does not take effect", level: .failure)
                 return false
             }
@@ -503,8 +502,8 @@ extension HostModel {
             return Self.application(of: await LidCloseSleepControl.setSleepDisabledAskingForAdmin(
                 wanted,
                 prompt: wanted
-                    ? "Peering will stop this Mac sleeping with the lid closed."
-                    : "Peering will let this Mac sleep normally again."
+                    ? String(localized: "Peering will stop this Mac sleeping with the lid closed.")
+                    : String(localized: "Peering will let this Mac sleep normally again.")
             ))
         }
 

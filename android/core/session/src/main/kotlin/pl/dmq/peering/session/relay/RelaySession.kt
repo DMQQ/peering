@@ -10,6 +10,8 @@ class RelaySession(
     val video: PeerAddress,
     controlToken: Token,
     videoToken: Token,
+    /** Relay seconds the relay says are left in the window, or null when it did not say. */
+    val remainingSeconds: Long? = null,
 ) {
     val videoTokenBytes: ByteArray = videoToken.toHex().hexToBytes()
 

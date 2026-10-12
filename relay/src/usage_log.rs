@@ -26,8 +26,14 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-/// Client id to (window, seconds used in it).
-pub(crate) type Totals = HashMap<String, (u64, u64)>;
+/// Seconds a client has used in one window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct WindowUsage {
+    pub window: u64,
+    pub seconds: u64,
+}
+
+pub(crate) type Totals = HashMap<String, WindowUsage>;
 
 #[derive(Serialize, Deserialize)]
 struct UsageLine {
@@ -85,7 +91,8 @@ struct UsageLog {
     file: Option<File>,
     /// Bytes in the file, so compaction can be decided without asking the filesystem.
     written: u64,
-    totals: HashMap<String, (u64, u64)>,
+    totals: Totals,
+    full_reported: bool,
     reopen: Backoff,
     compaction: Backoff,
 }
@@ -112,6 +119,7 @@ impl UsageLog {
             file: Some(file),
             written,
             totals: usage.clone(),
+            full_reported: false,
             reopen: Backoff::default(),
             compaction: Backoff::default(),
         };
@@ -125,7 +133,7 @@ impl UsageLog {
     /// would discard every real window below it and the relay would give the day away.
     ///
     /// A line that will not parse is skipped rather than made fatal.
-    fn replay(path: &Path, now_window: u64) -> io::Result<HashMap<String, (u64, u64)>> {
+    fn replay(path: &Path, now_window: u64) -> io::Result<Totals> {
         let text = match fs::read_to_string(path) {
             Ok(text) => text,
             Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(HashMap::new()),
@@ -144,10 +152,10 @@ impl UsageLog {
             entries.push(entry);
         }
 
-        let mut usage: HashMap<String, (u64, u64)> = HashMap::new();
+        let mut usage = Totals::new();
         for entry in entries.into_iter().filter(|entry| entry.w == newest) {
-            let slot = usage.entry(entry.c).or_insert((newest, 0));
-            slot.1 = slot.1.saturating_add(entry.s);
+            let slot = usage.entry(entry.c).or_insert(WindowUsage { window: newest, seconds: 0 });
+            slot.seconds = slot.seconds.saturating_add(entry.s);
         }
         Ok(usage)
     }
@@ -156,14 +164,21 @@ impl UsageLog {
     /// leaves it in the totals for a later rewrite when the file cannot take it.
     fn apply(&mut self, batch: &[Charge], now: Instant) {
         let Some(window) = batch.iter().map(|charge| charge.window).max() else { return };
+        let mut accepted = Vec::with_capacity(batch.len());
         for charge in batch {
-            let entry = self.totals.entry(charge.client_id.clone()).or_insert((charge.window, 0));
-            if entry.0 != charge.window {
-                *entry = (charge.window, 0);
+            if !self.totals.contains_key(&charge.client_id) && !self.has_room_for_new_id(window) {
+                continue;
             }
-            entry.1 = entry.1.saturating_add(charge.secs);
+            let entry = self
+                .totals
+                .entry(charge.client_id.clone())
+                .or_insert(WindowUsage { window: charge.window, seconds: 0 });
+            if entry.window != charge.window {
+                *entry = WindowUsage { window: charge.window, seconds: 0 };
+            }
+            entry.seconds = entry.seconds.saturating_add(charge.secs);
+            accepted.push(charge);
         }
-        self.trim_totals(window);
 
         if self.file.is_none() {
             if self.reopen.ready(now) {
@@ -178,7 +193,7 @@ impl UsageLog {
             return;
         }
 
-        if let Err(error) = self.append(batch) {
+        if let Err(error) = self.append(&accepted) {
             warn!(%error, "could not write to the usage log; charges are kept in memory and it will be rewritten");
             self.file = None;
             self.reopen.failed(now);
@@ -196,7 +211,7 @@ impl UsageLog {
         }
     }
 
-    fn append(&mut self, batch: &[Charge]) -> io::Result<()> {
+    fn append(&mut self, batch: &[&Charge]) -> io::Result<()> {
         let Some(file) = self.file.as_mut() else { return Ok(()) };
         let mut text = String::new();
         for charge in batch {
@@ -215,16 +230,21 @@ impl UsageLog {
         Ok(())
     }
 
-    fn trim_totals(&mut self, window: u64) {
-        if self.totals.len() <= MAX_MIRRORED_CLIENTS {
-            return;
+    /// A new id past the cap is refused outright, after dropping ids from older windows: the
+    /// tracker evicts at half this size, so only a flood of fresh ids reaches it.
+    fn has_room_for_new_id(&mut self, window: u64) -> bool {
+        if self.totals.len() < MAX_MIRRORED_CLIENTS {
+            return true;
         }
-        self.totals.retain(|_, (entry_window, _)| *entry_window == window);
-        let excess = self.totals.len().saturating_sub(MAX_MIRRORED_CLIENTS);
-        let doomed: Vec<String> = self.totals.keys().take(excess).cloned().collect();
-        for id in doomed {
-            self.totals.remove(&id);
+        self.totals.retain(|_, usage| usage.window == window);
+        if self.totals.len() < MAX_MIRRORED_CLIENTS {
+            return true;
         }
+        if !self.full_reported {
+            self.full_reported = true;
+            warn!(limit = MAX_MIRRORED_CLIENTS, "the usage log is tracking its maximum of clients; new ones are not recorded");
+        }
+        false
     }
 
     fn needs_compaction(&self, window: u64) -> bool {
@@ -236,12 +256,12 @@ impl UsageLog {
 
     /// What the file would weigh after a rewrite, near enough to decide with. The id is counted at
     /// its own length because peers choose it and it can be 256 bytes.
-    fn compacted_size(totals: &HashMap<String, (u64, u64)>, window: u64) -> u64 {
+    fn compacted_size(totals: &Totals, window: u64) -> u64 {
         const LINE_OVERHEAD: u64 = 24;
         totals
             .iter()
-            .filter(|(_, (entry_window, secs))| *entry_window == window && *secs > 0)
-            .map(|(id, (_, secs))| LINE_OVERHEAD + id.len() as u64 + secs.to_string().len() as u64)
+            .filter(|(_, usage)| usage.window == window && usage.seconds > 0)
+            .map(|(id, usage)| LINE_OVERHEAD + id.len() as u64 + usage.seconds.to_string().len() as u64)
             .sum()
     }
 
@@ -253,11 +273,11 @@ impl UsageLog {
     /// must leave no handle rather than that one.
     fn rewrite(&mut self, window: u64) -> io::Result<()> {
         let mut body = String::new();
-        for (client_id, (entry_window, secs)) in &self.totals {
-            if *entry_window != window || *secs == 0 {
+        for (client_id, usage) in &self.totals {
+            if usage.window != window || usage.seconds == 0 {
                 continue;
             }
-            let line = serde_json::to_string(&UsageLine { c: client_id.clone(), w: window, s: *secs })
+            let line = serde_json::to_string(&UsageLine { c: client_id.clone(), w: window, s: usage.seconds })
                 .map_err(io::Error::other)?;
             body.push_str(&line);
             body.push('\n');
@@ -376,7 +396,7 @@ mod tests {
         Charge { client_id: client.into(), window: WINDOW, secs }
     }
 
-    fn read_back(path: &Path) -> HashMap<String, (u64, u64)> {
+    fn read_back(path: &Path) -> Totals {
         UsageLog::replay(path, WINDOW).unwrap()
     }
 
@@ -386,8 +406,8 @@ mod tests {
         let (mut log, _) = UsageLog::open(path.clone(), WINDOW).unwrap();
         log.apply(&[charge("a", 5), charge("a", 7), charge("b", 1)], Instant::now());
         let usage = read_back(&path);
-        assert_eq!(usage["a"], (WINDOW, 12));
-        assert_eq!(usage["b"], (WINDOW, 1));
+        assert_eq!(usage["a"], WindowUsage { window: WINDOW, seconds: 12 });
+        assert_eq!(usage["b"], WindowUsage { window: WINDOW, seconds: 1 });
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 
@@ -400,7 +420,7 @@ mod tests {
             WINDOW + 40
         );
         fs::write(&path, text).unwrap();
-        assert_eq!(read_back(&path)["phone"], (WINDOW, 300));
+        assert_eq!(read_back(&path)["phone"], WindowUsage { window: WINDOW, seconds: 300 });
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 
@@ -409,7 +429,7 @@ mod tests {
         let path = scratch("tomorrow");
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, format!("{{\"c\":\"phone\",\"w\":{},\"s\":60}}\n", WINDOW + 1)).unwrap();
-        assert_eq!(read_back(&path)["phone"], (WINDOW + 1, 60));
+        assert_eq!(read_back(&path)["phone"], WindowUsage { window: WINDOW + 1, seconds: 60 });
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 
@@ -424,12 +444,12 @@ mod tests {
         log.reopen.failed(start);
         log.apply(&[charge("a", 10)], start + Duration::from_secs(1));
         assert!(log.file.is_none(), "inside the delay no reopen is attempted");
-        assert_eq!(log.totals["a"].1, 15, "and the charge is still counted");
-        assert_eq!(read_back(&path)["a"].1, 5, "though the file does not have it yet");
+        assert_eq!(log.totals["a"].seconds, 15, "and the charge is still counted");
+        assert_eq!(read_back(&path)["a"].seconds, 5, "though the file does not have it yet");
 
         log.apply(&[charge("a", 1)], start + BACKOFF_FIRST + Duration::from_secs(1));
         assert!(log.file.is_some());
-        assert_eq!(read_back(&path)["a"].1, 16, "the rewrite carries everything the file missed");
+        assert_eq!(read_back(&path)["a"].seconds, 16, "the rewrite carries everything the file missed");
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 
@@ -450,7 +470,7 @@ mod tests {
 
         log.apply(&[charge("a", 5)], start + BACKOFF_FIRST + Duration::from_secs(1));
         assert!(log.written < COMPACT_BYTES, "after the delay the rewrite runs");
-        assert_eq!(read_back(&path)["a"].1, 15);
+        assert_eq!(read_back(&path)["a"].seconds, 15);
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 
@@ -477,7 +497,7 @@ mod tests {
         let path = scratch("nothingtodrop");
         let (mut log, _) = UsageLog::open(path.clone(), WINDOW).unwrap();
         for i in 0..20_000 {
-            log.totals.insert(format!("{i:-<200}"), (WINDOW, 60));
+            log.totals.insert(format!("{i:-<200}"), WindowUsage { window: WINDOW, seconds: 60 });
         }
         assert!(UsageLog::compacted_size(&log.totals, WINDOW) > COMPACT_BYTES);
         log.written = COMPACT_BYTES + 1;
@@ -489,9 +509,9 @@ mod tests {
     fn compaction_is_attempted_when_there_is_something_to_drop() {
         let path = scratch("somethingtodrop");
         let (mut log, _) = UsageLog::open(path.clone(), WINDOW).unwrap();
-        log.totals.insert("phone".into(), (WINDOW, 3_600));
+        log.totals.insert("phone".into(), WindowUsage { window: WINDOW, seconds: 3_600 });
         for i in 0..1_000 {
-            log.totals.insert(format!("yesterday-{i}"), (WINDOW - 1, 3_600));
+            log.totals.insert(format!("yesterday-{i}"), WindowUsage { window: WINDOW - 1, seconds: 3_600 });
         }
         log.written = COMPACT_BYTES + 1;
         assert!(log.needs_compaction(WINDOW));
@@ -506,7 +526,7 @@ mod tests {
             assert!(writer.charge("phone", WINDOW, 2));
         }
         drop(writer);
-        assert_eq!(read_back(&path)["phone"].1, 200);
+        assert_eq!(read_back(&path)["phone"].seconds, 200);
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 
@@ -516,7 +536,36 @@ mod tests {
         let (writer, _) = UsageLogWriter::open(path.clone(), WINDOW).unwrap();
         writer.charge("phone", WINDOW, 9);
         writer.flusher().flush();
-        assert_eq!(read_back(&path)["phone"].1, 9);
+        assert_eq!(read_back(&path)["phone"].seconds, 9);
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn a_new_id_past_the_cap_is_neither_tracked_nor_written() {
+        let path = scratch("cap");
+        let (mut log, _) = UsageLog::open(path.clone(), WINDOW).unwrap();
+        for n in 0..MAX_MIRRORED_CLIENTS {
+            log.totals.insert(format!("filler-{n}"), WindowUsage { window: WINDOW, seconds: 1 });
+        }
+        log.apply(&[charge("newcomer", 5), charge("filler-0", 9)], Instant::now());
+        assert!(!log.totals.contains_key("newcomer"));
+        assert_eq!(log.totals.len(), MAX_MIRRORED_CLIENTS);
+        assert_eq!(log.totals["filler-0"].seconds, 10, "an id already tracked is still charged");
+        let on_disk = read_back(&path);
+        assert!(!on_disk.contains_key("newcomer"), "the file does not grow with ids that were refused");
+        assert_eq!(on_disk["filler-0"].seconds, 9);
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn ids_from_an_older_window_make_room_for_a_new_one() {
+        let path = scratch("capold");
+        let (mut log, _) = UsageLog::open(path.clone(), WINDOW).unwrap();
+        for n in 0..MAX_MIRRORED_CLIENTS {
+            log.totals.insert(format!("old-{n}"), WindowUsage { window: WINDOW - 1, seconds: 1 });
+        }
+        log.apply(&[charge("newcomer", 5)], Instant::now());
+        assert_eq!(log.totals["newcomer"].seconds, 5);
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 }
