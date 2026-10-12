@@ -1,6 +1,6 @@
 //! H.264 encoder through Media Foundation, the `Encoder` port on Windows. Hardware MFTs are tried before the Microsoft
-//! software encoder. Input is an NV12 texture on the capture device, staged with `MftEncoder::stage_texture`; output is
-//! Annex-B from the MFT, converted to AVCC for the wire. The pure parts (settings, candidate order, timing, config
+//! software encoder. Captured textures enter through `MftEncoder::accept_capture`, which converts them to NV12 and stages
+//! them in the `handoff` pipeline; output is Annex-B from the MFT, converted to AVCC for the wire. The pure parts (settings, candidate order, timing, config
 //! changes) are tested on any OS; the Media Foundation calls live in `mft/sys.rs` and `mft/encoder.rs`.
 //!
 //! Compile-checked only, not run on Windows. Unverified: asynchronous hardware MFTs are not event driven yet (no

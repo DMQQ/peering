@@ -5,6 +5,7 @@
 pub mod convert;
 pub mod dda;
 pub mod dpapi;
+pub mod handoff;
 pub mod keyboard;
 pub mod mft;
 pub mod monitors;

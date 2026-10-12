@@ -12,6 +12,7 @@ use windows::Win32::Graphics::Dxgi::{
 };
 
 use crate::dda::{classify, CaptureState, Classification, HresultKind};
+use crate::handoff::FrameHandoff;
 use crate::monitors;
 use open::{open_session, Session};
 
@@ -23,7 +24,7 @@ pub struct DesktopDuplicationCapture {
     target_device_name: Option<String>,
     session: Option<Session>,
     frame_held: bool,
-    texture: Option<ID3D11Texture2D>,
+    captured: Option<FrameHandoff<ID3D11Texture2D>>,
     sequence: u64,
 }
 
@@ -35,15 +36,15 @@ impl DesktopDuplicationCapture {
             target_device_name: None,
             session: None,
             frame_held: false,
-            texture: None,
+            captured: None,
             sequence: 0,
         }
     }
 
-    /// The texture of the frame `poll_frame` last returned. It is valid until the next `poll_frame`, which releases
-    /// the desktop frame it came from.
-    pub fn take_texture(&mut self) -> Option<ID3D11Texture2D> {
-        self.texture.take()
+    /// The texture of the frame `poll_frame` last returned, with its sequence. It is valid until the next `poll_frame`,
+    /// which releases the desktop frame it came from, so the consumer converts it before polling again.
+    pub fn take_captured(&mut self) -> Option<FrameHandoff<ID3D11Texture2D>> {
+        self.captured.take()
     }
 
     pub fn access_losses(&self) -> u32 {
@@ -55,7 +56,7 @@ impl DesktopDuplicationCapture {
     }
 
     fn release_frame(&mut self) {
-        self.texture = None;
+        self.captured = None;
         if std::mem::take(&mut self.frame_held) {
             if let Some(session) = &self.session {
                 // SAFETY: `frame_held` means a frame was acquired on this duplication and not yet released.
@@ -108,7 +109,12 @@ impl DesktopDuplicationCapture {
         self.sequence += 1;
         self.state.frame_arrived();
         let frame = RawFrame { width: desc.Width, height: desc.Height, sequence: self.sequence };
-        self.texture = Some(texture);
+        self.captured = Some(FrameHandoff {
+            sequence: frame.sequence,
+            width: frame.width,
+            height: frame.height,
+            texture,
+        });
         Some(frame)
     }
 

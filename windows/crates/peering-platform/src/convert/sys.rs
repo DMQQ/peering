@@ -17,6 +17,8 @@ use windows::Win32::Graphics::Direct3D11::{
 };
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_NV12, DXGI_RATIONAL, DXGI_SAMPLE_DESC};
 
+use crate::handoff::FrameHandoff;
+
 /// Colour space bit layout: YCbCr matrix at bit 2 (1 = BT.709), nominal range at bits 4 to 5.
 const RGB_FULL_RANGE: u32 = 2 << 4;
 const BT709_LIMITED_YCBCR: u32 = (1 << 2) | (1 << 4);
@@ -43,12 +45,16 @@ impl Nv12Converter {
         Self { stage: None }
     }
 
-    /// Converts `input` into an NV12 texture of `output_size`, rounded to even sides. The returned texture is reused by
-    /// the next call, so the consumer must finish with it before converting again.
-    pub fn convert(&mut self, input: &ID3D11Texture2D, output_size: (u32, u32)) -> Result<ID3D11Texture2D> {
-        let input_size = texture_size(input)?;
+    /// Converts `input` into an NV12 frame of `output_size`, rounded to even sides, with the same sequence. The returned
+    /// texture is reused by the next call, so the consumer must finish with it before converting again.
+    pub fn convert(
+        &mut self,
+        input: &FrameHandoff<ID3D11Texture2D>,
+        output_size: (u32, u32),
+    ) -> Result<FrameHandoff<ID3D11Texture2D>> {
+        let input_size = texture_size(&input.texture)?;
         let output_size = even_size(output_size.0, output_size.1);
-        let device = device_of(input)?;
+        let device = device_of(&input.texture)?;
         let reusable = self.stage.as_ref().is_some_and(|stage| {
             stage.input_size == input_size
                 && stage.output_size == output_size
@@ -58,8 +64,13 @@ impl Nv12Converter {
             self.stage = Some(Stage::build(device, input_size, output_size)?);
         }
         let stage = self.stage.as_ref().ok_or_else(|| Error::from(E_FAIL))?;
-        stage.blit(input)?;
-        Ok(stage.output_texture.clone())
+        stage.blit(&input.texture)?;
+        Ok(FrameHandoff {
+            sequence: input.sequence,
+            width: output_size.0,
+            height: output_size.1,
+            texture: stage.output_texture.clone(),
+        })
     }
 }
 
