@@ -34,7 +34,7 @@ class PreviewReply(
         }
 
         /** A short plain-text answer for a request that could not be carried. */
-        fun failure(reason: PreviewFailure): PreviewReply = text(statusFor(reason), "Preview: ${reason.name.lowercase()}")
+        fun failure(reason: PreviewFailure, texts: PreviewTexts): PreviewReply = text(statusFor(reason), texts.failure(reason))
 
         fun text(status: Int, message: String): PreviewReply =
             PreviewReply(status, reasonPhrase(status), "text/plain", "utf-8", emptyMap(), ByteArrayInputStream(message.toByteArray()))
