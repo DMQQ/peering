@@ -117,31 +117,31 @@ extension HostModel {
         self.coordinator = coordinator
 
         let server = HostServer(identity: identity, device: device, pins: pins, port: port)
-        server.onEvent = { [weak self] event in
+        server.callbacks.onEvent = { [weak self] event in
             Task { @MainActor [weak self] in self?.apply(event) }
         }
 
         // The server has already established that an authorized control session holds this client key; not repeated here.
-        server.onVideoConnection = { [weak coordinator] peer in
+        server.callbacks.onVideoConnection = { [weak coordinator] peer in
             coordinator?.handleVideoConnection(peer)
         }
 
         // Straight through, off the main actor: it concerns sockets and an encoder, and must reach the pipeline with the connection it arrived on.
-        server.onVideoTransport = { [weak coordinator] clientKey, request, controlPeer in
+        server.callbacks.onVideoTransport = { [weak coordinator] clientKey, request, controlPeer in
             coordinator?.setVideoTransport(request, clientKey: clientKey, controlPeer: controlPeer)
         }
 
         // The relay datagram path: the answer is the sealing secret, or nil, which the session turns into silence.
-        server.onVideoKeyRequest = { [weak coordinator] clientKey, relay in
+        server.callbacks.onVideoKeyRequest = { [weak coordinator] clientKey, relay in
             coordinator?.enableVideoDatagrams(clientKey: clientKey, relay: relay)
         }
 
         // Nothing here ends a session: a client asking for no frames keeps its control channel, shells and the sleep assertion.
-        server.onVideoEnabled = { [weak coordinator] clientKey, enabled in
+        server.callbacks.onVideoEnabled = { [weak coordinator] clientKey, enabled in
             coordinator?.setVideoEnabled(enabled, clientKey: clientKey)
         }
 
-        server.onClientVideoCodecs = { [weak coordinator] clientKey, codecs in
+        server.callbacks.onClientVideoCodecs = { [weak coordinator] clientKey, codecs in
             coordinator?.setDeclaredVideoCodecs(codecs, clientKey: clientKey)
         }
 
@@ -154,7 +154,7 @@ extension HostModel {
                 textFocusWatcher.clicked(at: input.clickLocation)
             }
         }
-        server.onCommand = { [weak self] command in
+        server.callbacks.onCommand = { [weak self] command in
             if case .setCaptureSource(let source) = command {
                 Task { @MainActor [weak self] in
                     self?.pendingCaptureSource = source
@@ -270,11 +270,11 @@ extension HostModel {
         }
 
         // Asked of the pasteboard, not one type: only this end can tell a picture from text. Hops to the main thread because NSPasteboard is not safe elsewhere.
-        server.onRequestClipboard = { reply in
+        server.callbacks.onRequestClipboard = { reply in
             DispatchQueue.main.async { reply(ClipboardPasteboard.read()) }
         }
         // The session holds later commands until `done`, so a ⌘V sent straight after the push pastes what was pushed without the network queue waiting on the main thread.
-        server.onReceiveClipboard = { payload, done in
+        server.callbacks.onReceiveClipboard = { payload, done in
             DispatchQueue.main.async {
                 ClipboardPasteboard.write(payload)
                 done()
@@ -296,20 +296,20 @@ extension HostModel {
                     Task { @MainActor [weak self] in self?.record(message) }
                 }
             )
-            server.onPushNeeded = { [weak registration] token, title, message in
+            server.callbacks.onPushNeeded = { [weak registration] token, title, message in
                 registration?.notifyDevice(token: token, title: title, body: message)
             }
-            server.onAgentPushNeeded = { [weak registration] token, title, message, action in
+            server.callbacks.onAgentPushNeeded = { [weak registration] token, title, message, action in
                 registration?.notifyDevice(token: token, title: title, body: message, action: action)
             }
-            server.onActivityPush = { [weak registration] push, done in
+            server.callbacks.onActivityPush = { [weak registration] push, done in
                 guard let registration else { return done() }
                 registration.notifyActivity(push, completion: done)
             }
             registration.onActivityRefused = { [weak server] reason, requestId in
                 server?.activityPushRefused(reason, requestId: requestId)
             }
-            server.onAgentActivity = { [weak self] active in
+            server.callbacks.onAgentActivity = { [weak self] active in
                 Task { @MainActor [weak self] in self?.setAgentActivity(active) }
             }
             relayRegistration = registration
