@@ -365,6 +365,8 @@ class SessionController(
                 hostPointer = live.hostPointer,
                 phase = it.phase.withPath(live.path),
                 qualityCeiling = QualityCeiling.of(live.path, ports.quality.unlimitedRelay()),
+                directPath = live.directPathState,
+                videoStream = live.videoStream,
             )
         }
     }

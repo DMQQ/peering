@@ -4,7 +4,9 @@ import pl.dmq.peering.session.clipboard.ClipboardContent
 import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.MosaicLayout
+import pl.dmq.peering.session.relay.DirectPathState
 import pl.dmq.peering.wire.QualityTier
+import pl.dmq.peering.wire.VideoStreamConfig
 
 /** Everything the session screen shows. Changes are published as one value, so a screen never sees half an update. */
 data class SessionUiState(
@@ -21,4 +23,8 @@ data class SessionUiState(
     /** The computer's own report of its pointer, or null before one arrived. */
     val hostPointer: HostPointer? = null,
     val qualityCeiling: QualityTier = QualityTier.HIGH,
+    /** How the attempt at a direct path stands, or null when this link makes none (a session on the local network). */
+    val directPath: DirectPathState? = null,
+    /** The codec and size of the stream last configured, or null before the computer sent one. */
+    val videoStream: VideoStreamConfig? = null,
 )

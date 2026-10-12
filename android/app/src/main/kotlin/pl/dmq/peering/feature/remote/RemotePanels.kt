@@ -67,7 +67,10 @@ internal fun RemotePanel(panel: SessionPanel, context: PanelContext) {
             mosaic = MosaicPanel(context.state.mosaic, context.state.rememberedMosaic).takeIf { context.state.supportsMosaic },
         )
         SessionPanel.SETTINGS -> SessionSettingsPanel(
-            model = SessionSettingsModel(context.overlay, context.prefs, ui, context.screen.darkened, macros),
+            model = SessionSettingsModel(
+                context.overlay, context.prefs, ui, context.screen.darkened, macros,
+                SessionFacts.of(context.state.directPath, context.state.videoStream),
+            ),
             actions = SessionSettingsActions(
                 onShowSources = { context.screen.showPanel(SessionPanel.SOURCES) },
                 onChooseQuality = context.quality::choose,

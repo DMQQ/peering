@@ -28,6 +28,7 @@ import pl.dmq.peering.wire.ServerHello
 import pl.dmq.peering.wire.QualityTier
 import pl.dmq.peering.wire.SetStreamQuality
 import pl.dmq.peering.wire.SetVideoEnabled
+import pl.dmq.peering.wire.VideoStreamConfig
 import pl.dmq.peering.wire.VideoTransportKind
 import kotlin.math.roundToInt
 import kotlin.time.Duration
@@ -62,12 +63,13 @@ internal class ConnectedLink(
         noteSeen()
         onPicture()
     }
-    private val lanes = VideoLanes(PictureSink(sink, onPicture = seen), clock, route.videoPeer, route.videoToken)
+    private val streamRecord = StreamRecord(sink)
+    private val lanes = VideoLanes(PictureSink(streamRecord, onPicture = seen), clock, route.videoPeer, route.videoToken)
     private val router = FrameRouter(liveness, commands, lanes, selection, agent, files, terminals)
     private val picture: PictureWatch = PictureWatch(
         clock,
         lane = route.path.takeIf { it == SessionRecord.Path.LAN }?.let {
-            LanVideoLane(videoConnector, route.videoPeer, PictureSink(sink, selection::onVideoConfig, seen))
+            LanVideoLane(videoConnector, route.videoPeer, PictureSink(streamRecord, selection::onVideoConfig, seen))
         },
     )
     private var automatic: AutoQualityPolicy? = null
@@ -80,6 +82,12 @@ internal class ConnectedLink(
     /** The route the picture is on: [SessionRecord.Path.DIRECT] once the Mac's own address has authenticated. */
     val path: SessionRecord.Path
         get() = if (direct?.prober?.state is DirectPathState.Open) SessionRecord.Path.DIRECT else route.path
+
+    /** How the direct path attempt stands, or null when this link makes none. */
+    val directPathState: DirectPathState? get() = direct?.prober?.state
+
+    /** The stream the computer last configured, or null before it did. */
+    val videoStream: VideoStreamConfig? get() = streamRecord.config
 
     /** The notice the host last set, or null when none stands. */
     var notice: String? = null

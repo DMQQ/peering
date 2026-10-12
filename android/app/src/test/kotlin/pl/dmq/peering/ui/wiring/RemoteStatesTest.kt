@@ -114,6 +114,17 @@ class RemoteStatesTest {
     }
 
     @Test
+    fun theDirectPathAndStreamReachTheScreen() {
+        val stream = pl.dmq.peering.wire.VideoStreamConfig("d", pl.dmq.peering.wire.VideoCodec.H264, 1280, 720, listOf("AA"))
+        val session = SessionUiState(directPath = pl.dmq.peering.session.relay.DirectPathState.NoAddress, videoStream = stream)
+
+        val state = remoteUiState(session, null, HubCapabilities.NONE, relayMinutesLeft = null)
+
+        assertEquals(pl.dmq.peering.session.relay.DirectPathState.NoAddress, state.directPath)
+        assertEquals(stream, state.videoStream)
+    }
+
+    @Test
     fun thePictureStatesMapOntoTheScreensThreeStates() {
         assertEquals(PictureState.WAITING, SessionPictureState.Connecting.toScreenPicture())
         assertEquals(PictureState.LIVE, SessionPictureState.Live.toScreenPicture())

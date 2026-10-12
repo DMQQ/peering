@@ -56,7 +56,7 @@ Differs: the iPhone records only what it pulled from the Mac. Android also recor
 Search capsule, screens row, one section per application with window tiles, installed grid of 5 columns, 10 pt titles and 9 pt subtitles match. Open: virtual displays, desktops (Spaces) sections and the window controls on long press are not built on Android; tile minimum width 156 grid versus Android horizontal rows of 98 dp tall tiles.
 
 ## Settings panel
-Section order and search follow SettingsPanel.swift. Open: Recent activity, Direct path, Video and control latency rows, sound toggle, and HEVC badge are absent from the panel; they depend on session facts Android does not publish yet.
+Section order and search follow SettingsPanel.swift. Fixed: Direct path (shown only while a relayed session has not opened one, from the prober's state) and Video (codec and size of the last stream config) rows, published by the session as SessionUiState.directPath and videoStream; the HEVC badge and the control latency row were already there. Open: Recent activity, the sound toggle, and the separate path latency row (Android measures the control connection only).
 
 ## Mosaic
 | iPhone element | Value (Swift) | Android | Status |
@@ -70,7 +70,7 @@ Section order and search follow SettingsPanel.swift. Open: Recent activity, Dire
 | Tap on a tile selects its source | RemoteCanvas onMosaicTap | MosaicTapDetector then MosaicHit through letterbox, zoom and pan | same (no hero zoom transition) |
 | Cursor glyph, joystick and wheel hidden | isShowingMosaic | ChromePolicy.cursorShown and pointerControlsShown | same |
 | Rotation rebuilds the arrangement | refreshMosaicForViewport | layout keeps the shape it was asked for until the user starts it again | open |
-| Hold and drag a tile to reorder, per-tile remove, tile size weights | RemoteScreen+Gestures, MosaicOverlay | not built; reorder by editing the picks | open |
+| Hold and drag a tile to reorder, per-tile remove, tile size weights | RemoteScreen+Gestures, MosaicOverlay | MosaicTileEditor in the Apps panel while a mosaic is up: a row per tile with earlier, later, smaller, larger and remove, each asking the computer for the new arrangement at once; sizes are weights 1 to 3 that share a row's width (the iPhone stores weights but its grid ignores them); one tile left shows that window alone | fixed in the panel; open on the picture (no drag, no remove button over a tile) |
 | Tile outlines and labels drawn over the picture | MosaicOverlay | the host's composited picture is shown as is | open |
 | Dropping tiles whose window closed, remembered arrangement per host | dropClosedMosaicTiles, MosaicArrangementStore | the host draws a card for a gone window; the arrangement lasts for the session only | open |
 | Active state comes from the picture's source id | pictureMosaicLayout | the chosen source (what was asked for) | differs: Android has no per-picture source id yet |
