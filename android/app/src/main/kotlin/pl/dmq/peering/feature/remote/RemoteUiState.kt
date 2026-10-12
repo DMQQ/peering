@@ -1,6 +1,7 @@
 package pl.dmq.peering.feature.remote
 
 import pl.dmq.peering.session.clipboard.ClipboardContent
+import pl.dmq.peering.session.controller.HostPointer
 import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
@@ -36,6 +37,8 @@ data class RemoteUiState(
     val mosaic: MosaicLayout? = null,
     /** The last mosaic asked for, which the panel offers a way back to. */
     val rememberedMosaic: MosaicLayout? = null,
+    /** The computer's own report of where its pointer is, which the cursor glyph follows. */
+    val hostPointer: HostPointer? = null,
 ) {
     val showsMosaic: Boolean get() = chosenSource is CaptureSource.Mosaic
 

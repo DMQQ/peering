@@ -12,7 +12,7 @@ import pl.dmq.peering.wire.RemoteCommand
  * Passes commands on and keeps the client's own copy of where the computer's pointer is, which is what the cursor glyph
  * draws. A touch sends an absolute position, so it replaces the copy; the joystick sends a delta, so the copy advances by
  * the same amount in the same units. It drifts only when the real pointer stops at a screen edge while the thumb keeps
- * pushing, and the next touch corrects it. [pointSize] is the picture's size in the computer's points.
+ * pushing, and the next touch corrects it, as does the computer's own report. [pointSize] is the picture's size in the computer's points.
  */
 class PointerTracker(
     private val target: CommandSink,
@@ -28,6 +28,11 @@ class PointerTracker(
             else -> Unit
         }
         target.send(command)
+    }
+
+    /** The computer said where its pointer is, which beats the copy kept here. */
+    fun report(point: NormalizedPoint) {
+        mutablePosition.value = point.clamped()
     }
 
     private fun advance(dx: Double, dy: Double) {

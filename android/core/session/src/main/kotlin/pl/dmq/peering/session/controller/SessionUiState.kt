@@ -18,5 +18,7 @@ data class SessionUiState(
     val notice: String? = null,
     /** What the computer's clipboard held when last asked, or null before it answered. */
     val hostClipboard: ClipboardContent? = null,
+    /** The computer's own report of its pointer, or null before one arrived. */
+    val hostPointer: HostPointer? = null,
     val qualityCeiling: QualityTier = QualityTier.HIGH,
 )

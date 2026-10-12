@@ -174,4 +174,27 @@ class TrackpadModelTest {
         assertTrue(trackpad.onMove(9, 10.0, 10.0, 0).isEmpty())
         assertTrue(trackpad.onUp(9, 10.0, 10.0, 0).isEmpty())
     }
+
+    @Test
+    fun theVerticalMoveIsScaledByTheHeightNotTheWidth() {
+        val trackpad = model()
+        trackpad.onDown(1, 100.0, 100.0, 0)
+        assertEquals(listOf(PointerAction.MoveTo(0.5, 0.75)), trackpad.onMove(1, 100.0, 300.0, 50))
+    }
+
+    @Test
+    fun sweepSetsThePixelsAFingerCrossesToSpanThePicture() {
+        val trackpad = model()
+        trackpad.sweep(500.0, 250.0)
+        trackpad.onDown(1, 0.0, 0.0, 0)
+        assertEquals(listOf(PointerAction.MoveTo(0.6, 0.6)), trackpad.onMove(1, 50.0, 25.0, 50))
+    }
+
+    @Test
+    fun syncingTheCursorStartsTheNextDragFromThere() {
+        val trackpad = model()
+        trackpad.syncCursor(0.25, 0.5)
+        trackpad.onDown(1, 100.0, 100.0, 0)
+        assertEquals(listOf(PointerAction.MoveTo(0.35, 0.5)), trackpad.onMove(1, 200.0, 100.0, 50))
+    }
 }

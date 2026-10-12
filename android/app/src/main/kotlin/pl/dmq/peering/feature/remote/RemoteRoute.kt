@@ -39,7 +39,7 @@ fun RemoteRoute(model: RemoteModel) {
     val stateNow = rememberUpdatedState(state)
     val tracker = remember(model) { PointerTracker(MosaicGate(model.commands) { stateNow.value.showsMosaic }) { pointerSize(stateNow.value) } }
     val input = remember(model) { ObserveGate(tracker) { prefsNow.value.interaction == InputMode.OBSERVE } }
-    val canvas = remember(model) { RemoteCanvasPresenter(input, prefsNow.value.interaction) }
+    val canvas = remember(model) { RemoteCanvasPresenter(input, prefsNow.value.interaction) { tracker.position.value } }
     val keyboard = remember(model) { KeyboardPresenter(input) { prefsNow.value.keyboardMode } }
     val sources = remember(model) { SourcesPresenter(input) }
     val quality = remember(model) { QualitySheetPresenter(model.quality, scope, onNeedsUpgrade = model::onRelayUpgradeRequested) }
@@ -68,6 +68,7 @@ fun RemoteRoute(model: RemoteModel) {
         canvas.setMode(prefs.interaction)
         if (prefs.interaction != InputMode.OBSERVE) screen.lastControl = prefs.interaction
     }
+    LaunchedEffect(state.hostPointer) { state.hostPointer?.let { tracker.report(it.point) } }
     LaunchedEffect(state.mosaic) { canvas.setMosaic(state.mosaic) }
     LaunchedEffect(state.picturePixels, prefs.fillsScreen) {
         canvas.onPictureChanged(state.picturePixels)

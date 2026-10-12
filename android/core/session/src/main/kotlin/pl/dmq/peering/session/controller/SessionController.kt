@@ -362,6 +362,7 @@ class SessionController(
                 picture = live.pictureState(paused = !pictureEnabled),
                 notice = live.notice,
                 hostClipboard = live.hostClipboard,
+                hostPointer = live.hostPointer,
                 phase = it.phase.withPath(live.path),
                 qualityCeiling = QualityCeiling.of(live.path, ports.quality.unlimitedRelay()),
             )

@@ -17,6 +17,7 @@ import pl.dmq.peering.wire.VideoChunkReassembler
 import pl.dmq.peering.wire.ErrorPayload
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.MessageKind
+import pl.dmq.peering.wire.NormalizedPoint
 import pl.dmq.peering.wire.NoticePayload
 import pl.dmq.peering.wire.TerminalEvent
 
@@ -55,7 +56,13 @@ internal class FrameRouter(
         MessageKind.Error -> onError(frame)
         MessageKind.Notice -> onNotice(frame)
         MessageKind.ClipboardContent -> onClipboard(frame)
+        MessageKind.PointerReport -> onPointerReport(frame)
         else -> emptyList()
+    }
+
+    private fun onPointerReport(frame: Frame): List<SessionEvent> {
+        val point = HandshakeFrames.decode(frame, NormalizedPoint.serializer()) ?: return emptyList()
+        return listOf(SessionEvent.HostPointerMoved(point.clamped()))
     }
 
     private fun onClipboard(frame: Frame): List<SessionEvent> {
