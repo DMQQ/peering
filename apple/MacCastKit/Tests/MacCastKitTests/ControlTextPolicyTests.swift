@@ -84,4 +84,22 @@ import Testing
         #expect(ControlTextPolicy.verdict(forTerminalInput: data) != .fits)
         #expect(ControlTextPolicy.verdict(forTerminalInput: Data(count: 10)) == .fits)
     }
+
+    @Test func aCommitWithAFewFilesAndAShortMessageFits() {
+        #expect(ControlTextPolicy.verdict(forCommitOf: ["a.swift", "b/c.swift"], message: "Fix the thing") == .fits)
+    }
+
+    @Test func aCommitWhosePathsAloneOutgrowTheLimitIsRefused() {
+        let paths = (0..<3_000).map { "Sources/Module/Feature/File\($0)/Implementation.swift" }
+        guard case .tooLong(let bytes, let limit) = ControlTextPolicy.verdict(forCommitOf: paths, message: "ok") else {
+            Issue.record("expected a refusal")
+            return
+        }
+        #expect(bytes > limit)
+    }
+
+    @Test func aCommitMessageThatEscapesPastTheLimitIsRefused() {
+        let message = String(repeating: "\"", count: 40 * 1024)
+        #expect(ControlTextPolicy.verdict(forCommitOf: ["a"], message: message) != .fits)
+    }
 }

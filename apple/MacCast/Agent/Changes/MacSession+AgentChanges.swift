@@ -1,22 +1,31 @@
 import Foundation
+import MacCastKit
 import RemoteCore
 
 extension MacSession {
     func loadAgentChanges(_ id: UUID) {
         agentChangesLoading.insert(id)
-        agentChangesAskedAt[id] = .now
+        agentChangesAskedAt[id] = MonotonicStamp()
         wire?.sendAgent(.changes(sessionID: id))
     }
 
     /// Asked ahead of the screen that shows it, so the answer is usually there when the screen opens. Skipped while one is on its way or a recent one is held.
     func prefetchAgentChanges(_ id: UUID, freshFor seconds: TimeInterval = 20) {
         guard !agentChangesLoading.contains(id) else { return }
-        if let asked = agentChangesAskedAt[id], Date.now.timeIntervalSince(asked) < seconds { return }
+        if let asked = agentChangesAskedAt[id], asked.isWithin(seconds: seconds) { return }
         loadAgentChanges(id)
     }
 
     func commitAgentChanges(_ id: UUID, paths: [String], message: String) {
         guard agentGitBusy[id] == nil else { return }
+        guard ControlTextPolicy.verdict(forCommitOf: paths, message: message) == .fits else {
+            agentGitResults[id] = AgentGitResult(
+                operation: .commit,
+                succeeded: false,
+                message: String(localized: "That commit is too large to send. Choose fewer files or shorten the message.")
+            )
+            return
+        }
         agentGitBusy[id] = .commit
         agentGitResults[id] = nil
         wire?.sendAgent(.commit(sessionID: id, paths: paths, message: message))

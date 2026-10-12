@@ -8,6 +8,7 @@ private final class FakeKeychain: ClientPinBacking, @unchecked Sendable {
     private var items: [String: Data] = [:]
     private var lockedStatus: OSStatus?
     private var failingWrites = false
+    private var failingDeletes = false
 
     func read(_ slot: PinSlot) -> PinRead {
         lock.withLock {
@@ -24,8 +25,17 @@ private final class FakeKeychain: ClientPinBacking, @unchecked Sendable {
         }
     }
 
+    func delete(_ slot: PinSlot) -> Bool {
+        lock.withLock {
+            if lockedStatus != nil || failingDeletes { return false }
+            items["\(slot)"] = nil
+            return true
+        }
+    }
+
     func lockKeychain() { lock.withLock { lockedStatus = errSecInteractionNotAllowed } }
     func unlockKeychain() { lock.withLock { lockedStatus = nil } }
+    func failDeletes() { lock.withLock { failingDeletes = true } }
     func failWrites() { lock.withLock { failingWrites = true } }
     func corruptPrimary() { lock.withLock { items["primary"] = Data("not json".utf8) } }
     func deletePrimary() { lock.withLock { items["primary"] = nil } }
@@ -174,6 +184,65 @@ private final class FakeKeychain: ClientPinBacking, @unchecked Sendable {
         #expect(store.record(hostID: "new", publicKey: other) == false)
         #expect(seen.all == [1])
     }
+
+    @Test func aCorruptPrimaryWithNoBackupIsCorruptAndCanBeReset() {
+        let keychain = FakeKeychain()
+        keychain.corruptPrimary()
+        let store = ClientPinStore(backing: keychain)
+        #expect(store.unreadableState == .corrupt)
+        #expect(store.unreadableState?.canBeReset == true)
+    }
+
+    @Test func aLockedKeychainIsUnavailableAndCannotBeReset() {
+        let keychain = FakeKeychain()
+        keychain.lockKeychain()
+        let store = ClientPinStore(backing: keychain)
+        #expect(store.unreadableState == .keychainUnavailable)
+        #expect(store.unreadableState?.canBeReset == false)
+        #expect(!store.resetCorrupt())
+    }
+
+    @Test func aReadableStoreHasNoUnreadableState() {
+        let store = ClientPinStore(backing: FakeKeychain())
+        #expect(store.unreadableState == nil)
+    }
+
+    @Test func resettingACorruptStoreDeletesBothItemsAndAllowsPairingAgain() {
+        let keychain = FakeKeychain()
+        _ = ClientPinStore(backing: keychain).record(hostID: "old", publicKey: key)
+        keychain.corruptPrimary()
+        keychain.corruptBackup()
+        let store = ClientPinStore(backing: keychain)
+        #expect(store.record(hostID: "new", publicKey: other) == false)
+
+        #expect(store.resetCorrupt())
+
+        #expect(store.unreadableState == nil)
+        #expect(store.isEmpty)
+        #expect(keychain.primaryBytes == nil)
+        #expect(store.record(hostID: "new", publicKey: other))
+        #expect(ClientPinStore(backing: keychain).hostIDs == ["new"])
+    }
+
+    @Test func resetRefusesAReadableStoreSoNoGoodPinIsErased() {
+        let keychain = FakeKeychain()
+        let store = ClientPinStore(backing: keychain)
+        _ = store.record(hostID: "mac", publicKey: key)
+
+        #expect(!store.resetCorrupt())
+        #expect(store.hostIDs == ["mac"])
+    }
+
+    @Test func resetFailsAndStaysCorruptWhenTheItemsCannotBeDeleted() {
+        let keychain = FakeKeychain()
+        keychain.corruptPrimary()
+        let store = ClientPinStore(backing: keychain)
+        keychain.failDeletes()
+
+        #expect(!store.resetCorrupt())
+        #expect(store.unreadableState == .corrupt)
+    }
+
 }
 
 private final class Raised: @unchecked Sendable {

@@ -2,9 +2,9 @@ import Foundation
 import Network
 
 extension ClientSession {
-    /// A failure whose wording needs no name, address or number, from a closed set so the app can say it in the user's language.
+    /// Why a failure happened, from a closed set so the app can say it in the user's language.
     ///
-    /// ``Failure/errorDescription`` stays English for logs. A failure that names a Mac, a version or text the Mac wrote has no cause here: the app shows its sentence as it came.
+    /// ``Failure/errorDescription`` stays English for logs. A few cases carry what the sentence names (a Mac's ID, a version, text the Mac or relay wrote): those values are for display only and must never reach analytics, which reads ``FailureReason``.
     public enum FailureCause: Sendable, Equatable {
         case sessionBusy
         case handshakeTimedOut
@@ -19,6 +19,15 @@ extension ClientSession {
         case relayHostOffline
         case relayUnavailable
         case network(NetworkFailureText.Kind)
+        case protocolMismatch(client: UInt16, host: UInt16)
+        /// The key of the Mac at this address is not the one pinned for it.
+        case identityChanged(hostID: String)
+        case noPinOnFile(hostID: String)
+        case hostIDMismatch(dialled: String, answered: String)
+        /// The relay refused a pair whose protocol versions differ. Either number is nil when the relay's sentence could not be read.
+        case relayVersionMismatch(host: Int?, client: Int?)
+        case relayRefused(message: String)
+        case hostRefused(message: String)
 
         init?(_ error: Error) {
             let cause: FailureCause?
@@ -41,8 +50,33 @@ extension ClientSession {
             case .hostClosed: self = .hostClosed
             case .network(let kind): self = .network(kind)
             case .malformed: self = .handshakeUnreadable
-            case .invalidPort, .cancelled, .refused, .transport: return nil
+            case .refused(let message): self = .hostRefused(message: message)
+            case .invalidPort, .cancelled, .transport: return nil
             }
+        }
+    }
+}
+
+extension ClientSession.FailureCause {
+    /// How the connect screen words a failure on a relay connection that its cause alone decides.
+    public enum Card: Sendable, Equatable {
+        case hostNotRegistered
+        case identityChanged
+        case wrongMac
+        case updateThisApp
+        case updateTheMac
+    }
+
+    public var card: Card? {
+        switch self {
+        case .relayHostOffline: return .hostNotRegistered
+        case .identityChanged: return .identityChanged
+        case .hostIDMismatch: return .wrongMac
+        case .relayVersionMismatch(let host, let client):
+            // When either number is unknown the Mac is blamed: the relay's own wording leaves no better guess.
+            if let host, let client, client < host { return .updateThisApp }
+            return .updateTheMac
+        default: return nil
         }
     }
 }
@@ -54,7 +88,11 @@ extension ClientSession.Failure {
         case .handshakeTimedOut: return .handshakeTimedOut
         case .pinsUnreadable: return .pinsUnreadable
         case .commitmentMismatch, .noServerKey, .unexpected: return .handshakeUnreadable
-        case .protocolMismatch, .pinMismatch, .noPinOnFile, .hostIDMismatch, .identity: return nil
+        case .protocolMismatch(let client, let host): return .protocolMismatch(client: client, host: host)
+        case .pinMismatch(let hostID): return .identityChanged(hostID: hostID)
+        case .noPinOnFile(let hostID): return .noPinOnFile(hostID: hostID)
+        case .hostIDMismatch(let dialled, let answered): return .hostIDMismatch(dialled: dialled, answered: answered)
+        case .identity: return nil
         }
     }
 }
@@ -65,7 +103,23 @@ extension RelaySignallingError {
         case .timedOut: return .relayTimedOut
         case .hostOffline: return .relayHostOffline
         case .nonWebSocketResponse, .unexpectedResponse: return .relayUnavailable
-        case .refused: return nil
+        case .refused(let code, let message):
+            guard code == Self.versionRefusalCode else { return .relayRefused(message: message) }
+            let versions = Self.versions(inRefusal: message)
+            return .relayVersionMismatch(host: versions.host, client: versions.client)
         }
+    }
+
+    /// The relay's code for a pair whose protocol versions differ.
+    static let versionRefusalCode = "version"
+
+    /// The two numbers in the relay's "host speaks v1, client speaks v2".
+    static func versions(inRefusal message: String) -> (host: Int?, client: Int?) {
+        (version(in: message, after: "host speaks v"), version(in: message, after: "client speaks v"))
+    }
+
+    private static func version(in message: String, after marker: String) -> Int? {
+        guard let range = message.range(of: marker) else { return nil }
+        return Int(message[range.upperBound...].prefix(while: { $0.isASCII && $0.isNumber }))
     }
 }

@@ -13,6 +13,8 @@ enum PinRead: Equatable, Sendable {
 protocol ClientPinBacking: Sendable {
     func read(_ slot: PinSlot) -> PinRead
     func write(_ data: Data, to slot: PinSlot) -> Bool
+    /// - Returns: `true` when the item is gone afterwards, including when it was never there.
+    func delete(_ slot: PinSlot) -> Bool
 }
 
 struct KeychainClientPinBacking: ClientPinBacking {
@@ -67,6 +69,19 @@ struct KeychainClientPinBacking: ClientPinBacking {
             transportLog.error("could not add client pins: OSStatus \(added, privacy: .public)")
         }
         return added == errSecSuccess
+    }
+
+    func delete(_ slot: PinSlot) -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: name(slot),
+        ]
+        let status = SecItemDelete(SecretStore.attributes(query))
+        if status != errSecSuccess && status != errSecItemNotFound {
+            transportLog.error("could not delete client pins: OSStatus \(status, privacy: .public)")
+        }
+        return status == errSecSuccess || status == errSecItemNotFound
     }
 
     private static var accessibility: CFString {

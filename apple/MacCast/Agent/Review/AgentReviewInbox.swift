@@ -53,7 +53,7 @@ final class AgentReviewInbox {
 
     /// The chats the Mac should be asked about now, already recorded as asked.
     func chatsToAsk(_ chats: [UUID], reason: AgentReviewRefreshPolicy.Reason) -> [UUID] {
-        policy.chatsToAsk(chats, reason: reason, now: .now)
+        policy.chatsToAsk(chats, reason: reason, now: ContinuousClock.now)
     }
 
     func sendPlan(for chats: [AgentCardDigest]) -> AgentReviewSendPlan {

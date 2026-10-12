@@ -51,7 +51,7 @@ struct SourcesPanel: View {
 
     @State var windowControlsFor: CaptureSourceDescriptor.ID?
     /// When those buttons appeared, so the tap that ends the long press does not also pick the tile.
-    @State var windowControlsShownAt = Date.distantPast
+    @State var windowControlsShownAt: MonotonicStamp?
 
     /// A mode rather than a second panel: the same list with accumulating taps, and a second picker would be the copy that falls behind.
     @State var buildingMosaic = false

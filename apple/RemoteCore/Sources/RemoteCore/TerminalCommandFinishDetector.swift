@@ -68,6 +68,24 @@ public struct TerminalCommandFinishDetector: Sendable {
         return Duration.seconds(shown).formatted(style.locale(locale))
     }
 
+    /// Reads back the English form `spokenDuration` writes ("4s", "2m 5s", "3h 5m"), or `nil` for anything else, such as a Mac set to another language.
+    public static func seconds(fromEnglishSpokenDuration text: String) -> TimeInterval? {
+        let units: [Character: Int] = ["h": 3_600, "m": 60, "s": 1]
+        let parts = text.split(whereSeparator: { $0.isWhitespace })
+        guard (1...3).contains(parts.count) else { return nil }
+        var total = 0
+        var previousUnit = Int.max
+        for part in parts {
+            let digits = part.dropLast()
+            guard let letter = part.last, let unit = units[letter], unit < previousUnit,
+                  !digits.isEmpty, digits.allSatisfy({ $0.isASCII && $0.isNumber }), let value = Int(digits)
+            else { return nil }
+            total += value * unit
+            previousUnit = unit
+        }
+        return TimeInterval(total)
+    }
+
     private static func parse(body: String) -> Finish? {
         let parts = body.split(separator: ";", maxSplits: 2, omittingEmptySubsequences: false)
         guard parts.count == 3,

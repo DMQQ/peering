@@ -8,19 +8,19 @@ public struct BadConnectionWarning: Sendable {
     public static let cooldown: TimeInterval = 300
 
     private var slowReadings = 0
-    private var lastWarnedAt: Date?
+    private var lastWarnedAt: ContinuousClock.Instant?
 
     public init() {}
 
     /// True when this reading is the one to warn on.
-    public mutating func shouldWarn(milliseconds: Double, now: Date = Date()) -> Bool {
+    public mutating func shouldWarn(milliseconds: Double, now: ContinuousClock.Instant = .now) -> Bool {
         guard milliseconds >= Self.thresholdMilliseconds else {
             slowReadings = 0
             return false
         }
         slowReadings += 1
         guard slowReadings >= Self.sustainedReadings else { return false }
-        if let lastWarnedAt, now.timeIntervalSince(lastWarnedAt) < Self.cooldown { return false }
+        if let lastWarnedAt, lastWarnedAt.duration(to: now) < .seconds(Self.cooldown) { return false }
         lastWarnedAt = now
         return true
     }

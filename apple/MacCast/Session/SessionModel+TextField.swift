@@ -32,7 +32,7 @@ extension SessionModel {
 
     private func applyPendingFieldWhenQuiet() {
         guard let state = pendingField, let text = state.text else { return }
-        let wait = Self.fieldSettleTime - Date().timeIntervalSince(lastLocalEdit)
+        let wait = Self.fieldSettleTime - (lastLocalEdit?.elapsedSeconds() ?? Self.fieldSettleTime)
         if wait > 0 {
             Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .seconds(wait))

@@ -220,14 +220,22 @@ extension HomeTab {
         .cardSurface()
     }
 
-    /// Nothing was deleted: the pairings are still in the Keychain, which iOS would not open. The card clears itself once they can be read.
+    /// A locked Keychain deletes nothing: the card clears itself once the pairings can be read. Damaged data cannot be read ever again, so that case offers the reset.
     var pinsUnreadableCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Your paired Macs could not be read", systemImage: "lock.fill")
                 .foregroundStyle(ColorPalette.ink)
-            Text("The iPhone's Keychain was not available. Unlock the iPhone and reopen Peering. Nothing has been removed, and no new pairing is saved until this is fixed.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if model.pinsNeedReset {
+                Text("The pairings saved on this iPhone are damaged and cannot be read. Reset them to pair your Macs again. No new pairing is saved until then.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ResetPairedMacsButton(model: model)
+                    .font(.caption.weight(.semibold))
+            } else {
+                Text("The iPhone's Keychain was not available. Unlock the iPhone and reopen Peering. Nothing has been removed, and no new pairing is saved until this is fixed.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Button("Dismiss") { model.pinsUnreadableNoticeShown = false }
                 .font(.caption.weight(.semibold))
         }
@@ -236,13 +244,6 @@ extension HomeTab {
 
     func sectionLabel(_ title: String, systemImage: String) -> some View {
         Controls.sectionLabel(title, systemImage: systemImage)
-    }
-
-    /// A fetch rather than a regex: the relay builds the sentence and this app reads it, in one repository. If the phrasing changes the parse returns nil and the failure blames the Mac.
-    static func version(in message: String, after marker: String) -> Int? {
-        guard let start = message.range(of: marker) else { return nil }
-        let digits = message[start.upperBound...].prefix { $0.isNumber }
-        return digits.isEmpty ? nil : Int(digits)
     }
 
     func isCompatible(_ host: DiscoveredHost) -> Bool {
