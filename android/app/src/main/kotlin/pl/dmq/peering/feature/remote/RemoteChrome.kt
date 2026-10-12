@@ -7,29 +7,26 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
-import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.peeringShapes
 
@@ -67,12 +64,8 @@ fun RemoteChrome(
                     state = overlay,
                     zoomPercent = zoomPercent,
                     onFit = onFit,
-                    onRetry = onRetry,
                     onDisconnect = onDisconnect,
                 )
-                if (overlay.reconnecting) {
-                    ConnectionBanner(hostName = overlay.hostName ?: stringResource(R.string.remote_computer_fallback))
-                }
             }
         }
         AnimatedVisibility(
@@ -96,6 +89,7 @@ fun RemoteChrome(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            SessionSnackbar(state = overlay, onRetry = onRetry)
             if (keyboardShown) {
                 Surface(shape = peeringShapes.large, color = PeeringColors.containerHigh, shadowElevation = 6.dp) {
                     Column(
@@ -117,15 +111,11 @@ fun RemoteChrome(
 
 @Composable
 private fun RevealHandle(onReveal: () -> Unit) {
-    val description = stringResource(R.string.remote_show_controls)
-    Box(
-        modifier = Modifier
-            .clip(peeringShapes.extraLarge)
-            .background(PeeringColors.containerHigh)
-            .tappable(onReveal)
-            .size(width = 56.dp, height = 32.dp),
-        contentAlignment = Alignment.Center,
+    SmallFloatingActionButton(
+        onClick = onReveal,
+        containerColor = PeeringColors.containerHigh,
+        contentColor = PeeringColors.ink,
     ) {
-        Icon(imageVector = AppIcons.expand, contentDescription = description, tint = PeeringColors.faint)
+        Icon(imageVector = AppIcons.expand, contentDescription = stringResource(R.string.remote_show_controls))
     }
 }

@@ -9,12 +9,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,15 +30,14 @@ import pl.dmq.peering.ui.theme.peeringShapes
 
 /**
  * The status pill over the top of the picture: the computer's name and a dot for the link, the route, the latency
- * and the picture state, a zoom chip that fits the picture, and the disconnect button. Retry shows when the picture
- * stalled or failed; a relay notice sits under the pill.
+ * and the picture state, an assist chip that fits the picture while zoomed, and the disconnect button. A relay
+ * notice sits under the pill.
  */
 @Composable
 fun SessionOverlay(
     state: SessionOverlayState,
     zoomPercent: Int?,
     onFit: () -> Unit,
-    onRetry: () -> Unit,
     onDisconnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -69,9 +68,13 @@ fun SessionOverlay(
                     }
                 }
                 zoomPercent?.let {
-                    TextButton(onClick = onFit) {
-                        Text(stringResource(R.string.remote_zoom_percent, it), color = PeeringColors.accent)
-                    }
+                    AssistChip(
+                        onClick = onFit,
+                        label = { Text(stringResource(R.string.remote_zoom_percent, it)) },
+                        leadingIcon = {
+                            Icon(AppIcons.fit, contentDescription = stringResource(R.string.remote_fit_description))
+                        },
+                    )
                 }
                 IconButton(onClick = onDisconnect) {
                     Icon(
@@ -81,9 +84,6 @@ fun SessionOverlay(
                     )
                 }
         }
-        }
-        if (state.picture == PictureState.STALLED || state.picture == PictureState.FAILED) {
-            TextButton(onClick = onRetry) { Text(stringResource(R.string.overlay_picture_retry)) }
         }
         state.quota?.let { notice ->
             val text = when (notice) {

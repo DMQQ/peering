@@ -1,36 +1,24 @@
 package pl.dmq.peering.feature.remote
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
-import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.peeringShapes
 
-/** The session controls: a bar along the bottom in portrait, a rail down the end edge in landscape. */
+/** The session controls as Material's own navigation bar in portrait and navigation rail in landscape. */
 @Composable
 fun SessionToolbar(
     actions: List<ToolbarAction>,
@@ -40,70 +28,30 @@ fun SessionToolbar(
     onAction: (ToolbarAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val items: @Composable () -> Unit = {
-        actions.forEach { action ->
-            ToolbarButton(
-                icon = action.icon(mode),
-                label = stringResource(action.labelRes(mode)),
-                selected = action == ToolbarAction.KEYBOARD && keyboardShown,
-                onClick = { onAction(action) },
-            )
+    if (vertical) {
+        NavigationRail(modifier = modifier.clip(peeringShapes.extraLarge), containerColor = PeeringColors.containerHigh) {
+            actions.forEach { action ->
+                NavigationRailItem(
+                    selected = action == ToolbarAction.KEYBOARD && keyboardShown,
+                    onClick = { onAction(action) },
+                    icon = { Icon(action.icon(mode), contentDescription = null) },
+                    label = { Text(stringResource(action.labelRes(mode))) },
+                    colors = NavigationRailItemDefaults.colors(indicatorColor = PeeringColors.selectedIndicator),
+                )
+            }
         }
-    }
-    Surface(
-        modifier = modifier,
-        shape = peeringShapes.extraLarge,
-        color = PeeringColors.containerHigh,
-        shadowElevation = 6.dp,
-    ) {
-        if (vertical) {
-            Column(
-                modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) { items() }
-        } else {
-            Row(
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) { items() }
+    } else {
+        NavigationBar(modifier = modifier.clip(peeringShapes.extraLarge), containerColor = PeeringColors.containerHigh) {
+            actions.forEach { action ->
+                NavigationBarItem(
+                    selected = action == ToolbarAction.KEYBOARD && keyboardShown,
+                    onClick = { onAction(action) },
+                    icon = { Icon(action.icon(mode), contentDescription = null) },
+                    label = { Text(stringResource(action.labelRes(mode))) },
+                    colors = NavigationBarItemDefaults.colors(indicatorColor = PeeringColors.selectedIndicator),
+                )
+            }
         }
-    }
-}
-
-/** One destination in the way Material's navigation bar draws it: the icon on an indicator pill, a label under it. */
-@Composable
-private fun ToolbarButton(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .clip(peeringShapes.large)
-            .tappable(onClick, role = Role.Button)
-            .semantics { this.selected = selected }
-            .defaultMinSize(minWidth = 64.dp)
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(width = 56.dp, height = 30.dp)
-                .clip(CircleShape)
-                .background(if (selected) PeeringColors.selectedIndicator else Color.Transparent),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (selected) PeeringColors.ink else PeeringColors.muted,
-                modifier = Modifier.size(24.dp),
-            )
-        }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) PeeringColors.ink else PeeringColors.muted,
-            maxLines = 1,
-        )
     }
 }
 

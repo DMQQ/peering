@@ -229,7 +229,6 @@
     <string name="remote_leave_confirm">Leave</string>
     <string name="remote_leave_cancel">Stay</string>
     <string name="remote_reconnecting">Reconnecting to %1$s</string>
-    <string name="remote_reconnecting_detail">The picture resumes when the link is back.</string>
     <string name="overlay_picture_live">Live</string>
     <string name="remote_keyboard">Keyboard</string>
     <string name="remote_menu">Menu</string>

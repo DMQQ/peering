@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -26,20 +28,10 @@ fun FunctionKeyRow(
         contentPadding = PaddingValues(horizontal = 8.dp),
     ) {
         items(EditingKey.entries) { key ->
-            KeyCap(
-                label = key.label,
-                selected = false,
-                outlinedInAccent = false,
-                onClick = { onEditingKey(key) },
-            )
+            SuggestionChip(onClick = { onEditingKey(key) }, label = { Text(key.label) })
         }
         items(FunctionKey.entries) { key ->
-            KeyCap(
-                label = key.name,
-                selected = false,
-                outlinedInAccent = false,
-                onClick = { onKey(key) },
-            )
+            SuggestionChip(onClick = { onKey(key) }, label = { Text(key.name) })
         }
     }
 }
