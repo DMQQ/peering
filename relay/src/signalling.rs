@@ -1195,7 +1195,7 @@ async fn dispatch(
                 Ok(identity) => identity,
                 Err(refusal) => return Some(refusal),
             };
-            Some(match settings.quota.referrals().redeem(&identity, &code, unix_now()) {
+            Some(match settings.quota.referrals().redeem_from(&identity, &code, unix_now(), state.peer) {
                 Ok(standing) => {
                     info!(client_id = %tag(&client_id), "an invite code was redeemed");
                     referral_reply(standing)
