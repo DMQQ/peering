@@ -17,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.feature.files.fileSizeLabel
 import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.SessionIcons
@@ -71,7 +72,7 @@ private fun RecentSummaryRow(summary: RecentSummary) {
     Row(Modifier.fillMaxWidth()) {
         SummaryValue(stringResource(R.string.sessions_summary_sessions), "${summary.sessionCount}", Modifier.weight(1f))
         SummaryValue(stringResource(R.string.sessions_summary_connected), durationLabel(summary.connectedSeconds), Modifier.weight(1f))
-        SummaryValue(stringResource(R.string.sessions_summary_relay), durationLabel(summary.relaySeconds), Modifier.weight(1f))
+        SummaryValue(stringResource(R.string.sessions_summary_received), fileSizeLabel(summary.receivedBytes), Modifier.weight(1f))
     }
 }
 
@@ -94,7 +95,12 @@ private fun RecentRow(record: SessionRecord, nowMillis: Long, onClick: () -> Uni
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(record.hostName, style = PeeringText.subheadlineSemibold, color = PeeringColors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                stringResource(R.string.sessions_row_detail, stringResource(record.path.nameRes()), durationLabel(record.durationSeconds(nowMillis))),
+                stringResource(
+                    R.string.sessions_row_detail,
+                    stringResource(record.path.nameRes()),
+                    durationLabel(record.durationSeconds(nowMillis)),
+                    fileSizeLabel(record.bytesReceived),
+                ),
                 style = PeeringText.caption2,
                 color = PeeringColors.muted,
                 maxLines = 1,

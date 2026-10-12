@@ -8,7 +8,7 @@ import pl.dmq.peering.session.history.SessionRecord
 
 class RecentSessionsTest {
     private fun record(path: SessionRecord.Path, startedAt: Long, endedAt: Long?) =
-        SessionRecord(id = startedAt, hostId = "h", hostName = "Studio", startedAt = startedAt, endedAt = endedAt, path = path)
+        SessionRecord(id = startedAt, hostId = "h", hostName = "Studio", startedAt = startedAt, endedAt = endedAt, path = path, bytesReceived = 500)
 
     @Test
     fun anOpenSessionRunsUntilNow() {
@@ -21,13 +21,13 @@ class RecentSessionsTest {
     }
 
     @Test
-    fun theSummaryCountsSessionsConnectedTimeAndRelayTime() {
+    fun theSummaryCountsSessionsConnectedTimeAndBytesReceived() {
         val records = listOf(
             record(SessionRecord.Path.RELAY, 0, 60_000),
             record(SessionRecord.Path.LAN, 100_000, 130_000),
         )
 
-        assertEquals(RecentSummary(sessionCount = 2, connectedSeconds = 90, relaySeconds = 60), RecentSummary.of(records, nowMillis = 200_000))
+        assertEquals(RecentSummary(sessionCount = 2, connectedSeconds = 90, receivedBytes = 1_000), RecentSummary.of(records, nowMillis = 200_000))
     }
 
     @Test

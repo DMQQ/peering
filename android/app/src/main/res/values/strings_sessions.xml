@@ -11,8 +11,8 @@
     <string name="sessions_recent_empty">Nothing yet. Pair with a computer, and what you connect to appears here.</string>
     <string name="sessions_summary_sessions">Sessions</string>
     <string name="sessions_summary_connected">Connected</string>
-    <string name="sessions_summary_relay">Relay</string>
-    <string name="sessions_row_detail">%1$s · %2$s</string>
+    <string name="sessions_summary_received">Received</string>
+    <string name="sessions_row_detail">%1$s · %2$s · %3$s</string>
     <string name="sessions_detail_back">Back to sessions</string>
     <string name="sessions_detail_connection">Connection</string>
     <string name="sessions_detail_computer">Computer</string>
@@ -20,6 +20,10 @@
     <string name="sessions_detail_started">Started</string>
     <string name="sessions_detail_duration">Duration</string>
     <string name="sessions_detail_ended">Ended</string>
+    <string name="sessions_detail_received">Received</string>
+    <string name="sessions_detail_sent">Sent</string>
+    <string name="sessions_detail_copy">Copy session log</string>
+    <string name="sessions_detail_copied">Copied</string>
     <string name="sessions_detail_log">Session log</string>
     <string name="sessions_detail_log_empty">No diagnostic events were recorded for this session.</string>
     <string name="sessions_ended_user">You ended it</string>

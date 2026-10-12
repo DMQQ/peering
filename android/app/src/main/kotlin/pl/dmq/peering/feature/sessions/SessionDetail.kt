@@ -12,7 +12,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import android.content.ClipboardManager
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import pl.dmq.peering.feature.remote.copyText
 import pl.dmq.peering.ui.kit.relativeTime
 import pl.dmq.peering.ui.kit.englishDateTime
 import androidx.compose.ui.Alignment
@@ -21,7 +29,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import pl.dmq.peering.BuildConfig
 import pl.dmq.peering.R
+import pl.dmq.peering.feature.files.fileSizeLabel
+import androidx.compose.ui.text.font.FontFamily
 import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.ControlsCard
@@ -33,12 +44,14 @@ import pl.dmq.peering.ui.theme.PeeringText
 @Composable
 fun SessionDetail(record: SessionRecord, nowMillis: Long, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val logText = sessionLogText(record, BuildConfig.VERSION_NAME, englishDateTime(record.startedAt), nowMillis)
     Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
                 Icon(AppIcons.back, contentDescription = stringResource(R.string.sessions_detail_back), tint = PeeringColors.ink)
             }
-            Text(record.hostName, style = PeeringText.headline, color = PeeringColors.ink, maxLines = 1)
+            Text(record.hostName, style = PeeringText.headline, color = PeeringColors.ink, maxLines = 1, modifier = Modifier.weight(1f))
+            CopyLogButton(logText)
         }
         ControlsCard(stringResource(R.string.sessions_detail_connection)) {
             DetailRow(stringResource(R.string.sessions_detail_computer), record.hostName)
@@ -55,12 +68,51 @@ fun SessionDetail(record: SessionRecord, nowMillis: Long, onBack: () -> Unit, mo
                 ControlsDivider()
                 DetailRow(stringResource(R.string.sessions_detail_ended), stringResource(it.labelRes()))
             }
+            ControlsDivider()
+            DetailRow(stringResource(R.string.sessions_detail_received), fileSizeLabel(record.bytesReceived))
+            ControlsDivider()
+            DetailRow(stringResource(R.string.sessions_detail_sent), fileSizeLabel(record.bytesSent))
         }
         ControlsCard(stringResource(R.string.sessions_detail_log)) {
-            Text(stringResource(R.string.sessions_detail_log_empty), style = PeeringText.subheadline, color = PeeringColors.muted)
+            if (record.logs.isEmpty()) {
+                Text(stringResource(R.string.sessions_detail_log_empty), style = PeeringText.subheadline, color = PeeringColors.muted)
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    record.logs.forEach { entry ->
+                        Text(entry, style = PeeringText.caption.copy(fontFamily = FontFamily.Monospace), color = PeeringColors.muted)
+                    }
+                }
+            }
         }
     }
 }
+
+@Composable
+private fun CopyLogButton(text: String) {
+    val clipboard = LocalContext.current.getSystemService(ClipboardManager::class.java)
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(COPIED_SHOWN_MILLIS)
+            copied = false
+        }
+    }
+    if (copied) {
+        Text(stringResource(R.string.sessions_detail_copied), style = PeeringText.captionSemibold, color = PeeringColors.accent)
+    }
+    IconButton(onClick = {
+        clipboard.copyText("Peering session log", text)
+        copied = true
+    }) {
+        Icon(
+            if (copied) AppIcons.check else AppIcons.copy,
+            contentDescription = stringResource(R.string.sessions_detail_copy),
+            tint = PeeringColors.ink,
+        )
+    }
+}
+
+private const val COPIED_SHOWN_MILLIS = 2_000L
 
 @Composable
 private fun DetailRow(label: String, value: String) {

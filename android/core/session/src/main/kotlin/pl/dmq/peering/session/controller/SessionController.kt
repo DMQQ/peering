@@ -22,8 +22,10 @@ import pl.dmq.peering.session.clipboard.ClipboardPush
 import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.session.files.FileBrowser
 import pl.dmq.peering.session.terminal.TerminalSessions
+import pl.dmq.peering.session.history.ByteTally
 import pl.dmq.peering.session.history.SessionHistory
 import pl.dmq.peering.session.history.SessionRecord
+import pl.dmq.peering.session.history.SessionTrail
 import pl.dmq.peering.session.relay.RelayConnect
 import pl.dmq.peering.session.video.SourceSelection
 import pl.dmq.peering.wire.CaptureSource
@@ -64,6 +66,8 @@ class SessionController(
     private var activeHandshake: SessionHandshake? = null
     private var pictureEnabled = true
     private var historyId: Long? = null
+    private val tally = ByteTally()
+    private val trail = SessionTrail(beganAtMillis = nowMillis())
     private var everReady = false
     private val services = SessionServices(ports) { link }
 
@@ -208,7 +212,7 @@ class SessionController(
     /** One attempt at a control connection, from opening the route until the link ends. */
     private suspend fun runLink(): LinkOutcome = coroutineScope {
         val route = try {
-            RouteOpener(target, ports).open()
+            RouteOpener(target, ports, ::note).open()
         } catch (failure: ConnectFailure) {
             return@coroutineScope if (failure.failure.canRetry) {
                 LinkOutcome.Unreachable(failure.failure)
@@ -216,15 +220,15 @@ class SessionController(
                 LinkOutcome.Refused(failure.failure)
             }
         }
-        ports.log.log("control connection open over ${route.path}")
+        note("control connection open over ${route.path}")
         update { if (it.phase is SessionPhase.Connecting) it.copy(phase = SessionPhase.Connecting(route.path)) else it }
         val ended = CompletableDeferred<LinkEnd>()
         val frames = Channel<Frame>(Channel.UNLIMITED)
-        val writer = WriterLoop(route.transport)
+        val writer = WriterLoop(route.transport, tally)
         try {
             launchLinkTask(ended) { writer.run() }
             launchLinkTask(ended) {
-                ReaderLoop(route.transport.received, frames) {
+                ReaderLoop(route.transport.received, frames, tally) {
                     ended.complete(LinkEnd.Terminal(SessionFailure.MalformedFrame))
                 }.run()
             }
@@ -328,9 +332,11 @@ class SessionController(
             quality = ports.quality.choice(),
             ceiling = QualityCeiling.of(route.path, ports.quality.unlimitedRelay()),
             clipboard = ports.clipboardHistory,
+            tally = tally,
         )
         link = live
         everReady = true
+        note("session ready with ${hello.hostName} over ${route.path}")
         if (route.path == SessionRecord.Path.LAN) ports.lanReached(hello.serverID, route.videoPeer)
         if (historyId == null) {
             historyId = history.begin(hello.serverID, hello.hostName, route.path, nowMillis())
@@ -391,12 +397,18 @@ class SessionController(
 
     private fun endHistory(reason: SessionRecord.EndReason) {
         val id = historyId ?: return
-        history.end(id, nowMillis(), reason)
+        note("session ended: $reason")
+        history.end(id, nowMillis(), reason, tally.received, tally.sent, trail.entries)
         historyId = null
     }
 
     private fun SessionPhase.withPath(path: SessionRecord.Path): SessionPhase =
         if (this is SessionPhase.Ready && this.path != path) copy(path = path) else this
+
+    private fun note(message: String) {
+        ports.log.log(message)
+        trail.add(message, nowMillis())
+    }
 
     private fun nowMillis(): Long = ports.clock.unixSeconds() * MILLIS_PER_SECOND
 

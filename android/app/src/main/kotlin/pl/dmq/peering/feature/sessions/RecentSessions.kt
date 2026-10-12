@@ -9,12 +9,12 @@ interface SessionRecords {
 }
 
 /** What the summary line over the list says about the sessions it lists. */
-data class RecentSummary(val sessionCount: Int, val connectedSeconds: Long, val relaySeconds: Long) {
+data class RecentSummary(val sessionCount: Int, val connectedSeconds: Long, val receivedBytes: Long) {
     companion object {
         fun of(records: List<SessionRecord>, nowMillis: Long): RecentSummary = RecentSummary(
             sessionCount = records.size,
             connectedSeconds = records.sumOf { it.durationSeconds(nowMillis) },
-            relaySeconds = records.filter { it.path == SessionRecord.Path.RELAY }.sumOf { it.durationSeconds(nowMillis) },
+            receivedBytes = records.sumOf { it.bytesReceived },
         )
     }
 }

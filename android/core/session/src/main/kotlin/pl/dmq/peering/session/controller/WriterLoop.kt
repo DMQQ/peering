@@ -3,6 +3,7 @@ package pl.dmq.peering.session.controller
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
+import pl.dmq.peering.session.history.ByteTally
 import pl.dmq.peering.session.ports.ControlTransport
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.FrameEncoder
@@ -12,7 +13,7 @@ import kotlin.time.Duration.Companion.seconds
  * Writes frames to the control connection in the order they were queued. Queueing never waits, so the handshake, the
  * pings and the coalesced commands can all queue from one thread. A frame queued after the link ends is dropped with it.
  */
-internal class WriterLoop(private val transport: ControlTransport) {
+internal class WriterLoop(private val transport: ControlTransport, private val tally: ByteTally) {
     private val outbound = Channel<Frame>(Channel.UNLIMITED)
 
     fun enqueue(frame: Frame) {
@@ -24,7 +25,9 @@ internal class WriterLoop(private val transport: ControlTransport) {
     suspend fun run() {
         try {
             for (frame in outbound) {
-                transport.send(FrameEncoder.encode(frame.kind, frame.payload))
+                val bytes = FrameEncoder.encode(frame.kind, frame.payload)
+                transport.send(bytes)
+                tally.addSent(bytes.size)
             }
         } finally {
             drained.complete(Unit)

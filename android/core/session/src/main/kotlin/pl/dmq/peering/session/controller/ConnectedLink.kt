@@ -14,6 +14,7 @@ import pl.dmq.peering.session.connection.LivenessMonitor
 import pl.dmq.peering.session.connection.SessionCommands
 import pl.dmq.peering.session.files.FileBrowser
 import pl.dmq.peering.session.terminal.TerminalSessions
+import pl.dmq.peering.session.history.ByteTally
 import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.session.ports.VideoSink
@@ -55,6 +56,7 @@ internal class ConnectedLink(
     private val quality: QualityChoice,
     private val ceiling: QualityTier,
     private val clipboard: ClipboardHistory,
+    private val tally: ByteTally,
 ) {
     private val liveness = LivenessMonitor(clock)
     val commands = SessionCommands(hello)
@@ -67,7 +69,7 @@ internal class ConnectedLink(
     private val picture: PictureWatch = PictureWatch(
         clock,
         lane = route.path.takeIf { it == SessionRecord.Path.LAN }?.let {
-            LanVideoLane(videoConnector, route.videoPeer, PictureSink(sink, selection::onVideoConfig, seen))
+            LanVideoLane(videoConnector, route.videoPeer, PictureSink(sink, selection::onVideoConfig, seen), tally)
         },
     )
     private var automatic: AutoQualityPolicy? = null
@@ -139,6 +141,7 @@ internal class ConnectedLink(
         route.datagrams?.let { datagrams ->
             launchLinkTask(ended) {
                 datagrams.received.collect { datagram ->
+                    tally.addReceived(datagram.bytes.size)
                     if (datagram.source == route.videoPeer) {
                         val outcome = lanes.onDatagram(datagram.bytes)
                         for (event in outcome.outputs.asEvents()) applyEvent(event, ended)
@@ -191,7 +194,10 @@ internal class ConnectedLink(
         when (event) {
             is SessionEvent.Send -> writer.enqueue(event.frame)
             is SessionEvent.Offer -> commands.offer(event.command)
-            is SessionEvent.Datagram -> route.datagrams?.send(event.bytes, event.destination)
+            is SessionEvent.Datagram -> route.datagrams?.let {
+                it.send(event.bytes, event.destination)
+                tally.addSent(event.bytes.size)
+            }
             is SessionEvent.Notice -> notice = event.message
             is SessionEvent.HostClipboard -> {
                 hostClipboard = event.content

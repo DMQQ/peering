@@ -5,6 +5,7 @@ import kotlinx.coroutines.delay
 import pl.dmq.peering.session.controller.ControlConnector
 import pl.dmq.peering.session.controller.ControlRoute
 import pl.dmq.peering.session.controller.PictureFailure
+import pl.dmq.peering.session.history.ByteTally
 import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.ports.VideoSink
 import pl.dmq.peering.wire.ConnectionRole
@@ -22,6 +23,7 @@ internal class LanVideoLane(
     private val connector: ControlConnector,
     private val address: PeerAddress,
     sink: VideoSink,
+    private val tally: ByteTally,
 ) {
     private val router = VideoPictureRouter(sink)
     private var ladder = VideoReconnectLadder()
@@ -59,9 +61,12 @@ internal class LanVideoLane(
             return false
         }
         try {
-            transport.send(FrameEncoder.encode(MessageKind.ConnectionRole, byteArrayOf(ConnectionRole.Video.byte.toByte())))
+            val hello = FrameEncoder.encode(MessageKind.ConnectionRole, byteArrayOf(ConnectionRole.Video.byte.toByte()))
+            transport.send(hello)
+            tally.addSent(hello.size)
             val decoder = FrameDecoder()
             transport.received.collect { chunk ->
+                tally.addReceived(chunk.size)
                 decoder.push(chunk)
                 while (true) {
                     val frame: Frame = decoder.next() ?: break
