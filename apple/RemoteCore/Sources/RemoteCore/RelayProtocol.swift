@@ -162,6 +162,8 @@ public struct RelaySession: Sendable, Equatable {
     public let videoPort: UInt16
     public let controlToken: Data
     public let videoToken: Data
+    /// Seconds left in the relay's current one-day window, referral bonus included. Absent from older relays and for unmetered plans.
+    public let remainingSeconds: UInt64?
 
     public init(
         controlHost: String,
@@ -169,7 +171,8 @@ public struct RelaySession: Sendable, Equatable {
         videoHost: String,
         videoPort: UInt16,
         controlToken: Data,
-        videoToken: Data
+        videoToken: Data,
+        remainingSeconds: UInt64? = nil
     ) {
         self.controlHost = controlHost
         self.controlPort = controlPort
@@ -177,6 +180,7 @@ public struct RelaySession: Sendable, Equatable {
         self.videoPort = videoPort
         self.controlToken = controlToken
         self.videoToken = videoToken
+        self.remainingSeconds = remainingSeconds
     }
 }
 
@@ -217,7 +221,7 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
     private enum CodingKeys: String, CodingKey {
         case type, controlHost, controlPort, videoHost, videoPort
         case sessionTTLSeconds = "sessionTtlSeconds"
-        case controlToken, videoToken
+        case controlToken, videoToken, remainingSeconds
         case deviceID = "deviceId"
         case hostID = "hostId"
         case online
@@ -246,7 +250,8 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
                 videoHost: try container.decode(String.self, forKey: .videoHost),
                 videoPort: try container.decode(UInt16.self, forKey: .videoPort),
                 controlToken: controlToken,
-                videoToken: videoToken
+                videoToken: videoToken,
+                remainingSeconds: try container.decodeIfPresent(UInt64.self, forKey: .remainingSeconds)
             ))
         case "hostOffline":
             self = .hostOffline(deviceID: try container.decode(String.self, forKey: .deviceID))

@@ -251,6 +251,23 @@ public enum RelayAllowance {
     }
 }
 
+/// What the relay said was left in the day's window when it set up a session. It is the relay's own counter, so it outranks the phone's sum of session clocks.
+public struct RelayRemainingReport: Equatable, Sendable {
+    public let seconds: TimeInterval
+    public let receivedAt: Date
+
+    public init(seconds: TimeInterval, receivedAt: Date) {
+        self.seconds = seconds
+        self.receivedAt = receivedAt
+    }
+
+    /// `nil` once the window has turned over, since the relay's counter reset and this number describes the last day.
+    public func remaining(at moment: Date) -> TimeInterval? {
+        guard RelayAllowance.windowNumber(at: receivedAt) == RelayAllowance.windowNumber(at: moment) else { return nil }
+        return max(0, seconds - max(0, moment.timeIntervalSince(receivedAt)))
+    }
+}
+
 public enum RelayTime {
     /// The hours form drops seconds: past an hour they are noise, and below it they matter as a session nears cut-off.
     public static func label(_ seconds: TimeInterval) -> String {

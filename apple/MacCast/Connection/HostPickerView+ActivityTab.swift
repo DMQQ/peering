@@ -159,7 +159,15 @@ struct ActivityTab: View {
     /// Two paywall reasons, the same two ``SessionModel`` picks between: one names the minutes left, the other explains the relay.
     private func openUpgradePaywall() {
         if relayAllowanceIsLow, let remaining = model.relaySecondsRemainingEstimate {
-            model.paywallReason = remaining <= 0 ? .quotaExhausted : .runningLow(remaining: remaining)
+            switch SessionOfferPolicy.lowAllowanceReason(
+                estimate: remaining,
+                report: model.relayRemainingSecondsFromRelay,
+                now: Date()
+            ) {
+            case .quotaExhausted: model.paywallReason = .quotaExhausted
+            case .runningLow(let left): model.paywallReason = .runningLow(remaining: left)
+            case .firstSession: model.paywallReason = .upgrade
+            }
         } else {
             model.paywallReason = .upgrade
         }

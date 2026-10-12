@@ -52,6 +52,9 @@ extension ClientSession {
             throw ConnectAttemptEnded()
         }
 
+        if let remaining = allocation.remainingSeconds {
+            emit(.relayRemaining(seconds: remaining))
+        }
         try await connection.connect(
             to: endpoint,
             identity: identity,

@@ -30,6 +30,9 @@ public struct SessionOfferPolicy: Sendable {
         public var relaySecondsRemainingEstimate: TimeInterval?
         public var currentWindow: Double
         public var offeredWindow: Double
+        public var relayReport: RelayRemainingReport?
+        public var relayAllowanceSeconds: TimeInterval?
+        public var now: Date
 
         public init(
             hasOfferedAfterFirstSession: Bool,
@@ -39,7 +42,10 @@ public struct SessionOfferPolicy: Sendable {
             relayAllowanceRemainingFraction: Double?,
             relaySecondsRemainingEstimate: TimeInterval?,
             currentWindow: Double,
-            offeredWindow: Double
+            offeredWindow: Double,
+            relayReport: RelayRemainingReport? = nil,
+            relayAllowanceSeconds: TimeInterval? = nil,
+            now: Date = Date()
         ) {
             self.hasOfferedAfterFirstSession = hasOfferedAfterFirstSession
             self.planIsUnlimited = planIsUnlimited
@@ -49,6 +55,9 @@ public struct SessionOfferPolicy: Sendable {
             self.relaySecondsRemainingEstimate = relaySecondsRemainingEstimate
             self.currentWindow = currentWindow
             self.offeredWindow = offeredWindow
+            self.relayReport = relayReport
+            self.relayAllowanceSeconds = relayAllowanceSeconds
+            self.now = now
         }
     }
 
@@ -74,18 +83,37 @@ public struct SessionOfferPolicy: Sendable {
         }
 
         // Past the first offer, only a nearly gone allowance is worth it, and only if this session spent some.
-        guard record.path == .relay,
-              let fraction = state.relayAllowanceRemainingFraction,
-              fraction <= Self.lowRelayAllowanceFraction,
-              let remaining = state.relaySecondsRemainingEstimate,
-              state.offeredWindow != state.currentWindow
-        else { return nil }
+        guard record.path == .relay, state.offeredWindow != state.currentWindow else { return nil }
 
-        // Spent and nearly spent are different sentences, and only one of them is true at zero.
-        // Zero is the wall the relay itself refuses at, so it gets the wall's words.
+        let remaining: TimeInterval
+        if let live = state.relayReport?.remaining(at: state.now) {
+            guard let allowance = state.relayAllowanceSeconds, allowance > 0,
+                  live / allowance <= Self.lowRelayAllowanceFraction
+            else { return nil }
+            remaining = live
+        } else {
+            guard let fraction = state.relayAllowanceRemainingFraction,
+                  fraction <= Self.lowRelayAllowanceFraction,
+                  let estimate = state.relaySecondsRemainingEstimate
+            else { return nil }
+            remaining = estimate
+        }
+
         return Decision(
-            reason: remaining <= 0 ? .quotaExhausted : .runningLow(remaining: remaining),
+            reason: Self.lowAllowanceReason(estimate: remaining, report: state.relayReport, now: state.now),
             consumption: .lowAllowance
         )
+    }
+
+    /// Zero is the wall the relay itself refuses at, so only the relay saying zero (or refusing) earns the wall's words. The local estimate sums the phone's own session clocks and has been wrong by hours; against a positive number from the relay it can only ever say running low.
+    public static func lowAllowanceReason(
+        estimate: TimeInterval,
+        report: RelayRemainingReport?,
+        now: Date
+    ) -> Reason {
+        if let report, let live = report.remaining(at: now) {
+            return report.seconds <= 0 ? .quotaExhausted : .runningLow(remaining: live)
+        }
+        return estimate <= 0 ? .quotaExhausted : .runningLow(remaining: estimate)
     }
 }

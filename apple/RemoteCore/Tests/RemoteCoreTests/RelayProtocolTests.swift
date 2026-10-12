@@ -130,6 +130,32 @@ struct RelayProtocolTests {
         )))
     }
 
+    @Test("a ready session carries the relay's remaining seconds when it sends them")
+    func readySessionRemainingSeconds() throws {
+        let json = #"{"type":"sessionReady","controlHost":"h","controlPort":1,"videoHost":"h","videoPort":2,"controlToken":"000102030405060708090a0b0c0d0e0f","videoToken":"fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0","remainingSeconds":1703}"#
+
+        let message = try RelayMessageCodec.decode(RelayServerMessage.self, from: Data(json.utf8))
+
+        guard case .sessionReady(let session) = message else {
+            Issue.record("not a sessionReady")
+            return
+        }
+        #expect(session.remainingSeconds == 1_703)
+    }
+
+    @Test("a ready session from an older relay has no remaining seconds")
+    func readySessionWithoutRemainingSeconds() throws {
+        let json = #"{"type":"sessionReady","controlHost":"h","controlPort":1,"videoHost":"h","videoPort":2,"controlToken":"000102030405060708090a0b0c0d0e0f","videoToken":"fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0"}"#
+
+        let message = try RelayMessageCodec.decode(RelayServerMessage.self, from: Data(json.utf8))
+
+        guard case .sessionReady(let session) = message else {
+            Issue.record("not a sessionReady")
+            return
+        }
+        #expect(session.remainingSeconds == nil)
+    }
+
     @Test("an iPhone connection request uses the paired Mac and phone IDs")
     func connectRequest() throws {
         let encoded = try RelayMessageCodec.encode(RelayClientMessage.connectToHost(
