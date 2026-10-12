@@ -30,7 +30,6 @@ import kotlin.math.roundToInt
 fun RemoteCanvas(
     presenter: RemoteCanvasPresenter,
     surface: SurfaceListener,
-    onTouch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by presenter.state.collectAsState()
@@ -38,7 +37,7 @@ fun RemoteCanvas(
         modifier = modifier
             .clipToBounds()
             .onSizeChanged { presenter.onCanvasSized(it.width.toDouble(), it.height.toDouble()) }
-            .pointerInput(presenter, onTouch) { forwardPointers(presenter, onTouch) },
+            .pointerInput(presenter) { forwardPointers(presenter) },
     ) {
         Box(
             modifier = Modifier
@@ -73,11 +72,10 @@ private fun Modifier.placedAt(rect: CanvasRect): Modifier = layout { measurable,
     }
 }
 
-private suspend fun PointerInputScope.forwardPointers(presenter: RemoteCanvasPresenter, onTouch: () -> Unit) {
+private suspend fun PointerInputScope.forwardPointers(presenter: RemoteCanvasPresenter) {
     awaitPointerEventScope {
         while (true) {
             awaitPointerEvent().changes.forEach { change ->
-                if (change.changedToDown()) onTouch()
                 forwardChange(presenter, change)
                 change.consume()
             }

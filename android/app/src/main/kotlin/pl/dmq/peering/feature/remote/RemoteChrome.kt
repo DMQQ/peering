@@ -37,6 +37,7 @@ fun RemoteChrome(
     actions: List<ToolbarAction>,
     keyboardShown: Boolean,
     latches: Map<StickyModifier, ModifierLatch>,
+    immersive: Boolean,
     onReveal: () -> Unit,
     onFit: () -> Unit,
     onRetry: () -> Unit,
@@ -60,7 +61,7 @@ fun RemoteChrome(
             SessionTopBar(state = overlay, zoomPercent = zoomPercent, onFit = onFit, onDisconnect = onDisconnect)
         }
         AnimatedVisibility(
-            visible = !shown,
+            visible = immersive && !shown,
             modifier = Modifier.align(Alignment.TopCenter),
             enter = fadeIn(),
             exit = fadeOut(),

@@ -1,14 +1,8 @@
 package pl.dmq.peering.feature.remote
 
-/** When the session chrome may fold away on its own. */
+/** Whether the top bar and the action bar are drawn. They stay up unless the user chose immersive mode. */
 object ChromePolicy {
-    const val AUTO_HIDE_MS = 5000L
-
-    /** The chrome stays while the user is typing, a sheet is open, or the picture or link needs attention. */
-    fun holdsChrome(
-        keyboardShown: Boolean,
-        overlayOpen: Boolean,
-        picture: PictureState,
-        reconnecting: Boolean,
-    ): Boolean = keyboardShown || overlayOpen || reconnecting || picture != PictureState.LIVE
+    /** Immersive mode still shows the chrome while the picture or link needs attention, so retry stays reachable. */
+    fun shown(immersive: Boolean, picture: PictureState, reconnecting: Boolean): Boolean =
+        !immersive || reconnecting || picture != PictureState.LIVE
 }

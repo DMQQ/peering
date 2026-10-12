@@ -11,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -23,7 +22,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import kotlin.math.roundToInt
-import kotlinx.coroutines.delay
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.PeeringAlert
 
@@ -49,23 +47,15 @@ fun RemoteRoute(model: RemoteModel) {
     var qualityOpen by rememberSaveable { mutableStateOf(false) }
     var leaveAsked by rememberSaveable { mutableStateOf(false) }
     var keyboardShown by rememberSaveable { mutableStateOf(false) }
-    var chromeShown by rememberSaveable { mutableStateOf(true) }
-    var touches by remember { mutableIntStateOf(0) }
+    var immersive by rememberSaveable { mutableStateOf(false) }
     var lastHostName by rememberSaveable { mutableStateOf<String?>(null) }
     state.hostName?.let { lastHostName = it }
 
-    val overlayOpen = sourcesOpen || hubOpen || qualityOpen || leaveAsked
-    val holdsChrome = ChromePolicy.holdsChrome(keyboardShown, overlayOpen, state.pictureState, state.reconnecting)
+    val chromeShown = ChromePolicy.shown(immersive, state.pictureState, state.reconnecting)
     val zoomPercent = (canvasState.viewport.zoom * 100).roundToInt().takeIf { it > ZOOMED_PERCENT }
 
     LaunchedEffect(mode) { canvas.setMode(mode) }
     LaunchedEffect(state.picturePixels) { canvas.onPictureChanged(state.picturePixels) }
-    LaunchedEffect(chromeShown, holdsChrome, touches) {
-        if (chromeShown && !holdsChrome) {
-            delay(ChromePolicy.AUTO_HIDE_MS)
-            chromeShown = false
-        }
-    }
 
     SessionWindow()
     BackHandler {
@@ -80,11 +70,10 @@ fun RemoteRoute(model: RemoteModel) {
             RemoteCanvas(
                 presenter = canvas,
                 surface = model.surface,
-                onTouch = { touches++ },
                 modifier = Modifier.fillMaxSize().displayCutoutPadding(),
             )
             RemoteChrome(
-                shown = chromeShown || holdsChrome,
+                shown = chromeShown,
                 overlay = SessionOverlayState.of(
                     hostName = lastHostName,
                     latencyMs = state.latencyMs,
@@ -97,7 +86,8 @@ fun RemoteRoute(model: RemoteModel) {
                 actions = toolbar.actions(state.capabilities),
                 keyboardShown = keyboardShown,
                 latches = latches,
-                onReveal = { chromeShown = true },
+                immersive = immersive,
+                onReveal = { immersive = false },
                 onFit = canvas::fitToCanvas,
                 onRetry = model::onRetryPicture,
                 onDisconnect = { leaveAsked = true },
@@ -135,6 +125,8 @@ fun RemoteRoute(model: RemoteModel) {
             HubSheet(
                 entries = hub.moreEntries(),
                 mode = mode,
+                immersive = immersive,
+                onToggleImmersive = { immersive = !immersive },
                 onToggleMode = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     mode = toolbar.otherMode(mode)

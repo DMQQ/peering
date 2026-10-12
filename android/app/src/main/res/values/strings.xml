@@ -223,6 +223,8 @@
     <string name="remote_fit_description">Fit the picture to the screen</string>
     <string name="remote_zoom_percent">%1$d%%</string>
     <string name="remote_show_controls">Show controls</string>
+    <string name="remote_immersive_title">Immersive mode</string>
+    <string name="remote_immersive_description">Hide the bars until you tap the handle at the top.</string>
     <string name="remote_computer_fallback">Computer</string>
     <string name="remote_disconnect_description">Disconnect from the computer</string>
     <string name="remote_leave_title">Leave this session?</string>

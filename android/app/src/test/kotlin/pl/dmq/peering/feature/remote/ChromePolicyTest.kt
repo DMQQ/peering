@@ -6,29 +6,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChromePolicyTest {
-    private fun holds(
-        keyboard: Boolean = false,
-        overlay: Boolean = false,
+    private fun shown(
+        immersive: Boolean = false,
         picture: PictureState = PictureState.LIVE,
         reconnecting: Boolean = false,
-    ) = ChromePolicy.holdsChrome(keyboard, overlay, picture, reconnecting)
+    ) = ChromePolicy.shown(immersive, picture, reconnecting)
 
     @Test
-    fun `a live idle session lets the chrome fold away`() {
-        assertFalse(holds())
+    fun `a live idle session keeps the chrome up`() {
+        assertTrue(shown())
     }
 
     @Test
-    fun `typing, an open sheet and a reconnect each keep the chrome up`() {
-        assertTrue(holds(keyboard = true))
-        assertTrue(holds(overlay = true))
-        assertTrue(holds(reconnecting = true))
+    fun `immersive mode hides the chrome on a live picture`() {
+        assertFalse(shown(immersive = true))
     }
 
     @Test
-    fun `a picture that is not live keeps the chrome up so retry stays reachable`() {
+    fun `immersive mode still shows the chrome while reconnecting`() {
+        assertTrue(shown(immersive = true, reconnecting = true))
+    }
+
+    @Test
+    fun `a picture that is not live shows the chrome even in immersive mode`() {
         listOf(PictureState.WAITING, PictureState.PAUSED, PictureState.STALLED, PictureState.FAILED)
-            .forEach { assertTrue(it.name, holds(picture = it)) }
+            .forEach { assertTrue(it.name, shown(immersive = true, picture = it)) }
     }
 }
 

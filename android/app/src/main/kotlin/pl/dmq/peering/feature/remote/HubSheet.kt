@@ -14,6 +14,7 @@ import pl.dmq.peering.feature.terminal.TerminalGlyphs
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.PeeringListItem
 import pl.dmq.peering.ui.kit.PeeringSheet
+import pl.dmq.peering.ui.kit.PeeringSwitch
 import pl.dmq.peering.ui.theme.PeeringColors
 
 
@@ -22,7 +23,9 @@ import pl.dmq.peering.ui.theme.PeeringColors
 fun HubSheet(
     entries: List<HubEntry>,
     mode: InputMode,
+    immersive: Boolean,
     onToggleMode: () -> Unit,
+    onToggleImmersive: () -> Unit,
     onSelect: (HubEntry) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -36,6 +39,15 @@ fun HubSheet(
             role = Role.Button,
             bleed = false,
             leading = { Icon(if (mode == InputMode.TRACKPAD) AppIcons.trackpad else AppIcons.tap, contentDescription = null) },
+        )
+        PeeringListItem(
+            headline = stringResource(R.string.remote_immersive_title),
+            supporting = stringResource(R.string.remote_immersive_description),
+            onClick = onToggleImmersive,
+            role = Role.Switch,
+            bleed = false,
+            leading = { Icon(AppIcons.fit, contentDescription = null) },
+            trailing = { PeeringSwitch(checked = immersive, onCheckedChange = { onToggleImmersive() }) },
         )
         entries.forEach { entry ->
             if (entry == HubEntry.DISCONNECT) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = PeeringColors.hairline)
