@@ -41,4 +41,10 @@ class WidgetLinkTest {
         assertEquals("h", WidgetLink.Chat("c", "h").targetHostId)
         assertNull(WidgetLink.Chat("c", null).targetHostId)
     }
+
+    @Test
+    fun `a malformed percent escape parses to nothing instead of throwing`() {
+        assertNull(WidgetLink.parse("peering://connect?id=%zz"))
+        assertNull(WidgetLink.parse("peering://chat?id=%"))
+    }
 }

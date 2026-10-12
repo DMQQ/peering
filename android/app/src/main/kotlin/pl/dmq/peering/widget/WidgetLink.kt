@@ -27,9 +27,11 @@ sealed interface WidgetLink {
             val prefix = "$SCHEME://"
             if (text == null || !text.startsWith(prefix)) return null
             val rest = text.removePrefix(prefix)
-            val query = rest.substringAfter('?', "").split('&').filter { it.contains('=') }.associate {
-                decode(it.substringBefore('=')) to decode(it.substringAfter('='))
-            }
+            val query = runCatching {
+                rest.substringAfter('?', "").split('&').filter { it.contains('=') }.associate {
+                    decode(it.substringBefore('=')) to decode(it.substringAfter('='))
+                }
+            }.getOrNull() ?: return null
             return when (rest.substringBefore('?')) {
                 "connect" -> Connect(query["id"]?.takeIf { it.isNotEmpty() })
                 "chat" -> query["id"]?.takeIf { it.isNotEmpty() }?.let { Chat(it, query["host"]?.takeIf { host -> host.isNotEmpty() }) }
