@@ -2,10 +2,6 @@ import Foundation
 import Security
 import os
 
-enum PinSlot: Sendable {
-    case primary, backup
-}
-
 /// "Not found" and "unavailable" are different answers: the first is a fresh install, the second is a locked or failing Keychain whose contents are unknown and must not be overwritten.
 enum PinRead: Equatable, Sendable {
     case found(Data)
