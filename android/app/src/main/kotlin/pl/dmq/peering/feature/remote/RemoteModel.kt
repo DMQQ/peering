@@ -16,6 +16,9 @@ interface RemoteModel {
     /** The picture quality the Settings panel reads and changes. */
     val quality: QualityPort
 
+    /** Whether this session has already opened its status pill by itself. */
+    val statusPillMemory: StatusPillMemory
+
     /** The choices Settings keeps: interaction, fit or fill, keyboard mode, closing panels, device name. */
     val prefs: DevicePreferences
 

@@ -12,6 +12,7 @@ import pl.dmq.peering.feature.remote.HubEntry
 import pl.dmq.peering.feature.remote.MacroStore
 import pl.dmq.peering.feature.remote.QualityPort
 import pl.dmq.peering.feature.remote.RemoteModel
+import pl.dmq.peering.feature.remote.StatusPillMemory
 import pl.dmq.peering.feature.remote.RemoteUiState
 import pl.dmq.peering.feature.remote.SurfaceListener
 import pl.dmq.peering.feature.remote.relayMinutesLeft
@@ -32,6 +33,8 @@ internal class ControllerRemoteModel(
     private val onLeave: () -> Unit,
     private val onOpen: (SessionRoute) -> Unit,
 ) : RemoteModel {
+    override val statusPillMemory = StatusPillMemory()
+
     override val state: StateFlow<RemoteUiState> = combine(controller.state, picture.pixelSize, relayAllowance) { session, pixels, allowance ->
         remoteUiState(session, pixels, hubCapabilities(), relayMinutesLeft(allowance))
     }.stateIn(scope, SharingStarted.Eagerly, RemoteUiState.INITIAL)

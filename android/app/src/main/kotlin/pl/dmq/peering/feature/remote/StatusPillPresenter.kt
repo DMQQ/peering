@@ -9,6 +9,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
+ * Whether this session has already shown its pill. The remote screen is rebuilt when the user returns from the hub or
+ * a panel, and it must not announce the same session again. The session's model holds one of these.
+ */
+class StatusPillMemory {
+    var announced = false
+}
+
+/**
  * Whether the status pill is open. It opens by itself once when the session becomes ready and closes again after
  * [autoCloseMillis]; a tap toggles it and, opened that way, it stays until tapped. Touching a control inside it cancels
  * the automatic close. The state lives here rather than in a composable so a recomposition cannot reset it.
@@ -16,6 +24,7 @@ import kotlinx.coroutines.launch
 class StatusPillPresenter(
     private val scope: CoroutineScope,
     private val autoCloseMillis: Long = AUTO_CLOSE_MILLIS,
+    private val memory: StatusPillMemory = StatusPillMemory(),
 ) {
     var expanded by mutableStateOf(false)
         private set
@@ -26,7 +35,9 @@ class StatusPillPresenter(
     fun onReady(isReady: Boolean) {
         val becameReady = isReady && !ready
         ready = isReady
-        if (!becameReady) return
+        if (!isReady) memory.announced = false
+        if (!becameReady || memory.announced) return
+        memory.announced = true
         expanded = true
         timer?.cancel()
         timer = scope.launch {

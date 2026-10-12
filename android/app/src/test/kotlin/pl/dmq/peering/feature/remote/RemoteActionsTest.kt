@@ -28,6 +28,7 @@ class RemoteActionsTest {
     private val prefs = InMemoryDevicePreferences()
 
     private val model = object : RemoteModel {
+        override val statusPillMemory = StatusPillMemory()
         override val state: StateFlow<RemoteUiState> = MutableStateFlow(RemoteUiState.INITIAL)
         override val commands: CommandSink = sink
         override val surface = object : SurfaceListener {

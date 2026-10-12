@@ -26,6 +26,19 @@ class StatusPillPresenterTest {
     }
 
     @Test
+    fun aRebuiltScreenForTheSameSessionDoesNotOpenAgain() {
+        val memory = StatusPillMemory()
+        val first = StatusPillPresenter(scope, autoCloseMillis = 2_500, memory = memory)
+        first.onReady(true)
+        pass(2_600)
+        val rebuilt = StatusPillPresenter(scope, autoCloseMillis = 2_500, memory = memory)
+
+        rebuilt.onReady(true)
+
+        assertFalse(rebuilt.expanded)
+    }
+
+    @Test
     fun closesItselfAfterTheDelay() {
         pill.onReady(true)
         pass(2_499)

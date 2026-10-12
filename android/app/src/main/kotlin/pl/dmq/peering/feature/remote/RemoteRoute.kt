@@ -69,7 +69,7 @@ fun RemoteRoute(model: RemoteModel) {
         canvas.onPictureChanged(state.picturePixels)
         if (prefs.fillsScreen) canvas.fillCanvas() else canvas.fitToCanvas()
     }
-    val pill = remember { StatusPillPresenter(scope) }
+    val pill = remember { StatusPillPresenter(scope, memory = model.statusPillMemory) }
     val ready = state.hostName != null
     LaunchedEffect(ready) { pill.onReady(ready) }
 
