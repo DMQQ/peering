@@ -68,7 +68,7 @@ internal fun PreviewTile(tile: SourceTile, onClick: () -> Unit, modifier: Modifi
                 .size(width, TILE_HEIGHT)
                 .clip(peeringShapes.extraSmall)
                 .background(PeeringColors.surface)
-                .border(if (tile.selected) BorderStroke(2.dp, PeeringColors.accent) else BorderStroke(1.dp, PeeringColors.ink.copy(alpha = 0.14f)), peeringShapes.extraSmall),
+                .let { if (tile.selected) it.border(BorderStroke(2.dp, PeeringColors.accent), peeringShapes.extraSmall) else it },
             contentAlignment = Alignment.Center,
         ) { TilePicture(tile) }
         Text(

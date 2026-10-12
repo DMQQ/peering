@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.ui.kit.blockTouches
-import pl.dmq.peering.ui.kit.chipSurface
+import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -112,7 +112,7 @@ fun QuickKey(icon: ImageVector, label: String, size: Dp, onClick: () -> Unit, mo
     Box(
         modifier = modifier
             .size(size)
-            .chipSurface(PillShape)
+            .sessionSurface(PillShape)
             .heardTap(onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
@@ -135,7 +135,7 @@ fun CircleGlassButton(
     tint: Color = PeeringColors.ink,
     onLongClick: (() -> Unit)? = null,
 ) {
-    val base = modifier.size(ChromeMetrics.circleButton).chipSurface(PillShape)
+    val base = modifier.size(ChromeMetrics.circleButton).sessionSurface(PillShape)
     Box(
         modifier = (if (onLongClick == null) base.tappable(onClick) else base.combinedClickable(onClick = onClick, onLongClick = onLongClick))
             .semantics { contentDescription = label; role = Role.Button },
@@ -151,7 +151,7 @@ fun ControlRail(modifier: Modifier = Modifier, content: @Composable () -> Unit) 
     Column(
         modifier = modifier
             .width(ChromeMetrics.panelWidth)
-            .chipSurface(PillShape)
+            .sessionSurface(PillShape)
             .blockTouches()
             .verticalScroll(rememberScrollState())
             .padding(vertical = ChromeMetrics.railPadding, horizontal = ChromeMetrics.railPadding),

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import kotlin.math.ln
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
+import pl.dmq.peering.ui.kit.LocalBorderless
 import pl.dmq.peering.wire.MouseButton
 
 /** The remote screen for a connected computer: the picture, the chrome over it, the panels, and the keyboard. */
@@ -109,13 +111,15 @@ fun RemoteRoute(model: RemoteModel) {
     )
     val panelContext = PanelContext(model, state, prefs, screen, actions, keyboard, sources, quality, customMacros, overlay)
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        Box(modifier = Modifier.fillMaxSize().imePadding()) {
-            RemoteCanvas(presenter = canvas, surface = model.surface, modifier = Modifier.fillMaxSize().displayCutoutPadding())
-            RemoteChrome(chrome, handlers, panel = { RemotePanel(it, panelContext) })
+    CompositionLocalProvider(LocalBorderless provides true) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+            Box(modifier = Modifier.fillMaxSize().imePadding()) {
+                RemoteCanvas(presenter = canvas, surface = model.surface, modifier = Modifier.fillMaxSize().displayCutoutPadding())
+                RemoteChrome(chrome, handlers, panel = { RemotePanel(it, panelContext) })
+            }
+            KeyboardBridge(presenter = keyboard, shown = screen.keyboardShown)
+            RemoteDialogs(model, screen, actions, customMacros, lastHostName)
         }
-        KeyboardBridge(presenter = keyboard, shown = screen.keyboardShown)
-        RemoteDialogs(model, screen, actions, customMacros, lastHostName)
     }
 }
 

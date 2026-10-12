@@ -46,7 +46,7 @@ import kotlinx.coroutines.launch
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.SessionIcons
 import pl.dmq.peering.ui.kit.blockTouches
-import pl.dmq.peering.ui.kit.chipSurface
+import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PillShape
@@ -118,7 +118,7 @@ fun ScrollWheel(
     Column(
         modifier = modifier
             .size(width = ChromeMetrics.panelWidth, height = ChromeMetrics.wheelHeight)
-            .chipSurface(peeringShapes.medium)
+            .sessionSurface(peeringShapes.medium)
             .blockTouches()
             .padding(vertical = 5.dp),
     ) {

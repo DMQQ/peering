@@ -1,7 +1,6 @@
 package pl.dmq.peering.feature.remote
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +27,7 @@ import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.SessionIcons
 import pl.dmq.peering.ui.kit.blockTouches
-import pl.dmq.peering.ui.kit.chipSurface
+import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -52,7 +51,7 @@ class KeyboardKeys(
 @Composable
 fun KeyboardBar(keys: KeyboardKeys, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxWidth().chipSurface(peeringShapes.medium).blockTouches().padding(horizontal = 14.dp, vertical = 12.dp),
+        modifier = modifier.fillMaxWidth().sessionSurface(peeringShapes.medium).blockTouches().padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         TypedLine(keys.typed)
@@ -84,7 +83,6 @@ private fun TypedLine(typed: String) {
             .fillMaxWidth()
             .clip(shape)
             .background(PeeringColors.backdrop.copy(alpha = 0.55f))
-            .border(1.dp, PeeringColors.ink.copy(alpha = 0.08f), shape)
             .heightIn(min = 38.dp)
             .padding(horizontal = 10.dp, vertical = 7.dp),
         contentAlignment = Alignment.CenterStart,

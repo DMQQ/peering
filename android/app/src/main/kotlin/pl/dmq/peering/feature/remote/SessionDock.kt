@@ -33,7 +33,7 @@ import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.SessionIcons
 import pl.dmq.peering.ui.kit.blockTouches
-import pl.dmq.peering.ui.kit.chipSurface
+import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PillShape
@@ -64,7 +64,7 @@ fun SessionDock(
         Row(
             Modifier
                 .fillMaxWidth()
-                .chipSurface(if (expanded) peeringShapes.large else PillShape)
+                .sessionSurface(if (expanded) peeringShapes.large else PillShape)
                 .blockTouches()
                 .animateContentSize()
                 .padding(horizontal = ChromeMetrics.railPadding, vertical = ChromeMetrics.railPadding),

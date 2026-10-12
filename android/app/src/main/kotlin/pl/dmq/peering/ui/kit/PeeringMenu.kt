@@ -25,7 +25,7 @@ fun PeeringMenu(expanded: Boolean, onDismiss: () -> Unit, modifier: Modifier = M
         containerColor = PeeringColors.containerHigh,
         tonalElevation = 3.dp,
         shadowElevation = 8.dp,
-        border = BorderStroke(1.dp, PeeringColors.hairline),
+        border = if (LocalBorderless.current) null else BorderStroke(1.dp, PeeringColors.hairline),
         content = content,
     )
 }

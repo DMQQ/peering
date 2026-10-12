@@ -8,6 +8,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.VisualTransformation
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -26,6 +27,7 @@ fun PeeringTextField(
     monospaced: Boolean = false,
 ) {
     val style = MaterialTheme.typography.bodyLarge
+    val borderless = LocalBorderless.current
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -39,7 +41,8 @@ fun PeeringTextField(
         visualTransformation = visualTransformation,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = PeeringColors.accent,
-            unfocusedBorderColor = PeeringColors.outline,
+            unfocusedBorderColor = if (borderless) Color.Transparent else PeeringColors.outline,
+            unfocusedContainerColor = if (borderless) PeeringColors.surface else Color.Transparent,
             focusedLabelColor = PeeringColors.accent,
             unfocusedLabelColor = PeeringColors.muted,
             cursorColor = PeeringColors.accent,

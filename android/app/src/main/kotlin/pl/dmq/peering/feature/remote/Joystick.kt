@@ -38,7 +38,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.kit.chipSurface
+import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.PillShape
@@ -72,7 +72,7 @@ fun Joystick(
     Box(
         modifier = modifier
             .size(ChromeMetrics.joystickRadius * 2)
-            .chipSurface(PillShape)
+            .sessionSurface(PillShape)
             .semantics { contentDescription = description }
             .pointerInput(radius, pointWidth, pointHeight) {
                 var lastTapEnded = 0L

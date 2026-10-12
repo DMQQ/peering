@@ -16,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.ui.kit.blockTouches
-import pl.dmq.peering.ui.kit.chipSurface
+import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.theme.peeringShapes
 
 /**
@@ -43,7 +43,7 @@ fun FloatingPanel(
                     .widthIn(max = ChromeMetrics.panelMaxWidth)
                     .fillMaxWidth()
                     .heightIn(max = maxHeight)
-                    .chipSurface(peeringShapes.medium)
+                    .sessionSurface(peeringShapes.medium)
                     .blockTouches(),
             ) { content(shown) }
         }
