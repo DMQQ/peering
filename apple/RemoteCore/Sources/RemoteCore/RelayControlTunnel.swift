@@ -23,6 +23,8 @@ private let videoTunnelLog = Logger(subsystem: "pl.dmq.peering", category: "rela
 private func relayTCPParameters() -> NWParameters {
     let tcp = NWProtocolTCP.Options()
     tcp.noDelay = true
+    // Without it a relay that never answers the SYN holds the leg for the system default, over a minute.
+    tcp.connectionTimeout = 10
     return NWParameters(tls: nil, tcp: tcp)
 }
 
@@ -129,6 +131,9 @@ public final class RelayControlBridge: @unchecked Sendable {
 
     public func start() { splice.start() }
     public func cancel() { splice.cancel() }
+
+    /// The source port of the loopback connection this bridge made, once it is up; the host matches it against the connection it accepts.
+    public var localSourcePort: UInt16? { splice.localSourcePort }
 }
 
 private final class OneShotContinuation<Value: Sendable>: @unchecked Sendable {
@@ -166,6 +171,10 @@ final class RelayByteSplice: @unchecked Sendable {
     private var pumping = false
     private var stopped = false
     private var legs: [Leg] = []
+    private let portLock = NSLock()
+    private var _localSourcePort: UInt16?
+
+    var localSourcePort: UInt16? { portLock.withLock { _localSourcePort } }
 
     init(
         local: NWConnection,
@@ -202,7 +211,14 @@ final class RelayByteSplice: @unchecked Sendable {
     private func state(_ state: NWConnection.State, isLocal: Bool) {
         switch state {
         case .ready:
-            if isLocal { localReady = true } else { relayReady = true }
+            if isLocal {
+                localReady = true
+                if case .hostPort(_, let port)? = local.currentPath?.localEndpoint {
+                    portLock.withLock { _localSourcePort = port.rawValue }
+                }
+            } else {
+                relayReady = true
+            }
             advance()
         case .failed, .cancelled:
             stop()

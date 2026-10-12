@@ -53,6 +53,16 @@ final class PeerConnection: @unchecked Sendable {
         connection.cancel()
     }
 
+    /// Runs `work` on the queue this connection's callbacks arrive on.
+    func onQueue(_ work: @escaping @Sendable () -> Void) {
+        queue.async(execute: work)
+    }
+
+    /// Caps the frame size this connection will buffer, or lifts the cap with nil. A peer that has not proved who it is gets a small one.
+    func limitFrames(to limit: UInt32?) {
+        lock.withLock { decoder.frameLimit = limit ?? FrameDecoder.maxFrameLength }
+    }
+
     private func receiveNext() {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 128 * 1024) {
             [weak self] data, _, isComplete, error in

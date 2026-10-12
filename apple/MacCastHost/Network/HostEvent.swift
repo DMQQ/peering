@@ -8,11 +8,13 @@ enum HostEvent: Sendable {
     case clientConnected(clientID: String, clientName: String, viaRelay: Bool, detail: String)
     case clientDisconnected(clientID: String, clientName: String)
 
-    /// The six digits to show the user. Present only during a first pairing.
-    case pairingCode(code: String, secret: Data, clientName: String, isRemote: Bool)
+    /// The six digits to show the user. Present only during a first pairing. The session id says which connection the prompt belongs to, since a name is not an identity.
+    case pairingCode(sessionID: UUID, code: String, secret: Data, clientName: String, isRemote: Bool)
     /// A pairing arrived without the QR secret, so only the Mac's user can vouch for it.
-    case pairingNeedsApproval(clientName: String)
-    case pairingCompleted(clientName: String, accepted: Bool)
+    case pairingNeedsApproval(sessionID: UUID, clientName: String)
+    case pairingCompleted(sessionID: UUID, clientName: String, accepted: Bool)
+    /// The session holding the prompt ended before an answer.
+    case pairingAbandoned(sessionID: UUID)
 
     case failed(String)
 }
@@ -32,6 +34,7 @@ struct ConnectedClient: Identifiable, Sendable, Equatable {
 }
 
 struct PairingPrompt: Sendable, Equatable {
+    let sessionID: UUID
     let clientName: String
     let code: String
     let secret: Data
