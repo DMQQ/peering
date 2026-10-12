@@ -27,6 +27,8 @@ pub enum EndReason {
     /// An end hung up and the splice finished without an error.
     PeerClosed,
     QuotaExhausted,
+    /// No bytes crossed in either direction for the idle window, so the relay ended it.
+    IdleTimeout,
     /// A read or write on a control socket failed, typically a reset.
     IoError,
     /// The relay was stopped while the splice was running.
@@ -34,12 +36,19 @@ pub enum EndReason {
 }
 
 impl EndReason {
-    const ALL: [Self; 4] = [Self::PeerClosed, Self::QuotaExhausted, Self::IoError, Self::Shutdown];
+    const ALL: [Self; 5] = [
+        Self::PeerClosed,
+        Self::QuotaExhausted,
+        Self::IdleTimeout,
+        Self::IoError,
+        Self::Shutdown,
+    ];
 
     pub fn as_str(self) -> &'static str {
         match self {
             Self::PeerClosed => "peer_closed",
             Self::QuotaExhausted => "quota_exhausted",
+            Self::IdleTimeout => "idle_timeout",
             Self::IoError => "io_error",
             Self::Shutdown => "shutdown",
         }
@@ -48,11 +57,12 @@ impl EndReason {
 
 /// Why a splice ended. The allowance wins over the copy's own result because the copy is dropped to
 /// end the session, so its state at that moment says nothing about who left.
-pub fn end_reason(spent: bool, copy: Option<&CopyResult>) -> EndReason {
-    match (spent, copy) {
-        (true, _) => EndReason::QuotaExhausted,
-        (false, Some(Err(_))) => EndReason::IoError,
-        (false, _) => EndReason::PeerClosed,
+pub fn end_reason(spent: bool, idle: bool, copy: Option<&CopyResult>) -> EndReason {
+    match (spent, idle, copy) {
+        (true, _, _) => EndReason::QuotaExhausted,
+        (false, true, _) => EndReason::IdleTimeout,
+        (false, false, Some(Err(_))) => EndReason::IoError,
+        (false, false, _) => EndReason::PeerClosed,
     }
 }
 
@@ -204,6 +214,7 @@ impl Summary {
             active_splices = self.active,
             ended_peer_closed = self.ended_by(EndReason::PeerClosed),
             ended_quota_exhausted = self.ended_by(EndReason::QuotaExhausted),
+            ended_idle_timeout = self.ended_by(EndReason::IdleTimeout),
             ended_io_error = self.ended_by(EndReason::IoError),
             ended_shutdown = self.ended_by(EndReason::Shutdown),
             refused_host_not_registered = self.refused_for(Refusal::HostNotRegistered),
@@ -303,16 +314,21 @@ mod tests {
 
     #[test]
     fn running_out_of_allowance_outranks_how_the_copy_finished() {
-        assert_eq!(end_reason(true, Some(&failed())), EndReason::QuotaExhausted);
-        assert_eq!(end_reason(true, None), EndReason::QuotaExhausted);
+        assert_eq!(end_reason(true, false, Some(&failed())), EndReason::QuotaExhausted);
+        assert_eq!(end_reason(true, true, None), EndReason::QuotaExhausted);
     }
 
     #[test]
     fn a_failed_copy_is_an_io_error_and_a_finished_one_is_a_peer_closing() {
-        assert_eq!(end_reason(false, Some(&failed())), EndReason::IoError);
-        assert_eq!(end_reason(false, Some(&Ok((1, 2)))), EndReason::PeerClosed);
+        assert_eq!(end_reason(false, false, Some(&failed())), EndReason::IoError);
+        assert_eq!(end_reason(false, false, Some(&Ok((1, 2)))), EndReason::PeerClosed);
         assert_eq!(error_kind(Some(&failed())), Some(ErrorKind::ConnectionReset));
         assert_eq!(error_kind(Some(&Ok((1, 2)))), None);
+    }
+
+    #[test]
+    fn a_splice_found_idle_is_an_idle_timeout() {
+        assert_eq!(end_reason(false, true, None), EndReason::IdleTimeout);
     }
 
     #[test]

@@ -666,6 +666,7 @@ impl Account {
             account: self,
             started: Instant::now(),
             recorded: 0,
+            ceiling: None,
         }
     }
 }
@@ -682,6 +683,9 @@ pub struct Meter {
     /// difference between this and the splice's own run, which is what makes charging twice
     /// harmless. See [`charge`](Self::charge).
     recorded: u64,
+    /// Time after which this splice is no longer charged, once it has been found idle. See
+    /// [`stop_at`](Self::stop_at).
+    ceiling: Option<Instant>,
 }
 
 impl Meter {
@@ -732,7 +736,15 @@ impl Meter {
     ///   to stay under a counter that rounds down, and it belongs to the splice rather than to the
     ///   call: the floor is on the running total, not on each piece of it.
     pub fn charge(&mut self) -> Option<u64> {
-        let run = self.started.elapsed().as_secs().max(1);
+        self.charge_through(Instant::now())
+    }
+
+    /// [`charge`](Self::charge), counting the splice's run only up to `until`: the last moment bytes
+    /// crossed, so that a connection that has stalled is not billed for the stall. Never counts past
+    /// the ceiling [`stop_at`](Self::stop_at) set, nor past now.
+    pub fn charge_through(&mut self, until: Instant) -> Option<u64> {
+        let until = self.ceiling.map_or(until, |ceiling| ceiling.min(until)).min(Instant::now());
+        let run = until.saturating_duration_since(self.started).as_secs().max(1);
         let owed = run.saturating_sub(self.recorded);
         if owed > 0 {
             self.recorded = run;
@@ -741,6 +753,11 @@ impl Meter {
                 .record(&self.account.client_id, Duration::from_secs(owed));
         }
         self.remaining()
+    }
+
+    /// Ends the splice's billable time at `at` for good, including for the charge a drop makes.
+    pub fn stop_at(&mut self, at: Instant) {
+        self.ceiling = Some(at);
     }
 
     /// What this splice has left of its allowance, read from the counter rather than kept here.
@@ -1202,6 +1219,21 @@ mod tests {
         meter.backdate(Duration::from_secs(120));
         assert_eq!(meter.charge(), Some(720), "and the next charge takes the next stretch");
         assert_eq!(quota.remaining("phone", None, Plan::Free), Some(720));
+    }
+
+    #[test]
+    fn a_stalled_splice_is_charged_only_up_to_its_last_traffic() {
+        let (quota, mut meter) = metered(15, Plan::Free, None);
+        meter.backdate(Duration::from_secs(300));
+        let last_traffic = meter.started + Duration::from_secs(60);
+
+        assert_eq!(meter.charge_through(last_traffic), Some(840), "the 240 idle seconds are not billed");
+        assert_eq!(meter.charge_through(last_traffic), Some(840), "and asking again bills nothing more");
+
+        meter.stop_at(meter.started + Duration::from_secs(90));
+        assert_eq!(meter.charge(), Some(810), "the ceiling holds against an ordinary charge");
+        drop(meter);
+        assert_eq!(quota.remaining("phone", None, Plan::Free), Some(810), "and against the charge a drop makes");
     }
 
     /// The seam a timer creates: the same seconds must not be billed by two calls. This is the

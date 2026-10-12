@@ -20,7 +20,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
 use tracing::{debug, info, warn};
 
-use crate::counted_stream::{CountedStream, EndWatch, Side};
+use crate::counted_stream::{Activity, CountedStream, EndWatch, Side};
 use crate::session::{Join, Registry, Token};
 use crate::stats::{self, EndReason, Refusal, TALLY};
 
@@ -34,7 +34,9 @@ const MAX_UNAUTHENTICATED: usize = 512;
 /// Without a pause a persistent accept error (descriptor exhaustion) turns this loop into a spinning core and a log flood.
 const ACCEPT_ERROR_BACKOFF: Duration = Duration::from_millis(50);
 
-pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
+/// `idle_window` is how long a splice may carry no bytes in either direction before it is ended;
+/// zero disables the check.
+pub async fn serve(listener: TcpListener, registry: Arc<Registry>, idle_window: Duration) {
     let waiting = Arc::new(tokio::sync::Semaphore::new(MAX_UNAUTHENTICATED));
     info!(addr = %listener.local_addr().map(|a| a.to_string()).unwrap_or_default(), "control relay listening");
 
@@ -65,7 +67,7 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
 
                 let registry = Arc::clone(&registry);
                 tokio::spawn(async move {
-                    if let Err(error) = handle(stream, registry, permit).await {
+                    if let Err(error) = handle(stream, registry, permit, idle_window).await {
                         debug!(%peer, %error, "control connection ended");
                     }
                 });
@@ -85,6 +87,7 @@ async fn handle(
     mut stream: TcpStream,
     registry: Arc<Registry>,
     waiting: tokio::sync::OwnedSemaphorePermit,
+    idle_window: Duration,
 ) -> std::io::Result<()> {
     // No buffering here, and none needed: this is the only read this side ever does. Everything
     // after it belongs to TLS.
@@ -150,10 +153,13 @@ async fn handle(
     // every time a tick was handled.
     let control_bytes = Arc::new(AtomicU64::new(0));
     let first_to_end = Arc::new(EndWatch::default());
+    let activity = Arc::new(Activity::new());
     let mut mine = CountedStream::new(mine, Arc::clone(&control_bytes))
-        .watched(Arc::clone(&first_to_end), Side::First);
+        .watched(Arc::clone(&first_to_end), Side::First)
+        .active(Arc::clone(&activity));
     let mut theirs = CountedStream::new(theirs, Arc::clone(&control_bytes))
-        .watched(Arc::clone(&first_to_end), Side::Second);
+        .watched(Arc::clone(&first_to_end), Side::Second)
+        .active(Arc::clone(&activity));
     let splice = tokio::io::copy_bidirectional(&mut mine, &mut theirs);
     tokio::pin!(splice);
 
@@ -175,6 +181,7 @@ async fn handle(
     // reported as one that ran out of allowance, which is a distinction the log line below exists
     // to make. Polling the work before the clock is also the order the two matter in.
     let mut spent = false;
+    let mut idle = false;
     let mut copied = None;
     let spliced_at = std::time::Instant::now();
     TALLY.splice_started();
@@ -194,8 +201,19 @@ async fn handle(
                 // still works. The tick is the only thing here that knows the session is doing
                 // work, so it is the thing that has to say so.
                 registry.touch(&token).await;
-                if meter.charge() == Some(0) {
+                // Charged only up to the last byte that crossed, so a stalled connection stops
+                // costing the moment it stalls. A live one is at most a ping behind.
+                if meter.charge_through(activity.last()) == Some(0) {
                     spent = true;
+                    break;
+                }
+            }
+            // A connection that has stalled bills nothing from the last byte onward and is ended
+            // once the window passes. Armed afresh each turn, so traffic simply moves the deadline.
+            _ = tokio::time::sleep(idle_left(&activity, idle_window)), if !idle_window.is_zero() => {
+                if activity.idle_at(std::time::Instant::now()) >= idle_window {
+                    meter.stop_at(activity.last());
+                    idle = true;
                     break;
                 }
             }
@@ -212,7 +230,7 @@ async fn handle(
     // the drop is what covers the paths that never reach this one, and charging is cumulative, so
     // the two together cannot bill a second twice. Paid clients are charged the same way and are
     // never ended by it: their plan answers `None` to the question this asks.
-    let left = meter.charge();
+    let left = meter.charge_through(activity.last());
 
     if spent {
         // The only line that says a session was cut off for money rather than by one of its ends:
@@ -230,10 +248,10 @@ async fn handle(
         );
     }
 
-    let reason = stats::end_reason(spent, copied.as_ref());
+    let reason = stats::end_reason(spent, idle, copied.as_ref());
     TALLY.splice_ended(reason);
     let closed_first = match (reason, first_to_end.first_to_end()) {
-        (EndReason::QuotaExhausted, _) | (_, None) => "unknown",
+        (EndReason::QuotaExhausted | EndReason::IdleTimeout, _) | (_, None) => "unknown",
         (_, Some(Side::First)) => "first_joiner",
         (_, Some(Side::Second)) => "second_joiner",
     };
@@ -277,4 +295,12 @@ async fn handle(
 
     debug!("splice finished");
     Ok(())
+}
+
+/// How long until the splice would be idle for `window` if nothing else crossed. Never zero, so a
+/// deadline already passed is re-checked on the next turn instead of spinning.
+fn idle_left(activity: &Activity, window: Duration) -> Duration {
+    window
+        .saturating_sub(activity.idle_at(std::time::Instant::now()))
+        .max(Duration::from_millis(1))
 }

@@ -175,7 +175,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // No counter is handed to the control relay any more, and that is not an omission: what a
     // splice is charged on travels with its session, put there by signalling where the plan was
     // resolved. See `quota::Account`.
-    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry)));
+    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry), config.control_idle));
     tokio::spawn(stats::report_forever());
 
     // Abandoned sessions are the normal residue of clients that crash or walk away, so this runs
