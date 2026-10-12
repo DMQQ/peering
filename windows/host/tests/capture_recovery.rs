@@ -57,7 +57,7 @@ fn the_pump_goes_quiet_while_the_backoff_runs_instead_of_failing_every_pass() {
 }
 
 #[test]
-fn a_recovery_that_fails_twice_tells_the_phone_the_source_is_unavailable() {
+fn a_recovery_that_fails_twice_is_a_standing_notice_until_frames_flow_again() {
     run(async {
         let harness = harness();
         let mut phone = paired_phone(&harness.runtime).await;
@@ -67,8 +67,15 @@ fn a_recovery_that_fails_twice_tells_the_phone_the_source_is_unavailable() {
             let _ = harness.runtime.pump_video(harness.clock.now_seconds());
             harness.clock.advance(1.5);
         }
-        let error = phone.next_of(MessageKind::Error).await;
-        let payload: serde_json::Value = decode_json(&error);
-        assert_eq!(payload["code"], "sourceUnavailable");
+        let shown: peering_wire::handshake::NoticePayload = decode_json(&phone.next_of(MessageKind::Notice).await);
+        assert_eq!(shown.code.as_deref(), Some("captureRecovering"));
+
+        for step in 0..2 {
+            push_frame(&harness, 10 + step);
+            harness.runtime.pump_video(harness.clock.now_seconds()).expect("the rebuilt encoder encodes");
+            harness.clock.advance(1.5);
+        }
+        let cleared: peering_wire::handshake::NoticePayload = decode_json(&phone.next_of(MessageKind::Notice).await);
+        assert_eq!(cleared.message, None);
     });
 }

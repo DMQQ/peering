@@ -2,6 +2,8 @@
 //! change, and the notices about what keeps the screen from being captured.
 
 use peering_core::notice::notice_frame;
+use peering_core::video::coordinator::CaptureCondition;
+use peering_wire::handshake::NoticePayload;
 use peering_core::ports::capture::DisplayInfo;
 use peering_core::ports::input::TransformSnapshot;
 use peering_core::ports::system::SystemActions;
@@ -10,12 +12,12 @@ use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::source::{CaptureCatalog, CaptureSource};
 
 use super::outbound::FrameSender;
-use super::ready::error_frame;
 use super::shared::HostState;
 use super::video_handle::VideoHandle;
 
 const CATALOGUE_CHECK_SECONDS: f64 = 1.0;
 const NOTICE_CHECK_SECONDS: f64 = 0.5;
+const CAPTURE_NOTICE_SYMBOL: &str = "exclamationmark.triangle.fill";
 const NO_FRAMES_MESSAGE: &str = "The screen capture produced no frames.";
 const RECOVERING_MESSAGE: &str = "The screen capture stopped and the host is restarting it.";
 
@@ -86,6 +88,19 @@ pub fn transform_for(displays: &[DisplayInfo], source: Option<&CaptureSource>) -
     }
 }
 
+fn capture_notice(condition: Option<CaptureCondition>) -> Option<NoticePayload> {
+    let (message, code) = match condition? {
+        CaptureCondition::NoFrames => (NO_FRAMES_MESSAGE, "captureNoFrames"),
+        CaptureCondition::Recovering => (RECOVERING_MESSAGE, "captureRecovering"),
+    };
+    Some(NoticePayload {
+        message: Some(message.to_owned()),
+        symbol: Some(CAPTURE_NOTICE_SYMBOL.to_owned()),
+        locked_display_id: None,
+        code: Some(code.to_owned()),
+    })
+}
+
 pub fn catalogue_frame(catalog: &CaptureCatalog) -> Frame {
     Frame::new(MessageKind::Catalog, serde_json::to_vec(catalog).expect("a catalogue always serialises"))
 }
@@ -124,28 +139,20 @@ impl HostState {
         transform_for(&displays, self.video.running_source().as_ref())
     }
 
-    /// The notice frames due now: a change in what keeps the screen from being captured, and the report of a capture that
-    /// never produced a frame. A standing notice already explains an empty picture, so it suppresses that report.
+    /// The notice frames due now: a change in what keeps the screen from being captured, else a standing report that the
+    /// capture produced nothing or keeps failing, which ends with the first frame. What keeps the screen from being captured
+    /// explains an empty picture, so it takes the place of that report.
     pub(super) fn session_notices(&mut self, now: f64) -> Vec<Outgoing> {
-        let mut frames = Vec::new();
-        if self.notice_checked_at.is_none_or(|checked| now - checked >= NOTICE_CHECK_SECONDS) {
-            self.notice_checked_at = Some(now);
-            if let Some(payload) = self.notices.update(self.system.session_notice()) {
-                frames.push(notice_frame(&payload));
-            }
+        if self.notice_checked_at.is_some_and(|checked| now - checked < NOTICE_CHECK_SECONDS) {
+            return Vec::new();
         }
-        if self.notices.standing().is_none() {
-            if self.video.lock().take_watchdog_report(now) {
-                frames.push(error_frame("sourceUnavailable", NO_FRAMES_MESSAGE));
-            } else if self.video.lock().take_recovery_report() {
-                frames.push(error_frame("sourceUnavailable", RECOVERING_MESSAGE));
-            }
-        }
-        let mut outgoing = Vec::new();
-        for frame in frames {
-            outgoing.extend(self.sessions.values().map(|slot| Outgoing { to: slot.outbound.clone(), frame: frame.clone() }));
-        }
-        outgoing
+        self.notice_checked_at = Some(now);
+        let desired = self.system.session_notice().or_else(|| capture_notice(self.video.lock().capture_condition()));
+        let Some(payload) = self.notices.update(desired) else {
+            return Vec::new();
+        };
+        let frame = notice_frame(&payload);
+        self.sessions.values().map(|slot| Outgoing { to: slot.outbound.clone(), frame: frame.clone() }).collect()
     }
 }
 

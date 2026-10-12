@@ -29,6 +29,15 @@ pub enum VideoOutput {
     Frame(EncodedVideoFrame),
 }
 
+/// A standing problem with the picture, as opposed to an error from one call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CaptureCondition {
+    /// The capture started and produced no frame at all.
+    NoFrames,
+    /// The capture or encoder failed again after being rebuilt.
+    Recovering,
+}
+
 #[derive(Debug, Error)]
 pub enum CoordinatorError {
     #[error("only display sources can be captured, not {0}")]
@@ -59,7 +68,7 @@ pub struct VideoCoordinator<C: Capture, E: Encoder> {
     reconfigure_pending: bool,
     capture_started_at: Option<f64>,
     frame_ever_seen: bool,
-    watchdog_reported: bool,
+    no_frames: bool,
     last_frame_at: Option<f64>,
     dropped_frames: u64,
     recovery: Recovery,
@@ -85,7 +94,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
             reconfigure_pending: false,
             capture_started_at: None,
             frame_ever_seen: false,
-            watchdog_reported: false,
+            no_frames: false,
             last_frame_at: None,
             dropped_frames: 0,
             recovery: Recovery::default(),
@@ -153,7 +162,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.last_config = None;
         self.capture_started_at = None;
         self.frame_ever_seen = false;
-        self.watchdog_reported = false;
+        self.no_frames = false;
         self.recovery = Recovery::default();
     }
 
@@ -189,7 +198,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.recovery = Recovery::default();
         self.recovery.restarted(now);
         self.frame_ever_seen = false;
-        self.watchdog_reported = false;
+        self.no_frames = false;
         Ok(())
     }
 
@@ -248,6 +257,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         let mut encoded = false;
         while let Some(raw) = self.capture.poll_frame() {
             self.frame_ever_seen = true;
+            self.no_frames = false;
             self.recovery.frame_seen(now);
             if encode_this_pass && self.sending() {
                 self.encode_into(&raw, now, &mut outputs, &mut slot)?;
@@ -270,14 +280,19 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
             && self.capture_started_at.is_some_and(|started| now - started >= FIRST_FRAME_GRACE)
     }
 
-    /// True once per capture start, the first time the watchdog has expired, so a silent capture is reported once.
-    pub fn take_watchdog_report(&mut self, now: f64) -> bool {
-        if self.watchdog_reported || self.recovery.is_reported() || !self.watchdog_expired(now) {
-            return false;
+    /// What is wrong with the capture right now, for the client to show until it is gone. A capture that never delivered
+    /// stays reported through the rebuilds that follow, so the notice does not flicker, and ends with the first frame.
+    pub fn capture_condition(&self) -> Option<CaptureCondition> {
+        if self.source.is_none() {
+            return None;
         }
-        self.watchdog_reported = true;
-        self.recovery.mark_reported();
-        true
+        if self.no_frames {
+            Some(CaptureCondition::NoFrames)
+        } else if self.recovery.visibly_failing() {
+            Some(CaptureCondition::Recovering)
+        } else {
+            None
+        }
     }
 
     pub fn running_source(&self) -> Option<&CaptureSource> {

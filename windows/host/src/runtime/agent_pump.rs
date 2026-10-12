@@ -1,13 +1,16 @@
 //! Delivers what the agent CLIs print. The managers belong to the host, not to a connection, so a chat keeps running while
 //! its phone reconnects and the output goes to the client's newest connection.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::task::{spawn_local, JoinHandle};
 use tokio::time::interval;
 
 use super::shared::{HostState, Shared};
+use super::supervise::{record_problem, Pass, Supervised};
 use super::video::{deliver, Outgoing};
+use super::HostProfile;
 use peering_wire::framing::{Frame, MessageKind};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(200);
@@ -29,15 +32,66 @@ impl HostState {
     }
 }
 
-async fn run(shared: Shared) {
-    let mut ticks = interval(POLL_INTERVAL);
-    loop {
-        ticks.tick().await;
-        let outgoing = shared.lock().pump_agents();
-        deliver(outgoing);
+/// One supervised pass: a panic in `poll` is caught and shown as a problem, and the loop is held off, instead of ending the
+/// host.
+fn supervised_pass(
+    supervised: &mut Supervised,
+    shared: &Shared,
+    now: f64,
+    pass: impl FnOnce(&mut HostState) -> Vec<Outgoing>,
+) -> Vec<Outgoing> {
+    let result = supervised.run(now, || pass(&mut shared.lock()), |text| record_problem(shared, "agents", text));
+    match result {
+        Pass::Done(outgoing) => outgoing,
+        Pass::Skipped | Pass::Panicked => Vec::new(),
     }
 }
 
-pub fn spawn_pump(shared: Shared) -> JoinHandle<()> {
-    spawn_local(run(shared))
+async fn run(shared: Shared, profile: Arc<HostProfile>) {
+    let mut ticks = interval(POLL_INTERVAL);
+    let mut supervised = Supervised::new("agents");
+    loop {
+        ticks.tick().await;
+        let now = profile.clock.now_seconds();
+        deliver(supervised_pass(&mut supervised, &shared, now, HostState::pump_agents));
+    }
+}
+
+pub fn spawn_pump(shared: Shared, profile: Arc<HostProfile>) -> JoinHandle<()> {
+    spawn_local(run(shared, profile))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::services::platform_services;
+    use super::super::{HostRuntime, SystemClock};
+    use super::*;
+
+    fn shared() -> Shared {
+        let services = platform_services(String::new()).expect("the stand-in adapters build");
+        let profile = HostProfile {
+            host_id: "host".to_owned(),
+            host_name: "PC".to_owned(),
+            identity_public_key: Vec::new(),
+            mac_addresses: Vec::new(),
+            can_lock_screen: false,
+            clock: Arc::new(SystemClock::new()),
+        };
+        HostRuntime::new(profile, services).expect("the runtime builds over stand-ins").shared
+    }
+
+    #[test]
+    fn a_panic_in_the_agent_pass_is_a_problem_and_the_next_pass_clears_it() {
+        let shared = shared();
+        let mut supervised = Supervised::new("agents");
+        let none = supervised_pass(&mut supervised, &shared, 1.0, |_| panic!("the adapter broke"));
+        assert!(none.is_empty());
+        assert!(shared.lock().problems.get("agents").is_some_and(|text| text.contains("the adapter broke")));
+
+        let held_off = supervised_pass(&mut supervised, &shared, 1.1, |_| panic!("must not run inside the backoff"));
+        assert!(held_off.is_empty());
+
+        let _ = supervised_pass(&mut supervised, &shared, 2.0, |_| Vec::new());
+        assert!(shared.lock().problems.get("agents").is_none());
+    }
 }

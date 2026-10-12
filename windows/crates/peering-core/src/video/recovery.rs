@@ -10,7 +10,7 @@ use crate::ports::encoder::EncodeError;
 const RETRY_DELAYS: [f64; 6] = [0.5, 1.0, 2.0, 4.0, 8.0, 15.0];
 /// Encoder rebuilds that fail this many times in a row are taken to mean the device under it is gone.
 const ENCODER_REBUILDS_BEFORE_DEVICE_REBUILD: u32 = 2;
-/// Failures in a row after which the client is told the source is unavailable.
+/// Failures in a row after which the client is shown the capture is recovering.
 const FAILURES_BEFORE_REPORT: u32 = 2;
 /// A capture that has produced frames and then none for this long is restarted once.
 pub const STALL_SECONDS: f64 = 30.0;
@@ -60,7 +60,6 @@ pub struct Recovery {
     encoder_failures: u32,
     retry_at: f64,
     remedy: Option<Remedy>,
-    reported: bool,
     last_organic_frame_at: Option<f64>,
     restarted_at: Option<f64>,
     quiet_probes: u32,
@@ -117,29 +116,15 @@ impl Recovery {
     pub fn produced_output(&mut self) {
         self.failures = 0;
         self.encoder_failures = 0;
-        self.reported = false;
     }
 
     pub fn failures(&self) -> u32 {
         self.failures
     }
 
-    /// True once per run of failures, when a second attempt has also failed, so the client is told once.
-    pub fn take_report(&mut self) -> bool {
-        if self.reported || self.failures < FAILURES_BEFORE_REPORT {
-            return false;
-        }
-        self.reported = true;
-        true
-    }
-
-    /// Marks the failure as already told to the client, as the first-frame watchdog does for its own report.
-    pub fn mark_reported(&mut self) {
-        self.reported = true;
-    }
-
-    pub fn is_reported(&self) -> bool {
-        self.reported
+    /// True while rebuilds keep failing: a second attempt has also failed and no frame has come out since.
+    pub fn visibly_failing(&self) -> bool {
+        self.failures >= FAILURES_BEFORE_REPORT
     }
 
     /// A raw frame arrived from the capture at `now`.

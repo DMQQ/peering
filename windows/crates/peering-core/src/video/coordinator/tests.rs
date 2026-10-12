@@ -4,6 +4,7 @@ use crate::fakes::clock::FakeClock;
 use crate::fakes::encoder::FakeEncoder;
 use crate::ports::capture::{DisplayInfo, RawFrame};
 use crate::ports::clock::Clock;
+use super::CaptureCondition;
 
 fn display(id: u32, is_primary: bool) -> DisplayInfo {
     DisplayInfo {
@@ -439,14 +440,30 @@ fn a_restarted_capture_gets_a_fresh_first_frame_grace() {
 }
 
 #[test]
-fn a_capture_that_never_delivers_is_reported_once_per_start() {
+fn a_capture_that_never_delivers_stands_as_a_condition_until_a_new_start() {
     let mut coordinator = coordinator();
     coordinator.set_source(display_source(1), 0.0).unwrap();
-    assert!(!coordinator.take_watchdog_report(4.0));
-    assert!(coordinator.take_watchdog_report(5.0));
-    assert!(!coordinator.take_watchdog_report(6.0));
+    coordinator.pump(4.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), None);
+    coordinator.pump(5.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::NoFrames));
+    coordinator.pump(6.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::NoFrames), "it stands, it is not a one-off");
     coordinator.set_source(display_source(2), 10.0).unwrap();
-    assert!(coordinator.take_watchdog_report(15.0));
+    assert_eq!(coordinator.capture_condition(), None);
+    coordinator.pump(15.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::NoFrames));
+}
+
+#[test]
+fn the_first_frame_clears_the_no_frames_condition() {
+    let mut coordinator = watched_coordinator();
+    coordinator.pump(5.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::NoFrames));
+    coordinator.pump(5.6).unwrap();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(5.7).unwrap();
+    assert_eq!(coordinator.capture_condition(), None);
 }
 
 #[test]
@@ -456,7 +473,8 @@ fn a_capture_that_delivered_a_frame_is_never_reported() {
     coordinator.attach("phone");
     push(&mut coordinator, &[1]);
     coordinator.pump(0.1).unwrap();
-    assert!(!coordinator.take_watchdog_report(60.0));
+    coordinator.pump(60.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), None);
 }
 
 fn watched_coordinator() -> VideoCoordinator<FakeCapture, FakeEncoder> {
@@ -508,7 +526,7 @@ fn a_capture_that_reports_itself_failed_is_restarted_on_a_fresh_device() {
 }
 
 #[test]
-fn a_restart_that_keeps_failing_backs_off_and_the_client_is_told_once() {
+fn a_restart_that_keeps_failing_backs_off_and_stands_as_a_condition() {
     let mut coordinator = watched_coordinator();
     push(&mut coordinator, &[1]);
     coordinator.pump(0.1).unwrap();
@@ -516,12 +534,12 @@ fn a_restart_that_keeps_failing_backs_off_and_the_client_is_told_once() {
     coordinator.capture.fail_starts(10);
 
     coordinator.pump(1.0).unwrap();
-    assert!(!coordinator.take_recovery_report());
+    assert_eq!(coordinator.capture_condition(), None);
     assert!(coordinator.pump(1.5).is_err());
-    assert!(coordinator.take_recovery_report());
+    assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::Recovering));
     assert!(coordinator.pump(2.0).unwrap().is_empty());
     assert!(coordinator.pump(2.5).is_err());
-    assert!(!coordinator.take_recovery_report());
+    assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::Recovering));
     assert!(coordinator.pump(4.0).unwrap().is_empty());
     assert!(coordinator.pump(4.5).is_err());
     assert_eq!(coordinator.capture.starts(), 4);
@@ -555,7 +573,7 @@ fn a_capture_that_goes_quiet_and_fails_its_probe_is_restarted_after_the_stall_wi
     assert_eq!(coordinator.capture.starts(), 1);
     coordinator.pump(30.5).unwrap();
     assert_eq!(coordinator.capture.starts(), 2);
-    assert!(!coordinator.take_recovery_report());
+    assert_eq!(coordinator.capture_condition(), None);
 }
 
 #[test]
@@ -611,7 +629,7 @@ fn a_still_screen_is_never_restarted_while_its_probe_passes() {
         coordinator.pump(f64::from(second)).unwrap();
     }
     assert_eq!(coordinator.capture.starts(), 1, "twenty minutes of a static desktop rebuilt nothing");
-    assert!(!coordinator.take_recovery_report());
+    assert_eq!(coordinator.capture_condition(), None);
 }
 
 #[test]
@@ -654,12 +672,11 @@ fn a_capture_that_never_delivers_is_restarted_with_growing_waits() {
 }
 
 #[test]
-fn the_first_frame_report_is_not_repeated_by_the_recovery_report() {
+fn the_no_frames_condition_does_not_flicker_through_the_rebuilds_that_follow() {
     let mut coordinator = watched_coordinator();
-    assert!(coordinator.take_watchdog_report(5.0));
-    coordinator.pump(5.0).unwrap();
-    coordinator.pump(5.5).unwrap();
-    coordinator.pump(10.5).unwrap();
-    assert!(!coordinator.take_recovery_report());
-    assert!(!coordinator.take_watchdog_report(10.5));
+    for step in 0..40 {
+        coordinator.pump(5.0 + f64::from(step) * 0.5).unwrap();
+        assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::NoFrames));
+    }
+    assert!(coordinator.capture.starts() > 1, "the capture was rebuilt meanwhile");
 }

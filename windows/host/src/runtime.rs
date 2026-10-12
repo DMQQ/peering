@@ -275,7 +275,7 @@ impl HostRuntime {
         supervise::spawn_hang_monitor(&meter, published);
         PumpTasks {
             video: video_pass::spawn_pump(self.shared.clone(), self.profile.clone(), meter),
-            agents: agent_pump::spawn_pump(self.shared.clone()),
+            agents: agent_pump::spawn_pump(self.shared.clone(), self.profile.clone()),
         }
     }
 

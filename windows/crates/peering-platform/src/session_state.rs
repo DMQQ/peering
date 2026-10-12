@@ -50,6 +50,7 @@ pub fn notice_for(state: SessionState) -> Option<NoticePayload> {
         message: Some(message.to_string()),
         symbol: Some(symbol.to_string()),
         locked_display_id: None,
+        code: None,
     })
 }
 

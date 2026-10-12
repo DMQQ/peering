@@ -85,19 +85,16 @@ fn an_unrecoverable_failure_waits_the_longest_before_one_more_try() {
 }
 
 #[test]
-fn the_client_is_told_once_after_the_second_failure_in_a_row() {
+fn the_failure_is_visible_from_the_second_failure_in_a_row_until_output_returns() {
     let mut recovery = Recovery::default();
     recovery.failed(Remedy::Pipeline, 0.0);
-    assert!(!recovery.take_report());
+    assert!(!recovery.visibly_failing());
     recovery.failed(Remedy::Pipeline, 1.0);
-    assert!(recovery.take_report());
-    assert!(!recovery.take_report());
+    assert!(recovery.visibly_failing());
     recovery.failed(Remedy::Pipeline, 2.0);
-    assert!(!recovery.take_report());
+    assert!(recovery.visibly_failing());
     recovery.produced_output();
-    recovery.failed(Remedy::Pipeline, 9.0);
-    recovery.failed(Remedy::Pipeline, 10.0);
-    assert!(recovery.take_report());
+    assert!(!recovery.visibly_failing());
 }
 
 #[test]

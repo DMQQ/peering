@@ -146,6 +146,10 @@ pub struct NoticePayload {
     pub symbol: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub locked_display_id: Option<u32>,
+    /// A stable name for the condition (`captureNoFrames`, `captureRecovering`), for a client that wants to treat it
+    /// specially. A client that does not know it shows the message.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
 }
 
 /// A pong is matched to its ping by this number.

@@ -271,7 +271,8 @@ bit 8 asks for the F-key's printed action (`Modifiers.topRowAction`). See [keyma
 ## 9. Other control messages
 
 * `error` (0x0D): `{code, message}`. The code `hostStopped` means the user pressed Stop; the client MUST NOT reconnect.
-* `notice` (0x10): `{message?, symbol?, lockedDisplayID?}`; a nil message clears a standing condition.
+* `notice` (0x10): `{message?, symbol?, lockedDisplayID?, code?}`; a nil message clears a standing condition. `code` is optional
+  and added by the Windows host (`captureNoFrames`, `captureRecovering`); a client that does not know it shows the message.
 * `videoTransport` (0x18): `{transport:"primary"|"control", reason}`. The host may decline.
 * `clientState` (0x23): `{"background": true}` or `{"background": false}`, control lane, never answered. An OS may freeze a
   backgrounded client with its sockets open and tell the host nothing, so a client that leaves the foreground says so

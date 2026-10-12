@@ -2,7 +2,8 @@ mod support;
 
 use peering_core::ports::clock::Clock;
 use peering_wire::framing::MessageKind;
-use peering_wire::handshake::{ErrorPayload, NoticePayload};
+use peering_core::ports::capture::RawFrame;
+use peering_wire::handshake::NoticePayload;
 use support::*;
 
 fn security_prompt() -> NoticePayload {
@@ -10,6 +11,7 @@ fn security_prompt() -> NoticePayload {
         message: Some("A Windows security prompt is on screen".to_owned()),
         symbol: Some("exclamationmark.shield.fill".to_owned()),
         locked_display_id: None,
+        code: None,
     }
 }
 
@@ -82,26 +84,45 @@ fn a_phone_that_connects_during_a_security_prompt_is_told_about_it() {
 }
 
 #[test]
-fn a_capture_that_produces_no_frames_is_reported_once() {
+fn a_capture_that_produces_no_frames_is_a_standing_notice_that_clears_with_the_first_frame() {
     run(async {
         let harness = harness();
         let mut phone = paired_phone(&harness.runtime).await;
         harness.clock.advance(6.0);
         pump(&harness);
+        harness.clock.advance(1.0);
+        pump(&harness);
 
-        let error: ErrorPayload = decode_json(&phone.next_of(MessageKind::Error).await);
-        assert_eq!(error.code, "sourceUnavailable");
+        let shown: NoticePayload = decode_json(&phone.next_of(MessageKind::Notice).await);
+        assert_eq!(shown.code.as_deref(), Some("captureNoFrames"));
+        assert!(shown.message.is_some());
 
+        harness.clock.advance(1.0);
+        pump(&harness);
+        harness.capture.lock().expect("the capture is not poisoned").push_frame(RawFrame { width: 1920, height: 1080, sequence: 1 });
+        harness.clock.advance(1.0);
+        pump(&harness);
+        harness.clock.advance(1.0);
+        pump(&harness);
+        let cleared: NoticePayload = decode_json(&phone.next_of(MessageKind::Notice).await);
+        assert_eq!(cleared.message, None, "the first frame ends the notice");
+    });
+}
+
+#[test]
+fn a_phone_that_connects_during_a_no_frames_notice_is_told_about_it() {
+    run(async {
+        let harness = harness();
+        let mut first = paired_phone(&harness.runtime).await;
         harness.clock.advance(6.0);
         pump(&harness);
-        phone.send(peering_wire::framing::Frame::empty(MessageKind::Ping)).await;
-        loop {
-            let frame = phone.next().await;
-            assert_ne!(frame.kind, MessageKind::Error, "the report is sent once");
-            if frame.kind == MessageKind::Pong {
-                break;
-            }
-        }
+        harness.clock.advance(1.0);
+        pump(&harness);
+        first.next_of(MessageKind::Notice).await;
+
+        let mut second = reconnected_phone(&harness.runtime).await;
+        let shown: NoticePayload = decode_json(&second.next_of(MessageKind::Notice).await);
+        assert_eq!(shown.code.as_deref(), Some("captureNoFrames"));
     });
 }
 
@@ -115,10 +136,13 @@ fn a_security_prompt_explains_an_empty_picture_so_no_failure_is_reported() {
         pump(&harness);
 
         phone.next_of(MessageKind::Notice).await;
+        harness.clock.advance(1.0);
+        pump(&harness);
         phone.send(peering_wire::framing::Frame::empty(MessageKind::Ping)).await;
         loop {
             let frame = phone.next().await;
             assert_ne!(frame.kind, MessageKind::Error);
+            assert_ne!(frame.kind, MessageKind::Notice, "the prompt already explains the empty picture");
             if frame.kind == MessageKind::Pong {
                 break;
             }

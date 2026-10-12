@@ -17,7 +17,7 @@ impl NoticeTracker {
             return None;
         }
         self.current.clone_from(&desired);
-        Some(desired.unwrap_or(NoticePayload { message: None, symbol: None, locked_display_id: None }))
+        Some(desired.unwrap_or(NoticePayload { message: None, symbol: None, locked_display_id: None, code: None }))
     }
 
     /// The notice a client that connects now has not yet seen.
@@ -35,11 +35,11 @@ mod tests {
     use super::*;
 
     fn locked() -> NoticePayload {
-        NoticePayload { message: Some("This PC is locked".to_owned()), symbol: Some("lock.fill".to_owned()), locked_display_id: None }
+        NoticePayload { message: Some("This PC is locked".to_owned()), symbol: Some("lock.fill".to_owned()), locked_display_id: None, code: None }
     }
 
     fn security_prompt() -> NoticePayload {
-        NoticePayload { message: Some("A Windows security prompt is on screen".to_owned()), symbol: None, locked_display_id: None }
+        NoticePayload { message: Some("A Windows security prompt is on screen".to_owned()), symbol: None, locked_display_id: None, code: None }
     }
 
     #[test]

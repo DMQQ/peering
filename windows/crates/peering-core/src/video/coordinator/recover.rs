@@ -17,6 +17,9 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
     /// and tries again. A capture that stops delivering without an error is restarted after a stall is noticed.
     pub fn pump(&mut self, now: f64) -> Result<Vec<VideoOutput>, CoordinatorError> {
         self.note_capture_health(now);
+        if self.watchdog_expired(now) {
+            self.no_frames = true;
+        }
         if self.recovery.waiting(now) {
             return Ok(Vec::new());
         }
@@ -46,17 +49,12 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.reconfigure_pending = false;
         self.capture_started_at = None;
         self.frame_ever_seen = false;
-        self.watchdog_reported = false;
+        self.no_frames = false;
         self.recovery = Recovery::default();
         self.request_resync();
         if self.source.is_some() {
             self.recovery.failed(Remedy::Pipeline, now);
         }
-    }
-
-    /// True once per run of failures when the rebuilds are not working, for the caller to tell the client.
-    pub fn take_recovery_report(&mut self) -> bool {
-        self.recovery.take_report()
     }
 
     /// Failures in a row since the last frame came out.
@@ -137,7 +135,6 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.pacer.restart();
         self.capture_started_at = Some(now);
         self.frame_ever_seen = false;
-        self.watchdog_reported = false;
         self.recovery.rebuilt(now);
         Ok(())
     }
