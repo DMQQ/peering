@@ -12,8 +12,9 @@ enum FileWork {
     static let browsing = ConcurrencyLimiter(limit: 8)
     static let archiving = ConcurrencyLimiter(limit: 2)
 
-    static var timedOutMessage: String { String(localized: "This Mac did not answer in time. The folder may be on a drive that is not responding.") }
-    static var busyMessage: String { String(localized: "This Mac is busy with other file requests. Try again in a moment.") }
+    // Wire text: the phone looks these sentences up in its own catalog, so they stay English whatever language this Mac uses.
+    static let timedOutMessage = "This Mac did not answer in time. The folder may be on a drive that is not responding."
+    static let busyMessage = "This Mac is busy with other file requests. Try again in a moment."
 
     static func run<Value: Sendable>(
         limiter: ConcurrencyLimiter = browsing,

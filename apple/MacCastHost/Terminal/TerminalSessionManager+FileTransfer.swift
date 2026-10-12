@@ -102,7 +102,7 @@ extension TerminalSessionManager {
             // Bytes accepted faster than the disk takes them would sit in memory until the process is killed.
             guard queuedWriteBytes.reserve(data.count) else {
                 writes.removeValue(forKey: key)
-                return .refused(String(localized: "This Mac's disk is not keeping up, so that transfer was stopped."), pending)
+                return .refused("This Mac's disk is not keeping up, so that transfer was stopped.", pending)
             }
             pending.received += data.count
             pending.lastActivity = ProcessInfo.processInfo.systemUptime
