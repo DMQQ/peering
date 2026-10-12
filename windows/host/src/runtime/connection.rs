@@ -281,7 +281,7 @@ impl Connection {
         }
         if let Some(slot) = state.sessions.remove(&self.session_id) {
             state.video.detach(&slot.client_id);
-            state.input.release_all();
+            state.release_input_if_idle();
             if !state.sessions.values().any(|other| other.client_id == slot.client_id) {
                 state.terminals.disconnect(&slot.client_id);
             }

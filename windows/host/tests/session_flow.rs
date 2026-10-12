@@ -93,3 +93,20 @@ fn a_video_connection_without_an_authorised_control_session_is_refused() {
         assert!(phone.try_next().await.is_none());
     });
 }
+
+#[test]
+fn keys_are_released_only_when_the_last_session_leaves() {
+    run(async {
+        let harness = harness();
+        let first = paired_phone(&harness.runtime).await;
+        let second = reconnected_phone(&harness.runtime).await;
+        let released = || harness.input.lock().expect("the input is not poisoned").release_all_count();
+
+        drop(first);
+        until(|| (harness.runtime.snapshot().connected_clients == 1).then_some(())).await;
+        assert_eq!(released(), 0, "the second session still holds its keys");
+
+        drop(second);
+        until(|| (released() == 1).then_some(())).await;
+    });
+}

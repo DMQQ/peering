@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
 use peering_core::pairing::PairingService;
+use peering_core::ports::input::InputSink;
 use peering_core::session::deps::PinStore;
 use peering_core::terminal::manager::TerminalSessionManager;
 use peering_core::video::coordinator::VideoCoordinator;
@@ -58,6 +59,14 @@ pub struct HostState {
 }
 
 impl HostState {
+    /// Lifts the keys and buttons the remote held, once no session is left to hold them. A phone that reconnects before
+    /// its old connection is reaped keeps the keys it is holding.
+    pub fn release_input_if_idle(&mut self) {
+        if self.sessions.is_empty() {
+            self.input.release_all();
+        }
+    }
+
     pub fn allocate_session(&mut self) -> u64 {
         self.next_session += 1;
         self.next_session
