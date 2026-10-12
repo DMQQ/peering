@@ -26,8 +26,10 @@ private const val TAB_IN_MS = 150
 private const val AXIS_MS = 300
 private const val MODAL_IN_MS = 280
 private const val MODAL_OUT_MS = 200
-private const val PUSH_IN_MS = 300
-private const val PUSH_OUT_MS = 240
+private const val PUSH_IN_MS = 340
+private const val PUSH_OUT_MS = 280
+private const val STACK_MS = 340
+private const val STACK_PARALLAX = 4
 private const val CROSSFADE_MS = 120
 private val axisDistance = 30.dp
 
@@ -39,8 +41,8 @@ val FadeThroughExit: ExitTransition = fadeOut(tween(FADE_OUT_MS, easing = FastOu
 
 fun motionTransition(kind: MotionKind, axisDistancePx: Int): ContentTransform = when (kind) {
     MotionKind.FADE_THROUGH -> FadeThroughEnter togetherWith FadeThroughExit
-    MotionKind.FORWARD -> sharedAxisX(1, axisDistancePx)
-    MotionKind.BACKWARD -> sharedAxisX(-1, axisDistancePx)
+    MotionKind.FORWARD -> stackPush(1)
+    MotionKind.BACKWARD -> stackPush(-1)
     MotionKind.CROSSFADE -> fadeIn(tween(CROSSFADE_MS)) togetherWith fadeOut(tween(CROSSFADE_MS))
     MotionKind.FADE -> fadeIn(tween(FADE_IN_MS, easing = FastOutSlowInEasing)) togetherWith fadeOut(tween(CROSSFADE_MS))
     MotionKind.MODAL_UP -> (
@@ -56,15 +58,17 @@ fun motionTransition(kind: MotionKind, axisDistancePx: Int): ContentTransform = 
         )
 }
 
-private fun sharedAxisX(sign: Int, distancePx: Int): ContentTransform {
-    val slide = tween<IntOffset>(AXIS_MS, easing = FastOutSlowInEasing)
-    return (
-        fadeIn(tween(FADE_IN_MS, delayMillis = FADE_OUT_MS, easing = FastOutSlowInEasing)) +
-            slideInHorizontally(slide) { sign * distancePx }
-        ) togetherWith (
-        fadeOut(tween(FADE_OUT_MS, easing = FastOutLinearInEasing)) +
-            slideOutHorizontally(slide) { -sign * distancePx }
-        )
+/** The native stack push: the new screen covers the old one from the right, and the old one drifts a quarter of the way left and fades. Going back is the same in reverse. */
+private fun stackPush(sign: Int): ContentTransform {
+    val slide = tween<IntOffset>(STACK_MS, easing = FastOutSlowInEasing)
+    val fade = tween<Float>(STACK_MS, easing = FastOutSlowInEasing)
+    return if (sign > 0) {
+        (slideInHorizontally(slide) { it } togetherWith (slideOutHorizontally(slide) { -it / STACK_PARALLAX } + fadeOut(fade)))
+            .apply { targetContentZIndex = 1f }
+    } else {
+        ((slideInHorizontally(slide) { -it / STACK_PARALLAX } + fadeIn(fade)) togetherWith slideOutHorizontally(slide) { it })
+            .apply { targetContentZIndex = -1f }
+    }
 }
 
 @Composable
