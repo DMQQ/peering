@@ -22,7 +22,7 @@ extension HostSession {
             case .pushClipboardImage(let png):
                 onReceiveClipboard?(.image(png))
             case .setVideoEnabled(let enabled):
-                onVideoEnabled?(enabled)
+                perform(pictureState.pictureRequested(enabled))
             default:
                 onCommand?(command)
             }
@@ -67,6 +67,14 @@ extension HostSession {
             let request = try decode(VideoTransportRequest.self, from: frame, as: .videoTransport)
             onVideoTransportRequest?(request)
 
+        case .clientState:
+            guard frame.payload.count <= Self.maxControlPayload else {
+                throw SessionError.malformedPayload(.clientState, SessionError.protocolMismatch(client: 0, host: 0))
+            }
+            let state = try decode(ClientStatePayload.self, from: frame, as: .clientState)
+            hostSessionLog.notice("client \(state.background ? "left" : "returned to", privacy: .public) the foreground")
+            perform(pictureState.clientBackground(state.background))
+
         case .videoKeyRequest:
             guard frame.payload.count <= Self.maxControlPayload else {
                 throw SessionError.malformedPayload(.videoKeyRequest, SessionError.protocolMismatch(client: 0, host: 0))
@@ -76,6 +84,15 @@ extension HostSession {
 
         default:
             throw SessionError.unexpectedMessage(frame.kind)
+        }
+    }
+
+    /// Resuming attaches the video connection again, which asks the encoder for a keyframe.
+    private func perform(_ action: ClientPictureState.Action) {
+        switch action {
+        case .none: break
+        case .pauseVideo: onVideoEnabled?(false)
+        case .resumeVideo: onVideoEnabled?(true)
         }
     }
 

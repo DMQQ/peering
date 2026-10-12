@@ -149,6 +149,7 @@ extension HostSession {
             supportsAgentUsage: true,
             supportsAgentSessionImport: true,
             supportsAgentPause: true,
+            supportsClientState: true,
             hostPlatform: "macos"
         ))
         if alreadyPaired, let source = hello.resumeSource {

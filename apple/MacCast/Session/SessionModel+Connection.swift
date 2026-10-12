@@ -362,7 +362,26 @@ extension SessionModel {
         // The moment matters: as the app leaves the screen, `startPictureInPicture` still has a view hierarchy to lift the layer from.
         SessionPiP.shared.backgrounding(sessionIsUp: phase.holdsSession)
 
-        // Held while any Mac is open or retrying: iOS suspends the process, and a LAN session that drops to `.failed` before `enteringBackground()` would freeze `Task.sleep` and never show the "dropped" card.
+        beginBackgroundGrace()
+    }
+
+    /// First thing when the app stops being the active scene, before iOS freezes it with its sockets open: the Mac otherwise keeps encoding for a phone that cannot read it. The grace is requested first so the notice has time to leave.
+    func leavingForeground() {
+        beginBackgroundGrace()
+        tellMacsAppIsBackground(true)
+    }
+
+    /// Picture in Picture keeps the app alive and drawing, so the Mac must keep sending while it is up.
+    func pictureInPictureChanged(active: Bool) {
+        tellMacsAppIsBackground(!active && UIApplication.shared.applicationState != .active)
+    }
+
+    private func tellMacsAppIsBackground(_ background: Bool) {
+        for session in sessions { session.wire?.sendClientState(background: background) }
+    }
+
+    // Held while any Mac is open or retrying: iOS suspends the process, and a LAN session that drops to `.failed` before `enteringBackground()` would freeze `Task.sleep` and never show the "dropped" card.
+    private func beginBackgroundGrace() {
         guard hasOpenSession, backgroundTask == .invalid else { return }
         backgroundTask = UIApplication.shared.beginBackgroundTask(withName: String(localized: "Peering session")) { [weak self] in
             Task { @MainActor in self?.backgroundTimeExpired() }
@@ -370,6 +389,7 @@ extension SessionModel {
     }
 
     func enteringForeground() {
+        tellMacsAppIsBackground(false)
         // If the card still shows dropped and the Mac is back in reach, jump to "reconnecting" instead of leaving "dropped" up for the round trip. `reachability(ofHost:)` keeps it in agreement with the picker's dot.
         if let session = activeSession,
            !session.phase.holdsSession,

@@ -115,3 +115,21 @@ extension ClientSession {
         connection()?.send(command)
     }
 }
+
+extension ClientSession {
+    /// Tells the Mac the app left or returned to the foreground, so it stops encoding for a phone iOS is about to freeze. Only to a Mac that declared it, and only once per change.
+    public func sendClientState(background: Bool) {
+        let send = lock.withLock { () -> Bool in
+            guard state == .ready,
+                  ClientStateSupport.maySend(toHostDeclared: _serverHello?.supportsClientState),
+                  clientBackgrounded != background
+            else { return false }
+            clientBackgrounded = background
+            // The picture was stopped on purpose; the timer for "no picture" starts when it is asked back.
+            if !background { lastPictureAt = Self.monotonicNow() }
+            return true
+        }
+        guard send else { return }
+        connection()?.send(.clientState, ClientStatePayload(background: background))
+    }
+}

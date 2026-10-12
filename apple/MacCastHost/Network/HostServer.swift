@@ -312,15 +312,6 @@ final class HostServer: @unchecked Sendable {
         )
     }
 
-    /// Withdraws the Mac from the network while a device is using it, and puts it back when the
-    /// last one leaves.
-    private static let silenceLimit: TimeInterval = 60
-
-    /// How long a connection may occupy a session slot without completing authentication.
-    private static let handshakeSilenceLimit: TimeInterval = 30
-
-    private static let approvalLimit: TimeInterval = 120
-
     /// How often to look. Well under the limit, so a session ends within a few seconds of going
     /// quiet rather than up to a whole interval late.
     private static let reaperInterval: TimeInterval = 5
@@ -330,11 +321,10 @@ final class HostServer: @unchecked Sendable {
         for session in controlSessions where !session.isVideoConnection {
             // A person has to find the Mac and click, so this wait is longer than a handshake's, and ends as a declined pairing so the card on the Mac goes away.
             if session.isAwaitingApproval {
-                if session.silence > Self.approvalLimit { session.resolveApproval(approved: false) }
+                if session.silence > SessionSilenceLimits.approval { session.resolveApproval(approved: false) }
                 continue
             }
-            let limit = session.isAuthorized ? Self.silenceLimit : Self.handshakeSilenceLimit
-            guard session.silence > limit else { continue }
+            guard session.silence > session.silenceLimit else { continue }
             if session.isAuthorized {
                 sessionLog.notice("A device stopped answering; ending its session")
             } else {

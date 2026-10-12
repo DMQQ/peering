@@ -138,6 +138,9 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// Whether this Mac takes ``AgentRequest/pause(sessionID:)``. Optional and additive: `nil` reads as no.
     public var supportsAgentPause: Bool?
 
+    /// Whether this host takes ``MessageKind/clientState``. Optional and additive: `nil` reads as no, and a client sends the notice only on an explicit `true`.
+    public var supportsClientState: Bool?
+
     /// Which platform this host runs on (`"macos"`, `"windows"`). Optional and additive: `nil` is a Mac from before this field. A client may use it to choose key codes and to hide what only a Mac does.
     public var hostPlatform: String?
 
@@ -163,8 +166,10 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsAgentUsage: Bool? = nil,
         supportsAgentSessionImport: Bool? = nil,
         supportsAgentPause: Bool? = nil,
+        supportsClientState: Bool? = nil,
         hostPlatform: String? = nil
     ) {
+        self.supportsClientState = supportsClientState
         self.hostPlatform = hostPlatform
         self.serverID = serverID
         self.hostName = hostName
