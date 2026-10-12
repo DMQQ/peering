@@ -258,7 +258,7 @@ extension HostSession {
         let confirm = try decode(PairConfirm.self, from: frame, as: .pairConfirm)
 
         guard confirm.accepted, let peerPublicKey else {
-            HostTelemetry.pairingRefused(stage: "confirm")
+            HostTelemetry.pairingRefused(stage: .confirm)
             rejectPairing(reason: "The codes did not match.")
             return
         }
@@ -267,7 +267,7 @@ extension HostSession {
             guard let transcript = pairingTranscript,
                   PairingSAS.verifyProof(proof, secret: pairingSecret, transcript: transcript)
             else {
-                HostTelemetry.pairingRefused(stage: "proof")
+                HostTelemetry.pairingRefused(stage: .proof)
                 rejectPairing(reason: "The pairing code was not accepted.")
                 return
             }
@@ -282,7 +282,7 @@ extension HostSession {
     /// The Mac user's answer for a pairing that arrived without the QR secret.
     func resolveApproval(approved: Bool) {
         guard state == .awaitingApproval, let peerPublicKey, approved else {
-            if state == .awaitingApproval { HostTelemetry.pairingRefused(stage: "approval"); rejectPairing(reason: "The pairing was declined on the Mac.") }
+            if state == .awaitingApproval { HostTelemetry.pairingRefused(stage: .approval); rejectPairing(reason: "The pairing was declined on the Mac.") }
             return
         }
         finishPairing(peerPublicKey: peerPublicKey)
@@ -313,7 +313,7 @@ extension HostSession {
         guard pins.record(peerID: clientID, publicKey: peerPublicKey) else {
             // Reporting success would tell the user they are paired while the next connection
             // silently fails, so the write result is checked rather than assumed.
-            HostTelemetry.pairingRefused(stage: "save")
+            HostTelemetry.pairingRefused(stage: .save)
             rejectPairing(reason: "Could not save the pairing.")
             return
         }

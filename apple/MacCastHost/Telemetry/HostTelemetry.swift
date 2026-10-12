@@ -8,14 +8,14 @@ enum HostTelemetry {
 
     /// At most one event per code per minute; `count` says how many occurrences it stands for. `sessionRef` is the phone's tag when the failure happened inside a session it opened.
     static func error(
-        _ code: HostEventCodes.ErrorCode, stage: String? = nil, errorCode: Int? = nil, recovered: Bool? = nil, sessionRef: String? = nil
+        _ code: HostEventCodes.ErrorCode, stage: HostEventCodes.ErrorStage? = nil, errorCode: Int? = nil, recovered: Bool? = nil, sessionRef: String? = nil
     ) {
         guard let count = limiter.withLock({ $0.admit(code, at: Date()) }) else { return }
         var properties: [String: Any] = ["code": code.rawValue, "count": count]
-        if let stage { properties["stage"] = stage }
+        if let stage { properties["stage"] = stage.rawValue }
         if let errorCode { properties["error_code"] = errorCode }
         if let recovered { properties["recovered"] = recovered }
-        if let sessionRef = sessionRef ?? HostSessionFacts.shared.currentSessionRef { properties["session_ref"] = sessionRef }
+        if let sessionRef = sessionRef ?? HostSessionFacts.shared.soleSessionRef { properties["session_ref"] = sessionRef }
         Analytics.send("host_error", properties)
     }
 

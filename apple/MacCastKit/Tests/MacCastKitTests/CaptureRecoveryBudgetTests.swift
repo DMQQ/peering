@@ -24,7 +24,7 @@ struct CaptureRecoveryBudgetTests {
         var budget = CaptureRecoveryBudget()
         _ = budget.failed(.streamStopped(code: -3821), at: 0)
         let report = budget.rebuildSucceeded()
-        #expect(report == .init(code: .captureStopped, stage: "stream", errorCode: -3821))
+        #expect(report == .init(code: .captureStopped, stage: .stream, errorCode: -3821))
         #expect(budget.rebuildSucceeded() == nil)
     }
 
@@ -32,7 +32,7 @@ struct CaptureRecoveryBudgetTests {
         var budget = CaptureRecoveryBudget()
         _ = budget.failed(.encoderFailed, at: 0)
         _ = budget.failed(.wokeFromSleep, at: 1)
-        #expect(budget.rebuildSucceeded() == .init(code: .encoderFailed, stage: "encode", errorCode: nil))
+        #expect(budget.rebuildSucceeded() == .init(code: .encoderFailed, stage: .encode, errorCode: nil))
     }
 
     @Test func aRebuildAfterOnlyAWakeOrADisplayChangeReportsNothing() {

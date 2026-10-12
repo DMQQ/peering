@@ -7,11 +7,11 @@ extension HostTelemetry {
     /// A capture failure as the coordinator reports it. A system-stopped stream keeps its `SCStreamError` code.
     static func capture(_ failure: CaptureError) {
         switch failure {
-        case .screenRecordingDenied: error(.permissionRevoked, stage: "capture")
-        case .streamStopped(let code, _): error(.captureStopped, stage: "stream", errorCode: code)
-        case .encodingFailed: error(.encoderFailed, stage: "encode")
-        case .recoveryFailed: error(.captureFailed, stage: "recovery", recovered: false)
-        case .sourceUnavailable, .catalogUnavailable, .streamFailed: error(.captureFailed, stage: "start")
+        case .screenRecordingDenied: error(.permissionRevoked, stage: .capture)
+        case .streamStopped(let code, _): error(.captureStopped, stage: .stream, errorCode: code)
+        case .encodingFailed: error(.encoderFailed, stage: .encode)
+        case .recoveryFailed: error(.captureFailed, stage: .recovery, recovered: false)
+        case .sourceUnavailable, .catalogUnavailable, .streamFailed: error(.captureFailed, stage: .start)
         }
     }
 
@@ -19,9 +19,9 @@ extension HostTelemetry {
     static func relay(_ failure: Error) {
         let code = errorCode(of: failure)
         if case RelaySignallingError.refused = failure {
-            error(.relayRegistrationFailed, stage: "register", errorCode: code)
+            error(.relayRegistrationFailed, stage: .register, errorCode: code)
         } else {
-            error(.relayDisconnected, stage: "connection", errorCode: code)
+            error(.relayDisconnected, stage: .connection, errorCode: code)
         }
     }
 
@@ -30,18 +30,18 @@ extension HostTelemetry {
         let code = errorCode(of: failure)
         switch area {
         case .capture:
-            if let capture = failure as? CaptureError { Self.capture(capture) } else { error(.captureFailed, stage: area.rawValue, errorCode: code) }
-        case .display: error(.virtualDisplayFailed, stage: area.rawValue, errorCode: code)
-        case .agent: error(.agentCrashed, stage: area.rawValue, errorCode: code)
-        case .fileTransfer: error(.fileTransferFailed, stage: area.rawValue, errorCode: code)
-        case .permission: error(.permissionRevoked, stage: area.rawValue, errorCode: code)
+            if let capture = failure as? CaptureError { Self.capture(capture) } else { error(.captureFailed, stage: .capture, errorCode: code) }
+        case .display: error(.virtualDisplayFailed, stage: .display, errorCode: code)
+        case .agent: error(.agentCrashed, stage: .agent, errorCode: code)
+        case .fileTransfer: error(.fileTransferFailed, stage: .fileTransfer, errorCode: code)
+        case .permission: error(.permissionRevoked, stage: .permission, errorCode: code)
         case .network, .relay, .terminal, .sleepPrevention, .launchAtLogin, .appLaunching, .update: break
         }
     }
 }
 
 extension HostTelemetry {
-    static func pairingRefused(stage: String) { error(.pairingRefused, stage: stage) }
+    static func pairingRefused(stage: HostEventCodes.ErrorStage) { error(.pairingRefused, stage: stage) }
 
     static func hookInstallFailed(_ failure: Error) { error(.hookInstallFailed, errorCode: errorCode(of: failure)) }
 }
