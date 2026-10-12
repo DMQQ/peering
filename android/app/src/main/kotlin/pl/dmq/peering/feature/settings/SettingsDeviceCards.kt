@@ -1,6 +1,7 @@
 package pl.dmq.peering.feature.settings
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -14,6 +15,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import pl.dmq.peering.R
@@ -48,7 +50,7 @@ private fun DeviceNameField(name: String, onRename: (String) -> Unit) {
         cursorBrush = SolidColor(PeeringColors.accent),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onRename(draft) }),
-        modifier = Modifier.fillMaxWidth().onFocusChanged { if (!it.isFocused) onRename(draft) },
+        modifier = Modifier.widthIn(min = 96.dp, max = 200.dp).onFocusChanged { if (!it.isFocused) onRename(draft) },
     )
 }
 
