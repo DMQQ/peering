@@ -19,7 +19,8 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const AGENT_ID: &str = "claude";
+/// The CLI a chat runs, and the name its binary is looked for under.
+pub const AGENT_ID: &str = "claude";
 const TITLE_PREFIX: &str = "Claude Code";
 const MAXIMUM_PROMPT_BYTES: usize = 64 * 1024;
 /// Seconds from the Unix epoch to 2001-01-01, the reference date the wire's times count from.

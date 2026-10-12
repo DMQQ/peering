@@ -43,6 +43,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 
+use peering_agent::availability::{AgentAvailability, BinaryLocator};
 use peering_agent::browse::AgentBrowser;
 use peering_agent::manager::ClientAgents;
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
@@ -131,7 +132,7 @@ pub struct HostRuntime {
 impl HostRuntime {
     /// Builds the shared state from the adapters. Must be called on the thread that runs the `LocalSet` from `run`.
     pub fn new(profile: HostProfile, services: HostServices) -> Result<Self, RuntimeError> {
-        let HostServices { capture, encoder, input, system, secrets, files, terminal, home_directory } = services;
+        let HostServices { capture, encoder, input, system, secrets, files, terminal, home_directory, agent_binaries } = services;
         let agent_browser = Arc::new(AgentBrowser::new(DiskFolders(files.clone()), home_directory.clone()));
         let profile = HostProfile { can_lock_screen: system.can_lock_workstation(), ..profile };
         let terminals = terminal::manager(terminal, secrets.clone(), profile.clock.clone())?;
@@ -151,6 +152,7 @@ impl HostRuntime {
             system: BoxedSystem(system),
             files: Arc::new(FileBrowser::new(SharedFileSystem(files), home_directory)),
             agents: ClientAgents::new(StdLauncher::default),
+            agent_availability: agent_availability(agent_binaries, profile.clock.now_seconds()),
             agent_browser,
             terminals,
             notifications: WaitingNotifications::default(),
@@ -346,4 +348,11 @@ fn task_end_text(outcome: &Result<(), tokio::task::JoinError>) -> String {
         Err(error) if error.is_panic() => "it panicked".to_owned(),
         Err(error) => error.to_string(),
     }
+}
+
+/// The first look for the agent CLI happens at startup, so the first hello does not wait for a search through `PATH`.
+fn agent_availability(locator: Box<dyn BinaryLocator>, now: f64) -> AgentAvailability {
+    let mut availability = AgentAvailability::new(locator, peering_agent::manager::AGENT_ID);
+    availability.check(now);
+    availability
 }

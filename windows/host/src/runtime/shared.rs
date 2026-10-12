@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use peering_agent::availability::AgentAvailability;
 use peering_agent::manager::ClientAgents;
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
@@ -60,6 +61,7 @@ pub struct HostState {
     /// Shared so a request runs on the blocking pool with the state lock released.
     pub files: Arc<FileBrowser<SharedFileSystem>>,
     pub agents: ClientAgents<StdLauncher>,
+    pub agent_availability: AgentAvailability,
     pub agent_browser: Arc<FolderBrowser>,
     pub terminals: TerminalSessionManager,
     /// Push notifications for the relay to send once the host is registered with it, oldest first.

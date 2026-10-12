@@ -3,6 +3,7 @@
 
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use peering_agent::availability::BinaryLocator;
 use peering_core::files::vfs::{FileSystem, FsError, RawEntry};
 use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame};
 use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
@@ -57,6 +58,8 @@ pub struct HostServices {
     pub files: Arc<dyn FileSystem + Send + Sync>,
     pub terminal: TerminalServices,
     pub home_directory: String,
+    /// Answers whether the agent CLI is installed, which decides if the hello advertises chat.
+    pub agent_binaries: Box<dyn BinaryLocator>,
 }
 
 /// The capture behind a lock, so the coordinator and the runtime both reach the same device.
@@ -171,5 +174,15 @@ impl FileSystem for SharedFileSystem {
 /// The platform adapters for this machine. `home_directory` is where a file listing starts when the client names none.
 pub fn platform_services(home_directory: String) -> Result<HostServices, RuntimeError> {
     let adapters::Adapters { capture, encoder, input, system, secrets, files, terminal } = adapters::build()?;
-    Ok(HostServices { capture, encoder, input, system, secrets, files, terminal, home_directory })
+    Ok(HostServices {
+        capture,
+        encoder,
+        input,
+        system,
+        secrets,
+        files,
+        terminal,
+        home_directory,
+        agent_binaries: Box::new(super::agent::DiskBinaries),
+    })
 }

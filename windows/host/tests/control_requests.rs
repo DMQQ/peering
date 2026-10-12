@@ -40,6 +40,29 @@ fn the_hello_does_not_advertise_a_lock_the_workstation_cannot_do() {
 }
 
 #[test]
+fn the_hello_advertises_chat_and_the_session_list_when_the_agent_cli_is_installed() {
+    run(async {
+        let harness = harness();
+        let hello = server_hello_for(&harness).await;
+        assert_eq!(hello.capabilities.supports_agent_chat, Some(true));
+        assert_eq!(hello.capabilities.supports_agent_list, Some(true));
+        assert_eq!(hello.agent_chat_agents, Some(vec!["claude".to_owned()]));
+    });
+}
+
+#[test]
+fn the_hello_does_not_advertise_chat_without_the_agent_cli() {
+    run(async {
+        let harness = harness_without_agent_cli();
+        let hello = server_hello_for(&harness).await;
+        assert_eq!(hello.capabilities.supports_agent_chat, None);
+        assert_eq!(hello.capabilities.supports_agent_list, None);
+        assert_eq!(hello.agent_chat_agents, None);
+        assert_eq!(hello.capabilities.supports_file_browser, Some(true), "browsing files does not need the CLI");
+    });
+}
+
+#[test]
 fn a_frame_rate_request_reconfigures_the_encoder_on_the_same_connection() {
     run(async {
         let harness = harness();

@@ -296,7 +296,11 @@ bit 8 asks for the F-key's printed action (`Modifiers.topRowAction`). See [keyma
 * Windows terminals: a session belongs to the client id that created it and survives that client's connection; `list`
   answers a snapshot followed by the retained output (at most 512 KiB, sent in events of at most 32 KiB of raw output, so the base64 and JSON frame stays under 64 KiB). File requests
   are answered only for a running terminal of the client or a scope it opened with `startBrowser` (four per client).
-  The host sets `supportsAgentList` and does not set `pushesTerminalAlertsWhileConnected`: it pushes an alert only
-  while the client is not connected.
+  The host sets `supportsAgentChat`, `supportsAgentList` and `agentChatAgents` only while a `claude` binary can be found
+  (checked at startup, then again on a hello once the answer is 10 s old when missing and 5 minutes old when found). It sets
+  `supportsFileBrowser` always: listing and reading work, and an upload, rename, delete or folder archive is answered
+  with the matching failure event (`writeFailure`, `fileOperationFailure`, `transferFailure`), so a client that offers
+  those actions must show the failure.
+  The host does not set `pushesTerminalAlertsWhileConnected`: it pushes an alert only while the client is not connected.
 * Push registration: `terminalRequest` `registerPushToken` carries opaque bytes. The host hex-encodes them verbatim
   and forwards them to the relay for `notifyDevice`. Android registers the UTF-8 bytes `fcm:` followed by the FCM token.

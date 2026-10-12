@@ -6,6 +6,7 @@ use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::thread;
 
+use peering_agent::availability::BinaryLocator;
 use peering_agent::claude_adapter::{ChildProcess, LaunchSpec, ProcessLauncher, ReadResult};
 use peering_agent::environment::{find_binary, launch_command, Exists, SearchEnv};
 
@@ -42,6 +43,15 @@ fn start(command: &LaunchSpec) -> io::Result<Child> {
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
+}
+
+/// Looks for the agent CLI the way a launch would.
+pub(super) struct DiskBinaries;
+
+impl BinaryLocator for DiskBinaries {
+    fn is_installed(&self, program: &str) -> bool {
+        find_binary(program, &search_env(), &DiskExists).is_some()
+    }
 }
 
 pub(super) struct DiskExists;

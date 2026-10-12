@@ -8,6 +8,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
+use peering_agent::availability::BinaryLocator;
 use peering_core::fakes::capture::FakeCapture;
 use peering_core::fakes::clock::FakeClock;
 use peering_core::fakes::encoder::FakeEncoder;
@@ -147,15 +148,37 @@ pub fn harness() -> Harness {
 /// A host whose workstation is `system`, for tests of the lock request and of the hello that advertises it.
 pub fn harness_with_system(system: RecordingSystem) -> Harness {
     let encoder = Arc::new(Mutex::new(FakeEncoder::default()));
-    harness_with(system, Box::new(SharedEncoder(encoder.clone())), encoder)
+    harness_with(system, Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: true }))
+}
+
+/// The answer to "is the agent CLI installed", fixed by the test.
+pub struct AgentCli {
+    pub installed: bool,
+}
+
+impl BinaryLocator for AgentCli {
+    fn is_installed(&self, _program: &str) -> bool {
+        self.installed
+    }
+}
+
+/// A host on a PC without the agent CLI.
+pub fn harness_without_agent_cli() -> Harness {
+    let encoder = Arc::new(Mutex::new(FakeEncoder::default()));
+    harness_with(RecordingSystem::new(true, None), Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: false }))
 }
 
 /// A host whose encoder is `encoder`. `unused` stands in for the inspectable encoder the other tests read.
 pub fn harness_with_encoder(encoder: Box<dyn Encoder + Send>) -> Harness {
-    harness_with(RecordingSystem::new(true, None), encoder, Arc::new(Mutex::new(FakeEncoder::default())))
+    harness_with(RecordingSystem::new(true, None), encoder, Arc::new(Mutex::new(FakeEncoder::default())), Box::new(AgentCli { installed: true }))
 }
 
-fn harness_with(system: RecordingSystem, encoder_port: Box<dyn Encoder + Send>, encoder: Arc<Mutex<FakeEncoder>>) -> Harness {
+fn harness_with(
+    system: RecordingSystem,
+    encoder_port: Box<dyn Encoder + Send>,
+    encoder: Arc<Mutex<FakeEncoder>>,
+    agent_binaries: Box<dyn BinaryLocator>,
+) -> Harness {
     let capture = Arc::new(Mutex::new(FakeCapture::new(vec![display()])));
     let system = Arc::new(Mutex::new(system));
     let input = Arc::new(Mutex::new(RecordingInput::default()));
@@ -179,6 +202,7 @@ fn harness_with(system: RecordingSystem, encoder_port: Box<dyn Encoder + Send>, 
             environment: Vec::new(),
         },
         home_directory: "C:\\Users\\me".to_owned(),
+        agent_binaries,
     };
     let profile = HostProfile {
         host_id: HOST_ID.to_owned(),
