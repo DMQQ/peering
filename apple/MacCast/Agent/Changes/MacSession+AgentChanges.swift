@@ -1,4 +1,5 @@
 import Foundation
+import MacCastKit
 import RemoteCore
 
 extension MacSession {
@@ -17,6 +18,14 @@ extension MacSession {
 
     func commitAgentChanges(_ id: UUID, paths: [String], message: String) {
         guard agentGitBusy[id] == nil else { return }
+        guard ControlTextPolicy.verdict(forCommitOf: paths, message: message) == .fits else {
+            agentGitResults[id] = AgentGitResult(
+                operation: .commit,
+                succeeded: false,
+                message: String(localized: "That commit is too large to send. Choose fewer files or shorten the message.")
+            )
+            return
+        }
         agentGitBusy[id] = .commit
         agentGitResults[id] = nil
         wire?.sendAgent(.commit(sessionID: id, paths: paths, message: message))

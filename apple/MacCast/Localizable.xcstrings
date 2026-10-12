@@ -4822,6 +4822,64 @@
         }
       }
     },
+    "That commit is too large to send. Choose fewer files or shorten the message." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Commit ist zu groß zum Senden. Wähle weniger Dateien oder kürze die Nachricht."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este commit es demasiado grande para enviarlo. Elige menos archivos o acorta el mensaje."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce commit est trop volumineux pour être envoyé. Choisissez moins de fichiers ou raccourcissez le message."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo commit è troppo grande per essere inviato. Scegli meno file o accorcia il messaggio."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このコミットは大きすぎて送信できません。ファイルを減らすか、メッセージを短くしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 커밋은 너무 커서 보낼 수 없습니다. 파일을 줄이거나 메시지를 짧게 하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este commit é grande demais para ser enviado. Escolha menos arquivos ou encurte a mensagem."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот коммит слишком большой для отправки. Выберите меньше файлов или сократите сообщение."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此提交过大，无法发送。请选择更少的文件或缩短提交信息。"
+          }
+        }
+      }
+    },
     "That commit message is too long." : {
       "localizations" : {
         "de" : {
