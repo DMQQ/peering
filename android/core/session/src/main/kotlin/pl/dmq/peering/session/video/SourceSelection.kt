@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonElement
 import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.CaptureSourceDescriptor
+import pl.dmq.peering.wire.MosaicLayout
 import pl.dmq.peering.wire.RemoteCommand
 import pl.dmq.peering.wire.SetCaptureSource
 
@@ -21,6 +22,10 @@ class SourceSelection(restored: CaptureSource? = null) {
     var resumeSource: CaptureSource? = restored
         private set
 
+    /** The last mosaic asked for, kept so the way back to it survives a visit to a single source. */
+    var rememberedMosaic: MosaicLayout? = (restored as? CaptureSource.Mosaic)?.layout
+        private set
+
     /** New configs the Mac still owes after switches. Each received config pays one back. */
     var configUpdatesOwed: Int = 0
         private set
@@ -33,6 +38,7 @@ class SourceSelection(restored: CaptureSource? = null) {
         if (previous != null && next != null && previous.pixelSize != next.pixelSize) configUpdatesOwed += 1
         chosen = source
         resumeSource = source
+        if (source is CaptureSource.Mosaic) source.layout?.let { rememberedMosaic = it }
         return SetCaptureSource(source)
     }
 

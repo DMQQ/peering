@@ -104,6 +104,7 @@ class SessionController(
 
     /** Sends [command] to the host. False when the session is not ready or the host did not declare what it needs. */
     fun send(command: RemoteCommand): Boolean {
+        if (command is SetCaptureSource) return chooseSource(command.source)
         val live = link ?: return false
         if (!accepts(live, command)) return false
         live.commands.offer(command)
@@ -115,6 +116,7 @@ class SessionController(
         val live = link ?: return false
         if (!accepts(live, SetCaptureSource(source))) return false
         live.commands.offer(selection.choose(source))
+        update { it.copy(activeSource = selection.chosen, rememberedMosaic = selection.rememberedMosaic) }
         return true
     }
 
@@ -342,6 +344,7 @@ class SessionController(
             it.copy(
                 catalogue = live.commands.latestCatalog ?: it.catalogue,
                 activeSource = selection.chosen,
+                rememberedMosaic = selection.rememberedMosaic,
                 latencyMillis = live.latencyMillis,
                 picture = live.pictureState(paused = !pictureEnabled),
                 notice = live.notice,
