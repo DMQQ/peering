@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
@@ -16,8 +17,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -31,12 +30,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.sessionSurface
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.PillShape
 
+/** The dock's size, and how much a list must leave clear at its end to scroll its last item above the dock. */
+internal object HubDockMetrics {
+    val height = 48.dp
+    val margin = 8.dp
+    val clearance = height + margin * 2 + 12.dp
+}
+
 /**
- * The floating bar at the bottom of the page: one ink capsule that chats with the selected agent, or asks which agent
+ * The floating bar at the bottom of the page: one tonal capsule that chats with the selected agent, or asks which agent
  * while none is selected. Holding it reopens the choice when there is more than one.
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -54,15 +61,14 @@ fun HubDock(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(Color.Transparent, PeeringColors.backdrop)))
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 6.dp),
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = HubDockMetrics.margin),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
-                .clip(PillShape)
-                .background(PeeringColors.ink)
+                .height(HubDockMetrics.height)
+                .sessionSurface(PillShape)
                 .combinedClickable(
                     role = Role.Button,
                     onClick = if (agent != null) onChat else onChoose,
@@ -80,18 +86,18 @@ fun HubDock(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         ) {
-            Box(Modifier.size(32.dp).clip(PillShape).background(PeeringColors.onInk), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(32.dp).clip(PillShape).background(PeeringColors.ink), contentAlignment = Alignment.Center) {
                 Icon(
                     if (agent != null) AgentBrand.of(agent.id).icon() else AppIcons.sparkles,
                     contentDescription = null,
-                    tint = PeeringColors.ink,
+                    tint = PeeringColors.onInk,
                     modifier = Modifier.size(16.dp),
                 )
             }
             Text(
                 label,
                 style = PeeringText.subheadlineSemibold.copy(fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold),
-                color = PeeringColors.onInk,
+                color = PeeringColors.ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
