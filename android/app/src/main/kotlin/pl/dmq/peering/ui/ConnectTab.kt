@@ -97,6 +97,14 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             initial = wiring.lastConnectState,
         )
     }
+    LaunchedEffect(wiring) {
+        wiring.pendingSessionView.collect { requested ->
+            if (requested) {
+                showingSession = true
+                wiring.pendingSessionView.value = false
+            }
+        }
+    }
     DisposableEffect(wiring) {
         wiring.presence.setShown(true)
         onDispose { wiring.presence.setShown(false) }

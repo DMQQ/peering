@@ -51,6 +51,8 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.zxing.core)
     implementation(libs.billing.ktx)
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
     testImplementation(testFixtures(project(":core:session")))
     testImplementation(libs.kotlinx.coroutines.test)

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,10 +19,13 @@ import pl.dmq.peering.testing.NavBridge
 import pl.dmq.peering.ui.theme.peeringBackdrop
 
 @Composable
-fun PeeringScaffold(navController: NavHostController = rememberNavController()) {
+fun PeeringScaffold(connectRequests: Int = 0, navController: NavHostController = rememberNavController()) {
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val chrome = remember { RootChrome() }
     chrome.navigator = { navigateTo(navController, it) }
+    LaunchedEffect(connectRequests) {
+        if (connectRequests > 0) navigateTo(navController, PeeringDestination.Connect)
+    }
     NavBridge(currentRoute) { navigateTo(navController, it) }
     CompositionLocalProvider(LocalRootChrome provides chrome) {
         Scaffold(
