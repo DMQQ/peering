@@ -4,8 +4,12 @@ fn frame(sequence: u64) -> FrameHandoff<u64> {
     FrameHandoff { sequence, width: 1920, height: 1080, texture: sequence * 10 }
 }
 
+fn key(adapter: AdapterKey, generation: u64) -> DeviceKey {
+    DeviceKey { adapter, generation }
+}
+
 fn device(adapter: AdapterKey, name: &'static str) -> Option<BoundDevice<&'static str>> {
-    Some(BoundDevice { adapter, device: name })
+    Some(BoundDevice { key: key(adapter, 0), device: name })
 }
 
 #[test]
@@ -62,13 +66,28 @@ fn unbinding_the_capture_drops_its_frame() {
 
 #[test]
 fn the_encoder_reuses_its_session_on_the_same_adapter() {
-    assert_eq!(binding_for(Some(7), 7), Binding::Reuse);
+    assert_eq!(binding_for(Some(key(7, 0)), key(7, 0)), Binding::Reuse);
+}
+
+#[test]
+fn a_device_created_again_on_the_same_adapter_drops_the_old_frame() {
+    let mut link = FrameLink::default();
+    link.bind(device(7, "removed"));
+    link.put_frame(frame(4));
+    link.bind(Some(BoundDevice { key: key(7, 1), device: "replacement" }));
+    assert!(link.take_frame().is_none());
+    assert_eq!(link.device().map(|bound| bound.device), Some("replacement"));
+}
+
+#[test]
+fn the_encoder_rebinds_to_a_device_created_again_on_its_adapter() {
+    assert_eq!(binding_for(Some(key(7, 0)), key(7, 1)), Binding::Rebind);
 }
 
 #[test]
 fn the_encoder_rebinds_when_it_has_none_or_another_adapter() {
-    assert_eq!(binding_for(None, 7), Binding::Rebind);
-    assert_eq!(binding_for(Some(6), 7), Binding::Rebind);
+    assert_eq!(binding_for(None, key(7, 0)), Binding::Rebind);
+    assert_eq!(binding_for(Some(key(6, 0)), key(7, 0)), Binding::Rebind);
 }
 
 #[test]

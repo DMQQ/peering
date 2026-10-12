@@ -93,6 +93,10 @@ impl Capture for SharedCapture {
     fn poll_frame(&mut self) -> Option<RawFrame> {
         self.locked().poll_frame()
     }
+
+    fn is_failed(&self) -> bool {
+        self.locked().is_failed()
+    }
 }
 
 pub struct BoxedEncoder(pub Box<dyn Encoder + Send>);

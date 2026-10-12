@@ -51,5 +51,5 @@ fn locked(link: &SharedLink) -> std::sync::MutexGuard<'_, FrameLink<GpuContext, 
 }
 
 fn bound_device(gpu: Option<GpuContext>) -> Option<BoundDevice<GpuContext>> {
-    gpu.map(|gpu| BoundDevice { adapter: gpu.adapter, device: gpu })
+    gpu.map(|gpu| BoundDevice { key: gpu.key(), device: gpu })
 }

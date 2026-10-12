@@ -7,11 +7,11 @@ use peering_wire::quality::even_size;
 
 use super::{locked, SharedLink};
 use crate::gpu::GpuContext;
-use crate::link::{binding_for, resize_for, AdapterKey, Binding};
+use crate::link::{binding_for, resize_for, Binding, DeviceKey};
 use crate::mft::MftEncoder;
 
 struct Bound {
-    adapter: AdapterKey,
+    key: DeviceKey,
     encoder: MftEncoder,
 }
 
@@ -38,30 +38,50 @@ impl PlatformEncoder {
         Self { link, bound: None, running: None }
     }
 
-    fn current_gpu(&self) -> Result<(AdapterKey, GpuContext), EncodeError> {
+    fn current_gpu(&self) -> Result<(DeviceKey, GpuContext), EncodeError> {
         let link = locked(&self.link);
         let bound = link.device().ok_or(EncodeError::NotConfigured)?;
-        Ok((bound.adapter, bound.device.clone()))
+        Ok((bound.key, bound.device.clone()))
     }
 
-    fn bind_to(&mut self, adapter: AdapterKey, gpu: &GpuContext) -> Result<(), EncodeError> {
-        if binding_for(self.bound.as_ref().map(|bound| bound.adapter), adapter) == Binding::Reuse {
+    fn bind_to(&mut self, key: DeviceKey, gpu: &GpuContext) -> Result<(), EncodeError> {
+        if binding_for(self.bound.as_ref().map(|bound| bound.key), key) == Binding::Reuse {
             return Ok(());
         }
         self.bound = None;
         let encoder = MftEncoder::new(String::new(), &gpu.device)
             .map_err(|error| EncodeError::Failed(format!("binding the encoder to the capture device: {error}")))?;
-        self.bound = Some(Bound { adapter, encoder });
+        self.bound = Some(Bound { key, encoder });
         Ok(())
     }
 
     fn reopen_at(&mut self, width: u32, height: u32, fps: u32, bitrate_bps: u32) -> Result<(), EncodeError> {
-        let (adapter, gpu) = self.current_gpu()?;
-        self.bind_to(adapter, &gpu)?;
+        let (key, gpu) = self.current_gpu()?;
+        self.bind_to(key, &gpu)?;
         let bound = self.bound.as_mut().ok_or(EncodeError::NotConfigured)?;
         bound.encoder.configure(width, height, fps, bitrate_bps)?;
         self.running = Some(Running { width, height, fps, bitrate_bps });
         Ok(())
+    }
+}
+
+impl PlatformEncoder {
+    fn encode_frame(&mut self, frame: &RawFrame, force_keyframe: bool) -> Result<Vec<EncodedOutput>, EncodeError> {
+        let running = self.running.ok_or(EncodeError::NotConfigured)?;
+        let (key, gpu) = self.current_gpu()?;
+        let captured = locked(&self.link)
+            .take_frame()
+            .ok_or_else(|| EncodeError::Failed(format!("no captured texture for frame {}", frame.sequence)))?;
+        let mut force_keyframe = force_keyframe;
+        let rebind = binding_for(self.bound.as_ref().map(|bound| bound.key), key) == Binding::Rebind;
+        let resize = resize_for(Some((running.width, running.height)), (frame.width, frame.height));
+        if let Some((width, height)) = resize.or(rebind.then_some((running.width, running.height))) {
+            self.reopen_at(width, height, running.fps, running.bitrate_bps)?;
+            force_keyframe = true;
+        }
+        let bound = self.bound.as_mut().ok_or(EncodeError::NotConfigured)?;
+        bound.encoder.accept_capture(captured, &gpu)?;
+        bound.encoder.encode(frame, force_keyframe)
     }
 }
 
@@ -72,20 +92,12 @@ impl Encoder for PlatformEncoder {
     }
 
     fn encode(&mut self, frame: &RawFrame, force_keyframe: bool) -> Result<Vec<EncodedOutput>, EncodeError> {
-        let running = self.running.ok_or(EncodeError::NotConfigured)?;
-        let (adapter, gpu) = self.current_gpu()?;
-        let captured = locked(&self.link)
-            .take_frame()
-            .ok_or_else(|| EncodeError::Failed(format!("no captured texture for frame {}", frame.sequence)))?;
-        let mut force_keyframe = force_keyframe;
-        if let Some((width, height)) = resize_for(Some((running.width, running.height)), (frame.width, frame.height)) {
-            self.reopen_at(width, height, running.fps, running.bitrate_bps)?;
-            force_keyframe = true;
+        let encoded = self.encode_frame(frame, force_keyframe);
+        if encoded.is_err() {
+            // A session that failed once is not trusted again: the coordinator's next `configure` opens a new one.
+            self.bound = None;
         }
-        self.bind_to(adapter, &gpu)?;
-        let bound = self.bound.as_mut().ok_or(EncodeError::NotConfigured)?;
-        bound.encoder.accept_capture(captured, &gpu)?;
-        bound.encoder.encode(frame, force_keyframe)
+        encoded
     }
 
     fn set_bitrate(&mut self, bitrate_bps: u32) {

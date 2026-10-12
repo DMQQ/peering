@@ -32,6 +32,10 @@ impl Capture for LinkedCapture {
         locked(&self.link).bind(None);
     }
 
+    fn is_failed(&self) -> bool {
+        self.capture.is_failed()
+    }
+
     fn poll_frame(&mut self) -> Option<RawFrame> {
         let frame = self.capture.poll_frame()?;
         let captured = self.capture.take_captured();
