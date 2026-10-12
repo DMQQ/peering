@@ -4,6 +4,8 @@
 //! kind has to travel in the bytes: an Android client registers the ASCII text `fcm:` followed by
 //! its Firebase registration token. Everything else is an APNs token, as before.
 
+use std::time::Instant;
+
 use crate::protocol::hex_bytes;
 
 const FCM_PREFIX: &[u8] = b"fcm:";
@@ -33,9 +35,64 @@ fn is_token_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ':')
 }
 
+/// One socket's budget for `notifyDevice`: a burst of twenty, then one a second.
+///
+/// A registered Mac can name any device token, so without this a single connection spends the
+/// relay's APNs and FCM credentials as fast as it can write.
+pub struct PushLimiter {
+    tokens: f64,
+    last: Option<Instant>,
+}
+
+const PUSH_BURST: f64 = 20.0;
+const PUSH_REFILL_PER_SECOND: f64 = 1.0;
+
+impl Default for PushLimiter {
+    fn default() -> Self {
+        Self { tokens: PUSH_BURST, last: None }
+    }
+}
+
+impl PushLimiter {
+    pub fn allow(&mut self, now: Instant) -> bool {
+        if let Some(last) = self.last {
+            let elapsed = now.saturating_duration_since(last).as_secs_f64();
+            self.tokens = (self.tokens + elapsed * PUSH_REFILL_PER_SECOND).min(PUSH_BURST);
+        }
+        self.last = Some(now);
+        if self.tokens >= 1.0 {
+            self.tokens -= 1.0;
+            true
+        } else {
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
+
+    #[test]
+    fn the_push_limiter_allows_a_burst_of_twenty_then_one_a_second() {
+        let start = Instant::now();
+        let mut limiter = PushLimiter::default();
+        assert_eq!((0..30).filter(|_| limiter.allow(start)).count(), 20);
+        assert!(!limiter.allow(start + Duration::from_millis(900)));
+        assert!(limiter.allow(start + Duration::from_millis(1000)));
+        assert!(!limiter.allow(start + Duration::from_millis(1100)));
+    }
+
+    #[test]
+    fn the_push_limiter_never_banks_more_than_the_burst() {
+        let start = Instant::now();
+        let mut limiter = PushLimiter::default();
+        assert!(limiter.allow(start));
+        let later = start + Duration::from_secs(3600);
+        assert_eq!((0..30).filter(|_| limiter.allow(later)).count(), 20);
+    }
 
     fn hex_of(text: &[u8]) -> String {
         text.iter().map(|b| format!("{b:02x}")).collect()

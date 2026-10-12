@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
+use crate::apns_policy::ApnsRefusal;
 use crate::protocol::hex_bytes;
 
 /// Apple caps a Live Activity payload at 4 KB.
@@ -121,12 +122,19 @@ pub enum ActivityFailure {
     TokenRejected,
     Rejected,
     Unavailable,
+    /// Apple, or this relay's own limits, asked for a pause. The host is told `unavailable`: the
+    /// refusal set is closed and an older host cannot decode a case it does not know.
+    Throttled,
 }
 
 impl ActivityFailure {
-    pub fn from_apns(reason: &str) -> Self {
+    pub fn from_refusal(refusal: &ApnsRefusal) -> Self {
         const DEAD_TOKEN: [&str; 4] = ["BadDeviceToken", "Unregistered", "ExpiredToken", "DeviceTokenNotForTopic"];
-        if DEAD_TOKEN.iter().any(|name| reason.contains(name)) {
+        if refusal.is_throttle() {
+            Self::Throttled
+        } else if refusal.is_server_side() {
+            Self::Unavailable
+        } else if refusal.reason.as_deref().is_some_and(|reason| DEAD_TOKEN.contains(&reason)) {
             Self::TokenRejected
         } else {
             Self::Rejected
@@ -141,7 +149,7 @@ impl ActivityFailure {
         match self {
             Self::TokenRejected => ActivityRefusal::InvalidToken,
             Self::Rejected => ActivityRefusal::Rejected,
-            Self::Unavailable => ActivityRefusal::Unavailable,
+            Self::Unavailable | Self::Throttled => ActivityRefusal::Unavailable,
         }
     }
 }
@@ -401,10 +409,17 @@ mod tests {
 
     #[test]
     fn apns_reasons_for_a_dead_token_are_told_apart_from_the_rest() {
-        for reason in [r#"{"reason":"BadDeviceToken"}"#, r#"{"reason":"Unregistered"}"#, r#"410 {"reason":"ExpiredToken"}"#] {
-            assert_eq!(ActivityFailure::from_apns(reason), ActivityFailure::TokenRejected);
+        for (status, reason) in [(400, "BadDeviceToken"), (410, "Unregistered"), (410, "ExpiredToken"), (400, "DeviceTokenNotForTopic")] {
+            let refusal = ApnsRefusal { status, reason: Some(reason.into()) };
+            assert_eq!(ActivityFailure::from_refusal(&refusal), ActivityFailure::TokenRejected);
         }
-        assert_eq!(ActivityFailure::from_apns(r#"429 {"reason":"TooManyRequests"}"#), ActivityFailure::Rejected);
+        let throttle = ApnsRefusal { status: 429, reason: Some("TooManyRequests".into()) };
+        assert_eq!(ActivityFailure::from_refusal(&throttle), ActivityFailure::Throttled);
+        assert_eq!(ActivityFailure::Throttled.refusal(), ActivityRefusal::Unavailable);
+        let outage = ApnsRefusal { status: 503, reason: None };
+        assert_eq!(ActivityFailure::from_refusal(&outage), ActivityFailure::Unavailable);
+        let too_big = ApnsRefusal { status: 413, reason: Some("PayloadTooLarge".into()) };
+        assert_eq!(ActivityFailure::from_refusal(&too_big), ActivityFailure::Rejected);
         assert_eq!(ActivityFailure::TokenRejected.refusal(), ActivityRefusal::InvalidToken);
     }
 

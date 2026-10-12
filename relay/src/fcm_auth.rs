@@ -193,11 +193,14 @@ pub struct AccessTokenCache<C, E> {
     exchange: E,
     clock: C,
     held: Mutex<Option<HeldToken>>,
+    /// Held across the exchange so that a burst of pushes with an expired token makes one request
+    /// to Google rather than one each.
+    renewing: tokio::sync::Mutex<()>,
 }
 
 impl<C: Clock, E: TokenExchange> AccessTokenCache<C, E> {
     pub fn new(account: ServiceAccount, scope: &'static str, exchange: E, clock: C) -> Self {
-        Self { account, scope, exchange, clock, held: Mutex::new(None) }
+        Self { account, scope, exchange, clock, held: Mutex::new(None), renewing: tokio::sync::Mutex::new(()) }
     }
 
     pub fn account(&self) -> &ServiceAccount {
@@ -205,6 +208,11 @@ impl<C: Clock, E: TokenExchange> AccessTokenCache<C, E> {
     }
 
     pub async fn access_token(&self) -> Result<String, BoxError> {
+        let now = self.clock.unix_seconds();
+        if let Some(token) = self.fresh_token(now) {
+            return Ok(token);
+        }
+        let _renewing = self.renewing.lock().await;
         let now = self.clock.unix_seconds();
         if let Some(token) = self.fresh_token(now) {
             return Ok(token);
@@ -265,7 +273,10 @@ impl TokenExchange for FakeTokenExchange {
         self.calls.fetch_add(1, Ordering::SeqCst);
         *self.last_assertion.lock().unwrap() = Some(assertion.to_owned());
         let reply = self.reply.clone().map_err(BoxError::from);
-        async move { reply }
+        async move {
+            tokio::task::yield_now().await;
+            reply
+        }
     }
 }
 

@@ -34,7 +34,7 @@ use tracing::{debug, info, warn};
 
 use crate::apns::{ApnsClient, PushAction, PushRoute};
 use crate::fcm::FcmClient;
-use crate::push::{self, PushTarget};
+use crate::push::{self, PushLimiter, PushTarget};
 
 /// The only categories a Mac may name: the ones the phone registers for an agent approval, and for
 /// the notice that a turn finished.
@@ -189,6 +189,8 @@ struct ConnectionState {
     referral_requests: usize,
     /// Live Activity pushes this socket has sent, budgeted per activity token.
     activity_limiter: ActivityLimiter,
+    /// `notifyDevice` pushes this socket has sent.
+    push_limiter: PushLimiter,
 }
 
 /// Invite requests one socket may make before it is told to reconnect.
@@ -1099,6 +1101,10 @@ async fn dispatch(
                 || approval_id.as_ref().is_some_and(|s| s.len() > 256)
             {
                 return Some(ServerMessage::error("invalid", "field too long"));
+            }
+            if !state.push_limiter.allow(Instant::now()) {
+                warn!(host = %tag(&host_id), "notifyDevice over its budget, dropped");
+                return None;
             }
             // The Mac's ID is the relay's own record of who asked, not something the Mac says about
             // itself, so a tap can only ever open the Mac that sent it. A token's kind decides which
