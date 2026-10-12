@@ -199,6 +199,7 @@ final class RelayHostRegistration: @unchecked Sendable {
                 }
             } catch {
                 Analytics.failed(error, in: .relay)
+                HostTelemetry.relay(error)
                 connection.cancel()
                 guard !Task.isCancelled else { break }
                 onStatus("Relay unavailable: \(error.localizedDescription)")

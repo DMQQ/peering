@@ -170,6 +170,7 @@ final class HostSession: @unchecked Sendable {
 
             // Only for a connection that was announced, or a client failing during TLS or before
             // its hello produces "Unknown device disconnected" for a device never seen to arrive.
+            if error != nil, announced { HostSessionFacts.shared.connectionFailed(clientID: clientID) }
             if announced {
                 emit(.clientDisconnected(clientID: clientID, clientName: clientName))
             }

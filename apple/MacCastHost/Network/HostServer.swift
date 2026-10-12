@@ -249,6 +249,7 @@ final class HostServer: @unchecked Sendable {
             reaper = nil
             listener?.cancel()
             listener = nil
+            HostSessionFacts.shared.hostStopped()
             for session in controlSessions { session.endBecauseHostStopped() }
             for entry in videoConnections { entry.peer.cancel() }
             for tunnel in pendingRelayBridges { tunnel.bridge.cancel() }
@@ -268,6 +269,7 @@ final class HostServer: @unchecked Sendable {
     /// Revokes every client and ends the sessions they have open: a pin removed under a live session would otherwise leave it running.
     func unpairAll() -> Bool {
         guard pins.removeAll() else { return false }
+        HostSessionFacts.shared.allForgotten()
         queue.async { [weak self] in
             self?.controlSessions.forEach { $0.cancel() }
         }
@@ -277,6 +279,7 @@ final class HostServer: @unchecked Sendable {
     /// Revokes one client and ends any session it already has open.
     func unpair(clientID: String) -> Bool {
         guard pins.remove(peerID: clientID) else { return false }
+        HostSessionFacts.shared.forgotten(clientID: clientID)
         queue.async { [weak self] in
             guard let self else { return }
             for session in controlSessions where session.clientID == clientID {
@@ -330,6 +333,7 @@ final class HostServer: @unchecked Sendable {
             } else {
                 sessionLog.notice("An unauthenticated connection stopped answering; ending its handshake")
             }
+            if session.isAuthorized { HostSessionFacts.shared.silent(clientID: session.clientID, inBackground: session.pictureState.inBackground) }
             session.cancel()
         }
     }

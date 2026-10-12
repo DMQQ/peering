@@ -102,6 +102,7 @@ extension HostSession {
         // Announced only after the key check: a client that fails it must not appear in the session
         // list, because the disconnect that follows would name a device the UI never showed.
         announced = true
+        HostTelemetry.sessionOpened(clientID: clientID, sessionRef: hello.sessionRef, clientPlatform: hello.clientPlatform, viaRelay: arrivedThroughRelay)
         emit(.clientConnected(
             clientID: clientID,
             clientName: clientName,
@@ -251,6 +252,7 @@ extension HostSession {
         let confirm = try decode(PairConfirm.self, from: frame, as: .pairConfirm)
 
         guard confirm.accepted, let peerPublicKey else {
+            HostTelemetry.pairingRefused(stage: "confirm")
             send(.pairResult, PairResult(accepted: false, reason: "The codes did not match."))
             emit(.pairingCompleted(clientName: clientName, accepted: false))
             state = .failed
@@ -262,6 +264,7 @@ extension HostSession {
             guard let transcript = pairingTranscript,
                   PairingSAS.verifyProof(proof, secret: pairingSecret, transcript: transcript)
             else {
+                HostTelemetry.pairingRefused(stage: "proof")
                 rejectPairing(reason: "The pairing code was not accepted.")
                 return
             }
@@ -276,7 +279,7 @@ extension HostSession {
     /// The Mac user's answer for a pairing that arrived without the QR secret.
     func resolveApproval(approved: Bool) {
         guard state == .awaitingApproval, let peerPublicKey, approved else {
-            if state == .awaitingApproval { rejectPairing(reason: "The pairing was declined on the Mac.") }
+            if state == .awaitingApproval { HostTelemetry.pairingRefused(stage: "approval"); rejectPairing(reason: "The pairing was declined on the Mac.") }
             return
         }
         finishPairing(peerPublicKey: peerPublicKey)
@@ -293,6 +296,7 @@ extension HostSession {
         guard pins.record(peerID: clientID, publicKey: peerPublicKey) else {
             // Reporting success would tell the user they are paired while the next connection
             // silently fails, so the write result is checked rather than assumed.
+            HostTelemetry.pairingRefused(stage: "save")
             send(.pairResult, PairResult(accepted: false, reason: "Could not save the pairing."))
             emit(.pairingCompleted(clientName: clientName, accepted: false))
             state = .failed

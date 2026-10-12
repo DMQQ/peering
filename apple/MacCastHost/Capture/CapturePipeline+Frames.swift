@@ -75,6 +75,7 @@ extension CapturePipeline {
         replacement.onFrame = { [weak self] encoded in self?.deliver(encoded, source: source) }
         replacement.onFailure = { [weak self] error in self?.report(error) }
 
+        HostSessionFacts.shared.noteEncoderRestart()
         // A new session owes a keyframe whether or not one was asked for.
         lock.withLock {
             encoder = replacement
