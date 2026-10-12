@@ -16,11 +16,13 @@ object ChromeMetrics {
     val railPadding = 4.dp
     val dockToggleWidth = 52.dp
     val dockSlotHeight = 56.dp
-    val dockSlotMinWidth = 64.dp
-    val dockToggleHeight = 48.dp
+    val dockSlotMinWidth = 52.dp
+    val dockToggleHeight = 62.dp
     val circleButton = 48.dp
     val pillHeight = 56.dp
     val joystickRadius = 50.dp
     val panelMaxWidth = 520.dp
-    const val DOCK_WIDTH_FRACTION = 0.94f
+    const val DOCK_WIDTH_FRACTION = 0.9f
+    val pillCollapsedRadius = 30.dp
+    val pillExpandedRadius = 26.dp
 }

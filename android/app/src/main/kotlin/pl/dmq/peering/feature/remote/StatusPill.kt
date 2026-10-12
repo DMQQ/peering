@@ -25,7 +25,6 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.draw.drawWithContent
@@ -53,7 +52,6 @@ import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.PillShape
-import pl.dmq.peering.ui.theme.peeringShapes
 
 /** What the pill shows about the session: the facts, then the state of the toggles its chips flip. */
 data class StatusUi(
@@ -92,7 +90,8 @@ fun StatusPill(
     val progress = animateFloatAsState(if (expanded) 1f else 0f, tween(PILL_MILLIS, easing = FastOutSlowInEasing), label = "pill")
     val showCollapsed by remember(expanded) { derivedStateOf { !expanded || progress.value < 1f } }
     val showExpanded by remember(expanded) { derivedStateOf { expanded || progress.value > 0f } }
-    val corner = with(LocalDensity.current) { peeringShapes.large.topStart.toPx(Size(1f, 1f), this) }
+    val collapsedCorner = with(LocalDensity.current) { ChromeMetrics.pillCollapsedRadius.toPx() }
+    val expandedCorner = with(LocalDensity.current) { ChromeMetrics.pillExpandedRadius.toPx() }
     val fill = PeeringColors.containerHigh
     val side = with(LocalDensity.current) { SIDE_BUTTON_SPACE.toPx() }
     Layout(
@@ -106,6 +105,7 @@ fun StatusPill(
         },
         modifier = modifier.drawWithContent {
             val inset = lerp(side, 0f, progress.value)
+            val corner = lerp(collapsedCorner, expandedCorner, progress.value).coerceAtMost(size.height / 2f)
             val face = Path().apply {
                 addRoundRect(RoundRect(inset, 0f, size.width - inset, size.height, CornerRadius(corner, corner)))
             }

@@ -26,9 +26,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import pl.dmq.peering.ui.theme.PanelShape
 import pl.dmq.peering.ui.kit.blockTouches
 import pl.dmq.peering.ui.kit.sessionSurface
-import pl.dmq.peering.ui.theme.peeringShapes
 
 /**
  * The surface a panel opens on, over the picture and above the controls it belongs to: at most 520 wide and [maxHeight]
@@ -66,7 +66,7 @@ fun FloatingPanel(
                     .widthIn(max = ChromeMetrics.panelMaxWidth)
                     .fillMaxWidth()
                     .heightIn(max = maxHeight)
-                    .sessionSurface(peeringShapes.medium)
+                    .sessionSurface(PanelShape)
                     .blockTouches(),
             ) {
                 AnimatedContent(

@@ -63,7 +63,7 @@ internal fun LandscapeChrome(
         val panelHeight = (maxHeight - STATUS_BAR - ChromeMetrics.edgeInset * 2).coerceAtLeast(MIN_RAIL)
         Column(Modifier.align(Alignment.BottomCenter).padding(bottom = if (state.keyboardShown) 0.dp else ChromeMetrics.bottomInset)) {
             FloatingPanel(state.openPanel, panelHeight, Modifier, panel)
-            if (state.keyboardShown) KeyboardBar(handlers.keyboardKeys, Modifier.padding(horizontal = ChromeMetrics.edgeInset))
+            if (state.keyboardShown) KeyboardBar(handlers.keyboardKeys, Modifier.padding(horizontal = ChromeMetrics.edgeInset), landscape = true)
         }
     }
 }
@@ -71,4 +71,4 @@ internal fun LandscapeChrome(
 private val POINTER_COLUMN: Dp = ChromeMetrics.quickKeySize + ChromeMetrics.panelGap + ChromeMetrics.joystickRadius * 2
 private val MIN_RAIL: Dp = 140.dp
 private val STATUS_MAX_WIDTH: Dp = 460.dp
-private val STATUS_BAR: Dp = 56.dp
+private val STATUS_BAR: Dp = 44.dp

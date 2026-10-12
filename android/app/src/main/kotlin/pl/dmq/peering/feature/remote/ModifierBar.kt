@@ -20,10 +20,10 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
+import pl.dmq.peering.ui.theme.ChipKeyShape
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
-import pl.dmq.peering.ui.theme.peeringShapes
 
 /** The order the phone draws the latching modifiers in, with the mark each carries. */
 internal val MODIFIER_ORDER: List<StickyModifier> =
@@ -57,7 +57,7 @@ private fun RowScope.ModifierKey(key: StickyModifier, latch: ModifierLatch, onTa
         ModifierLatch.LOCKED -> stringResource(R.string.remote_modifier_locked)
     }
     val name = stringResource(key.labelRes())
-    val shape = peeringShapes.extraSmall
+    val shape = ChipKeyShape
     Box(
         modifier = Modifier
             .then(if (large) Modifier.weight(1f).heightIn(min = 44.dp) else Modifier.size(width = 38.dp, height = 34.dp))
