@@ -20,6 +20,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{connect_async_tls_with_config, Connector, MaybeTlsStream, WebSocketStream};
 
 use super::connection::serve;
+use super::control::RelayStatus;
 use super::shared::Shared;
 use super::{HostProfile, PeerInfo, RelayConfig};
 
@@ -39,7 +40,9 @@ pub async fn run(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, r
         if !actions.contains(&RegAction::Connect) {
             continue;
         }
+        set_relay_status(&shared, RelayStatus::Connecting);
         let Ok(mut socket) = connect(&relay.url).await else {
+            set_relay_status(&shared, RelayStatus::Retrying);
             registration.on_disconnect(profile.clock.as_ref());
             continue;
         };
@@ -51,7 +54,12 @@ pub async fn run(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, r
             tokio::select! {
                 message = socket.next() => match message {
                     Some(Ok(Message::Text(text))) => match serde_json::from_str::<RelayServerMessage>(&text) {
-                        Ok(message) => pending = registration.on_message(message, profile.clock.as_ref()),
+                        Ok(message) => {
+                            pending = registration.on_message(message, profile.clock.as_ref());
+                            if registration.is_registered() {
+                                set_relay_status(&shared, RelayStatus::Registered);
+                            }
+                        }
                         Err(_) => continue,
                     },
                     Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
@@ -60,8 +68,13 @@ pub async fn run(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, r
                 _ = ticks.tick() => pending = registration.tick(profile.clock.as_ref()),
             }
         }
+        set_relay_status(&shared, RelayStatus::Retrying);
         registration.on_disconnect(profile.clock.as_ref());
     }
+}
+
+fn set_relay_status(shared: &Shared, status: RelayStatus) {
+    shared.lock().relay = status;
 }
 
 /// Applies the registration's actions. Returns `Break` when the socket must be closed.

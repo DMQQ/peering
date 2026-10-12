@@ -20,6 +20,10 @@ pub async fn serve_listener(shared: Shared, profile: Arc<HostProfile>, tls: Arc<
             tokio::time::sleep(ACCEPT_RETRY).await;
             continue;
         };
+        // A host that is switched off refuses the connection by closing it at once.
+        if !shared.lock().hosting {
+            continue;
+        }
         let shared = shared.clone();
         let profile = profile.clone();
         let tls = tls.clone();

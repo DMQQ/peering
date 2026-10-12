@@ -12,6 +12,7 @@ use peering_core::video::lane::VideoLane;
 use peering_wire::framing::Frame;
 use tokio::sync::{broadcast, mpsc};
 
+use super::control::{ControlChannel, RelayStatus};
 use super::services::{BoxedEncoder, BoxedInput, SharedCapture, SharedFileSystem};
 
 /// One authorised control connection. `video_outbound` is set while a direct video connection for the same client is open.
@@ -35,6 +36,8 @@ pub struct HostState {
     pub sessions: HashMap<u64, SessionSlot>,
     pub next_session: u64,
     pub catalog_checked_at: Option<f64>,
+    pub hosting: bool,
+    pub relay: RelayStatus,
 }
 
 impl HostState {
@@ -51,6 +54,7 @@ pub type ApprovalSender = broadcast::Sender<peering_core::pairing::ApprovalDecis
 pub struct Shared {
     pub state: Arc<Mutex<HostState>>,
     pub approvals: ApprovalSender,
+    pub control: Arc<Mutex<ControlChannel>>,
 }
 
 impl Shared {

@@ -227,6 +227,17 @@ pub fn hello() -> Frame {
     encode_json(MessageKind::ClientHello, &hello)
 }
 
+/// Polls `check` until it yields a value. Used where the host acts on its own task, so the test yields to let it run.
+pub async fn until<T>(mut check: impl FnMut() -> Option<T>) -> T {
+    for _ in 0..10_000 {
+        if let Some(value) = check() {
+            return value;
+        }
+        yield_now().await;
+    }
+    panic!("the host reached the expected state");
+}
+
 /// Lets the host process the reveal, then returns the pairing offer it shows.
 pub async fn wait_for_offer(runtime: &HostRuntime) -> peering_core::pairing::PairingOffer {
     for _ in 0..10_000 {

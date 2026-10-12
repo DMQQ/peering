@@ -4,7 +4,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use peering_core::ports::clock::Clock;
 use peering_core::ports::input::TransformSnapshot;
 use peering_core::ports::capture::DisplayInfo;
 use peering_core::session::dispatch::SourceControl;
@@ -14,11 +13,14 @@ use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::source::CaptureCatalog;
 use peering_wire::source::CaptureSource;
 use tokio::sync::mpsc::UnboundedSender;
+use std::sync::PoisonError;
 use tokio::task::spawn_local;
 use tokio::time::interval;
 
 use super::services::{BoxedEncoder, SharedCapture};
+use super::control::{publish_if_due, take_commands};
 use super::shared::{HostState, Shared};
+use super::HostProfile;
 
 const PUMP_INTERVAL: Duration = Duration::from_millis(16);
 const CATALOGUE_CHECK_SECONDS: f64 = 1.0;
@@ -140,13 +142,24 @@ impl HostState {
     }
 }
 
-/// Runs the pump on a timer for the life of the host.
-pub async fn run_pump(shared: Shared, clock: Arc<dyn Clock>) {
+/// Runs the pump on a timer for the life of the host. Each pass first applies the UI's commands and publishes the
+/// snapshot, so the window sees what the pump sees.
+pub async fn run_pump(shared: Shared, profile: Arc<HostProfile>) {
     let mut ticks = interval(PUMP_INTERVAL);
     loop {
         ticks.tick().await;
-        let now = clock.now_seconds();
-        let outgoing = shared.lock().pump_video(now);
+        let now = profile.clock.now_seconds();
+        let commands = take_commands(&mut shared.control.lock().unwrap_or_else(PoisonError::into_inner));
+        let (decisions, outgoing) = {
+            let mut state = shared.lock();
+            let decisions = state.apply_commands(commands);
+            publish_if_due(&state, &profile.host_id, &mut shared.control.lock().unwrap_or_else(PoisonError::into_inner), now);
+            (decisions, state.pump_video(now))
+        };
+        for decision in decisions {
+            // No waiting session means the client already left, so the decision has nothing to reach.
+            let _delivered = shared.approvals.send(decision);
+        }
         // A failed pass is retried on the next tick. Until one succeeds the client sees no new picture.
         if let Ok(outgoing) = outgoing {
             deliver(outgoing);
@@ -161,6 +174,6 @@ pub fn deliver(outgoing: Vec<Outgoing>) {
     }
 }
 
-pub fn spawn_pump(shared: Shared, clock: Arc<dyn Clock>) {
-    spawn_local(run_pump(shared, clock));
+pub fn spawn_pump(shared: Shared, profile: Arc<HostProfile>) {
+    spawn_local(run_pump(shared, profile));
 }

@@ -10,6 +10,7 @@ mod advertise;
 mod agent;
 mod clock;
 mod connection;
+mod control;
 mod files;
 mod listener;
 mod pins;
@@ -22,6 +23,7 @@ mod video;
 
 use std::collections::HashMap;
 use std::io;
+use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
@@ -38,8 +40,10 @@ use tokio::sync::broadcast;
 use tokio::task::LocalSet;
 
 pub use clock::SystemClock;
+pub use control::{ApprovalView, DeviceView, HostHandle, HostSnapshot, OfferView, RelayStatus, RuntimeCommand};
 pub use services::{platform_services, HostServices};
 
+use control::ControlChannel;
 use pins::SecretPins;
 use services::{BoxedEncoder, BoxedInput, SharedCapture, SharedFileSystem};
 use shared::{HostState, Shared};
@@ -63,6 +67,8 @@ pub enum RuntimeError {
     Advertise(String),
     #[error("the async runtime could not start: {0}")]
     Executor(io::Error),
+    #[error("the window could not start: {0}")]
+    Window(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -115,6 +121,7 @@ pub struct PeerInfo {
 pub struct HostRuntime {
     shared: Shared,
     profile: Arc<HostProfile>,
+    commands: Sender<RuntimeCommand>,
 }
 
 impl HostRuntime {
@@ -135,12 +142,36 @@ impl HostRuntime {
             sessions: HashMap::new(),
             next_session: 0,
             catalog_checked_at: None,
+            hosting: true,
+            relay: RelayStatus::Off,
         };
         let (approvals, _unused_receiver) = broadcast::channel::<ApprovalDecision>(APPROVAL_CHANNEL_DEPTH);
+        let (commands, command_inbox) = mpsc::channel();
+        let control = ControlChannel {
+            published: Arc::new(Mutex::new(HostSnapshot::default())),
+            commands: command_inbox,
+            last_publish: None,
+        };
         Ok(Self {
-            shared: Shared { state: Arc::new(Mutex::new(state)), approvals },
+            shared: Shared {
+                state: Arc::new(Mutex::new(state)),
+                approvals,
+                control: Arc::new(Mutex::new(control)),
+            },
             profile: Arc::new(profile),
+            commands,
         })
+    }
+
+    /// The UI's end of the host: the snapshot it reads and the commands it sends. Clone it freely.
+    pub fn handle(&self) -> HostHandle {
+        let published = self.shared.control.lock().unwrap_or_else(std::sync::PoisonError::into_inner).published.clone();
+        HostHandle::new(published, self.commands.clone())
+    }
+
+    /// The snapshot as of now, for tests and for the first draw of the window.
+    pub fn snapshot(&self) -> HostSnapshot {
+        self.shared.lock().snapshot(&self.profile.host_id)
     }
 
     /// Serves one connection over any byte stream. The TCP listener calls this after TLS; tests call it over in-memory
@@ -188,6 +219,11 @@ impl HostRuntime {
         }
     }
 
+    /// Starts the video pump and the command loop on the current local task set. `run` does this; tests call it directly.
+    pub fn start_pump(&self) {
+        video::spawn_pump(self.shared.clone(), self.profile.clone());
+    }
+
     /// Runs the host until the process ends: binds the port, announces the host, and serves the relay and the pump.
     pub fn run(self, config: RuntimeConfig, identity: HostIdentity) -> Result<(), RuntimeError> {
         let executor = tokio::runtime::Builder::new_current_thread()
@@ -204,7 +240,7 @@ impl HostRuntime {
             .await
             .map_err(|source| RuntimeError::Bind { port: config.port, source })?;
         let _advertisement = advertise::start(identity.device_id(), &self.profile.host_name, config.port)?;
-        video::spawn_pump(self.shared.clone(), self.profile.clock.clone());
+        self.start_pump();
         if let Some(relay_config) = config.relay {
             tokio::task::spawn_local(relay::run(
                 self.shared.clone(),
