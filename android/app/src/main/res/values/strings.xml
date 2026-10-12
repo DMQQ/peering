@@ -70,6 +70,10 @@
     <string name="pairing_error_not_pairing_code">That QR code is not a Peering pairing code.</string>
     <string name="pairing_error_not_identifier">That is not a computer\'s device ID.</string>
     <string name="pairing_code_title">Pair with your computer</string>
+    <string name="pairing_code_title_named">Pair with “%1$s”</string>
+    <string name="pairing_step_found_detail_named">Connected to “%1$s”. It is showing six digits.</string>
+    <string name="pairing_code_detail_named">Peering on “%1$s” is showing six digits.</string>
+    <string name="pairing_code_waiting_named">Click Approve on “%1$s”. It is asking whether you entered the code.</string>
     <string name="pairing_code_done_title">Paired</string>
     <string name="pairing_step_found">Computer found</string>
     <string name="pairing_step_found_detail">Connected. It is showing six digits.</string>
