@@ -26,7 +26,7 @@ import pl.dmq.peering.feature.paywall.remainingText
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.InkButton
 import pl.dmq.peering.ui.kit.cardBackground
-import pl.dmq.peering.ui.kit.tappable
+import pl.dmq.peering.ui.kit.pressable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.PillShape
@@ -36,7 +36,7 @@ import pl.dmq.peering.ui.theme.SectionLabel
 @Composable
 internal fun RelayCard(allowance: RelayAllowance, meter: RelayMeter, onUpgrade: () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().cardBackground().tappable(onUpgrade).padding(16.dp),
+        Modifier.fillMaxWidth().pressable(onUpgrade).cardBackground().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         SectionLabel(stringResource(R.string.sessions_relay), AppIcons.network)

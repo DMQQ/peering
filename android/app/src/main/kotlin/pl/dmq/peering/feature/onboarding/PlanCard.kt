@@ -29,7 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.CardShape
-import pl.dmq.peering.ui.kit.tappable
+import pl.dmq.peering.ui.kit.pressable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 
@@ -48,8 +48,8 @@ internal fun PlanCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .pressable(onClick, role = Role.RadioButton)
             .clip(CardShape)
-            .tappable(onClick, role = Role.RadioButton)
             .semantics { role = Role.RadioButton; this.selected = selected }
             .border(1.dp, PeeringColors.hairline, CardShape)
             .let { if (selected) it.border(1.5.dp, PeeringColors.accent, CardShape) else it }

@@ -23,10 +23,10 @@ fun WelcomePrimaryButton(title: String, onClick: () -> Unit, modifier: Modifier 
         modifier
             .fillMaxWidth()
             .height(54.dp)
+            .pressable(onClick, enabled = enabled)
             .alpha(if (enabled) 1f else 0.4f)
             .clip(CircleShape)
-            .background(PeeringColors.ink)
-            .tappable(onClick, enabled = enabled),
+            .background(PeeringColors.ink),
         contentAlignment = Alignment.Center,
     ) {
         Text(title, style = PeeringText.headline.copy(fontWeight = FontWeight.Bold), color = PeeringColors.onInk)
