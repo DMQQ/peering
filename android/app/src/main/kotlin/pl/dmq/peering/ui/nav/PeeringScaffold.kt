@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -27,18 +28,21 @@ fun PeeringScaffold(navController: NavHostController = rememberNavController()) 
         containerColor = PeeringColors.backdrop.copy(alpha = 0f),
         bottomBar = {
             Column {
-                HorizontalDivider(color = PeeringColors.hairline)
-                NavigationBar(containerColor = PeeringColors.backdrop) {
+                HorizontalDivider(color = PeeringColors.ink.copy(alpha = 0.07f))
+                NavigationBar(containerColor = PeeringColors.backdrop, tonalElevation = 0.dp) {
                     PeeringDestination.entries.forEach { destination ->
+                        val selected = currentRoute == destination.route
                         NavigationBarItem(
-                            selected = currentRoute == destination.route,
+                            selected = selected,
                             onClick = { navigateTo(navController, destination) },
-                            icon = { Icon(destination.icon, contentDescription = null) },
+                            icon = {
+                                Icon(if (selected) destination.selectedIcon else destination.icon, contentDescription = null)
+                            },
                             label = { Text(stringResource(destination.labelRes)) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = PeeringColors.accent,
                                 selectedTextColor = PeeringColors.accent,
-                                indicatorColor = PeeringColors.surface,
+                                indicatorColor = PeeringColors.ink.copy(alpha = 0.10f),
                                 unselectedIconColor = PeeringColors.muted,
                                 unselectedTextColor = PeeringColors.muted,
                             ),

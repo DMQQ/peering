@@ -1,10 +1,12 @@
 package pl.dmq.peering.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -14,7 +16,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.nav.SessionScreens
-import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.EmptyState
+import pl.dmq.peering.ui.theme.ScreenHeader
+import pl.dmq.peering.ui.theme.arrive
 
 /** The Sessions tab: the session in progress, or a line saying there is none. */
 @Composable
@@ -34,12 +38,15 @@ internal fun SessionTab(wiring: FeatureWiring) {
             onClose = null,
         )
     } else {
-        Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-            Text(
-                text = stringResource(R.string.sessions_none),
-                style = MaterialTheme.typography.bodyMedium,
-                color = PeeringColors.muted,
-            )
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp).padding(top = 16.dp)) {
+            ScreenHeader(title = stringResource(R.string.nav_sessions), modifier = Modifier.arrive())
+            Box(modifier = Modifier.weight(1f).fillMaxWidth().padding(bottom = 48.dp), contentAlignment = Alignment.Center) {
+                EmptyState(
+                    icon = Icons.Outlined.Schedule,
+                    title = stringResource(R.string.sessions_none_title),
+                    body = stringResource(R.string.sessions_none),
+                )
+            }
         }
     }
 }
