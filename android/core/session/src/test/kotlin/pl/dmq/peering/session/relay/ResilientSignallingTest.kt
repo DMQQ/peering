@@ -4,6 +4,7 @@ import java.io.IOException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -109,9 +110,94 @@ class ResilientSignallingTest {
         assertEquals(1, openings)
     }
 
+    @Test
+    fun aConnectionThatNeverAnswersTimesOutAsAnIOExceptionAndIsDropped() = runTest {
+        val silent = HangingConnection()
+        script += { silent }
+        script += { silent }
+        val relay = resilient()
+
+        val failure = runCatching { relay.exchange { receive() } }.exceptionOrNull()
+
+        assertTrue(failure is IOException)
+        assertEquals(2, silent.dropped)
+        assertEquals(10_000L * 2, testScheduler.currentTime)
+    }
+
+    @Test
+    fun aRequestThatIsNotIdempotentIsNotResentAfterItWasSent() = runTest {
+        script += { signalling() }
+        script += { signalling(pong) }
+        val relay = resilient()
+
+        val failure = runCatching {
+            relay.exchange(idempotent = false) {
+                send(ping)
+                receive()
+            }
+        }.exceptionOrNull()
+
+        assertTrue(failure is IOException)
+        assertEquals(1, openings)
+    }
+
+    @Test
+    fun aRequestThatIsNotIdempotentIsRetriedWhenTheConnectionFailedBeforeTheSend() = runTest {
+        script += { DeadOnSend }
+        val fresh = signalling(pong)
+        script += { fresh }
+        val relay = resilient()
+
+        val reply = relay.exchange(idempotent = false) {
+            send(ping)
+            receive()
+        }
+
+        assertEquals(pong, reply)
+        assertEquals(listOf<RelayClientMessage>(ping), fresh.sent)
+    }
+
+    @Test
+    fun dropAbandonsTheConnectionSoTheNextRequestOpensANewOne() = runTest {
+        val first = signalling(pong)
+        script += { first }
+        script += { signalling(pong) }
+        val relay = resilient()
+        relay.exchange { receive() }
+
+        relay.drop()
+        relay.exchange { receive() }
+
+        assertEquals(1, first.dropped)
+        assertEquals(2, openings)
+    }
+
+    private object DeadOnSend : Signalling {
+        override suspend fun send(message: RelayClientMessage) = throw IOException("relay connection is closed")
+
+        override suspend fun receive(): RelayServerMessage = throw IOException("relay connection is closed")
+    }
+
+    private class HangingConnection : Signalling {
+        var dropped = 0
+
+        override suspend fun send(message: RelayClientMessage) = Unit
+
+        override suspend fun receive(): RelayServerMessage = awaitCancellation()
+
+        override fun drop() {
+            dropped++
+        }
+    }
+
     private class ScriptedConnection(private val replies: List<RelayServerMessage>) : Signalling {
         val sent = mutableListOf<RelayClientMessage>()
+        var dropped = 0
         private var next = 0
+
+        override fun drop() {
+            dropped++
+        }
 
         override suspend fun send(message: RelayClientMessage) {
             sent += message

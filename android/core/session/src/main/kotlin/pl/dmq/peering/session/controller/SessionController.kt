@@ -156,6 +156,7 @@ class SessionController(
      */
     fun networkChanged() {
         reconnect.networkChanged()
+        ports.relay?.signalling?.drop()
         val live = link ?: return
         scope.launch {
             if (handover.worthMovingFrom(live.path) && link === live) {

@@ -13,7 +13,11 @@ interface Signalling {
 
     /**
      * Runs one request, its sends and the replies it waits for, as a unit. A connection that drops may be replaced and
-     * the unit run again, so [block] must be safe to run twice.
+     * the unit run again, so [block] must be safe to run twice unless [idempotent] is false, in which case it is run
+     * again only when the connection failed before anything was sent.
      */
-    suspend fun <T> exchange(block: suspend Signalling.() -> T): T = block()
+    suspend fun <T> exchange(idempotent: Boolean = true, block: suspend Signalling.() -> T): T = block()
+
+    /** Abandons the current connection at once, so the next request opens a new one. */
+    fun drop() {}
 }

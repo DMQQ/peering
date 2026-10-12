@@ -25,7 +25,7 @@ class RelayConnect(
         hostId: String,
         clientId: String,
         entitlement: RelayEntitlement = RelayEntitlement(),
-    ): RelaySession = signalling.exchange {
+    ): RelaySession = signalling.exchange(idempotent = false) {
         val proof = makeClientProof(IdentityProofSigner(identity), clientId, clock.unixSeconds())
         send(
             RelayClientMessage.ConnectToHost(
