@@ -32,6 +32,7 @@ internal class SessionServices(private val ports: SessionPorts, private val curr
                     currentLink()?.enqueue(Frame(MessageKind.TerminalRequest, request.toJson().toByteArray(Charsets.UTF_8)))
                 },
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+                listsAgents = { currentLink()?.hello?.supportsAgentList == true },
             )
         }
         if (hello.supportsAgentChat == true && agentChat == null) {

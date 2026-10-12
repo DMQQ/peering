@@ -25,7 +25,7 @@ private class MemoryStore : KeyValueStore {
 
 private fun preferences(): TerminalPreferences {
     val store = MemoryStore()
-    return TerminalPreferences(QuickCommands(store), TerminalTextSizeSetting(store))
+    return TerminalPreferences(QuickCommands(store), TerminalTextSizeSetting(store), AgentLaunchHistory(store))
 }
 
 private const val SAMPLE = "\u001B[32mdmq@computer\u001B[0m:\u001B[34m~/projects\u001B[0m$ ls\r\n" +

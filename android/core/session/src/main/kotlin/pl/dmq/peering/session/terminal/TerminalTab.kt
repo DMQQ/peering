@@ -21,6 +21,10 @@ data class TerminalsState(
     val loaded: Boolean = false,
     /** A failure that belongs to no one terminal, such as a shell that could not be started. */
     val failure: String? = null,
+    /** The agent commands found on the computer, or null until it has said. */
+    val installedAgents: Set<String>? = null,
+    /** True between asking for the agent list and its answer. */
+    val agentListPending: Boolean = false,
 ) {
     val selected: TerminalTab? get() = tabs.firstOrNull { it.id == selectedID }
 }

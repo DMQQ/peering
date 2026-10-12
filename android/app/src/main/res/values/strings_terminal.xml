@@ -106,4 +106,33 @@
     <string name="terminal_guide_manage_detail">Hold a card to rename it or end it.</string>
     <string name="terminal_guide_needs_you">When a shell needs you</string>
     <string name="terminal_guide_needs_you_detail">A card is marked when its shell stops to ask for a password or a confirmation.</string>
+    <string name="terminal_launch_start">Start</string>
+    <string name="terminal_launch_never">Never used</string>
+    <string name="terminal_launch_last_used">Last used %1$s</string>
+    <string name="terminal_launch_history">History</string>
+    <string name="terminal_launch_clear">Clear history</string>
+    <string name="terminal_age_now">just now</string>
+    <string name="terminal_age_yesterday">yesterday</string>
+    <string name="terminal_age_last_week">last week</string>
+    <string name="terminal_age_last_month">last month</string>
+    <plurals name="terminal_age_minutes">
+        <item quantity="one">%1$d minute ago</item>
+        <item quantity="other">%1$d minutes ago</item>
+    </plurals>
+    <plurals name="terminal_age_hours">
+        <item quantity="one">%1$d hour ago</item>
+        <item quantity="other">%1$d hours ago</item>
+    </plurals>
+    <plurals name="terminal_age_days">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
+    <plurals name="terminal_age_weeks">
+        <item quantity="one">%1$d week ago</item>
+        <item quantity="other">%1$d weeks ago</item>
+    </plurals>
+    <plurals name="terminal_age_months">
+        <item quantity="one">%1$d month ago</item>
+        <item quantity="other">%1$d months ago</item>
+    </plurals>
 </resources>

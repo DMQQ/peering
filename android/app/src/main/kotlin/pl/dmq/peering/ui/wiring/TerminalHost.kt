@@ -18,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.agents.HubGuidePresenter
+import pl.dmq.peering.feature.terminal.AgentLaunchHistory
 import pl.dmq.peering.feature.terminal.QuickCommands
 import pl.dmq.peering.feature.terminal.TerminalPreferences
 import pl.dmq.peering.feature.terminal.TerminalPage
@@ -45,8 +46,9 @@ internal fun TerminalHost(active: ActiveSession, guideStore: KeyValueStore, onFi
     val context = LocalContext.current
     val preferences = remember(context) {
         val store = PreferencesKeyValueStore(context.getSharedPreferences("peering_terminal", Context.MODE_PRIVATE))
-        TerminalPreferences(QuickCommands(store), TerminalTextSizeSetting(store))
+        TerminalPreferences(QuickCommands(store), TerminalTextSizeSetting(store), AgentLaunchHistory(store))
     }
     val guide = remember(guideStore) { HubGuidePresenter(guideStore, HubGuidePresenter.TERMINALS_KEY) }
-    TerminalPage(sessions, preferences, guide, connected = phase.phase is SessionPhase.Ready, onFiles = onFiles)
+    val ready = phase.phase as? SessionPhase.Ready
+    TerminalPage(sessions, preferences, guide, connected = ready != null, computerName = ready?.hostName.orEmpty(), onFiles = onFiles)
 }

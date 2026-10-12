@@ -7,6 +7,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import pl.dmq.peering.feature.agents.HubGuidePresenter
 import pl.dmq.peering.feature.remote.HubTab
@@ -24,15 +25,20 @@ fun TerminalPage(
     preferences: TerminalPreferences,
     guide: HubGuidePresenter,
     connected: Boolean,
+    computerName: String,
     onFiles: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val presenter = remember(sessions) { TerminalListPresenter(sessions) }
+    val name = rememberUpdatedState(computerName)
+    val presenter = remember(sessions) { TerminalListPresenter(sessions, preferences.agentHistory, computerName = { name.value }) }
     val inShell by presenter.inShell.collectAsState()
     val state by sessions.state.collectAsState()
     val listState = rememberLazyListState()
     LaunchedEffect(sessions, connected) {
-        if (connected) sessions.attach()
+        if (connected) {
+            sessions.attach()
+            sessions.refreshAgents()
+        }
     }
     LaunchedEffect(state) { presenter.onState(state) }
     ReportHubPage(HubTab.TERMINALS, atRoot = !inShell)
@@ -48,7 +54,7 @@ fun TerminalPage(
                 onEnded = presenter::back,
             )
         } else {
-            TerminalListScreen(sessions, presenter, guide, listState, connected, onFiles)
+            TerminalListScreen(sessions, presenter, preferences.agentHistory, guide, listState, connected, onFiles)
         }
     }
 }

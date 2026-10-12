@@ -33,7 +33,7 @@ import pl.dmq.peering.session.terminal.TerminalTab
 import pl.dmq.peering.ui.theme.PeeringColors
 
 /** What the screen keeps beyond the shells themselves: saved commands and the log's type size. */
-class TerminalPreferences(val quickCommands: QuickCommands, val textSize: TerminalTextSizeSetting)
+class TerminalPreferences(val quickCommands: QuickCommands, val textSize: TerminalTextSizeSetting, val agentHistory: AgentLaunchHistory)
 
 /**
  * The shells of one computer, laid out as the iPhone does: a strip of tabs, the output, the key deck and the command
