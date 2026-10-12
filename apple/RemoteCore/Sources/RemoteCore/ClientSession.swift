@@ -392,6 +392,19 @@ public final class ClientSession: @unchecked Sendable {
         connection()?.send(.terminalRequest, request)
     }
 
+    /// Sends a request and reports when the network has taken it, or that the session was not ready.
+    public func sendTerminal(_ request: TerminalRequest, completion: @escaping @Sendable (Error?) -> Void) {
+        guard isReady, let connection = connection() else { return completion(ClientConnection.Failure.cancelled) }
+        connection.send(.terminalRequest, request, completion: completion)
+    }
+
+    /// Sends one piece of a long transfer once `window` has room for it, and gives the room back when the network has taken it.
+    /// - Throws: ``SendWindowFailure`` when an earlier piece failed or the transfer was cancelled.
+    public func sendPaced(_ request: TerminalRequest, weight: Int, through window: SendWindow) async throws {
+        try await window.reserve(weight)
+        sendTerminal(request) { window.complete(weight, error: $0) }
+    }
+
     /// Sends an agent chat request directly on the control stream, bypassing the coalescer: a coalesced prompt or approval would drop turns.
     public func sendAgent(_ request: AgentRequest) {
         guard isReady else { return }

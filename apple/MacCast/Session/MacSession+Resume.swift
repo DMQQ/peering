@@ -26,7 +26,7 @@ extension MacSession {
 
     private var hasReconnectWindowPassed: Bool {
         guard let began = reconnectingSince else { return false }
-        return Date().timeIntervalSince(began) >= SessionModel.reconnectWindow
+        return ContinuousClock.now - began >= .seconds(SessionModel.reconnectWindow)
     }
 
     /// The `wire == nil` guard stops the retry and the browser both starting an attempt, since the wire is assigned synchronously in ``SessionModel/connect(to:)``.
@@ -100,7 +100,7 @@ extension MacSession {
             ? SessionModel.resumeReconnectDelays
             : SessionModel.reconnectDelays
         // The clock starts at the first rung and is carried across every dial, so it measures the episode, not the attempt.
-        if hasBeenReady, reconnectingSince == nil { reconnectingSince = Date() }
+        if hasBeenReady, reconnectingSince == nil { reconnectingSince = .now }
         guard reconnectAttempt < delays.count, !hasReconnectWindowPassed else {
             giveUpOnReconnecting()
             return

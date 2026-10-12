@@ -92,6 +92,7 @@ struct MacFilesScreen: View {
                 // The Mac blocks inside the listing call while macOS shows a Files-and-Folders prompt, and nothing of that reaches this phone, so the wait says what it is probably waiting for.
                 waitingHint: String(localized: "Your Mac is probably asking whether Peering may open this folder. That is a normal macOS question, asked once per folder. Choose Allow on the Mac and the list appears here. Peering only reads folders you open from here."),
                 progress: model.downloadProgress(sessionID: id) ?? model.folderProgress(sessionID: id),
+                onCancelProgress: model.isUploading(sessionID: id) ? { model.cancelUpload(sessionID: id) } : nil,
                 onOpen: { open($0, in: id) },
                 onNavigate: { push($0) },
                 floor: floor,

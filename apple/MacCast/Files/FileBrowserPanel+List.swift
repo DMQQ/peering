@@ -92,6 +92,12 @@ extension FileBrowserPanel {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: 0)
+            if let onCancelProgress {
+                Button(action: onCancelProgress) {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .accessibilityLabel(String(localized: "Cancel upload"))
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)

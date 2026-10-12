@@ -155,7 +155,7 @@ final class MacSession: Identifiable {
     var reconnectTask: Task<Void, Never>?
 
     /// Carried across a dial like ``hasBeenReady`` and ``reconnectAttempt``, since each rung builds a new object. See ``SessionModel/reconnectWindow``.
-    var reconnectingSince: Date?
+    var reconnectingSince: ContinuousClock.Instant?
 
     /// Carried across a retry like the facts above. See ``SessionTelemetry``.
     var telemetry = SessionTelemetry()
@@ -360,6 +360,9 @@ final class MacSession: Identifiable {
     /// Kept apart by door: a failed save is a file to correct, a failed upload a file to choose again. Read through ``saveFailure(sessionID:)`` and ``uploadFailure(sessionID:)``.
     var saveFailures: [UUID: String] = [:]
     var uploadFailures: [UUID: String] = [:]
+
+    /// The send window of the transfer in the air per terminal, kept so the cancel button can reach it.
+    var uploadWindows: [UUID: SendWindow] = [:]
 
     struct FileChange: Equatable {
         /// Held rather than only the path: the answer says what happened but not what was asked, and a rename's path is built from both.
