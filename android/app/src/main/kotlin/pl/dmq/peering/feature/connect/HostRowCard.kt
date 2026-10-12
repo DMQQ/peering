@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,12 +36,14 @@ internal fun HostRowCard(
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
     trailing: (@Composable () -> Unit)? = null,
+    openable: Boolean = true,
 ) {
     Row(
         modifier.fillMaxWidth().rowSurface().padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(Modifier.weight(1f).tappable(onOpen), verticalAlignment = Alignment.CenterVertically) {
+        val rowModifier = if (openable) Modifier.weight(1f).tappable(onOpen) else Modifier.weight(1f).alpha(UNREACHABLE_ALPHA)
+        Row(rowModifier, verticalAlignment = Alignment.CenterVertically) {
             Box {
                 IconTile(AppIcons.computer)
                 StatusDot(up = up, modifier = Modifier.align(Alignment.BottomEnd))
@@ -60,3 +63,5 @@ internal fun HostRowCard(
         trailing?.invoke()
     }
 }
+
+private const val UNREACHABLE_ALPHA = 0.5f

@@ -43,6 +43,7 @@ internal fun PairedSection(hosts: List<HostRow>, actions: ConnectActions, modifi
                         row = row,
                         detail = if (sharesName) row.id.take(ID_PREFIX) else stringResource(row.pairedDetailRes()),
                         up = row.status != HostStatus.Unknown,
+                        openable = row.status != HostStatus.Unknown,
                         onOpen = { actions.onConnect(row.id) },
                         trailing = { HostMenu(row, actions, onRename = { renaming = row }) },
                     )
