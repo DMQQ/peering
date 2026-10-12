@@ -18,7 +18,8 @@
 #   relay/tools/deploy-relay.sh v0.1.6 --yes      # skip the confirmation
 #
 # Environment overrides: PEERINGD_SSH (default below), PEERINGD_SSH_PORT, PEERINGD_REPO,
-# PEERINGD_REMOTE_BIN. The site travels by deploy-site.sh, which this calls at the end, so
+# PEERINGD_REMOTE_BIN, PEERINGD_HEALTH_URL (what the box probes after restarting; the web
+# listener's /healthz by default). The site travels by deploy-site.sh, which this calls at the end, so
 # PEERINGD_REMOTE_SITE and PEERINGD_PUBLIC are read there rather than here.
 
 set -euo pipefail
@@ -32,6 +33,7 @@ SSH_ARGS=(-p "${PEERINGD_SSH_PORT:-10190}")
 SCP_ARGS=(-P "${PEERINGD_SSH_PORT:-10190}")
 REMOTE_BIN="${PEERINGD_REMOTE_BIN:-/usr/local/bin/peeringd}"
 ASSET="peeringd-linux-x86_64"
+HEALTH_URL="${PEERINGD_HEALTH_URL:-http://127.0.0.1:8080/healthz}"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 TAG="${1:-}"
@@ -172,6 +174,42 @@ else
     journalctl -u peeringd -n 15 --no-pager
     exit 1
 fi
+
+# **Active is not the same as answering.** A binary that crash loops is "active" for most of every
+# restart interval, and one that starts but never opens its listeners passes the check above. So
+# the new binary has to answer /healthz, and if it does not, the BINARY is put back from the copy
+# taken above. Only the binary: the unit was already proved good by being active.
+healthy() {
+    for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        if curl -fs --max-time 3 "$HEALTH_URL" >/dev/null; then
+            return 0
+        fi
+        sleep 1
+    done
+    return 1
+}
+if ! healthy; then
+    echo "!! the new peeringd is running but does not answer $HEALTH_URL; putting the previous binary back"
+    if [ -f "$REMOTE_BIN.bak-\$stamp" ]; then
+        cp -p "$REMOTE_BIN.bak-\$stamp" "$REMOTE_BIN.rollback"
+        mv "$REMOTE_BIN.rollback" "$REMOTE_BIN"
+        systemctl restart peeringd
+        if healthy; then
+            echo "    the previous binary answers again"
+        else
+            echo "    the previous binary does not answer either; look at the journal"
+        fi
+    else
+        echo "    and there was no previous binary to put back"
+    fi
+    journalctl -u peeringd -n 20 --no-pager
+    exit 1
+fi
+echo "peeringd answers $HEALTH_URL"
+
+# Only after a healthy deploy, so the copies a rollback might need are never the ones pruned. The
+# newest five stay; \`ls\` failing on no match must not trip pipefail.
+(ls -1t "$REMOTE_BIN".bak-* 2>/dev/null || true) | tail -n +6 | xargs -r rm -f --
 REMOTE
 
 # After the relay is back, not before, so that a relay that fails to start leaves the site where it
