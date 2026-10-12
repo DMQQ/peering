@@ -3,6 +3,7 @@
 
 use peering_core::session::liveness::Verdict;
 use peering_core::session::slots::{client_has_other_session, newest_session_for_key};
+use peering_core::video::intent::VideoIntent;
 
 use super::{Connection, Flow};
 
@@ -45,7 +46,7 @@ impl Connection {
         };
         slot.video_outbound = Some(self.outbound.clone());
         self.video_for_session = Some(session_id);
-        guard.video.lock().request_resync();
+        guard.video.request(VideoIntent::Resync);
         Flow::Open
     }
 
@@ -65,9 +66,8 @@ impl Connection {
             // The ceiling goes first: once capture stops, the encoder no longer takes a new bitrate.
             state.refresh_bitrate_ceiling();
             if last_of_client {
-                let mut video = state.video.lock();
-                video.detach(&slot.client_id);
-                video.stop_when_idle();
+                state.video.request(VideoIntent::Detach(slot.client_id.clone()));
+                state.video.request(VideoIntent::StopWhenIdle);
             }
             state.release_input_if_idle();
             if last_of_client {

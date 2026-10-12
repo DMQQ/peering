@@ -2,6 +2,7 @@
 //! session arrived through the relay.
 
 use peering_core::notice::notice_frame;
+use peering_core::video::intent::VideoIntent;
 use peering_core::video::lane::VideoLane;
 use peering_wire::framing::Frame;
 use peering_wire::sealing::TOKEN_SIZE;
@@ -64,10 +65,8 @@ impl Connection {
                 background: false,
             },
         );
-        let mut video = state.video.lock();
-        video.attach(client_id);
-        let capture_failure = video.ensure_capturing(now).err().map(|error| error.to_string());
-        drop(video);
+        state.video.request(VideoIntent::Attach(client_id.to_owned()));
+        let capture_failure = state.video.apply(VideoIntent::EnsureCapturing, now).err().map(|error| error.to_string());
         let mut frames = state.catalogue_frames_for(self.session_id);
         frames.extend(state.notices.standing().map(notice_frame));
         (frames, capture_failure)

@@ -148,7 +148,7 @@ pub fn harness() -> Harness {
 /// A host whose workstation is `system`, for tests of the lock request and of the hello that advertises it.
 pub fn harness_with_system(system: RecordingSystem) -> Harness {
     let encoder = Arc::new(Mutex::new(FakeEncoder::default()));
-    harness_with(system, Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: true }))
+    harness_with(vec![display()], system, Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: true }))
 }
 
 /// The answer to "is the agent CLI installed", fixed by the test.
@@ -165,21 +165,38 @@ impl BinaryLocator for AgentCli {
 /// A host on a PC without the agent CLI.
 pub fn harness_without_agent_cli() -> Harness {
     let encoder = Arc::new(Mutex::new(FakeEncoder::default()));
-    harness_with(RecordingSystem::new(true, None), Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: false }))
+    harness_with(vec![display()], RecordingSystem::new(true, None), Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: false }))
 }
 
 /// A host whose encoder is `encoder`. `unused` stands in for the inspectable encoder the other tests read.
 pub fn harness_with_encoder(encoder: Box<dyn Encoder + Send>) -> Harness {
-    harness_with(RecordingSystem::new(true, None), encoder, Arc::new(Mutex::new(FakeEncoder::default())), Box::new(AgentCli { installed: true }))
+    harness_with(vec![display()], RecordingSystem::new(true, None), encoder, Arc::new(Mutex::new(FakeEncoder::default())), Box::new(AgentCli { installed: true }))
+}
+
+/// A second, non-primary display, for tests of switching the captured screen.
+pub fn second_display() -> DisplayInfo {
+    DisplayInfo { id: 2, name: "External".to_owned(), is_primary: false, ..display() }
+}
+
+/// A host with two displays whose encoder is `encoder`.
+pub fn harness_with_two_displays(encoder: Box<dyn Encoder + Send>) -> Harness {
+    harness_with(
+        vec![display(), second_display()],
+        RecordingSystem::new(true, None),
+        encoder,
+        Arc::new(Mutex::new(FakeEncoder::default())),
+        Box::new(AgentCli { installed: true }),
+    )
 }
 
 fn harness_with(
+    displays: Vec<DisplayInfo>,
     system: RecordingSystem,
     encoder_port: Box<dyn Encoder + Send>,
     encoder: Arc<Mutex<FakeEncoder>>,
     agent_binaries: Box<dyn BinaryLocator>,
 ) -> Harness {
-    let capture = Arc::new(Mutex::new(FakeCapture::new(vec![display()])));
+    let capture = Arc::new(Mutex::new(FakeCapture::new(displays)));
     let system = Arc::new(Mutex::new(system));
     let input = Arc::new(Mutex::new(RecordingInput::default()));
     let secrets = Arc::new(InMemorySecretStore::default());

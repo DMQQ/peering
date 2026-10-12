@@ -1,6 +1,7 @@
 //! Frames the session forwards once the client is authorised: commands, pings, file requests and agent requests.
 
 use peering_core::session::dispatch::{on_ready_frame, DispatchContext, ReadyOutcome};
+use peering_core::video::intent::VideoIntent;
 use peering_wire::agent::AgentRequest;
 use peering_wire::command::RemoteCommand;
 use peering_wire::framing::{Frame, MessageKind};
@@ -69,7 +70,7 @@ impl Connection {
             slot.background = report.background;
         }
         if !report.background {
-            state.video.lock().request_resync();
+            state.video.request(VideoIntent::Resync);
         }
         state.refresh_watched();
         Flow::Open

@@ -89,6 +89,13 @@ impl Recovery {
         }
     }
 
+    /// The pass that was running never came back and its device was dropped. The client is told at once, and the pipeline
+    /// is rebuilt after the first backoff.
+    pub fn abandoned(&mut self, now: f64) {
+        self.failed(Remedy::Pipeline, now);
+        self.failures = self.failures.max(FAILURES_BEFORE_REPORT);
+    }
+
     /// The capture reports itself failed without a call having returned an error.
     pub fn capture_failed(&mut self, now: f64) {
         if self.remedy != Some(Remedy::Pipeline) {

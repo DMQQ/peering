@@ -1,6 +1,7 @@
 //! The client's video requests on the control connection: the key for the relayed lane, and moving the picture between the
 //! relayed lane and the control connection. Both are answered where the request arrives, so neither waits on the pump.
 
+use peering_core::video::intent::VideoIntent;
 use peering_core::video::lane::lowest_ceiling_kbps;
 use peering_wire::framing::Frame;
 use peering_wire::handshake::VideoTransportRequest;
@@ -53,6 +54,6 @@ impl HostState {
     /// counts, and neither does one whose picture is back on the primary lane.
     pub fn refresh_bitrate_ceiling(&mut self) {
         let ceiling = lowest_ceiling_kbps(self.sessions.values().map(|slot| slot.lane.bitrate_ceiling_kbps()));
-        self.video.lock().set_bitrate_ceiling(ceiling);
+        self.video.request(VideoIntent::SetBitrateCeiling(ceiling));
     }
 }

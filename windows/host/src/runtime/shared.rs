@@ -16,6 +16,7 @@ use peering_core::ports::input::InputSink;
 use peering_core::session::deps::PinStore;
 use peering_core::session::held_input::HoldGuard;
 use peering_core::terminal::manager::TerminalSessionManager;
+use peering_core::video::intent::VideoIntent;
 use peering_core::video::lane::VideoLane;
 use tokio::sync::broadcast;
 
@@ -103,7 +104,7 @@ impl HostState {
     /// Encoding runs only while some session is in the foreground.
     pub fn refresh_watched(&mut self) {
         let watched = self.sessions.values().any(|slot| !slot.background);
-        self.video.lock().set_watched(watched);
+        self.video.request(VideoIntent::SetWatched(watched));
     }
 
     /// Lets go of keys and buttons held by phones that have all gone quiet.
@@ -125,18 +126,18 @@ impl HostState {
             dropped |= slot.datagram_outbound.as_ref().is_some_and(Outbound::take_dropped_stale);
         }
         if dropped {
-            self.video.lock().request_resync();
+            self.video.request(VideoIntent::Resync);
         }
         dropped
     }
 
     /// After a video pass panicked, what it owned is rebuilt from scratch: the capture and encoder restart, and every phone is
     /// sent the catalogue again.
-    pub(super) fn reset_after_video_panic(&mut self, now: f64) {
+    pub(super) fn reset_after_video_panic(&mut self) {
         self.catalog_checked_at = None;
         self.notice_checked_at = None;
         self.catalogues = SessionCatalogue::new();
-        self.video.lock().reset_after_panic(now);
+        self.video.request(VideoIntent::ResetAfterPanic);
     }
 
     pub fn allocate_session(&mut self) -> u64 {

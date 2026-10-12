@@ -68,7 +68,7 @@ impl HostState {
                 return (outgoing, Some(error));
             }
         };
-        if video.lock().recovery_failures() == 0 {
+        if video.recovery_failures() == 0 {
             self.clear_problem(ProblemSource::Video);
         }
         for output in &outputs {
@@ -163,7 +163,7 @@ pub async fn run_pump(shared: Shared, profile: Arc<HostProfile>, meter: Arc<Pass
             let pass = video.settle(now, outcome, |text| record_problem(&shared, ProblemSource::Video, text));
             match pass {
                 Pass::Done(finished) => deliver_pass(&shared, finished, &mut failures, now),
-                Pass::Panicked => shared.lock().reset_after_video_panic(now),
+                Pass::Panicked => shared.lock().reset_after_video_panic(),
                 Pass::Skipped => {}
             }
         }

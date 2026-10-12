@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use peering_core::pairing::ApprovalDecision;
 use peering_core::ports::input::InputSink;
 use peering_core::session::slots::sessions_of_client;
+use peering_core::video::intent::VideoIntent;
 use peering_wire::handshake::ErrorPayload;
 use peering_wire::pairing_payload;
 
@@ -152,10 +153,8 @@ impl HostState {
         for id in sessions_of_client(siblings, client_id) {
             self.sessions.remove(&id);
         }
-        let mut video = self.video.lock();
-        video.detach(client_id);
-        video.stop_when_idle();
-        drop(video);
+        self.video.request(VideoIntent::Detach(client_id.to_owned()));
+        self.video.request(VideoIntent::StopWhenIdle);
         self.refresh_bitrate_ceiling();
         self.input.release_all();
         self.terminals.disconnect(client_id);
@@ -166,9 +165,9 @@ impl HostState {
     fn stop_sessions(&mut self) {
         for (_, slot) in self.sessions.drain() {
             let _queued = slot.outbound.send(ErrorPayload::host_stopped_frame());
-            self.video.lock().detach(&slot.client_id);
+            self.video.request(VideoIntent::Detach(slot.client_id));
         }
-        self.video.lock().stop_when_idle();
+        self.video.request(VideoIntent::StopWhenIdle);
         self.refresh_bitrate_ceiling();
         self.input.release_all();
     }
@@ -197,7 +196,7 @@ impl HostState {
                     self.pairing.revoke(&client_id);
                     self.end_client_sessions(&client_id);
                 }
-                RuntimeCommand::SetFrameRate(fps) => self.video.lock().set_frame_rate(fps),
+                RuntimeCommand::SetFrameRate(fps) => self.video.request(VideoIntent::SetFrameRate(fps)),
             }
         }
         decisions
@@ -226,6 +225,8 @@ pub(super) fn publish(slot: &Mutex<HostSnapshot>, snapshot: HostSnapshot) {
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use peering_core::video::intent::VideoIntent;
+
     use super::super::test_support::{runtime, slot};
     use super::{ControlChannel, HostSnapshot};
 
@@ -243,9 +244,9 @@ mod tests {
         let runtime = runtime();
         let mut state = runtime.shared.lock();
         state.sessions.insert(1, slot("gone"));
-        state.video.lock().set_bitrate_ceiling(Some(1_500));
+        state.video.request(VideoIntent::SetBitrateCeiling(Some(1_500)));
         state.end_client_sessions("gone");
-        assert_eq!(state.video.lock().bitrate_ceiling_kbps(), None);
+        assert_eq!(state.video.bitrate_ceiling_kbps(), None);
     }
 
     #[test]
@@ -253,8 +254,8 @@ mod tests {
         let runtime = runtime();
         let mut state = runtime.shared.lock();
         state.sessions.insert(1, slot("phone"));
-        state.video.lock().set_bitrate_ceiling(Some(1_500));
+        state.video.request(VideoIntent::SetBitrateCeiling(Some(1_500)));
         state.stop_sessions();
-        assert_eq!(state.video.lock().bitrate_ceiling_kbps(), None);
+        assert_eq!(state.video.bitrate_ceiling_kbps(), None);
     }
 }

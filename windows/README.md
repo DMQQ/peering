@@ -120,12 +120,15 @@ Recovery and supervision, what is decided where:
   the frame deadline (two ping intervals) and the stable minute before the ladder resets, the per-address pre-auth share, and
   how long a silent phone's keys are held (5 s).
 - The pump passes run under `catch_unwind` and are held off with the same backoff after a panic. The video pass takes its
-  inputs under the host state lock, runs the capture and encode on a blocking thread under the coordinator's own lock, and
-  locks the state again to publish, so a slow encode does not freeze input or handshakes. Calls that need the coordinator
-  itself (a phone registering, a source change, a disconnect) still wait for the encode in flight. The capture and encode
-  always run together under that one lock, so the D3D11 immediate context is never used from two threads at once; that
-  has not been run on Windows. A pass that never returns cannot be interrupted: a monitor thread reports one that has run
-  for more than 10 s to the window, and the encode is not abandoned.
+  inputs under the host state lock, then takes the coordinator out of its handle onto a blocking thread for the capture and
+  encode, and locks the state again to publish, so a slow encode does not freeze input or handshakes. What the host asks
+  of the coordinator meanwhile (a phone registering, a source change, a disconnect, a bitrate ceiling) is recorded as an
+  intent and applied when the pass gives the coordinator back (`peering_core::video::intent`); nothing waits for the
+  encode. A failure of an intent that waited (for instance a display that cannot be started) is logged and left to the
+  coordinator's recovery, because there is no caller left to tell. The capture and encode always run together on that one
+  thread, so the D3D11 immediate context is never used from two threads at once; that has not been run on Windows. A pass
+  that never returns cannot be interrupted: a monitor thread reports one that has run for more than 10 s to the window,
+  and the encode is not abandoned.
 
 Not verified, and not run on any machine yet:
 

@@ -57,6 +57,13 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         }
     }
 
+    /// A fresh coordinator standing in for one whose pass never returned. Its device is rebuilt after the usual backoff, and
+    /// until a frame comes out the clients are shown that the capture is recovering.
+    pub fn after_abandoned_pass(&mut self, now: f64) {
+        self.reset_after_panic(now);
+        self.recovery.abandoned(now);
+    }
+
     /// Failures in a row since the last frame came out.
     pub fn recovery_failures(&self) -> u32 {
         self.recovery.failures()

@@ -3,6 +3,7 @@
 
 use peering_core::notice::notice_frame;
 use peering_core::video::coordinator::CaptureCondition;
+use peering_core::video::intent::VideoIntent;
 use peering_wire::handshake::NoticePayload;
 use peering_core::ports::capture::DisplayInfo;
 use peering_core::ports::input::TransformSnapshot;
@@ -43,23 +44,22 @@ impl<'a> CoordinatorControl<'a> {
 
 impl SourceControl for CoordinatorControl<'_> {
     fn set_source(&mut self, source: CaptureSource) {
-        if let Err(error) = self.video.lock().set_source(source, self.now) {
+        if let Err(error) = self.video.apply(VideoIntent::SetSource(source), self.now) {
             self.failure.get_or_insert_with(|| error.to_string());
         }
     }
 
     fn set_quality(&mut self, fps: Option<u32>, bitrate_kbps: Option<u32>) {
-        let mut video = self.video.lock();
         if let Some(fps) = fps {
-            video.set_frame_rate(fps);
+            self.video.request(VideoIntent::SetFrameRate(fps));
         }
         if let Some(kbps) = bitrate_kbps {
-            video.set_quality(i64::from(kbps));
+            self.video.request(VideoIntent::SetQuality(i64::from(kbps)));
         }
     }
 
     fn set_video_enabled(&mut self, enabled: bool) {
-        self.video.lock().set_video_enabled(enabled);
+        self.video.request(VideoIntent::SetVideoEnabled(enabled));
     }
 
     fn lock_screen(&mut self) {
@@ -148,7 +148,7 @@ impl HostState {
             return Vec::new();
         }
         self.notice_checked_at = Some(now);
-        let desired = self.system.session_notice().or_else(|| capture_notice(self.video.lock().capture_condition()));
+        let desired = self.system.session_notice().or_else(|| capture_notice(self.video.capture_condition()));
         let Some(payload) = self.notices.update(desired) else {
             return Vec::new();
         };
