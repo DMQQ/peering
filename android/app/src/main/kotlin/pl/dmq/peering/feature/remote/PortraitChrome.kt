@@ -59,7 +59,7 @@ internal fun PortraitChrome(
                     groups = DockGroups.of(state.profile),
                     expanded = state.dockExpanded,
                     onExpandedChange = handlers.onDockExpanded,
-                    control = { DockControlButton(it, state, handlers) },
+                    control = { control, modifier -> DockControlButton(control, state, handlers, modifier) },
                     onChord = handlers.onChord,
                     modifier = Modifier
                         .fillMaxWidth(ChromeMetrics.DOCK_WIDTH_FRACTION)
