@@ -141,6 +141,8 @@ internal fun ConnectTab(wiring: FeatureWiring) {
                     drafts = wiring.drafts,
                     folderRecents = wiring.folderRecents,
                     settings = wiring.settings,
+                    devicePrefs = wiring.devicePrefs,
+                    macros = wiring.macros,
                     billing = wiring.billing,
                     relayAllowance = wiring.relayAllowance,
                     clock = wiring.clock,

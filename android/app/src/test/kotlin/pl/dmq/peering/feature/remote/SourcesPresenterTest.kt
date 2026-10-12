@@ -8,6 +8,8 @@ import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.CaptureSourceDescriptor
 import pl.dmq.peering.wire.CaptureSourceKind
+import pl.dmq.peering.wire.LaunchApplication
+import pl.dmq.peering.wire.OpenNewWindow
 import pl.dmq.peering.wire.PixelSize
 import pl.dmq.peering.wire.RemoteCommand
 import pl.dmq.peering.wire.SetCaptureSource
@@ -120,6 +122,17 @@ class SourcesPresenterTest {
         presenter.watchThumbnails(false)
 
         assertEquals(listOf<RemoteCommand>(WatchSourceThumbnails(true), WatchSourceThumbnails(false)), sink.sent)
+    }
+
+    @Test
+    fun `a new window and a launch send their commands`() {
+        presenter.openNewWindow("com.apple.Safari")
+        presenter.launch(InstalledApplication("com.apple.Notes", "Notes", null))
+
+        assertEquals(
+            listOf<RemoteCommand>(OpenNewWindow("com.apple.Safari"), LaunchApplication("com.apple.Notes")),
+            sink.sent,
+        )
     }
 
     private fun display(id: Long, title: String, width: Double, height: Double) = CaptureSourceDescriptor(

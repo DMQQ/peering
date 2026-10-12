@@ -7,6 +7,13 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardReturn
 import androidx.compose.material.icons.automirrored.outlined.KeyboardTab
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Dashboard
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.SkipNext
+import androidx.compose.material.icons.outlined.SkipPrevious
+import androidx.compose.material.icons.outlined.VolumeDown
+import androidx.compose.material.icons.outlined.VolumeOff
+import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.BrightnessLow
 import androidx.compose.material.icons.outlined.Cancel
@@ -14,6 +21,7 @@ import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.FilterNone
 import androidx.compose.material.icons.outlined.Fullscreen
+import androidx.compose.material.icons.outlined.FullscreenExit
 import androidx.compose.material.icons.outlined.HighlightOff
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Key
@@ -29,6 +37,7 @@ import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.Slideshow
 import androidx.compose.material.icons.outlined.UnfoldMore
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -51,6 +60,7 @@ object SessionIcons {
     val right: ImageVector get() = Icons.Outlined.KeyboardArrowRight
     val collapse: ImageVector get() = Icons.Outlined.ExpandLess
     val immersive: ImageVector get() = Icons.Outlined.Fullscreen
+    val exitImmersive: ImageVector get() = Icons.Outlined.FullscreenExit
     val fill: ImageVector get() = Icons.Outlined.AspectRatio
     val dim: ImageVector get() = Icons.Outlined.BrightnessLow
     val bright: ImageVector get() = Icons.Outlined.LightMode
@@ -65,5 +75,14 @@ object SessionIcons {
     val key: ImageVector get() = Icons.Outlined.Key
     val mail: ImageVector get() = Icons.Outlined.Mail
     val privacy: ImageVector get() = Icons.Outlined.PrivacyTip
+
+    /** What F1 to F12 print on a Mac's top row; null where the key has no action the phone can post (dictation, Do Not Disturb). */
+    val topRow: List<ImageVector?> get() = listOf(
+        Icons.Outlined.BrightnessLow, Icons.Outlined.LightMode, Icons.Outlined.Dashboard, Icons.Outlined.Search, null, null,
+        Icons.Outlined.SkipPrevious, Icons.Outlined.PlayArrow, Icons.Outlined.SkipNext,
+        Icons.Outlined.VolumeOff, Icons.Outlined.VolumeDown, Icons.Outlined.VolumeUp,
+    )
+
+    val terminal: ImageVector get() = Icons.Outlined.Terminal
     val introduction: ImageVector get() = Icons.Outlined.Slideshow
 }

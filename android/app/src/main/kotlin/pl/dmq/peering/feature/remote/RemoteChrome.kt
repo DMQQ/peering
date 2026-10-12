@@ -4,11 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,89 +12,43 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.Icon
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.kit.AppIcons
-import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.kit.SessionIcons
 
-/** Everything drawn over the picture: the picture status, the top bar, the reconnect snackbar, the keyboard panel and the action bar. */
+/**
+ * Everything drawn over the picture: what the picture says while it has none, the chrome in the arrangement the phone's
+ * orientation calls for, and in immersive mode the one button that brings the chrome back.
+ */
 @Composable
 fun RemoteChrome(
-    shown: Boolean,
-    overlay: SessionOverlayState,
-    zoomPercent: Int?,
-    actions: List<ToolbarAction>,
-    keyboardShown: Boolean,
-    latches: Map<StickyModifier, ModifierLatch>,
-    immersive: Boolean,
-    onReveal: () -> Unit,
-    onFit: () -> Unit,
-    onRetry: () -> Unit,
-    onDisconnect: () -> Unit,
-    onAction: (ToolbarAction) -> Unit,
-    onFunctionKey: (FunctionKey) -> Unit,
-    onEditingKey: (EditingKey) -> Unit,
-    onModifier: (StickyModifier) -> Unit,
+    state: ChromeState,
+    handlers: ChromeHandlers,
+    panel: @Composable (SessionPanel) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val insets = WindowInsets.systemBars.union(WindowInsets.displayCutout)
-    Box(modifier = modifier.fillMaxSize().windowInsetsPadding(insets).padding(8.dp)) {
-        PictureStatus(overlay.picture, onRetry, Modifier.align(Alignment.Center))
-        AnimatedVisibility(
-            visible = shown,
-            modifier = Modifier.align(Alignment.TopCenter),
-            enter = fadeIn() + slideInVertically { -it / 2 },
-            exit = fadeOut() + slideOutVertically { -it / 2 },
-        ) {
-            SessionTopBar(state = overlay, zoomPercent = zoomPercent, onFit = onFit, onDisconnect = onDisconnect)
+    Box(modifier.fillMaxSize().windowInsetsPadding(insets)) {
+        PictureStatus(state.overlay.picture, handlers.onRetry, Modifier.align(Alignment.Center))
+        AnimatedVisibility(visible = state.shown, enter = fadeIn(), exit = fadeOut()) {
+            if (landscape) LandscapeChrome(state, handlers, panel) else PortraitChrome(state, handlers, panel)
         }
         AnimatedVisibility(
-            visible = immersive && !shown,
-            modifier = Modifier.align(Alignment.TopCenter),
+            visible = state.immersive && !state.shown,
+            modifier = Modifier.align(Alignment.TopEnd).padding(ChromeMetrics.edgeInset),
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
-            RevealHandle(onReveal)
-        }
-        AnimatedVisibility(
-            visible = shown && landscape,
-            modifier = Modifier.align(Alignment.CenterEnd),
-            enter = fadeIn(),
-            exit = fadeOut(),
-        ) {
-            SessionActionBar(actions, keyboardShown, vertical = true, onAction = onAction)
-        }
-        Column(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            SessionSnackbar(state = overlay)
-            if (keyboardShown) {
-                KeyboardPanel(latches, onFunctionKey, onEditingKey, onModifier)
-            }
-            AnimatedVisibility(visible = shown && !landscape, enter = fadeIn(), exit = fadeOut()) {
-                SessionActionBar(actions, keyboardShown, vertical = false, onAction = onAction)
-            }
+            CircleGlassButton(SessionIcons.exitImmersive, stringResource(R.string.remote_show_controls), handlers.onReveal)
         }
     }
 }
 
 @Composable
-private fun RevealHandle(onReveal: () -> Unit) {
-    SmallFloatingActionButton(
-        onClick = onReveal,
-        containerColor = PeeringColors.containerHigh,
-        contentColor = PeeringColors.ink,
-    ) {
-        Icon(imageVector = AppIcons.expand, contentDescription = stringResource(R.string.remote_show_controls))
-    }
-}
+internal fun wheelLabel(state: ChromeState): String =
+    stringResource(if (state.interaction == InputMode.OBSERVE) R.string.remote_wheel_zoom else R.string.remote_wheel_scroll)

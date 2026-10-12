@@ -15,10 +15,17 @@ import pl.dmq.peering.wire.routeKey
  * Turns keyboard input into commands: printable text is typed as text, other keys are pressed by their macOS keycode.
  * A latched modifier is held for the key that follows it. Not thread safe.
  */
-class KeyboardPresenter(private val sink: CommandSink) {
+class KeyboardPresenter(
+    private val sink: CommandSink,
+    private val mode: () -> KeyboardMode = { KeyboardMode.UNICODE },
+) {
     private val sticky = StickyModifiers()
     private val latchStates = MutableStateFlow(sticky.latches())
     val latches: StateFlow<Map<StickyModifier, ModifierLatch>> = latchStates.asStateFlow()
+    private val preview = MutableStateFlow("")
+
+    /** What has been typed since the last Enter, for the "Typing" line: the phone holds no text, the computer does. */
+    val typedPreview: StateFlow<String> = preview.asStateFlow()
 
     fun onModifierTap(modifier: StickyModifier, timeMs: Long) {
         send(sticky.tap(modifier, timeMs))
@@ -40,7 +47,19 @@ class KeyboardPresenter(private val sink: CommandSink) {
 
     /** A delete from the soft keyboard, which is the Backspace key. */
     fun onSoftKeyboardDelete() {
+        preview.value = preview.value.dropLast(1)
         pressKey(BACKSPACE_KEY)
+    }
+
+    /** Presses [macKeyCode] with [modifiers] and whatever is latched, as the dock's keys and the shortcuts do. */
+    fun sendKey(macKeyCode: Int, modifiers: Long = 0L) {
+        pressKeyWithoutRelease(macKeyCode, modifiers)
+        endKeyPress()
+    }
+
+    fun pressEnter() {
+        preview.value = ""
+        pressKey(RETURN_KEY)
     }
 
     /** Returns true when the event was sent, so the caller can keep it from the field it came from. */
@@ -68,7 +87,8 @@ class KeyboardPresenter(private val sink: CommandSink) {
     }
 
     private fun typeText(text: String) {
-        if (!sticky.hasActive()) {
+        preview.value = (preview.value + text).takeLast(PREVIEW_LIMIT)
+        if (!sticky.hasActive() && mode() == KeyboardMode.UNICODE) {
             sink.send(TextInput(text))
             return
         }
@@ -77,7 +97,8 @@ class KeyboardPresenter(private val sink: CommandSink) {
             if (macKeyCode == null) {
                 sink.send(TextInput(String(Character.toChars(codepoint))))
             } else {
-                pressKeyWithoutRelease(macKeyCode)
+                val shift = if (Character.isUpperCase(codepoint)) Modifiers.SHIFT else 0L
+                pressKeyWithoutRelease(macKeyCode, shift)
             }
         }
         endKeyPress()
@@ -88,8 +109,8 @@ class KeyboardPresenter(private val sink: CommandSink) {
         endKeyPress()
     }
 
-    private fun pressKeyWithoutRelease(macKeyCode: Int) {
-        val modifiers = sticky.activeModifiers()
+    private fun pressKeyWithoutRelease(macKeyCode: Int, extraModifiers: Long = 0L) {
+        val modifiers = Modifiers(extraModifiers or sticky.activeModifiers().bits)
         sink.send(KeyDown(macKeyCode, modifiers))
         sink.send(KeyUp(macKeyCode, modifiers))
     }
@@ -105,6 +126,8 @@ class KeyboardPresenter(private val sink: CommandSink) {
 
     private companion object {
         const val BACKSPACE_KEY = 51
+        const val RETURN_KEY = 36
+        const val PREVIEW_LIMIT = 200
 
         /** Both sides of Shift, Control, Option and Command. Caps Lock is an ordinary key here. */
         val MODIFIER_KEY_CODES = setOf(54, 55, 56, 58, 59, 60, 61, 62)

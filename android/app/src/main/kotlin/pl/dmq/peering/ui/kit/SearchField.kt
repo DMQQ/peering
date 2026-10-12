@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
+import pl.dmq.peering.ui.theme.PillShape
 import pl.dmq.peering.ui.theme.peeringShapes
 
 /** An outlined field with a magnifier and a clear button, as the phone's search fields are drawn. */
@@ -35,7 +36,7 @@ fun SearchField(
     height: Dp = 38.dp,
     filled: Boolean = false,
 ) {
-    val shape = peeringShapes.extraSmall
+    val shape = if (filled) PillShape else peeringShapes.extraSmall
     Row(
         modifier = modifier
             .fillMaxWidth()

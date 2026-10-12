@@ -3,6 +3,7 @@ package pl.dmq.peering.ui
 import android.content.SharedPreferences
 import android.os.Build
 import pl.dmq.peering.ui.wiring.PreferencesDevicePreferences
+import pl.dmq.peering.ui.wiring.PreferencesMacroStore
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -56,6 +57,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val firstRun = PreferencesFirstRunStore(preferences)
     val settings = PreferencesSettingsStore(preferences)
     val devicePrefs = PreferencesDevicePreferences(preferences, Build.MODEL.orEmpty())
+    val macros = PreferencesMacroStore(preferences)
     val deviceId: String = graph.sessions.identity.clientId
     val hostNames = PersistedHostDirectory(PreferencesKeyValueStore(preferences))
     val trusted = PinTrustedHosts(graph.sessions.pins, hostNames)

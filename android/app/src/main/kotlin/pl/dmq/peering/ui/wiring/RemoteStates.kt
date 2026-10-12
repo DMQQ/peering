@@ -1,7 +1,6 @@
 package pl.dmq.peering.ui.wiring
 
 import pl.dmq.peering.feature.remote.HubCapabilities
-import pl.dmq.peering.feature.remote.InputMode
 import pl.dmq.peering.feature.remote.PictureState
 import pl.dmq.peering.feature.remote.RemoteUiState
 import pl.dmq.peering.session.controller.PictureState as SessionPictureState
@@ -14,13 +13,17 @@ internal fun remoteUiState(
     session: SessionUiState,
     picturePixels: PixelSize?,
     capabilities: HubCapabilities,
-    inputMode: InputMode,
     relayMinutesLeft: Int?,
 ): RemoteUiState {
     val ready = session.phase as? SessionPhase.Ready
+    val catalogue = session.catalogue
+    val chosen = catalogue?.let { listOf(it.displays, it.applications, it.windows).flatten() }
+        ?.firstOrNull { it.source == session.activeSource }
     return RemoteUiState(
-        catalog = session.catalogue,
+        catalog = catalogue,
         chosenSource = session.activeSource,
+        sourceTitle = chosen?.title,
+        sourceBundleId = chosen?.bundleIdentifier,
         picturePixels = picturePixels,
         latencyMs = session.latencyMillis,
         path = ready?.path,
@@ -29,7 +32,7 @@ internal fun remoteUiState(
         capabilities = capabilities,
         hostName = ready?.hostName,
         reconnecting = session.phase is SessionPhase.Reconnecting,
-        inputMode = inputMode,
+        hostClipboard = session.hostClipboard,
     )
 }
 

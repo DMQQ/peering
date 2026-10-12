@@ -66,8 +66,8 @@ Edge inset 8 dp, bottom inset 22 dp, gap 8 dp. Chrome is drawn over the picture 
 | # | iPhone element | Android implementation |
 |---|----------------|------------------------|
 | 1 | Phone row: tile, "Phone", detail ("Nothing copied", text, "Image copied"), actions Send, Paste on computer | `ClipboardPanel`, `PushClipboard`, then Cmd+V |
-| 2 | Computer row: tile, "Computer", detail, action Copy to phone | shows what the computer sent (`RequestClipboard`), copies to the Android clipboard |
-| 3 | History row with count and chevron, then history list with Clear and per row copy or send | Not matched: the host's clipboard reply is not decoded by the session core |
+| 2 | Computer row: tile, "Computer", detail, action Copy to phone | `RequestClipboard` on open, the reply is decoded into `SessionUiState.hostClipboard`, Copy to phone writes the Android clipboard |
+| 3 | History row with count and chevron, then history list with Clear and per row copy or send | Not matched: no history is kept on Android |
 
 ## 6. Apps panel (sources picker)
 
@@ -89,15 +89,15 @@ Sections in order, each a section label with rows: Session (info rows, Lock butt
 
 | # | iPhone element | Android implementation |
 |---|----------------|------------------------|
-| 1 | Serif title "Sessions", detail "Recent sessions and relay use." | `TabHeader` |
+| 1 | Serif title "Sessions", detail "Recent sessions and relay use." | `TabScreen` |
 | 2 | Relay card: label, "Free relay time" with remaining, meter bar, "last 24 hours", footnote, upgrade button when low | `RelayCard` |
 | 3 | Recent connections card: label, summary (sessions, connected, video), rows with tile, name, detail, time, chevron | `RecentConnectionsCard`, `SessionHistory` |
 | 4 | Row opens a detail: Connection card and Session log card | `SessionDetail` |
-| 5 | While a session is live the tab shows the session screen (as before) | `SessionTab` |
+| 5 | The tab is always the history; a live session is opened from its row in Connect | `SessionTab`, `FeatureWiring.connectOrResume` |
 
 ## 9. Settings tab
 
-Title "Settings", detail, search field, then cards in order: This device (device name), Session controls (Interaction, Picture, Keyboard, Open keyboard for text fields, Close panels after selecting), Stream quality, Remote access (Allow relay connections, Upgrade), Security and privacy (biometric lock), Trusted computers, Device identity, More (Get Peering for the computer, Show introduction again, Report an issue), Legal. Picture in Picture, Home Screen widget, Live Activity, Notifications and Developer are iOS only and are not drawn.
+Title "Settings", detail, search field, then cards in order: This device (device name), Session controls (Interaction, Picture, Keyboard, Close panels after selecting; "Open keyboard for text fields" is left out because the computer never says when a text field is focused), Stream quality, Remote access (Allow relay connections, Upgrade), Security and privacy (biometric lock), Trusted computers, Device identity, More (Get Peering for the computer, Show introduction again, Report an issue), Legal. Picture in Picture, Home Screen widget, Live Activity, Notifications and Developer are iOS only and are not drawn.
 
 ## 10. FAQ tab
 
@@ -107,6 +107,7 @@ Title "FAQ", detail, one outlined card per section with a label, rows with the q
 
 - Sound and Screenshot chips, the Sound switch: no Android audio player or capture hook exists in the session core.
 - Mosaic, desktops (Spaces) tiles, virtual displays: no Android client flow; the wire commands are unused.
-- Clipboard history and the computer's clipboard text: the session core does not decode the host's clipboard reply.
+- Clipboard history: nothing keeps it on Android.
+- Video byte counts in the Sessions summary and rows: the session record has none, so the summary shows relay time instead.
 - Picture in Picture, widget, Live Activity, notification rows: iOS features.
 - Landscape hint card and tour anchors: no Android tour.
