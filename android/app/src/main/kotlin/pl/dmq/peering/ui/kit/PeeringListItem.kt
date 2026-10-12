@@ -27,21 +27,23 @@ fun PeeringListItem(
     supporting: String? = null,
     onClick: (() -> Unit)? = null,
     role: Role? = null,
+    tint: Color = PeeringColors.ink,
+    bleed: Boolean = true,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val clickable = if (onClick != null) Modifier.clickable(role = role, onClick = onClick) else Modifier
     ListItem(
         headlineContent = { Text(headline, style = MaterialTheme.typography.bodyLarge) },
-        modifier = modifier.bleedHorizontally(16.dp).heightIn(min = 56.dp).then(clickable),
+        modifier = modifier.let { if (bleed) it.bleedHorizontally(16.dp) else it }.heightIn(min = 56.dp).then(clickable),
         supportingContent = supporting?.let { { Text(it, style = MaterialTheme.typography.bodyMedium) } },
         leadingContent = leading,
         trailingContent = trailing,
         colors = ListItemDefaults.colors(
             containerColor = Color.Transparent,
-            headlineColor = PeeringColors.ink,
+            headlineColor = tint,
             supportingColor = PeeringColors.muted,
-            leadingIconColor = PeeringColors.muted,
+            leadingIconColor = if (tint == PeeringColors.ink) PeeringColors.muted else tint,
             trailingIconColor = PeeringColors.muted,
         ),
     )
