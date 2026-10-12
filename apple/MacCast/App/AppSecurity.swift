@@ -51,7 +51,7 @@ enum DeviceAuthentication {
     /// Same policy for the same reason: a lock stored on a server must stay openable when biometry fails.
     static func unlock(reason: String) async -> Bool {
         let context = LAContext()
-        context.localizedCancelTitle = "Cancel"
+        context.localizedCancelTitle = String(localized: "Cancel")
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
             return false

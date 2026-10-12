@@ -107,7 +107,7 @@ struct ContentView: View {
             if showsConnecting {
                 ConnectingView(
                     hostName: model.shownHostName,
-                    failure: connectingFailure,
+                    failure: HostWireText.localized(connectingFailure),
                     isSlow: connectingIsSlow,
                     isConnected: connectingDidSucceed,
                     onDismiss: dismissConnecting,

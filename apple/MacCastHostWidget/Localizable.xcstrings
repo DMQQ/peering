@@ -292,7 +292,7 @@
       }
     },
     "PEERING" : {
-
+      "shouldTranslate" : false
     },
     "Peering host" : {
       "localizations" : {

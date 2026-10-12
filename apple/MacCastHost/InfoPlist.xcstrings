@@ -11,7 +11,8 @@
             "value" : "Peering"
           }
         }
-      }
+      },
+      "shouldTranslate" : false
     },
     "CFBundleName" : {
       "comment" : "Bundle name",
@@ -23,7 +24,8 @@
             "value" : "Peering"
           }
         }
-      }
+      },
+      "shouldTranslate" : false
     },
     "NSDesktopFolderUsageDescription" : {
       "extractionState" : "manual",

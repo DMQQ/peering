@@ -241,7 +241,7 @@ extension SSHModel {
     private static func browseMessage(_ error: any Error) -> String {
         guard let error = error as? SSHSessionError else { return error.localizedDescription }
         switch error {
-        case .browse(let reason): return reason
+        case .browse(let reason): return HostWireText.localized(reason)
         case .notConnected: return String(localized: "The connection ended before the server answered.")
         default: return describe(error)
         }

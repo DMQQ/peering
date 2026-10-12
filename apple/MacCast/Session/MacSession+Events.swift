@@ -65,7 +65,7 @@ extension MacSession {
             }
             if case .failed(let message) = phase {
                 reportConnectFailure(appState: Analytics.name(of: UIApplication.shared.applicationState))
-                videoStatus = String(localized: "Stopped: \(message)")
+                videoStatus = String(localized: "Stopped: \(HostWireText.localized(message))")
             }
             if phase == .disconnected {
                 videoStatus = String(localized: "Disconnected")
@@ -388,6 +388,7 @@ extension MacSession {
                     self.updateAutoQuality(from: snapshot)
                     self.measureResumeIfNeeded(snapshot)
 
+                    let framesLabel = String(localized: " · \(snapshot.framesEnqueued) frames")
                     let suffix = snapshot.framesDropped > 0 ? String(localized: " · \(snapshot.framesDropped) dropped") : ""
                     let waiting = snapshot.awaitingKeyframe ? String(localized: " · waiting for a keyframe") : ""
                     // Said here, not only in the notes: a reduced rate nothing on screen explains reads as a fault.
@@ -396,7 +397,7 @@ extension MacSession {
                     let rate = self.videoFramesPerSecond > 0
                         ? String(localized: " · \(Int(self.videoFramesPerSecond.rounded())) fps")
                         : ""
-                    self.videoStatus = "\(snapshot.codec.rawValue.uppercased()) \(snapshot.pixelWidth)×\(snapshot.pixelHeight)\(rate) · \(snapshot.framesEnqueued) frames\(suffix)\(waiting)\(lane)"
+                    self.videoStatus = "\(snapshot.codec.rawValue.uppercased()) \(snapshot.pixelWidth)×\(snapshot.pixelHeight)\(rate)\(framesLabel)\(suffix)\(waiting)\(lane)"
                 }
             }
         }

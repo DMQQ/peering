@@ -213,7 +213,7 @@ struct ActivityTab: View {
         let summary = model.recentSessionSummary
         return HStack(spacing: 0) {
             recentSummaryValue(String(localized: "Sessions"), "\(summary.sessionCount)")
-            recentSummaryValue("Connected", RelayTime.label(summary.connectedSeconds))
+            recentSummaryValue(String(localized: "Connected"), RelayTime.label(summary.connectedSeconds))
             recentSummaryValue(String(localized: "Video"), bytesLabel(summary.videoBytes))
         }
         .accessibilityElement(children: .combine)
@@ -339,8 +339,7 @@ struct ActivityTab: View {
     }
 
     private var relayBandwidth: String {
-        ByteCountFormatter.string(fromByteCount: model.relayVideoBytesThisPeriod, countStyle: .file)
-            + " received"
+        String(localized: "\(ByteCountFormatter.string(fromByteCount: model.relayVideoBytesThisPeriod, countStyle: .file)) received")
     }
 
     private func bytesLabel(_ bytes: Int64) -> String {
@@ -348,9 +347,7 @@ struct ActivityTab: View {
     }
 
     private func durationLabel(_ duration: TimeInterval) -> String {
-        let seconds = Int(duration.rounded())
-        if seconds < 60 { return "\(seconds)s" }
-        return "\(seconds / 60)m \(seconds % 60)s"
+        spokenSeconds(duration)
     }
 }
 
@@ -440,15 +437,15 @@ private struct SessionHistoryDetail: View {
         var lines = [
             String(localized: "Peering session · \(model.shownName(hostID: session.hostID, fallback: session.hostName))"),
             String(localized: "App version: \(ProtocolInfo.version)"),
-            "Path: \(session.path.rawValue)",
+            String(localized: "Path: \(session.path.rawValue)"),
             String(localized: "Started: \(session.startedAt.formatted(date: .abbreviated, time: .shortened))"),
             String(localized: "Duration: \(durationLabel)"),
         ]
-        if session.wasInterrupted { lines.append("Connected: \(connectedLabel)") }
-        lines.append("Video received: \(ByteCountFormatter.string(fromByteCount: session.videoBytesReceived, countStyle: .file))")
+        if session.wasInterrupted { lines.append(String(localized: "Connected: \(connectedLabel)")) }
+        lines.append(String(localized: "Video received: \(ByteCountFormatter.string(fromByteCount: session.videoBytesReceived, countStyle: .file))"))
         lines.append("")
         lines += session.logs.isEmpty
-            ? ["No diagnostic events were recorded for this session."]
+            ? [String(localized: "No diagnostic events were recorded for this session.")]
             : session.logs
         return lines.joined(separator: "\n")
     }
@@ -458,7 +455,10 @@ private struct SessionHistoryDetail: View {
     private var connectedLabel: String { secondsLabel(session.connectedSeconds) }
 
     private func secondsLabel(_ seconds: TimeInterval) -> String {
-        let total = Int(seconds.rounded())
-        return total < 60 ? String(localized: "\(total) seconds") : "\(total / 60)m \(total % 60)s"
+        spokenSeconds(seconds)
     }
+}
+
+private func spokenSeconds(_ seconds: TimeInterval) -> String {
+    Duration.seconds(Int(seconds.rounded())).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .narrow))
 }

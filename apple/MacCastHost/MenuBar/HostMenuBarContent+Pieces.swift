@@ -21,7 +21,7 @@ extension HostMenuBarContent {
             }
             .buttonStyle(PressableStyle())
 
-            iconButton("exclamationmark.bubble", help: "Report an issue") {
+            iconButton("exclamationmark.bubble", help: String(localized: "Report an issue")) {
                 dismissMenuBar()
                 NSWorkspace.shared.open(HostStatusView.reportURL)
             }

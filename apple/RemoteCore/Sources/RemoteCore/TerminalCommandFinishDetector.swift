@@ -47,17 +47,25 @@ public struct TerminalCommandFinishDetector: Sendable {
     /// Anything longer reads the same: a marker is printed by whatever runs in the terminal, so the number is not to be trusted.
     static let maximumDuration: TimeInterval = 30 * 24 * 3_600
 
-    /// Shared by host (push body) and phone (live banner) so the two sentences cannot drift.
-    public static func durationSuffix(_ duration: TimeInterval) -> String {
+    /// "4s", "2m 5s" or "3h 5m" in the reader's language. Shared by host (push body) and phone (live banner) so the two sentences cannot drift.
+    public static func spokenDuration(_ duration: TimeInterval, locale: Locale = .current) -> String {
         let bounded = duration.isNaN ? 0 : min(max(duration, 0), maximumDuration)
         let totalSeconds = Int(bounded.rounded())
         let minutes = totalSeconds / 60
-        let seconds = totalSeconds % 60
-        guard minutes > 0 else { return " after \(seconds)s" }
-        let hours = minutes / 60
-        let remainingMinutes = minutes % 60
-        guard hours > 0 else { return " after \(minutes)m \(seconds)s" }
-        return " after \(hours)h \(remainingMinutes)m"
+        let allowed: Set<Duration.UnitsFormatStyle.Unit>
+        let shown: Int
+        if minutes == 0 {
+            allowed = [.seconds]
+            shown = totalSeconds
+        } else if minutes < 60 {
+            allowed = [.minutes, .seconds]
+            shown = totalSeconds
+        } else {
+            allowed = [.hours, .minutes]
+            shown = minutes * 60
+        }
+        let style = Duration.UnitsFormatStyle.units(allowed: allowed, width: .narrow, zeroValueUnits: .show(length: 1))
+        return Duration.seconds(shown).formatted(style.locale(locale))
     }
 
     private static func parse(body: String) -> Finish? {

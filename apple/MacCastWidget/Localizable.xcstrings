@@ -182,7 +182,7 @@
       }
     },
     "%lld" : {
-
+      "shouldTranslate" : false
     },
     "%lld of %lld done" : {
       "localizations" : {
@@ -481,14 +481,7 @@
       }
     },
     "%lld/%lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$lld/%2$lld"
-          }
-        }
-      }
+      "shouldTranslate" : false
     },
     "+%lld more" : {
       "localizations" : {
@@ -602,6 +595,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "智能体"
+          }
+        }
+      }
+    },
+    "Coding agent" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coding-Agent"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agente de programación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agent de code"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agente di programmazione"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コーディングエージェント"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "코딩 에이전트"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agente de programação"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Агент для кода"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编程智能体"
           }
         }
       }
@@ -1129,7 +1180,7 @@
       }
     },
     "Mac" : {
-
+      "shouldTranslate" : false
     },
     "No chats" : {
       "localizations" : {
@@ -1422,7 +1473,7 @@
       }
     },
     "PEERING" : {
-
+      "shouldTranslate" : false
     },
     "Quick connect" : {
       "localizations" : {

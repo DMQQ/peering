@@ -4,6 +4,8 @@ import Testing
 
 @Suite("Terminal command finish detector")
 struct TerminalCommandFinishDetectorTests {
+    private let english = Locale(identifier: "en_US")
+
     private static func marker(durationMS: Int, exitStatus: Int32, command: String) -> Data {
         let encodedCommand = Data(command.utf8).base64EncodedString()
         let text = "\u{1B}]9999;\(durationMS);\(exitStatus);\(encodedCommand)\u{07}"
@@ -73,15 +75,21 @@ struct TerminalCommandFinishDetectorTests {
     }
 
     @Test("notification durations round at the seconds, minutes and hours boundaries")
-    func durationSuffixBoundaries() {
-        #expect(TerminalCommandFinishDetector.durationSuffix(4.49) == " after 4s")
-        #expect(TerminalCommandFinishDetector.durationSuffix(4.5) == " after 5s")
-        #expect(TerminalCommandFinishDetector.durationSuffix(59.49) == " after 59s")
-        #expect(TerminalCommandFinishDetector.durationSuffix(59.5) == " after 1m 0s")
-        #expect(TerminalCommandFinishDetector.durationSuffix(65.5) == " after 1m 6s")
-        #expect(TerminalCommandFinishDetector.durationSuffix(3_599.49) == " after 59m 59s")
-        #expect(TerminalCommandFinishDetector.durationSuffix(3_599.5) == " after 1h 0m")
-        #expect(TerminalCommandFinishDetector.durationSuffix(3_665) == " after 1h 1m")
+    func spokenDurationBoundaries() {
+        #expect(TerminalCommandFinishDetector.spokenDuration(4.49, locale: english) == "4s")
+        #expect(TerminalCommandFinishDetector.spokenDuration(4.5, locale: english) == "5s")
+        #expect(TerminalCommandFinishDetector.spokenDuration(59.49, locale: english) == "59s")
+        #expect(TerminalCommandFinishDetector.spokenDuration(59.5, locale: english) == "1m 0s")
+        #expect(TerminalCommandFinishDetector.spokenDuration(65.5, locale: english) == "1m 6s")
+        #expect(TerminalCommandFinishDetector.spokenDuration(3_599.49, locale: english) == "59m 59s")
+        #expect(TerminalCommandFinishDetector.spokenDuration(3_599.5, locale: english) == "1h 0m")
+        #expect(TerminalCommandFinishDetector.spokenDuration(3_665, locale: english) == "1h 1m")
+    }
+
+    @Test("the units are written the way the reader's language writes them")
+    func spokenDurationFollowsTheLocale() {
+        #expect(TerminalCommandFinishDetector.spokenDuration(125, locale: Locale(identifier: "ja_JP")) == "2\u{5206}5\u{79D2}")
+        #expect(TerminalCommandFinishDetector.spokenDuration(125, locale: Locale(identifier: "de_DE")) == "2min 5s")
     }
 
     @Test("a duration that is not a sane number is dropped or clamped, never turned into an Int trap")
@@ -93,8 +101,8 @@ struct TerminalCommandFinishDetectorTests {
         var detector = TerminalCommandFinishDetector()
         let huge = detector.receive(Data("\u{1B}]9999;1e30;0;\u{07}".utf8))
         #expect(huge?.duration == TerminalCommandFinishDetector.maximumDuration)
-        #expect(TerminalCommandFinishDetector.durationSuffix(.infinity) == TerminalCommandFinishDetector.durationSuffix(1e30))
-        #expect(TerminalCommandFinishDetector.durationSuffix(.nan) == " after 0s")
-        #expect(TerminalCommandFinishDetector.durationSuffix(-3) == " after 0s")
+        #expect(TerminalCommandFinishDetector.spokenDuration(.infinity, locale: english) == TerminalCommandFinishDetector.spokenDuration(1e30, locale: english))
+        #expect(TerminalCommandFinishDetector.spokenDuration(.nan, locale: english) == "0s")
+        #expect(TerminalCommandFinishDetector.spokenDuration(-3, locale: english) == "0s")
     }
 }

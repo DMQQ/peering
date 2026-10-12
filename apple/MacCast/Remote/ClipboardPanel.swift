@@ -57,7 +57,7 @@ struct ClipboardPanel: View {
                     }
                 }
             }
-            action("Send", enabled: phone.kind != .empty && isReady) {
+            action(String(localized: "Send"), enabled: phone.kind != .empty && isReady) {
                 handle(model.pushClipboard())
             }
             action(String(localized: "Paste on Mac"), prominent: true, enabled: phone.kind != .empty && isReady) {

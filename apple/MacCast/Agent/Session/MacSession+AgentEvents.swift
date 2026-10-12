@@ -7,6 +7,7 @@ extension MacSession {
     // MARK: - Events
 
     func apply(agent event: AgentEvent) {
+        let event = HostWireText.localized(event)
         defer {
             if case .stream = event { scheduleAgentCards() } else { refreshAgentCards() }
         }

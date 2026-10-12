@@ -24,6 +24,7 @@ extension MacSession {
     }
 
     func apply(terminal event: TerminalEvent) {
+        let event = HostWireText.localized(event)
         defer {
             if case .output = event { scheduleTerminalCards() } else { refreshTerminalCards() }
         }
@@ -106,7 +107,7 @@ extension MacSession {
             let named = command.map { "\u{201C}\($0)\u{201D}" }
                 ?? terminals.first(where: { $0.id == id }).map { String(localized: "Terminal \u{201C}\($0.name)\u{201D}") }
                 ?? String(localized: "Terminal")
-            let message = String(localized: "\(named) finished\(TerminalCommandFinishDetector.durationSuffix(duration)).")
+            let message = String(localized: "\(named) finished after \(TerminalCommandFinishDetector.spokenDuration(duration)).")
             append(note: message)
             if model.notifier.shouldAnnounceTerminal(hostPushesWhileConnected: hostPushesTerminalAlertsWhileConnected) {
                 model.notifier.terminalFinishedWork(

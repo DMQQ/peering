@@ -227,8 +227,8 @@ final class HostModel {
         for token in tokens {
             relayRegistration?.notifyDevice(
                 token: token,
-                title: "Terminal needs you",
-                body: "A test notification from your Mac."
+                title: String(localized: "Terminal needs you"),
+                body: String(localized: "A test notification from your Mac.")
             )
         }
 

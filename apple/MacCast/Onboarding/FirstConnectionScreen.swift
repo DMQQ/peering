@@ -162,7 +162,7 @@ struct FirstConnectionScreen: View {
                     macList.transition(.opacity.combined(with: .offset(y: 8)))
                 }
                 if case .failed(let message) = model.phase {
-                    Text(message).font(.caption).foregroundStyle(ColorPalette.danger).fixedSize(horizontal: false, vertical: true)
+                    Text(HostWireText.localized(message)).font(.caption).foregroundStyle(ColorPalette.danger).fixedSize(horizontal: false, vertical: true)
                 }
                 alternatives
             }

@@ -41,7 +41,7 @@ extension FileBrowserPanel {
             state(
                 symbol: "exclamationmark.triangle",
                 message: failure,
-                actionTitle: "Try again",
+                actionTitle: String(localized: "Try again"),
                 action: onReload
             )
         } else if let directory, hasVisibleEntries(directory) {
@@ -78,7 +78,7 @@ extension FileBrowserPanel {
         if waitingLongEnough, let waitingHint {
             state(symbol: "desktopcomputer", message: String(localized: "Waiting for your Mac"), detail: waitingHint)
         } else {
-            state(symbol: "folder", message: "Reading…")
+            state(symbol: "folder", message: String(localized: "Reading…"))
         }
     }
 

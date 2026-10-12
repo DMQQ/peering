@@ -325,7 +325,7 @@ extension HostModel {
                 for token in tokens {
                     registration?.notifyDevice(
                         token: token,
-                        title: "Terminal needs you",
+                        title: String(localized: "Terminal needs you"),
                         body: message,
                         source: windowID.map { CaptureSource.window($0).stableID }
                     )

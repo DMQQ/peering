@@ -82,7 +82,7 @@ extension RemoteScreen {
                         Image(systemName: notice.symbol ?? "display.slash")
                             .font(.system(size: 44))
                             .foregroundStyle(.white.opacity(0.9))
-                        Text(message)
+                        Text(HostWireText.localized(message))
                             .font(.headline)
                             .foregroundStyle(.white)
                             .multilineTextAlignment(.center)

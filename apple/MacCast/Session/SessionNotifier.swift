@@ -210,7 +210,7 @@ final class SessionNotifier {
 
         let content = UNMutableNotificationContent()
         content.title = notification.title
-        content.body = notification.body
+        content.body = HostWireText.localized(notification.body)
         // Sound for the two that can arrive with the phone in a pocket; "Connected" confirms something the user just did.
         content.sound = notification.kind == .connected ? nil : .default
 

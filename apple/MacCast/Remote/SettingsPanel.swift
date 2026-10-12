@@ -444,8 +444,8 @@ struct SettingsPanel: View {
         case .connecting: return String(localized: "Connecting")
         case .handshaking: return String(localized: "Handshaking")
         case .confirming: return String(localized: "Waiting for the code comparison")
-        case .ready: return "Connected"
-        case .failed(let message): return String(localized: "Failed: \(message)")
+        case .ready: return String(localized: "Connected")
+        case .failed(let message): return String(localized: "Failed: \(HostWireText.localized(message))")
         case .disconnected: return model.isReconnecting ? String(localized: "Offline · reconnecting…") : String(localized: "Disconnected")
         }
     }
