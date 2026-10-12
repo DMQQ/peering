@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hub_terminal">Terminal</string>
+    <string name="session_unavailable_terminal">This computer does not offer terminals.</string>
+    <string name="terminal_title">Terminal</string>
+    <string name="terminal_back">Back to the session</string>
+    <string name="terminal_new">New terminal</string>
+    <string name="terminal_more">More</string>
+    <string name="terminal_copy">Copy screen</string>
+    <string name="terminal_paste">Paste</string>
+    <string name="terminal_close_tab">Close this terminal</string>
+    <string name="terminal_copied">Copied</string>
+    <string name="terminal_loading">Looking for terminals</string>
+    <string name="terminal_empty_title">No terminals yet</string>
+    <string name="terminal_empty_body">Open one to run commands on this computer.</string>
+    <string name="terminal_reconnecting">Waiting for the connection</string>
+    <string name="terminal_exited">Exited with status %1$d</string>
+    <string name="terminal_exited_ok">Finished</string>
+    <string name="terminal_attention_password">Waiting for a password</string>
+    <string name="terminal_attention_confirmation">Waiting for a yes or no</string>
+    <string name="terminal_dismiss">Dismiss</string>
+    <string name="terminal_screen_description">Terminal screen. Tap to type.</string>
+    <string name="terminal_key_esc">Esc</string>
+    <string name="terminal_key_tab">Tab</string>
+    <string name="terminal_key_ctrl">Ctrl</string>
+    <string name="terminal_key_alt">Alt</string>
+    <string name="terminal_key_up">Up arrow</string>
+    <string name="terminal_key_down">Down arrow</string>
+    <string name="terminal_key_left">Left arrow</string>
+    <string name="terminal_key_right">Right arrow</string>
+    <string name="terminal_key_pipe">Pipe</string>
+    <string name="terminal_key_tilde">Tilde</string>
+</resources>
