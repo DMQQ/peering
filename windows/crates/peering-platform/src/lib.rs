@@ -12,6 +12,7 @@ pub mod mft;
 pub mod monitors;
 pub mod mouse;
 pub mod session_state;
+pub mod terminal;
 #[cfg(windows)]
 pub mod gpu;
 #[cfg(windows)]
