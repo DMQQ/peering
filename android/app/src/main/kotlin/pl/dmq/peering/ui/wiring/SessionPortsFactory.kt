@@ -1,6 +1,7 @@
 package pl.dmq.peering.ui.wiring
 
 import android.os.Build
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import pl.dmq.peering.SessionFactory
 import pl.dmq.peering.platform.net.UdpLane
@@ -12,6 +13,7 @@ import pl.dmq.peering.session.controller.RelayPorts
 import pl.dmq.peering.session.controller.SessionController
 import pl.dmq.peering.session.controller.SessionPorts
 import pl.dmq.peering.session.history.SessionHistory
+import pl.dmq.peering.session.hosts.RememberedLanAddresses
 import pl.dmq.peering.session.ports.VideoSink
 
 /** Builds a session controller over the platform objects of the app graph, for one target. */
@@ -21,6 +23,7 @@ internal class SessionPortsFactory(
     private val history: SessionHistory,
     private val quality: QualitySource,
     private val billing: Billing,
+    private val lanAddresses: RememberedLanAddresses,
 ) : SessionOpener {
     override fun open(target: ConnectTarget, scope: CoroutineScope): ActiveSession {
         val lane = if (target.mayUseRelay()) UdpLane.bind() else null
@@ -39,9 +42,13 @@ internal class SessionPortsFactory(
             relay = relay,
             quality = quality,
             videoCodecs = codecSupport(),
+            log = { message -> Log.d(TAG, message) },
+            lanReached = lanAddresses::remember,
         )
         return ActiveSession(target, SessionController(scope, target, ports, history), lane, downloads)
     }
 }
+
+private const val TAG = "PeeringSession"
 
 private fun ConnectTarget.mayUseRelay(): Boolean = this is ConnectTarget.Relay || (this is ConnectTarget.Paired && relayAllowed)

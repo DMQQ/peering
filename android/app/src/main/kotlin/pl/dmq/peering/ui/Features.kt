@@ -56,6 +56,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
             SessionHistory.fromJson(EMPTY_HISTORY),
             PeeringQualitySource(settings, billing),
             billing,
+            lanAddresses,
         ),
         hostNames,
         scope,
