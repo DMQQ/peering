@@ -63,6 +63,7 @@
     <string name="settings_invite_already">You have already used a code on this device.</string>
     <string name="settings_invite_proof">This device could not prove who it is. Check that the clock is right and try again.</string>
     <string name="settings_invite_busy">Too many people are doing this right now. Try again in a while.</string>
+    <string name="settings_invite_network_limit">Too many codes were tried from this network. Try again later, or tomorrow.</string>
     <string name="settings_invite_unavailable">The relay could not be reached. Try again in a moment.</string>
 
     <string name="settings_security_heading">Security and privacy</string>

@@ -45,16 +45,47 @@ class ReferralClientTest {
         assertEquals("ABCDEFGH", (signalling.sent.single() as RelayClientMessage.RedeemReferral).code)
     }
 
-    @Test
-    fun aRefusalCarriesTheReasonTheRelayGave() = runTest {
-        signalling.reply(RelayServerMessage.Error("referralOwnCode", "own"))
-
+    private suspend fun refusalFor(code: String): ReferralRefusal {
+        signalling.reply(RelayServerMessage.Error(code, "refused"))
         try {
             client.redeem("ABCDEFGH")
-            fail("expected a refusal")
         } catch (refused: ReferralRefused) {
-            assertEquals(ReferralRefusal.OwnCode, refused.refusal)
+            return refused.refusal
         }
+        fail("expected a refusal for $code")
+        error("unreachable")
+    }
+
+    @Test
+    fun anUnknownCodeIsRefusedAsUnknown() = runTest { assertEquals(ReferralRefusal.UnknownCode, refusalFor("referralUnknownCode")) }
+
+    @Test
+    fun aDevicesOwnCodeIsRefusedAsOwn() = runTest { assertEquals(ReferralRefusal.OwnCode, refusalFor("referralOwnCode")) }
+
+    @Test
+    fun aSecondRedemptionIsRefusedAsAlreadyRedeemed() = runTest { assertEquals(ReferralRefusal.AlreadyRedeemed, refusalFor("referralAlreadyRedeemed")) }
+
+    @Test
+    fun aMissingOrStaleProofIsRefusedAsNeedingTheKey() = runTest {
+        for (code in listOf("proofRequired", "proofStale", "proofInvalid")) {
+            signalling.sent.clear()
+            assertEquals(ReferralRefusal.NeedsKeyProof, refusalFor(code))
+        }
+    }
+
+    @Test
+    fun aBusyRelayIsRefusedAsBusy() = runTest { assertEquals(ReferralRefusal.Busy, refusalFor("referralsBusy")) }
+
+    @Test
+    fun theNetworksDailyRedemptionCapIsRefusedAsTheNetworkLimit() = runTest { assertEquals(ReferralRefusal.NetworkLimit, refusalFor("tooManyRequests")) }
+
+    @Test
+    fun anErrorTheClientDoesNotKnowIsRefusedAsUnavailable() = runTest { assertEquals(ReferralRefusal.Unavailable, refusalFor("somethingNew")) }
+
+    @Test
+    fun aRefusalSendsTheRedemptionOnce() = runTest {
+        refusalFor("referralOwnCode")
+
         assertTrue(signalling.sent.single() is RelayClientMessage.RedeemReferral)
     }
 }

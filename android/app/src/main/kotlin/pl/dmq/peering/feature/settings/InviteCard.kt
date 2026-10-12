@@ -135,5 +135,6 @@ internal fun ReferralRefusal.messageRes(): Int = when (this) {
     ReferralRefusal.AlreadyRedeemed -> R.string.settings_invite_already
     ReferralRefusal.NeedsKeyProof -> R.string.settings_invite_proof
     ReferralRefusal.Busy -> R.string.settings_invite_busy
+    ReferralRefusal.NetworkLimit -> R.string.settings_invite_network_limit
     ReferralRefusal.Unavailable -> R.string.settings_invite_unavailable
 }
