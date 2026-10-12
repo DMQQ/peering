@@ -16,14 +16,26 @@ struct FailureCauseTests {
         #expect(Cause(ClientSession.Failure.noServerKey) == .handshakeUnreadable)
     }
 
-    @Test("a failure that names a Mac or a version has no cause, so its sentence is shown as it came")
+    @Test("a failure that names a Mac or a version keeps the name as a value of its cause")
     func namedFailures() {
-        #expect(Cause(ClientSession.Failure.pinMismatch(hostID: "a")) == nil)
-        #expect(Cause(ClientSession.Failure.noPinOnFile(hostID: "a")) == nil)
-        #expect(Cause(ClientSession.Failure.hostIDMismatch(dialled: "a", answered: "b")) == nil)
-        #expect(Cause(ClientSession.Failure.protocolMismatch(client: 1, host: 2)) == nil)
-        #expect(Cause(RelaySignallingError.refused(code: "x", message: "y")) == nil)
-        #expect(Cause(ClientConnection.Failure.refused("no")) == nil)
+        #expect(Cause(ClientSession.Failure.pinMismatch(hostID: "a")) == .identityChanged(hostID: "a"))
+        #expect(Cause(ClientSession.Failure.noPinOnFile(hostID: "a")) == .noPinOnFile(hostID: "a"))
+        #expect(Cause(ClientSession.Failure.hostIDMismatch(dialled: "a", answered: "b")) == .hostIDMismatch(dialled: "a", answered: "b"))
+        #expect(Cause(ClientSession.Failure.protocolMismatch(client: 1, host: 2)) == .protocolMismatch(client: 1, host: 2))
+        #expect(Cause(ClientSession.Failure.identity("x")) == nil)
+    }
+
+    @Test("a refusal keeps the words of whoever refused")
+    func refusals() {
+        #expect(Cause(RelaySignallingError.refused(code: "relayFull", message: "busy")) == .relayRefused(message: "busy"))
+        #expect(Cause(ClientConnection.Failure.refused("no")) == .hostRefused(message: "no"))
+    }
+
+    @Test("the relay's version refusal gives both numbers, or nil for a number it cannot read")
+    func relayVersionRefusal() {
+        #expect(Cause(RelaySignallingError.refused(code: "version", message: "host speaks v12, client speaks v11")) == .relayVersionMismatch(host: 12, client: 11))
+        #expect(Cause(RelaySignallingError.refused(code: "version", message: "host speaks vx, client speaks v3")) == .relayVersionMismatch(host: nil, client: 3))
+        #expect(Cause(RelaySignallingError.refused(code: "version", message: "no")) == .relayVersionMismatch(host: nil, client: nil))
     }
 
     @Test("every relay signalling failure the app words has a cause")
@@ -56,6 +68,17 @@ struct FailureCauseTests {
     func framingFailure() {
         let failure = ClientConnection.Failure.transport(from: FramingError.zeroLengthFrame)
         #expect(Cause(failure) == .handshakeUnreadable)
+    }
+
+    @Test("the connect screen card follows from the cause alone")
+    func cards() {
+        #expect(Cause.relayHostOffline.card == .hostNotRegistered)
+        #expect(Cause.identityChanged(hostID: "a").card == .identityChanged)
+        #expect(Cause.hostIDMismatch(dialled: "a", answered: "b").card == .wrongMac)
+        #expect(Cause.relayVersionMismatch(host: 12, client: 11).card == .updateThisApp)
+        #expect(Cause.relayVersionMismatch(host: 11, client: 12).card == .updateTheMac)
+        #expect(Cause.relayVersionMismatch(host: nil, client: 11).card == .updateTheMac)
+        #expect(Cause.hostClosed.card == nil)
     }
 
     @Test("only a Keychain refusal is one that unlocking the device can fix")

@@ -17,51 +17,39 @@ extension HomeTab {
             return FailurePresentation(title: String(localized: "Could not connect"), message: detail, isRelayFailure: false)
         }
 
-        let normalized = detail.lowercased()
-
-        // A first pairing that found nothing: the relay answers the same whether the Mac is asleep or the ID was mistyped, and the ID is what the user can check.
-        if let pairingID = model.remotePairingHostID,
-           model.failureCause == .relayHostOffline {
-            return FailurePresentation(
-                title: String(localized: "No Mac answered"),
-                message: String(localized: "Nothing is registered with the relay under \(pairingID). Check that the whole ID was copied or scanned from the Mac, and that the Mac is awake with Peering running."),
-                isRelayFailure: false
-            )
-        }
-
-        if model.failureCause == .relayHostOffline {
+        switch model.failureCause?.card {
+        case .hostNotRegistered:
+            // A first pairing that found nothing: the relay answers the same whether the Mac is asleep or the ID was mistyped, and the ID is what the user can check.
+            if let pairingID = model.remotePairingHostID {
+                return FailurePresentation(
+                    title: String(localized: "No Mac answered"),
+                    message: String(localized: "Nothing is registered with the relay under \(pairingID). Check that the whole ID was copied or scanned from the Mac, and that the Mac is awake with Peering running."),
+                    isRelayFailure: false
+                )
+            }
             return FailurePresentation(
                 title: String(localized: "Mac is not available"),
                 message: String(localized: "The relay is working, but this Mac is not connected to it. Make sure the Mac is awake and Peering is running there."),
                 isRelayFailure: false
             )
-        }
-
-        // Matched on the word the sentence uses: `Failure.pinMismatch`'s sentence is the only thing that produces it.
-        if normalized.contains("pinned") {
+        case .identityChanged:
             return FailurePresentation(title: String(localized: "Mac identity changed"), message: detail, isRelayFailure: false)
-        }
-
-        if normalized.contains(String(localized: "a different mac answered")) {
+        case .wrongMac:
             return FailurePresentation(title: String(localized: "Wrong Mac"), message: detail, isRelayFailure: false)
-        }
-
-        // The relay refuses a pair whose versions differ and states both numbers, so which side needs updating is worked out here, not assumed.
-        if normalized.contains(String(localized: "host speaks v")) {
-            let host = Self.version(in: normalized, after: String(localized: "host speaks v"))
-            let client = Self.version(in: normalized, after: String(localized: "client speaks v"))
-            if let host, let client, client < host {
-                return FailurePresentation(
-                    title: String(localized: "Update this device's app"),
-                    message: String(localized: "The Mac is running a newer version of Peering than this app. Update Peering from the App Store, then connect again."),
-                    isRelayFailure: false
-                )
-            }
+        case .updateThisApp:
+            return FailurePresentation(
+                title: String(localized: "Update this device's app"),
+                message: String(localized: "The Mac is running a newer version of Peering than this app. Update Peering from the App Store, then connect again."),
+                isRelayFailure: false
+            )
+        case .updateTheMac:
             return FailurePresentation(
                 title: String(localized: "Update Peering on the Mac"),
                 message: String(localized: "The Mac is running an older version of Peering than this app. Update it there, then pair again."),
                 isRelayFailure: false
             )
+        case nil:
+            break
         }
 
         return FailurePresentation(

@@ -238,13 +238,6 @@ extension HomeTab {
         Controls.sectionLabel(title, systemImage: systemImage)
     }
 
-    /// A fetch rather than a regex: the relay builds the sentence and this app reads it, in one repository. If the phrasing changes the parse returns nil and the failure blames the Mac.
-    static func version(in message: String, after marker: String) -> Int? {
-        guard let start = message.range(of: marker) else { return nil }
-        let digits = message[start.upperBound...].prefix { $0.isNumber }
-        return digits.isEmpty ? nil : Int(digits)
-    }
-
     func isCompatible(_ host: DiscoveredHost) -> Bool {
         guard let version = host.protocolVersion else { return true }
         return version == ProtocolInfo.version
