@@ -12,8 +12,12 @@ last agents finish; the final version is at the bottom of this file under "Added
       with the new host.
 - [ ] Do a real Release archive (this machine cannot: the "Upload PostHog dSYMs" step needs `POSTHOG_CLI_API_KEY`,
       so every local Release build exits 65 there). Confirm dSYMs upload.
-- [ ] App Store Connect: update the App Privacy answers for the new diagnostics (the analytics agent writes the exact
-      changes in `docs/analytics-events.md`, see "Added at the end").
+- [ ] App Store Connect, App Privacy: add Diagnostics, then Other Diagnostic Data, marked NOT linked to the user,
+      NOT used for tracking, purpose Analytics. Keep the existing answers (Product Interaction, Device ID, Crash
+      Data). The repo's `PrivacyInfo.xcprivacy` already declares it. Details in `docs/analytics-events.md`.
+- [ ] After the new phone and Mac host are live, open PostHog and check `session_started` on the phone and
+      `host_session_started` on the Mac carry the same `session_ref`. The three queries in
+      `docs/analytics-events.md` ("How to investigate a failure") should then return rows.
 - [ ] The relay is NOT deployed and must not be today: the new iPhone paywall logic and the Live Activity push work
       without it, but the relay-reported remaining minutes, push to start and the idle timeout need it. Deploy order is
       at the end of this file.
