@@ -43,9 +43,6 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
     private var ledger = ActivityPushLedger()
     private var flush = Flush()
     private var flushCount = 0
-    private var pacer = ActivitySendPacer()
-    /// Bumped when queued pushes must not leave any more, so a push waiting out its gap checks it is still wanted.
-    private var pacerEpoch = 0
 
     init(
         hostID: String,
@@ -108,9 +105,7 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
             flushCount += 1
             let generation = flushCount
             flush.generation = generation
-            pacerEpoch += 1
-            pacer.clear()
-            for clientID in Array(clients.keys) { refresh(clientID) { $0.phase = .ended } }
+            for clientID in Array(clients.keys) { refresh(clientID, ignoringGap: true) { $0.phase = .ended } }
             clients.removeAll()
             guard flush.outstanding > 0 else { return finishFlush() }
             queue.asyncAfter(deadline: .now() + flushTimeout) { [self] in
@@ -141,15 +136,15 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
 
     // MARK: - Working it out
 
-    private func refresh(_ clientID: String, _ change: (inout Client) -> Void = { _ in }) {
+    private func refresh(_ clientID: String, ignoringGap: Bool = false, _ change: (inout Client) -> Void = { _ in }) {
         let now = Date()
-        for command in plan(clientID, now: now, change) {
+        for command in plan(clientID, now: now, ignoringGap: ignoringGap, change) {
             deliver(command, clientID: clientID, now: now)
         }
     }
 
     /// Applies the change, asks the planner what is due and arms the timer for what is not yet.
-    private func plan(_ clientID: String, now: Date, _ change: (inout Client) -> Void) -> [LiveActivityCommand] {
+    private func plan(_ clientID: String, now: Date, ignoringGap: Bool, _ change: (inout Client) -> Void) -> [LiveActivityCommand] {
         var client = clients[clientID] ?? Client()
         client.timer?.cancel()
         client.timer = nil
@@ -167,7 +162,7 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
             path: client.viaRelay ? .relay : (directPathOpen ? .direct : .lan),
             chats: chats
         )
-        let commands = client.planner.observe(truth, presence: presence(clientID), now: now)
+        let commands = client.planner.observe(truth, presence: presence(clientID), now: now, ignoringGap: ignoringGap)
         clients[clientID] = client
         if let due = client.planner.nextDue { schedule(clientID, at: due) }
         return commands
@@ -194,24 +189,15 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
             let requestId = ActivityPushLedger.makeRequestID()
             push.requestId = requestId
             ledger.record(requestId: requestId, clientID: clientID, token: command.token, now: .now)
-            transmit(push, token: command.token, now: now)
+            transmit(push)
         } catch {
             activityLog.error("a Live Activity state could not be encoded: \(error.localizedDescription, privacy: .public)")
         }
     }
 
-    /// Sends at once, or after the rest of this token's gap so an `end` cannot overtake or crowd the update before it; during a flush everything goes at once and is counted, so ``hostStopping(completion:)`` waits for exactly the pushes it caused.
-    private func transmit(_ push: RelayActivityPush, token: String, now: Date) {
+    /// Counts the push into the flush in progress, if any, so ``hostStopping(completion:)`` waits for exactly the pushes it caused.
+    private func transmit(_ push: RelayActivityPush) {
         let generation = flush.generation
-        let wait = generation == nil ? pacer.delay(for: token, now: now) : 0
-        guard wait > 0 else { return handOver(push, generation: generation) }
-        let epoch = pacerEpoch
-        queue.asyncAfter(deadline: .now() + wait) { [self] in
-            if pacerEpoch == epoch { handOver(push, generation: nil) }
-        }
-    }
-
-    private func handOver(_ push: RelayActivityPush, generation: Int?) {
         if generation != nil { flush.outstanding += 1 }
         send(push) { [weak self] in
             guard let self else { return }

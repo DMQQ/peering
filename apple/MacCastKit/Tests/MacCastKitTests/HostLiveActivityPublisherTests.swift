@@ -78,6 +78,18 @@ struct HostLiveActivityPublisherTests {
         #expect(link.events == ["send:update", "send:end", "relay closed"])
     }
 
+    @Test func aStopRightAfterAnUpdateStillSendsTheEnd() async {
+        let link = FakeLink()
+        let publisher = publisher(link)
+        showCard(on: publisher)
+        let completed = stopping(publisher, link: link)
+
+        for await _ in link.endSent { break }
+        link.finishAllSends()
+        for await _ in completed { break }
+        #expect(link.events.filter { $0 == "send:end" }.count == 1)
+    }
+
     @Test func aPushThatNeverCompletesDoesNotHoldTheRelayLinkOpenForever() async {
         let link = FakeLink()
         let publisher = publisher(link, flushTimeout: 0.05)
