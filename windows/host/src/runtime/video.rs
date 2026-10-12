@@ -161,6 +161,7 @@ impl HostState {
     /// `pump_video` that keeps what was ready (catalogues, notices) when the capture or encoder failed this pass. The
     /// failure is also recorded as a problem for the window until frames flow again.
     pub fn pump_video_pass(&mut self, now: f64) -> (Vec<Outgoing>, Option<CoordinatorError>) {
+        self.release_silent_input(now);
         let mut outgoing = Vec::new();
         if self.catalog_checked_at.is_none_or(|checked| now - checked >= CATALOGUE_CHECK_SECONDS) {
             self.catalog_checked_at = Some(now);

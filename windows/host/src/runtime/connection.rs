@@ -177,6 +177,10 @@ impl Connection {
         if counts_as_life(self.session.state().phase(), frame.kind) {
             self.liveness.heard(self.now());
         }
+        if self.registered && self.video_for_session.is_none() {
+            let now = self.now();
+            self.shared.lock().hold.heard(now);
+        }
         if self.video_for_session.is_some() {
             // A video connection only carries frames out; key and transport requests are answered on the control connection.
             return Flow::Open;

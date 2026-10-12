@@ -10,6 +10,7 @@ use peering_core::notice::NoticeTracker;
 use peering_core::pairing::PairingService;
 use peering_core::ports::input::InputSink;
 use peering_core::session::deps::PinStore;
+use peering_core::session::held_input::HoldGuard;
 use peering_core::terminal::manager::TerminalSessionManager;
 use peering_core::video::coordinator::VideoCoordinator;
 use peering_core::video::lane::VideoLane;
@@ -51,6 +52,8 @@ pub struct HostState {
     pub catalogues: SessionCatalogue<u64>,
     pub video: VideoCoordinator<SharedCapture, BoxedEncoder>,
     pub input: BoxedInput,
+    /// What the phones have left pressed, so a phone that drops silently does not leave a key down.
+    pub hold: HoldGuard,
     pub system: BoxedSystem,
     /// Shared so a request runs on the blocking pool with the state lock released.
     pub files: Arc<FileBrowser<SharedFileSystem>>,
@@ -93,6 +96,15 @@ impl HostState {
     pub fn refresh_watched(&mut self) {
         let watched = self.sessions.values().any(|slot| !slot.background);
         self.video.set_watched(watched);
+    }
+
+    /// Lets go of keys and buttons held by phones that have all gone quiet.
+    pub fn release_silent_input(&mut self, now: f64) {
+        if !self.hold.has_held() {
+            return;
+        }
+        let transform = self.active_transform();
+        self.hold.release_if_silent(now, peering_core::session::held_input::HELD_INPUT_TTL_SECONDS, &transform, &mut self.input);
     }
 
     pub fn allocate_session(&mut self) -> u64 {

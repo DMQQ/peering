@@ -92,3 +92,14 @@ pub fn capture_recovering(reason: &str) -> String {
 pub fn relay_task_stopped(reason: &str) -> String {
     format!("The relay connection stopped ({reason}). Phones away from this network cannot connect until Peering Host is restarted.")
 }
+
+pub fn paired_list_unreadable(copy_kept: bool) -> String {
+    let kept = if copy_kept {
+        "A copy was kept as pairedDevices-bad."
+    } else {
+        "A copy could not be kept."
+    };
+    format!(
+        "The list of paired phones could not be read, so pairing and forgetting are paused to protect it. {kept} Remove the pairedDevices file from the Peering Host folder in %LOCALAPPDATA% to start over, then restart Peering Host."
+    )
+}

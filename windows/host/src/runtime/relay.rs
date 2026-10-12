@@ -243,6 +243,7 @@ async fn dial(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, sess
     };
     // Only latency suffers when the option cannot be set, so the connection is still served.
     let _nagle = peering_net::socket::disable_nagle(&tcp);
+    let _keepalive = peering_net::socket::enable_keepalive(&tcp);
     let Ok(Ok(())) = timeout(DIAL_CONNECT_TIMEOUT, tcp.write_all(&first_bytes(&plan))).await else {
         return;
     };

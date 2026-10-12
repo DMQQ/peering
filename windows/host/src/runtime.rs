@@ -129,7 +129,9 @@ impl HostRuntime {
         let agent_browser = Arc::new(AgentBrowser::new(DiskFolders(files.clone()), home_directory.clone()));
         let profile = HostProfile { can_lock_screen: system.can_lock_workstation(), ..profile };
         let terminals = terminal::manager(terminal, secrets.clone(), profile.clock.clone())?;
-        let pins: Arc<dyn PinStore> = Arc::new(SecretPins::open(secrets)?);
+        let secret_pins = Arc::new(SecretPins::open(secrets)?);
+        let pins_problem = secret_pins.load_problem();
+        let pins: Arc<dyn PinStore> = secret_pins;
         let capture = SharedCapture::new(capture);
         let state = HostState {
             pins: pins.clone(),
@@ -139,6 +141,7 @@ impl HostRuntime {
             catalogues: SessionCatalogue::new(),
             video: VideoCoordinator::new(capture, BoxedEncoder(encoder)),
             input: BoxedInput(input),
+            hold: Default::default(),
             system: BoxedSystem(system),
             files: Arc::new(FileBrowser::new(SharedFileSystem(files), home_directory)),
             agents: ClientAgents::new(StdLauncher::default),
@@ -155,6 +158,10 @@ impl HostRuntime {
             problems: std::collections::BTreeMap::new(),
             stopped: None,
         };
+        let mut state = state;
+        if let Some(problem) = pins_problem {
+            state.set_problem("pairedDevices", problem);
+        }
         let (approvals, _unused_receiver) = broadcast::channel::<ApprovalDecision>(APPROVAL_CHANNEL_DEPTH);
         let (commands, command_inbox) = mpsc::channel();
         let control = ControlChannel {

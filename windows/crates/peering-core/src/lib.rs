@@ -3,6 +3,7 @@
 pub mod fakes;
 pub mod ports;
 pub mod settings;
+pub mod admission;
 pub mod catalogue;
 pub mod files;
 pub mod notice;
