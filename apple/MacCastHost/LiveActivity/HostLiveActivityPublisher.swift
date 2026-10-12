@@ -43,6 +43,9 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
     private var ledger = ActivityPushLedger()
     private var flush = Flush()
     private var flushCount = 0
+    private var pacer = ActivitySendPacer()
+    /// Bumped when queued pushes must not leave any more, so a push waiting out its gap checks it is still wanted.
+    private var pacerEpoch = 0
 
     init(
         hostID: String,
@@ -105,6 +108,8 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
             flushCount += 1
             let generation = flushCount
             flush.generation = generation
+            pacerEpoch += 1
+            pacer.clear()
             for clientID in Array(clients.keys) { refresh(clientID) { $0.phase = .ended } }
             clients.removeAll()
             guard flush.outstanding > 0 else { return finishFlush() }
@@ -189,15 +194,24 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
             let requestId = ActivityPushLedger.makeRequestID()
             push.requestId = requestId
             ledger.record(requestId: requestId, clientID: clientID, token: command.token, now: .now)
-            transmit(push)
+            transmit(push, token: command.token, now: now)
         } catch {
             activityLog.error("a Live Activity state could not be encoded: \(error.localizedDescription, privacy: .public)")
         }
     }
 
-    /// Counts the push into the flush in progress, if any, so ``hostStopping(completion:)`` waits for exactly the pushes it caused.
-    private func transmit(_ push: RelayActivityPush) {
+    /// Sends at once, or after the rest of this token's gap so an `end` cannot overtake or crowd the update before it; during a flush everything goes at once and is counted, so ``hostStopping(completion:)`` waits for exactly the pushes it caused.
+    private func transmit(_ push: RelayActivityPush, token: String, now: Date) {
         let generation = flush.generation
+        let wait = generation == nil ? pacer.delay(for: token, now: now) : 0
+        guard wait > 0 else { return handOver(push, generation: generation) }
+        let epoch = pacerEpoch
+        queue.asyncAfter(deadline: .now() + wait) { [self] in
+            if pacerEpoch == epoch { handOver(push, generation: nil) }
+        }
+    }
+
+    private func handOver(_ push: RelayActivityPush, generation: Int?) {
         if generation != nil { flush.outstanding += 1 }
         send(push) { [weak self] in
             guard let self else { return }
