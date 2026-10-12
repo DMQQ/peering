@@ -36,6 +36,7 @@ fun PairingCodeRoute(
     presenter: PairingCodePresenter,
     onFinished: () -> Unit,
     modifier: Modifier = Modifier,
+    onScanRequested: (() -> Unit)? = null,
 ) {
     val screen by presenter.state.collectAsState()
     LaunchedEffect(screen) {
@@ -55,7 +56,7 @@ fun PairingCodeRoute(
             color = PeeringColors.ink,
         )
         when (val current = screen) {
-            is PairingCodeScreen.Comparing -> Comparing(current.code, presenter)
+            is PairingCodeScreen.Comparing -> Comparing(current.code, presenter, onScanRequested)
             PairingCodeScreen.Waiting -> Waiting(presenter)
             PairingCodeScreen.Done -> Finished(
                 text = stringResource(R.string.pairing_code_done),
@@ -73,7 +74,7 @@ fun PairingCodeRoute(
 }
 
 @Composable
-private fun Comparing(code: String, presenter: PairingCodePresenter) {
+private fun Comparing(code: String, presenter: PairingCodePresenter, onScanRequested: (() -> Unit)?) {
     Text(
         text = stringResource(R.string.pairing_code_detail),
         style = MaterialTheme.typography.bodyMedium,
@@ -98,6 +99,11 @@ private fun Comparing(code: String, presenter: PairingCodePresenter) {
             modifier = Modifier.weight(1f),
         ) {
             Text(stringResource(R.string.pairing_code_mismatch), color = PeeringColors.ink)
+        }
+    }
+    if (onScanRequested != null) {
+        OutlinedButton(onClick = onScanRequested, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.pairing_code_scan), color = PeeringColors.ink)
         }
     }
     CancelButton(presenter)

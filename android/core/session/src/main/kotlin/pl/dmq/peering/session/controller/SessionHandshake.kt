@@ -33,7 +33,7 @@ internal class SessionHandshake(
     private val frames: ReceiveChannel<Frame>,
     private val pairingSecret: ByteArray?,
     private val sendFrame: (Frame) -> Unit,
-    private val awaitDecision: suspend (code: String) -> Boolean,
+    private val awaitDecision: suspend (code: String) -> PairingDecision,
 ) {
     private val machine = ClientStateMachine(config, pins, random)
 
@@ -51,8 +51,8 @@ internal class SessionHandshake(
             when (action) {
                 is ClientAction.Send -> sendFrame(action.frame)
                 is ClientAction.ShowCode -> {
-                    val accepted = awaitDecision(action.code)
-                    return consume(machine.confirm(accepted, pairingSecret))
+                    val decision = awaitDecision(action.code)
+                    return consume(machine.confirm(decision.accepted, decision.secret ?: pairingSecret))
                 }
                 is ClientAction.Ready -> return HandshakeOutcome.Ready(action.hello)
                 is ClientAction.Failed -> return HandshakeOutcome.Refused(action.reason)

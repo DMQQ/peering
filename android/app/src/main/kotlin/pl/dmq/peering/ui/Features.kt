@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import pl.dmq.peering.AppGraph
 import pl.dmq.peering.session.history.SessionHistory
 import pl.dmq.peering.session.ports.Clock
+import pl.dmq.peering.feature.scan.CameraQrSource
 import pl.dmq.peering.ui.nav.ScreenRegistry
 import pl.dmq.peering.ui.wiring.DiscoveryHostSource
 import pl.dmq.peering.ui.wiring.PinTrustedHosts
@@ -21,6 +22,7 @@ import pl.dmq.peering.session.controller.ConnectTarget
 /** The adapters the screens share, built once for the process. [install] points the tab slots at the real screens. */
 internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences: SharedPreferences) {
     val picture = SurfacePicture()
+    val qrSource = CameraQrSource()
     val clock: Clock = graph.sessions.clock
     val drafts = PreferencesComposerDrafts(preferences)
     val firstRun = PreferencesFirstRunStore(preferences)

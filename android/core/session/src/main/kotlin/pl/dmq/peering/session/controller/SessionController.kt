@@ -55,7 +55,7 @@ class SessionController(
     private var reconnect = ReconnectSupervisor()
     private var job: Job? = null
     private var link: ConnectedLink? = null
-    private var pairingAnswer: CompletableDeferred<Boolean>? = null
+    private var pairingAnswer: CompletableDeferred<PairingDecision>? = null
     private var pictureEnabled = true
     private var historyId: Long? = null
     private var everReady = false
@@ -79,9 +79,12 @@ class SessionController(
         job = scope.launch { lifecycle() }
     }
 
-    /** The user's answer to the six digits shown on both screens. Ignored when no code is waiting. */
-    fun confirmPairing(accepted: Boolean) {
-        pairingAnswer?.complete(accepted)
+    /**
+     * The user's answer to the six digits shown on both screens. [secret] is the QR code's secret when the digits were
+     * read from a code. Ignored when no code is waiting.
+     */
+    fun confirmPairing(accepted: Boolean, secret: ByteArray? = null) {
+        pairingAnswer?.complete(PairingDecision(accepted, secret))
     }
 
     /** Sends [command] to the host. False when the session is not ready or the host did not declare what it needs. */
@@ -210,14 +213,14 @@ class SessionController(
     private fun terminalEnd(ended: CompletableDeferred<LinkEnd>): LinkEnd.Terminal? =
         if (ended.isCompleted) ended.getCompleted() as? LinkEnd.Terminal else null
 
-    private suspend fun awaitPairing(code: String): Boolean {
+    private suspend fun awaitPairing(code: String): PairingDecision {
         update { it.copy(phase = SessionPhase.ConfirmingPairing(code)) }
-        val answer = CompletableDeferred<Boolean>()
+        val answer = CompletableDeferred<PairingDecision>()
         pairingAnswer = answer
-        val accepted = answer.await()
+        val decision = answer.await()
         pairingAnswer = null
         update { it.copy(phase = SessionPhase.Connecting(target.path)) }
-        return accepted
+        return decision
     }
 
     private fun startSession(

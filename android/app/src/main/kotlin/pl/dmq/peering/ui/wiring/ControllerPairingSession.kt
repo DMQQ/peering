@@ -18,8 +18,8 @@ internal class ControllerPairingSession(
         .map { it.phase.toPairingPhase() }
         .stateIn(scope, SharingStarted.Eagerly, PairingPhase.Waiting)
 
-    override fun confirm(codesMatch: Boolean) {
-        controller.confirmPairing(codesMatch)
+    override fun confirm(codesMatch: Boolean, secret: ByteArray?) {
+        controller.confirmPairing(codesMatch, secret)
     }
 
     override fun cancel() {

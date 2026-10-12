@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.StateFlow
 interface PairingSession {
     val phases: StateFlow<PairingPhase>
 
-    /** The user's answer to the six digits: true when they match the Mac's. */
-    fun confirm(codesMatch: Boolean)
+    /** The user's answer to the six digits: true when they match the Mac's. [secret] comes from a scanned code, when there is one. */
+    fun confirm(codesMatch: Boolean, secret: ByteArray? = null)
 
     fun cancel()
 }

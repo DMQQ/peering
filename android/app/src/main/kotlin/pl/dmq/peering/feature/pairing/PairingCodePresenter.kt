@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import pl.dmq.peering.feature.scan.ScanOutcome
+import pl.dmq.peering.feature.scan.pairingCodeScanOutcome
+import pl.dmq.peering.wire.PairingPayload
 
 class PairingCodePresenter(
     private val session: PairingSession,
@@ -22,6 +25,16 @@ class PairingCodePresenter(
         if (answered.value || cancelled.value) return
         answered.value = true
         session.confirm(codesMatch)
+    }
+
+    /** A code read from the Mac's screen. The one that matches the digits on this screen confirms the pairing with its secret. */
+    fun confirmScannedCode(raw: String): ScanOutcome {
+        val expected = (state.value as? PairingCodeScreen.Comparing)?.code ?: return ScanOutcome.WrongCode
+        val outcome = pairingCodeScanOutcome(raw, expected)
+        if (outcome != ScanOutcome.Used || answered.value || cancelled.value) return outcome
+        answered.value = true
+        session.confirm(codesMatch = true, secret = PairingPayload.secret(raw))
+        return outcome
     }
 
     fun cancel() {

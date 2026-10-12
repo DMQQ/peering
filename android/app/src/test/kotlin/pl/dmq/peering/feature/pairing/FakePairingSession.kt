@@ -8,6 +8,7 @@ class FakePairingSession(initial: PairingPhase = PairingPhase.Waiting) : Pairing
     override val phases: StateFlow<PairingPhase> = current
 
     val answers = mutableListOf<Boolean>()
+    val secrets = mutableListOf<ByteArray?>()
     var cancelCount = 0
         private set
 
@@ -15,8 +16,9 @@ class FakePairingSession(initial: PairingPhase = PairingPhase.Waiting) : Pairing
         current.value = phase
     }
 
-    override fun confirm(codesMatch: Boolean) {
+    override fun confirm(codesMatch: Boolean, secret: ByteArray?) {
         answers += codesMatch
+        secrets += secret
     }
 
     override fun cancel() {
