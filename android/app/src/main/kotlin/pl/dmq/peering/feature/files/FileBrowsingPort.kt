@@ -23,9 +23,11 @@ interface FileBrowsingPort {
 
     fun closePreview()
 
-    fun download(path: String)
-
-    fun downloadFolder(path: String)
+    /** Downloads [path] into [destination], the document the user picked, which the caller has already created. */
+    fun download(path: String, destination: String)
 
     fun cancelDownload()
+
+    /** True once the chosen destination could not be opened or written. */
+    val destinationFailed: StateFlow<Boolean>
 }

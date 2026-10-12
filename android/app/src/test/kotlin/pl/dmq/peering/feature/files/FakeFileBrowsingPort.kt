@@ -9,7 +9,11 @@ class FakeFileBrowsingPort(initial: FileBrowserState = FileBrowserState()) : Fil
     val browser = MutableStateFlow(initial)
     val calls = mutableListOf<String>()
 
+    val failed = MutableStateFlow(false)
+
     override val state: StateFlow<FileBrowserState> get() = browser
+
+    override val destinationFailed: StateFlow<Boolean> get() = failed
 
     override fun open(initialPath: String?) {
         calls += "open:$initialPath"
@@ -35,12 +39,8 @@ class FakeFileBrowsingPort(initial: FileBrowserState = FileBrowserState()) : Fil
         calls += "closePreview"
     }
 
-    override fun download(path: String) {
-        calls += "download:$path"
-    }
-
-    override fun downloadFolder(path: String) {
-        calls += "downloadFolder:$path"
+    override fun download(path: String, destination: String) {
+        calls += "download:$path->$destination"
     }
 
     override fun cancelDownload() {

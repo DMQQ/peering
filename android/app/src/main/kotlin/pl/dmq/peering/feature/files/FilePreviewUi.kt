@@ -44,4 +44,7 @@ sealed interface DownloadProblem {
     data object ShortRead : DownloadProblem
 
     data class Transfer(val message: String) : DownloadProblem
+
+    /** The destination the user chose could not be opened or written. */
+    data object Destination : DownloadProblem
 }

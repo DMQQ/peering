@@ -6,7 +6,6 @@ import pl.dmq.peering.SessionFactory
 import pl.dmq.peering.platform.net.OkHttpSignalling
 import pl.dmq.peering.platform.net.UdpLane
 import pl.dmq.peering.session.controller.ConnectTarget
-import pl.dmq.peering.session.controller.DownloadWriter
 import pl.dmq.peering.session.controller.RelayPorts
 import pl.dmq.peering.session.controller.SessionController
 import pl.dmq.peering.session.controller.SessionPorts
@@ -22,6 +21,7 @@ internal class SessionPortsFactory(
     fun open(target: ConnectTarget, scope: CoroutineScope): ActiveSession {
         val lane = if (target is ConnectTarget.Relay) UdpLane.bind() else null
         val relay = lane?.let { RelayPorts(RelaySignallingLink(OkHttpSignalling()), it) }
+        val downloads = SessionDownloads()
         val ports = SessionPorts(
             identity = sessions.identity,
             clientName = Build.MODEL.orEmpty(),
@@ -31,13 +31,9 @@ internal class SessionPortsFactory(
             control = ControlSockets(sessions.tls),
             discovery = sessions.discovery,
             sink = picture,
-            downloads = DownloadWriter { _, _ -> throw UnsupportedOperationException(DOWNLOADS_NOT_STORED) },
+            downloads = downloads,
             relay = relay,
         )
-        return ActiveSession(target, SessionController(scope, target, ports, history), lane)
-    }
-
-    private companion object {
-        const val DOWNLOADS_NOT_STORED = "downloads are not stored yet"
+        return ActiveSession(target, SessionController(scope, target, ports, history), lane, downloads)
     }
 }

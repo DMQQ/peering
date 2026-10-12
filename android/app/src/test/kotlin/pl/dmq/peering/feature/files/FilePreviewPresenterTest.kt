@@ -111,12 +111,43 @@ class FilePreviewPresenterTest {
     }
 
     @Test
-    fun downloadAndCloseGoThroughThePort() = runTest {
+    fun aDownloadAsksForADestinationBeforeItStarts() = runTest {
         val p = port(preview(RemoteFileKind.PDF, total = 1, complete = true))
         val presenter = presenter(p)
         presenter.download()
+        assertEquals("/a/f", presenter.destinationRequest.value)
+        assertEquals(emptyList<String>(), p.calls)
+        presenter.destinationChosen("content://picked")
+        assertNull(presenter.destinationRequest.value)
+        assertEquals(listOf("download:/a/f->content://picked"), p.calls)
+    }
+
+    @Test
+    fun aPickerThatIsDismissedStartsNothing() = runTest {
+        val p = port(preview(RemoteFileKind.PDF, total = 1, complete = true))
+        val presenter = presenter(p)
+        presenter.download()
+        presenter.destinationChosen(null)
+        assertNull(presenter.destinationRequest.value)
+        assertEquals(emptyList<String>(), p.calls)
+    }
+
+    @Test
+    fun aDestinationThatCannotBeWrittenIsReportedOnThisFile() = runTest {
+        val p = port(preview(RemoteFileKind.PDF, total = 1, complete = true))
+        val presenter = presenter(p)
+        presenter.download()
+        presenter.destinationChosen("content://picked")
+        p.failed.value = true
+        assertEquals(DownloadStatus.Failed(DownloadProblem.Destination), presenter.ui.value!!.download)
+    }
+
+    @Test
+    fun cancelAndCloseGoThroughThePort() = runTest {
+        val p = port(preview(RemoteFileKind.PDF, total = 1, complete = true))
+        val presenter = presenter(p)
         presenter.cancelDownload()
         presenter.close()
-        assertEquals(listOf("download:/a/f", "cancelDownload", "closePreview"), p.calls)
+        assertEquals(listOf("cancelDownload", "closePreview"), p.calls)
     }
 }

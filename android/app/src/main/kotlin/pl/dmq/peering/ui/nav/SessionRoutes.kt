@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.emptyFlow
@@ -61,6 +63,8 @@ internal fun SessionScreens(
     var route by rememberSaveable { mutableStateOf(SessionRoute.REMOTE) }
     val remote = remember(active) { ControllerRemoteModel(active.controller, picture, scope) { route = it } }
     val session by active.controller.state.collectAsState()
+    val browser = active.controller.files
+    LaunchedEffect(browser) { browser?.let { active.downloads.watch(it) } }
     BackHandler(enabled = route != SessionRoute.REMOTE || onClose != null) {
         if (route != SessionRoute.REMOTE) route = SessionRoute.REMOTE else onClose?.invoke()
     }
@@ -129,7 +133,8 @@ private fun FilesScreen(active: ActiveSession, onBack: () -> Unit) {
         return
     }
     BackHandler(onBack = onBack)
-    FilesRoute(port = remember(browser) { SessionFileBrowsing(browser) })
+    val resolver = LocalContext.current.contentResolver
+    FilesRoute(port = remember(browser) { SessionFileBrowsing(browser, active.downloads, resolver) })
 }
 
 @Composable

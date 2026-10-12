@@ -9,9 +9,11 @@ internal class ActiveSession(
     val target: ConnectTarget,
     val controller: SessionController,
     private val lane: UdpLane?,
+    val downloads: SessionDownloads,
 ) {
     fun close() {
         controller.disconnect()
         lane?.close()
+        downloads.close()
     }
 }
