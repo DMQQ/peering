@@ -114,7 +114,7 @@ data class CaptureSourceDescriptor(
     val subtitle: String? = null,
     val bundleIdentifier: String? = null,
     val iconPNGData: String? = null,
-    val thumbnail: JsonElement? = null,
+    @Serializable(SourceThumbnailSerializer::class) val thumbnail: SourceThumbnail? = null,
     @Serializable(CaptureSourceSerializer::class) val source: CaptureSource,
     @Serializable(PixelSizeSerializer::class) val pixelSize: PixelSize,
     @EncodeDefault val isManagedVirtualDisplay: Boolean = false,

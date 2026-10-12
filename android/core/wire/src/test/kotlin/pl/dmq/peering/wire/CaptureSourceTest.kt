@@ -146,6 +146,44 @@ class CaptureSourceTest {
         assertEquals(NormalizedPoint(0.0, 0.5), NormalizedPoint(Double.NaN, 0.5).clamped())
     }
 
+    private fun withThumbnail(thumbnail: String) =
+        builtInDisplayJson.replace("\"title\"", "\"thumbnail\":$thumbnail,\"title\"")
+
+    private fun decode(text: String) = WireJson.decodeFromString(CaptureSourceDescriptor.serializer(), text)
+
+    @Test
+    fun thumbnailDecodesToItsSizeAndBytes() {
+        val thumbnail = decode(withThumbnail("""{"width":160,"height":90,"jpegData":"AQI="}""")).thumbnail
+        assertEquals(160, thumbnail!!.width)
+        assertEquals(90, thumbnail.height)
+        assertTrue(thumbnail.jpegData.contentEquals(byteArrayOf(1, 2)))
+    }
+
+    @Test
+    fun thumbnailSurvivesAnEncodeAndDecode() {
+        val descriptor = decode(withThumbnail("""{"width":4,"height":3,"jpegData":"AQI="}"""))
+        val again = decode(WireJson.encodeToString(CaptureSourceDescriptor.serializer(), descriptor))
+        assertEquals(descriptor.thumbnail, again.thumbnail)
+    }
+
+    @Test
+    fun malformedThumbnailCostsOnlyThePicture() {
+        val descriptor = decode(withThumbnail("""{"width":"wide"}"""))
+        assertNull(descriptor.thumbnail)
+        assertEquals("Built-in", descriptor.title)
+    }
+
+    @Test
+    fun oversizeThumbnailReadsAsNone() {
+        val big = ByteArray(SourceThumbnail.MAXIMUM_BYTES + 1).toBase64()
+        assertNull(decode(withThumbnail("""{"width":1,"height":1,"jpegData":"$big"}""")).thumbnail)
+    }
+
+    @Test
+    fun absentThumbnailIsNone() {
+        assertNull(decode(builtInDisplayJson).thumbnail)
+    }
+
     @Test
     fun iconBytesDecodeFromBase64() {
         val withIcon = builtInDisplayJson.replace("\"title\"", "\"iconPNGData\":\"AQI=\",\"title\"")
