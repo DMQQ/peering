@@ -1,7 +1,9 @@
 package pl.dmq.peering.ui
 
 import androidx.compose.animation.AnimatedContent
-import pl.dmq.peering.ui.theme.fadeThrough
+import pl.dmq.peering.ui.kit.motionTransition
+import pl.dmq.peering.ui.kit.rememberAxisDistancePx
+import pl.dmq.peering.ui.kit.stageMotion
 import pl.dmq.peering.ui.nav.HideNavigationBar
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,8 +41,9 @@ import pl.dmq.peering.ui.nav.SessionScreens
 /** Where a scan goes: a Mac to pair with, or the six digits being compared on this screen. */
 private enum class ScanPurpose { FindMac, ConfirmCode }
 
-private enum class ConnectStage(val fullScreen: Boolean) {
-    Scanner(true), Onboarding(true), Pairing(true), Session(true), FirstConnection(false), Hosts(false)
+/** [depth] orders the flow (hosts, then each step toward a session); [live] marks the screen that shows video. */
+private enum class ConnectStage(val fullScreen: Boolean, val depth: Int, val live: Boolean = false) {
+    Scanner(true, 2), Onboarding(true, 1), Pairing(true, 1), Session(true, 3, live = true), FirstConnection(false, 0), Hosts(false, 0)
 }
 
 /** The Connect tab: first run, then the hosts, pairing, and the session a connect opened. */
@@ -108,10 +111,13 @@ internal fun ConnectTab(wiring: FeatureWiring) {
         else -> ConnectStage.Hosts
     }
     if (stage.fullScreen) HideNavigationBar()
+    val axisDistance = rememberAxisDistancePx()
     AnimatedContent(
         targetState = stage,
         modifier = Modifier.fillMaxSize(),
-        transitionSpec = { fadeThrough() },
+        transitionSpec = {
+            motionTransition(stageMotion(initialState.depth, initialState.live, targetState.depth, targetState.live), axisDistance)
+        },
         label = "connectStage",
     ) { shown ->
         when (shown) {

@@ -1,7 +1,8 @@
 package pl.dmq.peering.ui.nav
 
 import androidx.compose.animation.AnimatedContent
-import pl.dmq.peering.ui.theme.fadeThrough
+import pl.dmq.peering.ui.kit.modalMotion
+import pl.dmq.peering.ui.kit.motionTransition
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -111,7 +112,13 @@ internal fun SessionScreens(
         }
     }
     BackHandler(enabled = route != SessionRoute.REMOTE) { route = SessionRoute.REMOTE }
-    AnimatedContent(targetState = route, transitionSpec = { fadeThrough() }, label = "sessionRoute") { shown ->
+    AnimatedContent(
+        targetState = route,
+        transitionSpec = {
+            motionTransition(modalMotion(initialState != SessionRoute.REMOTE, targetState != SessionRoute.REMOTE), 0)
+        },
+        label = "sessionRoute",
+    ) { shown ->
         when (shown) {
             SessionRoute.REMOTE -> RemoteWithNotice(remote, session.phase)
             SessionRoute.HUB -> SessionHub(active, drafts, folderRecents, clock) { route = SessionRoute.REMOTE }

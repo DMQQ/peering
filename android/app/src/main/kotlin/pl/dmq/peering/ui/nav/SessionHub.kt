@@ -2,6 +2,8 @@ package pl.dmq.peering.ui.nav
 
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,8 @@ import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.wiring.ActiveSession
 import pl.dmq.peering.ui.wiring.PreferencesKeyValueStore
 import pl.dmq.peering.ui.wiring.TerminalHost
+
+private const val HUB_SWAP_MS = 120
 
 /**
  * The one full-height panel behind the terminal button: a switcher for Agents, Terminals and Files across the top, and the
@@ -65,11 +69,13 @@ internal fun SessionHub(
                 modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
             )
             Box(Modifier.weight(1f).consumeWindowInsets(WindowInsets.statusBars)) {
-                when (tabs.selected) {
-                    HubTab.AGENTS -> AgentsScreen(active, drafts, folderRecents, preferences, clock, onClose)
-                    HubTab.TERMINALS -> TerminalHost(active, onClose)
-                    HubTab.FILES -> FilesScreen(active, onClose)
-                    null -> LaunchedEffect(Unit) { onClose() }
+                Crossfade(targetState = tabs.selected, animationSpec = tween(HUB_SWAP_MS), label = "hubTab") { selected ->
+                    when (selected) {
+                        HubTab.AGENTS -> AgentsScreen(active, drafts, folderRecents, preferences, clock, onClose)
+                        HubTab.TERMINALS -> TerminalHost(active, onClose)
+                        HubTab.FILES -> FilesScreen(active, onClose)
+                        null -> LaunchedEffect(Unit) { onClose() }
+                    }
                 }
             }
         }
