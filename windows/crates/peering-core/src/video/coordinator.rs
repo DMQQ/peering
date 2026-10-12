@@ -86,6 +86,12 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
     /// A new client needs a description and a recovery point before any delta frame reaches it.
     pub fn attach(&mut self, client_id: &str) {
         self.clients.insert(client_id.to_owned());
+        self.request_resync();
+    }
+
+    /// The next encoded frame is a keyframe preceded by the stream description. A connection that opens after the
+    /// first frames went out (the client's video socket) needs this to have anything to decode.
+    pub fn request_resync(&mut self) {
         self.keyframe_pending = true;
         self.config_pending = true;
     }
@@ -100,6 +106,44 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         if self.clients.is_empty() {
             self.chosen_source = None;
         }
+    }
+
+    /// Starts capture when nothing is running: the source a client chose, else the primary display, else the first.
+    /// The default is not recorded as a choice, so it is dropped again when the last client leaves.
+    pub fn ensure_capturing(&mut self, now: f64) -> Result<(), CoordinatorError> {
+        if self.source.is_some() {
+            return Ok(());
+        }
+        let target = match self.chosen_source.clone() {
+            Some(source) => source,
+            None => {
+                let displays = self.capture.list_displays();
+                let display = displays
+                    .iter()
+                    .find(|display| display.is_primary)
+                    .or_else(|| displays.first())
+                    .ok_or_else(|| CaptureError::Failed("no display is attached".to_owned()))?;
+                CaptureSource::Display { id: display.id }
+            }
+        };
+        let chosen = self.chosen_source.clone();
+        self.set_source(target, now)?;
+        self.chosen_source = chosen;
+        Ok(())
+    }
+
+    /// Once nobody is attached the capture is stopped and the client's choice forgotten, so the next client starts
+    /// from the default display rather than from whatever the last one left running.
+    pub fn stop_when_idle(&mut self) {
+        if !self.clients.is_empty() {
+            return;
+        }
+        self.forget_chosen_source_if_idle();
+        self.capture.stop();
+        self.source = None;
+        self.last_config = None;
+        self.capture_started_at = None;
+        self.frame_ever_seen = false;
     }
 
     /// Switches capture to a display. A switch to the source already running changes nothing.
@@ -131,6 +175,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.reconfigure_pending = false;
         self.pacer.restart();
         self.capture_started_at = Some(now);
+        self.frame_ever_seen = false;
         Ok(())
     }
 
