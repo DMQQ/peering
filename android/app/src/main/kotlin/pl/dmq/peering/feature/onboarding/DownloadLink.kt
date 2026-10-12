@@ -34,7 +34,7 @@ import pl.dmq.peering.ui.kit.rowSurface
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 
-private const val DOWNLOAD_URL = "https://getpeering.app/download"
+internal const val DOWNLOAD_URL = "https://getpeering.app/download"
 
 /** The whole path written out and copyable: the host alone is not the address anybody types. */
 @Composable

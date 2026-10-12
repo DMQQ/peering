@@ -1,6 +1,8 @@
 package pl.dmq.peering.ui
 
 import android.content.SharedPreferences
+import android.os.Build
+import pl.dmq.peering.ui.wiring.PreferencesDevicePreferences
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -46,6 +48,8 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val folderRecents = PreferencesFolderRecents(preferences)
     val firstRun = PreferencesFirstRunStore(preferences)
     val settings = PreferencesSettingsStore(preferences)
+    val devicePrefs = PreferencesDevicePreferences(preferences, Build.MODEL.orEmpty())
+    val deviceId: String = graph.sessions.identity.clientId
     val hostNames = PersistedHostDirectory(PreferencesKeyValueStore(preferences))
     val trusted = PinTrustedHosts(graph.sessions.pins, hostNames)
     val lanAddresses = RememberedLanAddresses(PreferencesKeyValueStore(preferences))
@@ -60,7 +64,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
             PeeringQualitySource(settings, billing),
             billing,
             lanAddresses,
-        ),
+        ) { devicePrefs.prefs.value.deviceName },
         hostNames,
         scope,
     )
@@ -81,7 +85,9 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
 
     /** Starts a session with a paired Mac, over the local network when it is seen there. */
     fun connectPaired(hostId: String) {
-        holder.connect(pairedTarget(hostId, discovery.addressOf(hostId), lanAddresses.addressOf(hostId)))
+        holder.connect(
+            pairedTarget(hostId, discovery.addressOf(hostId), lanAddresses.addressOf(hostId), devicePrefs.prefs.value.allowsRelay),
+        )
     }
 
     /** Dials a paired Mac over the one route the user chose. */

@@ -21,6 +21,7 @@ import pl.dmq.peering.ui.theme.peeringBackdrop
 fun PeeringScaffold(navController: NavHostController = rememberNavController()) {
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val chrome = remember { RootChrome() }
+    chrome.navigator = { navigateTo(navController, it) }
     CompositionLocalProvider(LocalRootChrome provides chrome) {
         Scaffold(
             modifier = Modifier.fillMaxSize().peeringBackdrop(),

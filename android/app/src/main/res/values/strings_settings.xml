@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_clear">Clear search</string>
+    <string name="settings_search">Search settings</string>
+    <string name="settings_no_match">No settings match \"%1$s\"</string>
+    <string name="settings_preference_save_failed">That setting could not be saved. Try again.</string>
+
+    <string name="settings_keywords_device">this device name phone</string>
+    <string name="settings_keywords_controls">session controls interaction observe control touch picture fit fill keyboard unicode keycode close panels after selecting</string>
+    <string name="settings_keywords_quality">stream quality bitrate resolution video auto automatic</string>
+    <string name="settings_keywords_remote">remote access relay internet away upgrade pro</string>
+    <string name="settings_keywords_security">security fingerprint face biometric unlock lock passcode privacy</string>
+    <string name="settings_keywords_trusted">trusted computers paired forget remove</string>
+    <string name="settings_keywords_identity">device identity id private key paired computers</string>
+    <string name="settings_keywords_more">more peering computer download introduction report issue support help</string>
+    <string name="settings_keywords_legal">legal privacy policy terms notices open source</string>
+
+    <string name="settings_device_heading">This device</string>
+    <string name="settings_device_footer">The name shown to computers when you connect. Tap the name to edit it.</string>
+    <string name="settings_device_name">Device name</string>
+
+    <string name="settings_controls_heading">Session controls</string>
+    <string name="settings_interaction">Interaction</string>
+    <string name="settings_interaction_control">Control</string>
+    <string name="settings_interaction_touch">Touch</string>
+    <string name="settings_interaction_observe">Observe</string>
+    <string name="settings_picture">Picture</string>
+    <string name="settings_picture_fit">Fit screen</string>
+    <string name="settings_picture_fill">Fill screen</string>
+    <string name="settings_keyboard">Keyboard</string>
+    <string name="settings_keyboard_unicode">Unicode</string>
+    <string name="settings_keyboard_keycode">Keycode</string>
+    <string name="settings_keyboard_unicode_explanation">Sends text. Emoji and non-Latin scripts work; computer shortcuts like Cmd+S do not.</string>
+    <string name="settings_keyboard_keycode_explanation">Sends real key presses with modifiers. Shortcuts work; characters outside the computer\'s layout are sent as text.</string>
+    <string name="settings_close_panels">Close panels after selecting</string>
+
+    <string name="settings_quality_row">Quality</string>
+    <string name="settings_quality_footer">The level a session starts at. Changing it during a session changes this too, so the next one starts where you left off.</string>
+    <string name="settings_quality_auto_menu">Automatic</string>
+    <string name="settings_quality_low_menu">Low, 2 Mbps</string>
+    <string name="settings_quality_medium_menu">Medium, 8 Mbps</string>
+    <string name="settings_quality_high_menu">High, 20 Mbps</string>
+
+    <string name="settings_remote_heading">Remote access</string>
+    <string name="settings_remote_footer">Relay connects across networks.</string>
+    <string name="settings_allow_relay">Allow relay connections</string>
+    <string name="settings_upgrade">Upgrade to Pro</string>
+
+    <string name="settings_security_heading">Security and privacy</string>
+    <string name="settings_security_footer">Peering collects no usage statistics. Never your screen, files, keystrokes or computers.</string>
+    <string name="settings_require_unlock">Require unlock on open</string>
+
+    <string name="settings_identity_footer">How computers recognise this device. Created once, on first launch.</string>
+    <string name="settings_identity_id">Device ID</string>
+    <string name="settings_identity_key">Private key</string>
+    <string name="settings_identity_key_value">P-256, in the Keystore</string>
+    <string name="settings_identity_paired">Paired computers</string>
+
+    <string name="settings_more_heading">More</string>
+    <string name="settings_more_host_app">Peering for the computer</string>
+    <string name="settings_more_introduction">Show introduction again</string>
+    <string name="settings_more_report">Report an issue</string>
+    <string name="settings_report_subject">Peering issue</string>
+    <string name="settings_report_body">What happened:\n\n\nWhat I expected:\n\n\nPeering %1$s\nAndroid %2$s</string>
+    <string name="settings_no_mail_app">No mail app is installed. Write to support@getpeering.app.</string>
+</resources>

@@ -1,6 +1,5 @@
 package pl.dmq.peering.ui.wiring
 
-import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import pl.dmq.peering.SessionFactory
@@ -24,6 +23,7 @@ internal class SessionPortsFactory(
     private val quality: QualitySource,
     private val billing: Billing,
     private val lanAddresses: RememberedLanAddresses,
+    private val deviceName: () -> String,
 ) : SessionOpener {
     override fun open(target: ConnectTarget, scope: CoroutineScope): ActiveSession {
         val lane = if (target.mayUseRelay()) UdpLane.bind() else null
@@ -31,7 +31,7 @@ internal class SessionPortsFactory(
         val downloads = SessionDownloads()
         val ports = SessionPorts(
             identity = sessions.identity,
-            clientName = Build.MODEL.orEmpty(),
+            clientName = deviceName(),
             pins = sessions.pins,
             random = sessions.random,
             clock = sessions.clock,
