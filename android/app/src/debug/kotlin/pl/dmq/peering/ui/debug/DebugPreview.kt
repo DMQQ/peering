@@ -109,7 +109,7 @@ private const val TAG = "PeeringPreview"
 private fun note(what: String): () -> Unit = { Log.i(TAG, what) }
 
 private fun previewPairing(scan: Boolean = true) = PairingActions(
-    onDigitsEntered = { digits -> Log.i(TAG, "digits $digits") },
+    onDigitsEntered = { _ -> Log.i(TAG, "digits entered") },
     onCancel = note("cancel"),
     onFinished = note("finished"),
     onScan = if (scan) note("scan") else null,
@@ -119,13 +119,13 @@ private fun previewConnect() = ConnectActions(
     onConnect = { id -> Log.i(TAG, "connect $id") },
     onConnectVia = { id, via -> Log.i(TAG, "connect $id via $via") },
     onPair = { id -> Log.i(TAG, "pair $id") },
-    onRename = { id, name -> Log.i(TAG, "rename $id $name") },
+    onRename = { id, _ -> Log.i(TAG, "rename $id") },
     onDismissMessage = note("dismiss message"),
     onForget = { id -> Log.i(TAG, "forget $id") },
-    onConnectAddress = { host, port -> Log.i(TAG, "address $host:$port") },
+    onConnectAddress = { _, _ -> Log.i(TAG, "address entered") },
     onSearchAgain = note("search again"),
     onOpenWifiSettings = note("wifi settings"),
-    onEntryTextChanged = { text -> Log.i(TAG, "entry $text") },
+    onEntryTextChanged = { _ -> Log.i(TAG, "entry changed") },
     onEntrySubmit = note("entry submit"),
     onScan = note("scan"),
 )
