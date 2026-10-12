@@ -49,7 +49,7 @@ class HostListingTest {
     }
 
     @Test
-    fun nearbyHostThatIsAlreadyPairedAppearsOnlyAmongPaired() {
+    fun nearbyHostThatIsAlreadyPairedAppearsInBothLists() {
         val listing = HostListing.of(
             nearby = listOf(nearbyHost("A"), nearbyHost("N", name = "New Mac")),
             paired = listOf(PairedHost("A", null)),
@@ -58,7 +58,7 @@ class HostListingTest {
         )
 
         assertEquals(listOf("A"), listing.paired.map { it.id })
-        assertEquals(listOf("N"), listing.nearby.map { it.id })
+        assertEquals(listOf("A", "N"), listing.nearby.map { it.id }.sorted())
     }
 
     @Test

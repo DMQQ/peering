@@ -2,7 +2,7 @@ package pl.dmq.peering.feature.connect
 
 import pl.dmq.peering.session.ports.DiscoveredHost
 
-/** The two lists the Connect screen shows. A host that is both paired and nearby appears only among the paired. */
+/** The two lists the Connect screen shows. A paired host that is on the network is in both, as on the iPhone. */
 data class HostListing(val paired: List<HostRow>, val nearby: List<HostRow>) {
     companion object {
         val EMPTY = HostListing(emptyList(), emptyList())
@@ -14,7 +14,6 @@ data class HostListing(val paired: List<HostRow>, val nearby: List<HostRow>) {
             connected: String?,
         ): HostListing {
             val nearbyById = nearby.associateBy { it.id }
-            val pairedIds = paired.map { it.id }.toSet()
 
             fun statusOf(id: String): HostStatus = when {
                 id == connected -> HostStatus.Connected
@@ -32,7 +31,6 @@ data class HostListing(val paired: List<HostRow>, val nearby: List<HostRow>) {
                 HostRow(host.id, host.name ?: nearbyById[host.id]?.name, statusOf(host.id), routeOf(host.id))
             }
             val nearbyRows = nearbyById.values
-                .filter { it.id !in pairedIds }
                 .map { HostRow(it.id, it.name, statusOf(it.id), HostRoute.Local) }
 
             return HostListing(

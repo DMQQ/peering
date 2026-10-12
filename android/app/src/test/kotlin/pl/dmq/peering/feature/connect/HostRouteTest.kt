@@ -30,8 +30,8 @@ class HostRouteTest {
     }
 
     @Test
-    fun aNearbyUnpairedComputerRoutesLocally() {
-        assertEquals(HostRoute.Local, listing().nearby.single().route)
+    fun everyNearbyComputerRoutesLocally() {
+        assertEquals(setOf(HostRoute.Local), listing().nearby.map { it.route }.toSet())
     }
 
     @Test
