@@ -50,7 +50,7 @@ lists use `listItemMotion()` and nothing animates on a screen's first compositio
 | `FaqScreen` row | `animateContentSize` and chevron | default spring, 200 ms | fine in spirit | `Motion.spring()` and `Motion.standard()`, chevron rotated in a graphics layer |
 | `HubLoadingRows` | endless alpha pulse | 900 ms reverse, infinite | infinite | static, fades in after 150 ms |
 | `TerminalLoading`, `TerminalStarting` | spinner / ticking caret and dots (120 ms timer) | infinite | infinite | fade in after 150 ms, caret and dots still |
-| `ThinkingRow` dots | sine wave on padding | 1200 ms, infinite | infinite, animates padding | three still dots |
+| `ThinkingRow` dots | sine wave on padding | 1200 ms, infinite | infinite, animates padding | a 14 dp `PeeringSpinner` (Material, drawn by the system) beside the word, present only while the agent works |
 | `Sheen` (headings) | one highlight crossing, switched off in code | 1600 ms | dead | removed, `HeadingBrush` constant |
 | `RailPress`, `FileEntryRow` | hand-rolled press feedback (scale 0.9 / alpha 0.6) | 120 ms | duplicated | shared `pressFeedback` |
 | Buttons, chips, plan card, relay card, source tiles | ripple on fills where it barely shows | ripple | no visible feedback | `pressable` |

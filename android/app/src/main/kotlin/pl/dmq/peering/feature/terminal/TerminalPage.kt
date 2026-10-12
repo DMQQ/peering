@@ -9,7 +9,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import pl.dmq.peering.feature.agents.FolderRecents
 import pl.dmq.peering.feature.agents.HubGuidePresenter
+import pl.dmq.peering.feature.files.FolderPickerPresenter
 import pl.dmq.peering.feature.remote.HubTab
 import pl.dmq.peering.feature.remote.ReportHubPage
 import pl.dmq.peering.session.terminal.TerminalSessions
@@ -27,11 +29,16 @@ fun TerminalPage(
     connected: Boolean,
     computerName: String,
     onFiles: (() -> Unit)?,
+    folders: FolderPickerPresenter?,
+    recents: FolderRecents,
     modifier: Modifier = Modifier,
 ) {
     val name = rememberUpdatedState(computerName)
-    val presenter = remember(sessions) { TerminalListPresenter(sessions, preferences.agentHistory, computerName = { name.value }) }
+    val presenter = remember(sessions, folders, recents) {
+        TerminalListPresenter(sessions, preferences.agentHistory, { name.value }, canChooseFolder = folders != null, recents = recents)
+    }
     val inShell by presenter.inShell.collectAsState()
+    val choosingFolder by presenter.choosingFolder.collectAsState()
     val state by sessions.state.collectAsState()
     val listState = rememberLazyListState()
     LaunchedEffect(sessions, connected) {
@@ -41,10 +48,13 @@ fun TerminalPage(
         }
     }
     LaunchedEffect(state) { presenter.onState(state) }
-    ReportHubPage(HubTab.TERMINALS, atRoot = !inShell)
+    ReportHubPage(HubTab.TERMINALS, atRoot = !inShell && !choosingFolder)
     BackHandler(enabled = inShell, onBack = presenter::back)
-    DepthTransition(state = inShell, depth = { if (it) 1 else 0 }, modifier = modifier, label = "terminalPage") { shell ->
-        if (shell) {
+    val page = if (inShell) TerminalPageStep.SHELL else if (choosingFolder) TerminalPageStep.FOLDER else TerminalPageStep.LIST
+    DepthTransition(state = page, depth = { it.depth }, modifier = modifier, label = "terminalPage") { step ->
+        if (step == TerminalPageStep.FOLDER && folders != null) {
+            TerminalFolderPage(folders, recents, onChoose = presenter::startIn, onBack = presenter::cancelFolder)
+        } else if (step == TerminalPageStep.SHELL) {
             TerminalRoute(
                 sessions = sessions,
                 preferences = preferences,
@@ -58,3 +68,5 @@ fun TerminalPage(
         }
     }
 }
+
+private enum class TerminalPageStep(val depth: Int) { LIST(0), FOLDER(1), SHELL(1) }

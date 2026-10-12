@@ -82,6 +82,7 @@ internal fun SessionHub(
                     HubTab.TERMINALS -> TerminalHost(
                         active,
                         preferences,
+                        folderRecents,
                         onFiles = if (HubTab.FILES in tabs.offered) ({ tabs.select(HubTab.FILES) }) else null,
                     )
                     HubTab.FILES -> FilesScreen(active, onClose, hosted = true)

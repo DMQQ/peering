@@ -10,13 +10,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.feature.agents.FolderRecents
+import pl.dmq.peering.feature.agents.FolderRecentsStore
 import pl.dmq.peering.feature.agents.HubGuidePresenter
+import pl.dmq.peering.feature.files.FolderPickerPresenter
 import pl.dmq.peering.feature.terminal.AgentLaunchHistory
 import pl.dmq.peering.feature.terminal.QuickCommands
 import pl.dmq.peering.feature.terminal.TerminalPreferences
@@ -26,9 +30,11 @@ import pl.dmq.peering.session.controller.SessionPhase
 import pl.dmq.peering.session.ports.KeyValueStore
 import pl.dmq.peering.ui.theme.PeeringColors
 
+private const val TERMINAL_RECENTS_SUFFIX = "#terminal"
+
 /** The Terminals page over the active session's shells, or a line saying there are none to offer. */
 @Composable
-internal fun TerminalHost(active: ActiveSession, guideStore: KeyValueStore, onFiles: (() -> Unit)?) {
+internal fun TerminalHost(active: ActiveSession, guideStore: KeyValueStore, folderRecents: FolderRecentsStore, onFiles: (() -> Unit)?) {
     val sessions = active.controller.terminals
     if (sessions == null) {
         Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -48,5 +54,19 @@ internal fun TerminalHost(active: ActiveSession, guideStore: KeyValueStore, onFi
     }
     val guide = remember(guideStore) { HubGuidePresenter(guideStore, HubGuidePresenter.TERMINALS_KEY) }
     val ready = phase.phase as? SessionPhase.Ready
-    TerminalPage(sessions, preferences, guide, connected = ready != null, computerName = ready?.hostName.orEmpty(), onFiles = onFiles)
+    val browser = active.controller.files
+    val scope = rememberCoroutineScope()
+    val folders = browser?.let { rememberFileBrowsing(active, it) }
+        ?.let { port -> remember(port) { FolderPickerPresenter(port, scope) } }
+    val recents = remember(folderRecents, active.target.hostId) {
+        FolderRecents(folderRecents, active.target.hostId.orEmpty() + TERMINAL_RECENTS_SUFFIX)
+    }
+    TerminalPage(
+        sessions, preferences, guide,
+        connected = ready != null,
+        computerName = ready?.hostName.orEmpty(),
+        onFiles = onFiles,
+        folders = folders,
+        recents = recents,
+    )
 }

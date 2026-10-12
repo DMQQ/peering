@@ -39,6 +39,7 @@ import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.PeeringMenu
 import pl.dmq.peering.ui.kit.PeeringMenuItem
+import pl.dmq.peering.ui.kit.PeeringSpinner
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.peeringShapes
@@ -158,7 +159,7 @@ fun TurnSummaryPill(summary: TurnSummaryUi) {
     )
 }
 
-/** Three still dots, then the word, while the agent works. */
+/** A small Material progress ring, then the word, while the agent works. The ring exists only while this row does. */
 @Composable
 fun ThinkingRow() {
     val label = stringResource(R.string.agents_state_working)
@@ -167,17 +168,8 @@ fun ThinkingRow() {
         horizontalArrangement = Arrangement.spacedBy(9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Dots()
+        PeeringSpinner(size = 14.dp, color = PeeringColors.ink.copy(alpha = 0.6f))
         Text(label, style = PeeringText.footnote, color = PeeringColors.ink.copy(alpha = 0.5f))
-    }
-}
-
-@Composable
-private fun Dots() {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-        listOf(0.3f, 0.55f, 0.9f).forEach { alpha ->
-            Box(Modifier.size(5.dp).background(PeeringColors.ink.copy(alpha = alpha), CircleShape))
-        }
     }
 }
 

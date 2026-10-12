@@ -54,7 +54,7 @@ import pl.dmq.peering.ui.wiring.ActiveSession
 import pl.dmq.peering.ui.wiring.ChatAgentsPort
 import pl.dmq.peering.ui.wiring.ControllerQualityPort
 import pl.dmq.peering.ui.wiring.ControllerRemoteModel
-import pl.dmq.peering.ui.wiring.SessionFileBrowsing
+import pl.dmq.peering.ui.wiring.rememberFileBrowsing
 import pl.dmq.peering.ui.wiring.StorePaywallBilling
 import pl.dmq.peering.ui.wiring.TerminalHost
 import pl.dmq.peering.ui.wiring.SurfacePicture
@@ -190,13 +190,7 @@ internal fun FilesScreen(active: ActiveSession, onBack: () -> Unit, hosted: Bool
         Unavailable(R.string.session_unavailable_files)
         return
     }
-    val resolver = LocalContext.current.contentResolver
-    val scope = rememberCoroutineScope()
-    val port = remember(browser) {
-        val online = active.controller.state.map { it.phase is SessionPhase.Ready }
-            .stateIn(scope, SharingStarted.Eagerly, active.controller.state.value.phase is SessionPhase.Ready)
-        SessionFileBrowsing(browser, active.downloads, resolver, online, scope)
-    }
+    val port = rememberFileBrowsing(active, browser)
     FilesRoute(port = port, onBack = onBack, hosted = hosted)
 }
 
