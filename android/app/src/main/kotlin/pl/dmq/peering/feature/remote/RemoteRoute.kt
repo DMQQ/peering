@@ -93,7 +93,7 @@ fun RemoteRoute(model: RemoteModel) {
             darkened = screen.darkened,
             fills = prefs.fillsScreen,
             zoomPercent = zoomPercent,
-            terminalEntries = HubPresenter().terminalEntries(state.capabilities),
+            hubTabs = HubPresenter().offeredTabs(state.capabilities),
         ),
         statusExpanded = pill.expanded,
         openPanel = screen.openPanel,
@@ -141,7 +141,7 @@ private fun chromeHandlers(
             screen.enterImmersive()
         },
         onStepAway = model::onStepAway,
-        onTerminalEntry = model::onHubEntry,
+        onOpenHub = { model.onHubEntry(HubEntry.HUB) },
         onQuit = { screen.leaveAsked = true },
     ),
     onPillTap = pill::onTap,

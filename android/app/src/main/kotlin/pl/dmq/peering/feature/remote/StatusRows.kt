@@ -55,9 +55,9 @@ private fun viewChips(ui: StatusUi, actions: StatusActions): List<PillChipSpec> 
     add(PillChipSpec(stringResource(R.string.remote_chip_immersive), SessionIcons.immersive, actions.onImmersive))
 }
 
-/** The Terminal chip opens the one place the computer offers, or the first of them when it offers several. */
+/** The Terminal chip opens the hub panel. */
 @Composable
 private fun terminalChip(ui: StatusUi, actions: StatusActions): PillChipSpec? {
-    val entry = ui.terminalEntries.firstOrNull() ?: return null
-    return PillChipSpec(stringResource(R.string.remote_chip_terminal), SessionIcons.terminal, onClick = { actions.onTerminalEntry(entry) })
+    if (ui.hubTabs.isEmpty()) return null
+    return PillChipSpec(stringResource(R.string.remote_chip_terminal), SessionIcons.terminal, onClick = actions.onOpenHub)
 }

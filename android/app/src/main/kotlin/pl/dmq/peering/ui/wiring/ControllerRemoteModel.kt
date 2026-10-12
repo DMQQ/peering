@@ -42,9 +42,7 @@ internal class ControllerRemoteModel(
 
     override fun onHubEntry(entry: HubEntry) {
         when (entry) {
-            HubEntry.AGENTS -> onOpen(SessionRoute.AGENTS)
-            HubEntry.FILES -> onOpen(SessionRoute.FILES)
-            HubEntry.TERMINAL -> onOpen(SessionRoute.TERMINAL)
+            HubEntry.HUB -> onOpen(SessionRoute.HUB)
             HubEntry.DISCONNECT -> onDisconnect()
         }
     }

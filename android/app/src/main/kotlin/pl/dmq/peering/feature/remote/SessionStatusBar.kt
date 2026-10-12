@@ -41,7 +41,7 @@ fun SessionStatusBar(
     ) {
         if (!expanded) LockButton(ui, actions)
         StatusPill(ui, actions, expanded, onTap, Modifier.weight(1f))
-        if (!expanded) TerminalButton(ui.terminalEntries, actions.onTerminalEntry)
+        if (!expanded) TerminalButton(ui.hubTabs.isNotEmpty(), actions.onOpenHub)
     }
 }
 
@@ -78,39 +78,12 @@ private fun LockButton(ui: StatusUi, actions: StatusActions) {
 }
 
 @Composable
-private fun TerminalButton(entries: List<HubEntry>, onEntry: (HubEntry) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box(Modifier.alpha(if (entries.isEmpty()) 0.45f else 1f)) {
+private fun TerminalButton(offered: Boolean, onOpen: () -> Unit) {
+    Box(Modifier.alpha(if (offered) 1f else 0.45f)) {
         CircleGlassButton(
             icon = SessionIcons.terminal,
             label = stringResource(R.string.remote_terminal_description),
-            onClick = { if (entries.size == 1) onEntry(entries.single()) else if (entries.isNotEmpty()) open = true },
+            onClick = { if (offered) onOpen() },
         )
-        PeeringMenu(expanded = open, onDismiss = { open = false }) {
-            entries.forEach { entry ->
-                PeeringMenuItem(
-                    title = stringResource(entry.titleRes()),
-                    icon = entry.icon(),
-                    onClick = {
-                        open = false
-                        onEntry(entry)
-                    },
-                )
-            }
-        }
     }
-}
-
-private fun HubEntry.titleRes(): Int = when (this) {
-    HubEntry.AGENTS -> R.string.hub_agents
-    HubEntry.FILES -> R.string.hub_files
-    HubEntry.TERMINAL -> R.string.hub_terminal
-    HubEntry.DISCONNECT -> R.string.hub_disconnect
-}
-
-private fun HubEntry.icon() = when (this) {
-    HubEntry.AGENTS -> AppIcons.sparkles
-    HubEntry.FILES -> AppIcons.folder
-    HubEntry.TERMINAL -> SessionIcons.terminal
-    HubEntry.DISCONNECT -> AppIcons.power
 }

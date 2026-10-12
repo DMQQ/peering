@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="hub_terminal">Terminal</string>
+    <string name="hub_terminals">Terminals</string>
+    <string name="hub_close">Close</string>
     <string name="session_unavailable_terminal">This computer does not offer terminals.</string>
     <string name="terminal_title">Terminal</string>
     <string name="terminal_back">Back to the session</string>

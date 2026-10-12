@@ -6,7 +6,7 @@ The phone's layout is the blueprint. Android adaptations are limited to the Mate
 
 ## 1. Session screen, portrait
 
-Edge inset 8 dp, bottom inset 22 dp, gap 8 dp. Chrome is drawn over the picture on a dark glass surface (`containerHigh` with an outline).
+Edge inset 8 dp, bottom inset 22 dp, gap 8 dp. Chrome is drawn over the picture on a tonal surface (`containerHigh`) with no outline (`sessionSurface`, `LocalBorderless`).
 
 | # | iPhone element | Android implementation |
 |---|----------------|------------------------|
@@ -20,7 +20,7 @@ Edge inset 8 dp, bottom inset 22 dp, gap 8 dp. Chrome is drawn over the picture 
 | 2f | Row Computer: Lock, Darken or Restore | `LockScreen`, `SetPrivacyMode` |
 | 2g | Row Session: Connect (leave the screen, session continues), Terminal | `onStepAway`, `onOpenTerminal` |
 | 2h | Row End: Quit (filled danger) | opens the leave dialog |
-| 2i | Terminal circle (48): opens the terminal hub | `TerminalButton`, a Material menu of Terminal, Agents, Files for what the computer offers |
+| 2i | Terminal circle (48): opens the terminal hub | `TerminalButton`, opens `SessionHub`: one full-height panel with a segmented Agents, Terminals, Files switcher (`HubTabBar`, `HubTabsPresenter`), the last tab remembered |
 | 3 | Floating panel above the dock (shortcuts, clipboard, apps, settings), one at a time, glass, rounded 22 | `SessionPanelHost` |
 | 4 | Scroll wheel, left, 54 x 120: up chevron, ridged rim, down chevron; drag rolls notches, flick coasts, chevrons step one notch; zoom gauge in Observe | `ScrollWheel`, `ScrollWheelState`, `WheelSpin` |
 | 5 | Pointer row, centred: Back key (46), joystick disc (100), Enter key (60), each captioned | `PointerRow`, `QuickKey`, `Joystick` |

@@ -59,7 +59,7 @@ import pl.dmq.peering.ui.theme.FailureNotice
 import pl.dmq.peering.ui.wiring.messageRes
 
 /** The screens a session presents over its remote screen. */
-enum class SessionRoute { REMOTE, AGENTS, FILES, TERMINAL, PAYWALL }
+enum class SessionRoute { REMOTE, HUB, PAYWALL }
 
 /**
  * The session's screens, one at a time. Back returns to the remote screen from the others. [onClose] leaves the screen
@@ -113,9 +113,7 @@ internal fun SessionScreens(
     AnimatedContent(targetState = route, transitionSpec = { fadeThrough() }, label = "sessionRoute") { shown ->
         when (shown) {
             SessionRoute.REMOTE -> RemoteWithNotice(remote, session.phase)
-            SessionRoute.AGENTS -> AgentsScreen(active, drafts, folderRecents, clock) { route = SessionRoute.REMOTE }
-            SessionRoute.FILES -> FilesScreen(active) { route = SessionRoute.REMOTE }
-            SessionRoute.TERMINAL -> TerminalHost(active) { route = SessionRoute.REMOTE }
+            SessionRoute.HUB -> SessionHub(active, drafts, folderRecents, clock) { route = SessionRoute.REMOTE }
             SessionRoute.PAYWALL -> PaywallRoute(
                 billing = StorePaywallBilling(billing) { context.findActivity() },
                 allowance = relayAllowance.allowance,
@@ -148,7 +146,7 @@ private fun RemoteWithNotice(remote: RemoteModel, phase: SessionPhase) {
 }
 
 @Composable
-private fun AgentsScreen(
+internal fun AgentsScreen(
     active: ActiveSession,
     drafts: ComposerDraftStore,
     folderRecents: FolderRecentsStore,
@@ -176,7 +174,7 @@ private fun AgentsScreen(
 }
 
 @Composable
-private fun FilesScreen(active: ActiveSession, onBack: () -> Unit) {
+internal fun FilesScreen(active: ActiveSession, onBack: () -> Unit) {
     val browser = active.controller.files
     if (browser == null) {
         Unavailable(R.string.session_unavailable_files, onBack)

@@ -44,7 +44,7 @@ data class StatusUi(
     val darkened: Boolean,
     val fills: Boolean,
     val zoomPercent: Int?,
-    val terminalEntries: List<HubEntry>,
+    val hubTabs: List<HubTab>,
 )
 
 /** What a tap on the pill's chips and buttons does. */
@@ -55,7 +55,7 @@ class StatusActions(
     val onResetZoom: () -> Unit,
     val onImmersive: () -> Unit,
     val onStepAway: () -> Unit,
-    val onTerminalEntry: (HubEntry) -> Unit,
+    val onOpenHub: () -> Unit,
     val onQuit: () -> Unit,
 )
 
