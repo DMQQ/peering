@@ -1,7 +1,6 @@
 //! Terminal sessions in the host: the manager built from the platform's pseudo console, terminal requests answered on a
 //! connection, and what the shells print delivered to the client that owns them.
 
-use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -25,9 +24,6 @@ use super::random::SystemRandomSource;
 use super::services::{SharedFileSystem, TerminalServices};
 use super::shared::HostState;
 use super::video::Outgoing;
-
-/// Alerts held for a relay that is not reachable. Older ones are dropped first: a prompt answered long ago is stale.
-const MAXIMUM_WAITING_NOTIFICATIONS: usize = 20;
 
 const BROWSE_TIMEOUT: Duration = Duration::from_secs(10);
 const BROWSE_TIMED_OUT: &str = "This PC took too long to read that.";
@@ -162,7 +158,7 @@ impl HostState {
     }
 
     fn queue_notification(&mut self, alert: PushAlert) {
-        hold(&mut self.notifications, notify_message(alert));
+        self.notifications.hold(notify_message(alert));
     }
 }
 
@@ -175,13 +171,6 @@ fn notify_message(alert: PushAlert) -> RelayClientMessage {
         category: None,
         session_id: None,
         approval_id: None,
-    }
-}
-
-fn hold(queue: &mut VecDeque<RelayClientMessage>, message: RelayClientMessage) {
-    queue.push_back(message);
-    while queue.len() > MAXIMUM_WAITING_NOTIFICATIONS {
-        queue.pop_front();
     }
 }
 
@@ -212,16 +201,5 @@ mod tests {
             panic!("a notify message");
         };
         assert_eq!((device_token.as_str(), title.as_str(), body.as_str()), ("ab", "Terminal needs you", "prompt 1"));
-    }
-
-    #[test]
-    fn a_relay_that_stays_away_keeps_only_the_newest_alerts() {
-        let mut queue = VecDeque::new();
-        for number in 0..MAXIMUM_WAITING_NOTIFICATIONS + 5 {
-            hold(&mut queue, notify_message(alert(number)));
-        }
-        assert_eq!(queue.len(), MAXIMUM_WAITING_NOTIFICATIONS);
-        let Some(RelayClientMessage::NotifyDevice { body, .. }) = queue.front() else { panic!("one is waiting") };
-        assert_eq!(body, "prompt 5");
     }
 }

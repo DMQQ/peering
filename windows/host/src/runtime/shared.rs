@@ -1,6 +1,6 @@
 //! The state the connections share. It is locked only for short synchronous steps and never across an await.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
@@ -10,10 +10,10 @@ use peering_core::session::deps::PinStore;
 use peering_core::terminal::manager::TerminalSessionManager;
 use peering_core::video::coordinator::VideoCoordinator;
 use peering_core::video::lane::VideoLane;
-use peering_wire::relay_messages::RelayClientMessage;
 use tokio::sync::broadcast;
 
 use super::control::{ControlChannel, RelayStatus};
+use super::notifications::WaitingNotifications;
 use super::outbound::{FrameSender, Outbound};
 use super::peer_address::PeerAddressRouter;
 use super::services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
@@ -49,7 +49,7 @@ pub struct HostState {
     pub files: Arc<FileBrowser<SharedFileSystem>>,
     pub terminals: TerminalSessionManager,
     /// Push notifications for the relay to send once the host is registered with it, oldest first.
-    pub notifications: VecDeque<RelayClientMessage>,
+    pub notifications: WaitingNotifications,
     pub sessions: HashMap<u64, SessionSlot>,
     pub next_session: u64,
     pub catalog_checked_at: Option<f64>,

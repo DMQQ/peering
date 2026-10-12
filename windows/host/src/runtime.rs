@@ -14,6 +14,7 @@ mod control;
 mod files;
 mod listener;
 mod peer_address;
+mod notifications;
 mod outbound;
 mod pins;
 mod pre_auth;
@@ -27,7 +28,7 @@ mod terminal;
 mod video;
 mod video_requests;
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::io;
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
@@ -51,6 +52,7 @@ pub use control::{ApprovalView, DeviceView, HostHandle, HostSnapshot, OfferView,
 pub use services::{platform_services, HostServices, TerminalServices};
 
 use control::ControlChannel;
+use notifications::WaitingNotifications;
 use peer_address::PeerAddressRouter;
 use pins::SecretPins;
 use services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
@@ -165,7 +167,7 @@ impl HostRuntime {
             system: BoxedSystem(system),
             files: Arc::new(FileBrowser::new(SharedFileSystem(files), home_directory)),
             terminals,
-            notifications: VecDeque::new(),
+            notifications: WaitingNotifications::default(),
             sessions: HashMap::new(),
             next_session: 0,
             catalog_checked_at: None,

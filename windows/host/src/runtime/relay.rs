@@ -16,18 +16,24 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio::task::spawn_local;
-use tokio::time::interval;
+use tokio::time::{interval, timeout};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{connect_async_tls_with_config, Connector, MaybeTlsStream, WebSocketStream};
 
-use super::connection::serve;
+use super::connection::serve_counted;
 use super::control::RelayStatus;
 use super::peer_address::peer_socket_addr;
+use super::pre_auth::{PreAuthGate, PreAuthPermit};
 use super::shared::Shared;
 use super::{HostProfile, PeerInfo, RelayConfig, VideoEndpoint};
 
 const PROTOCOL_VERSION: u16 = peering_core::session::handshake::PROTOCOL_VERSION;
 const TICK: Duration = Duration::from_secs(1);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+const SEND_TIMEOUT: Duration = Duration::from_secs(10);
+const DIAL_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const DIAL_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+const MAXIMUM_CONCURRENT_DIALS: usize = 8;
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -35,6 +41,7 @@ pub async fn run(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, r
     let mut registration = RelayRegistration::new(relay.device_id.clone(), relay.name.clone(), PROTOCOL_VERSION, signer);
     // The first connection waits one backoff step like a reconnect does, so a relay that is down at launch is not hammered.
     registration.on_disconnect(profile.clock.as_ref());
+    let dials = PreAuthGate::new(MAXIMUM_CONCURRENT_DIALS);
     let mut ticks = interval(TICK);
     loop {
         ticks.tick().await;
@@ -43,7 +50,7 @@ pub async fn run(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, r
             continue;
         }
         set_relay_status(&shared, RelayStatus::Connecting);
-        let Ok(mut socket) = connect(&relay.url).await else {
+        let Ok(Ok(mut socket)) = timeout(CONNECT_TIMEOUT, connect(&relay.url)).await else {
             set_relay_status(&shared, RelayStatus::Retrying);
             registration.on_disconnect(profile.clock.as_ref());
             continue;
@@ -52,7 +59,7 @@ pub async fn run(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, r
         let (asks_tx, mut asks) = mpsc::unbounded_channel();
         shared.peer_addresses().attach(Some(asks_tx));
         loop {
-            if apply(&mut socket, &mut pending, &shared, &profile, &tls).await.is_break() {
+            if apply(&mut socket, &mut pending, Dialer { shared: &shared, profile: &profile, tls: &tls, dials: &dials }).await.is_break() {
                 break;
             }
             tokio::select! {
@@ -73,7 +80,7 @@ pub async fn run(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, r
                     Some(Ok(_)) => continue,
                 },
                 Some(ask) = asks.recv() => {
-                    if socket.send(Message::Text(encode_sorted(&ask).into())).await.is_err() {
+                    if send_message(&mut socket, &ask).await.is_err() {
                         break;
                     }
                 }
@@ -91,14 +98,23 @@ pub async fn run(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, r
     }
 }
 
-/// Sends the push notifications waiting for the relay. They are taken before sending, so a socket that fails
-/// mid-way loses the ones not yet sent; the phone is told again by its next prompt.
+/// Sends the push notifications waiting for the relay, each leaving the queue only once the socket took it.
 async fn send_notifications(socket: &mut Socket, shared: &Shared) -> Result<(), ()> {
-    let waiting: Vec<_> = shared.lock().notifications.drain(..).collect();
-    for message in waiting {
-        socket.send(Message::Text(encode_sorted(&message).into())).await.map_err(|_| ())?;
+    loop {
+        let Some(message) = shared.lock().notifications.next() else {
+            return Ok(());
+        };
+        send_message(socket, &message).await?;
+        shared.lock().notifications.sent(&message);
     }
-    Ok(())
+}
+
+/// A relay that stops reading would otherwise hold the registration loop, and with it the reconnect and the ping.
+async fn send_message<M: serde::Serialize>(socket: &mut Socket, message: &M) -> Result<(), ()> {
+    match timeout(SEND_TIMEOUT, socket.send(Message::Text(encode_sorted(message).into()))).await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(_)) | Err(_) => Err(()),
+    }
 }
 
 fn set_relay_status(shared: &Shared, status: RelayStatus) {
@@ -123,23 +139,28 @@ fn answer_ask(shared: &Shared, message: &RelayServerMessage) -> bool {
     }
 }
 
+/// What a dial to the relay's control port needs, and the cap on how many run at once.
+struct Dialer<'a> {
+    shared: &'a Shared,
+    profile: &'a Arc<HostProfile>,
+    tls: &'a Arc<HostTls>,
+    dials: &'a PreAuthGate,
+}
+
 /// Applies the registration's actions. Returns `Break` when the socket must be closed.
-async fn apply(
-    socket: &mut Socket,
-    actions: &mut Vec<RegAction>,
-    shared: &Shared,
-    profile: &Arc<HostProfile>,
-    tls: &Arc<HostTls>,
-) -> std::ops::ControlFlow<()> {
+async fn apply(socket: &mut Socket, actions: &mut Vec<RegAction>, dialer: Dialer<'_>) -> std::ops::ControlFlow<()> {
     for action in std::mem::take(actions) {
         match action {
             RegAction::Send(message) => {
-                if socket.send(Message::Text(encode_sorted(&message).into())).await.is_err() {
+                if send_message(socket, &message).await.is_err() {
                     return std::ops::ControlFlow::Break(());
                 }
             }
             RegAction::DialSession(session) => {
-                spawn_local(dial(shared.clone(), profile.clone(), tls.clone(), session));
+                // A session the cap turns away is not answered; the relay's own timeout ends it.
+                if let Some(permit) = dialer.dials.enter() {
+                    spawn_local(dial(dialer.shared.clone(), dialer.profile.clone(), dialer.tls.clone(), session, permit));
+                }
             }
             RegAction::Close => return std::ops::ControlFlow::Break(()),
             RegAction::Connect => {}
@@ -162,17 +183,17 @@ async fn connect(url: &str) -> Result<Socket, Box<dyn std::error::Error + Send +
 
 /// Writes the session token, then serves the connection as the relay's client side. A plan the relay should not have
 /// sent is dropped; the registration stays up.
-async fn dial(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, session: RelaySession) {
+async fn dial(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, session: RelaySession, permit: PreAuthPermit) {
     let Ok(plan): Result<DialPlan, _> = dial_plan(&session) else {
         return;
     };
-    let Ok(mut tcp) = TcpStream::connect((plan.host.as_str(), plan.port)).await else {
+    let Ok(Ok(mut tcp)) = timeout(DIAL_CONNECT_TIMEOUT, TcpStream::connect((plan.host.as_str(), plan.port))).await else {
         return;
     };
-    if tcp.write_all(&first_bytes(&plan)).await.is_err() {
+    let Ok(Ok(())) = timeout(DIAL_CONNECT_TIMEOUT, tcp.write_all(&first_bytes(&plan))).await else {
         return;
-    }
-    let Ok(accepted) = tls.relay_accept(tcp).await else {
+    };
+    let Ok(Ok(accepted)) = timeout(DIAL_HANDSHAKE_TIMEOUT, tls.relay_accept(tcp)).await else {
         return;
     };
     let peer = PeerInfo {
@@ -181,5 +202,5 @@ async fn dial(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, sess
         video_token: Some(session.video_token.0),
         video_endpoint: Some(VideoEndpoint { host: session.video_host.clone(), port: session.video_port }),
     };
-    serve(shared, profile, accepted.stream, peer).await;
+    serve_counted(shared, profile, accepted.stream, peer, Some(permit)).await;
 }
