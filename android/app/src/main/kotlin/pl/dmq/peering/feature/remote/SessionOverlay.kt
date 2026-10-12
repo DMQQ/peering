@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -46,14 +47,19 @@ fun SessionOverlay(
         verticalArrangement = Arrangement.spacedBy(6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Surface(shape = peeringShapes.extraLarge, color = PeeringColors.containerHigh, shadowElevation = 6.dp) {
+        Surface(
+            modifier = Modifier.heightIn(min = 48.dp),
+            shape = peeringShapes.extraLarge,
+            color = PeeringColors.containerHigh,
+            shadowElevation = 6.dp,
+        ) {
             Row(
                 modifier = Modifier.padding(start = 16.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 StatusDot(statusColor(state))
-                Column(modifier = Modifier.weight(1f, fill = false).padding(vertical = 6.dp, horizontal = 2.dp)) {
+                Column(modifier = Modifier.weight(1f, fill = false).padding(vertical = 6.dp)) {
                     Text(
                         text = state.hostName ?: stringResource(R.string.remote_computer_fallback),
                         style = MaterialTheme.typography.titleSmall,
@@ -61,19 +67,19 @@ fun SessionOverlay(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        state.path?.let { PathBadge(it) }
-                        state.latencyMs?.let { LabelText(stringResource(R.string.overlay_latency, it)) }
-                        LabelText(stringResource(state.pictureLabel()))
-                    }
+                    Text(
+                        text = detailLine(state),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = PeeringColors.muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
                 zoomPercent?.let {
                     AssistChip(
                         onClick = onFit,
-                        label = { Text(stringResource(R.string.remote_zoom_percent, it)) },
-                        leadingIcon = {
-                            Icon(AppIcons.fit, contentDescription = stringResource(R.string.remote_fit_description))
-                        },
+                        label = { Text(stringResource(R.string.remote_zoom_percent, it), maxLines = 1) },
+                        shape = peeringShapes.extraLarge,
                     )
                 }
                 IconButton(onClick = onDisconnect) {
@@ -83,7 +89,7 @@ fun SessionOverlay(
                         tint = PeeringColors.danger,
                     )
                 }
-        }
+            }
         }
         state.quota?.let { notice ->
             val text = when (notice) {
@@ -100,9 +106,11 @@ fun SessionOverlay(
 }
 
 @Composable
-private fun LabelText(text: String) {
-    Text(text = text, style = MaterialTheme.typography.labelMedium, color = PeeringColors.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-}
+private fun detailLine(state: SessionOverlayState): String = listOfNotNull(
+    state.path?.let { stringResource(it.labelRes()) },
+    state.latencyMs?.let { stringResource(R.string.overlay_latency, it) },
+    stringResource(state.pictureLabel()),
+).joinToString(" \u00B7 ")
 
 @Composable
 private fun StatusDot(color: Color) {

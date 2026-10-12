@@ -1,24 +1,33 @@
 package pl.dmq.peering.feature.remote
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.peeringShapes
 
-/** The session controls as Material's own navigation bar in portrait and navigation rail in landscape. */
+/**
+ * The session controls as a floating toolbar of 48 dp icon buttons, a row in portrait and a column in landscape.
+ * Icon only so six actions fit at any width and font scale; the name shows as a tooltip on long press.
+ */
 @Composable
 fun SessionToolbar(
     actions: List<ToolbarAction>,
@@ -28,29 +37,37 @@ fun SessionToolbar(
     onAction: (ToolbarAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (vertical) {
-        NavigationRail(modifier = modifier.clip(peeringShapes.extraLarge), containerColor = PeeringColors.containerHigh) {
+    Surface(modifier = modifier, shape = peeringShapes.extraLarge, color = PeeringColors.containerHigh, shadowElevation = 6.dp) {
+        val buttons: @Composable () -> Unit = {
             actions.forEach { action ->
-                NavigationRailItem(
-                    selected = action == ToolbarAction.KEYBOARD && keyboardShown,
-                    onClick = { onAction(action) },
-                    icon = { Icon(action.icon(mode), contentDescription = null) },
-                    label = { Text(stringResource(action.labelRes(mode))) },
-                    colors = NavigationRailItemDefaults.colors(indicatorColor = PeeringColors.selectedIndicator),
-                )
+                ToolbarButton(action, mode, selected = action == ToolbarAction.KEYBOARD && keyboardShown, onClick = { onAction(action) })
             }
         }
-    } else {
-        NavigationBar(modifier = modifier.clip(peeringShapes.extraLarge), containerColor = PeeringColors.containerHigh) {
-            actions.forEach { action ->
-                NavigationBarItem(
-                    selected = action == ToolbarAction.KEYBOARD && keyboardShown,
-                    onClick = { onAction(action) },
-                    icon = { Icon(action.icon(mode), contentDescription = null) },
-                    label = { Text(stringResource(action.labelRes(mode))) },
-                    colors = NavigationBarItemDefaults.colors(indicatorColor = PeeringColors.selectedIndicator),
-                )
-            }
+        if (vertical) {
+            Column(Modifier.padding(4.dp)) { buttons() }
+        } else {
+            Row(Modifier.padding(4.dp)) { buttons() }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ToolbarButton(action: ToolbarAction, mode: InputMode, selected: Boolean, onClick: () -> Unit) {
+    val label = stringResource(action.labelRes(mode))
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(label) } },
+        state = rememberTooltipState(),
+    ) {
+        IconButton(
+            onClick = onClick,
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = if (selected) PeeringColors.selectedIndicator else Color.Transparent,
+                contentColor = PeeringColors.ink,
+            ),
+        ) {
+            Icon(action.icon(mode), contentDescription = label)
         }
     }
 }
