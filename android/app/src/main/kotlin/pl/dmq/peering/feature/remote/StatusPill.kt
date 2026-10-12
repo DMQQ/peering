@@ -3,6 +3,8 @@ package pl.dmq.peering.feature.remote
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -168,7 +170,7 @@ internal fun RouteChip(overlay: SessionOverlayState) {
     )
 }
 
-/** One chip of a pill row: a glyph and a word, equal in width to its neighbours. */
+/** One chip of a pill row: a glyph and a word, as wide as they need. */
 data class PillChipSpec(
     val label: String,
     val icon: ImageVector?,
@@ -183,20 +185,21 @@ internal fun PillChip(spec: PillChipSpec, modifier: Modifier = Modifier) {
     val content = spec.tint ?: if (spec.destructive) PeeringColors.onInk else PeeringColors.ink
     Row(
         modifier = modifier
-            .height(28.dp)
+            .height(36.dp)
             .clip(PillShape)
             .background(fill)
             .tappable(spec.onClick)
-            .padding(horizontal = 7.dp),
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
     ) {
-        spec.icon?.let { Icon(it, contentDescription = null, tint = content, modifier = Modifier.size(14.dp)) }
+        spec.icon?.let { Icon(it, contentDescription = null, tint = content, modifier = Modifier.size(16.dp)) }
         Text(spec.label, style = PeeringText.caption.copy(fontWeight = FontWeight.Medium), color = content, maxLines = 1, softWrap = false)
     }
 }
 
-/** A row of the expanded pill: the section's glyph and name at the start, its chips in equal slots after it. */
+/** A row of the expanded pill: the section's glyph and name at the start, its chips after it. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PillRow(title: String, icon: ImageVector, chips: List<PillChipSpec>) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -204,12 +207,14 @@ internal fun PillRow(title: String, icon: ImageVector, chips: List<PillChipSpec>
             Icon(icon, contentDescription = null, tint = PeeringColors.muted, modifier = Modifier.size(14.dp))
             Text(title, style = PeeringText.captionSemibold, color = PeeringColors.muted, maxLines = 1)
         }
-        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            chips.forEach { PillChip(it, Modifier.weight(1f)) }
-            repeat((CHIP_SLOTS - chips.size).coerceAtLeast(0)) { Box(Modifier.weight(1f)) }
+        FlowRow(
+            Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            chips.forEach { PillChip(it) }
         }
     }
 }
 
 private val ROW_LABEL_WIDTH = 74.dp
-private const val CHIP_SLOTS = 3
