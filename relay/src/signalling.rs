@@ -56,6 +56,7 @@ use crate::referrals::Standing;
 use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
 use crate::play_api::PlayVerifier;
 use crate::playbilling::{self, PlayReceiptCache, PlayRejection};
+use crate::stats::{Refusal, TALLY};
 use crate::storekit::{Rejection, ReceiptCache, StoreKitVerifier, Trust};
 
 /// How the relay describes itself to the two ends.
@@ -519,7 +520,9 @@ async fn handle<S>(
                                 dispatch(message, &tx, &registry, &hosts, &settings, &relay_host, &mut state).await
                             }
                             Err(error) => {
-                                warn!(%peer, %error, "unparseable signalling message; likely a client on a different version");
+                                let reason = Refusal::for_unparseable(&error);
+                                TALLY.refused(reason);
+                                warn!(%peer, %error, reason = reason.as_str(), "unparseable signalling message; likely a client on a different version");
                                 Some(ServerMessage::error("protocol", "unrecognised message"))
                             }
                         };
@@ -596,6 +599,7 @@ async fn dispatch(
                         .unwrap_or_default()
                         .as_secs();
                     if !device_proof::time_is_current(stamp, now) {
+                        TALLY.refused(Refusal::BadProof);
                         warn!(%device_id, "a device registration was signed for a different time");
                         return Some(ServerMessage::error(
                             "proofStale",
@@ -604,6 +608,7 @@ async fn dispatch(
                     }
                     let body = device_proof::payload(&device_id, stamp);
                     if !device_proof::verifies(key, signature, body.as_bytes()) {
+                        TALLY.refused(Refusal::BadProof);
                         warn!(%device_id, "a device registration did not prove the key it claimed");
                         return Some(ServerMessage::error(
                             "proofInvalid",
@@ -628,6 +633,7 @@ async fn dispatch(
                 // Loud, and at warn rather than debug: this is either a device that has lost its
                 // key, or somebody claiming an id they do not own, and both are worth seeing in
                 // the journal without turning a log level up to find them.
+                TALLY.refused(Refusal::BadProof);
                 warn!(%device_id, reason, "refused a device registration");
                 return Some(ServerMessage::error("deviceRefused", reason));
             }
@@ -761,6 +767,7 @@ async fn dispatch(
                 // is answered here, with the plan that was applied, whether Apple or the client
                 // said so, and so whether the client was metered as free when it did not think
                 // it was.
+                TALLY.refused(Refusal::QuotaRefusedAtConnect);
                 info!(
                     %client_id,
                     plan = plan.as_str(),
@@ -774,6 +781,7 @@ async fn dispatch(
             }
 
             let Some(host) = hosts.entry_for(&host_id).await else {
+                TALLY.refused(Refusal::HostNotRegistered);
                 info!(%host_id, "asked for a host that is not registered");
                 return Some(ServerMessage::HostOffline { device_id: host_id });
             };
@@ -782,6 +790,7 @@ async fn dispatch(
             // handshake that would fail anyway. The two ends check it again themselves — this is a
             // courtesy, not the enforcement.
             if host.protocol_version != protocol_version {
+                TALLY.refused(Refusal::VersionMismatch);
                 return Some(ServerMessage::error(
                     "version",
                     format!(
@@ -838,6 +847,7 @@ async fn dispatch(
             // session back needs that settled by the line rather than inferred from the client —
             // which is what `plan_trust` is for: `verified` means Apple signed the plan, `claimed`
             // means the client's word for it, `neither` means the free allowance.
+            TALLY.session_allocated();
             info!(
                 %host_id,
                 host_name = %host.name,
@@ -875,6 +885,7 @@ async fn dispatch(
                 .await
                 .is_err()
             {
+                TALLY.refused(Refusal::HostOffline);
                 warn!(%host_id, "host went away while its session was being set up");
                 registry.release(&allocated.control_token).await;
                 return Some(ServerMessage::HostOffline { device_id: host_id });

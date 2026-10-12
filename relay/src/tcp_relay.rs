@@ -20,8 +20,9 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
 use tracing::{debug, info, warn};
 
-use crate::counted_stream::CountedStream;
+use crate::counted_stream::{CountedStream, EndWatch, Side};
 use crate::session::{Join, Registry, Token};
+use crate::stats::{self, EndReason, Refusal, TALLY};
 
 /// How long a connection may sit without presenting a token. Long enough to survive a slow start,
 /// short enough that an idle socket cannot be used to hold resources.
@@ -99,12 +100,14 @@ async fn handle(
     // spliced at all, and a token whose session has gone is the same answer: there is nothing to
     // charge, so there is nothing to carry.
     let Some(account) = registry.account_for_token(&token).await else {
+        TALLY.refused(Refusal::BadToken);
         return Ok(());
     };
 
     let Some(join) = registry.join_control(&token, stream).await else {
         // Not a token we issued, or one that has already been used or swept. Closed without a
         // reply, so a probe learns nothing about whether the session exists.
+        TALLY.refused(Refusal::BadToken);
         return Ok(());
     };
 
@@ -118,7 +121,11 @@ async fn handle(
     // and the socket closes. A second timeout here would only duplicate that with a second number
     // to keep in step.
     let Ok(theirs) = peer.await else {
-        info!("session was swept before the peer connected; the other end never arrived");
+        TALLY.refused(Refusal::TimedOutWaitingForHost);
+        info!(
+            reason = Refusal::TimedOutWaitingForHost.as_str(),
+            "session was swept before the peer connected; the other end never arrived"
+        );
         return Ok(());
     };
 
@@ -142,8 +149,11 @@ async fn handle(
     // already filled, and bytes read from one end but not yet written to the other would be lost
     // every time a tick was handled.
     let control_bytes = Arc::new(AtomicU64::new(0));
-    let mut mine = CountedStream::new(mine, Arc::clone(&control_bytes));
-    let mut theirs = CountedStream::new(theirs, Arc::clone(&control_bytes));
+    let first_to_end = Arc::new(EndWatch::default());
+    let mut mine = CountedStream::new(mine, Arc::clone(&control_bytes))
+        .watched(Arc::clone(&first_to_end), Side::First);
+    let mut theirs = CountedStream::new(theirs, Arc::clone(&control_bytes))
+        .watched(Arc::clone(&first_to_end), Side::Second);
     let splice = tokio::io::copy_bidirectional(&mut mine, &mut theirs);
     tokio::pin!(splice);
 
@@ -165,11 +175,16 @@ async fn handle(
     // reported as one that ran out of allowance, which is a distinction the log line below exists
     // to make. Polling the work before the clock is also the order the two matter in.
     let mut spent = false;
+    let mut copied = None;
     let spliced_at = std::time::Instant::now();
+    TALLY.splice_started();
     loop {
         tokio::select! {
             biased;
-            _ = &mut splice => break,
+            result = &mut splice => {
+                copied = Some(result);
+                break;
+            }
             _ = ticks.tick() => {
                 // **Said on every tick, not once at the start.** The sweep retires a session whose
                 // registry entry has not been touched for the TTL, and the only thing that used to
@@ -190,6 +205,7 @@ async fn handle(
     // Released so the token cannot be presented again. Without this a token stays valid for the
     // rest of its TTL, and a leaked one could hold a splice open.
     let video = registry.release(&token).await;
+    let tier = meter.tier();
 
     // The last stretch, which is whatever has passed since the previous charge. Taken here rather
     // than left to the meter's own drop so that the number billed is the number on the line below;
@@ -214,20 +230,50 @@ async fn handle(
         );
     }
 
+    let reason = stats::end_reason(spent, copied.as_ref());
+    TALLY.splice_ended(reason);
+    let closed_first = match (reason, first_to_end.first_to_end()) {
+        (EndReason::QuotaExhausted, _) | (_, None) => "unknown",
+        (_, Some(Side::First)) => "first_joiner",
+        (_, Some(Side::Second)) => "second_joiner",
+    };
+
     // One line per relayed session, kept at info: a session whose picture never crossed the video
     // socket is how a network that blocks UDP shows up here, and nothing else in the log says so.
     // `control_bytes` is large when the picture travelled on the control channel instead, so `video_over_udp = false` with a large count is a fallback that worked, not a blocked network.
-    if let Some(video) = video {
-        info!(
-            seconds = spliced_at.elapsed().as_secs(),
-            video_over_udp = video.from_host_datagrams > 0,
-            video_datagrams_from_host = video.from_host_datagrams,
-            video_bytes_from_host = video.from_host_bytes,
-            video_datagrams_from_client = video.from_client_datagrams,
-            control_bytes = control_bytes.load(Ordering::Relaxed),
-            "relayed session ended"
-        );
+    //
+    // `closed_first` names sockets by arrival order because the relay cannot tell a phone from a Mac
+    // here. `session_retired_early` means the registry had already dropped the session (swept or
+    // superseded), so the video fields are zero for want of a count rather than for want of video.
+    let session_retired_early = video.is_none();
+    let video = video.unwrap_or_default();
+    let seconds = spliced_at.elapsed().as_secs();
+    let control_total = control_bytes.load(Ordering::Relaxed);
+    let path = stats::video_path(video.from_host_datagrams, control_total, seconds);
+    let first_video_ms = video
+        .first_from_host
+        .map(|at| at.saturating_duration_since(spliced_at).as_millis() as u64);
+    if !session_retired_early && (!video.client_bound || !video.host_bound) {
+        TALLY.refused(Refusal::UdpBindUnclaimed);
     }
+    info!(
+        seconds,
+        video_over_udp = video.from_host_datagrams > 0,
+        video_datagrams_from_host = video.from_host_datagrams,
+        video_bytes_from_host = video.from_host_bytes,
+        video_datagrams_from_client = video.from_client_datagrams,
+        control_bytes = control_total,
+        end_reason = reason.as_str(),
+        closed_first,
+        io_error_kind = ?stats::error_kind(copied.as_ref()),
+        plan = tier.as_str(),
+        video_path = path.as_str(),
+        first_video_ms = ?first_video_ms,
+        udp_client_bound = video.client_bound,
+        udp_host_bound = video.host_bound,
+        session_retired_early,
+        "relayed session ended"
+    );
 
     debug!("splice finished");
     Ok(())

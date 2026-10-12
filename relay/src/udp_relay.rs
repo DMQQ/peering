@@ -43,6 +43,7 @@ use tokio::time::MissedTickBehavior;
 use tracing::{debug, info, warn};
 
 use crate::session::{Routed, Token, VideoRoutes};
+use crate::stats::TALLY;
 
 /// The token that opens every datagram: the one part of it this process reads, and the only part it
 /// is entitled to. Fixed by the wire contract, and the length of a [`Token`].
@@ -125,6 +126,7 @@ async fn forward(socket: UdpSocket, routes: Arc<VideoRoutes>, idle_ttl: Duration
                     // counted or validated, whatever it looks like.
                     if packet.len() < PREFIX_LEN {
                         dropped += 1;
+                        TALLY.udp_unclaimed();
                         continue;
                     }
 
@@ -141,7 +143,10 @@ async fn forward(socket: UdpSocket, routes: Arc<VideoRoutes>, idle_ttl: Duration
                         // same reason an unknown control token gets none: silence tells a prober
                         // nothing about whether a session is here, and the honest answer to both
                         // cases is that there is no route.
-                        Routed::Dropped => dropped += 1,
+                        Routed::Dropped => {
+                            dropped += 1;
+                            TALLY.udp_unclaimed();
+                        }
 
                         // Bound, but the other end has not claimed its slot yet, so there is
                         // nowhere to send this. Early rather than wrong: the frames a Mac sends

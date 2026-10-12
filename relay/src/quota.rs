@@ -73,6 +73,7 @@ use tracing::warn;
 
 use crate::config::PlanAllowances;
 use crate::referrals::{ReferralTerms, Referrals};
+use crate::stats::PlanTier;
 
 /// One-day rolling window. Dividing epoch seconds by this gives a bucket number that advances
 /// every 24 hours — no calendar library needed, and the exact hour it rolls over does not matter
@@ -698,6 +699,18 @@ impl Meter {
         self.started -= by;
     }
 
+    /// Free when the plan has an allowance, paid for a purchased plan, and unlimited for anything
+    /// else the counter does not bound (a paid key). Named for the journal, never for billing.
+    pub fn tier(&self) -> PlanTier {
+        if self.remaining().is_some() {
+            PlanTier::Free
+        } else if self.account.plan == Plan::Free {
+            PlanTier::Unlimited
+        } else {
+            PlanTier::Paid
+        }
+    }
+
     /// The client this splice is metered against, for the line that says a session was cut off.
     pub fn client_id(&self) -> &str {
         &self.account.client_id
@@ -1233,6 +1246,17 @@ mod tests {
 
         meter.backdate(Duration::from_secs(600));
         assert_eq!(meter.charge(), Some(0), "and it stays there");
+    }
+
+    #[test]
+    fn a_meter_names_its_tier_for_the_journal() {
+        assert_eq!(metered(15, Plan::Free, None).1.tier(), PlanTier::Free);
+        assert_eq!(metered(15, Plan::Plus, None).1.tier(), PlanTier::Paid);
+        let keyed = Arc::new(QuotaTracker::new(
+            PlanAllowances { free_seconds: Some(900), relay_seconds: Some(900) },
+            HashSet::from(["paid-key".to_string()]),
+        ));
+        assert_eq!(keyed.account("phone", Some("paid-key"), Plan::Free).start().tier(), PlanTier::Unlimited);
     }
 
     /// The rule this whole shape has to preserve: an unlimited plan is tracked and is never

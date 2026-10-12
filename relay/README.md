@@ -796,6 +796,67 @@ journalctl -u peeringd -n 100      # why it stopped, in its own words
 systemctl reset-failed peeringd    # after fixing the cause, clear the start limit
 ```
 
+#### Reading the journal: why sessions end and why attempts fail
+
+None of these lines carries a client id, host id, address, key, token or any content that was not
+already there: the new fields are counts and names from closed sets (`stats.rs`).
+
+**Every relayed session writes one `relayed session ended` line.** The fields from before are
+unchanged (`seconds`, `video_over_udp`, `video_datagrams_from_host`, `video_bytes_from_host`,
+`video_datagrams_from_client`, `control_bytes`). New:
+
+| Field | Values | Meaning |
+|---|---|---|
+| `end_reason` | `peer_closed`, `quota_exhausted`, `io_error`, `shutdown` | `peer_closed` is a clean finish, `io_error` a failed read or write (usually a reset), `quota_exhausted` the relay cut a free session off. `shutdown` is counted in the summary only, since a stopping process writes no per-session line |
+| `closed_first` | `first_joiner`, `second_joiner`, `unknown` | Which control socket ended first, named by arrival order: the relay cannot tell a phone from a Mac (the token is shared and the rest is TLS). `unknown` for quota cuts |
+| `io_error_kind` | `None` or a Rust `ErrorKind` (`ConnectionReset`, `BrokenPipe`, `TimedOut`) | Only with `io_error` |
+| `plan` | `free`, `paid`, `unlimited` | `paid` is a purchased plan, `unlimited` a paid key |
+| `video_path` | `udp`, `tcp_fallback`, `none` | `udp` if any picture datagram crossed. `tcp_fallback` is a heuristic: no UDP, but the control stream averaged 32 KiB/s or more. `none` is neither |
+| `first_video_ms` | `None` or milliseconds | From the splice starting to the first picture datagram from the host |
+| `udp_client_bound`, `udp_host_bound` | `true`, `false` | Whether that end ever sent any datagram to the video socket. `false` on the host is UDP not reaching the relay at all |
+| `session_retired_early` | `true`, `false` | The registry had already dropped the session (swept or superseded), so the video numbers are zero for want of a count |
+
+**Refusals and failures** are counted by reason: `host_not_registered`, `host_offline` (the host
+vanished while its session was being set up), `bad_token`, `bad_proof` (a registration whose proof
+is stale, invalid or for a key another device holds), `quota_refused_at_connect`,
+`timed_out_waiting_for_host` (the session was swept before its second end connected),
+`version_mismatch` (an unknown message variant, or host and client on different protocol
+versions), `malformed_message` (a message that did not parse for any other reason) and
+`udp_bind_unclaimed` (a session ended with an end that never bound its video slot). The warn line
+for an unparseable message and the swept-session line carry a `reason` field with the same names.
+
+**Every ten minutes the relay writes `relay summary since the last one`**, and once more when it
+stops. It carries counters since the previous summary: `sessions_allocated`, `sessions_started`,
+`active_splices` (a gauge, not reset), `ended_*` by reason, `refused_*` by reason,
+`failed_udp_bind_unclaimed`, and `udp_datagrams_unclaimed` (datagrams that named no live session).
+A quiet relay prints a line of zeros; a broken one prints nothing, so a missing summary is itself the
+alarm.
+
+```sh
+# Is UDP video failing? Share of recent sessions by video path.
+journalctl -u peeringd --since "24 hours ago" -o cat | grep 'relayed session ended' \
+  | grep -o 'video_path=[a-z_]*' | sort | uniq -c
+
+# Sessions whose Mac never reached the video socket (UDP blocked or port not forwarded).
+journalctl -u peeringd --since "24 hours ago" -o cat | grep 'relayed session ended' \
+  | grep -c 'udp_host_bound=false'
+
+# Why are sessions ending?
+journalctl -u peeringd --since "24 hours ago" -o cat | grep 'relayed session ended' \
+  | grep -o 'end_reason=[a-z_]*' | sort | uniq -c
+
+# Time to first picture over UDP, slowest first.
+journalctl -u peeringd --since "24 hours ago" -o cat | grep 'video_path=udp' \
+  | grep -o 'first_video_ms=Some([0-9]*)' | sort -t'(' -k2 -n -r | head
+
+# Is the relay alive and what has it been refusing? Last six summaries.
+journalctl -u peeringd -o cat | grep 'relay summary' | tail -6
+
+# Datagrams arriving that no session claims (a port scan, or ends with stale tokens).
+journalctl -u peeringd --since "24 hours ago" -o cat | grep 'relay summary' \
+  | grep -o 'udp_datagrams_unclaimed=[0-9]*'
+```
+
 #### Knowing whether it is up
 
 The relay serves the site from the same process, so **anything that reaches the site proves the

@@ -18,7 +18,7 @@ use peeringd::referrals::Referrals;
 use peeringd::session::Registry;
 use peeringd::signalling::{HostRegistry, Settings};
 use peeringd::storekit::StoreKitVerifier;
-use peeringd::{signalling, tcp_relay, udp_relay, web};
+use peeringd::{signalling, stats, tcp_relay, udp_relay, web};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -176,6 +176,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // splice is charged on travels with its session, put there by signalling where the plan was
     // resolved. See `quota::Account`.
     tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry)));
+    tokio::spawn(stats::report_forever());
 
     // Abandoned sessions are the normal residue of clients that crash or walk away, so this runs
     // forever rather than as a one-off. This is also what retires the video routes of a session
@@ -289,6 +290,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ = signalling::serve(signal, Arc::clone(&registry), hosts, settings, tls) => {}
         _ = tokio::signal::ctrl_c() => info!("stopping"),
     }
+
+    stats::TALLY.shutting_down();
+    stats::TALLY.take_summary().log();
 
     Ok(())
 }

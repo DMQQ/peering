@@ -46,6 +46,7 @@ pub mod quota;
 pub mod referrals;
 pub mod session;
 pub mod signalling;
+pub mod stats;
 pub mod storekit;
 pub mod tcp_relay;
 pub mod udp_relay;
