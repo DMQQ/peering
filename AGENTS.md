@@ -250,6 +250,8 @@ user is a device, not a person.
   launch. 361 events from one offline retry loop is what made this necessary.
 - **`connect_failed`** carries `reason` (a closed set, `ClientSession.FailureReason`), `after_ready`,
   `path`, `reconnect_attempt` and `seconds_into_session`. Builds before 202610064 sent no reason.
+  Stage, error code, timings, network and route context are in `docs/analytics-events.md`, which
+  lists every connection event with its closed value sets.
 - **Event counts are mostly the developer's own devices** while there are few installs; read a rate
   only once real users arrive.
 

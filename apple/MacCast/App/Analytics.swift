@@ -24,6 +24,24 @@ enum Analytics {
 
     private static let context = OSAllocatedUnfairLock(initialState: Context())
 
+    /// Debug and TestFlight builds, so the owner's own devices can be filtered out.
+    private static let isInternalBuild: Bool = {
+        #if DEBUG
+        let isDebug = true
+        #else
+        let isDebug = false
+        #endif
+        return BuildChannel.isInternal(isDebug: isDebug, receiptFileName: Bundle.main.appStoreReceiptURL?.lastPathComponent)
+    }()
+
+    static func setSessionContext(path: String, plan: String?) {
+        context.withLock { $0.path = path; $0.plan = plan }
+    }
+
+    static func clearSessionPath() {
+        context.withLock { $0.path = nil }
+    }
+
     static var isEnabled: Bool {
         UserDefaults.standard.object(forKey: PreferenceKeys.analyticsEnabled) as? Bool ?? true
     }
@@ -37,33 +55,8 @@ enum Analytics {
         send("app_opened", ["plan": plan?.rawValue ?? "unknown"])
     }
 
-    static func sessionStarted(path: String, plan: RelayPlan?) {
-        context.withLock { $0.path = path; $0.plan = plan?.rawValue }
-        send("session_started", ["path": path, "plan": plan?.rawValue ?? "unknown"])
-    }
-
     static func pairingDecided(accepted: Bool) {
         send(accepted ? "pairing_accepted" : "pairing_declined", [:])
-    }
-
-    /// `first_picture_ms` is absent when no picture ever arrived, which on a relayed session is how a network blocking video shows up.
-    static func sessionEnded(path: String, video: VideoDeliveryRecord?) {
-        context.withLock { $0.path = nil }
-        var properties: [String: Any] = ["path": path]
-        properties.merge(videoProperties(video)) { _, new in new }
-        send("session_ended", properties)
-    }
-
-    /// `video_recorded` is false when the session had no wire to ask, which is not the same as a wire that never delivered a picture.
-    private static func videoProperties(_ video: VideoDeliveryRecord?) -> [String: Any] {
-        guard let video else { return ["video_recorded": false] }
-        var properties: [String: Any] = [
-            "video_recorded": true,
-            "video_transport": video.transport.rawValue,
-            "fell_back": video.fellBack,
-        ]
-        if let milliseconds = video.firstPictureMilliseconds { properties["first_picture_ms"] = milliseconds }
-        return properties
     }
 
     static func onboardingCompleted() {
@@ -117,30 +110,6 @@ enum Analytics {
 
     static func connectStarted(route: Route) {
         send("connect_started", ["route": route.rawValue])
-    }
-
-    /// `afterReady` tells a drop mid-session from a connection that never came up, and `video` is what the dropped session's picture went through, since a drop is how a network that blocks video usually ends. `appState` and `pictureInPictureActive` tell a drop the network caused from one iOS caused by freezing the app.
-    static func connectFailed(
-        afterReady: Bool, reason: String, path: String, reconnectAttempt: Int,
-        secondsIntoSession: Int?, appState: String, pictureInPictureActive: Bool, video: VideoDeliveryRecord?
-    ) {
-        var properties: [String: Any] = [
-            "after_ready": String(afterReady), "reason": reason, "path": path,
-            "reconnect_attempt": String(reconnectAttempt), "app_state": appState,
-            "pip_active": String(pictureInPictureActive),
-        ]
-        if let secondsIntoSession { properties["seconds_into_session"] = String(secondsIntoSession) }
-        properties.merge(videoProperties(video)) { _, new in new }
-        send("connect_failed", properties)
-    }
-
-    static func name(of state: UIApplication.State) -> String {
-        switch state {
-        case .active: "active"
-        case .inactive: "inactive"
-        case .background: "background"
-        @unknown default: "unknown"
-        }
     }
 
     static func paywallShown(reason: String) {
@@ -223,12 +192,13 @@ enum Analytics {
         SettingsObserver.shared.start()
     }
 
-    private static func send(_ event: String, _ properties: [String: Any]) {
+    static func send(_ event: String, _ properties: [String: Any]) {
         guard isEnabled, PostHogConfiguration.isConfigured else { return }
         var props: [String: Any] = properties
         props["$process_person_profile"] = false
         props["app_version"] = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
         props["app_build"] = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        props["internal_build"] = isInternalBuild
         props["os_major"] = UIDevice.current.systemVersion.split(separator: ".").first.map(String.init) ?? ""
         PostHogSDK.shared.capture(event, properties: props)
     }

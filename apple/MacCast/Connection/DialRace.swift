@@ -97,6 +97,7 @@ final class DialRace {
             win(index, in: session)
         case .phase(.failed), .phase(.disconnected):
             entries[index].failed = true
+            session.noteRouteFailed(entries[index].path, reason: wire.failureReason)
             if queued != nil {
                 startQueued()
             } else if entries.allSatisfy(\.failed) {

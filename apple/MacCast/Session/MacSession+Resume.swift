@@ -145,6 +145,7 @@ extension MacSession {
 
     /// One end for both ways a ladder finishes: out of rungs, or out of time.
     private func giveUpOnReconnecting() {
+        reportEnd(telemetry.pendingEnd ?? .error)
         stopReconnecting()
         reconnectingSince = nil
         // A restoration that never got its answer ends like one that failed: the persisted request goes, so the next launch does not open this again.

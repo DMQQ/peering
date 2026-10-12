@@ -51,7 +51,9 @@ extension SessionModel {
 
             try? await Task.sleep(for: .seconds(SessionOfferPolicy.offerAfterSessionDelay))
 
-            guard let self, !Task.isCancelled, !phase.holdsSession, paywallReason == nil else {
+            // A session being put back is not an ending worth selling at.
+            guard let self, !Task.isCancelled, !phase.holdsSession, paywallReason == nil,
+                  !sessions.contains(where: \.isBeingPutBack) else {
                 return
             }
             switch consuming {

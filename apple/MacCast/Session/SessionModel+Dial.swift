@@ -87,6 +87,7 @@ extension SessionModel {
         // Fresh for the path this session just chose: the policy's tier is tuned per path.
         session.autoQualityPolicy = AutoQualityPolicy(path: session.autoQualityPath)
         session.lastAutoDroppedFrames = 0
+        session.beginRoute(.init(session.connectionPath))
 
         // Two facts belong to the Mac, not this attempt, and are carried across a dial of that Mac only.
         // `hasBeenReady` tells a resume from a first connection: the ladder builds a new object, so otherwise a blip would put the connecting card back.
@@ -99,6 +100,9 @@ extension SessionModel {
             session.reconnectAttempt = old.reconnectAttempt
             // And the clock the window is measured on: the run of attempts is one run however many objects it spans.
             session.reconnectingSince = old.reconnectingSince
+
+            // Only a retry the app made: a manual connect starts the drop count, the tallies and the route list again.
+            if isResuming { session.telemetry = old.telemetry.carriedToRetry() }
 
             // And which source was on screen: the Mac keeps capturing the same display across a client reconnect, so forgetting it would make `PictureIdentity` read a different picture and `RemoteScreen` reset zoom and pan.
             // The catalogue is deliberately not carried: the Mac resends it on `.ready`, and a stale one naming gone sources is worse than none.
@@ -148,6 +152,7 @@ extension SessionModel {
                 guard let self, let session, session.dialRace === race else { return }
                 let (rival, rivalGate) = self.makeWire(for: session, identity: identity, race: race)
                 race.add(rival, gate: rivalGate, path: .relay)
+                session.beginRoute(.relay)
                 rival.resumeSource = resumeSource
                 rival.videoFallbackEnabled = true
                 Task { await rival.connect(to: relay, timeout: Self.standardConnectTimeout) }

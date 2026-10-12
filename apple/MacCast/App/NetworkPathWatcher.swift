@@ -28,7 +28,8 @@ final class NetworkPathWatcher {
                 isSatisfied: path.status == .satisfied,
                 interfaces: Self.interfaces(of: path)
             )
-            Task { @MainActor in self?.received(snapshot) }
+            let flags = (isExpensive: path.isExpensive, isConstrained: path.isConstrained)
+            Task { @MainActor in self?.received(snapshot, flags: flags) }
         }
         monitor.start(queue: queue)
     }
@@ -50,9 +51,18 @@ final class NetworkPathWatcher {
 
     var onPathChange: (() -> Void)?
 
-    private func received(_ snapshot: NetworkPathSnapshot) {
+    /// What analytics reports about the network. Its change count moves on the same comparison that drives a redial.
+    private(set) var context = NetworkContext()
+
+    private func received(_ snapshot: NetworkPathSnapshot, flags: (isExpensive: Bool, isConstrained: Bool)) {
         let changed = latest != nil && latest != snapshot
         latest = snapshot
+        context = NetworkContext(
+            interface: NetworkContext.primaryInterface(of: snapshot.interfaces, isSatisfied: snapshot.isSatisfied),
+            isExpensive: flags.isExpensive,
+            isConstrained: flags.isConstrained,
+            pathChanges: context.pathChanges + (changed ? 1 : 0)
+        )
         settle?.cancel()
         settle = Task { [weak self] in
             try? await Task.sleep(for: Self.settleFor)

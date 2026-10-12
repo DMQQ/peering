@@ -157,6 +157,9 @@ final class MacSession: Identifiable {
     /// Carried across a dial like ``hasBeenReady`` and ``reconnectAttempt``, since each rung builds a new object. See ``SessionModel/reconnectWindow``.
     var reconnectingSince: Date?
 
+    /// Carried across a retry like the facts above. See ``SessionTelemetry``.
+    var telemetry = SessionTelemetry()
+
     // MARK: - Asking this Mac for the picture, and for silence
 
     /// Never assumed: `false` is a Mac too old to have been asked, where the command means a dropped session rather than a stopped picture. See ``PicturePause/mayAsk(hostDeclared:)``.
