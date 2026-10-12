@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import pl.dmq.peering.feature.remote.SurfaceListener
 import pl.dmq.peering.platform.video.CodecDecoder
 import pl.dmq.peering.session.ports.VideoSink
+import pl.dmq.peering.testing.TestBridge
 import pl.dmq.peering.wire.EncodedVideoFrame
 import pl.dmq.peering.wire.PixelSize
 import pl.dmq.peering.wire.VideoStreamConfig
@@ -34,6 +35,7 @@ internal class SurfacePicture : VideoSink, SurfaceListener {
     }
 
     override fun onFrame(frame: EncodedVideoFrame) {
+        TestBridge.frameArrived()
         decoder?.onFrame(frame)
     }
 

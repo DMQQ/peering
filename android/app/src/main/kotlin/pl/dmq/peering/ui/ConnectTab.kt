@@ -37,6 +37,7 @@ import pl.dmq.peering.feature.scan.hostIdScanOutcome
 import pl.dmq.peering.ui.wiring.ActiveSession
 import pl.dmq.peering.ui.wiring.ControllerPairingSession
 import pl.dmq.peering.ui.nav.SessionScreens
+import pl.dmq.peering.testing.ConnectBridge
 
 /** Where a scan goes: a Mac to pair with, or the six digits being compared on this screen. */
 private enum class ScanPurpose { FindMac, ConfirmCode }
@@ -116,6 +117,16 @@ internal fun ConnectTab(wiring: FeatureWiring) {
         else -> ConnectStage.Hosts
     }
     if (stage.fullScreen) HideNavigationBar()
+    ConnectBridge(
+        stage = stage.name,
+        onboarding = onboarding,
+        connect = connect,
+        trusted = wiring.trusted,
+        scope = scope,
+        resetTour = { wiring.firstRun.reset(); onboarding = true },
+        skipTour = { wiring.firstRun.markComplete(); onboarding = false },
+        disconnect = { showingSession = false; wiring.holder.end() },
+    )
     val axisDistance = rememberAxisDistancePx()
     AnimatedContent(
         targetState = stage,
