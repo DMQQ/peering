@@ -145,8 +145,16 @@ struct Inner {
     earned: HashMap<String, u32>,
     /// The day number and how many redemptions were accepted in it.
     today: (u64, u32),
-    /// Redemptions accepted today per network: the day number and a count.
-    by_address: HashMap<IpAddr, (u64, u32)>,
+    /// Redemptions accepted today per network.
+    by_address: HashMap<IpAddr, AddressCount>,
+    /// Counts address entries as they are created, so the oldest can be told from the newest.
+    address_clock: u64,
+}
+
+struct AddressCount {
+    day: u64,
+    count: u32,
+    created: u64,
 }
 
 pub struct Referrals {
@@ -252,7 +260,7 @@ impl Referrals {
                 return Err(ReferralError::Busy);
             }
             let network = peer.map(network_of);
-            let over = |(d, count): &(u64, u32)| *d == day && *count >= MAX_REDEMPTIONS_PER_ADDRESS_PER_DAY;
+            let over = |slot: &AddressCount| slot.day == day && slot.count >= MAX_REDEMPTIONS_PER_ADDRESS_PER_DAY;
             if network.is_some_and(|network| inner.by_address.get(&network).is_some_and(over)) {
                 return Err(ReferralError::NetworkLimit);
             }
@@ -325,16 +333,26 @@ impl Inner {
 
     fn count_for_address(&mut self, network: IpAddr, day: u64) {
         if self.by_address.len() >= MAX_TRACKED_ADDRESSES && !self.by_address.contains_key(&network) {
-            self.by_address.retain(|_, (d, _)| *d == day);
+            self.by_address.retain(|_, slot| slot.day == day);
             if self.by_address.len() >= MAX_TRACKED_ADDRESSES {
-                self.by_address.clear();
+                self.evict_oldest_addresses();
             }
         }
-        let slot = self.by_address.entry(network).or_insert((day, 0));
-        if slot.0 != day {
-            *slot = (day, 0);
+        self.address_clock += 1;
+        let created = self.address_clock;
+        let slot = self.by_address.entry(network).or_insert(AddressCount { day, count: 0, created });
+        if slot.day != day {
+            *slot = AddressCount { day, count: 0, created };
         }
-        slot.1 += 1;
+        slot.count += 1;
+    }
+
+    /// Drops the oldest tenth, so a flood of spoofed sources costs the oldest counts and not all of them.
+    fn evict_oldest_addresses(&mut self) {
+        let mut ages: Vec<u64> = self.by_address.values().map(|slot| slot.created).collect();
+        ages.sort_unstable();
+        let cutoff = ages[(ages.len() / 10).min(ages.len() - 1)];
+        self.by_address.retain(|_, slot| slot.created > cutoff);
     }
 
     fn apply_redemption(&mut self, redeemer: &str, owner: &str, at: u64, owner_earns: bool, duration: u64) {
@@ -612,5 +630,21 @@ mod tests {
         }
         assert_eq!(referrals.standing("newcomer", NOW), Err(ReferralError::Busy));
         assert!(referrals.redeem("newcomer", &owner, NOW).is_ok(), "a redeemer still gets a code");
+    }
+
+    #[test]
+    fn a_full_address_table_evicts_its_oldest_entries_and_keeps_the_rest() {
+        let mut inner = Inner::default();
+        let day = NOW / DAY_SECS;
+        let network = |n: u32| IpAddr::from([10, (n >> 16) as u8, (n >> 8) as u8, n as u8]);
+        for n in 0..MAX_TRACKED_ADDRESSES as u32 {
+            inner.count_for_address(network(n), day);
+        }
+        inner.count_for_address(network(MAX_TRACKED_ADDRESSES as u32), day);
+        assert!(inner.by_address.len() < MAX_TRACKED_ADDRESSES, "room was made");
+        assert!(inner.by_address.len() > MAX_TRACKED_ADDRESSES / 2, "the table was not cleared wholesale");
+        assert!(!inner.by_address.contains_key(&network(0)), "the oldest went first");
+        assert!(inner.by_address.contains_key(&network(MAX_TRACKED_ADDRESSES as u32 - 1)), "recent entries stay");
+        assert!(inner.by_address.contains_key(&network(MAX_TRACKED_ADDRESSES as u32)), "and the new one is counted");
     }
 }
