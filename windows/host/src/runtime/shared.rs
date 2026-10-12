@@ -1,6 +1,6 @@
 //! The state the connections share. It is locked only for short synchronous steps and never across an await.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use peering_agent::manager::ClientAgents;
@@ -66,9 +66,21 @@ pub struct HostState {
     pub notice_checked_at: Option<f64>,
     pub hosting: bool,
     pub relay: RelayStatus,
+    /// What is wrong right now, by source, for the window to show. A source clears its own entry when it recovers.
+    pub problems: BTreeMap<&'static str, String>,
+    /// Why the host ended, once it has. Kept here so the published snapshot does not overwrite it.
+    pub stopped: Option<String>,
 }
 
 impl HostState {
+    pub fn set_problem(&mut self, source: &'static str, text: String) {
+        self.problems.insert(source, text);
+    }
+
+    pub fn clear_problem(&mut self, source: &'static str) {
+        self.problems.remove(source);
+    }
+
     /// Lifts the keys and buttons the remote held, once no session is left to hold them. A phone that reconnects before
     /// its old connection is reaped keeps the keys it is holding.
     pub fn release_input_if_idle(&mut self) {

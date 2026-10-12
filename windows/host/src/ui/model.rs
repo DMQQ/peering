@@ -38,7 +38,12 @@ impl MenuModel {
             return strings::host_stopped(reason);
         }
         let hosting = if self.snapshot.hosting { strings::HOSTING_ON } else { strings::HOSTING_OFF };
-        format!("{hosting} · {} · {}", relay_text(self.snapshot.relay), strings::connected_clients(self.snapshot.connected_clients))
+        let line = format!("{hosting} · {} · {}", relay_text(self.snapshot.relay), strings::connected_clients(self.snapshot.connected_clients));
+        if self.snapshot.problems.is_empty() {
+            line
+        } else {
+            format!("{line} · {}", strings::NEEDS_ATTENTION)
+        }
     }
 
     /// The menu in order. A pairing code only exists while hosting, so its entry is off otherwise.
@@ -140,6 +145,11 @@ impl UiModel {
             .collect()
     }
 
+    /// What is wrong while the host keeps running, one sentence each, for the top of the window.
+    pub fn problems(&self) -> &[String] {
+        &self.snapshot.problems
+    }
+
     pub fn relay_line(&self) -> &'static str {
         relay_text(self.snapshot.relay)
     }
@@ -192,6 +202,7 @@ fn relay_text(status: RelayStatus) -> &'static str {
         RelayStatus::Connecting => strings::RELAY_CONNECTING,
         RelayStatus::Registered => strings::RELAY_REGISTERED,
         RelayStatus::Retrying => strings::RELAY_RETRYING,
+        RelayStatus::ClockSkew => strings::RELAY_CLOCK_SKEW,
     }
 }
 

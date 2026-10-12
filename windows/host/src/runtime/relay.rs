@@ -4,9 +4,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures_util::{SinkExt, StreamExt};
+use std::panic::AssertUnwindSafe;
+
+use futures_util::{FutureExt, SinkExt, StreamExt};
 use peering_core::relay::dial::{first_bytes, plan as dial_plan, DialPlan};
-use peering_core::relay::registration::{RegAction, RelayRegistration, RelaySession};
+use peering_core::relay::registration::{RegAction, RelayFault, RelayRegistration, RelaySession};
+use peering_core::video::recovery::LogGate;
 use peering_net::tls::HostTls;
 use peering_wire::relay_messages::{encode_sorted, RelayServerMessage};
 use peering_wire::relay_proof::ProofSigner;
@@ -16,14 +19,16 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio::task::spawn_local;
-use tokio::time::{interval, timeout};
+use tokio::time::{interval, timeout, Interval};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{connect_async_tls_with_config, Connector, MaybeTlsStream, WebSocketStream};
 
 use super::connection::serve_counted;
 use super::control::RelayStatus;
+use super::diagnostics;
 use super::peer_address::peer_socket_addr;
 use super::pre_auth::{PreAuthGate, PreAuthPermit};
+use super::random::unit_fraction;
 use super::shared::Shared;
 use super::{HostProfile, PeerInfo, RelayConfig, VideoEndpoint};
 
@@ -38,64 +43,110 @@ const MAXIMUM_CONCURRENT_DIALS: usize = 8;
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 pub async fn run(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, relay: RelayConfig, signer: Box<dyn ProofSigner>) {
-    let mut registration = RelayRegistration::new(relay.device_id.clone(), relay.name.clone(), PROTOCOL_VERSION, signer);
+    let mut registration = RelayRegistration::new(relay.device_id.clone(), relay.name.clone(), PROTOCOL_VERSION, signer)
+        .with_jitter(Box::new(unit_fraction));
     // The first connection waits one backoff step like a reconnect does, so a relay that is down at launch is not hammered.
     registration.on_disconnect(profile.clock.as_ref());
     let dials = PreAuthGate::new(MAXIMUM_CONCURRENT_DIALS);
     let mut ticks = interval(TICK);
+    let mut panics = LogGate::default();
     loop {
         ticks.tick().await;
         let actions = registration.tick(profile.clock.as_ref());
         if !actions.contains(&RegAction::Connect) {
             continue;
         }
-        set_relay_status(&shared, RelayStatus::Connecting);
-        let Ok(Ok(mut socket)) = timeout(CONNECT_TIMEOUT, connect(&relay.url)).await else {
-            set_relay_status(&shared, RelayStatus::Retrying);
+        let dialer = Dialer { shared: &shared, profile: &profile, tls: &tls, dials: &dials };
+        let pass = AssertUnwindSafe(serve_connection(&relay, &mut registration, dialer, &mut ticks)).catch_unwind().await;
+        if let Err(payload) = pass {
+            // A panic in one connection must not end remote access for the rest of the run.
+            shared.peer_addresses().attach(None);
             registration.on_disconnect(profile.clock.as_ref());
-            continue;
-        };
-        let mut pending = registration.start(profile.clock.as_ref());
-        let (asks_tx, mut asks) = mpsc::unbounded_channel();
-        shared.peer_addresses().attach(Some(asks_tx));
-        loop {
-            if apply(&mut socket, &mut pending, Dialer { shared: &shared, profile: &profile, tls: &tls, dials: &dials }).await.is_break() {
-                break;
+            set_relay_status(&shared, RelayStatus::Retrying);
+            if panics.allow(profile.clock.now_seconds()).is_some() {
+                diagnostics::log(&format!("the relay connection panicked: {}", panic_text(payload.as_ref())));
             }
-            tokio::select! {
-                message = socket.next() => match message {
-                    Some(Ok(Message::Text(text))) => match serde_json::from_str::<RelayServerMessage>(&text) {
-                        Ok(message) => {
-                            if answer_ask(&shared, &message) {
-                                continue;
-                            }
-                            pending = registration.on_message(message, profile.clock.as_ref());
-                            if registration.is_registered() {
-                                set_relay_status(&shared, RelayStatus::Registered);
-                            }
-                        }
-                        Err(_) => continue,
-                    },
-                    Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
-                    Some(Ok(_)) => continue,
-                },
-                Some(ask) = asks.recv() => {
-                    if send_message(&mut socket, &ask).await.is_err() {
-                        break;
+        }
+    }
+}
+
+/// One connection to the relay, from the dial to the socket closing. The registration is told of the disconnect.
+async fn serve_connection(
+    relay: &RelayConfig,
+    registration: &mut RelayRegistration,
+    dialer: Dialer<'_>,
+    ticks: &mut Interval,
+) {
+    let Dialer { shared, profile, tls, dials } = dialer;
+    let clock = profile.clock.as_ref();
+    set_relay_status(shared, RelayStatus::Connecting);
+    let Ok(Ok(mut socket)) = timeout(CONNECT_TIMEOUT, connect(&relay.url)).await else {
+        set_relay_status(shared, RelayStatus::Retrying);
+        registration.on_disconnect(clock);
+        return;
+    };
+    let mut pending = registration.start(clock);
+    let (asks_tx, mut asks) = mpsc::unbounded_channel();
+    shared.peer_addresses().attach(Some(asks_tx));
+    loop {
+        if apply(&mut socket, &mut pending, Dialer { shared, profile, tls, dials }).await.is_break() {
+            break;
+        }
+        tokio::select! {
+            message = socket.next() => match message {
+                Some(Ok(Message::Text(text))) => {
+                    registration.note_frame(clock);
+                    let Ok(message) = serde_json::from_str::<RelayServerMessage>(&text) else { continue };
+                    if answer_ask(shared, &message) {
+                        continue;
+                    }
+                    pending = registration.on_message(message, clock);
+                    if registration.is_registered() {
+                        set_relay_status(shared, RelayStatus::Registered);
+                        shared.lock().clear_problem("relay-clock");
                     }
                 }
-                _ = ticks.tick() => {
-                    pending = registration.tick(profile.clock.as_ref());
-                    if registration.is_registered() && send_notifications(&mut socket, &shared).await.is_err() {
-                        break;
-                    }
+                Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
+                // Pings, pongs and binary frames carry nothing for the registration but prove the socket is alive.
+                Some(Ok(_)) => registration.note_frame(clock),
+            },
+            Some(ask) = asks.recv() => {
+                if send_message(&mut socket, &ask).await.is_err() {
+                    break;
+                }
+            }
+            _ = ticks.tick() => {
+                pending = registration.tick(clock);
+                if registration.is_registered() && send_notifications(&mut socket, shared).await.is_err() {
+                    break;
                 }
             }
         }
-        shared.peer_addresses().attach(None);
-        set_relay_status(&shared, RelayStatus::Retrying);
-        registration.on_disconnect(profile.clock.as_ref());
     }
+    shared.peer_addresses().attach(None);
+    registration.on_disconnect(clock);
+    report_link_down(shared, registration.fault());
+}
+
+/// The relay is not reachable for now. A clock the relay refuses gets its own status and a sentence that says what to do,
+/// because retrying cannot fix it.
+fn report_link_down(shared: &Shared, fault: Option<RelayFault>) {
+    let mut state = shared.lock();
+    match fault {
+        Some(RelayFault::ClockSkew) => {
+            state.relay = RelayStatus::ClockSkew;
+            state.set_problem("relay-clock", crate::strings::RELAY_CLOCK_SKEW_PROBLEM.to_owned());
+        }
+        None => state.relay = RelayStatus::Retrying,
+    }
+}
+
+fn panic_text(payload: &(dyn std::any::Any + Send)) -> String {
+    payload
+        .downcast_ref::<&str>()
+        .map(|text| (*text).to_owned())
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "no message".to_owned())
 }
 
 /// Sends the push notifications waiting for the relay, each leaving the queue only once the socket took it.

@@ -24,6 +24,22 @@ mod menu {
     }
 
     #[test]
+    fn a_problem_marks_the_status_line_and_reaches_the_window() {
+        let snapshot = HostSnapshot { problems: vec!["Screen capture failed.".to_owned()], ..snapshot(true, RelayStatus::Registered, 1) };
+        assert_eq!(
+            MenuModel::new(snapshot.clone()).status_line(),
+            "Hosting · Relay connected · 1 phone connected · Needs attention"
+        );
+        assert_eq!(UiModel::new(snapshot).problems(), ["Screen capture failed."]);
+    }
+
+    #[test]
+    fn a_clock_the_relay_refuses_has_its_own_relay_text() {
+        let model = MenuModel::new(snapshot(true, RelayStatus::ClockSkew, 0));
+        assert_eq!(model.status_line(), "Hosting · Relay refused: check the clock · No phone connected");
+    }
+
+    #[test]
     fn the_pairing_code_is_offered_only_while_hosting() {
         let hosting = MenuModel::new(snapshot(true, RelayStatus::Off, 0));
         let stopped = MenuModel::new(snapshot(false, RelayStatus::Off, 0));

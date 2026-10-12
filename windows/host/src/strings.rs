@@ -13,6 +13,9 @@ pub const RELAY_OFF: &str = "Relay off";
 pub const RELAY_CONNECTING: &str = "Relay connecting";
 pub const RELAY_REGISTERED: &str = "Relay connected";
 pub const RELAY_RETRYING: &str = "Relay retrying";
+pub const RELAY_CLOCK_SKEW: &str = "Relay refused: check the clock";
+pub const RELAY_CLOCK_SKEW_PROBLEM: &str = "The relay refused this PC because its clock is more than a few minutes off. Turn on Set time automatically in Windows Settings, under Time & language, Date & time.";
+pub const NEEDS_ATTENTION: &str = "Needs attention";
 pub const TOOLTIP: &str = "Peering Host";
 
 pub const PAIRING_TITLE: &str = "Pair a phone";
@@ -74,4 +77,18 @@ pub fn connected_clients(count: usize) -> String {
         1 => "1 phone connected".to_owned(),
         count => format!("{count} phones connected"),
     }
+}
+
+pub const PASS_HUNG_PREFIX: &str = "The host has stopped responding";
+
+pub fn pass_hung(seconds: f64) -> String {
+    format!("{PASS_HUNG_PREFIX} for {seconds:.0} s, usually a stuck video encoder or graphics driver. Quit and start it again if it does not recover.")
+}
+
+pub fn capture_recovering(reason: &str) -> String {
+    format!("Screen capture failed ({reason}). The host is trying again.")
+}
+
+pub fn relay_task_stopped(reason: &str) -> String {
+    format!("The relay connection stopped ({reason}). Phones away from this network cannot connect until Peering Host is restarted.")
 }

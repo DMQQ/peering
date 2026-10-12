@@ -96,6 +96,9 @@ impl HostApp {
         let now_unix = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_secs());
         let panel = model.settings(&self.settings);
         egui::CentralPanel::default().show(ctx, |ui| {
+            for problem in model.problems() {
+                ui.colored_label(egui::Color32::from_rgb(200, 60, 40), problem);
+            }
             pairing::show(ui, &model, now_unix, &mut commands);
             ui.separator();
             settings_view::show(ui, &panel, &mut choices);

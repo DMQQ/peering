@@ -14,6 +14,7 @@ mod clock;
 mod config;
 mod connection;
 mod control;
+mod diagnostics;
 mod error;
 mod files;
 mod listener;
@@ -28,6 +29,7 @@ mod relay;
 mod relay_lane;
 mod services;
 mod shared;
+mod supervise;
 mod terminal;
 mod video;
 mod video_requests;
@@ -49,7 +51,7 @@ use peering_net::tls::HostTls;
 use peering_wire::relay_messages::RelayClientMessage;
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
-use tokio::task::LocalSet;
+use tokio::task::{JoinHandle, LocalSet};
 
 pub use clock::SystemClock;
 pub use config::{RelayConfig, RuntimeConfig};
@@ -150,6 +152,8 @@ impl HostRuntime {
             notice_checked_at: None,
             hosting: true,
             relay: RelayStatus::Off,
+            problems: std::collections::BTreeMap::new(),
+            stopped: None,
         };
         let (approvals, _unused_receiver) = broadcast::channel::<ApprovalDecision>(APPROVAL_CHANNEL_DEPTH);
         let (commands, command_inbox) = mpsc::channel();
@@ -251,8 +255,17 @@ impl HostRuntime {
 
     /// Starts the video pump and the command loop on the current local task set. `run` does this; tests call it directly.
     pub fn start_pump(&self) {
-        video::spawn_pump(self.shared.clone(), self.profile.clone());
-        agent_pump::spawn_pump(self.shared.clone());
+        self.spawn_pumps();
+    }
+
+    fn spawn_pumps(&self) -> PumpTasks {
+        let meter = supervise::PassMeter::new();
+        let published = self.shared.control.lock().unwrap_or_else(std::sync::PoisonError::into_inner).published.clone();
+        supervise::spawn_hang_monitor(&meter, published);
+        PumpTasks {
+            video: video::spawn_pump(self.shared.clone(), self.profile.clone(), meter),
+            agents: agent_pump::spawn_pump(self.shared.clone()),
+        }
     }
 
     /// Runs the host until the process ends: binds the port, announces the host, and serves the relay and the pump.
@@ -271,17 +284,53 @@ impl HostRuntime {
             .await
             .map_err(|source| RuntimeError::Bind { port: config.port, source })?;
         let _advertisement = advertise::start(identity.device_id(), &self.profile.host_name, config.port)?;
-        self.start_pump();
+        let pumps = self.spawn_pumps();
         if let Some(relay_config) = config.relay {
-            tokio::task::spawn_local(relay::run(
+            let relay_task = tokio::task::spawn_local(relay::run(
                 self.shared.clone(),
                 self.profile.clone(),
                 tls.clone(),
                 relay_config,
                 Box::new(identity),
             ));
+            watch_relay(self.shared.clone(), relay_task);
         }
-        listener::serve_listener(self.shared, self.profile, tls, listener).await;
-        Ok(())
+        let serving = listener::serve_listener(self.shared.clone(), self.profile, tls, listener);
+        tokio::select! {
+            () = serving => Ok(()),
+            stopped = watch_pumps(pumps) => Err(stopped),
+        }
+    }
+}
+
+struct PumpTasks {
+    video: JoinHandle<()>,
+    agents: JoinHandle<()>,
+}
+
+/// Waits for a pump that should never end. A pump that ended leaves the host serving a frozen picture, so it ends the
+/// host with the reason, which the window shows.
+async fn watch_pumps(pumps: PumpTasks) -> RuntimeError {
+    tokio::select! {
+        outcome = pumps.video => RuntimeError::TaskStopped { task: "video and command loop", reason: task_end_text(&outcome) },
+        outcome = pumps.agents => RuntimeError::TaskStopped { task: "agent output loop", reason: task_end_text(&outcome) },
+    }
+}
+
+/// A relay that ended only costs remote access, so it is shown as a problem and the host keeps serving the local network.
+fn watch_relay(shared: Shared, task: JoinHandle<()>) {
+    tokio::task::spawn_local(async move {
+        let outcome = task.await;
+        let mut state = shared.lock();
+        state.relay = RelayStatus::Off;
+        state.set_problem("relay", crate::strings::relay_task_stopped(&task_end_text(&outcome)));
+    });
+}
+
+fn task_end_text(outcome: &Result<(), tokio::task::JoinError>) -> String {
+    match outcome {
+        Ok(()) => "it returned".to_owned(),
+        Err(error) if error.is_panic() => "it panicked".to_owned(),
+        Err(error) => error.to_string(),
     }
 }
