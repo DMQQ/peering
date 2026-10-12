@@ -198,6 +198,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "peering-host"
+version = "0.1.0"
+dependencies = [
+ "peering-agent",
+ "peering-core",
+ "peering-net",
+ "peering-platform",
+ "peering-wire",
+ "thiserror",
+]
+
+[[package]]
+name = "peering-net"
+version = "0.1.0"
+dependencies = [
+ "peering-core",
+ "peering-wire",
+ "thiserror",
+]
+
+[[package]]
+name = "peering-platform"
+version = "0.1.0"
+dependencies = [
+ "peering-core",
+ "peering-wire",
+ "thiserror",
+]
+
+[[package]]
 name = "peering-wire"
 version = "0.1.0"
 dependencies = [

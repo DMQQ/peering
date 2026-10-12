@@ -1,0 +1,18 @@
+[package]
+name = "peering-host"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "peering-host"
+path = "src/main.rs"
+
+[dependencies]
+peering-wire = { path = "../crates/peering-wire" }
+peering-core = { path = "../crates/peering-core" }
+peering-net = { path = "../crates/peering-net" }
+peering-platform = { path = "../crates/peering-platform" }
+peering-agent = { path = "../crates/peering-agent" }
+thiserror.workspace = true

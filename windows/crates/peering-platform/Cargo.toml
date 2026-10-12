@@ -1,0 +1,11 @@
+[package]
+name = "peering-platform"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+peering-wire = { path = "../peering-wire" }
+peering-core = { path = "../peering-core" }
+thiserror.workspace = true
