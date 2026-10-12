@@ -53,6 +53,6 @@ private fun InputMode.icon() = when (this) {
 
 private fun InputMode.labelRes() = when (this) {
     InputMode.TRACKPAD -> R.string.settings_interaction_control
-    InputMode.DIRECT -> R.string.settings_interaction_touch
+    InputMode.DIRECT -> R.string.settings_interaction_control
     InputMode.OBSERVE -> R.string.settings_interaction_observe
 }

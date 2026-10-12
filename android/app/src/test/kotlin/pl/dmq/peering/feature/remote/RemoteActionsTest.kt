@@ -82,7 +82,7 @@ class RemoteActionsTest {
         assertEquals(InputMode.OBSERVE, prefs.prefs.value.interaction)
 
         actions.toggleMode()
-        assertEquals(InputMode.TRACKPAD, prefs.prefs.value.interaction)
+        assertEquals(InputMode.DIRECT, prefs.prefs.value.interaction)
     }
 
     @Test

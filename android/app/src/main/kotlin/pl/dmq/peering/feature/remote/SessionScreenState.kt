@@ -23,7 +23,7 @@ class SessionScreenState(openPanel: SessionPanel? = null, keyboardShown: Boolean
     var darkened by mutableStateOf(false)
     var speed by mutableStateOf(JoystickMath.SPEEDS.first())
     var speedBadge by mutableStateOf<String?>(null)
-    var lastControl by mutableStateOf(InputMode.TRACKPAD)
+    var lastControl by mutableStateOf(InputMode.DIRECT)
 
     /** The dialogs the screen can ask: leaving, quitting the computer's application, and the macro editor. */
     var leaveAsked by mutableStateOf(false)
@@ -76,7 +76,7 @@ class SessionScreenState(openPanel: SessionPanel? = null, keyboardShown: Boolean
                     it.immersive = saved[3] as Boolean
                     it.darkened = saved[4] as Boolean
                     it.speed = saved[5] as Double
-                    it.lastControl = InputMode.valueOf(saved[6] as String)
+                    it.lastControl = InputMode.valueOf(saved[6] as String).let { mode -> if (mode == InputMode.TRACKPAD) InputMode.DIRECT else mode }
                 }
             },
         )

@@ -7,7 +7,7 @@ import pl.dmq.peering.feature.remote.KeyboardMode
 /** The choices the Settings tab keeps for this phone, read again by every session. */
 data class DevicePrefs(
     val deviceName: String,
-    val interaction: InputMode = InputMode.TRACKPAD,
+    val interaction: InputMode = InputMode.DIRECT,
     val fillsScreen: Boolean = false,
     val keyboardMode: KeyboardMode = KeyboardMode.UNICODE,
     val hidesPanelAfterSelect: Boolean = true,

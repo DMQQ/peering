@@ -32,7 +32,7 @@ internal fun SettingsMessage.messageRes(): Int = when (this) {
 @StringRes
 internal fun InputMode.labelRes(): Int = when (this) {
     InputMode.TRACKPAD -> R.string.settings_interaction_control
-    InputMode.DIRECT -> R.string.settings_interaction_touch
+    InputMode.DIRECT -> R.string.settings_interaction_control
     InputMode.OBSERVE -> R.string.settings_interaction_observe
 }
 

@@ -34,7 +34,7 @@ internal class PreferencesDevicePreferences(
 
     private fun load(defaultName: String) = DevicePrefs(
         deviceName = preferences.getString(NAME, null)?.takeIf { it.isNotBlank() } ?: defaultName,
-        interaction = enumOf(INTERACTION, InputMode.TRACKPAD),
+        interaction = enumOf(INTERACTION, InputMode.DIRECT).let { if (it == InputMode.TRACKPAD) InputMode.DIRECT else it },
         fillsScreen = preferences.getBoolean(FILLS, false),
         keyboardMode = enumOf(KEYBOARD, KeyboardMode.UNICODE),
         hidesPanelAfterSelect = preferences.getBoolean(HIDES_PANEL, true),

@@ -61,7 +61,7 @@ internal fun SessionControlsCard(prefs: DevicePrefs, presenter: SettingsPresente
             title = stringResource(R.string.settings_interaction),
             icon = SessionIcons.hand,
             selected = prefs.interaction,
-            options = InputMode.entries,
+            options = listOf(InputMode.DIRECT, InputMode.OBSERVE),
             optionTitle = { stringResource(it.labelRes()) },
             onSelect = presenter::chooseInteraction,
         )
