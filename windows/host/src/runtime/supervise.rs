@@ -28,19 +28,29 @@ impl Supervised {
         Self { name, guard: PassGuard::default(), gate: LogGate::default() }
     }
 
-    /// Runs one pass unless the loop is held off. Returns `None` when the pass was skipped or panicked. `problem` is told
-    /// the sentence to show when a pass panics, and `None` once a pass succeeds again.
-    pub(super) fn run<R>(&mut self, now: f64, pass: impl FnOnce() -> R, mut problem: impl FnMut(Option<String>)) -> Option<R> {
-        if !self.guard.ready(now) {
-            return None;
+    /// Whether the loop is out of its backoff, so a pass may run now.
+    pub(super) fn ready(&self, now: f64) -> bool {
+        self.guard.ready(now)
+    }
+
+    /// Runs one pass unless the loop is held off. `problem` is told the sentence to show when a pass panics, and `None`
+    /// once a pass succeeds again.
+    pub(super) fn run<R>(&mut self, now: f64, pass: impl FnOnce() -> R, problem: impl FnMut(Option<String>)) -> Pass<R> {
+        if !self.ready(now) {
+            return Pass::Skipped;
         }
-        match catch_unwind(AssertUnwindSafe(pass)) {
+        self.settle(now, catch_unwind(AssertUnwindSafe(pass)), problem)
+    }
+
+    /// Records how a pass that `ready` allowed ended: a success clears the loop's problem, a panic holds it off.
+    pub(super) fn settle<R>(&mut self, now: f64, outcome: std::thread::Result<R>, mut problem: impl FnMut(Option<String>)) -> Pass<R> {
+        match outcome {
             Ok(result) => {
                 if self.guard.failures() > 0 {
                     self.guard.passed();
                     problem(None);
                 }
-                Some(result)
+                Pass::Done(result)
             }
             Err(payload) => {
                 let reason = panic_text(payload.as_ref());
@@ -49,10 +59,18 @@ impl Supervised {
                     diagnostics::log(&format!("the {} loop panicked ({reason}); retrying in {wait} s ({held_back} more held back)", self.name));
                 }
                 problem(Some(format!("The {} loop hit an internal error and is retrying: {reason}", self.name)));
-                None
+                Pass::Panicked
             }
         }
     }
+}
+
+/// How a supervised pass ended.
+#[derive(Debug, PartialEq)]
+pub(super) enum Pass<R> {
+    Skipped,
+    Done(R),
+    Panicked,
 }
 
 /// Shows or clears `source`'s problem in the shared state.
@@ -133,13 +151,13 @@ mod tests {
         let mut supervised = Supervised::new("video");
         let mut shown = Vec::new();
         let ran = supervised.run(1.0, || -> u32 { panic!("bad frame") }, |text| shown.push(text));
-        assert_eq!(ran, None);
+        assert_eq!(ran, Pass::<u32>::Panicked);
         assert_eq!(shown.len(), 1);
         assert!(shown[0].as_deref().is_some_and(|text| text.contains("bad frame")));
 
         let mut skipped = false;
         let held = supervised.run(1.2, || skipped = true, |text| shown.push(text));
-        assert_eq!(held, None);
+        assert_eq!(held, Pass::Skipped);
         assert!(!skipped, "the pass does not run inside the backoff");
     }
 
@@ -149,7 +167,7 @@ mod tests {
         let mut shown = Vec::new();
         let _ = supervised.run(1.0, || panic!("boom"), |text: Option<String>| shown.push(text));
         let ran = supervised.run(1.5, || 7, |text| shown.push(text));
-        assert_eq!(ran, Some(7));
+        assert_eq!(ran, Pass::Done(7));
         assert_eq!(shown.last(), Some(&None));
     }
 
@@ -157,7 +175,7 @@ mod tests {
     fn a_healthy_pass_reports_nothing() {
         let mut supervised = Supervised::new("video");
         let mut shown = Vec::new();
-        assert_eq!(supervised.run(0.0, || 1, |text: Option<String>| shown.push(text)), Some(1));
+        assert_eq!(supervised.run(0.0, || 1, |text: Option<String>| shown.push(text)), Pass::Done(1));
         assert!(shown.is_empty());
     }
 

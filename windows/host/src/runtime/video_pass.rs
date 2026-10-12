@@ -1,0 +1,180 @@
+//! One pass of the video pump. The state lock is held to take the inputs and again to publish the result, and not across the
+//! capture and encode between them, which can be slow: connections, handshakes and input keep running meanwhile.
+
+use std::any::Any;
+use std::collections::HashSet;
+use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+use std::sync::Arc;
+use std::time::Duration;
+
+use peering_core::pairing::ApprovalDecision;
+use peering_core::video::coordinator::{CoordinatorError, VideoOutput};
+use peering_core::video::lane::LaneSend;
+use peering_core::video::recovery::LogGate;
+use tokio::task::{spawn_blocking, spawn_local, JoinError, JoinHandle};
+use tokio::time::{interval, MissedTickBehavior};
+
+use super::control::{publish_if_due, take_commands};
+use super::diagnostics;
+use super::lock::lock_ignoring_poison;
+use super::shared::{HostState, Shared};
+use super::supervise::{record_problem, Pass, PassMeter, Supervised};
+use super::video::{deliver, Outgoing};
+use super::video_handle::{PumpOutcome, VideoHandle};
+use super::HostProfile;
+
+const PUMP_INTERVAL: Duration = Duration::from_millis(16);
+
+/// What the first step of a pass took under the state lock, carried to the last.
+pub(super) struct Prepared {
+    outgoing: Vec<Outgoing>,
+    sessions: HashSet<u64>,
+    pub(super) video: VideoHandle,
+}
+
+/// What a finished pass hands to the loop that ran it, to deliver after every lock is released.
+pub(super) struct VideoPass {
+    pub(super) decisions: Vec<ApprovalDecision>,
+    pub(super) outgoing: Vec<Outgoing>,
+    pub(super) failure: Option<CoordinatorError>,
+}
+
+impl HostState {
+    /// The first step: what is due before the capture runs. Sessions that attach while the encode is in flight are left out
+    /// of its result, because the keyframe they asked for comes with the next pass.
+    pub(super) fn begin_video_pass(&mut self, now: f64) -> Prepared {
+        self.release_silent_input(now);
+        let mut outgoing = self.catalogue_frames_due(now);
+        outgoing.extend(self.session_notices(now));
+        self.resync_if_video_was_dropped();
+        self.refresh_watched();
+        Prepared { outgoing, sessions: self.sessions.keys().copied().collect(), video: self.video.clone() }
+    }
+
+    /// The last step: records the failure or the recovery and routes each output to the lanes of the sessions that were
+    /// attached at the start. What was ready before the capture is kept when the capture or encoder failed.
+    pub(super) fn finish_video_pass(
+        &mut self,
+        prepared: Prepared,
+        outputs: Result<Vec<VideoOutput>, CoordinatorError>,
+        now: f64,
+    ) -> (Vec<Outgoing>, Option<CoordinatorError>) {
+        let Prepared { mut outgoing, sessions, video } = prepared;
+        let outputs = match outputs {
+            Ok(outputs) => outputs,
+            Err(error) => {
+                self.set_problem("video", crate::strings::capture_recovering(&error.to_string()));
+                return (outgoing, Some(error));
+            }
+        };
+        if video.lock().recovery_failures() == 0 {
+            self.clear_problem("video");
+        }
+        for output in &outputs {
+            self.route(output, &sessions, now, &mut outgoing);
+        }
+        (outgoing, None)
+    }
+
+    fn route(&mut self, output: &VideoOutput, sessions: &HashSet<u64>, now: f64, outgoing: &mut Vec<Outgoing>) {
+        let attached = self.sessions.iter_mut().filter(|(id, slot)| sessions.contains(id) && !slot.background);
+        for (_, slot) in attached {
+            let Ok(sends) = slot.lane.send(output, now) else {
+                // The next keyframe resynchronises a client whose lane could not take this output.
+                continue;
+            };
+            let to = slot.video_outbound.clone().unwrap_or_else(|| slot.outbound.clone());
+            for send in sends {
+                match send {
+                    LaneSend::ControlFrames(frames) => {
+                        outgoing.extend(frames.into_iter().map(|frame| Outgoing { to: to.clone(), frame }));
+                    }
+                    LaneSend::Datagram(bytes) => {
+                        // Only a session with a relayed lane is granted a key, so its lane task is there to send it.
+                        if let Some(datagrams) = &slot.datagram_outbound {
+                            let _queued = datagrams.send(bytes);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// One pass on the calling thread, for tests and callers that have no executor to hand the capture to.
+pub(super) fn pump_video_inline(shared: &Shared, now: f64) -> Result<Vec<Outgoing>, CoordinatorError> {
+    let prepared = shared.lock().begin_video_pass(now);
+    let outputs = prepared.video.pump(now).unwrap_or_else(|payload| resume_unwind(payload));
+    match shared.lock().finish_video_pass(prepared, outputs, now) {
+        (outgoing, None) => Ok(outgoing),
+        (_, Some(error)) => Err(error),
+    }
+}
+
+/// One pass with the capture and encode on a blocking thread. Each step runs under `catch_unwind`, so a panic in any of
+/// them comes back as the payload for the supervisor.
+async fn run_video_pass(shared: &Shared, profile: &HostProfile, now: f64) -> std::thread::Result<VideoPass> {
+    let (decisions, prepared) = catch_unwind(AssertUnwindSafe(|| {
+        let commands = take_commands(&mut lock_ignoring_poison(&shared.control));
+        let mut state = shared.lock();
+        let decisions = state.apply_commands(commands);
+        publish_if_due(&state, &profile.host_id, &mut lock_ignoring_poison(&shared.control), now);
+        (decisions, state.begin_video_pass(now))
+    }))?;
+    let video = prepared.video.clone();
+    let pumped: PumpOutcome = spawn_blocking(move || video.pump(now)).await.map_err(worker_payload)?;
+    let outputs = pumped?;
+    let (outgoing, failure) = catch_unwind(AssertUnwindSafe(|| shared.lock().finish_video_pass(prepared, outputs, now)))?;
+    Ok(VideoPass { decisions, outgoing, failure })
+}
+
+fn worker_payload(error: JoinError) -> Box<dyn Any + Send> {
+    if error.is_panic() {
+        error.into_panic()
+    } else {
+        Box::new("the video worker was cancelled")
+    }
+}
+
+/// Runs the pump on a timer for the life of the host. Each pass first applies the UI's commands and publishes the
+/// snapshot, so the window sees what the pump sees. The video and terminal passes are supervised separately, so a panic
+/// in one does not stop the other.
+pub async fn run_pump(shared: Shared, profile: Arc<HostProfile>, meter: Arc<PassMeter>) {
+    let mut ticks = interval(PUMP_INTERVAL);
+    ticks.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    let mut video = Supervised::new("video");
+    let mut terminals = Supervised::new("terminals");
+    let mut failures = LogGate::default();
+    loop {
+        ticks.tick().await;
+        let now = profile.clock.now_seconds();
+        meter.begin();
+        if video.ready(now) {
+            let outcome = run_video_pass(&shared, &profile, now).await;
+            let pass = video.settle(now, outcome, |text| record_problem(&shared, "video", text));
+            if let Pass::Done(finished) = pass {
+                deliver_pass(&shared, finished, &mut failures, now);
+            }
+        }
+        let terminal_pass = terminals.run(now, || shared.lock().pump_terminals(), |text| record_problem(&shared, "terminals", text));
+        if let Pass::Done(terminal_output) = terminal_pass {
+            deliver(terminal_output);
+        }
+        meter.end();
+    }
+}
+
+fn deliver_pass(shared: &Shared, finished: VideoPass, failures: &mut LogGate, now: f64) {
+    for decision in finished.decisions {
+        // No waiting session means the client already left, so the decision has nothing to reach.
+        let _delivered = shared.approvals.send(decision);
+    }
+    deliver(finished.outgoing);
+    if let (Some(failure), Some(held_back)) = (finished.failure, failures.allow(now)) {
+        diagnostics::log(&format!("the video pump failed: {failure} ({held_back} more held back)"));
+    }
+}
+
+pub fn spawn_pump(shared: Shared, profile: Arc<HostProfile>, meter: Arc<PassMeter>) -> JoinHandle<()> {
+    spawn_local(run_pump(shared, profile, meter))
+}

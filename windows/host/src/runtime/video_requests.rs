@@ -53,6 +53,6 @@ impl HostState {
     /// counts, and neither does one whose picture is back on the primary lane.
     pub fn refresh_bitrate_ceiling(&mut self) {
         let ceiling = lowest_ceiling_kbps(self.sessions.values().map(|slot| slot.lane.bitrate_ceiling_kbps()));
-        self.video.set_bitrate_ceiling(ceiling);
+        self.video.lock().set_bitrate_ceiling(ceiling);
     }
 }

@@ -146,8 +146,17 @@ pub fn harness() -> Harness {
 
 /// A host whose workstation is `system`, for tests of the lock request and of the hello that advertises it.
 pub fn harness_with_system(system: RecordingSystem) -> Harness {
-    let capture = Arc::new(Mutex::new(FakeCapture::new(vec![display()])));
     let encoder = Arc::new(Mutex::new(FakeEncoder::default()));
+    harness_with(system, Box::new(SharedEncoder(encoder.clone())), encoder)
+}
+
+/// A host whose encoder is `encoder`. `unused` stands in for the inspectable encoder the other tests read.
+pub fn harness_with_encoder(encoder: Box<dyn Encoder + Send>) -> Harness {
+    harness_with(RecordingSystem::new(true, None), encoder, Arc::new(Mutex::new(FakeEncoder::default())))
+}
+
+fn harness_with(system: RecordingSystem, encoder_port: Box<dyn Encoder + Send>, encoder: Arc<Mutex<FakeEncoder>>) -> Harness {
+    let capture = Arc::new(Mutex::new(FakeCapture::new(vec![display()])));
     let system = Arc::new(Mutex::new(system));
     let input = Arc::new(Mutex::new(RecordingInput::default()));
     let secrets = Arc::new(InMemorySecretStore::default());
@@ -158,7 +167,7 @@ pub fn harness_with_system(system: RecordingSystem) -> Harness {
     let shells = FakeSpawner::default();
     let services = HostServices {
         capture: Box::new(SharedCapture(capture.clone())),
-        encoder: Box::new(SharedEncoder(encoder.clone())),
+        encoder: encoder_port,
         input: Box::new(SharedInput(input.clone())),
         system: Box::new(SharedSystem(system.clone())),
         secrets: secrets.clone(),
@@ -271,8 +280,13 @@ impl Phone {
 }
 
 pub fn hello() -> Frame {
+    hello_from(CLIENT_ID)
+}
+
+/// The hello of the phone named `client_id`.
+pub fn hello_from(client_id: &str) -> Frame {
     let hello = ClientHello {
-        client_id: CLIENT_ID.to_owned(),
+        client_id: client_id.to_owned(),
         client_name: CLIENT_NAME.to_owned(),
         protocol_version: PROTOCOL_VERSION,
         wants_pairing: true,

@@ -18,6 +18,7 @@ mod diagnostics;
 mod error;
 mod files;
 mod listener;
+mod lock;
 mod peer_address;
 mod notifications;
 mod outbound;
@@ -32,6 +33,8 @@ mod shared;
 mod supervise;
 mod terminal;
 mod video;
+mod video_handle;
+mod video_pass;
 mod video_requests;
 
 use std::collections::HashMap;
@@ -67,6 +70,7 @@ use peer_address::PeerAddressRouter;
 use pins::SecretPins;
 use services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
 use shared::{HostState, Shared};
+use video_handle::VideoHandle;
 
 pub const DEFAULT_PORT: u16 = peering_core::settings::DEFAULT_PORT;
 const APPROVAL_CHANNEL_DEPTH: usize = 16;
@@ -139,7 +143,7 @@ impl HostRuntime {
             capture: capture.clone(),
             catalogue: CatalogueService::new(),
             catalogues: SessionCatalogue::new(),
-            video: VideoCoordinator::new(capture, BoxedEncoder(encoder)),
+            video: VideoHandle::new(VideoCoordinator::new(capture, BoxedEncoder(encoder))),
             input: BoxedInput(input),
             hold: Default::default(),
             system: BoxedSystem(system),
@@ -211,7 +215,7 @@ impl HostRuntime {
 
     /// One pass of the video pump at `now`, delivered to the connections. The timer calls this every frame interval.
     pub fn pump_video(&self, now: f64) -> Result<(), peering_core::video::coordinator::CoordinatorError> {
-        let outgoing = self.shared.lock().pump_video(now)?;
+        let outgoing = video_pass::pump_video_inline(&self.shared, now)?;
         video::deliver(outgoing);
         Ok(())
     }
@@ -270,7 +274,7 @@ impl HostRuntime {
         let published = self.shared.control.lock().unwrap_or_else(std::sync::PoisonError::into_inner).published.clone();
         supervise::spawn_hang_monitor(&meter, published);
         PumpTasks {
-            video: video::spawn_pump(self.shared.clone(), self.profile.clone(), meter),
+            video: video_pass::spawn_pump(self.shared.clone(), self.profile.clone(), meter),
             agents: agent_pump::spawn_pump(self.shared.clone()),
         }
     }

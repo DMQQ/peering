@@ -12,7 +12,6 @@ use peering_core::ports::input::InputSink;
 use peering_core::session::deps::PinStore;
 use peering_core::session::held_input::HoldGuard;
 use peering_core::terminal::manager::TerminalSessionManager;
-use peering_core::video::coordinator::VideoCoordinator;
 use peering_core::video::lane::VideoLane;
 use tokio::sync::broadcast;
 
@@ -22,7 +21,8 @@ use super::agent_browse::FolderBrowser;
 use super::notifications::WaitingNotifications;
 use super::outbound::{FrameSender, Outbound};
 use super::peer_address::PeerAddressRouter;
-use super::services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
+use super::services::{BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
+use super::video_handle::VideoHandle;
 
 /// One authorised control connection. `video_outbound` is set while a direct video connection for the same client is open.
 /// `datagram_outbound` feeds the session's relayed UDP lane; it is set only for a session that has one.
@@ -50,7 +50,7 @@ pub struct HostState {
     pub capture: SharedCapture,
     pub catalogue: CatalogueService,
     pub catalogues: SessionCatalogue<u64>,
-    pub video: VideoCoordinator<SharedCapture, BoxedEncoder>,
+    pub video: VideoHandle,
     pub input: BoxedInput,
     /// What the phones have left pressed, so a phone that drops silently does not leave a key down.
     pub hold: HoldGuard,
@@ -95,7 +95,7 @@ impl HostState {
     /// Encoding runs only while some session is in the foreground.
     pub fn refresh_watched(&mut self) {
         let watched = self.sessions.values().any(|slot| !slot.background);
-        self.video.set_watched(watched);
+        self.video.lock().set_watched(watched);
     }
 
     /// Lets go of keys and buttons held by phones that have all gone quiet.
@@ -117,7 +117,7 @@ impl HostState {
             dropped |= slot.datagram_outbound.as_ref().is_some_and(Outbound::take_dropped_stale);
         }
         if dropped {
-            self.video.request_resync();
+            self.video.lock().request_resync();
         }
         dropped
     }

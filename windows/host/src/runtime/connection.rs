@@ -283,7 +283,7 @@ impl Connection {
         };
         slot.video_outbound = Some(self.outbound.clone());
         self.video_for_session = Some(session_id);
-        guard.video.request_resync();
+        guard.video.lock().request_resync();
         Flow::Open
     }
 
@@ -303,8 +303,9 @@ impl Connection {
             // The ceiling goes first: once capture stops, the encoder no longer takes a new bitrate.
             state.refresh_bitrate_ceiling();
             if last_of_client {
-                state.video.detach(&slot.client_id);
-                state.video.stop_when_idle();
+                let mut video = state.video.lock();
+                video.detach(&slot.client_id);
+                video.stop_when_idle();
             }
             state.release_input_if_idle();
             if last_of_client {

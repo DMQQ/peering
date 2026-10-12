@@ -151,8 +151,10 @@ impl HostState {
         for id in sessions_of_client(siblings, client_id) {
             self.sessions.remove(&id);
         }
-        self.video.detach(client_id);
-        self.video.stop_when_idle();
+        let mut video = self.video.lock();
+        video.detach(client_id);
+        video.stop_when_idle();
+        drop(video);
         self.input.release_all();
         self.terminals.disconnect(client_id);
     }
@@ -162,9 +164,9 @@ impl HostState {
     fn stop_sessions(&mut self) {
         for (_, slot) in self.sessions.drain() {
             let _queued = slot.outbound.send(ErrorPayload::host_stopped_frame());
-            self.video.detach(&slot.client_id);
+            self.video.lock().detach(&slot.client_id);
         }
-        self.video.stop_when_idle();
+        self.video.lock().stop_when_idle();
         self.input.release_all();
     }
 }
@@ -192,7 +194,7 @@ impl HostState {
                     self.pairing.revoke(&client_id);
                     self.end_client_sessions(&client_id);
                 }
-                RuntimeCommand::SetFrameRate(fps) => self.video.set_frame_rate(fps),
+                RuntimeCommand::SetFrameRate(fps) => self.video.lock().set_frame_rate(fps),
             }
         }
         decisions

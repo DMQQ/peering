@@ -49,7 +49,7 @@ impl Connection {
         let mut guard = self.shared.lock();
         let state = &mut *guard;
         let transform = state.active_transform();
-        let mut source = CoordinatorControl::new(&mut state.video, &mut state.system, now);
+        let mut source = CoordinatorControl::new(&state.video, &mut state.system, now);
         let mut tracked = state.hold.track(&mut state.input);
         let mut context = DispatchContext { observe_mode: false, transform, input: &mut tracked, source: &mut source };
         let outcome = run(&mut context);
@@ -69,7 +69,7 @@ impl Connection {
             slot.background = report.background;
         }
         if !report.background {
-            state.video.request_resync();
+            state.video.lock().request_resync();
         }
         state.refresh_watched();
         Flow::Open
