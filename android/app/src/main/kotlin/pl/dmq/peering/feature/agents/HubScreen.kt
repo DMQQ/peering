@@ -25,6 +25,7 @@ import pl.dmq.peering.ui.theme.PeeringColors
 fun HubScreen(
     presenter: AgentsHubPresenter,
     folders: FolderPicker,
+    onSessionOpened: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ui by presenter.ui.collectAsState()
@@ -55,7 +56,10 @@ fun HubScreen(
             items(ui.sessions, key = { it.id }) { card ->
                 SessionCardRow(
                     card = card,
-                    onOpen = { presenter.openSession(card.id) },
+                    onOpen = {
+                        presenter.openSession(card.id)
+                        onSessionOpened()
+                    },
                     onEnd = { presenter.closeSession(card.id) },
                 )
             }
