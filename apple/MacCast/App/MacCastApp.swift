@@ -150,12 +150,11 @@ struct MacCastApp: App {
                         }
                     case "chat":
                         // A chat lives on its Mac: that Mac is opened first, and the chat is asked for once its screen is up (see `InAppBanner.openRequest`).
-                        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
-                        guard let chatID = items?.first(where: { $0.name == "id" })?.value.flatMap(UUID.init(uuidString:)) else { return }
-                        if let hostID = items?.first(where: { $0.name == "host" })?.value {
+                        guard let link = AgentChatSnapshot.parse(url) else { return }
+                        if let hostID = link.hostID {
                             model.openFromNotification(hostID: hostID, sourceID: nil)
                         }
-                        InAppBanner.shared.openRequest = .chat(chatID)
+                        InAppBanner.shared.openRequest = .chat(link.chatID)
                     case PairingPayload.codeHost:
                         model.pairingLink = (url, Date())
                         // The code belongs to a Mac that is asking right now; with none asking it is held for a minute and the person is told what to do, since nothing on screen changes otherwise.

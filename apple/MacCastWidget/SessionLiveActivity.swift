@@ -13,7 +13,7 @@ struct SessionLiveActivity: Widget {
             ActivityCard(
                 symbol: "macbook",
                 tone: tone(for: context.state.phase),
-                name: context.state.hostName ?? String(localized: "Mac"),
+                name: context.state.shownHostName,
                 status: statusText(for: context.state),
                 startedAt: context.state.startedAt,
                 action: action(for: context.state.phase),
@@ -21,11 +21,13 @@ struct SessionLiveActivity: Widget {
             )
             .activityBackgroundTint(ActivityCard.backgroundTint)
             .activitySystemActionForegroundColor(.white)
+            // A dropped card is the way back in anywhere on it, not only on its Restore button.
+            .widgetURL(context.state.phase == .dropped ? Self.restoreURL : nil)
         } dynamicIsland: { context in
             DynamicIsland {
                 // Both regions claim the full width and align inside it; otherwise the timer sits wherever the Mac's name ends.
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.state.hostName ?? String(localized: "Mac"), systemImage: symbol(for: context.state.phase))
+                    Label(context.state.shownHostName, systemImage: symbol(for: context.state.phase))
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)

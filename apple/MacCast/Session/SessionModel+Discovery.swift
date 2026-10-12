@@ -14,6 +14,10 @@ extension SessionModel {
         guard identityFailure == nil else { return }
         // Anything on the Lock Screen from a previous run describes a session this process did not survive.
         SessionActivity.shared.adoptOrphan()
+        LiveActivityTokens.shared.deliver = { [weak self] payload in
+            self?.activeSession?.wire?.sendActivityToken(payload)
+        }
+        LiveActivityTokens.shared.startObservingPushToStart()
         browser.onEvent = { [weak self] event in
             // Bound once outside the `Task`: a `weak self` is a mutable variable and reading it from an outliving closure is a data race.
             guard let self else { return }

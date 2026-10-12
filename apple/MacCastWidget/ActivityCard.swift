@@ -16,6 +16,8 @@ struct ActivityCard: View {
     var plan: ActivityCardPlan?
 
     static let workRows = 3
+    /// A card pushed by the Mac names nothing it is doing.
+    static let fallbackName = String(localized: "Coding agent")
 
     static let tile: CGFloat = 42
     static let tileCorner = tile * 0.286
@@ -62,7 +64,7 @@ struct ActivityCard: View {
                 .foregroundStyle(.white.opacity(0.75))
                 .frame(width: 15, alignment: .leading)
 
-            Text(item.name)
+            Text(item.name.isEmpty ? Self.fallbackName : item.name)
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.9))
                 .lineLimit(1)

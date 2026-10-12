@@ -33,6 +33,8 @@
 	<string>Peering connects to your Mac on the local network to stream its screen and send input.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
 	<!--
 	  Export compliance, answered once and attached to every build from here on.
 

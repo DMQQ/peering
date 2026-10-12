@@ -181,6 +181,20 @@
    "json": "{\"background\":false}",
    "frame": "00000015237b226261636b67726f756e64223a66616c73657d",
    "source": "swift-test ClientStateTests.swift"
+  },
+  {
+   "name": "activityToken session",
+   "kind": 36,
+   "json": "{\"activity\":\"session\",\"environment\":\"production\",\"pushToStartToken\":null,\"pushToken\":\"0a1b2c\"}",
+   "frame": "0000005f247b226163746976697479223a2273657373696f6e222c22656e7669726f6e6d656e74223a2270726f64756374696f6e222c2270757368546f5374617274546f6b656e223a6e756c6c2c2270757368546f6b656e223a22306131623263227d",
+   "source": "computed, decoded in LiveActivityPushTests.swift"
+  },
+  {
+   "name": "activityToken ended",
+   "kind": 36,
+   "json": "{\"activity\":\"agentChat\",\"environment\":\"sandbox\",\"pushToStartToken\":null,\"pushToken\":null}",
+   "frame": "0000005a247b226163746976697479223a226167656e7443686174222c22656e7669726f6e6d656e74223a2273616e64626f78222c2270757368546f5374617274546f6b656e223a6e756c6c2c2270757368546f6b656e223a6e756c6c7d",
+   "source": "computed, decoded in LiveActivityPushTests.swift"
   }
  ]
 }

@@ -133,7 +133,8 @@ write("relay.json", {
     {"name": "ping", "json": js({"type": "ping"})},
     {"name": "requestPeerAddress", "json": js({"type": "requestPeerAddress", "videoToken": "000102030405060708090a0b0c0d0e0f"})},
     {"name": "hostPresence", "json": js({"type": "hostPresence", "hostId": "mac-1"})},
-    {"name": "notifyDevice", "json": js({"type": "notifyDevice", "deviceToken": "ab" * 32, "title": "t", "body": "b"})}],
+    {"name": "notifyDevice", "json": js({"type": "notifyDevice", "deviceToken": "ab" * 32, "title": "t", "body": "b"})},
+    {"name": "notifyActivity update", "json": js({"type": "notifyActivity", "activityToken": "0a1b2c", "activity": "session", "event": "update", "contentState": {"phase": "active", "startedAt": 800000000}, "environment": "production"})}],
   "serverMessages": [
     {"name": "sessionReady", "json": '{"type":"sessionReady","controlHost":"relay.getpeering.app","controlPort":20190,"videoHost":"relay.getpeering.app","videoPort":30190,"controlToken":"000102030405060708090a0b0c0d0e0f","videoToken":"fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0"}'},
     {"name": "registered", "json": js({"type": "registered", "sessionTtlSeconds": 300})},
@@ -141,7 +142,8 @@ write("relay.json", {
     {"name": "peerAddress", "json": js({"type": "peerAddress", "host": "203.0.113.5", "port": 40000})},
     {"name": "hostPresence", "json": js({"type": "hostPresence", "hostId": "mac-1", "online": True})},
     {"name": "pong", "json": js({"type": "pong"})},
-    {"name": "error", "json": js({"type": "error", "code": "quotaExceeded", "message": "relay allowance exhausted for this period"})}],
+    {"name": "error", "json": js({"type": "error", "code": "quotaExceeded", "message": "relay allowance exhausted for this period"})},
+    {"name": "activityRefused", "json": js({"type": "activityRefused", "reason": "invalidToken"})}],
   "tokens": {"valid": ["000102030405060708090a0b0c0d0e0f", "FFFEFDFCFBFAF9F8F7F6F5F4F3F2F1F0"],
              "invalid": ["", "0001", "+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1", "000102030405060708090a0b0c0d0e0g", "000102030405060708090a0b0c0d0e0f00"]},
 })
@@ -176,6 +178,8 @@ msgs = [
  ("videoTransport", 0x18, {"transport": "control", "reason": "no picture for 3 s"}, "computed"),
  ("clientState background", 0x23, {"background": True}, "swift-test ClientStateTests.swift"),
  ("clientState foreground", 0x23, {"background": False}, "swift-test ClientStateTests.swift"),
+ ("activityToken session", 0x24, {"activity": "session", "pushToken": "0a1b2c", "pushToStartToken": None, "environment": "production"}, "computed, decoded in LiveActivityPushTests.swift"),
+ ("activityToken ended", 0x24, {"activity": "agentChat", "pushToken": None, "pushToStartToken": None, "environment": "sandbox"}, "computed, decoded in LiveActivityPushTests.swift"),
 ]
 write("messages.json", {"cases": [{"name": n, "kind": k_, "json": js(o), "frame": hx(frame(k_, js(o).encode())), "source": s} for n, k_, o, s in msgs]})
 print("ok")

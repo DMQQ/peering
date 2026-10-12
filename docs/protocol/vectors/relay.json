@@ -28,6 +28,10 @@
   {
    "name": "notifyDevice",
    "json": "{\"body\":\"b\",\"deviceToken\":\"abababababababababababababababababababababababababababababababab\",\"title\":\"t\",\"type\":\"notifyDevice\"}"
+  },
+  {
+   "name": "notifyActivity update",
+   "json": "{\"activity\":\"session\",\"activityToken\":\"0a1b2c\",\"contentState\":{\"phase\":\"active\",\"startedAt\":800000000},\"environment\":\"production\",\"event\":\"update\",\"type\":\"notifyActivity\"}"
   }
  ],
  "serverMessages": [
@@ -58,6 +62,10 @@
   {
    "name": "error",
    "json": "{\"code\":\"quotaExceeded\",\"message\":\"relay allowance exhausted for this period\",\"type\":\"error\"}"
+  },
+  {
+   "name": "activityRefused",
+   "json": "{\"reason\":\"invalidToken\",\"type\":\"activityRefused\"}"
   }
  ],
  "tokens": {
