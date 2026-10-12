@@ -45,6 +45,11 @@ struct DatagramKeys {
     probe_opener: Opener,
 }
 
+/// The ceiling for an encoder that serves several sessions: the lowest any of them asks for, or none when none does.
+pub fn lowest_ceiling_kbps(ceilings: impl IntoIterator<Item = Option<u32>>) -> Option<u32> {
+    ceilings.into_iter().flatten().min()
+}
+
 pub struct VideoLane {
     video_token: [u8; TOKEN_SIZE],
     datagrams: Option<DatagramKeys>,
