@@ -5,7 +5,7 @@ import Testing
 
 @Suite("Warning about a very bad connection")
 struct BadConnectionWarningTests {
-    private let start = Date(timeIntervalSince1970: 1_000_000)
+    private let start = ContinuousClock.Instant.now
 
     @Test("a single slow reading says nothing")
     func oneSlowReading() {
@@ -58,7 +58,7 @@ struct BadConnectionWarningTests {
     func warnsAgainAfterCooldown() {
         var warning = BadConnectionWarning()
         for _ in 0..<3 { _ = warning.shouldWarn(milliseconds: 2000, now: start) }
-        let later = start.addingTimeInterval(BadConnectionWarning.cooldown + 1)
+        let later = start + .seconds(BadConnectionWarning.cooldown + 1)
         let r13 = warning.shouldWarn(milliseconds: 2000, now: later)
         #expect(r13)
     }

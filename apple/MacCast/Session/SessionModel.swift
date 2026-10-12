@@ -14,7 +14,7 @@ private let modelLog = Logger(subsystem: "pl.dmq.peering", category: "app")
 @Observable
 @MainActor
 final class SessionModel {
-    let launchedAt = Date()
+    let launchedAt = MonotonicStamp()
 
     /// Declared on ``MacSession`` and merely named here: the answer belongs to one connection (one Mac can be on this network while another is across the country).
     typealias ConnectionPath = MacSession.ConnectionPath
@@ -209,7 +209,7 @@ final class SessionModel {
     var draftSelection = NSRange(location: 0, length: 0)
     var fieldCaret: NormalizedPoint?
     /// When the phone's field last changed by typing: the Mac's report of a line still being typed is older than the line, and applying it would delete the last characters.
-    var lastLocalEdit = Date.distantPast
+    var lastLocalEdit: MonotonicStamp?
     var pendingField: FieldState?
 
     /// Where a hand on the Mac last left its pointer. A serial, because a second report at the same spot after the joystick has moved the drawn cursor away must still pull it back.

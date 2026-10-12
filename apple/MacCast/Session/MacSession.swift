@@ -115,7 +115,7 @@ final class MacSession: Identifiable {
     /// Set when the retry ladder runs out; cleared when a session is up again.
     var hasGivenUpResuming = false
 
-    var gaveUpAt: Date?
+    var gaveUpAt: MonotonicStamp?
 
     /// The one resume a session cannot recognise on its own: a cold launch has no object to carry `hasBeenReady` from (iOS killed the process), so the intent arrives with the dial and is put here by ``SessionModel/connect(to:replacing:)``.
     var isComingBack = false
@@ -208,7 +208,7 @@ final class MacSession: Identifiable {
     var picturePaused = false
 
     /// The request goes out here and frames come back to the renderer, so this is the only place both ends of the interval are visible. Reported into notes and Diagnostics.
-    var pictureResumedAt: Date?
+    var pictureResumedAt: MonotonicStamp?
     var pictureResumeBaselineFrames: Int?
     var lastResumeMilliseconds: Double?
 
@@ -294,14 +294,14 @@ final class MacSession: Identifiable {
     /// What git said about each chat's folder, and the chats still waiting for that answer.
     var agentChanges: [UUID: AgentChangesReport] = [:]
     var agentChangesLoading: Set<UUID> = []
-    var agentChangesAskedAt: [UUID: Date] = [:]
+    var agentChangesAskedAt: [UUID: MonotonicStamp] = [:]
     /// A commit or push the Mac has not answered yet, and the last answer, per chat.
     var agentGitBusy: [UUID: AgentGitOperation] = [:]
     var agentGitResults: [UUID: AgentGitResult] = [:]
 
     /// A PTY gives a byte stream with no marker for where one command's output starts, so the only link is that it arrived right after one.
     var lastSentCommand: String?
-    var lastSentAt: Date?
+    var lastSentAt: MonotonicStamp?
 
     // MARK: - File browsing
 

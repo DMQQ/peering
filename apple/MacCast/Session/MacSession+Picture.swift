@@ -19,7 +19,7 @@ extension MacSession {
             pictureResumeBaselineFrames = nil
         } else {
             // Taken before the frame arrives, the only moment it can be: the renderer's total when the ask went out is what the first frame back is measured from.
-            pictureResumedAt = Date()
+            pictureResumedAt = MonotonicStamp()
             pictureResumeBaselineFrames = renderer.currentSnapshot.framesEnqueued
             lastResumeMilliseconds = nil
         }
@@ -32,7 +32,7 @@ extension MacSession {
 
         pictureResumedAt = nil
         pictureResumeBaselineFrames = nil
-        let milliseconds = Date().timeIntervalSince(resumedAt) * 1000
+        let milliseconds = resumedAt.elapsedSeconds() * 1000
         lastResumeMilliseconds = milliseconds
         append(note: String(localized: "Picture back \(Int(milliseconds.rounded())) ms after asking for it"))
     }

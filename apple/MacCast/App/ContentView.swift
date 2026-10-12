@@ -50,7 +50,7 @@ struct ContentView: View {
     @State private var pairingIsFirst = false
     @State private var celebratesPairing = false
     @State private var showsConnecting = false
-    @State private var connectingSince: Date?
+    @State private var connectingSince: MonotonicStamp?
     @State private var connectingFailure: String?
     @State private var connectingIsSlow = false
     @State private var connectingDidSucceed = false
@@ -230,7 +230,7 @@ struct ContentView: View {
 
         connectingDismissTask?.cancel()
         connectingDismissTask = nil
-        connectingSince = Date()
+        connectingSince = MonotonicStamp()
         connectingFailure = nil
         connectingIsSlow = false
         connectingDidSucceed = false
@@ -281,7 +281,7 @@ struct ContentView: View {
         guard connectingFailure == nil else { return }
 
         guard let since = connectingSince else { return }
-        let remaining = max(0, Self.connectingShownFor - Date().timeIntervalSince(since))
+        let remaining = max(0, Self.connectingShownFor - since.elapsedSeconds())
         let reachedReady = model.phase == .ready
 
         if reachedReady {

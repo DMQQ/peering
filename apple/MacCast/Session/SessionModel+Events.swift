@@ -9,7 +9,7 @@ extension SessionModel {
         for host in reappeared {
             guard let session = sessions.first(where: { $0.hostID == host.id && $0.hasGivenUpResuming }),
                   let gaveUpAt = session.gaveUpAt,
-                  Date().timeIntervalSince(gaveUpAt) < Self.comebackWindow
+                  gaveUpAt.isWithin(seconds: Self.comebackWindow)
             else { continue }
             isResuming = true
             reconnect(session, to: .discovered(host))

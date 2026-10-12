@@ -4,14 +4,14 @@ import RemoteCore
 extension MacSession {
     func loadAgentChanges(_ id: UUID) {
         agentChangesLoading.insert(id)
-        agentChangesAskedAt[id] = .now
+        agentChangesAskedAt[id] = MonotonicStamp()
         wire?.sendAgent(.changes(sessionID: id))
     }
 
     /// Asked ahead of the screen that shows it, so the answer is usually there when the screen opens. Skipped while one is on its way or a recent one is held.
     func prefetchAgentChanges(_ id: UUID, freshFor seconds: TimeInterval = 20) {
         guard !agentChangesLoading.contains(id) else { return }
-        if let asked = agentChangesAskedAt[id], Date.now.timeIntervalSince(asked) < seconds { return }
+        if let asked = agentChangesAskedAt[id], asked.isWithin(seconds: seconds) { return }
         loadAgentChanges(id)
     }
 

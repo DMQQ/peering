@@ -22,11 +22,11 @@ struct JoystickView: View {
     private static let doubleTapWindow: TimeInterval = 0.3
 
     @State private var knob: CGSize = .zero
-    @State private var lastSample: Date?
-    @State private var touchStart: Date?
+    @State private var lastSample: MonotonicStamp?
+    @State private var touchStart: MonotonicStamp?
     @State private var isLongPress = false
     @State private var holdTask: Task<Void, Never>?
-    @State private var lastTapEndedAt: Date?
+    @State private var lastTapEndedAt: MonotonicStamp?
     @State private var pendingClick: Task<Void, Never>?
     @State private var pendingDx: Double = 0
     @State private var pendingDy: Double = 0
@@ -67,7 +67,7 @@ struct JoystickView: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
                     if touchStart == nil {
-                        touchStart = Date()
+                        touchStart = MonotonicStamp()
                         startDraining()
                         let task = Task { @MainActor in
                             try? await Task.sleep(for: .seconds(Self.longPressDuration))
@@ -119,8 +119,7 @@ struct JoystickView: View {
 
     /// The click waits for the double-tap window, the cost of both gestures on one control: otherwise every attempt to change the speed would also click under the pointer. A hold is no part of a double tap, so right-click fires at once.
     private func tapped() {
-        let now = Date()
-        if let last = lastTapEndedAt, now.timeIntervalSince(last) < Self.doubleTapWindow {
+        if let last = lastTapEndedAt, last.isWithin(seconds: Self.doubleTapWindow) {
             pendingClick?.cancel()
             pendingClick = nil
             lastTapEndedAt = nil
@@ -128,7 +127,7 @@ struct JoystickView: View {
             return
         }
 
-        lastTapEndedAt = now
+        lastTapEndedAt = MonotonicStamp()
         pendingClick?.cancel()
         pendingClick = Task { @MainActor in
             try? await Task.sleep(for: .seconds(Self.doubleTapWindow))
@@ -143,9 +142,8 @@ struct JoystickView: View {
 
     /// The delta is proportional to the time since the previous sample, so speed is independent of touch rate and a dropped sample costs a longer step.
     private func emit(_ offset: CGSize) {
-        let now = Date()
-        let interval = lastSample.map { min(now.timeIntervalSince($0), Self.maximumSampleGap) } ?? 0
-        lastSample = now
+        let interval = lastSample.map { min($0.elapsedSeconds(), Self.maximumSampleGap) } ?? 0
+        lastSample = MonotonicStamp()
         guard interval > 0 else { return }
 
         let dx = Double(offset.width / radius) * Self.travelPerSecond * pointSize.width * interval
