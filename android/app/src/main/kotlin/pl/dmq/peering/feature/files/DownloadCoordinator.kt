@@ -1,6 +1,5 @@
 package pl.dmq.peering.feature.files
 
-import java.io.IOException
 import java.util.TreeMap
 
 /**
@@ -30,14 +29,14 @@ class DownloadCoordinator(private val sink: DownloadSink) {
         try {
             sink.commit()
             outcome = DownloadOutcome.Committed
-        } catch (failure: IOException) {
+        } catch (failure: Exception) {
             fail(DownloadOutcome.Failed(failure.message.orEmpty()))
         }
     }
 
     fun cancel() {
         if (outcome != null) return
-        sink.discard()
+        discardSink()
         outcome = DownloadOutcome.Discarded
     }
 
@@ -46,7 +45,7 @@ class DownloadCoordinator(private val sink: DownloadSink) {
             val next = waiting.remove(writtenBytes) ?: return
             try {
                 sink.write(next)
-            } catch (failure: IOException) {
+            } catch (failure: Exception) {
                 return fail(DownloadOutcome.Failed(failure.message.orEmpty()))
             }
             writtenBytes += next.size
@@ -54,8 +53,16 @@ class DownloadCoordinator(private val sink: DownloadSink) {
     }
 
     private fun fail(reason: DownloadOutcome.Failed) {
-        sink.discard()
+        discardSink()
         outcome = reason
+    }
+
+    /** A provider can throw anything (a revoked grant, a dead process); the download has ended either way. */
+    private fun discardSink() {
+        try {
+            sink.discard()
+        } catch (_: Exception) {
+        }
     }
 }
 

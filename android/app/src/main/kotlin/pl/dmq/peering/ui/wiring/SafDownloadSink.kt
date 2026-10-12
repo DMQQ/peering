@@ -20,8 +20,11 @@ internal class SafDownloadSink private constructor(
     override fun discard() {
         try {
             output.close()
-        } finally {
+        } catch (_: Exception) {
+        }
+        try {
             DocumentsContract.deleteDocument(resolver, uri)
+        } catch (_: Exception) {
         }
     }
 
