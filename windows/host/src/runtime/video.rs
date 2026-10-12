@@ -156,8 +156,9 @@ impl HostState {
             }
         }
         outgoing.extend(self.session_notices(now));
+        self.refresh_watched();
         for output in self.video.pump(now)? {
-            for slot in self.sessions.values_mut() {
+            for slot in self.sessions.values_mut().filter(|slot| !slot.background) {
                 let Ok(sends) = slot.lane.send(&output, now) else {
                     // The next keyframe resynchronises a client whose lane could not take this output.
                     continue;

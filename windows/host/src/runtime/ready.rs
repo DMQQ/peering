@@ -4,6 +4,7 @@ use peering_core::session::dispatch::{on_ready_frame, DispatchContext, ReadyOutc
 use peering_wire::agent::AgentRequest;
 use peering_wire::command::RemoteCommand;
 use peering_wire::framing::{Frame, MessageKind};
+use peering_wire::handshake::ClientStatePayload;
 
 use super::agent_browse;
 use super::connection::{Connection, Flow};
@@ -26,6 +27,7 @@ impl Connection {
             ReadyOutcome::Unhandled(MessageKind::AgentRequest) => self.agent_request(frame),
             ReadyOutcome::Unhandled(MessageKind::VideoKeyRequest) => self.answer_video_key(),
             ReadyOutcome::Unhandled(MessageKind::VideoTransport) => self.answer_video_transport(frame),
+            ReadyOutcome::Unhandled(MessageKind::ClientState) => self.client_state(frame),
             ReadyOutcome::Unhandled(_) => Flow::Open,
         }
     }
@@ -52,6 +54,24 @@ impl Connection {
         let outcome = run(&mut context);
         let failure = source.failure.take();
         (outcome, failure)
+    }
+
+    /// A malformed report is ignored: it only changes how long the phone may stay silent and whether it is sent video.
+    fn client_state(&mut self, frame: &Frame) -> Flow {
+        let Ok(report) = serde_json::from_slice::<ClientStatePayload>(&frame.payload) else {
+            return Flow::Open;
+        };
+        self.liveness.set_background(report.background);
+        let mut guard = self.shared.lock();
+        let state = &mut *guard;
+        if let Some(slot) = state.sessions.get_mut(&self.session_id) {
+            slot.background = report.background;
+        }
+        if !report.background {
+            state.video.request_resync();
+        }
+        state.refresh_watched();
+        Flow::Open
     }
 
     fn agent_request(&mut self, frame: &Frame) -> Flow {

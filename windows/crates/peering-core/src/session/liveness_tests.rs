@@ -102,3 +102,26 @@ fn every_frame_counts_once_authorised() {
     assert!(counts_as_life(HostPhase::Authorized, MessageKind::Command));
     assert!(counts_as_life(HostPhase::Authorized, MessageKind::Ping));
 }
+
+#[test]
+fn a_backgrounded_authorised_session_is_given_three_minutes() {
+    let mut tracker = LivenessTracker::started_at(0.0);
+    tracker.set_background(true);
+    assert_eq!(tracker.verdict(BACKGROUND_SILENCE_SECONDS, HostPhase::Authorized), Verdict::Keep);
+    assert_eq!(tracker.verdict(BACKGROUND_SILENCE_SECONDS + 0.5, HostPhase::Authorized), Verdict::End);
+}
+
+#[test]
+fn returning_to_the_foreground_restores_the_sixty_second_limit() {
+    let mut tracker = LivenessTracker::started_at(0.0);
+    tracker.set_background(true);
+    tracker.set_background(false);
+    assert_eq!(tracker.verdict(AUTHORISED_SILENCE_SECONDS + 0.5, HostPhase::Authorized), Verdict::End);
+}
+
+#[test]
+fn the_background_flag_does_not_stretch_the_limits_before_authorisation() {
+    let mut tracker = LivenessTracker::started_at(0.0);
+    tracker.set_background(true);
+    assert_eq!(tracker.verdict(UNAUTHENTICATED_SILENCE_SECONDS + 0.5, HostPhase::Unauthenticated), Verdict::End);
+}

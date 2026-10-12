@@ -33,6 +33,7 @@ impl Connection {
                     video_outbound: None,
                     datagram_outbound: relay_lane.as_ref().map(|(_, _, (sender, _))| sender.clone()),
                     lane: VideoLane::new(video_token),
+                    background: false,
                 },
             );
             state.video.attach(&client_id);

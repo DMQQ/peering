@@ -198,6 +198,34 @@ fn the_first_frame_after_resuming_is_a_keyframe_with_its_config() {
 }
 
 #[test]
+fn an_unwatched_stream_drops_frames_without_encoding_them() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    coordinator.set_watched(false);
+    push(&mut coordinator, &[1, 2]);
+    assert!(coordinator.pump(0.1).unwrap().is_empty());
+    assert!(coordinator.encoder.encode_calls().is_empty());
+}
+
+#[test]
+fn the_first_frame_after_being_watched_again_is_a_keyframe_with_its_config() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1, 2]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.set_watched(false);
+    push(&mut coordinator, &[3]);
+    coordinator.pump(0.2).unwrap();
+    coordinator.set_watched(true);
+    push(&mut coordinator, &[4]);
+    let outputs = coordinator.pump(0.3).unwrap();
+    assert_eq!(configs(&outputs).len(), 1);
+    assert!(frames(&outputs)[0].is_keyframe);
+}
+
+#[test]
 fn a_burst_keeps_only_the_newest_delta() {
     let mut coordinator = coordinator();
     coordinator.set_source(display_source(1), 0.0).unwrap();

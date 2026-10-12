@@ -9,6 +9,8 @@ pub const AUTHORISED_SILENCE_SECONDS: f64 = 60.0;
 pub const UNAUTHENTICATED_SILENCE_SECONDS: f64 = 30.0;
 pub const AWAITING_APPROVAL_SILENCE_SECONDS: f64 = 120.0;
 pub const REAPER_INTERVAL_SECONDS: f64 = 5.0;
+/// An authorised client the OS has frozen in the background says nothing, so it is given longer before it is reaped.
+pub const BACKGROUND_SILENCE_SECONDS: f64 = 180.0;
 
 pub fn silence_limit_seconds(phase: HostPhase) -> f64 {
     match phase {
@@ -45,20 +47,39 @@ pub enum Verdict {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LivenessTracker {
     last_heard: f64,
+    background: bool,
 }
 
 impl LivenessTracker {
     pub fn started_at(now: f64) -> Self {
-        Self { last_heard: now }
+        Self { last_heard: now, background: false }
     }
 
     pub fn heard(&mut self, now: f64) {
         self.last_heard = now;
     }
 
+    /// The client reported it left or returned to the foreground. Returning restores the normal limit.
+    pub fn set_background(&mut self, background: bool) {
+        self.background = background;
+    }
+
+    pub fn is_background(&self) -> bool {
+        self.background
+    }
+
+    fn limit_seconds(&self, phase: HostPhase) -> f64 {
+        let normal = silence_limit_seconds(phase);
+        if self.background && phase == HostPhase::Authorized {
+            normal.max(BACKGROUND_SILENCE_SECONDS)
+        } else {
+            normal
+        }
+    }
+
     /// A session is ended only once its silence is longer than the limit, so a frame exactly at the limit keeps it.
     pub fn verdict(&self, now: f64, phase: HostPhase) -> Verdict {
-        if now - self.last_heard > silence_limit_seconds(phase) {
+        if now - self.last_heard > self.limit_seconds(phase) {
             Verdict::End
         } else {
             Verdict::Keep
