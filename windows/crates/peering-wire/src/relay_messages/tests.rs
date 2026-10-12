@@ -179,3 +179,41 @@ fn set_optional_fields_appear_in_the_json() {
         r#"{"deviceId":"d","name":"n","proof":"3044","proofTime":1760000000,"protocolVersion":20,"publicKey":"04aa","type":"registerHost"}"#
     );
 }
+
+#[test]
+fn notify_activity_serialises_camel_case_and_round_trips() {
+    let text = r#"{"activity":"agentChat","activityToken":"0a1b","alertBody":"b","alertTitle":"t","contentState":{"n":1},"environment":"sandbox","event":"update","priority":10,"staleSeconds":120,"type":"notifyActivity"}"#;
+    let message: RelayClientMessage = serde_json::from_str(text).expect("decodes");
+    assert!(matches!(
+        &message,
+        RelayClientMessage::NotifyActivity { activity: ActivityKind::AgentChat, event: ActivityEvent::Update, stale_seconds: Some(120), environment: Some(ActivityEnvironment::Sandbox), .. }
+    ));
+    assert_eq!(encode_sorted(&message), text);
+}
+
+#[test]
+fn notify_activity_omits_absent_optionals() {
+    let message = RelayClientMessage::NotifyActivity {
+        activity_token: "0a".into(),
+        activity: ActivityKind::Terminal,
+        event: ActivityEvent::End,
+        content_state: serde_json::json!({}),
+        stale_seconds: None,
+        priority: None,
+        attributes_type: None,
+        attributes: None,
+        alert_title: None,
+        alert_body: None,
+        environment: None,
+    };
+    assert_eq!(
+        encode_sorted(&message),
+        r#"{"activity":"terminal","activityToken":"0a","contentState":{},"event":"end","type":"notifyActivity"}"#
+    );
+}
+
+#[test]
+fn activity_refused_decodes_with_any_reason() {
+    let decoded: RelayServerMessage = serde_json::from_str(r#"{"type":"activityRefused","reason":"invalidToken"}"#).expect("decodes");
+    assert_eq!(decoded, RelayServerMessage::ActivityRefused { reason: "invalidToken".into() });
+}

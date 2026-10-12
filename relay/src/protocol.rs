@@ -11,6 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::activity::{ActivityPush, ActivityRefusal};
 use crate::session::Token;
 
 /// What a client — either a Mac or a phone — sends to the relay.
@@ -214,6 +215,13 @@ pub enum ClientMessage {
         #[serde(default)]
         approval_id: Option<String>,
     },
+
+    /// Pushes an iOS Live Activity update for a registered host, so the activity keeps moving
+    /// while the phone's app is suspended. Additive: a relay without it answers `protocol`.
+    ///
+    /// `contentState` and `attributes` are the host's own JSON and are never read or logged here.
+    /// A refusal comes back as [`ServerMessage::ActivityRefused`].
+    NotifyActivity(ActivityPush),
 }
 
 /// What the relay sends back.
@@ -291,6 +299,10 @@ pub enum ServerMessage {
     Pong,
 
     Error { code: String, message: String },
+
+    /// A `notifyActivity` that was not sent, with a reason from a closed set. A push dropped by the
+    /// rate limit is not reported: Apple would have dropped it too.
+    ActivityRefused { reason: ActivityRefusal },
 }
 
 impl ServerMessage {

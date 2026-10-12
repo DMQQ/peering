@@ -70,6 +70,7 @@ video, and serves signalling in plaintext. That is exactly right for pointing bo
 | `PEERINGD_REFERRAL_BONUS_MINUTES` | `30` | Minutes one running invite grant adds to each window's free allowance |
 | `PEERINGD_REFERRAL_DAYS` | `7` | How long a grant runs from the redemption |
 | `PEERINGD_REFERRAL_MAX_INVITES` | `5` | Redemptions of one code that earn its owner a grant. The redeemer is always granted; zero means owners never earn |
+| `PEERINGD_APNS_BUNDLE_ID` | unset | Also the base of the Live Activity topic: `notifyActivity` pushes go to `<bundle id>.push-type.liveactivity` over the same APNs key, so it needs no extra setting. See `docs/protocol/relay.md` section 5 |
 | `PEERINGD_FCM_SERVICE_ACCOUNT` | unset | Path to the Google service account JSON that sends pushes to Android devices through FCM HTTP v1. Unset means FCM is disabled, and the startup log says so. The key file is a secret: keep it out of the repository |
 | `PEERINGD_FCM_PROJECT_ID` | the project named in the service account file | Firebase project the pushes are sent to. Optional |
 | `PEERINGD_PLAY_PACKAGE` | unset | Android application ID the Google Play purchases belong to, e.g. `pl.dmq.peering`. Needed with the service account below; alone it changes nothing |
@@ -837,7 +838,10 @@ for an unparseable message and the swept-session line carry a `reason` field wit
 **Every ten minutes the relay writes `relay summary since the last one`**, and once more when it
 stops. It carries counters since the previous summary: `sessions_allocated`, `sessions_started`,
 `active_splices` (a gauge, not reset), `ended_*` by reason, `refused_*` by reason,
-`failed_udp_bind_unclaimed`, and `udp_datagrams_unclaimed` (datagrams that named no live session).
+`failed_udp_bind_unclaimed`, `udp_datagrams_unclaimed` (datagrams that named no live session), and the
+Live Activity counters `activity_push_sent`, `activity_push_dropped_rate`, and
+`activity_push_refused_invalid`, `_token`, `_rejected`, `_unavailable`. Activity tokens, content state
+and alert text are never logged.
 A quiet relay prints a line of zeros; a broken one prints nothing, so a missing summary is itself the
 alarm.
 

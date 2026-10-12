@@ -20,6 +20,7 @@
 
 use std::collections::HashMap;
 
+use crate::activity::{ActivityEnvironment, ActivityFailure, ActivityRequest};
 use crate::redact::tag;
 use std::io::BufReader;
 use std::path::PathBuf;
@@ -45,6 +46,7 @@ const APNS_HOST: &str = "api.push.apple.com";
 const APNS_SANDBOX_HOST: &str = "api.sandbox.push.apple.com";
 const APNS_PORT: u16 = 443;
 /// Refresh the JWT well before Apple's one-hour limit.
+const MAX_REMEMBERED_ENVIRONMENTS: usize = 4096;
 const JWT_TTL: Duration = Duration::from_secs(45 * 60);
 
 struct CachedJwt {
@@ -231,19 +233,23 @@ impl ApnsClient {
             .get(device_token)
             .copied()
             .unwrap_or(APNS_HOST);
+        let request = ApnsRequest {
+            push_type: "alert",
+            topic: self.bundle_id.clone(),
+            priority: 10,
+            expiration: None,
+            body: payload(title, body, route)?,
+        };
 
-        match self.push(first, device_token, title, body, route).await {
+        match self.push(first, device_token, &request).await {
             PushOutcome::Accepted => Ok(()),
             PushOutcome::Refused(failure) => {
                 let other = if first == APNS_HOST { APNS_SANDBOX_HOST } else { APNS_HOST };
                 warn!(device_token = %tag(device_token), host = first, failure = %failure, "APNs refused the push");
 
-                match self.push(other, device_token, title, body, route).await {
+                match self.push(other, device_token, &request).await {
                     PushOutcome::Accepted => {
-                        self.environments
-                            .lock()
-                            .unwrap()
-                            .insert(device_token.to_owned(), other);
+                        self.remember_environment(device_token, other);
                         Ok(())
                     }
                     PushOutcome::Refused(other_failure) => {
@@ -258,15 +264,69 @@ impl ApnsClient {
     }
 
         /// One attempt against one host.
-    async fn push(
+    fn remember_environment(&self, device_token: &str, host: &'static str) {
+        let mut environments = self.environments.lock().unwrap();
+        if environments.len() >= MAX_REMEMBERED_ENVIRONMENTS {
+            environments.clear();
+        }
+        environments.insert(device_token.to_owned(), host);
+    }
+
+    /// Sends a Live Activity push. `environment` is the host to try first; without it, the token's
+    /// remembered host, then production. A `BadDeviceToken` on a guessed host is retried on the
+    /// other one, as the alert path does, because that is how a token from the wrong environment fails.
+    pub async fn send_activity(
         &self,
-        host: &'static str,
         device_token: &str,
-        title: &str,
-        body: &str,
-        route: Option<PushRoute<'_>>,
-    ) -> PushOutcome {
-        match self.push_inner(host, device_token, title, body, route).await {
+        environment: Option<ActivityEnvironment>,
+        activity: &ActivityRequest,
+    ) -> Result<(), ActivityFailure> {
+        let first = match environment {
+            Some(ActivityEnvironment::Production) => APNS_HOST,
+            Some(ActivityEnvironment::Sandbox) => APNS_SANDBOX_HOST,
+            None => self.environments.lock().unwrap().get(device_token).copied().unwrap_or(APNS_HOST),
+        };
+        let request = ApnsRequest {
+            push_type: "liveactivity",
+            topic: format!("{}.push-type.liveactivity", self.bundle_id),
+            priority: activity.priority,
+            expiration: activity.expiration,
+            body: activity.body.clone(),
+        };
+
+        let first_failure = match self.push(first, device_token, &request).await {
+            PushOutcome::Accepted => return Ok(()),
+            PushOutcome::Refused(failure) => failure,
+            PushOutcome::Failed(error) => {
+                warn!(error = %error, "APNs could not be reached for a live activity push");
+                return Err(ActivityFailure::Unavailable);
+            }
+        };
+        let classified = ActivityFailure::from_apns(&first_failure);
+        if classified != ActivityFailure::TokenRejected || environment.is_some() {
+            warn!(device_token = %tag(device_token), host = first, failure = %classified.as_str(), "APNs refused the live activity push");
+            return Err(classified);
+        }
+        let other = if first == APNS_HOST { APNS_SANDBOX_HOST } else { APNS_HOST };
+        match self.push(other, device_token, &request).await {
+            PushOutcome::Accepted => {
+                self.remember_environment(device_token, other);
+                Ok(())
+            }
+            PushOutcome::Refused(failure) => {
+                let classified = ActivityFailure::from_apns(&failure);
+                warn!(device_token = %tag(device_token), failure = %classified.as_str(), "APNs refused the live activity push on both hosts");
+                Err(classified)
+            }
+            PushOutcome::Failed(error) => {
+                warn!(error = %error, "APNs could not be reached for a live activity push");
+                Err(ActivityFailure::Unavailable)
+            }
+        }
+    }
+
+    async fn push(&self, host: &'static str, device_token: &str, request: &ApnsRequest) -> PushOutcome {
+        match self.push_inner(host, device_token, request).await {
             Ok(outcome) => outcome,
             Err(error) => PushOutcome::Failed(error),
         }
@@ -276,14 +336,10 @@ impl ApnsClient {
         &self,
         host: &str,
         device_token: &str,
-        title: &str,
-        body: &str,
-        route: Option<PushRoute<'_>>,
+        request: &ApnsRequest,
     ) -> Result<PushOutcome, Box<dyn std::error::Error + Send + Sync>> {
         let jwt = self.jwt();
-        let payload = payload(title, body, route)?;
-        let payload_bytes = Bytes::from(payload.into_bytes());
-        let content_length = payload_bytes.len().to_string();
+        let payload_bytes = Bytes::from(request.body.clone().into_bytes());
 
         let tcp = TcpStream::connect((host, APNS_PORT)).await?;
         let connector = TlsConnector::from(Arc::clone(&self.tls_config));
@@ -300,17 +356,7 @@ impl ApnsClient {
             let _ = conn.await;
         });
 
-        let uri: Uri = format!("https://{host}/3/device/{device_token}").parse()?;
-        let req = Request::builder()
-            .method(Method::POST)
-            .uri(uri)
-            .header("authorization", format!("bearer {jwt}"))
-            .header("apns-topic", &self.bundle_id)
-            .header("apns-push-type", "alert")
-            .header("apns-priority", "10")
-            .header("content-type", "application/json")
-            .header("content-length", content_length)
-            .body(())?;
+        let req = http_request(host, device_token, &jwt, request)?;
 
         let mut h2_ready = h2_client.ready().await?;
         let (response_fut, mut send_stream) = h2_ready.send_request(req, false)?;
@@ -338,6 +384,36 @@ impl ApnsClient {
 }
 
 /// What one attempt against one host produced.
+fn http_request(
+    host: &str,
+    device_token: &str,
+    jwt: &str,
+    request: &ApnsRequest,
+) -> Result<Request<()>, Box<dyn std::error::Error + Send + Sync>> {
+    let uri: Uri = format!("https://{host}/3/device/{device_token}").parse()?;
+    let mut builder = Request::builder()
+        .method(Method::POST)
+        .uri(uri)
+        .header("authorization", format!("bearer {jwt}"))
+        .header("apns-topic", &request.topic)
+        .header("apns-push-type", request.push_type)
+        .header("apns-priority", request.priority.to_string())
+        .header("content-type", "application/json")
+        .header("content-length", request.body.len().to_string());
+    if let Some(expiration) = request.expiration {
+        builder = builder.header("apns-expiration", expiration.to_string());
+    }
+    Ok(builder.body(())?)
+}
+
+struct ApnsRequest {
+    push_type: &'static str,
+    topic: String,
+    priority: u8,
+    expiration: Option<u64>,
+    body: String,
+}
+
 enum PushOutcome {
     /// APNs took it.
     Accepted,
@@ -350,6 +426,35 @@ enum PushOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn live_activity(expiration: Option<u64>) -> ApnsRequest {
+        ApnsRequest {
+            push_type: "liveactivity",
+            topic: "pl.example.app.push-type.liveactivity".into(),
+            priority: 5,
+            expiration,
+            body: r#"{"aps":{}}"#.into(),
+        }
+    }
+
+    #[test]
+    fn a_live_activity_request_carries_its_push_type_topic_and_priority() {
+        let request = http_request(APNS_SANDBOX_HOST, "abcd", "jwt", &live_activity(Some(1_800_000_090))).unwrap();
+        let header = |name: &str| request.headers().get(name).and_then(|v| v.to_str().ok()).map(str::to_owned);
+        assert_eq!(request.uri().to_string(), "https://api.sandbox.push.apple.com/3/device/abcd");
+        assert_eq!(header("apns-push-type").as_deref(), Some("liveactivity"));
+        assert_eq!(header("apns-topic").as_deref(), Some("pl.example.app.push-type.liveactivity"));
+        assert_eq!(header("apns-priority").as_deref(), Some("5"));
+        assert_eq!(header("apns-expiration").as_deref(), Some("1800000090"));
+        assert_eq!(header("authorization").as_deref(), Some("bearer jwt"));
+        assert_eq!(header("content-length").as_deref(), Some("10"));
+    }
+
+    #[test]
+    fn a_request_without_an_expiration_sends_no_expiration_header() {
+        let request = http_request(APNS_HOST, "abcd", "jwt", &live_activity(None)).unwrap();
+        assert!(request.headers().get("apns-expiration").is_none());
+    }
 
     fn parsed(text: &str) -> serde_json::Value {
         serde_json::from_str(text).expect("valid JSON")

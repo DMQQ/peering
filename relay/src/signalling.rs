@@ -13,7 +13,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// How many sessions one signalling connection may ask for. See `ConnectionState`.
 const MAX_SESSIONS_PER_CONNECTION: usize = 64;
@@ -56,7 +56,8 @@ use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
 use crate::play_api::PlayVerifier;
 use crate::playbilling::{self, PlayReceiptCache, PlayRejection};
 use crate::redact::tag;
-use crate::stats::{Refusal, TALLY};
+use crate::activity::{self, ActivityLimiter, ActivityPush, ActivityRefusal};
+use crate::stats::{ActivityOutcome, Refusal, TALLY};
 use crate::storekit::{Rejection, ReceiptCache, StoreKitVerifier, Trust};
 
 /// How the relay describes itself to the two ends.
@@ -177,6 +178,8 @@ struct ConnectionState {
     /// Invite requests this socket has made. Each costs a signature check, and an honest client
     /// makes one or two.
     referral_requests: usize,
+    /// Live Activity pushes this socket has sent, budgeted per activity token.
+    activity_limiter: ActivityLimiter,
 }
 
 /// Invite requests one socket may make before it is told to reconnect.
@@ -552,6 +555,46 @@ async fn handle<S>(
         hosts.remove_if_ours(&device_id, &tx).await;
         info!(device_id = %tag(&device_id), "host went offline");
     }
+}
+
+/// Validates and sends one Live Activity push for a registered host. The APNs call runs in the
+/// background; a failure there reaches the host as `activityRefused` on the same socket.
+fn notify_activity(
+    push: ActivityPush,
+    self_tx: &mpsc::Sender<ServerMessage>,
+    settings: &Settings,
+    state: &mut ConnectionState,
+) -> Option<ServerMessage> {
+    let refuse = |refusal: ActivityRefusal| {
+        TALLY.activity(ActivityOutcome::refused(refusal));
+        Some(ServerMessage::ActivityRefused { reason: refusal })
+    };
+    let request = match activity::build(&push, unix_now()) {
+        Ok(request) => request,
+        Err(refusal) => return refuse(refusal),
+    };
+    if !matches!(push::target_for(&push.activity_token), PushTarget::Apns(_)) {
+        return refuse(ActivityRefusal::InvalidToken);
+    }
+    if !state.activity_limiter.allow(&push.activity_token, Instant::now()) {
+        TALLY.activity(ActivityOutcome::DroppedRate);
+        return None;
+    }
+    let Some(apns) = settings.apns.as_ref().map(Arc::clone) else {
+        return refuse(ActivityRefusal::Unavailable);
+    };
+    let reply = self_tx.clone();
+    tokio::spawn(async move {
+        match apns.send_activity(&push.activity_token, push.environment, &request).await {
+            Ok(()) => TALLY.activity(ActivityOutcome::Sent),
+            Err(failure) => {
+                let refusal = failure.refusal();
+                TALLY.activity(ActivityOutcome::refused(refusal));
+                let _ = reply.try_send(ServerMessage::ActivityRefused { reason: refusal });
+            }
+        }
+    });
+    None
 }
 
 /// Handles one client message, returning the reply to send back to *this* connection.
@@ -989,6 +1032,16 @@ async fn dispatch(
             None
         }
 
+        ClientMessage::NotifyActivity(push) => {
+            if state.registered_as.is_none() {
+                return Some(ServerMessage::error(
+                    "unauthorized",
+                    "only registered hosts may request push notifications",
+                ));
+            }
+            notify_activity(push, self_tx, settings, state)
+        }
+
         ClientMessage::ReferralStatus { client_id, public_key, proof, proof_time } => {
             if client_id.len() > MAX_FIELD {
                 return Some(ServerMessage::error("invalid", "field too long"));
@@ -1252,6 +1305,58 @@ mod tests {
             PlanAllowances::default(),
             Default::default(),
         )))
+    }
+
+    fn activity_message(token: &str) -> ClientMessage {
+        serde_json::from_str(&format!(
+            r#"{{"type":"notifyActivity","activityToken":"{token}","activity":"session","event":"update","contentState":{{"n":1}}}}"#
+        ))
+        .expect("parses")
+    }
+
+    async fn ask_as_host(state: &mut ConnectionState, message: ClientMessage) -> Option<ServerMessage> {
+        let (tx, _rx) = channel();
+        let registry = Arc::new(Registry::new(usize::MAX));
+        dispatch(message, &tx, &registry, &HostRegistry::new(), &default_settings(), "127.0.0.1", state).await
+    }
+
+    #[tokio::test]
+    async fn an_unregistered_connection_may_not_push_an_activity() {
+        let reply = ask(&default_settings(), activity_message(&"ab".repeat(32))).await;
+        assert!(matches!(reply, Some(ServerMessage::Error { ref code, .. }) if code == "unauthorized"));
+    }
+
+    #[tokio::test]
+    async fn a_registered_host_without_apns_is_told_the_push_is_unavailable() {
+        let mut state = ConnectionState { registered_as: Some("mac".into()), ..Default::default() };
+        let reply = ask_as_host(&mut state, activity_message(&"ab".repeat(32))).await;
+        assert_eq!(reply, Some(ServerMessage::ActivityRefused { reason: ActivityRefusal::Unavailable }));
+    }
+
+    #[tokio::test]
+    async fn a_bad_activity_token_or_an_fcm_token_is_refused_as_an_invalid_token() {
+        let mut state = ConnectionState { registered_as: Some("mac".into()), ..Default::default() };
+        let fcm = crate::protocol::bytes_hex(b"fcm:abc123");
+        for token in ["zz", fcm.as_str()] {
+            let reply = ask_as_host(&mut state, activity_message(token)).await;
+            assert_eq!(reply, Some(ServerMessage::ActivityRefused { reason: ActivityRefusal::InvalidToken }));
+        }
+    }
+
+    #[tokio::test]
+    async fn pushes_past_the_burst_are_dropped_without_a_reply() {
+        let mut state = ConnectionState { registered_as: Some("mac".into()), ..Default::default() };
+        let token = "ab".repeat(32);
+        for _ in 0..5 {
+            assert!(ask_as_host(&mut state, activity_message(&token)).await.is_some());
+        }
+        assert_eq!(ask_as_host(&mut state, activity_message(&token)).await, None);
+    }
+
+    #[test]
+    fn a_refusal_serialises_with_a_reason_from_the_closed_set_and_nothing_else() {
+        let json = serde_json::to_string(&ServerMessage::ActivityRefused { reason: ActivityRefusal::InvalidToken }).unwrap();
+        assert_eq!(json, r#"{"type":"activityRefused","reason":"invalidToken"}"#);
     }
 
     #[tokio::test]

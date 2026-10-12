@@ -132,6 +132,7 @@ impl RelayRegistration {
             | RelayServerMessage::HostOffline { .. }
             | RelayServerMessage::HostPresence { .. }
             | RelayServerMessage::PeerAddress { .. }
+            | RelayServerMessage::ActivityRefused { .. }
             | RelayServerMessage::Unknown => Vec::new(),
         }
     }
