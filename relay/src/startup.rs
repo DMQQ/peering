@@ -79,7 +79,7 @@ pub(crate) fn build_tls(config: &Config) -> Result<Option<TlsAcceptor>, Box<dyn 
     match &config.tls {
         Some(files) => Ok(Some(acceptor(files)?)),
         None => {
-            warn!("signalling is running without TLS — fine on loopback, never on a public address");
+            warn!("signalling is running without TLS: fine on loopback, never on a public address");
             Ok(None)
         }
     }
@@ -101,7 +101,7 @@ pub(crate) fn log_plan_policy(config: &Config, receipts: &StoreKitVerifier) {
         );
     }
     if config.plans.free_seconds == Some(0) {
-        info!("relay is gated — clients on the free plan cannot use relay (PEERINGD_FREE_MINUTES=0)");
+        info!("relay is gated: clients on the free plan cannot use relay (PEERINGD_FREE_MINUTES=0)");
     }
 }
 
