@@ -588,6 +588,528 @@
     ".." : {
 
     },
+    "Text too long to send (%@, limit %@)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text zu lang zum Senden (%@, Limit %@)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texto demasiado largo para enviar (%@, límite %@)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texte trop long pour être envoyé (%@, limite %@)"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Testo troppo lungo da inviare (%@, limite %@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "テキストが長すぎて送信できません（%@、上限%@）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "텍스트가 너무 길어 보낼 수 없습니다(%@, 제한 %@)"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texto longo demais para enviar (%@, limite %@)"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Текст слишком длинный для отправки (%@, лимит %@)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文本太长，无法发送（%@，上限 %@）"
+          }
+        }
+      }
+    },
+    "That file is too large to download." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Datei ist zu groß zum Herunterladen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese archivo es demasiado grande para descargarlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce fichier est trop volumineux pour être téléchargé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo file è troppo grande da scaricare."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのファイルは大きすぎてダウンロードできません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파일이 너무 커서 다운로드할 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esse arquivo é grande demais para baixar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот файл слишком велик для загрузки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该文件太大，无法下载。"
+          }
+        }
+      }
+    },
+    "That is too much to paste into a terminal at once." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das ist zu viel, um es auf einmal in ein Terminal einzufügen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es demasiado para pegarlo de una vez en una terminal."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "C'est trop pour être collé d'un coup dans un terminal."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "È troppo da incollare in un terminale in una volta sola."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一度にターミナルへペーストするには多すぎます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "한 번에 터미널에 붙여넣기에는 너무 많습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "É demais para colar de uma vez em um terminal."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Слишком много, чтобы вставить в терминал за один раз."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一次粘贴到终端的内容太多了。"
+          }
+        }
+      }
+    },
+    "That message is too long to send. Shorten it and try again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Nachricht ist zu lang zum Senden. Kürze sie und versuche es erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese mensaje es demasiado largo para enviarlo. Acórtalo e inténtalo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce message est trop long pour être envoyé. Raccourcissez-le et réessayez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo messaggio è troppo lungo da inviare. Accorcialo e riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メッセージが長すぎて送信できません。短くしてもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "메시지가 너무 길어 보낼 수 없습니다. 줄인 뒤 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essa mensagem é longa demais para enviar. Encurte-a e tente de novo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сообщение слишком длинное для отправки. Сократите его и повторите."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这条消息太长，无法发送。请缩短后重试。"
+          }
+        }
+      }
+    },
+    "The iPhone's Keychain was not available. Unlock the iPhone and reopen Peering. Nothing has been removed, and no new pairing is saved until this is fixed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Schlüsselbund des iPhones war nicht verfügbar. Entsperre das iPhone und öffne Peering erneut. Nichts wurde entfernt, und bis das behoben ist, wird keine neue Kopplung gespeichert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El llavero del iPhone no estaba disponible. Desbloquea el iPhone y vuelve a abrir Peering. No se ha eliminado nada y no se guardará ningún emparejamiento nuevo hasta que se arregle."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le trousseau de l'iPhone n'était pas disponible. Déverrouillez l'iPhone et rouvrez Peering. Rien n'a été supprimé, et aucune nouvelle association n'est enregistrée tant que ce n'est pas corrigé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il portachiavi dell'iPhone non era disponibile. Sblocca l'iPhone e riapri Peering. Non è stato rimosso nulla e nessun nuovo abbinamento viene salvato finché non è risolto."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneのキーチェーンを利用できませんでした。iPhoneのロックを解除してPeeringを開き直してください。何も削除されておらず、解決するまで新しいペアリングは保存されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone의 키체인을 사용할 수 없었습니다. iPhone 잠금을 해제하고 Peering을 다시 여세요. 삭제된 것은 없으며, 해결될 때까지 새 페어링은 저장되지 않습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Chaveiro do iPhone não estava disponível. Desbloqueie o iPhone e abra o Peering de novo. Nada foi removido, e nenhum novo pareamento é salvo até que isso seja corrigido."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Связка ключей iPhone была недоступна. Разблокируйте iPhone и снова откройте Peering. Ничего не удалено, а новое связывание не сохраняется, пока это не исправлено."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法使用 iPhone 的钥匙串。请解锁 iPhone 并重新打开 Peering。没有任何内容被移除，在此问题解决之前不会保存新的配对。"
+          }
+        }
+      }
+    },
+    "The Mac sent data this phone did not ask for." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac hat Daten gesendet, die dieses Telefon nicht angefordert hatte."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac envió datos que este teléfono no había pedido."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac a envoyé des données que ce téléphone n'avait pas demandées."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac ha inviato dati che questo telefono non aveva richiesto."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このiPhoneが要求していないデータをMacが送ってきました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 이 iPhone이 요청하지 않은 데이터를 보냈습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac enviou dados que este telefone não pediu."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac прислал данные, которые этот телефон не запрашивал."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 发送了此手机未请求的数据。"
+          }
+        }
+      }
+    },
+    "The Mac stopped sending the file." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac hat aufgehört, die Datei zu senden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac dejó de enviar el archivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac a cessé d'envoyer le fichier."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac ha smesso di inviare il file."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macがファイルの送信を止めました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 파일 전송을 멈췄습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac parou de enviar o arquivo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac перестал отправлять файл."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 已停止发送该文件。"
+          }
+        }
+      }
+    },
+    "There is not enough space on this iPhone for that file." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf diesem iPhone ist nicht genug Speicherplatz für diese Datei."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay espacio suficiente en este iPhone para ese archivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il n'y a pas assez d'espace sur cet iPhone pour ce fichier."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su questo iPhone non c'è abbastanza spazio per questo file."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このiPhoneにはそのファイルを保存する空き容量がありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 iPhone에 파일을 저장할 공간이 부족합니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não há espaço suficiente neste iPhone para esse arquivo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На этом iPhone недостаточно места для этого файла."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这部 iPhone 的存储空间不足，无法保存该文件。"
+          }
+        }
+      }
+    },
+    "Your paired Macs could not be read" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deine gekoppelten Macs konnten nicht gelesen werden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron leer tus Mac emparejados"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos Mac associés n'ont pas pu être lus"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile leggere i tuoi Mac associati"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリング済みのMacを読み込めませんでした"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링한 Mac을 읽을 수 없습니다"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler seus Macs pareados"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать список связанных Mac"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取已配对的 Mac"
+          }
+        }
+      }
+    },
     "· %lld interfaces" : {
       "localizations" : {
         "de" : {

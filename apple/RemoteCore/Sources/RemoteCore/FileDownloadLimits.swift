@@ -10,4 +10,7 @@ public enum FileDownloadLimits {
 
     /// A larger file, or a folder whose zip comes out larger, is refused rather than filling the phone.
     public static let maximumBytes: Int64 = 512 * 1024 * 1024
+
+    /// Without an answer to a request for this long, the download ends instead of showing a progress bar that never moves.
+    public static let stallSeconds: TimeInterval = 30
 }

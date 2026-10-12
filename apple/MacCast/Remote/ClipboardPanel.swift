@@ -220,6 +220,10 @@ struct ClipboardPanel: View {
             let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
             let limit = ByteCountFormatter.string(fromByteCount: Int64(ClipboardLimits.maxImageBytes), countStyle: .file)
             withAnimation(Motion.tap) { refusal = String(localized: "Image too large to send (\(size), limit \(limit))") }
+        case .textTooLarge(let bytes):
+            let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+            let limit = ByteCountFormatter.string(fromByteCount: Int64(ControlTextPolicy.maximumBytes), countStyle: .file)
+            withAnimation(Motion.tap) { refusal = String(localized: "Text too long to send (\(size), limit \(limit))") }
         case .failed:
             break
         }

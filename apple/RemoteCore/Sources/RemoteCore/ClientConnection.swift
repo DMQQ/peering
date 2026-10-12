@@ -223,8 +223,13 @@ public final class ClientConnection: @unchecked Sendable {
 
     // MARK: - Send
 
+    /// A payload over ``ProtocolInfo/maxControlPayload`` is dropped here: the Mac treats it as malformed and ends the session, and the resume then replays it.
     public func send(_ frame: Frame) {
         guard let connection else { return }
+        guard frame.payload.count <= ProtocolInfo.maxControlPayload else {
+            transportLog.error("dropped a \(String(describing: frame.kind), privacy: .public) frame of \(frame.payload.count) bytes, over the control limit")
+            return
+        }
         connection.send(content: FrameEncoder.encode(frame), completion: .contentProcessed { _ in })
     }
 

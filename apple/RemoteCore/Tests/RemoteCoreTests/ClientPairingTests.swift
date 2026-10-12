@@ -75,6 +75,9 @@ struct TestPins {
             kSecAttrAccount as String: account,
         ]
         SecItemDelete(query as CFDictionary)
+        var backup = query
+        backup[kSecAttrAccount as String] = account + KeychainClientPinBacking.backupSuffix
+        SecItemDelete(backup as CFDictionary)
     }
 }
 

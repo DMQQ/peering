@@ -7,131 +7,134 @@ import os
 ///
 /// On iOS the item is `…ThisDeviceOnly`: a pin restored onto a different device would hand this
 /// device's trust to whoever restored the backup.
+///
+/// A Keychain that cannot be read (locked, `errSecInteractionNotAllowed`) is not an empty one. While
+/// the store is ``isUnreadable`` it refuses to write, and every write re-reads first, so a pairing
+/// can never replace the pins it could not see. A second item holds the last good copy.
 public final class ClientPinStore: @unchecked Sendable {
     private let lock = NSLock()
-    private let service: String
-    private let account: String
-    private var pins: [String: Data]
+    private let backing: any ClientPinBacking
+    private var pins: [String: Data] = [:]
+    private var unreadable = false
+    private var unreadableReported = false
 
     public static let standard = ClientPinStore(service: "pl.dmq.peering.client.pins")
 
-    public init(service: String, account: String = "paired-hosts") {
-        self.service = service
-        self.account = account
-        pins = Self.read(service: service, account: account)
+    public convenience init(service: String, account: String = "paired-hosts") {
+        self.init(backing: KeychainClientPinBacking(service: service, account: account))
     }
 
-    public var hostIDs: [String] { lock.withLock { pins.keys.sorted() } }
-    public var isEmpty: Bool { lock.withLock { pins.isEmpty } }
+    init(backing: any ClientPinBacking) {
+        self.backing = backing
+        _ = reload()
+    }
 
-    public func pin(for hostID: String) -> Data? { lock.withLock { pins[hostID] } }
+    public var hostIDs: [String] { readable { $0.keys.sorted() } }
+    public var isEmpty: Bool { readable { $0.isEmpty } }
+
+    /// True while the Keychain cannot be read. Pins then look absent, which is not the same as the Mac being unpaired.
+    public var isUnreadable: Bool { lock.withLock { retryIfUnreadable(); return unreadable } }
+
+    public func pin(for hostID: String) -> Data? { readable { $0[hostID] } }
 
     public func contains(publicKey: Data) -> Bool {
-        lock.withLock { pins.values.contains { SPKI.matches($0, publicKey) } }
+        readable { $0.values.contains { SPKI.matches($0, publicKey) } }
     }
 
-    /// - Returns: `false` if the Keychain write failed, in which case the caller must not report a
+    /// Once per launch, so the user is told when pins could not be read and not on every connection attempt.
+    public func takeUnreadableNotice() -> Bool {
+        lock.withLock {
+            retryIfUnreadable()
+            guard unreadable, !unreadableReported else { return false }
+            unreadableReported = true
+            return true
+        }
+    }
+
+    /// - Returns: `false` if the Keychain could not be read or written, in which case the caller must not report a
     ///   successful pairing: the user would be asked to pair again on the very next connection.
     @discardableResult
     public func record(hostID: String, publicKey: Data) -> Bool {
-        lock.withLock {
-            let previous = pins[hostID]
-            pins[hostID] = publicKey
-            guard Self.write(pins, service: service, account: account) else {
-                if let previous { pins[hostID] = previous } else { pins.removeValue(forKey: hostID) }
-                return false
-            }
-            return true
-        }
+        change { $0[hostID] = publicKey }
     }
 
     @discardableResult
     public func remove(hostID: String) -> Bool {
-        lock.withLock {
-            let previous = pins.removeValue(forKey: hostID)
-            guard Self.write(pins, service: service, account: account) else {
-                if let previous { pins[hostID] = previous }
-                return false
-            }
-            return true
-        }
+        change { $0.removeValue(forKey: hostID) }
     }
 
     @discardableResult
     public func removeAll() -> Bool {
+        change { $0.removeAll() }
+    }
+
+    private func readable<T>(_ body: ([String: Data]) -> T) -> T {
         lock.withLock {
-            pins.removeAll()
-            return Self.write(pins, service: service, account: account)
+            retryIfUnreadable()
+            return body(pins)
         }
     }
 
-    private static var accessibility: CFString {
-        #if os(iOS)
-        return kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        #else
-        return kSecAttrAccessibleAfterFirstUnlock
-        #endif
+    private func retryIfUnreadable() {
+        if unreadable { _ = reload() }
     }
 
-    private static func read(service: String, account: String) -> [String: Data] {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(SecretStore.attributes(query), &item)
-
-        guard status == errSecSuccess else {
-            // errSecItemNotFound is the ordinary first-run case. Anything else means the store
-            // exists but is unreadable, which is indistinguishable from an empty one: every paired
-            // Mac would silently become a stranger and the user would be asked to pair again.
-            if status != errSecItemNotFound {
-                transportLog.error("could not read client pins: OSStatus \(status, privacy: .public)")
+    private func change(_ edit: (inout [String: Data]) -> Void) -> Bool {
+        lock.withLock {
+            guard reload() else { return false }
+            var next = pins
+            edit(&next)
+            guard let data = try? JSONEncoder().encode(next), backing.write(data, to: .primary) else {
+                transportLog.error("could not store client pins")
+                return false
             }
-            return [:]
+            pins = next
+            if !backing.write(data, to: .backup) { transportLog.error("could not store the client pin backup") }
+            return true
         }
-
-        guard let data = item as? Data,
-              let decoded = try? JSONDecoder().decode([String: Data].self, from: data)
-        else {
-            transportLog.error("client pin store exists but could not be decoded; treating as empty")
-            return [:]
-        }
-        return decoded
     }
 
-    private static func write(_ pins: [String: Data], service: String, account: String) -> Bool {
-        guard let data = try? JSONEncoder().encode(pins) else {
-            transportLog.error("could not encode client pins")
+    /// - Returns: `false` when the store could not be read; the in-memory pins are then left as they were.
+    private func reload() -> Bool {
+        switch Self.load(backing) {
+        case .pins(let loaded):
+            pins = loaded
+            unreadable = false
+            return true
+        case .absent:
+            unreadable = false
+            return true
+        case .unreadable:
+            unreadable = true
             return false
         }
+    }
 
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-        ]
+    private enum Loaded { case pins([String: Data]), absent, unreadable }
 
-        let status = SecItemUpdate(
-            SecretStore.attributes(query),
-            [kSecValueData as String: data] as CFDictionary
-        )
-        if status == errSecSuccess { return true }
-        guard status == errSecItemNotFound else {
-            transportLog.error("could not update client pins: OSStatus \(status, privacy: .public)")
-            return false
+    private static func load(_ backing: any ClientPinBacking) -> Loaded {
+        switch backing.read(.primary) {
+        case .unavailable:
+            return .unreadable
+        case .found(let data):
+            if let decoded = decode(data) { return .pins(decoded) }
+            transportLog.error("client pin store could not be decoded; trying the backup")
+        case .notFound:
+            break
         }
-
-        var insert = query
-        insert[kSecValueData as String] = data
-        insert[kSecAttrAccessible as String] = accessibility
-        let addStatus = SecItemAdd(SecretStore.attributes(insert), nil)
-        if addStatus != errSecSuccess {
-            transportLog.error("could not add client pins: OSStatus \(addStatus, privacy: .public)")
+        switch backing.read(.backup) {
+        case .unavailable:
+            return .unreadable
+        case .found(let data):
+            guard let decoded = decode(data) else { return .absent }
+            transportLog.error("client pins restored from the backup item")
+            return .pins(decoded)
+        case .notFound:
+            return .absent
         }
-        return addStatus == errSecSuccess
+    }
+
+    private static func decode(_ data: Data) -> [String: Data]? {
+        try? JSONDecoder().decode([String: Data].self, from: data)
     }
 }

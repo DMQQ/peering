@@ -15,6 +15,8 @@ struct FileDownload {
     var window = FileDownloadWindow()
     let destination: URL
     var handle: FileHandle?
+    /// Ends the download if the Mac stops answering; restarted by every request and answer.
+    var stall: Task<Void, Never>?
 }
 
 extension MacSession {
@@ -31,6 +33,7 @@ extension MacSession {
 
     func cancelDownload(sessionID id: UUID) {
         guard let download = downloads.removeValue(forKey: id) else { return }
+        download.stall?.cancel()
         try? download.handle?.close()
         try? FileManager.default.removeItem(at: download.destination.deletingLastPathComponent())
     }
@@ -65,6 +68,14 @@ extension MacSession {
 
     func apply(fileRange id: UUID, path: String, offset: Int64, totalBytes: Int64, data: Data) {
         guard var download = downloads[id], download.readPath == path else { return }
+        let more: [Int64]
+        switch download.window.accept(offset: offset, count: data.count, totalBytes: totalBytes, freeDiskBytes: Self.freeDiskBytes()) {
+        case .failure(let rejection):
+            fail(download, message: Self.message(for: rejection), sessionID: id)
+            return
+        case .success(let offsets):
+            more = offsets
+        }
         do {
             if download.handle == nil {
                 try FileManager.default.createDirectory(at: download.destination.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -78,8 +89,8 @@ extension MacSession {
             fail(download, message: String(localized: "This phone could not save the file: \(error.localizedDescription)"), sessionID: id)
             return
         }
-        let more = download.window.received(count: data.count, totalBytes: totalBytes)
-        if download.window.isComplete || (data.isEmpty && more.isEmpty) {
+        if download.window.isComplete || download.window.inFlight == 0 {
+            download.stall?.cancel()
             try? download.handle?.close()
             downloads.removeValue(forKey: id)
             if download.window.isComplete {
@@ -94,6 +105,8 @@ extension MacSession {
             }
             return
         }
+        download.stall?.cancel()
+        download.stall = stallTimer(for: id)
         downloads[id] = download
         for next in more {
             wire?.sendTerminal(.readRange(sessionID: id, path: path, offset: next))
@@ -104,6 +117,8 @@ extension MacSession {
         guard var download = downloads[id], download.isFolder, download.sourcePath == folder else { return }
         download.readPath = archivePath
         let first = download.window.first()
+        download.stall?.cancel()
+        download.stall = stallTimer(for: id)
         downloads[id] = download
         wire?.sendTerminal(.readRange(sessionID: id, path: archivePath, offset: first))
     }
@@ -122,6 +137,7 @@ extension MacSession {
         downloadFailures.removeValue(forKey: id)
         Self.removeOldDownloads()
         var started = download
+        started.stall = stallTimer(for: id)
         downloads[id] = started
         if started.isFolder {
             wire?.sendTerminal(.archiveFolder(sessionID: id, path: started.sourcePath))
@@ -132,7 +148,30 @@ extension MacSession {
         }
     }
 
+    /// A zip of a large folder can take a while to make, and that wait is the Mac's, so the timer covers it with the same figure.
+    private func stallTimer(for id: UUID) -> Task<Void, Never> {
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(FileDownloadLimits.stallSeconds))
+            guard !Task.isCancelled, let self, let download = self.downloads[id] else { return }
+            self.fail(download, message: String(localized: "The Mac stopped sending the file."), sessionID: id)
+        }
+    }
+
+    private static func message(for rejection: FileDownloadWindow.Rejection) -> String {
+        switch rejection {
+        case .tooLarge: return String(localized: "That file is too large to download.")
+        case .noRoomOnDisk: return String(localized: "There is not enough space on this iPhone for that file.")
+        case .unexpectedData: return String(localized: "The Mac sent data this phone did not ask for.")
+        }
+    }
+
+    private static func freeDiskBytes() -> Int64? {
+        let values = try? FileManager.default.temporaryDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        return values?.volumeAvailableCapacityForImportantUsage
+    }
+
     private func fail(_ download: FileDownload, message: String, sessionID id: UUID) {
+        download.stall?.cancel()
         try? download.handle?.close()
         try? FileManager.default.removeItem(at: download.destination.deletingLastPathComponent())
         downloads.removeValue(forKey: id)
@@ -149,7 +188,7 @@ extension MacSession {
 
     private static func fileName(of path: String) -> String {
         let name = (path as NSString).lastPathComponent
-        return name.isEmpty ? "Download" : name
+        return RemoteFileName.isValid(name) ? name : "Download"
     }
 
     /// Its own folder per download, so two files of the same name never collide and the whole folder can be deleted after sharing.

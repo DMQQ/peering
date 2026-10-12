@@ -406,6 +406,8 @@ extension SessionModel {
         }
         endBackgroundAssertion()
         verifyLiveSessions()
+        notifier.registerIfAuthorised()
+        reportUnreadablePins()
 
         // Re-read before anything is armed: a subscription that ran out while off screen produced no transaction, so the held plan can be hours stale.
         Task { await storeManager.rereadEntitlement() }

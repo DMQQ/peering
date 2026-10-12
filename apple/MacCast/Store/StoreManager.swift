@@ -366,7 +366,8 @@ final class StoreManager {
     private static let keychainService = "pl.dmq.peering"
     private static let keychainAccount = "relayApiKey"
 
-    private func persistedKey() -> String {
+    /// `nil` when the Keychain cannot be read: minting a key then would be a different key on every call, none of them on the paid list.
+    private func persistedKey() -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
@@ -382,7 +383,8 @@ final class StoreManager {
             return key
         }
         if lookup != errSecItemNotFound {
-            storeLog.error("the relay key could not be read from the keychain: OSStatus \(lookup, privacy: .public); the relay is being given a new one")
+            storeLog.error("the relay key could not be read from the keychain: OSStatus \(lookup, privacy: .public)")
+            return nil
         }
         let key = UUID().uuidString
         let attrs: [String: Any] = [

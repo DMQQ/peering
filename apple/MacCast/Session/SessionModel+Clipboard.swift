@@ -6,6 +6,7 @@ import UIKit
 enum ClipboardPushResult: Equatable {
     case sent
     case imageTooLarge(bytes: Int)
+    case textTooLarge(bytes: Int)
     case failed
 }
 
@@ -35,6 +36,9 @@ extension SessionModel {
             return .sent
         }
         guard let text = board.string else { return .failed }
+        if case .tooLong(let bytes, _) = ControlTextPolicy.verdict(forClipboardOrPrompt: text) {
+            return .textTooLarge(bytes: bytes)
+        }
         knownPhoneClipboard = (board.changeCount, text)
         session?.send(.pushClipboard(text: text))
         hostClipboard = .text(text)
@@ -120,7 +124,7 @@ extension SessionModel {
 
     func pushToMac(_ entry: ClipboardEntry) {
         Analytics.featureUsed(.clipboardPushToMac)
-        guard phase == .ready else { return }
+        guard phase == .ready, ControlTextPolicy.verdict(forClipboardOrPrompt: entry.text) == .fits else { return }
         session?.send(.pushClipboard(text: entry.text))
         hostClipboard = .text(entry.text)
     }

@@ -267,7 +267,7 @@ public final class ClientSession: @unchecked Sendable {
                 )
             case .relay(let hostID, _, let entitlement):
                 guard let pin = pins.pin(for: hostID) else {
-                    throw Failure.noPinOnFile(hostID: hostID)
+                    throw pins.isUnreadable ? Failure.pinsUnreadable : Failure.noPinOnFile(hostID: hostID)
                 }
                 try await openRelayTunnel(
                     to: connection,
@@ -344,6 +344,7 @@ public final class ClientSession: @unchecked Sendable {
             connectStage = .handshake
         }
         emit(.phase(.handshaking))
+        armHandshakeDeadline(generation: generation)
         coalescer.start()
     }
 
@@ -393,9 +394,12 @@ public final class ClientSession: @unchecked Sendable {
     }
 
     /// Sends an agent chat request directly on the control stream, bypassing the coalescer: a coalesced prompt or approval would drop turns.
-    public func sendAgent(_ request: AgentRequest) {
-        guard isReady else { return }
-        connection()?.send(.agentRequest, request)
+    /// - Returns: `false` when there was no ready connection to hand it to. `true` is not delivery.
+    @discardableResult
+    public func sendAgent(_ request: AgentRequest) -> Bool {
+        guard isReady, let connection = connection() else { return false }
+        connection.send(.agentRequest, request)
+        return true
     }
 
     /// Puts a picture on the Mac's pasteboard. Sent on the control channel, not the coalescer: it is not a gesture, and the transport's ordering keeps it ahead of later keystrokes. Larger than one message is split by ``ClipboardTransfer``.
