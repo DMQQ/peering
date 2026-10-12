@@ -13,4 +13,7 @@ interface VideoSink {
 
     /** The stream has ended, so the decoder can be released. */
     fun onStop()
+
+    /** True once the decoder gave up on the stream, until a config it can start arrives. */
+    val decoderFailed: Boolean get() = false
 }

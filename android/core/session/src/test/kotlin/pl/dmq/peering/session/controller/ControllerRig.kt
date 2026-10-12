@@ -39,6 +39,12 @@ class ControllerRig(
     /** Whether discovery lists the host; a test sets it to move the host onto the phone's network. */
     var hostVisible = !nobodyDiscovered
 
+    /** Where discovery finds the host; a test sets it to move the host to another address. */
+    var hostAddress = LAN_ADDRESS
+
+    /** When true, starting discovery throws, as NsdManager does with Wi-Fi off. */
+    var discoveryFails = false
+
     /** What the controller reported to its debug log. */
     val logged = mutableListOf<String>()
 
@@ -83,12 +89,14 @@ class ControllerRig(
             mac.newConnection()
         },
         discovery = object : Discovery {
-            override fun hosts(): Flow<DiscoveredHost> = if (!hostVisible) {
+            override fun hosts(): Flow<DiscoveredHost> = if (discoveryFails) {
+                flow { throw java.io.IOException("NSD discovery failed with code 0") }
+            } else if (!hostVisible) {
                 flow { awaitCancellation() }
             } else {
                 flow {
                     delay(discoveryDelayMillis)
-                    emit(DiscoveredHost(ScriptedPairingHost.HOST_ID, HOST_NAME, protocolVersion = 1, address = LAN_ADDRESS))
+                    emit(DiscoveredHost(ScriptedPairingHost.HOST_ID, HOST_NAME, protocolVersion = 1, address = hostAddress))
                 }
             }
         },

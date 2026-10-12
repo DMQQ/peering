@@ -14,9 +14,13 @@ import pl.dmq.peering.wire.toBase64
 /**
  * Asks the computer to fetch pages from its own loopback and hands each answer back to the request that is waiting
  * for it. [transmit] delivers a command on the current link and returns false when there is none. When the link goes,
- * [failAll] ends every open request with a reason instead of leaving it hanging.
+ * [failAll] ends every open request with a reason instead of leaving it hanging. A response that grows past
+ * [maxResponseBytes] is ended with [PreviewFailure.TOO_LARGE] and the computer is told to stop sending it.
  */
-class PreviewProxyClient(private val transmit: (PreviewProxyCommand) -> Boolean) {
+class PreviewProxyClient(
+    private val maxResponseBytes: Long = PreviewPolicy.MAX_RESPONSE_BYTES,
+    private val transmit: (PreviewProxyCommand) -> Boolean,
+) {
     private val lock = Any()
     private val waiting = HashMap<Long, SendChannel<PreviewProxyEvent>>()
     private var lastId = 0L
@@ -45,8 +49,18 @@ class PreviewProxyClient(private val transmit: (PreviewProxyCommand) -> Boolean)
             send(PreviewProxyEvent.Failure(id, PreviewFailure.DISCONNECTED))
             return@channelFlow
         }
+        var received = 0L
         try {
-            for (event in mailbox) send(event)
+            for (event in mailbox) {
+                if (event is PreviewProxyEvent.Body) {
+                    received += event.data.length / BASE64_GROUP * BYTES_PER_GROUP
+                    if (received > maxResponseBytes) {
+                        send(PreviewProxyEvent.Failure(id, PreviewFailure.TOO_LARGE))
+                        return@channelFlow
+                    }
+                }
+                send(event)
+            }
         } finally {
             if (forget(id)) transmit(PreviewProxyCommand.Cancel(id))
         }
@@ -65,6 +79,11 @@ class PreviewProxyClient(private val transmit: (PreviewProxyCommand) -> Boolean)
             mailbox.trySend(PreviewProxyEvent.Failure(id, reason))
             mailbox.close()
         }
+    }
+
+    private companion object {
+        const val BASE64_GROUP = 4
+        const val BYTES_PER_GROUP = 3
     }
 
     private fun bodyRefusal(body: ByteArray?): PreviewFailure? =

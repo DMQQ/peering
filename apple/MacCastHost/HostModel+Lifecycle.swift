@@ -295,6 +295,13 @@ extension HostModel {
             server.onAgentPushNeeded = { [weak registration] token, title, message, action in
                 registration?.notifyDevice(token: token, title: title, body: message, action: action)
             }
+            server.onActivityPush = { [weak registration] push, done in
+                guard let registration else { return done() }
+                registration.notifyActivity(push, completion: done)
+            }
+            registration.onActivityRefused = { [weak server] reason in
+                server?.activityPushRefused(reason)
+            }
             server.onAgentActivity = { [weak self] active in
                 Task { @MainActor [weak self] in self?.setAgentActivity(active) }
             }

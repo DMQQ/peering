@@ -46,6 +46,35 @@ class PictureLaneTest {
     }
 
     @Test
+    fun aDecoderThatGaveUpShowsAsAFailedPictureWithItsOwnCode() = runTest {
+        val mac = ScriptedMac()
+        val rig = ControllerRig(backgroundScope, testScheduler, ConnectTarget.Lan(ControllerRig.LAN_ADDRESS, ScriptedPairingHost.HOST_ID), mac)
+        rig.controller.connect()
+        settle()
+        mac.connections.single().deliver(Frame(MessageKind.VideoConfig, configPayload()))
+        rig.sink.decoderFailed = true
+
+        mac.connections.single().deliver(Frame(MessageKind.VideoFrame, framePayload(seed = 1, size = 500)))
+        settle()
+
+        assertEquals(PictureState.Failed(PictureFailure.DecoderFailed), rig.controller.state.value.picture)
+    }
+
+    @Test
+    fun aConfigWithAnAbsurdSizeNeverReachesTheSink() = runTest {
+        val mac = ScriptedMac()
+        val rig = ControllerRig(backgroundScope, testScheduler, ConnectTarget.Lan(ControllerRig.LAN_ADDRESS, ScriptedPairingHost.HOST_ID), mac)
+        rig.controller.connect()
+        settle()
+
+        mac.connections.single().deliver(Frame(MessageKind.VideoConfig, configPayload(width = 100_000, height = 1_080)))
+        mac.connections.single().deliver(Frame(MessageKind.VideoConfig, configPayload(width = 0, height = 0)))
+        settle()
+
+        assertEquals(0, rig.sink.configs.size)
+    }
+
+    @Test
     fun sealedDatagramsOnTheRelayReachTheSink() = runTest {
         val rig = relayRig()
         grantSession(rig)
@@ -100,13 +129,13 @@ class PictureLaneTest {
         )
     }
 
-    private fun configPayload(): ByteArray = WireJson.encodeToString(
+    private fun configPayload(width: Int = 1_920, height: Int = 1_080): ByteArray = WireJson.encodeToString(
         VideoStreamConfig.serializer(),
         VideoStreamConfig(
             sourceID = "display-1",
             codec = VideoCodec.H264,
-            pixelWidth = 1_920,
-            pixelHeight = 1_080,
+            pixelWidth = width,
+            pixelHeight = height,
             parameterSets = listOf("Z0IAHo="),
         ),
     ).toByteArray(Charsets.UTF_8)

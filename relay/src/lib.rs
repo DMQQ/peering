@@ -33,12 +33,14 @@
 
 pub mod activity;
 pub mod apns;
+pub mod apns_policy;
 pub mod config;
 pub mod counted_stream;
 pub mod device_bindings;
 pub mod device_proof;
 pub mod fcm;
 pub mod fcm_auth;
+pub mod limits;
 pub mod play_api;
 pub mod playbilling;
 pub mod protocol;
@@ -50,6 +52,8 @@ pub mod session;
 pub mod signalling;
 pub mod stats;
 pub mod storekit;
+pub mod supervise;
 pub mod tcp_relay;
 pub mod udp_relay;
+pub mod usage_log;
 pub mod web;

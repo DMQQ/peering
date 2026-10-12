@@ -22,6 +22,7 @@ extension HostMenuBarContent {
             .buttonStyle(PressableStyle())
 
             iconButton("exclamationmark.bubble", help: "Report an issue") {
+                dismissMenuBar()
                 NSWorkspace.shared.open(HostStatusView.reportURL)
             }
             iconButton("power.circle", help: String(localized: "Quit Peering")) {
@@ -100,9 +101,7 @@ extension HostMenuBarContent {
     }
 
     func openMainWindow() {
-        // Closes the panel first; it would otherwise sit over the window it just opened.
-        NSApp.keyWindow?.close()
-        openWindow(id: MacCastHostApp.mainWindowID)
-        NSApp.activate()
+        dismissMenuBar()
+        MainWindowOpener.shared.show()
     }
 }

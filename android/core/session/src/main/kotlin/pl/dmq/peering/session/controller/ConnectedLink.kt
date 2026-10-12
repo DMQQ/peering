@@ -126,8 +126,10 @@ internal class ConnectedLink(
 
     val latencyMillis: Int? get() = liveness.smoothedLatencyMillis()?.roundToInt()
 
-    fun pictureState(paused: Boolean): PictureState =
-        picture.state(paused, viaControlChannel = lanes.delivery.transport == VideoTransportKind.CONTROL)
+    fun pictureState(paused: Boolean): PictureState = when {
+        !paused && streamRecord.decoderFailed -> PictureState.Failed(PictureFailure.DecoderFailed)
+        else -> picture.state(paused, viaControlChannel = lanes.delivery.transport == VideoTransportKind.CONTROL)
+    }
 
     /** Reopens the picture. A relayed session has no lane of its own, so pausing and resuming makes the host send a keyframe. */
     fun retryPicture() {

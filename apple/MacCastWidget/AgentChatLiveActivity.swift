@@ -8,7 +8,7 @@ import WidgetKit
 struct AgentChatLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: AgentChatActivityAttributes.self) { context in
-            let chat = context.state.chat
+            let chat = context.state.resolvedChat
             ActivityCard(
                 symbol: chat.symbol,
                 tone: chat.state == .needsYou ? .pending : .live,
@@ -19,8 +19,10 @@ struct AgentChatLiveActivity: Widget {
             )
             .activityBackgroundTint(ActivityCard.backgroundTint)
             .activitySystemActionForegroundColor(.white)
+            // The whole card, not just its button: a tap anywhere lands in the chat, finished or not.
+            .widgetURL(chat.url)
         } dynamicIsland: { context in
-            let chat = context.state.chat
+            let chat = context.state.resolvedChat
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Label(chat.title, systemImage: glyph(chat))

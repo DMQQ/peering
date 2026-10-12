@@ -16,6 +16,9 @@ object PreviewPolicy {
     const val MAX_HEADER_COUNT = 64
     const val MAX_REQUEST_BODY_BYTES = 256 * 1024
 
+    /** What one response may add up to on the phone before it is cut off, however the computer sizes its own limit. */
+    const val MAX_RESPONSE_BYTES = 32L * 1024 * 1024
+
     /** Methods that can be carried: the phone's web view does not hand over a request body, so those that need one are not offered. */
     val carriedMethods: Set<String> = setOf("GET", "HEAD", "OPTIONS", "DELETE")
     private val serverMethods: Set<String> = setOf("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")

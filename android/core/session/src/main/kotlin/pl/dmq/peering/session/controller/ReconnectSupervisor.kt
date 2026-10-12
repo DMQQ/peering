@@ -10,7 +10,7 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Paces the attempts to reopen a dropped session on the iPhone's ladder, long enough to outlast the Mac app restarting.
- * A network change or a picture that arrives starts the ladder and its window again, and a network change also ends a
+ * A network change, a link that reaches Ready or a picture that arrives starts the ladder and its window again, and a network change also ends a
  * wait that is already running.
  */
 internal class ReconnectSupervisor(private val clock: Clock) {
@@ -36,15 +36,20 @@ internal class ReconnectSupervisor(private val clock: Clock) {
         withTimeoutOrNull(step) { networkChanges.receive() }
     }
 
-    fun pictureArrived() {
+    fun pictureArrived() = restartLadder()
+
+    /** A link that reached Ready proves the path works, whether or not video is flowing. */
+    fun linkReady() = restartLadder()
+
+    fun networkChanged() {
+        restartLadder()
+        networkChanges.trySend(Unit)
+    }
+
+    private fun restartLadder() {
         ladder.reset()
         windowStartedAt = null
         attempt = 0
-    }
-
-    fun networkChanged() {
-        pictureArrived()
-        networkChanges.trySend(Unit)
     }
 
     companion object {

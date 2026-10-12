@@ -240,3 +240,12 @@ Present and well done: pre token hygiene shared with the relay, receipt handling
 - **Capture and decoder recovery** (Mac host, Windows host, Android decoder). One shared rule: recover with capped backoff and
   surface a coded failure to the user.
 - **Session ids on approvals and pairing** (Mac host pairing approval, Windows pairing scoped in the earlier round).
+
+## Open items after the relay round
+
+- **Apple receipts are still bearer tokens (relay 4).** The fix is `appAccountToken` bound to the device key when the iPhone app
+  starts a purchase, with the relay requiring it to match the proven key (Play already does this). Needs an iPhone client change,
+  so only documented in `relay/README.md`.
+- **`referralStatus` still issues a code on first ask (relay 5).** Both clients read their own code from that reply. Not minting
+  there needs an explicit request message in `apple/RemoteCore` and `android/core/session` first. Mitigated meanwhile by a
+  per network daily cap on redemptions and 10000 codes kept for redeemers.

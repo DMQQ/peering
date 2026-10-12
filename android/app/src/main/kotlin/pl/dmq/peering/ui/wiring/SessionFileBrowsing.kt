@@ -2,6 +2,7 @@ package pl.dmq.peering.ui.wiring
 
 import android.content.ContentResolver
 import android.net.Uri
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -74,7 +75,8 @@ internal class SessionFileBrowsing(
     override fun upload(sources: List<String>) {
         val previous = uploading
         uploading = scope.launch(Dispatchers.IO) {
-            previous?.join()
+            // An upload that is not running any more is finished or stuck on a provider, and must not hold this one back.
+            if (browser.state.value.upload is FileUpload.Running) previous?.join() else previous?.cancel()
             for (source in sources) {
                 if (!send(Uri.parse(source))) break
             }
@@ -87,17 +89,22 @@ internal class SessionFileBrowsing(
     }
 
     private suspend fun send(uri: Uri): Boolean {
-        val document = SafUploadSource.query(resolver, uri)
-        if (document == null) {
-            browser.reportUnreadable(uri.lastPathSegment.orEmpty())
-            return false
-        }
+        var name = uri.lastPathSegment.orEmpty()
         try {
+            val document = SafUploadSource.query(resolver, uri)
+            if (document == null) {
+                browser.reportUnreadable(name)
+                return false
+            }
+            name = document.name
             document.open().use { input ->
                 browser.upload(document.name, document.size, InputChunks(input, TransferLimits.UPLOAD_CHUNK_BYTES))
             }
-        } catch (failure: IOException) {
-            browser.reportUnreadable(document.name)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            // A revoked grant throws SecurityException, which is not an IOException and would end the app's scope.
+            browser.reportUnreadable(name)
             return false
         }
         return browser.state.value.upload is FileUpload.Done

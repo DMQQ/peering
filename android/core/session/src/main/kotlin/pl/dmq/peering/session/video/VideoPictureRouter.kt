@@ -19,6 +19,7 @@ internal class VideoPictureRouter(private val sink: VideoSink) {
 
     private fun deliverConfig(frame: Frame): Boolean {
         val config = HandshakeFrames.decode(frame, VideoStreamConfig.serializer()) ?: return false
+        if (!config.isWithinLimits) return false
         sink.onConfig(config)
         return true
     }

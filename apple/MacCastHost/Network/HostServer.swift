@@ -1,4 +1,5 @@
 import Foundation
+import MacCastKit
 import Network
 import RemoteCore
 import os
@@ -26,6 +27,18 @@ final class HostServer: @unchecked Sendable {
     private let terminalManager = TerminalSessionManager()
     private let agentManager = AgentSessionManager()
     private let previewProxy = PreviewProxyService()
+    private let presence = PhonePresenceRegistry()
+
+    /// Keeps the phone's Live Activities moving while iOS has frozen the app.
+    private lazy var activityPublisher = HostLiveActivityPublisher(
+        hostID: device.id,
+        presence: { [presence] in presence.presence(of: $0) },
+        observedChats: { [agentManager] in agentManager.liveActivityObservations(for: $0) },
+        send: { [weak self] push, done in
+            guard let send = self?.onActivityPush else { return done() }
+            send(push, done)
+        }
+    )
 
     /// A relay session's local end, and the allocation the relay gave it.
     private struct RelayTunnel {
@@ -66,6 +79,14 @@ final class HostServer: @unchecked Sendable {
     var onAgentPushNeeded: (@Sendable (String, String, String, RelayPushAction?) -> Void)? {
         get { callbackLock.withLock { _onAgentPushNeeded } }
         set { callbackLock.withLock { _onAgentPushNeeded = newValue } }
+    }
+
+    private var _onActivityPush: (@Sendable (RelayActivityPush, @escaping @Sendable () -> Void) -> Void)?
+
+    /// Called with a Live Activity update to hand the relay, and a completion to run once it has been sent.
+    var onActivityPush: (@Sendable (RelayActivityPush, @escaping @Sendable () -> Void) -> Void)? {
+        get { callbackLock.withLock { _onActivityPush } }
+        set { callbackLock.withLock { _onActivityPush = newValue } }
     }
 
     private var _onAgentActivity: (@Sendable (Bool) -> Void)?
@@ -170,6 +191,15 @@ final class HostServer: @unchecked Sendable {
         }
     }
 
+    /// The relay's answer to a Live Activity push that was not sent.
+    func activityPushRefused(_ reason: RelayActivityRefusal) {
+        activityPublisher.refused(reason)
+    }
+
+    func directPathChanged(_ open: Bool) {
+        activityPublisher.directPathChanged(open)
+    }
+
     func registeredPushTokens() -> [String] {
         terminalManager.registeredPushTokens()
     }
@@ -189,6 +219,12 @@ final class HostServer: @unchecked Sendable {
         agentManager.onActivityChanged = { [weak self] active in
             self?.onAgentActivity?(active)
         }
+        agentManager.onChatStateChanged = { [weak self] clientID in
+            self?.activityPublisher.chatsChanged(clientID: clientID)
+        }
+        let presence = presence
+        agentManager.presence = { presence.presence(of: $0) }
+        terminalManager.presence = { presence.presence(of: $0) }
 
         let tls = try TLSConfig.serverOptions(identity: identity, queue: queue)
         let tcp = NWProtocolTCP.Options()
@@ -241,6 +277,7 @@ final class HostServer: @unchecked Sendable {
     }
 
     func stop() {
+        activityPublisher.hostStopping()
         // Strong capture: HostModel sets server = nil right after calling stop(), which can
         // deallocate the server before this block runs, and a weak capture would skip
         // listener?.cancel(), leaving the port held so the next start() cannot bind.
@@ -329,6 +366,7 @@ final class HostServer: @unchecked Sendable {
             }
             guard session.silence > session.silenceLimit else { continue }
             if session.isAuthorized {
+                session.endedForSilence = true
                 sessionLog.notice("A device stopped answering; ending its session")
             } else {
                 sessionLog.notice("An unauthenticated connection stopped answering; ending its handshake")
@@ -381,6 +419,15 @@ final class HostServer: @unchecked Sendable {
         session.onVideoTransportRequest = { [weak self, weak session] request in
             guard let self, let session else { return }
             self.onVideoTransport?(session.peerPublicKey, request, peer)
+        }
+        session.onClientBackground = { [weak self, weak session] background in
+            guard let self, let session else { return }
+            presence.backgroundChanged(clientID: session.clientID, session: session.sessionID, background: background)
+            activityPublisher.presenceChanged(clientID: session.clientID)
+        }
+        session.onActivityToken = { [weak self, weak session] tokens in
+            guard let self, let session else { return }
+            activityPublisher.tokens(clientID: session.clientID, tokens)
         }
         session.onVideoEnabled = { [weak self, weak session] enabled in
             guard let self, let session else { return }
@@ -437,8 +484,12 @@ final class HostServer: @unchecked Sendable {
         }
         // Set for every session, not only relayed ones: this is both the moment the advertisement
         // is withdrawn and the moment a relayed video connection is handed over.
-        session.onAuthorized = { [weak self] controlPeer in
+        session.onAuthorized = { [weak self, weak session] controlPeer in
             guard let self else { return }
+            if let session {
+                presence.connected(clientID: session.clientID, session: session.sessionID)
+                activityPublisher.sessionBegan(clientID: session.clientID, viaRelay: relayBridge != nil)
+            }
             self.updateAdvertisement()
             // The remote transport multiplexes encoded video onto this same TLS stream; it is the
             // same authenticated connection as control, and the relay still cannot read it.
@@ -450,7 +501,11 @@ final class HostServer: @unchecked Sendable {
         session.onEnded = { [weak self] in
             guard let self else { return }
             controlSessions.removeAll { $0 === session }
+            presence.disconnected(clientID: session.clientID, session: session.sessionID)
             if !controlSessions.contains(where: { $0.isAuthorized && $0.clientID == session.clientID }) {
+                if session.isAuthorized {
+                    activityPublisher.sessionEnded(clientID: session.clientID, byHost: session.closedByHost && !session.endedForSilence)
+                }
                 self.terminalManager.disconnect(clientID: session.clientID)
                 self.agentManager.disconnect(clientID: session.clientID)
                 self.previewProxy.disconnect(clientID: session.clientID)

@@ -106,7 +106,7 @@ push-to-start token for `event: start`. Always APNs, never FCM.
 The relay sends `apns-push-type: liveactivity`, `apns-topic: <bundle id>.push-type.liveactivity`, `apns-priority`
 (`priority`, else 5 for update and 10 for start and end), and `apns-expiration` equal to the stale date when
 `staleSeconds` is given. The body is `{"aps":{"timestamp":now,"event":...,"content-state":...}}` plus `stale-date` (now +
-`staleSeconds`), `dismissal-date` (now + 4 hours, `end` only) and `alert` (`title`, `body`, only when both are sent).
+`staleSeconds`), `dismissal-date` (`end` only: now + `dismissalSeconds`, default and maximum 14400, `0` means now) and `alert` (`title`, `body`, only when both are sent).
 `start` additionally requires `attributesType`, a non-empty `attributes` object and both alert fields, and carries
 `attributes-type` and `attributes`; both are ignored for other events.
 
@@ -114,7 +114,11 @@ The relay sends `apns-push-type: liveactivity`, `apns-topic: <bundle id>.push-ty
 it through unread. `environment` picks the APNs host to try first; when absent the relay tries production, retries a
 `BadDeviceToken` on sandbox, and remembers the answer, as `notifyDevice` does.
 
-A push that is not sent is answered with `{"type":"activityRefused","reason":R}` where R is one of `invalidPayload`
+Two optional fields, both ignored by a relay that predates them: `dismissalSeconds` (u32, `end` only) and `requestId` (a
+string of at most 64 bytes, longer is `invalidPayload`). The relay echoes `requestId` unchanged as `requestId` in
+`activityRefused` and never logs it, so the host can tell which push a refusal was about.
+
+A push that is not sent is answered with `{"type":"activityRefused","reason":R}` (plus `"requestId"` when the push had one) where R is one of `invalidPayload`
 (unusable message), `invalidToken` (malformed, or APNs said `BadDeviceToken`, `Unregistered` or `ExpiredToken`: forget
 the token), `rejected` (any other APNs refusal) or `unavailable` (no APNs credentials, or Apple unreachable). An
 unregistered sender gets `error` with code `unauthorized`. Each connection may send 5 pushes at once per token and then 1

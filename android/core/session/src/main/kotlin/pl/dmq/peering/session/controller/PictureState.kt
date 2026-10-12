@@ -19,5 +19,5 @@ sealed interface PictureState {
     data class Failed(val reason: PictureFailure) : PictureState
 }
 
-/** Why the local picture connection gave up after its reconnect ladder was spent. */
-enum class PictureFailure { CouldNotOpen, Dropped }
+/** Why the picture gave up: its connection after the reconnect ladder was spent, or the phone's decoder. */
+enum class PictureFailure { CouldNotOpen, Dropped, DecoderFailed }

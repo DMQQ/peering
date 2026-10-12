@@ -17,6 +17,7 @@ use tokio::time::timeout;
 use tokio_tungstenite::tungstenite::Message;
 
 use peeringd::config::PlanAllowances;
+use peeringd::limits::{IpLimits, PeerLimiter};
 use peeringd::protocol::{unhex, ClientMessage, ServerMessage};
 use peeringd::quota::{Plan, QuotaTracker};
 use peeringd::session::Registry;
@@ -81,6 +82,40 @@ async fn start_full(
     idle_timeout: Duration,
     control_idle: Duration,
 ) -> TestRelay {
+    start_configured(
+        quota,
+        handshake_timeout,
+        idle_timeout,
+        control_idle,
+        IpLimits::default(),
+        false,
+    )
+    .await
+}
+
+/// A relay whose per address limits and proven-host rule the caller chooses. Loopback is not
+/// exempt here, because every test peer is loopback and the limits are what is being tested.
+async fn start_limited(limits: IpLimits, require_proven_hosts: bool) -> TestRelay {
+    start_configured(
+        Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default())),
+        Duration::from_secs(10),
+        Duration::from_secs(90),
+        Duration::from_secs(45),
+        IpLimits { exempt_loopback: false, ..limits },
+        require_proven_hosts,
+    )
+    .await
+}
+
+async fn start_configured(
+    quota: Arc<QuotaTracker>,
+    handshake_timeout: Duration,
+    idle_timeout: Duration,
+    control_idle: Duration,
+    limits: IpLimits,
+    require_proven_hosts: bool,
+) -> TestRelay {
+    let limiter = Arc::new(PeerLimiter::new(limits));
     let registry = Arc::new(Registry::new(usize::MAX));
 
     // Port 0 throughout, so tests never collide with a relay someone is actually running — or with
@@ -90,7 +125,12 @@ async fn start_full(
     let signal = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let signal_port = signal.local_addr().unwrap().port();
 
-    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry), control_idle));
+    tokio::spawn(tcp_relay::serve_limited(
+        control,
+        Arc::clone(&registry),
+        control_idle,
+        Arc::clone(&limiter),
+    ));
 
     // The relay's one video socket, bound exactly as `main` binds it and before signalling starts,
     // so that the port every session is told is the port that exists.
@@ -131,6 +171,8 @@ async fn start_full(
             apns: None,
             fcm: None,
             play: None,
+            limiter,
+            require_proven_hosts,
         },
         None,
     ));
@@ -1219,4 +1261,179 @@ async fn a_splice_with_traffic_outlives_the_idle_window() {
             "a splice that keeps carrying traffic is not idle"
         );
     }
+}
+
+fn connect_as(host_id: &str, client_id: &str) -> ClientMessage {
+    let ClientMessage::ConnectToHost {
+        protocol_version, plan, api_key, jws_representation, public_key, proof, proof_time,
+        play_purchase_token, play_product_id, ..
+    } = connect_request(Some("free")) else { unreachable!() };
+    ClientMessage::ConnectToHost {
+        host_id: host_id.into(),
+        client_id: client_id.into(),
+        protocol_version, plan, api_key, jws_representation, public_key, proof, proof_time,
+        play_purchase_token, play_product_id,
+    }
+}
+
+#[tokio::test]
+async fn one_address_cannot_hold_more_signalling_sockets_than_its_limit() {
+    let relay = start_limited(IpLimits { signalling_connections: 2, ..IpLimits::default() }, false).await;
+    let mut first = connect(relay.signal_port).await;
+    let _second = connect(relay.signal_port).await;
+
+    let refused = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{}", relay.signal_port)).await;
+    assert!(refused.is_err(), "a third socket from the same address is closed before the handshake");
+
+    send(&mut first, &ClientMessage::Ping).await;
+    assert_eq!(next_message(&mut first).await, ServerMessage::Pong, "the held sockets keep working");
+
+    drop(first);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let mut again = connect(relay.signal_port).await;
+    send(&mut again, &ClientMessage::Ping).await;
+    assert_eq!(next_message(&mut again).await, ServerMessage::Pong, "a closed socket frees its slot");
+}
+
+#[tokio::test]
+async fn one_address_cannot_hold_more_control_sockets_than_its_limit() {
+    let relay = start_limited(IpLimits { control_connections: 1, ..IpLimits::default() }, false).await;
+    let _held = TcpStream::connect(("127.0.0.1", relay.control_port)).await.unwrap();
+    let mut refused = TcpStream::connect(("127.0.0.1", relay.control_port)).await.unwrap();
+    let mut byte = [0u8; 1];
+    let read = timeout(Duration::from_secs(2), refused.read(&mut byte)).await.expect("closed promptly");
+    assert!(matches!(read, Ok(0) | Err(_)), "the second control socket is closed");
+}
+
+#[tokio::test]
+async fn session_allocation_is_rate_limited_per_address() {
+    let relay = start_limited(IpLimits { sessions_per_minute: 2, ..IpLimits::default() }, false).await;
+    let _mac = register_mac(&relay, "mac").await;
+    let mut phone = connect(relay.signal_port).await;
+
+    for n in 0..2 {
+        send(&mut phone, &connect_as("mac", &format!("phone-{n}"))).await;
+        await_session(&mut phone).await;
+    }
+    send(&mut phone, &connect_as("mac", "phone-2")).await;
+    assert!(
+        matches!(next_message(&mut phone).await, ServerMessage::Error { ref code, .. } if code == "tooManySessions")
+    );
+}
+
+#[tokio::test]
+async fn sessions_nobody_joined_are_capped_per_address_and_freed_by_joining() {
+    let relay = start_limited(IpLimits { unspliced_sessions: 1, ..IpLimits::default() }, false).await;
+    let mut mac = register_mac(&relay, "mac").await;
+    let mut phone = connect(relay.signal_port).await;
+
+    send(&mut phone, &connect_as("mac", "phone-a")).await;
+    let phone_session = await_session(&mut phone).await;
+    let mac_session = await_session(&mut mac).await;
+
+    send(&mut phone, &connect_as("mac", "phone-b")).await;
+    assert!(
+        matches!(next_message(&mut phone).await, ServerMessage::Error { ref code, .. } if code == "tooManySessions"),
+        "a second unjoined session from the same address is refused"
+    );
+
+    let _phone_side = present(relay.control_port, &phone_session.control_token).await;
+    let _mac_side = present(relay.control_port, &mac_session.control_token).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    send(&mut phone, &connect_as("mac", "phone-b")).await;
+    await_session(&mut phone).await;
+}
+
+#[tokio::test]
+async fn a_host_that_did_not_prove_its_key_is_not_a_target_when_proof_is_required() {
+    let relay = start_limited(IpLimits::default(), true).await;
+    let _mac = register_mac(&relay, "mac").await;
+    let mut phone = connect(relay.signal_port).await;
+    send(&mut phone, &connect_as("mac", "phone")).await;
+    assert_eq!(
+        next_message(&mut phone).await,
+        ServerMessage::HostOffline { device_id: "mac".into() }
+    );
+}
+
+#[tokio::test]
+async fn closing_a_connection_removes_every_id_it_registered() {
+    let relay = start().await;
+    let mut mac = register_mac(&relay, "first").await;
+    send(
+        &mut mac,
+        &ClientMessage::RegisterHost {
+            device_id: "second".into(),
+            name: "Studio".into(),
+            protocol_version: 3,
+            public_key: None,
+            proof: None,
+            proof_time: None,
+        },
+    )
+    .await;
+    assert!(matches!(next_message(&mut mac).await, ServerMessage::Registered { .. }));
+
+    let mut phone = connect(relay.signal_port).await;
+    for id in ["first", "second"] {
+        send(&mut phone, &ClientMessage::HostPresence { host_id: id.into() }).await;
+    }
+    assert_eq!(
+        next_message(&mut phone).await,
+        ServerMessage::HostPresence { host_id: "first".into(), online: false },
+        "a second registration replaces the first"
+    );
+    assert_eq!(
+        next_message(&mut phone).await,
+        ServerMessage::HostPresence { host_id: "second".into(), online: true }
+    );
+
+    drop(mac);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    send(&mut phone, &ClientMessage::HostPresence { host_id: "second".into() }).await;
+    assert_eq!(
+        next_message(&mut phone).await,
+        ServerMessage::HostPresence { host_id: "second".into(), online: false }
+    );
+}
+
+async fn connect_behind_proxy(port: u16, client: &str) -> Result<Ws, tokio_tungstenite::tungstenite::Error> {
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+    let mut request = format!("ws://127.0.0.1:{port}").into_client_request().unwrap();
+    request.headers_mut().insert("CF-Connecting-IP", client.parse().unwrap());
+    let (ws, _) = timeout(PATIENCE, tokio_tungstenite::connect_async(request)).await.expect("answers")?;
+    Ok(ws)
+}
+
+#[tokio::test]
+async fn clients_behind_a_loopback_proxy_are_limited_by_their_forwarded_address() {
+    let relay = start_configured(
+        Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default())),
+        Duration::from_secs(10),
+        Duration::from_secs(90),
+        Duration::from_secs(45),
+        IpLimits { signalling_connections: 1, ..IpLimits::default() },
+        false,
+    )
+    .await;
+
+    let mut first = connect_behind_proxy(relay.signal_port, "198.51.100.1").await.unwrap();
+    let mut second = connect_behind_proxy(relay.signal_port, "198.51.100.2").await.unwrap();
+    for ws in [&mut first, &mut second] {
+        send(ws, &ClientMessage::Ping).await;
+        assert_eq!(next_message(ws).await, ServerMessage::Pong, "different addresses have separate limits");
+    }
+
+    let mut over = connect_behind_proxy(relay.signal_port, "198.51.100.1").await.unwrap();
+    let _ = over.send(Message::Text(serde_json::to_string(&ClientMessage::Ping).unwrap().into())).await;
+    let answered = timeout(Duration::from_secs(1), over.next()).await;
+    assert!(
+        !matches!(answered, Ok(Some(Ok(Message::Text(_))))),
+        "one forwarded address cannot exceed its cap"
+    );
+
+    let mut plain = connect(relay.signal_port).await;
+    send(&mut plain, &ClientMessage::Ping).await;
+    assert_eq!(next_message(&mut plain).await, ServerMessage::Pong, "a loopback peer with no header is exempt");
 }

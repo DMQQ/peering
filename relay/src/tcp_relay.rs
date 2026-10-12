@@ -20,6 +20,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
 use tracing::{debug, info, warn};
 
+use crate::limits::PeerLimiter;
 use crate::counted_stream::{Activity, CountedStream, EndWatch, Side};
 use crate::redact::tag;
 use crate::session::{Join, Registry, Token};
@@ -38,12 +39,22 @@ const ACCEPT_ERROR_BACKOFF: Duration = Duration::from_millis(50);
 /// `idle_window` is how long a splice may carry no bytes in either direction before it is ended;
 /// zero disables the check.
 pub async fn serve(listener: TcpListener, registry: Arc<Registry>, idle_window: Duration) {
+    serve_limited(listener, registry, idle_window, Arc::new(PeerLimiter::default())).await;
+}
+
+/// `serve`, with a ceiling on the control sockets any one address may hold.
+pub async fn serve_limited(
+    listener: TcpListener,
+    registry: Arc<Registry>,
+    idle_window: Duration,
+    limiter: Arc<PeerLimiter>,
+) {
     let waiting = Arc::new(tokio::sync::Semaphore::new(MAX_UNAUTHENTICATED));
     info!(addr = %listener.local_addr().map(|a| a.to_string()).unwrap_or_default(), "control relay listening");
 
     loop {
         match listener.accept().await {
-            Ok((stream, _)) => {
+            Ok((stream, peer)) => {
                 // Nagle off, on both halves of every splice. This one listener accepts *both*
                 // ends of a session — the connection that waits and the one handed to it — so
                 // setting it here covers the pair, and `copy_bidirectional` below inherits it.
@@ -61,6 +72,12 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>, idle_window: 
                     warn!(%error, "could not disable Nagle on a control connection");
                 }
 
+                let Some(peer_slot) = limiter.admit_control(peer.ip()) else {
+                    TALLY.refused(Refusal::PerIpLimit);
+                    debug!(peer = %peer.ip(), "refused a control connection: this address is at its limit");
+                    continue;
+                };
+
                 let Ok(permit) = Arc::clone(&waiting).try_acquire_owned() else {
                     warn!("refused a control connection: too many are waiting for a token");
                     continue;
@@ -68,7 +85,9 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>, idle_window: 
 
                 let registry = Arc::clone(&registry);
                 tokio::spawn(async move {
-                    if let Err(error) = handle(stream, registry, permit, idle_window).await {
+                    let result = handle(stream, registry, permit, idle_window).await;
+                    drop(peer_slot);
+                    if let Err(error) = result {
                         debug!(%error, "control connection ended");
                     }
                 });

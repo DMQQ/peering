@@ -66,6 +66,17 @@ class VideoWireTest {
     }
 
     @Test
+    fun aStreamSizeIsWithinLimitsOnlyBetweenOneAndTheMaximumSide() {
+        val max = VideoStreamConfig.MAX_PICTURE_SIDE
+
+        assertEquals(true, config().isWithinLimits)
+        assertEquals(true, config().copy(pixelWidth = max, pixelHeight = max).isWithinLimits)
+        assertEquals(false, config().copy(pixelWidth = max + 1).isWithinLimits)
+        assertEquals(false, config().copy(pixelHeight = 0).isWithinLimits)
+        assertEquals(false, config().copy(pixelWidth = -1).isWithinLimits)
+    }
+
+    @Test
     fun aDeclaredLengthOfFourGigabytesIsAMismatchNotAnOverflow() {
         val error = assertThrows(VideoWireException.LengthMismatch::class.java) {
             EncodedVideoFrame.decode(videoFrame(declaredLength = 0xFFFF_FFFFL, body = ByteArray(0)))

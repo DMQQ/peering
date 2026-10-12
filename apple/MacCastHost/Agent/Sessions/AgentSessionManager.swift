@@ -28,6 +28,10 @@ final class AgentSessionManager: @unchecked Sendable {
     /// Set once before any phone connects.
     var externalApprovals: (@Sendable (String, AgentApprovalDecision) -> Bool)?
     var onActivityChanged: (@Sendable (Bool) -> Void)?
+    /// Called with the owner when one of its chats changes state. Set once before any phone connects.
+    var onChatStateChanged: (@Sendable (String) -> Void)?
+    /// Where a phone is, for deciding whether a finished turn is pushed. Set once before any phone connects.
+    var presence: (@Sendable (String) -> PhonePresence)?
 
     init(store: AgentSessionDiskStore = AgentSessionManager.defaultStore()) {
         self.store = store
@@ -43,6 +47,15 @@ final class AgentSessionManager: @unchecked Sendable {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let bundle = Bundle.main.bundleIdentifier ?? "pl.dmq.peering.host"
         return AgentSessionDiskStore(directory: support.appendingPathComponent(bundle).appendingPathComponent("AgentChats"))
+    }
+
+    /// What a Live Activity needs to know about one phone's chats: which exist and what each is doing.
+    func liveActivityObservations(for clientID: String) -> [LiveActivityChatTracker.Observed] {
+        lock.withLock {
+            sessions.values
+                .filter { $0.ownerClientID == clientID }
+                .map { LiveActivityChatTracker.Observed(id: $0.id.uuidString, state: $0.state) }
+        }
     }
 
     /// Chats come back idle and without a process: the CLI is started again by the first thing sent to one.

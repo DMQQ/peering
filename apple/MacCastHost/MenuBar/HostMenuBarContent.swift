@@ -6,7 +6,7 @@ import SwiftUI
 struct HostMenuBarContent: View {
     @Environment(HostModel.self) var model
     @Environment(Updater.self) var updater
-    @Environment(\.openWindow) var openWindow
+    @Environment(\.dismissMenuBar) var dismissMenuBar
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -28,15 +28,9 @@ struct HostMenuBarContent: View {
 
             footer
         }
-        .background(PanelWindowEntrance())
         .padding(14)
         .frame(width: 320)
         .animation(HostMotion.state, value: model.connectedClients.count)
         .animation(HostMotion.state, value: updater.availableVersion)
     }
-
-
-
-
-
 }

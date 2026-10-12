@@ -302,7 +302,12 @@ pub enum ServerMessage {
 
     /// A `notifyActivity` that was not sent, with a reason from a closed set. A push dropped by the
     /// rate limit is not reported: Apple would have dropped it too.
-    ActivityRefused { reason: ActivityRefusal },
+    ActivityRefused {
+        reason: ActivityRefusal,
+        /// The `requestId` of the push, when it carried one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+    },
 }
 
 impl ServerMessage {

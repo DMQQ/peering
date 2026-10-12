@@ -52,9 +52,15 @@ video, and serves signalling in plaintext. That is exactly right for pointing bo
 | `PEERINGD_VIDEO_PORTS` | — | **Retired.** Sessions no longer have ports of their own, so this does nothing. A value left in an env file is read, ignored and warned about at startup rather than being allowed to stop the relay — see below |
 | `PEERINGD_TLS_CERT` | — | Certificate for signalling. Both this and the key, or neither |
 | `PEERINGD_TLS_KEY` | — | Private key for signalling |
-| `PEERINGD_SESSION_TTL` | `300` | Seconds a session survives without activity |
+| `PEERINGD_SESSION_TTL` | `300` | Seconds a session survives without activity. `0` is refused at startup, as it is for the two timeouts below: it would end every session or socket as it is made |
 | `PEERINGD_MAX_SESSIONS` | `1000` | Sessions that may exist at once. A session costs a kilobyte of bookkeeping before its splice exists (see Cost), and asking for one is unauthenticated, so this is what turns "someone loops `ConnectToHost`" from an OOM kill into a refusal. Zero is refused as a value: a relay that answers nothing looks healthy, and that is an outage nobody diagnoses from the config |
 | `PEERINGD_MAX_CONNECTIONS` | `4096` | Sockets that may be open on the signalling listener at once. Has to be larger than the number of registered Macs, since each holds its registration socket open for as long as it runs. A connection beyond it is closed rather than queued |
+| `PEERINGD_MAX_SIGNALLING_PER_IP` | `256` | Signalling sockets one peer address may hold at once. Generous because many users share a NAT; the global `PEERINGD_MAX_CONNECTIONS` is what this stops one address from spending. IPv6 peers count by /64. A loopback peer (nginx on the same box) is taken to be the client named by `CF-Connecting-IP`, else the left-most valid `X-Forwarded-For` entry, else `X-Real-IP`, and is exempt only when none is valid (health checks). The headers are ignored for any non-loopback peer, so a direct client cannot spoof its address. The same address drives the allocation rate and unspliced limits |
+| `PEERINGD_MAX_CONTROL_PER_IP` | `512` | Control sockets one peer address may hold, waiting for a peer or spliced. Control is not proxied, so this always sees real addresses |
+| `PEERINGD_SESSIONS_PER_IP_PER_MINUTE` | `120` | Sessions one signalling peer address may allocate per minute. Over it the answer is `tooManySessions` |
+| `PEERINGD_MAX_UNSPLICED_PER_IP` | `64` | Sessions one address may have allocated whose two control ends have not both arrived. A fake host that never connects can otherwise keep every session alive against the TTL |
+| `PEERINGD_REQUIRE_PROVEN_HOSTS` | off | When on, `ConnectToHost` only reaches a host whose registration proved its device key; an unproven one is answered `hostOffline`. Off by default because Macs that predate the proof register without one |
+| `PEERINGD_DEVICE_BINDINGS_MAX` | `100000` | Device bindings kept. Past it a new id still registers but is not bound. The file is compacted at startup and whenever superseded lines outnumber live ones |
 | `PEERINGD_HANDSHAKE_SECONDS` | `10` | How long a socket has to finish becoming a WebSocket, counting the TLS handshake. Without it a peer that opens a connection and says nothing holds a task and a file descriptor indefinitely |
 | `PEERINGD_IDLE_SECONDS` | `90` | How long an established signalling connection may sit silent. Comfortably longer than the Mac's 25-second keepalive on purpose: a registered Mac is idle between pings and must not be dropped for it |
 | `PEERINGD_CONTROL_IDLE_SECONDS` | `45` | How long a spliced control connection may carry no bytes in either direction before the relay ends it (`end_reason=idle_timeout`). The phone pings every second, so this is a stalled connection, not a quiet one. A stalled splice is billed only up to its last byte, so a dead connection stops spending the free allowance when it stalls. `0` turns the check off |
@@ -88,8 +94,13 @@ redemption it earned, up to the cap. Paid plans are unmetered and unaffected.
   `status` or `redeem:<code as sent>`. Without a proof the answer is `proofRequired`: an announced
   id is lost on reinstall, and would let one person redeem once per install. A client metered by
   its id (no proof on `ConnectToHost`) has no bonus, because the bonus hangs from the key.
-- **Ceilings.** 1000 redemptions a day across all devices, 50000 redemptions and 100000 codes
-  in total (`referralsBusy` past them), and 16 invite requests per signalling connection. Making
+- **Ceilings.** 1000 redemptions a day across all devices, 5 a day from one network (an IPv4
+  address or an IPv6 /64, answered `tooManyRequests`), 50000 redemptions and 100000 codes in total
+  (`referralsBusy` past them), and 16 invite requests per signalling connection. The last 10000
+  codes are kept for redeemers: `referralStatus` issues a code on first ask because both clients
+  read their own code from that reply, so a script of throwaway keys could otherwise fill the table
+  and lock out the people a friend has just invited. Not minting on `referralStatus` needs a client
+  change (an explicit request for a code) and is an open item. Making
   keys is free for a script, so these bound the memory and the file rather than closing the
   free-allowance-per-new-key hole the README already describes.
 - **Replies.** `referral` carries `code`, `bonusSeconds` (added to each window's allowance now),
@@ -98,6 +109,32 @@ redemption it earned, up to the cap. Paid plans are unmetered and unaffected.
   `referralOwnCode`, `referralAlreadyRedeemed`, `referralsBusy`, `tooManyRequests`, `invalid`.
 - The relay does not report remaining time anywhere; the app keeps its own bar (see
   `PEERINGD_FREE_MINUTES`) and must add `bonusSeconds` to the allowance it draws.
+
+### Push notifications
+
+`notifyDevice` and `notifyActivity` are the only ways a registered Mac makes the relay call Apple or
+Google, so both are bounded. No setting changes them.
+
+- **Every push has a 10 second total timeout** (connect, request, reply), pushes in flight are
+  capped at 64 per service and the rest are refused, and each signalling connection may send 20
+  `notifyDevice` messages at once and then one a second (extra ones are dropped and logged).
+  `notifyActivity` keeps its own per-token budget.
+- **APNs uses one long-lived HTTP/2 connection per host** instead of one per push; a dead one is
+  replaced on the next push, and a timeout drops them all.
+- **Apple's answers are read by status and `reason` together.** Only `BadDeviceToken` (400) is
+  retried on the other APNs host. `Unregistered` and `ExpiredToken` (410) drop the token from the
+  remembered-environment map; `DeviceTokenNotForTopic`, `Forbidden` and `PayloadTooLarge` are final.
+  `ExpiredProviderToken` and `InvalidProviderToken` (403) replace the JWT once, never within 20
+  minutes of the last one (Apple answers `TooManyProviderTokenUpdates` otherwise).
+- **A circuit breaker** opens after three 429 or 5xx answers in a row, for 30 seconds doubling to
+  15 minutes (Apple's own number for retrying a 5xx), and closes on the first success. A 429 is
+  reported to the host as `unavailable`, since the refusal set is closed and older hosts cannot
+  decode a new case.
+- **FCM and Play** requests time out after 10 s. The OAuth token refresh is single flight, and the
+  Play verifier keeps the last good verdict per purchase for 24 hours (never past the purchase's own
+  expiry) and serves it when Google cannot be reached; a final 4xx from Google is not covered by it.
+- **APNs configured by halves** (some of `PEERINGD_APNS_KEY_ID`, `_TEAM_ID`, `_BUNDLE_ID`, `_KEY`)
+  logs a warning naming the missing ones, since push is then silently off.
 
 ### Relay time is remembered
 
@@ -126,9 +163,14 @@ on the next charge.
 
 Three things it does not do, worth knowing before relying on it:
 
-- **A crashed machine can still lose the last charges.** Each record is `fsync`ed, so what has been
-  written is on the disk; a stretch that was still running when the kernel stopped is not, and since
-  a charge is taken every fifteen seconds, that is the most a crash can cost.
+- **A crashed machine can still lose the last charges.** Charges are handed to a writer thread that
+  batches them into one write and one `fsync`, so nothing on the metering path waits for the disk,
+  and a crash can cost the batch in flight and the stretch still running as well. A charge the file
+  cannot take (disk full, a failed reopen after compaction) stays in the writer's totals and is
+  written out whole by the next successful rewrite, which is retried with a growing delay (5 s up to
+  10 min) rather than on every charge, as is a failed compaction. A line whose window is more than
+  a day ahead of the clock is ignored on replay, so a clock that once jumped forward cannot make the
+  relay discard the real day.
 - **Deleting the file resets everyone.** It is the only copy.
 - **Nothing migrates.** A window that has passed is dropped on the next start, which is correct,
   because the allowance it counted against has passed too.
@@ -223,6 +265,13 @@ it. Nothing binds the JWS to a phone, so a receipt is a bearer token and sharing
 plan until it expires. Binding it needs Apple's device-verification endpoint, which the relay
 deliberately does not call — the honest description is that this stops people forging a purchase,
 not that it stops them sharing one.
+
+**Open item: the receipt binding gap.** Apple receipts are bearer tokens, and a fresh client id per
+connection gets a fresh free allowance, so metering is easy to evade. The fix is to set
+`appAccountToken` (a UUID derived from the device key) when the app starts the purchase and have the
+relay require it to match the proven key, as Play already does with the obfuscated account id. That
+needs a client change in the iPhone app and is not done; it is tracked in
+`docs/reviews/resilience-review.md`.
 
 **`PEERINGD_PAID_KEYS` is the one grant the relay holds rather than takes on trust**, which is why
 it is kept even though nothing mints a key anyone can put in it. The app generates its own UUID in
@@ -390,6 +439,9 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # CF-Connecting-IP, when Cloudflare is in front, is passed to the relay untouched by nginx,
+        # and the relay prefers it. The per address limits read these three headers from this proxy
+        # only (it connects from loopback); a direct client's headers are ignored.
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # Not optional. A Mac that is registered holds this socket open and says nothing for
@@ -455,6 +507,9 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # CF-Connecting-IP, when Cloudflare is in front, is passed to the relay untouched by nginx,
+        # and the relay prefers it. The per address limits read these three headers from this proxy
+        # only (it connects from loopback); a direct client's headers are ignored.
 
         # Only the WebSocket needs this. A Mac that is registered holds its socket open and says
         # nothing for minutes at a time, and nginx closes an idle proxied connection at 60
@@ -753,6 +808,12 @@ it — every session shares it, so the firewall rule does not change as sessions
 
 #### Unit, and updating
 
+The unit stops restarting after ten starts in five minutes (`StartLimitBurst`), so a binary that
+dies at startup shows as `failed` instead of looping. `tools/deploy-relay.sh` probes
+`PEERINGD_HEALTH_URL` (default `http://127.0.0.1:8080/healthz`) after the restart, puts the
+previous binary back from its `.bak-*` copy if it does not answer, and keeps the newest five
+backups.
+
 The unit is in the repository, at `deploy/peeringd.service`, so what is running on a box can be
 diffed against what the code expects rather than reconstructed from a snippet in a README. **The
 deploy script installs it**, with the binary, and that is the point: this file used to describe a
@@ -892,6 +953,17 @@ cannot see, because from systemd's side the service is perfectly healthy. It ret
 acting, and after restarting it checks *again* and says so when the restart did not help, so "it
 is stuck" and "it is genuinely broken" are different lines in the journal rather than one silent
 restart loop.
+
+**`/healthz` reflects the relay's own tasks.** The control relay, the video forwarder, the sweep,
+the stats reporter and signalling are supervised: if any of them panics or returns, `/healthz`
+answers `503 unhealthy: <names>` and the process exits so systemd restarts it. The web listener
+now binds even when `PEERINGD_WEB_ROOT` does not exist (it then serves `/healthz` only). If it
+cannot bind at all, the health script does not restart the relay on that alone: when nothing
+answers on the health URL it connects to the signalling and control ports instead
+(`PEERINGD_HEALTHCHECK_PORTS`, default `127.0.0.1:8443 127.0.0.1:9443`; set them to the real
+ports). The relay stops cleanly on SIGTERM as well as ctrl-c, and prints its shutdown summary.
+`PEERINGD_HANDSHAKE_SECONDS` also bounds every single write to a signalling peer, so a client
+that stops reading is dropped after that long.
 
 That covers the machine being up. It does not cover the machine being gone, the certificate
 expiring, or the hostname failing to resolve — for those you still want the external monitor

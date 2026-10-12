@@ -208,12 +208,32 @@ final class SessionActivity {
                 // No attributes: everything varies in the state, so a card can be re-pointed at another Mac.
                 attributes: SessionActivityAttributes(),
                 content: ActivityContent(state: state, staleDate: staleDate(for: state)),
-                // Local only: a push token would be a promise to a server that does not exist.
-                pushType: nil
+                // The Mac pushes updates through the relay while iOS has the app frozen.
+                pushType: .token
             )
+            if let activity { observe(activity) }
         } catch {
             Analytics.failed(error, in: .liveActivity)
             activityLog.error("could not start the Live Activity: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// Passes the card's push token to the Mac, and notices when the system or the user ends it so the handle does not block the next card.
+    private func observe(_ card: Activity<SessionActivityAttributes>) {
+        Task {
+            for await token in card.pushTokenUpdates {
+                LiveActivityTokens.shared.pushToken(token, for: .session)
+            }
+        }
+        Task {
+            for await state in card.activityStateUpdates where state == .ended || state == .dismissed {
+                if activity?.id == card.id {
+                    activity = nil
+                    current = nil
+                }
+                if activity == nil { LiveActivityTokens.shared.activityEnded(.session) }
+                return
+            }
         }
     }
 

@@ -9,8 +9,8 @@
 /* Begin PBXBuildFile section */
 		AA00001000000000000000AA /* TerminalActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000AA /* TerminalActivityAttributes.swift */; };
 		AA00002000000000000000AA /* TerminalActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000AA /* TerminalActivityAttributes.swift */; };
-		AB00001000000000000000AA /* AgentWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000AA /* AgentWidgetSnapshot.swift */; };
-		AB00002000000000000000AA /* AgentWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000AA /* AgentWidgetSnapshot.swift */; };
+		AB00001000000000000000AA /* AgentChatSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000AA /* AgentChatSnapshot.swift */; };
+		AB00002000000000000000AA /* AgentChatSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000AA /* AgentChatSnapshot.swift */; };
 		C2B2281E306093ED008FB38C /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = E1A00002305B000100ABF943 /* Sparkle */; };
 		C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EC30574AB600ABF943 /* RemoteCore */; };
 		C2C039F030574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EE30574AB600ABF943 /* RemoteCore */; };
@@ -29,6 +29,15 @@
 		D4C0FFA6305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA7305B000100ABF943 /* MacCastKit */; };
 		F0A10001305B000100ABF943 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F0A10003305B000100ABF943 /* PostHog */; };
 		F0A10002305B000100ABF943 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F0A10004305B000100ABF943 /* PostHog */; };
+		AC0100000000000000000000 /* SessionActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000000 /* SessionActivityState.swift */; };
+		AC0200000000000000000000 /* SessionActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000000 /* SessionActivityState.swift */; };
+		AC0300000000000000000000 /* SessionActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000000 /* SessionActivityState.swift */; };
+		AD0100000000000000000000 /* AgentChatActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0000000000000000000000 /* AgentChatActivityAttributes.swift */; };
+		AD0200000000000000000000 /* AgentChatActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0000000000000000000000 /* AgentChatActivityAttributes.swift */; };
+		AE0100000000000000000000 /* HostKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000000 /* HostKey.swift */; };
+		AE0200000000000000000000 /* HostKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000000 /* HostKey.swift */; };
+		AE0300000000000000000000 /* HostKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000000 /* HostKey.swift */; };
+		AF0100000000000000000000 /* AgentChatSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000AA /* AgentChatSnapshot.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -89,7 +98,7 @@
 
 /* Begin PBXFileReference section */
 		AA00000000000000000000AA /* TerminalActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalActivityAttributes.swift; sourceTree = "<group>"; };
-		AB00000000000000000000AA /* AgentWidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWidgetSnapshot.swift; sourceTree = "<group>"; };
+		AB00000000000000000000AA /* AgentChatSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChatSnapshot.swift; sourceTree = "<group>"; };
 		C2C039BF30574AB400ABF943 /* MacCast.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacCast.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2C039CE30574AB600ABF943 /* MacCastTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacCastTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2C039D830574AB600ABF943 /* MacCastUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacCastUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -99,6 +108,9 @@
 		C2C03AF93058094A00ABF943 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionActivityAttributes.swift; sourceTree = "<group>"; };
 		D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MacCastHostWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AC0000000000000000000000 /* SessionActivityState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionActivityState.swift; sourceTree = "<group>"; };
+		AD0000000000000000000000 /* AgentChatActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChatActivityAttributes.swift; sourceTree = "<group>"; };
+		AE0000000000000000000000 /* HostKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostKey.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -259,7 +271,10 @@
 			children = (
 				C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */,
 				AA00000000000000000000AA /* TerminalActivityAttributes.swift */,
-				AB00000000000000000000AA /* AgentWidgetSnapshot.swift */,
+				AB00000000000000000000AA /* AgentChatSnapshot.swift */,
+				AC0000000000000000000000 /* SessionActivityState.swift */,
+				AD0000000000000000000000 /* AgentChatActivityAttributes.swift */,
+				AE0000000000000000000000 /* HostKey.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -574,9 +589,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC0100000000000000000000 /* SessionActivityState.swift in Sources */,
+				AD0100000000000000000000 /* AgentChatActivityAttributes.swift in Sources */,
+				AE0100000000000000000000 /* HostKey.swift in Sources */,
 				C2C03B16305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */,
 				AA00001000000000000000AA /* TerminalActivityAttributes.swift in Sources */,
-				AB00001000000000000000AA /* AgentWidgetSnapshot.swift in Sources */,
+				AB00001000000000000000AA /* AgentChatSnapshot.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -598,6 +616,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC0300000000000000000000 /* SessionActivityState.swift in Sources */,
+				AE0300000000000000000000 /* HostKey.swift in Sources */,
+				AF0100000000000000000000 /* AgentChatSnapshot.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -605,9 +626,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC0200000000000000000000 /* SessionActivityState.swift in Sources */,
+				AD0200000000000000000000 /* AgentChatActivityAttributes.swift in Sources */,
+				AE0200000000000000000000 /* HostKey.swift in Sources */,
 				C2C03B15305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */,
 				AA00002000000000000000AA /* TerminalActivityAttributes.swift in Sources */,
-				AB00002000000000000000AA /* AgentWidgetSnapshot.swift in Sources */,
+				AB00002000000000000000AA /* AgentChatSnapshot.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

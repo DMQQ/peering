@@ -162,3 +162,14 @@ fn a_refused_exchange_names_the_reason_google_gives() {
 fn a_200_without_a_token_is_refused() {
     assert!(parse_token_reply(200, r#"{"expires_in":3599}"#).is_err());
 }
+
+#[tokio::test]
+async fn simultaneous_requests_with_an_expired_token_make_one_exchange() {
+    let exchange = FakeTokenExchange::replying("ya29.shared", 3600);
+    let cache = AccessTokenCache::new(account(), FCM_SCOPE, exchange, FixedClock::at(1_000));
+    let (a, b, c) = tokio::join!(cache.access_token(), cache.access_token(), cache.access_token());
+    for token in [a, b, c] {
+        assert_eq!(token.unwrap(), "ya29.shared");
+    }
+    assert_eq!(cache.exchange.calls(), 1);
+}

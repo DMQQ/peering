@@ -12,8 +12,8 @@ extension HostModel {
         return port
     }
 
-    /// Computed here rather than in the scene: an `@Observable` read inside `MenuBarExtra`'s label
-    /// is what invalidates it.
+    /// Computed here rather than in the label view: an `@Observable` read inside the status item's
+    /// hosted label is what invalidates it.
     var menuBarState: HostMenuBarState {
         guard permissions.allRequiredGranted else { return .setupRequired }
         guard status.isListening else { return .stopped }

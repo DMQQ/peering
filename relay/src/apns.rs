@@ -14,13 +14,17 @@
 //!
 //! # Wire
 //!
-//! Each push is a new TLS+HTTP/2 connection to `api.push.apple.com:443` with ALPN `h2`. Apple's
-//! server requires HTTP/2; they deprecated HTTP/1.1 support years ago. The `h2` crate handles
-//! the framing; `tokio-rustls` with `webpki-roots` handles TLS certificate verification.
+//! One long-lived TLS+HTTP/2 connection per host (`api.push.apple.com:443`, ALPN `h2`) carries
+//! every push; see `delivery` for the timeouts, limits and retry rules. Apple's server requires
+//! HTTP/2. The `h2` crate handles the framing; `tokio-rustls` with `webpki-roots` handles TLS
+//! certificate verification.
+
+mod delivery;
 
 use std::collections::HashMap;
 
 use crate::activity::{ActivityEnvironment, ActivityFailure, ActivityRequest};
+use crate::apns_policy::CircuitBreaker;
 use crate::redact::tag;
 use std::io::BufReader;
 use std::path::PathBuf;
@@ -34,9 +38,7 @@ use h2::client;
 use http::{Method, Request, Uri};
 use ring::rand::SystemRandom;
 use ring::signature::{EcdsaKeyPair, ECDSA_P256_SHA256_FIXED_SIGNING};
-use rustls_pki_types::ServerName;
-use tokio::net::TcpStream;
-use tokio_rustls::TlsConnector;
+use tokio::sync::Semaphore;
 use tracing::warn;
 
 const APNS_HOST: &str = "api.push.apple.com";
@@ -68,6 +70,10 @@ pub struct ApnsClient {
     /// the app would be, so the only way to serve both a Debug phone and a TestFlight one from one
     /// relay is to try one, and then the other, and remember which answered.
     environments: Mutex<HashMap<String, &'static str>>,
+    /// The open HTTP/2 connection to each host, shared by every push.
+    connections: Mutex<HashMap<&'static str, client::SendRequest<Bytes>>>,
+    in_flight: Semaphore,
+    breaker: Mutex<CircuitBreaker>,
 }
 
 /// Where a tapped notification should take the phone: which Mac, and which of its sources.
@@ -165,6 +171,9 @@ impl ApnsClient {
             tls_config: Arc::new(tls_config),
             cached_jwt: Mutex::new(None),
             environments: Mutex::new(HashMap::new()),
+            connections: Mutex::new(HashMap::new()),
+            in_flight: Semaphore::new(delivery::MAX_PUSHES_IN_FLIGHT),
+            breaker: Mutex::new(CircuitBreaker::default()),
         })
     }
 
@@ -209,61 +218,12 @@ impl ApnsClient {
         format!("{signing_input}.{sig_b64}")
     }
 
-    /// Opens a connection to APNs and delivers one push notification. Each call is one
-    /// connection; APNs is stateless from this relay's perspective.
-    ///
-    /// **Two attempts at most, and the second only for the reason that needs it.** Which
-    /// environment a token belongs to is decided by the entitlement of the app that registered it,
-    /// and the token carries nothing that says so: a phone running a build signed `development`
-    /// — every Debug install — holds a token the production host refuses with `BadDeviceToken`,
-    /// and that refusal is indistinguishable from a token for an app that has been uninstalled.
-    /// So the host that answered is remembered per token, and a `BadDeviceToken` is the one
-    /// answer worth trying the other host for.
-    pub async fn send(
-        &self,
-        device_token: &str,
-        title: &str,
-        body: &str,
-        route: Option<PushRoute<'_>>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let first = self
-            .environments
-            .lock()
-            .unwrap()
-            .get(device_token)
-            .copied()
-            .unwrap_or(APNS_HOST);
-        let request = ApnsRequest {
-            push_type: "alert",
-            topic: self.bundle_id.clone(),
-            priority: 10,
-            expiration: None,
-            body: payload(title, body, route)?,
-        };
 
-        match self.push(first, device_token, &request).await {
-            PushOutcome::Accepted => Ok(()),
-            PushOutcome::Refused(failure) => {
-                let other = if first == APNS_HOST { APNS_SANDBOX_HOST } else { APNS_HOST };
-                warn!(device_token = %tag(device_token), host = first, failure = %failure, "APNs refused the push");
-
-                match self.push(other, device_token, &request).await {
-                    PushOutcome::Accepted => {
-                        self.remember_environment(device_token, other);
-                        Ok(())
-                    }
-                    PushOutcome::Refused(other_failure) => {
-                        warn!(device_token = %tag(device_token), host = other, failure = %other_failure, "APNs refused the push on both hosts");
-                        Err(format!("APNs refused on both hosts: {failure} / {other_failure}").into())
-                    }
-                    PushOutcome::Failed(error) => Err(error),
-                }
-            }
-            PushOutcome::Failed(error) => Err(error),
-        }
+    /// The host a token was last accepted on, or production.
+    fn first_host(&self, device_token: &str) -> &'static str {
+        self.environments.lock().unwrap().get(device_token).copied().unwrap_or(APNS_HOST)
     }
 
-        /// One attempt against one host.
     fn remember_environment(&self, device_token: &str, host: &'static str) {
         let mut environments = self.environments.lock().unwrap();
         if environments.len() >= MAX_REMEMBERED_ENVIRONMENTS {
@@ -272,9 +232,36 @@ impl ApnsClient {
         environments.insert(device_token.to_owned(), host);
     }
 
+    fn forget_environment(&self, device_token: &str) {
+        self.environments.lock().unwrap().remove(device_token);
+    }
+
+    /// Delivers one alert. The host that answered is remembered per token, and the other host is
+    /// tried only for `BadDeviceToken`; see `deliver`.
+    pub async fn send(
+        &self,
+        device_token: &str,
+        title: &str,
+        body: &str,
+        route: Option<PushRoute<'_>>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let request = ApnsRequest {
+            push_type: "alert",
+            topic: self.bundle_id.clone(),
+            priority: 10,
+            expiration: None,
+            body: payload(title, body, route)?,
+        };
+        let first = self.first_host(device_token);
+        self.deliver(first, device_token, &request, true).await.map_err(|error| {
+            warn!(device_token = %tag(device_token), error = %error, "APNs did not take the push");
+            error.to_string().into()
+        })
+    }
+
     /// Sends a Live Activity push. `environment` is the host to try first; without it, the token's
-    /// remembered host, then production. A `BadDeviceToken` on a guessed host is retried on the
-    /// other one, as the alert path does, because that is how a token from the wrong environment fails.
+    /// remembered host, then production. Only a guessed host is retried on the other one, because
+    /// a host the phone named is not a guess.
     pub async fn send_activity(
         &self,
         device_token: &str,
@@ -284,7 +271,7 @@ impl ApnsClient {
         let first = match environment {
             Some(ActivityEnvironment::Production) => APNS_HOST,
             Some(ActivityEnvironment::Sandbox) => APNS_SANDBOX_HOST,
-            None => self.environments.lock().unwrap().get(device_token).copied().unwrap_or(APNS_HOST),
+            None => self.first_host(device_token),
         };
         let request = ApnsRequest {
             push_type: "liveactivity",
@@ -293,97 +280,15 @@ impl ApnsClient {
             expiration: activity.expiration,
             body: activity.body.clone(),
         };
-
-        let first_failure = match self.push(first, device_token, &request).await {
-            PushOutcome::Accepted => return Ok(()),
-            PushOutcome::Refused(failure) => failure,
-            PushOutcome::Failed(error) => {
-                warn!(error = %error, "APNs could not be reached for a live activity push");
-                return Err(ActivityFailure::Unavailable);
-            }
-        };
-        let classified = ActivityFailure::from_apns(&first_failure);
-        if classified != ActivityFailure::TokenRejected || environment.is_some() {
-            warn!(device_token = %tag(device_token), host = first, failure = %classified.as_str(), "APNs refused the live activity push");
-            return Err(classified);
-        }
-        let other = if first == APNS_HOST { APNS_SANDBOX_HOST } else { APNS_HOST };
-        match self.push(other, device_token, &request).await {
-            PushOutcome::Accepted => {
-                self.remember_environment(device_token, other);
-                Ok(())
-            }
-            PushOutcome::Refused(failure) => {
-                let classified = ActivityFailure::from_apns(&failure);
-                warn!(device_token = %tag(device_token), failure = %classified.as_str(), "APNs refused the live activity push on both hosts");
-                Err(classified)
-            }
-            PushOutcome::Failed(error) => {
-                warn!(error = %error, "APNs could not be reached for a live activity push");
-                Err(ActivityFailure::Unavailable)
-            }
-        }
-    }
-
-    async fn push(&self, host: &'static str, device_token: &str, request: &ApnsRequest) -> PushOutcome {
-        match self.push_inner(host, device_token, request).await {
-            Ok(outcome) => outcome,
-            Err(error) => PushOutcome::Failed(error),
-        }
-    }
-
-    async fn push_inner(
-        &self,
-        host: &str,
-        device_token: &str,
-        request: &ApnsRequest,
-    ) -> Result<PushOutcome, Box<dyn std::error::Error + Send + Sync>> {
-        let jwt = self.jwt();
-        let payload_bytes = Bytes::from(request.body.clone().into_bytes());
-
-        let tcp = TcpStream::connect((host, APNS_PORT)).await?;
-        let connector = TlsConnector::from(Arc::clone(&self.tls_config));
-        let server_name = ServerName::try_from(host)
-            .map_err(|_| "invalid APNs hostname")?
-            .to_owned();
-        let tls = connector.connect(server_name, tcp).await?;
-
-        let (h2_client, conn) = client::Builder::new()
-            .handshake::<_, Bytes>(tls)
-            .await?;
-        // Drive the connection in the background; it drops when the request finishes.
-        tokio::spawn(async move {
-            let _ = conn.await;
-        });
-
-        let req = http_request(host, device_token, &jwt, request)?;
-
-        let mut h2_ready = h2_client.ready().await?;
-        let (response_fut, mut send_stream) = h2_ready.send_request(req, false)?;
-        send_stream.send_data(payload_bytes, true)?;
-
-        let response = response_fut.await?;
-        let status = response.status();
-        if status.is_success() {
-            return Ok(PushOutcome::Accepted);
-        }
-
-        // The body carries Apple's own word for it. Read rather than assumed, because
-        // `BadDeviceToken` is the one refusal that means "try the other host" and everything else
-        // means this push is not going to arrive.
-        let body = response.into_body().data().await;
-        let reason = match body {
-            Some(Ok(bytes)) => String::from_utf8_lossy(&bytes).to_string(),
-            _ => String::new(),
-        };
-        if reason.contains("BadDeviceToken") {
-            return Ok(PushOutcome::Refused(reason));
-        }
-        Ok(PushOutcome::Refused(format!("{status} {reason}")))
+        self.deliver(first, device_token, &request, environment.is_none())
+            .await
+            .map_err(|error| {
+                warn!(device_token = %tag(device_token), error = %error, "APNs did not take the live activity push");
+                ActivityFailure::from(&error)
+            })
     }
 }
 
-/// What one attempt against one host produced.
 fn http_request(
     host: &str,
     device_token: &str,
@@ -412,15 +317,6 @@ struct ApnsRequest {
     priority: u8,
     expiration: Option<u64>,
     body: String,
-}
-
-enum PushOutcome {
-    /// APNs took it.
-    Accepted,
-    /// APNs answered, and not with success. The string is what it said.
-    Refused(String),
-    /// The attempt never reached Apple: DNS, TLS, HTTP/2, a socket.
-    Failed(Box<dyn std::error::Error + Send + Sync>),
 }
 
 #[cfg(test)]

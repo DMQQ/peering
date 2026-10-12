@@ -20,6 +20,11 @@ Description=Peering relay (peeringd)
 Documentation=https://getpeering.app/
 After=network-online.target
 Wants=network-online.target
+# `Restart=always` alone loops forever on a binary that dies at startup. Ten starts in five minutes
+# is a crash loop; past it the unit stays failed, which `systemctl --failed` and the health check
+# report, instead of burning the box restarting every two seconds.
+StartLimitIntervalSec=300
+StartLimitBurst=10
 
 [Service]
 Type=simple

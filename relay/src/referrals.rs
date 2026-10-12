@@ -20,6 +20,7 @@
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -40,6 +41,16 @@ const MAX_REDEMPTIONS: usize = 50_000;
 /// Redemptions the relay accepts per rolling day, across all devices. Slows a script that mints
 /// keys to farm bonuses far below the point where it could fill `MAX_REDEMPTIONS`.
 const MAX_REDEMPTIONS_PER_DAY: u32 = 1_000;
+/// Redemptions accepted per rolling day from one network (an IPv4 address, or an IPv6 /64). Keys
+/// are free to make, so the address is the only scarce thing a script farming bonuses has; five
+/// leaves room for a household or an office.
+const MAX_REDEMPTIONS_PER_ADDRESS_PER_DAY: u32 = 5;
+/// Addresses tracked for the cap above, so the table cannot be grown by spoofing sources.
+const MAX_TRACKED_ADDRESSES: usize = 10_000;
+/// Codes that only a redeemer may take. A device that asks for its status is issued a code, so a
+/// script can fill the table with throwaway keys; this much room stays free for the people a
+/// friend has just invited.
+const CODES_RESERVED_FOR_REDEEMERS: usize = 10_000;
 const DAY_SECS: u64 = 24 * 3600;
 
 /// Longest code string looked at before normalising.
@@ -86,6 +97,8 @@ pub enum ReferralError {
     AlreadyRedeemed,
     /// A ceiling was reached; try again later.
     Busy,
+    /// Too many redemptions came from this network today.
+    NetworkLimit,
 }
 
 impl ReferralError {
@@ -95,6 +108,7 @@ impl ReferralError {
             Self::OwnCode => "referralOwnCode",
             Self::AlreadyRedeemed => "referralAlreadyRedeemed",
             Self::Busy => "referralsBusy",
+            Self::NetworkLimit => "tooManyRequests",
         }
     }
 
@@ -104,6 +118,7 @@ impl ReferralError {
             Self::OwnCode => "that is this device's own invite code",
             Self::AlreadyRedeemed => "this device has already used an invite code",
             Self::Busy => "invites are unavailable right now; try again later",
+            Self::NetworkLimit => "too many invites were redeemed from this network today; try again tomorrow",
         }
     }
 }
@@ -130,6 +145,8 @@ struct Inner {
     earned: HashMap<String, u32>,
     /// The day number and how many redemptions were accepted in it.
     today: (u64, u32),
+    /// Redemptions accepted today per network: the day number and a count.
+    by_address: HashMap<IpAddr, (u64, u32)>,
 }
 
 pub struct Referrals {
@@ -189,7 +206,7 @@ impl Referrals {
     pub fn standing(&self, identity: &str, now: u64) -> Result<Standing, ReferralError> {
         let (standing, line) = {
             let mut inner = self.lock();
-            let line = inner.ensure_code(identity)?;
+            let line = inner.ensure_code(identity, MAX_CODES - CODES_RESERVED_FOR_REDEEMERS)?;
             (inner.standing_of(identity, now, self.terms), line)
         };
         if let Some(line) = line {
@@ -205,6 +222,17 @@ impl Referrals {
         identity: &str,
         raw_code: &str,
         now: u64,
+    ) -> Result<Standing, ReferralError> {
+        self.redeem_from(identity, raw_code, now, None)
+    }
+
+    /// `redeem`, counted against `peer`'s daily allowance when the address is known.
+    pub fn redeem_from(
+        &self,
+        identity: &str,
+        raw_code: &str,
+        now: u64,
+        peer: Option<IpAddr>,
     ) -> Result<Standing, ReferralError> {
         let code = normalise(raw_code).ok_or(ReferralError::UnknownCode)?;
         let (standing, lines) = {
@@ -223,9 +251,17 @@ impl Referrals {
             if inner.redeemed.len() >= MAX_REDEMPTIONS || inner.today.1 >= MAX_REDEMPTIONS_PER_DAY {
                 return Err(ReferralError::Busy);
             }
+            let network = peer.map(network_of);
+            let over = |(d, count): &(u64, u32)| *d == day && *count >= MAX_REDEMPTIONS_PER_ADDRESS_PER_DAY;
+            if network.is_some_and(|network| inner.by_address.get(&network).is_some_and(over)) {
+                return Err(ReferralError::NetworkLimit);
+            }
             let mut lines = Vec::new();
-            if let Some(line) = inner.ensure_code(identity)? {
+            if let Some(line) = inner.ensure_code(identity, MAX_CODES)? {
                 lines.push(line);
+            }
+            if let Some(network) = network {
+                inner.count_for_address(network, day);
             }
             let earns = inner.earned.get(&owner).copied().unwrap_or(0) < self.terms.max_paid_invites;
             inner.apply_redemption(identity, &owner, now, earns, self.terms.duration_secs);
@@ -269,11 +305,11 @@ impl Referrals {
 impl Inner {
     /// Issues the device's code if it has none. The line to persist is returned so the caller can
     /// write it after letting go of the lock.
-    fn ensure_code(&mut self, identity: &str) -> Result<Option<Line>, ReferralError> {
+    fn ensure_code(&mut self, identity: &str, ceiling: usize) -> Result<Option<Line>, ReferralError> {
         if self.code_of.contains_key(identity) {
             return Ok(None);
         }
-        if self.owner_of.len() >= MAX_CODES {
+        if self.owner_of.len() >= ceiling {
             return Err(ReferralError::Busy);
         }
         // Derived from the identity so the same key always lands on the same first candidate; the
@@ -285,6 +321,20 @@ impl Inner {
         self.owner_of.insert(code.clone(), identity.to_string());
         self.code_of.insert(identity.to_string(), code.clone());
         Ok(Some(Line::Code { i: identity.to_string(), c: code }))
+    }
+
+    fn count_for_address(&mut self, network: IpAddr, day: u64) {
+        if self.by_address.len() >= MAX_TRACKED_ADDRESSES && !self.by_address.contains_key(&network) {
+            self.by_address.retain(|_, (d, _)| *d == day);
+            if self.by_address.len() >= MAX_TRACKED_ADDRESSES {
+                self.by_address.clear();
+            }
+        }
+        let slot = self.by_address.entry(network).or_insert((day, 0));
+        if slot.0 != day {
+            *slot = (day, 0);
+        }
+        slot.1 += 1;
     }
 
     fn apply_redemption(&mut self, redeemer: &str, owner: &str, at: u64, owner_earns: bool, duration: u64) {
@@ -312,6 +362,19 @@ impl Inner {
             redeemed: self.redeemed.contains_key(identity),
             invites_earned: self.earned.get(identity).copied().unwrap_or(0),
             invites_max: terms.max_paid_invites,
+        }
+    }
+}
+
+/// The unit a redemption is counted against: the address itself for IPv4, the /64 for IPv6, since
+/// one subscriber is handed a whole /64 and could otherwise rotate through it.
+fn network_of(peer: IpAddr) -> IpAddr {
+    match peer {
+        IpAddr::V4(_) => peer,
+        IpAddr::V6(v6) => {
+            let mut octets = v6.octets();
+            octets[8..].fill(0);
+            IpAddr::V6(octets.into())
         }
     }
 }
@@ -491,5 +554,63 @@ mod tests {
         let (second, failure) = Referrals::open(ReferralTerms::default(), Some(path));
         assert!(failure.is_none());
         assert_eq!(code_of(&second, "owner"), owner);
+    }
+
+    fn address(text: &str) -> Option<IpAddr> {
+        Some(text.parse().unwrap())
+    }
+
+    #[test]
+    fn one_network_may_redeem_only_a_few_codes_a_day() {
+        let referrals = Referrals::in_memory(ReferralTerms { max_paid_invites: 100, ..Default::default() });
+        let owner = code_of(&referrals, "owner");
+        for n in 0..MAX_REDEMPTIONS_PER_ADDRESS_PER_DAY {
+            referrals.redeem_from(&format!("friend-{n}"), &owner, NOW, address("203.0.113.9")).expect("under the cap");
+        }
+        assert_eq!(
+            referrals.redeem_from("one-too-many", &owner, NOW, address("203.0.113.9")),
+            Err(ReferralError::NetworkLimit)
+        );
+        assert!(referrals.redeem_from("elsewhere", &owner, NOW, address("203.0.113.10")).is_ok());
+        assert!(referrals.redeem_from("one-too-many", &owner, NOW + DAY_SECS, address("203.0.113.9")).is_ok());
+    }
+
+    #[test]
+    fn a_refused_redemption_does_not_use_up_the_networks_allowance() {
+        let referrals = store();
+        let owner = code_of(&referrals, "owner");
+        for _ in 0..20 {
+            assert_eq!(referrals.redeem_from("me", "ZZZZZZZZ", NOW, address("203.0.113.9")), Err(ReferralError::UnknownCode));
+        }
+        assert!(referrals.redeem_from("friend", &owner, NOW, address("203.0.113.9")).is_ok());
+    }
+
+    #[test]
+    fn an_ipv6_network_is_counted_as_its_64() {
+        let referrals = Referrals::in_memory(ReferralTerms { max_paid_invites: 100, ..Default::default() });
+        let owner = code_of(&referrals, "owner");
+        for n in 0..MAX_REDEMPTIONS_PER_ADDRESS_PER_DAY {
+            let source = format!("2001:db8:1:2:{n}::1");
+            referrals.redeem_from(&format!("friend-{n}"), &owner, NOW, address(&source)).expect("under the cap");
+        }
+        assert_eq!(
+            referrals.redeem_from("rotating", &owner, NOW, address("2001:db8:1:2:ffff::7")),
+            Err(ReferralError::NetworkLimit)
+        );
+        assert!(referrals.redeem_from("other-subnet", &owner, NOW, address("2001:db8:1:3::1")).is_ok());
+    }
+
+    #[test]
+    fn a_status_request_cannot_take_the_codes_kept_for_redeemers() {
+        let referrals = store();
+        let owner = code_of(&referrals, "owner");
+        {
+            let mut inner = referrals.lock();
+            for n in 0..(MAX_CODES - CODES_RESERVED_FOR_REDEEMERS) {
+                inner.owner_of.insert(format!("filler-{n}"), format!("filler-id-{n}"));
+            }
+        }
+        assert_eq!(referrals.standing("newcomer", NOW), Err(ReferralError::Busy));
+        assert!(referrals.redeem("newcomer", &owner, NOW).is_ok(), "a redeemer still gets a code");
     }
 }

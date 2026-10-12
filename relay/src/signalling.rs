@@ -11,6 +11,7 @@
 //! who this Mac is, what it is called, and whether the two ends can speak to each other.
 
 use std::collections::HashMap;
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -20,6 +21,7 @@ const MAX_SESSIONS_PER_CONNECTION: usize = 64;
 
 use crate::device_bindings::{Binding, DeviceBindings};
 use crate::device_proof;
+use crate::limits::PeerLimiter;
 
 use futures_util::{SinkExt, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -32,7 +34,7 @@ use tracing::{debug, info, warn};
 
 use crate::apns::{ApnsClient, PushAction, PushRoute};
 use crate::fcm::FcmClient;
-use crate::push::{self, PushTarget};
+use crate::push::{self, PushLimiter, PushTarget};
 
 /// The only categories a Mac may name: the ones the phone registers for an agent approval, and for
 /// the notice that a turn finished.
@@ -100,6 +102,11 @@ pub struct Settings {
     /// Google Play purchase verification, when the relay has a service account and a package name.
     /// `None` leaves Play purchases unread, and a client's plan is decided as it was before Play.
     pub play: Option<Arc<PlayVerifier>>,
+    /// Per peer address ceilings. See `limits`.
+    pub limiter: Arc<PeerLimiter>,
+    /// Whether `ConnectToHost` may only reach a host whose registration proved its device key.
+    /// See `Config::require_proven_hosts`.
+    pub require_proven_hosts: bool,
 }
 
 /// The plan a connect is metered by, how it was arrived at, and why a purchase was refused.
@@ -160,6 +167,8 @@ fn push_action<'a>(
 /// What one signalling connection carries from message to message.
 #[derive(Default)]
 struct ConnectionState {
+    /// The address this socket came from, or `None` where there is no per address accounting.
+    peer: Option<IpAddr>,
     /// The device ID this socket registered as, so the registration can be removed when it closes.
     registered_as: Option<String>,
     /// How many sessions this one socket has asked for.
@@ -180,6 +189,8 @@ struct ConnectionState {
     referral_requests: usize,
     /// Live Activity pushes this socket has sent, budgeted per activity token.
     activity_limiter: ActivityLimiter,
+    /// `notifyDevice` pushes this socket has sent.
+    push_limiter: PushLimiter,
 }
 
 /// Invite requests one socket may make before it is told to reconnect.
@@ -250,6 +261,8 @@ pub struct HostRegistry {
 
 struct Host {
     protocol_version: u16,
+    /// Whether the registration proved the device key, as opposed to naming an id.
+    proven: bool,
     /// The push channel for this Mac's signalling connection.
     tx: mpsc::Sender<ServerMessage>,
 }
@@ -259,6 +272,7 @@ struct Host {
 struct HostRef {
     tx: mpsc::Sender<ServerMessage>,
     protocol_version: u16,
+    proven: bool,
 }
 
 impl HostRegistry {
@@ -270,8 +284,8 @@ impl HostRegistry {
     ///
     /// The failure is returned rather than logged here so that `main` can say at startup which of
     /// the two it got, the way it does for the usage log.
-    pub fn with_bindings(path: Option<PathBuf>) -> (Self, Option<std::io::Error>) {
-        let (bindings, failure) = DeviceBindings::new(path);
+    pub fn with_bindings(path: Option<PathBuf>, max_bindings: usize) -> (Self, Option<std::io::Error>) {
+        let (bindings, failure) = DeviceBindings::with_limit(path, max_bindings);
         (
             Self {
                 bindings: Arc::new(bindings),
@@ -314,6 +328,7 @@ impl HostRegistry {
             device_id.to_string(),
             Host {
                 protocol_version: version,
+                proven: proof.is_some(),
                 tx,
             },
         );
@@ -336,15 +351,28 @@ impl HostRegistry {
         }
     }
 
+    /// A host whose connection has gone is not present even if its cleanup never ran, which is
+    /// what a panic in the connection task leaves behind.
     async fn entry_for(&self, device_id: &str) -> Option<HostRef> {
-        self.inner.lock().await.get(device_id).map(|host| HostRef {
+        let mut inner = self.inner.lock().await;
+        if inner.get(device_id).is_some_and(|host| host.tx.is_closed()) {
+            inner.remove(device_id);
+            return None;
+        }
+        inner.get(device_id).map(|host| HostRef {
             tx: host.tx.clone(),
             protocol_version: host.protocol_version,
+            proven: host.proven,
         })
     }
 
     pub async fn online_count(&self) -> usize {
-        self.inner.lock().await.len()
+        self.inner.lock().await.values().filter(|host| !host.tx.is_closed()).count()
+    }
+
+    /// Waits for pending device bindings to reach the disk, for a clean shutdown.
+    pub fn flush_bindings(&self) {
+        self.bindings.flush();
     }
 }
 
@@ -384,7 +412,7 @@ pub async fn serve(
     ));
 
     loop {
-        let (stream, _) = match listener.accept().await {
+        let (stream, peer_address) = match listener.accept().await {
             Ok(pair) => pair,
             Err(error) => {
                 warn!(%error, "signalling listener could not accept");
@@ -395,6 +423,14 @@ pub async fn serve(
 
         let Ok(permit) = Arc::clone(&permits).try_acquire_owned() else {
             warn!("refused a signalling connection: the listener is at its limit");
+            drop(stream);
+            continue;
+        };
+
+        let peer = Some(peer_address.ip());
+        let Some(ip_permit) = admit_peer(&settings.limiter, peer) else {
+            TALLY.refused(Refusal::PerIpLimit);
+            debug!(peer = %peer_address.ip(), "refused a signalling connection: this address is at its limit");
             drop(stream);
             continue;
         };
@@ -425,7 +461,7 @@ pub async fn serve(
                     // and `tokio::spawn` refuses it.
                     match secured {
                         Ok(Ok(secured)) => {
-                            handle(secured, relay_host, registry, hosts, settings).await;
+                            handle(secured, peer, relay_host, registry, hosts, settings).await;
                         }
                         Ok(Err(error)) => {
                             debug!(%error, "signalling TLS handshake failed");
@@ -434,22 +470,63 @@ pub async fn serve(
                             debug!("signalling TLS handshake timed out");
                         }
                     }
-                    // Dropped with the permit, which is what returns it to the pool.
-                    drop(permit);
+                    // Dropped with the permits, which is what returns them to their pools.
+                    drop((permit, ip_permit));
                 });
             }
             None => {
                 tokio::spawn(async move {
-                    handle(stream, relay_host, registry, hosts, settings).await;
-                    drop(permit);
+                    handle(stream, peer, relay_host, registry, hosts, settings).await;
+                    drop((permit, ip_permit));
                 });
             }
         }
     }
 }
 
+/// Parses an address as a proxy writes it: bare, with a port, or a bracketed IPv6 literal.
+fn parse_forwarded(raw: &str) -> Option<IpAddr> {
+    let raw = raw.trim();
+    raw.parse::<IpAddr>()
+        .ok()
+        .or_else(|| raw.parse::<std::net::SocketAddr>().ok().map(|a| a.ip()))
+        .or_else(|| raw.strip_prefix('[')?.strip_suffix(']')?.parse().ok())
+}
+
+/// The client address a loopback proxy reports, in the order `CF-Connecting-IP`, the left-most
+/// valid `X-Forwarded-For` entry, `X-Real-IP`. A peer that is not loopback is a direct client, and
+/// is never allowed to name another address, so this is `None` for it, and for headers that
+/// carry nothing valid.
+fn forwarded_address(peer: IpAddr, headers: &http::HeaderMap) -> Option<IpAddr> {
+    let canonical = match peer {
+        IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or(peer, IpAddr::V4),
+        v4 => v4,
+    };
+    if !canonical.is_loopback() {
+        return None;
+    }
+    let text = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
+    text("cf-connecting-ip")
+        .and_then(parse_forwarded)
+        .or_else(|| text("x-forwarded-for").and_then(|list| list.split(',').find_map(parse_forwarded)))
+        .or_else(|| text("x-real-ip").and_then(parse_forwarded))
+}
+
+/// `Ok(None)` is an address with no accounting, which is every address when `peer` is unknown.
+fn admit_peer(
+    limiter: &Arc<PeerLimiter>,
+    peer: Option<IpAddr>,
+) -> Option<Option<crate::limits::Permit>> {
+    match peer {
+        Some(ip) => limiter.admit_signalling(ip).map(Some),
+        None => Some(None),
+    }
+}
+
+#[allow(clippy::result_large_err)] // the handshake callback's error type is tungstenite's
 async fn handle<S>(
     stream: S,
+    peer: Option<IpAddr>,
     relay_host: String,
     registry: Arc<Registry>,
     hosts: HostRegistry,
@@ -466,9 +543,21 @@ async fn handle<S>(
     config.max_frame_size = Some(64 * 1024);
     // Bounded, for the same reason the TLS handshake above is: this is a second place a peer can
     // arrive and then say nothing, and without a deadline the connection it holds is held for ever.
+    let forwarded: Arc<std::sync::Mutex<Option<IpAddr>>> = Arc::default();
+    let record = Arc::clone(&forwarded);
     let ws = match time::timeout(
         settings.handshake_timeout,
-        tokio_tungstenite::accept_async_with_config(stream, Some(config)),
+        tokio_tungstenite::accept_hdr_async_with_config(
+            stream,
+            move |request: &tokio_tungstenite::tungstenite::handshake::server::Request,
+                  response: tokio_tungstenite::tungstenite::handshake::server::Response| {
+                if let Some(ip) = peer.and_then(|peer| forwarded_address(peer, request.headers())) {
+                    *record.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(ip);
+                }
+                Ok(response)
+            },
+            Some(config),
+        ),
     )
     .await
     {
@@ -489,7 +578,24 @@ async fn handle<S>(
     // That is what lets the select below own `sink` exclusively: a reply written straight to the
     // sink from the read arm would need it borrowed in both arms at once.
     let (tx, mut rx) = mpsc::channel::<ServerMessage>(32);
-    let mut state = ConnectionState::default();
+    // Behind a local reverse proxy the socket peer is loopback and the client's address is in the
+    // headers; its limits are taken here, once the upgrade has said who it is.
+    let forwarded = forwarded.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
+    let _forwarded_slot = match forwarded {
+        Some(ip) => match settings.limiter.admit_signalling(ip) {
+            Some(slot) => Some(slot),
+            None => {
+                TALLY.refused(Refusal::PerIpLimit);
+                debug!(%ip, "refused a forwarded signalling connection: this address is at its limit");
+                return;
+            }
+        },
+        None => None,
+    };
+    let mut state = ConnectionState { peer: forwarded.or(peer), ..ConnectionState::default() };
+    // One write is given as long as the handshake was: a peer that stops reading must not hold a
+    // task, and the idle deadline below is not polled while a write is pending.
+    let write_timeout = settings.handshake_timeout;
 
     // **The idle deadline, and why it is not the same as the handshake one.** A registered Mac
     // holds this connection open for as long as it is running, and an app's signalling connections
@@ -503,10 +609,26 @@ async fn handle<S>(
     let idle = settings.idle_timeout;
 
     loop {
+        // Biased, with the deadline first and the writer before the reader, so that neither the
+        // clock nor the queue of replies can be starved by a peer that keeps the reader ready.
         tokio::select! {
+            biased;
             _ = &mut deadline => {
                 debug!("signalling connection has been idle for too long");
                 break;
+            }
+            outgoing = rx.recv() => {
+                deadline.as_mut().reset(time::Instant::now() + idle);
+                let Some(message) = outgoing else { break };
+                let Ok(json) = serde_json::to_string(&message) else { continue };
+                match time::timeout(write_timeout, sink.send(Message::Text(json.into()))).await {
+                    Ok(Ok(())) => {}
+                    Ok(Err(_)) => break,
+                    Err(_) => {
+                        debug!("signalling peer stopped reading; dropping it");
+                        break;
+                    }
+                }
             }
             incoming = source.next() => {
                 deadline.as_mut().reset(time::Instant::now() + idle);
@@ -524,9 +646,13 @@ async fn handle<S>(
                             }
                         };
                         if let Some(message) = reply {
-                            // A full channel here would mean 32 queued replies to a client that is
-                            // not reading, which is already a client we are about to drop.
-                            let _ = tx.send(message).await;
+                            // Never awaited: this loop is the only reader of the queue, so waiting
+                            // on a full one would wait on itself. Thirty-two unsent replies mean a
+                            // client that is not reading.
+                            if tx.try_send(message).is_err() {
+                                debug!("signalling reply queue is full; dropping the peer");
+                                break;
+                            }
                         }
                     }
                     Some(Ok(Message::Close(_))) | None => break,
@@ -537,15 +663,6 @@ async fn handle<S>(
                         debug!(%error, "signalling read failed");
                         break;
                     }
-                }
-            }
-
-            outgoing = rx.recv() => {
-                deadline.as_mut().reset(time::Instant::now() + idle);
-                let Some(message) = outgoing else { break };
-                let Ok(json) = serde_json::to_string(&message) else { continue };
-                if sink.send(Message::Text(json.into())).await.is_err() {
-                    break;
                 }
             }
         }
@@ -565,9 +682,10 @@ fn notify_activity(
     settings: &Settings,
     state: &mut ConnectionState,
 ) -> Option<ServerMessage> {
+    let request_id = push.request_id.clone().filter(|id| id.len() <= activity::MAX_REQUEST_ID_BYTES);
     let refuse = |refusal: ActivityRefusal| {
         TALLY.activity(ActivityOutcome::refused(refusal));
-        Some(ServerMessage::ActivityRefused { reason: refusal })
+        Some(ServerMessage::ActivityRefused { reason: refusal, request_id: request_id.clone() })
     };
     let request = match activity::build(&push, unix_now()) {
         Ok(request) => request,
@@ -590,7 +708,7 @@ fn notify_activity(
             Err(failure) => {
                 let refusal = failure.refusal();
                 TALLY.activity(ActivityOutcome::refused(refusal));
-                let _ = reply.try_send(ServerMessage::ActivityRefused { reason: refusal });
+                let _ = reply.try_send(ServerMessage::ActivityRefused { reason: refusal, request_id });
             }
         }
     });
@@ -674,7 +792,14 @@ async fn dispatch(
                 return Some(ServerMessage::error("deviceRefused", reason));
             }
 
-            state.registered_as = Some(device_id.clone());
+            // One live registration per connection: a second replaces the first, so the earlier
+            // id does not linger in the table reporting a Mac online that this socket no longer
+            // stands for.
+            if let Some(previous) = state.registered_as.replace(device_id.clone())
+                && previous != device_id
+            {
+                hosts.remove_if_ours(&previous, self_tx).await;
+            }
             info!(
                 device_id = %tag(&device_id),
                 protocol_version,
@@ -821,6 +946,14 @@ async fn dispatch(
                 return Some(ServerMessage::HostOffline { device_id: host_id });
             };
 
+            // A host that only named its id cannot be told from one invented to soak up sessions,
+            // so where the operator has asked for it, only a host that proved its key is a target.
+            if settings.require_proven_hosts && !host.proven {
+                TALLY.refused(Refusal::HostNotRegistered);
+                info!(host_id = %tag(&host_id), "asked for a host that has not proved its key");
+                return Some(ServerMessage::HostOffline { device_id: host_id });
+            }
+
             // Checked here so a mismatched pair is told before either end spends a round trip on a
             // handshake that would fail anyway. The two ends check it again themselves — this is a
             // courtesy, not the enforcement.
@@ -855,6 +988,29 @@ async fn dispatch(
                     "this connection has asked for too many sessions; reconnect to try again",
                 ));
             }
+
+            let unspliced = match state.peer {
+                Some(ip) => {
+                    if !settings.limiter.allow_allocation(ip) {
+                        TALLY.refused(Refusal::PerIpLimit);
+                        warn!(client_id = %tag(&client_id), "refused: this address is allocating sessions too fast");
+                        return Some(ServerMessage::error(
+                            "tooManySessions",
+                            "too many sessions from this address; try again in a minute",
+                        ));
+                    }
+                    let Some(permit) = settings.limiter.admit_unspliced(ip) else {
+                        TALLY.refused(Refusal::PerIpLimit);
+                        warn!(client_id = %tag(&client_id), "refused: this address has too many sessions nobody has joined");
+                        return Some(ServerMessage::error(
+                            "tooManySessions",
+                            "too many unfinished sessions from this address; try again shortly",
+                        ));
+                    };
+                    Some(permit)
+                }
+                None => None,
+            };
             state.sessions_asked_for += 1;
 
             let account = settings.quota.account(metered_as, api_key.as_deref(), plan);
@@ -862,7 +1018,7 @@ async fn dispatch(
             // `None` is the relay at its ceiling. Said plainly rather than dressed up: a client
             // that is told the relay is full can wait and try again, and one that is told nothing
             // waits for a session that was never going to arrive.
-            let Some(allocated) = registry.allocate(&host_id, &client_id, account).await else {
+            let Some(allocated) = registry.allocate_guarded(&host_id, &client_id, account, unspliced).await else {
                 // Read into a local first. An `.await` inside a tracing macro's field list leaves
                 // the macro's arguments alive across the await point, and the future stops being
                 // `Send`, which `tokio::spawn` refuses two call frames up with an error that names
@@ -914,12 +1070,12 @@ async fn dispatch(
             // Pushed to the Mac first. It did not ask for this, so a failure here means the Mac has
             // gone away between registering and now — reported to the phone rather than leaving it
             // waiting on a session the other end will never join.
-            if host
-                .tx
-                .send(ready(allocated.video_tokens[HOST_SLOT]))
-                .await
-                .is_err()
-            {
+            let delivered = time::timeout(
+                settings.handshake_timeout,
+                host.tx.send(ready(allocated.video_tokens[HOST_SLOT])),
+            )
+            .await;
+            if !matches!(delivered, Ok(Ok(()))) {
                 TALLY.refused(Refusal::HostOffline);
                 warn!(host_id = %tag(&host_id), "host went away while its session was being set up");
                 registry.release(&allocated.control_token).await;
@@ -1001,6 +1157,10 @@ async fn dispatch(
                 || approval_id.as_ref().is_some_and(|s| s.len() > 256)
             {
                 return Some(ServerMessage::error("invalid", "field too long"));
+            }
+            if !state.push_limiter.allow(Instant::now()) {
+                warn!(host = %tag(&host_id), "notifyDevice over its budget, dropped");
+                return None;
             }
             // The Mac's ID is the relay's own record of who asked, not something the Mac says about
             // itself, so a tap can only ever open the Mac that sent it. A token's kind decides which
@@ -1090,7 +1250,7 @@ async fn dispatch(
                 Ok(identity) => identity,
                 Err(refusal) => return Some(refusal),
             };
-            Some(match settings.quota.referrals().redeem(&identity, &code, unix_now()) {
+            Some(match settings.quota.referrals().redeem_from(&identity, &code, unix_now(), state.peer) {
                 Ok(standing) => {
                     info!(client_id = %tag(&client_id), "an invite code was redeemed");
                     referral_reply(standing)
@@ -1295,6 +1455,8 @@ mod tests {
             apns: None,
             fcm: None,
             play: None,
+            limiter: Arc::new(crate::limits::PeerLimiter::default()),
+            require_proven_hosts: false,
         }
     }
 
@@ -1330,7 +1492,7 @@ mod tests {
     async fn a_registered_host_without_apns_is_told_the_push_is_unavailable() {
         let mut state = ConnectionState { registered_as: Some("mac".into()), ..Default::default() };
         let reply = ask_as_host(&mut state, activity_message(&"ab".repeat(32))).await;
-        assert_eq!(reply, Some(ServerMessage::ActivityRefused { reason: ActivityRefusal::Unavailable }));
+        assert_eq!(reply, Some(ServerMessage::ActivityRefused { reason: ActivityRefusal::Unavailable, request_id: None }));
     }
 
     #[tokio::test]
@@ -1339,7 +1501,7 @@ mod tests {
         let fcm = crate::protocol::bytes_hex(b"fcm:abc123");
         for token in ["zz", fcm.as_str()] {
             let reply = ask_as_host(&mut state, activity_message(token)).await;
-            assert_eq!(reply, Some(ServerMessage::ActivityRefused { reason: ActivityRefusal::InvalidToken }));
+            assert_eq!(reply, Some(ServerMessage::ActivityRefused { reason: ActivityRefusal::InvalidToken, request_id: None }));
         }
     }
 
@@ -1355,8 +1517,23 @@ mod tests {
 
     #[test]
     fn a_refusal_serialises_with_a_reason_from_the_closed_set_and_nothing_else() {
-        let json = serde_json::to_string(&ServerMessage::ActivityRefused { reason: ActivityRefusal::InvalidToken }).unwrap();
+        let json = serde_json::to_string(&ServerMessage::ActivityRefused { reason: ActivityRefusal::InvalidToken, request_id: None }).unwrap();
         assert_eq!(json, r#"{"type":"activityRefused","reason":"invalidToken"}"#);
+    }
+
+    #[test]
+    fn a_refusal_echoes_the_request_id_verbatim() {
+        let refused = ServerMessage::ActivityRefused { reason: ActivityRefusal::Rejected, request_id: Some("r-7".into()) };
+        assert_eq!(serde_json::to_string(&refused).unwrap(), r#"{"type":"activityRefused","reason":"rejected","requestId":"r-7"}"#);
+    }
+
+    #[tokio::test]
+    async fn a_synchronous_refusal_carries_the_pushs_request_id() {
+        let mut state = ConnectionState { registered_as: Some("mac".into()), ..Default::default() };
+        let ClientMessage::NotifyActivity(mut push) = activity_message("zz") else { panic!("not a notifyActivity") };
+        push.request_id = Some("r-9".into());
+        let reply = ask_as_host(&mut state, ClientMessage::NotifyActivity(push)).await;
+        assert_eq!(reply, Some(ServerMessage::ActivityRefused { reason: ActivityRefusal::InvalidToken, request_id: Some("r-9".into()) }));
     }
 
     #[tokio::test]
@@ -1789,5 +1966,196 @@ mod tests {
                 "{claimed:?} should have been metered as free, got {reply:?}"
             );
         }
+    }
+
+    fn register(device_id: &str, proved: bool) -> ClientMessage {
+        let (signing, public) = device_key(9);
+        let stamp = unix_now();
+        let body = device_proof::payload(device_id, stamp);
+        let signature: Signature = signing.sign(body.as_bytes());
+        ClientMessage::RegisterHost {
+            device_id: device_id.into(),
+            name: "Studio".into(),
+            protocol_version: 3,
+            public_key: proved.then_some(public),
+            proof: proved.then(|| crate::protocol::bytes_hex(signature.to_der().as_bytes())),
+            proof_time: proved.then_some(stamp),
+        }
+    }
+
+    fn connect_to(host_id: &str) -> ClientMessage {
+        serde_json::from_str(&format!(
+            r#"{{"type":"connectToHost","hostId":"{host_id}","clientId":"phone","protocolVersion":3,"plan":"free"}}"#
+        ))
+        .expect("parses")
+    }
+
+    #[tokio::test]
+    async fn a_second_registration_on_one_connection_replaces_the_first() {
+        let hosts = HostRegistry::new();
+        let registry = Arc::new(Registry::new(usize::MAX));
+        let settings = default_settings();
+        let (tx, _rx) = channel();
+        let mut state = ConnectionState::default();
+
+        for id in ["one", "two"] {
+            let reply = dispatch(register(id, false), &tx, &registry, &hosts, &settings, "127.0.0.1", &mut state).await;
+            assert!(matches!(reply, Some(ServerMessage::Registered { .. })));
+        }
+
+        assert!(hosts.entry_for("one").await.is_none(), "the earlier id must not linger");
+        assert!(hosts.entry_for("two").await.is_some());
+        assert_eq!(hosts.online_count().await, 1);
+    }
+
+    #[tokio::test]
+    async fn a_host_whose_connection_is_gone_is_not_present_even_if_cleanup_never_ran() {
+        let hosts = HostRegistry::new();
+        let (tx, rx) = channel();
+        hosts.put("mac", 3, tx, None).await.unwrap();
+        assert!(hosts.entry_for("mac").await.is_some());
+
+        drop(rx);
+        assert_eq!(hosts.online_count().await, 0);
+        assert!(hosts.entry_for("mac").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn only_a_proven_host_can_be_connected_to_when_proof_is_required() {
+        let hosts = HostRegistry::new();
+        let registry = Arc::new(Registry::new(usize::MAX));
+        let mut settings = default_settings();
+        settings.require_proven_hosts = true;
+        let (host_tx, _host_rx) = channel();
+        let mut host_state = ConnectionState::default();
+        for (id, proved) in [("old", false), ("new", true)] {
+            dispatch(register(id, proved), &host_tx, &registry, &hosts, &settings, "127.0.0.1", &mut host_state).await;
+        }
+        // Registered under one connection, the second replaced the first, so register "old" again
+        // on its own connection.
+        let (old_tx, _old_rx) = channel();
+        dispatch(register("old", false), &old_tx, &registry, &hosts, &settings, "127.0.0.1", &mut ConnectionState::default()).await;
+
+        let (tx, _rx) = channel();
+        let mut state = ConnectionState::default();
+        let unproven = dispatch(connect_to("old"), &tx, &registry, &hosts, &settings, "127.0.0.1", &mut state).await;
+        assert_eq!(unproven, Some(ServerMessage::HostOffline { device_id: "old".into() }));
+        let proven = dispatch(connect_to("new"), &tx, &registry, &hosts, &settings, "127.0.0.1", &mut state).await;
+        assert!(matches!(proven, Some(ServerMessage::SessionReady { .. })), "got {proven:?}");
+    }
+
+    #[tokio::test]
+    async fn an_address_over_its_allocation_rate_or_unspliced_cap_is_refused_before_allocating() {
+        let hosts = HostRegistry::new();
+        let registry = Arc::new(Registry::new(usize::MAX));
+        let mut settings = default_settings();
+        settings.limiter = Arc::new(PeerLimiter::new(crate::limits::IpLimits {
+            exempt_loopback: false,
+            unspliced_sessions: 1,
+            ..Default::default()
+        }));
+        let (host_tx, _host_rx) = mpsc::channel(8);
+        hosts.put("mac", 3, host_tx, None).await.unwrap();
+
+        let (tx, _rx) = channel();
+        let mut state = ConnectionState { peer: Some("203.0.113.4".parse().unwrap()), ..Default::default() };
+        let first = dispatch(connect_to("mac"), &tx, &registry, &hosts, &settings, "127.0.0.1", &mut state).await;
+        assert!(matches!(first, Some(ServerMessage::SessionReady { .. })));
+
+        let mut other = ConnectionState { peer: Some("203.0.113.4".parse().unwrap()), ..Default::default() };
+        let refused = dispatch(
+            serde_json::from_str(r#"{"type":"connectToHost","hostId":"mac","clientId":"second","protocolVersion":3,"plan":"free"}"#).unwrap(),
+            &tx, &registry, &hosts, &settings, "127.0.0.1", &mut other,
+        )
+        .await;
+        assert!(matches!(refused, Some(ServerMessage::Error { ref code, .. }) if code == "tooManySessions"));
+        assert_eq!(registry.len().await, 1, "nothing was allocated for the refused one");
+    }
+
+    #[tokio::test]
+    async fn a_client_that_stops_reading_is_dropped_by_the_write_timeout() {
+        let (server_end, client_end) = tokio::io::duplex(256);
+        let mut settings = default_settings();
+        settings.handshake_timeout = Duration::from_millis(300);
+        settings.idle_timeout = Duration::from_secs(60);
+        let server = tokio::spawn(handle(
+            server_end,
+            None,
+            "127.0.0.1".into(),
+            Arc::new(Registry::new(usize::MAX)),
+            HostRegistry::new(),
+            settings,
+        ));
+
+        let (mut ws, _) = tokio_tungstenite::client_async("ws://localhost/", client_end).await.unwrap();
+        let ping = serde_json::to_string(&ClientMessage::Ping).unwrap();
+        // Replies pile up in a 256 byte pipe nobody reads. The client is kept alive until the end
+        // so a pass cannot be the server noticing a close.
+        let flood = tokio::spawn(async move {
+            for _ in 0..400 {
+                if ws.send(Message::Text(ping.clone().into())).await.is_err() {
+                    break;
+                }
+            }
+            ws
+        });
+
+        let finished = time::timeout(Duration::from_secs(3), server).await;
+        assert!(finished.is_ok(), "a peer that never reads must not hold the connection past the write timeout");
+        flood.abort();
+    }
+
+    fn headers(pairs: &[(&str, &str)]) -> http::HeaderMap {
+        let mut map = http::HeaderMap::new();
+        for (name, value) in pairs {
+            map.insert(http::HeaderName::from_bytes(name.as_bytes()).unwrap(), value.parse().unwrap());
+        }
+        map
+    }
+
+    #[test]
+    fn a_loopback_peer_may_name_its_client_in_the_proxy_headers() {
+        let loopback: IpAddr = "127.0.0.1".parse().unwrap();
+        let all = headers(&[("cf-connecting-ip", "198.51.100.1"), ("x-forwarded-for", "198.51.100.2"), ("x-real-ip", "198.51.100.3")]);
+        assert_eq!(forwarded_address(loopback, &all), Some("198.51.100.1".parse().unwrap()));
+        assert_eq!(
+            forwarded_address("::1".parse().unwrap(), &headers(&[("x-real-ip", "198.51.100.3")])),
+            Some("198.51.100.3".parse().unwrap())
+        );
+    }
+
+    #[test]
+    fn the_left_most_valid_forwarded_for_entry_is_the_client() {
+        let loopback: IpAddr = "127.0.0.1".parse().unwrap();
+        let list = headers(&[("x-forwarded-for", "unknown, 203.0.113.9:4000 , 10.0.0.1")]);
+        assert_eq!(forwarded_address(loopback, &list), Some("203.0.113.9".parse().unwrap()));
+        let v6 = headers(&[("x-forwarded-for", "[2001:db8::1]:443, 10.0.0.1")]);
+        assert_eq!(forwarded_address(loopback, &v6), Some("2001:db8::1".parse().unwrap()));
+    }
+
+    #[test]
+    fn a_direct_client_cannot_name_another_address() {
+        let direct: IpAddr = "203.0.113.50".parse().unwrap();
+        assert_eq!(forwarded_address(direct, &headers(&[("cf-connecting-ip", "198.51.100.1")])), None);
+    }
+
+    #[test]
+    fn garbage_in_the_proxy_headers_falls_back_to_the_peer() {
+        let loopback: IpAddr = "127.0.0.1".parse().unwrap();
+        let garbage = headers(&[("cf-connecting-ip", "not-an-ip"), ("x-forwarded-for", "nope, 999.1.1.1"), ("x-real-ip", "")]);
+        assert_eq!(forwarded_address(loopback, &garbage), None);
+    }
+
+    #[test]
+    fn forwarded_v6_clients_are_limited_by_their_prefix() {
+        let limiter = Arc::new(PeerLimiter::new(crate::limits::IpLimits {
+            signalling_connections: 1,
+            ..Default::default()
+        }));
+        let loopback: IpAddr = "127.0.0.1".parse().unwrap();
+        let first = forwarded_address(loopback, &headers(&[("cf-connecting-ip", "2001:db8:5:6::1")])).unwrap();
+        let sibling = forwarded_address(loopback, &headers(&[("cf-connecting-ip", "2001:db8:5:6:aaaa::2")])).unwrap();
+        let _held = limiter.admit_signalling(first).unwrap();
+        assert!(limiter.admit_signalling(sibling).is_none());
     }
 }
