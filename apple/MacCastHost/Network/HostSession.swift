@@ -2,6 +2,7 @@ import CryptoKit
 import Foundation
 import MacCastKit
 import Network
+import MacCastKit
 import RemoteCore
 import Security
 import os
@@ -138,6 +139,12 @@ final class HostSession: @unchecked Sendable {
     /// What the client said about being in the background, and the picture decision that follows from it.
     var pictureState = ClientPictureState()
 
+    /// Terminal output and agent events for a client that is away. See ``ClientOutputGate``.
+    let outputGate = ClientOutputGate()
+
+    /// The control stream has more waiting to go out than the phone is taking (true), or has caught up (false).
+    var onTerminalBackPressure: (@Sendable (Bool) -> Void)?
+
     /// How long this session may stay silent: longer once the client said it left the foreground.
     var silenceLimit: TimeInterval {
         SessionSilenceLimits.limit(isAuthorized: isAuthorized, clientInBackground: pictureState.inBackground)
@@ -208,6 +215,9 @@ final class HostSession: @unchecked Sendable {
             }
 
             onEnded?()
+        }
+        connection.onBackPressure = { [weak self] change in
+            self?.onTerminalBackPressure?(change == .backedUp)
         }
         connection.start()
     }

@@ -252,10 +252,14 @@ public struct NoticePayload: Codable, Sendable, Equatable {
     /// Set while the Mac is locked: the display showing its lock screen. Present even when `message` is nil so a phone already on that display knows when the lock ends.
     public let lockedDisplayID: UInt32?
 
-    public init(message: String?, symbol: String? = nil, lockedDisplayID: UInt32? = nil) {
+    /// A stable name for the condition, so a client can act on it without reading the sentence. Optional on the wire: a peer built before it neither sends nor needs it.
+    public let code: String?
+
+    public init(message: String?, symbol: String? = nil, lockedDisplayID: UInt32? = nil, code: String? = nil) {
         self.message = message
         self.symbol = symbol
         self.lockedDisplayID = lockedDisplayID
+        self.code = code
     }
 }
 

@@ -12,6 +12,7 @@ final class VideoCoordinator: @unchecked Sendable {
     let pipeline: CapturePipeline
     let streamer: VideoStreamer
     let adapter = CaptureFrameAdapter()
+    let recovery = CaptureRecovery()
     let lock = NSLock()
 
 /// Which client is being sent the picture, and which ones have asked for no frames.
@@ -60,6 +61,8 @@ final class VideoCoordinator: @unchecked Sendable {
     /// fires from the capture queue, not the main actor.
     var onStatus: (@Sendable (String) -> Void)?
     var onFailure: (@Sendable (CaptureError) -> Void)?
+    /// The first picture after a failure the phone was told about.
+    var onCaptureRestored: (@Sendable () -> Void)?
 
 /// The mapping from client coordinates to screen points for the active source, sent whenever it can
 /// change.
@@ -83,7 +86,7 @@ final class VideoCoordinator: @unchecked Sendable {
             self?.deliver(encoded, source: source)
         }
         pipeline.onFailure = { [weak self] error in
-            self?.onFailure?(error)
+            self?.captureFailed(error)
         }
 
 // Audio is normalized to one wire format here: ScreenCaptureKit may supply either interleaved or
@@ -193,6 +196,7 @@ final class VideoCoordinator: @unchecked Sendable {
     /// An encoded frame, on VideoToolbox's thread.
     func deliver(_ encoded: EncodedFrame, source: CaptureSource) {
         cancelWatchdog()
+        if recovery.frameDelivered() { onCaptureRestored?() }
 
         let prepared = adapter.adopt(encoded, sourceID: source.stableID)
 

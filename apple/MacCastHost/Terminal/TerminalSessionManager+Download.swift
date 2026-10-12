@@ -1,4 +1,5 @@
 import Foundation
+import MacCastKit
 import RemoteCore
 
 extension TerminalSessionManager {
@@ -12,54 +13,86 @@ extension TerminalSessionManager {
             sink(.transferFailure(sessionID: id, path: path, message: "That is not a path this Mac can open."))
             return
         }
-        DispatchQueue.global(qos: .userInitiated).async {
-            let url = URL(fileURLWithPath: path).standardizedFileURL
-            do {
-                let handle = try FileHandle(forReadingFrom: url)
-                defer { try? handle.close() }
-                let total = Int64(try handle.seekToEnd())
-                guard total <= FileDownloadLimits.maximumBytes else {
-                    sink(.transferFailure(sessionID: id, path: path, message: "That file is larger than this app moves (\(FileDownloadLimits.maximumBytes / 1_048_576) MB)."))
-                    return
-                }
-                try handle.seek(toOffset: UInt64(min(offset, total)))
-                let data = try handle.read(upToCount: FileDownloadLimits.chunkBytes) ?? Data()
-                sink(.fileRange(sessionID: id, path: path, offset: offset, totalBytes: total, data: data))
-                if Self.isArchive(url), offset + Int64(data.count) >= total {
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+        FileWork.run(work: { Self.chunk(of: url, at: offset) }) { outcome in
+            switch outcome {
+            case .done(.success(let piece)):
+                sink(.fileRange(sessionID: id, path: path, offset: offset, totalBytes: piece.total, data: piece.data))
+                if Self.isArchive(url), offset + Int64(piece.data.count) >= piece.total {
                     try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
                 }
-            } catch {
-                sink(.transferFailure(sessionID: id, path: path, message: Self.changeMessage(for: error)))
+            case .done(.failure(let message)):
+                sink(.transferFailure(sessionID: id, path: path, message: message))
+            case .timedOut:
+                sink(.transferFailure(sessionID: id, path: path, message: FileWork.timedOutMessage))
+            case .busy:
+                sink(.transferFailure(sessionID: id, path: path, message: FileWork.busyMessage))
             }
         }
     }
 
-    func archiveFolder(id: UUID, path: String, sink: @escaping Sink) {
+    private struct Chunk: Sendable {
+        let data: Data
+        let total: Int64
+    }
+
+    private enum ChunkOutcome: Sendable {
+        case success(Chunk)
+        case failure(String)
+    }
+
+    private static func chunk(of url: URL, at offset: Int64) -> ChunkOutcome {
+        do {
+            let handle = try FileHandle(forReadingFrom: url)
+            defer { try? handle.close() }
+            let total = Int64(try handle.seekToEnd())
+            guard total <= FileDownloadLimits.maximumBytes else {
+                return .failure("That file is larger than this app moves (\(FileDownloadLimits.maximumBytes / 1_048_576) MB).")
+            }
+            try handle.seek(toOffset: UInt64(min(offset, total)))
+            let data = try handle.read(upToCount: FileDownloadLimits.chunkBytes) ?? Data()
+            return .success(Chunk(data: data, total: total))
+        } catch {
+            return .failure(Self.changeMessage(for: error))
+        }
+    }
+
+    func archiveFolder(id: UUID, path: String, ownerClientID: String, sink: @escaping Sink) {
         guard path.hasPrefix("/") else {
             sink(.transferFailure(sessionID: id, path: path, message: "That is not a path this Mac can open."))
             return
         }
-        DispatchQueue.global(qos: .userInitiated).async {
-            switch Self.zip(folder: URL(fileURLWithPath: path).standardizedFileURL) {
-            case .success(let archive):
+        let folder = URL(fileURLWithPath: path).standardizedFileURL
+        FileWork.run(limiter: FileWork.archiving, timeout: 700, work: { Self.zip(folder: folder) }) { [weak self] outcome in
+            switch outcome {
+            case .done(.success(let archive)):
                 let size = (try? FileManager.default.attributesOfItem(atPath: archive.path)[.size] as? Int64) ?? 0
                 guard size <= FileDownloadLimits.maximumBytes else {
                     try? FileManager.default.removeItem(at: archive.deletingLastPathComponent())
-                    sink(.transferFailure(sessionID: id, path: path, message: "That folder zips to more than this app moves (\(FileDownloadLimits.maximumBytes / 1_048_576) MB)."))
+                    sink(.transferFailure(sessionID: id, path: path, message: Self.tooLargeMessage))
                     return
                 }
+                self?.lock.withLock { self?.archiveDirectories[ownerClientID, default: []].append(archive.deletingLastPathComponent()) }
                 sink(.archiveReady(sessionID: id, folder: path, archivePath: archive.path, totalBytes: size))
-            case .failure(let message):
+            case .done(.failure(let message)):
                 sink(.transferFailure(sessionID: id, path: path, message: message))
+            case .timedOut:
+                sink(.transferFailure(sessionID: id, path: path, message: FileWork.timedOutMessage))
+            case .busy:
+                sink(.transferFailure(sessionID: id, path: path, message: FileWork.busyMessage))
             }
         }
+    }
+
+    private static var tooLargeMessage: String {
+        String(localized: "That folder zips to more than this app moves (\(FileDownloadLimits.maximumBytes / 1_048_576) MB).")
     }
 
     static func isArchive(_ url: URL) -> Bool {
         url.path.hasPrefix(archiveRoot.standardizedFileURL.path + "/")
     }
 
-    private enum ZipOutcome {
+    private enum ZipOutcome: Sendable {
         case success(URL)
         case failure(String)
     }
@@ -70,6 +103,9 @@ extension TerminalSessionManager {
             return .failure("There is no folder at \(folder.path) on this Mac.")
         }
         removeStaleArchives()
+        guard ArchiveBudget.hasRoom(freeBytes: freeBytesOnArchiveVolume(), cap: FileDownloadLimits.maximumBytes) else {
+            return .failure(String(localized: "There is not enough free space on this Mac to zip that folder."))
+        }
         let directory = archiveRoot.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let archive = directory.appendingPathComponent("\(folder.lastPathComponent.isEmpty ? "Folder" : folder.lastPathComponent).zip")
         do {
@@ -78,18 +114,28 @@ extension TerminalSessionManager {
             return .failure("This Mac could not make room for the zip.")
         }
         // `ditto` rather than `zip`: it keeps what Finder keeps (resource forks, links) and prints nothing on success.
-        let made = AgentCommand.output(
-            binary: "/usr/bin/ditto",
+        let result = GroupProcess.run(
+            executable: "/usr/bin/ditto",
             arguments: ["-c", "-k", "--keepParent", folder.path, archive.path],
             directory: URL(fileURLWithPath: "/"),
             environment: [:],
-            timeout: 600
+            outputLimit: 64 * 1024,
+            timeout: 600,
+            shouldAbort: {
+                let size = (try? FileManager.default.attributesOfItem(atPath: archive.path)[.size] as? Int64) ?? 0
+                return ArchiveBudget.mustStop(archiveBytes: size, cap: FileDownloadLimits.maximumBytes)
+            }
         )
-        guard made != nil else {
+        guard let result, result.status == 0, !result.timedOut, !result.stopped else {
             try? FileManager.default.removeItem(at: directory)
-            return .failure("This Mac could not zip that folder.")
+            return .failure(result?.stopped == true ? tooLargeMessage : "This Mac could not zip that folder.")
         }
         return .success(archive)
+    }
+
+    private static func freeBytesOnArchiveVolume() -> Int64 {
+        let values = try? FileManager.default.temporaryDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        return values?.volumeAvailableCapacityForImportantUsage ?? 0
     }
 
     private static func removeStaleArchives() {
@@ -101,5 +147,16 @@ extension TerminalSessionManager {
                 try? FileManager.default.removeItem(at: url)
             }
         }
+    }
+
+    /// Nothing from a previous run can still be read: the phone that asked is long gone.
+    static func removeAllArchives() {
+        try? FileManager.default.removeItem(at: archiveRoot)
+    }
+
+    /// A client that leaves takes the zips it asked for with it.
+    func removeArchives(for clientID: String) {
+        let directories = lock.withLock { archiveDirectories.removeValue(forKey: clientID) ?? [] }
+        for directory in directories { try? FileManager.default.removeItem(at: directory) }
     }
 }

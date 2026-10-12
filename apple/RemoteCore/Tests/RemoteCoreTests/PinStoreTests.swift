@@ -99,6 +99,22 @@ struct PinStoreTests {
         #expect(store.peerIDs.isEmpty)
     }
 
+    @Test func aFailedRemoveAllKeepsEveryPinInMemoryAndInStorage() {
+        let storage = FakeStorage()
+        let store = PinStore(storage: storage)
+        #expect(store.record(peerID: "mac-1", publicKey: mac))
+        #expect(store.record(peerID: "phone-1", publicKey: phone))
+
+        storage.failWrites(true)
+        #expect(!store.removeAll())
+        #expect(store.pin(for: "mac-1") == mac)
+        #expect(store.pin(for: "phone-1") == phone)
+
+        storage.failWrites(false)
+        #expect(store.removeAll())
+        #expect(store.peerIDs.isEmpty)
+    }
+
     /// Unreadable bytes with no backup are an empty store, not a refusal to run: the cost is a re-pairing rather than the app.
     @Test func unreadableBytesAreAnEmptyStoreRatherThanAFailure() {
         let storage = FakeStorage(stored: Data("not json at all".utf8))

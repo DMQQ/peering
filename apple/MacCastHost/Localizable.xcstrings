@@ -409,6 +409,586 @@
       }
     },
     "%lld. %@" : {},
+    "Capture could not be restored after %lld tries." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Aufnahme konnte nach %lld Versuchen nicht wiederhergestellt werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo restablecer la captura tras %lld intentos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La capture n'a pas pu être rétablie après %lld essais."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile ripristinare l'acquisizione dopo %lld tentativi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld回試しましたが、キャプチャを復旧できませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld번 시도했지만 캡처를 복구하지 못했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível restaurar a captura após %lld tentativas."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось восстановить захват после %lld попыток."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尝试 %lld 次后仍无法恢复捕获。"
+          }
+        }
+      }
+    },
+    "Capture stopped · restarting" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aufnahme gestoppt · wird neu gestartet"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Captura detenida · reiniciando"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capture arrêtée · redémarrage"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acquisizione interrotta · riavvio"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャプチャが停止 · 再開中"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캡처 중단됨 · 다시 시작하는 중"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Captura parada · reiniciando"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Захват остановлен · перезапуск"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "捕获已停止 · 正在重新启动"
+          }
+        }
+      }
+    },
+    "Claude Code's settings.json could not be read (%@), so Peering left it alone." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die settings.json von Claude Code konnte nicht gelesen werden (%@), daher hat Peering sie nicht angerührt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el settings.json de Claude Code (%@), así que Peering no lo ha tocado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le fichier settings.json de Claude Code n'a pas pu être lu (%@), Peering n'y a donc pas touché."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile leggere il settings.json di Claude Code (%@), quindi Peering non l'ha modificato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code の settings.json を読み込めなかった(%@)ため、Peering は何も変更しませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code의 settings.json을 읽을 수 없어(%@) Peering이 건드리지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler o settings.json do Claude Code (%@), então o Peering não mexeu nele."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать settings.json в Claude Code (%@), поэтому Peering его не тронул."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取 Claude Code 的 settings.json（%@），因此 Peering 没有改动它。"
+          }
+        }
+      }
+    },
+    "That folder zips to more than this app moves (%lld MB)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Ordner ergibt gezippt mehr, als diese App überträgt (%lld MB)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esa carpeta comprimida supera lo que mueve esta app (%lld MB)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une fois zippé, ce dossier dépasse ce que l'app transfère (%lld Mo)."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una volta compressa, quella cartella supera quanto trasferisce l'app (%lld MB)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのフォルダはZIPにするとアプリが扱える上限(%lld MB)を超えます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 폴더는 압축하면 앱이 옮길 수 있는 크기(%lld MB)를 넘습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essa pasta compactada passa do que o app transfere (%lld MB)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта папка в архиве превышает лимит приложения (%lld МБ)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该文件夹压缩后超过本 App 可传输的上限（%lld MB）。"
+          }
+        }
+      }
+    },
+    "That transfer stopped sending, so this Mac dropped it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Übertragung hat nichts mehr gesendet, daher hat dieser Mac sie verworfen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La transferencia dejó de enviar datos, así que este Mac la descartó."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le transfert a cessé d'envoyer des données, ce Mac l'a donc abandonné."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il trasferimento ha smesso di inviare dati, quindi questo Mac lo ha scartato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "転送が途絶えたため、このMacは破棄しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전송이 멈춰서 이 Mac이 취소했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A transferência parou de enviar dados, então este Mac a descartou."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Передача перестала отправлять данные, поэтому этот Mac её отменил."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该传输已停止发送数据，因此这台 Mac 已将其丢弃。"
+          }
+        }
+      }
+    },
+    "The picture stopped and this Mac could not start it again. Reconnect to try once more, or check Screen Recording and the display on the Mac." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Bild ist stehen geblieben und dieser Mac konnte es nicht neu starten. Verbinde dich erneut, um es noch einmal zu versuchen, oder prüfe Bildschirmaufnahme und Display am Mac."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La imagen se detuvo y este Mac no pudo reiniciarla. Vuelve a conectar para intentarlo de nuevo, o revisa la Grabación de pantalla y la pantalla del Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'image s'est arrêtée et ce Mac n'a pas pu la relancer. Reconnectez-vous pour réessayer, ou vérifiez l'Enregistrement d'écran et l'écran du Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'immagine si è fermata e questo Mac non è riuscito a riavviarla. Riconnettiti per riprovare, oppure controlla Registrazione schermo e lo schermo del Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "映像が止まり、このMacでは再開できませんでした。再接続してもう一度試すか、Macの画面収録とディスプレイを確認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "화면이 멈췄고 이 Mac에서 다시 시작하지 못했습니다. 다시 연결해 보거나, Mac의 화면 기록과 디스플레이를 확인하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A imagem parou e este Mac não conseguiu reiniciá-la. Reconecte para tentar de novo ou verifique a Gravação de Tela e o monitor do Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изображение остановилось, и этот Mac не смог запустить его снова. Подключитесь заново, чтобы повторить попытку, или проверьте «Запись экрана» и дисплей на Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面已停止，这台 Mac 无法重新启动它。请重新连接再试一次，或检查 Mac 上的“屏幕录制”和显示器。"
+          }
+        }
+      }
+    },
+    "There is not enough free space on this Mac to zip that folder." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf diesem Mac ist nicht genug freier Speicherplatz, um den Ordner zu zippen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay espacio libre suficiente en este Mac para comprimir esa carpeta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il n'y a pas assez d'espace libre sur ce Mac pour zipper ce dossier."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su questo Mac non c'è abbastanza spazio libero per comprimere quella cartella."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacに、そのフォルダをZIPにするための空き容量が足りません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac에 폴더를 압축할 만큼 여유 공간이 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não há espaço livre suficiente neste Mac para compactar essa pasta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На этом Mac недостаточно свободного места, чтобы заархивировать папку."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 的可用空间不足，无法压缩该文件夹。"
+          }
+        }
+      }
+    },
+    "This Mac did not answer in time. The folder may be on a drive that is not responding." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Mac hat nicht rechtzeitig geantwortet. Der Ordner liegt eventuell auf einem Laufwerk, das nicht reagiert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac no respondió a tiempo. Puede que la carpeta esté en un disco que no responde."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce Mac n'a pas répondu à temps. Le dossier se trouve peut-être sur un disque qui ne répond pas."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo Mac non ha risposto in tempo. La cartella potrebbe trovarsi su un disco che non risponde."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacが時間内に応答しませんでした。フォルダが応答しないドライブにある可能性があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac이 제때 응답하지 않았습니다. 폴더가 응답하지 않는 드라이브에 있을 수 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac não respondeu a tempo. A pasta pode estar em um disco que não está respondendo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот Mac не ответил вовремя. Возможно, папка находится на диске, который не отвечает."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 未能及时响应。该文件夹可能位于无响应的磁盘上。"
+          }
+        }
+      }
+    },
+    "This Mac is busy with other file requests. Try again in a moment." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Mac ist mit anderen Dateianfragen beschäftigt. Versuche es gleich noch einmal."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac está ocupado con otras solicitudes de archivos. Inténtalo de nuevo en un momento."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce Mac est occupé par d'autres requêtes de fichiers. Réessayez dans un instant."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo Mac è occupato con altre richieste di file. Riprova tra un attimo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacは他のファイル要求の処理中です。しばらくしてからもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac이 다른 파일 요청을 처리하는 중입니다. 잠시 후 다시 시도하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac está ocupado com outras solicitações de arquivos. Tente novamente em instantes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот Mac занят другими запросами к файлам. Повторите попытку через минуту."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 正忙于处理其他文件请求。请稍后再试。"
+          }
+        }
+      }
+    },
+    "This Mac's disk is not keeping up, so that transfer was stopped." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Festplatte dieses Mac kommt nicht hinterher, daher wurde die Übertragung gestoppt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El disco de este Mac no da abasto, así que se detuvo la transferencia."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le disque de ce Mac ne suit pas, le transfert a donc été arrêté."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il disco di questo Mac non regge il ritmo, quindi il trasferimento è stato interrotto."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacのディスクが追いつかないため、転送を停止しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac의 디스크가 따라가지 못해 전송을 중단했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O disco deste Mac não está acompanhando, então a transferência foi interrompida."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Диск этого Mac не справляется, поэтому передача остановлена."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 的磁盘跟不上，因此已停止传输。"
+          }
+        }
+      }
+    },
     "≈ %@ CPU · %@" : {},
     "3/4 captures at 75% width and height (~56% of pixels). Half is a quarter of the pixels. Applies when the next stream starts, which is a change of source or the next connection." : {
       "localizations" : {

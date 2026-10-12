@@ -5,7 +5,7 @@ import RemoteCore
 enum DirectoryListing {
     static let maximumEntries = 2_000
 
-    enum Outcome {
+    enum Outcome: Sendable {
         case entries([RemoteDirectoryEntry], truncated: Bool)
         case failure(String)
     }

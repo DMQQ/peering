@@ -28,10 +28,6 @@ enum AgentGitRunner {
         _ arguments: [String], in directory: URL, limit: Int, timeout: TimeInterval = 20, writes: Bool = false
     ) -> AgentGitOutput? {
         guard let executable else { return nil }
-        let process = Process()
-        process.executableURL = executable
-        process.arguments = safetyOptions + arguments
-        process.currentDirectoryURL = directory
         var environment = [
             "PATH": writes ? "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin" : "/usr/bin:/bin",
             "HOME": NSHomeDirectory(),
@@ -43,34 +39,19 @@ enum AgentGitRunner {
         if writes, let socket = ProcessInfo.processInfo.environment["SSH_AUTH_SOCK"] {
             environment["SSH_AUTH_SOCK"] = socket
         }
-        process.environment = environment
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = writes ? pipe : FileHandle.nullDevice
-        process.standardInput = FileHandle.nullDevice
-        do { try process.run() } catch { return nil }
-
-        // Process.terminate() is safe from any thread; the compiler cannot know that.
-        nonisolated(unsafe) let running = process
-        let stop = DispatchWorkItem { running.terminate() }
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: stop)
-
-        var data = Data()
-        var truncated = false
-        while let chunk = try? pipe.fileHandleForReading.read(upToCount: 64 * 1024), !chunk.isEmpty {
-            data.append(chunk)
-            if data.count >= limit {
-                truncated = true
-                process.terminate()
-                break
-            }
-        }
-        process.waitUntilExit()
-        stop.cancel()
+        guard let result = GroupProcess.run(
+            executable: executable.path,
+            arguments: safetyOptions + arguments,
+            directory: directory,
+            environment: environment,
+            mergeStandardError: writes,
+            outputLimit: limit,
+            timeout: timeout
+        ) else { return nil }
         return AgentGitOutput(
-            data: data.prefix(limit),
-            truncated: truncated,
-            succeeded: truncated || process.terminationStatus == 0
+            data: result.output,
+            truncated: result.stopped,
+            succeeded: result.stopped || (result.status == 0 && !result.timedOut)
         )
     }
 }

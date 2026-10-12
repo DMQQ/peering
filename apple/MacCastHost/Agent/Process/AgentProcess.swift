@@ -28,7 +28,7 @@ final class AgentProcess: @unchecked Sendable {
         case stderr
     }
 
-    private let process = Process()
+    private var process: GroupProcess?  // guarded by lock
     private let stdinPipe = Pipe()
     private let stdoutPipe = Pipe()
     private let stderrPipe = Pipe()
@@ -46,50 +46,45 @@ final class AgentProcess: @unchecked Sendable {
     // MARK: - Launching
 
     func start(_ launch: Launch) throws {
-        process.executableURL = URL(fileURLWithPath: launch.binary)
-        process.arguments = launch.arguments
-        process.currentDirectoryURL = launch.directory
-        process.environment = launch.environment
-        process.standardInput = launch.input == .pipe ? stdinPipe : FileHandle.nullDevice
         closesInputToStop = launch.input == .pipe
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
-
-        // Handler set before run so an instant death is still heard.
-        process.terminationHandler = { [weak self] finished in
-            guard let self else { return }
-            self.drain()
-            let status = finished.terminationStatus
-            self.lock.withLock { self.isRunning = false }
-            self.onExit?(status)
-        }
-
         watch(stdoutPipe, as: .stdout)
         watch(stderrPipe, as: .stderr)
 
-        // Before run: a child that dies at once has already cleared this by the time run returns.
+        // Before the launch: a child that dies at once has already cleared this by the time it returns.
         lock.withLock { isRunning = true }
         do {
-            try process.run()
+            let child = try GroupProcess.launch(
+                executable: launch.binary,
+                arguments: launch.arguments,
+                directory: launch.directory,
+                environment: launch.environment,
+                standardInput: launch.input == .pipe ? stdinPipe.fileHandleForReading : nil,
+                standardOutput: stdoutPipe.fileHandleForWriting,
+                standardError: stderrPipe.fileHandleForWriting
+            ) { [weak self] status in
+                guard let self else { return }
+                self.drain()
+                self.lock.withLock { self.isRunning = false }
+                self.onExit?(status)
+            }
+            lock.withLock { process = child }
         } catch {
             lock.withLock { isRunning = false }
             throw error
         }
+        // The parent's copies of the child's ends: left open, EOF never arrives.
+        try? stdinPipe.fileHandleForReading.close()
+        try? stdoutPipe.fileHandleForWriting.close()
+        try? stderrPipe.fileHandleForWriting.close()
     }
 
-    /// Closes stdin first (stream-json CLIs exit cleanly on EOF), then signals; `terminate()` reaches only the child, not grandchildren.
+    /// Closes stdin first (stream-json CLIs exit cleanly on EOF), then signals the whole process group: a CLI's tool calls and servers are its grandchildren, and signalling the child alone leaves them running.
     func stop() {
         if closesInputToStop { try? stdinPipe.fileHandleForWriting.close() }
         let grace: TimeInterval = closesInputToStop ? 3 : 0
         DispatchQueue.global().asyncAfter(deadline: .now() + grace) { [weak self] in
             guard let self, self.lock.withLock({ self.isRunning }) else { return }
-            self.process.terminate()
-            DispatchQueue.global().asyncAfter(deadline: .now() + 5) { [weak self] in
-                guard let self, self.lock.withLock({ self.isRunning }) else { return }
-                if self.process.processIdentifier > 0 {
-                    kill(self.process.processIdentifier, SIGKILL)
-                }
-            }
+            self.lock.withLock { self.process }?.terminateGroup(escalatingAfter: 5)
         }
     }
 
