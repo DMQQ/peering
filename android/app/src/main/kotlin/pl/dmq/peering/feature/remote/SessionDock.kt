@@ -68,7 +68,6 @@ fun SessionDock(
                 val paging = remember(groups, perPage) { DockPaging.layout(groups, perPage) }
                 val applicationId = groups.firstOrNull { it.id.startsWith(DockGroups.APP_PREFIX) }?.id
                 val state = rememberDockPagerState(paging, applicationId)
-                if (paging.pages.size > 1) DockPageDots(state, paging.pages.size, Modifier.padding(bottom = 6.dp))
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -80,6 +79,7 @@ fun SessionDock(
                     Box(Modifier.weight(1f)) { DockPager(paging, state, control, onChord, perPage) }
                     DockToggle(false) { onExpandedChange(true) }
                 }
+                if (paging.pages.size > 1) DockPageDots(state, paging.pages.size, Modifier.padding(top = 8.dp))
             }
         }
     }
