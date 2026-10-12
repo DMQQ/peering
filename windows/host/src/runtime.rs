@@ -32,6 +32,8 @@ mod services;
 mod shared;
 mod supervise;
 mod terminal;
+#[cfg(test)]
+mod test_support;
 mod video;
 mod video_handle;
 mod video_pass;

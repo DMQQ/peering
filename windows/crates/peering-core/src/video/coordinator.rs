@@ -213,6 +213,10 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.reconfigure_pending = self.source.is_some();
     }
 
+    pub fn bitrate_ceiling_kbps(&self) -> Option<u32> {
+        self.ceiling_kbps
+    }
+
     pub fn frame_rate(&self) -> u32 {
         self.pacer.rate()
     }

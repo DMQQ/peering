@@ -63,21 +63,11 @@ pub fn spawn_pump(shared: Shared, profile: Arc<HostProfile>) -> JoinHandle<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::services::platform_services;
-    use super::super::{HostRuntime, SystemClock};
+    use super::super::test_support::runtime;
     use super::*;
 
     fn shared() -> Shared {
-        let services = platform_services(String::new()).expect("the stand-in adapters build");
-        let profile = HostProfile {
-            host_id: "host".to_owned(),
-            host_name: "PC".to_owned(),
-            identity_public_key: Vec::new(),
-            mac_addresses: Vec::new(),
-            can_lock_screen: false,
-            clock: Arc::new(SystemClock::new()),
-        };
-        HostRuntime::new(profile, services).expect("the runtime builds over stand-ins").shared
+        runtime().shared
     }
 
     #[test]

@@ -169,45 +169,17 @@ impl Shared {
 #[cfg(test)]
 mod tests {
     use peering_core::outbound::OutboundQueue;
-    use peering_core::video::lane::VideoLane;
     use peering_wire::framing::{Frame, MessageKind};
 
     use super::super::outbound::outbound_with;
-    use super::super::services::platform_services;
-    use super::super::{HostProfile, HostRuntime, SystemClock};
-    use super::*;
-
-    fn runtime() -> HostRuntime {
-        let services = platform_services(String::new()).expect("the stand-in adapters build");
-        let clock = std::sync::Arc::new(SystemClock::new());
-        let profile = HostProfile {
-            host_id: "host".to_owned(),
-            host_name: "PC".to_owned(),
-            identity_public_key: Vec::new(),
-            mac_addresses: Vec::new(),
-            can_lock_screen: false,
-            clock,
-        };
-        HostRuntime::new(profile, services).expect("the runtime builds over stand-ins")
-    }
+    use super::super::test_support::{runtime, slot};
 
     #[test]
     fn a_session_that_lost_queued_video_gets_a_resync_once() {
         let runtime = runtime();
         let (sender, _receiver) = outbound_with(OutboundQueue::<Frame>::with_limits(25, 1000, 100));
         let mut state = runtime.shared.lock();
-        state.sessions.insert(
-            1,
-            SessionSlot {
-                client_id: "phone".to_owned(),
-                peer_key: None,
-                outbound: sender.clone(),
-                video_outbound: None,
-                datagram_outbound: None,
-                lane: VideoLane::new([0; 16]),
-                background: false,
-            },
-        );
+        state.sessions.insert(1, super::SessionSlot { outbound: sender.clone(), ..slot("phone") });
         assert!(!state.resync_if_video_was_dropped(), "a healthy queue asks for nothing");
         for _ in 0..3 {
             sender.send(Frame::new(MessageKind::VideoFrame, vec![0; 10])).expect("video is dropped, not refused");

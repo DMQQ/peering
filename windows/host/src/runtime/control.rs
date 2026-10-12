@@ -155,6 +155,7 @@ impl HostState {
         video.detach(client_id);
         video.stop_when_idle();
         drop(video);
+        self.refresh_bitrate_ceiling();
         self.input.release_all();
         self.terminals.disconnect(client_id);
     }
@@ -167,6 +168,7 @@ impl HostState {
             self.video.lock().detach(&slot.client_id);
         }
         self.video.lock().stop_when_idle();
+        self.refresh_bitrate_ceiling();
         self.input.release_all();
     }
 }
@@ -212,4 +214,29 @@ pub(super) fn publish_if_due(state: &HostState, host_id: &str, control: &mut Con
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_support::{runtime, slot};
+
+    #[test]
+    fn a_ceiling_set_by_a_session_that_left_is_lifted_when_it_is_removed() {
+        let runtime = runtime();
+        let mut state = runtime.shared.lock();
+        state.sessions.insert(1, slot("gone"));
+        state.video.lock().set_bitrate_ceiling(Some(1_500));
+        state.end_client_sessions("gone");
+        assert_eq!(state.video.lock().bitrate_ceiling_kbps(), None);
+    }
+
+    #[test]
+    fn a_ceiling_is_lifted_when_hosting_stops() {
+        let runtime = runtime();
+        let mut state = runtime.shared.lock();
+        state.sessions.insert(1, slot("phone"));
+        state.video.lock().set_bitrate_ceiling(Some(1_500));
+        state.stop_sessions();
+        assert_eq!(state.video.lock().bitrate_ceiling_kbps(), None);
+    }
 }
