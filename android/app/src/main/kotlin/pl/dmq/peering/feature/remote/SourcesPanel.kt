@@ -21,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +37,8 @@ import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
+import pl.dmq.peering.wire.CaptureSourceDescriptor
+import pl.dmq.peering.wire.PixelSize
 
 /**
  * The Apps panel: a search field, the screens as pictures, then one section per application with its windows as pictures
@@ -49,25 +52,47 @@ fun SourcesPanel(
     presenter: SourcesPresenter,
     onPicked: () -> Unit,
     modifier: Modifier = Modifier,
+    mosaic: MosaicPanel? = null,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
+    var building by remember { mutableStateOf<MosaicPicks?>(null) }
+    val metrics = LocalContext.current.resources.displayMetrics
     DisposableEffect(presenter) {
         presenter.watchThumbnails(true)
         onDispose { presenter.watchThumbnails(false) }
     }
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SearchField(query, { query = it }, stringResource(R.string.sources_search), filled = true, height = 34.dp)
+        MosaicEntry(mosaic, building, presenter, onBuild = { building = it }, onPicked)
+        building?.let { picks ->
+            MosaicPickerBar(
+                picks,
+                onBack = { building = null },
+                onStart = {
+                    if (presenter.showMosaic(picks, PixelSize(metrics.widthPixels.toDouble(), metrics.heightPixels.toDouble()), catalog)) {
+                        building = null
+                        onPicked()
+                    }
+                },
+            )
+        }
         if (catalog == null || (catalog.displays + catalog.applications + catalog.windows).isEmpty()) {
             Waiting()
         } else {
+            val marking = Marking(chosen, building)
             val pick = { tile: SourceTile ->
-                presenter.choose(tile)
-                onPicked()
+                val picks = building
+                if (picks != null) {
+                    building = picks.toggled(tile.source)
+                } else {
+                    presenter.choose(tile)
+                    onPicked()
+                }
             }
-            Screens(catalog, chosen, presenter, query, pick)
+            Screens(catalog, marking, presenter, query, pick)
             val groups = SourceGrouping.filtered(SourceGrouping.applicationGroups(catalog.applications, catalog.windows), query)
-            groups.forEach { group -> ApplicationSection(group, chosen, presenter, pick, onPicked) }
-            InstalledGrid(SourceGrouping.installedNotRunning(catalog, query), presenter, onPicked)
+            groups.forEach { group -> ApplicationSection(group, marking, presenter, pick, onPicked) }
+            if (building == null) InstalledGrid(SourceGrouping.installedNotRunning(catalog, query), presenter, onPicked)
         }
     }
 }
@@ -86,13 +111,13 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun Screens(catalog: CaptureCatalog, chosen: CaptureSource?, presenter: SourcesPresenter, query: String, pick: (SourceTile) -> Unit) {
+private fun Screens(catalog: CaptureCatalog, marking: Marking, presenter: SourcesPresenter, query: String, pick: (SourceTile) -> Unit) {
     val matches = catalog.displays.filter { SourceGrouping.matches(it, query) }
     if (matches.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionTitle(stringResource(R.string.sources_section_screens))
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            matches.forEach { display -> PreviewTile(presenter.tile(display, chosen), { pick(presenter.tile(display, chosen)) }) }
+            matches.forEach { display -> marking.tile(presenter, display).let { tile -> PreviewTile(tile, { pick(tile) }, badge = marking.place(display.source)) } }
         }
     }
 }
@@ -100,12 +125,12 @@ private fun Screens(catalog: CaptureCatalog, chosen: CaptureSource?, presenter: 
 @Composable
 private fun ApplicationSection(
     group: ApplicationGroup,
-    chosen: CaptureSource?,
+    marking: Marking,
     presenter: SourcesPresenter,
     pick: (SourceTile) -> Unit,
     onPicked: () -> Unit,
 ) {
-    val application = group.application?.let { presenter.tile(it, chosen) }
+    val application = group.application?.let { marking.tile(presenter, it) }
     Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             Modifier.fillMaxWidth().let { if (application != null) it.tappable({ pick(application) }) else it },
@@ -132,9 +157,9 @@ private fun ApplicationSection(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                group.windows.forEach { window -> presenter.tile(window, chosen).let { tile -> PreviewTile(tile, { pick(tile) }) } }
+                group.windows.forEach { window -> marking.tile(presenter, window).let { tile -> PreviewTile(tile, { pick(tile) }, badge = marking.place(window.source)) } }
             }
-            group.bundleIdentifier?.let { bundle ->
+            group.bundleIdentifier?.takeIf { !marking.picking }?.let { bundle ->
                 AddTile(stringResource(R.string.sources_new_window), {
                     presenter.openNewWindow(bundle)
                     onPicked()
@@ -172,3 +197,36 @@ private fun InstalledGrid(installed: List<InstalledApplication>, presenter: Sour
 }
 
 private const val ICON_COLUMNS = 5
+
+/** What marks a tile: the source on screen, or while a mosaic is being picked, the sources picked so far. */
+private class Marking(private val chosen: CaptureSource?, private val picks: MosaicPicks?) {
+    val picking: Boolean get() = picks != null
+
+    fun place(source: CaptureSource): Int? = picks?.place(source)
+
+    fun tile(presenter: SourcesPresenter, descriptor: CaptureSourceDescriptor): SourceTile =
+        presenter.tile(descriptor, if (picks != null) picks.place(descriptor.source) != null else descriptor.source == chosen)
+}
+
+@Composable
+private fun MosaicEntry(
+    mosaic: MosaicPanel?,
+    building: MosaicPicks?,
+    presenter: SourcesPresenter,
+    onBuild: (MosaicPicks?) -> Unit,
+    onPicked: () -> Unit,
+) {
+    if (mosaic == null || building != null) return
+    if (mosaic.arrangement == null) {
+        MosaicEntryRow { onBuild(MosaicPicks()) }
+    } else {
+        MosaicEditRows(
+            mosaic,
+            onReturn = {
+                mosaic.remembered?.let(presenter::returnToMosaic)
+                onPicked()
+            },
+            onEdit = { onBuild(MosaicPicks(mosaic.sources)) },
+        )
+    }
+}

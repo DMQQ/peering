@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -57,6 +58,8 @@ import pl.dmq.peering.ui.theme.PillShape
 data class StatusUi(
     val overlay: SessionOverlayState,
     val sourceTitle: String?,
+    /** The number of tiles while a mosaic is on screen, else null. */
+    val mosaicWindows: Int?,
     val darkened: Boolean,
     val fills: Boolean,
     val zoomPercent: Int?,
@@ -147,7 +150,8 @@ private fun CollapsedPill(ui: StatusUi, onOpen: () -> Unit) {
                 Text(name, style = PeeringText.captionSemibold, color = PeeringColors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Row(Modifier.padding(start = 13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                val line = if (ui.overlay.reconnecting) stringResource(R.string.remote_reconnecting_short) else ui.sourceTitle
+                val mosaicLabel = ui.mosaicWindows?.let { pluralStringResource(R.plurals.sources_windows, it, it) }
+                val line = if (ui.overlay.reconnecting) stringResource(R.string.remote_reconnecting_short) else sourceLine(ui.sourceTitle, mosaicLabel)
                 if (line != null) {
                     Text(
                         line,

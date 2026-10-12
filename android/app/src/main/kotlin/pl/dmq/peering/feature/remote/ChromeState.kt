@@ -18,7 +18,10 @@ class ChromeState(
     /** The zoom as a fraction of its range while observing, which turns the wheel into a gauge; null while controlling. */
     val wheelPosition: Float?,
     val speedText: String?,
-)
+    val mosaic: Boolean = false,
+) {
+    val pointerControlsShown: Boolean get() = ChromePolicy.pointerControlsShown(keyboardShown, mosaic)
+}
 
 /** Everything the session chrome can ask for. */
 class ChromeHandlers(
