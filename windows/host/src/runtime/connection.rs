@@ -210,7 +210,7 @@ impl Connection {
     fn apply(&mut self, action: SessionAction) -> Flow {
         match action {
             SessionAction::Send(frame) => self.send(self.decorate(frame)),
-            SessionAction::Emit(event) => self.shared.lock().pairing.apply_event(&event),
+            SessionAction::Emit(event) => self.shared.lock().pairing.apply_event(self.session_id, &event),
             SessionAction::Authorized => self.register(),
             SessionAction::ForwardFrame(frame) => return self.on_ready(&frame),
             SessionAction::ForwardCommand(command) => self.dispatch_command(command),
@@ -219,7 +219,11 @@ impl Connection {
                 return self.attach_video();
             }
             SessionAction::RequestApproval { client_name } => {
-                self.shared.lock().pairing.request_approval(self.session_id, &client_name);
+                let refused = self.shared.lock().pairing.request_approval(self.session_id, &client_name).err();
+                if let Some(decision) = refused {
+                    // This connection hears its own refusal on the approvals channel and answers the client.
+                    let _delivered = self.shared.approvals.send(decision);
+                }
             }
             SessionAction::Close(_) => return Flow::Closed,
         }
