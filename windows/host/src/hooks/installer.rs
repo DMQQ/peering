@@ -2,7 +2,7 @@
 //! ever called after the person said yes.
 
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use peering_core::terminal::hooks::settings::{self, UnexpectedShape, COMMAND_NAME};
@@ -96,7 +96,8 @@ fn read_settings(path: &Path) -> Result<Map<String, Value>, InstallError> {
 }
 
 /// Writes through a symlink, so a settings file kept in a dotfiles repo stays a link, and keeps one copy of what was
-/// there before the first change.
+/// there before the first change. The new text goes to a file beside it that is renamed over it, so a crash halfway
+/// leaves the old settings, never half of the new.
 fn write_settings(path: &Path, settings: &Map<String, Value>) -> Result<(), InstallError> {
     let target = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     if let Some(folder) = target.parent() {
@@ -107,6 +108,16 @@ fn write_settings(path: &Path, settings: &Map<String, Value>) -> Result<(), Inst
         fs::copy(&target, &backup)?;
     }
     let text = serde_json::to_string_pretty(settings).map_err(io::Error::other)?;
-    fs::write(&target, text + "\n")?;
-    Ok(())
+    let temporary = target.with_extension("json.peering-tmp");
+    let replaced = write_synced(&temporary, (text + "\n").as_bytes()).and_then(|()| fs::rename(&temporary, &target));
+    if replaced.is_err() {
+        drop(fs::remove_file(&temporary));
+    }
+    Ok(replaced?)
+}
+
+fn write_synced(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let mut file = fs::File::create(path)?;
+    file.write_all(bytes)?;
+    file.sync_all()
 }
