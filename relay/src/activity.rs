@@ -107,6 +107,7 @@ pub enum ActivityRefusal {
     /// The message itself is unusable: a missing start field, an oversized or non-object state.
     InvalidPayload,
     /// Malformed, or APNs said BadDeviceToken, Unregistered or ExpiredToken. The host should forget it.
+    /// `DeviceTokenNotForTopic` is `Rejected` instead: the token may be valid for another build.
     InvalidToken,
     /// APNs refused it for another reason.
     Rejected,
@@ -138,7 +139,7 @@ pub enum ActivityFailure {
 
 impl ActivityFailure {
     pub fn from_refusal(refusal: &ApnsRefusal) -> Self {
-        const DEAD_TOKEN: [&str; 4] = ["BadDeviceToken", "Unregistered", "ExpiredToken", "DeviceTokenNotForTopic"];
+        const DEAD_TOKEN: [&str; 3] = ["BadDeviceToken", "Unregistered", "ExpiredToken"];
         if refusal.is_throttle() {
             Self::Throttled
         } else if refusal.is_server_side() {
@@ -494,10 +495,13 @@ mod tests {
 
     #[test]
     fn apns_reasons_for_a_dead_token_are_told_apart_from_the_rest() {
-        for (status, reason) in [(400, "BadDeviceToken"), (410, "Unregistered"), (410, "ExpiredToken"), (400, "DeviceTokenNotForTopic")] {
+        for (status, reason) in [(400, "BadDeviceToken"), (410, "Unregistered"), (410, "ExpiredToken")] {
             let refusal = ApnsRefusal { status, reason: Some(reason.into()) };
             assert_eq!(ActivityFailure::from_refusal(&refusal), ActivityFailure::TokenRejected);
         }
+        let wrong_topic = ApnsRefusal { status: 400, reason: Some("DeviceTokenNotForTopic".into()) };
+        assert_eq!(ActivityFailure::from_refusal(&wrong_topic), ActivityFailure::Rejected);
+        assert_eq!(ActivityFailure::Rejected.refusal(), ActivityRefusal::Rejected);
         let throttle = ApnsRefusal { status: 429, reason: Some("TooManyRequests".into()) };
         assert_eq!(ActivityFailure::from_refusal(&throttle), ActivityFailure::Throttled);
         assert_eq!(ActivityFailure::Throttled.refusal(), ActivityRefusal::Unavailable);
