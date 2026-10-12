@@ -4,7 +4,6 @@ use peering_core::session::dispatch::{on_ready_frame, DispatchContext, ReadyOutc
 use peering_wire::agent::AgentRequest;
 use peering_wire::command::RemoteCommand;
 use peering_wire::framing::{Frame, MessageKind};
-use peering_wire::terminal::{TerminalEvent, TerminalRequest};
 
 use super::connection::{Connection, Flow};
 use super::video::CoordinatorControl;
@@ -22,7 +21,7 @@ impl Connection {
                 Flow::Open
             }
             ReadyOutcome::Close(_) => Flow::Closed,
-            ReadyOutcome::Unhandled(MessageKind::TerminalRequest) => self.answer_file(frame),
+            ReadyOutcome::Unhandled(MessageKind::TerminalRequest) => self.terminal_request(frame),
             ReadyOutcome::Unhandled(MessageKind::AgentRequest) => self.agent_request(frame),
             ReadyOutcome::Unhandled(MessageKind::VideoKeyRequest) => self.answer_video_key(),
             ReadyOutcome::Unhandled(MessageKind::VideoTransport) => self.answer_video_transport(frame),
@@ -52,17 +51,6 @@ impl Connection {
         let outcome = run(&mut context);
         let failure = source.failure.take();
         (outcome, failure)
-    }
-
-    fn answer_file(&mut self, frame: &Frame) -> Flow {
-        let Ok(request) = serde_json::from_slice::<TerminalRequest>(&frame.payload) else {
-            return Flow::Closed;
-        };
-        let event: Option<TerminalEvent> = self.shared.lock().files.answer(&request);
-        if let Some(event) = event {
-            self.send(Frame::new(MessageKind::TerminalEvent, serde_json::to_vec(&event).expect("file events always serialise")));
-        }
-        Flow::Open
     }
 
     fn agent_request(&mut self, frame: &Frame) -> Flow {

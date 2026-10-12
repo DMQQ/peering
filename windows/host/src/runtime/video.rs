@@ -178,6 +178,8 @@ pub async fn run_pump(shared: Shared, profile: Arc<HostProfile>) {
         if let Ok(outgoing) = outgoing {
             deliver(outgoing);
         }
+        let terminal_output = shared.lock().pump_terminals();
+        deliver(terminal_output);
     }
 }
 

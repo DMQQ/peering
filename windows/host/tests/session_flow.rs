@@ -71,6 +71,9 @@ fn a_folder_listing_request_is_answered_from_the_file_system() {
     run(async {
         let harness = harness();
         let mut phone = paired_phone(&harness.runtime).await;
+        phone
+            .send_json(MessageKind::TerminalRequest, &peering_wire::terminal::TerminalRequest::StartBrowser { id: "browse-1".to_owned() })
+            .await;
         let request = peering_wire::terminal::TerminalRequest::ListDirectory {
             session_id: "browse-1".to_owned(),
             path: Some("/C:/Users/me".to_owned()),

@@ -19,9 +19,11 @@ use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame}
 use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
 use peering_core::ports::input::{InputSink, TransformSnapshot};
 use peering_core::ports::system::{SystemActions, SystemError};
+use peering_core::terminal::fake::FakeSpawner;
+use peering_core::terminal::shell::{Shell, ShellKind};
 use peering_core::session::handshake::PROTOCOL_VERSION;
 use peering_core::pairing::PairingOffer;
-use peering_host::runtime::{HostProfile, HostRuntime, HostServices, PeerInfo};
+use peering_host::runtime::{HostProfile, HostRuntime, HostServices, PeerInfo, TerminalServices};
 use peering_wire::command::RemoteCommand;
 use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
 use peering_wire::handshake::{ClientHello, PairConfirm, PairResult, ServerHello};
@@ -118,6 +120,7 @@ pub struct Harness {
     pub system: Arc<Mutex<RecordingSystem>>,
     pub secrets: Arc<InMemorySecretStore>,
     pub clock: Arc<FakeClock>,
+    pub shells: FakeSpawner,
 }
 
 pub fn display() -> DisplayInfo {
@@ -148,6 +151,7 @@ pub fn harness_with_system(system: RecordingSystem) -> Harness {
     files.add_folder("C:\\Users\\me", 0.0);
     files.add_file("C:\\Users\\me\\notes.txt", b"hello", 0.0);
     let clock = Arc::new(FakeClock::new(100.0, UNIX_NOW));
+    let shells = FakeSpawner::default();
     let services = HostServices {
         capture: Box::new(SharedCapture(capture.clone())),
         encoder: Box::new(SharedEncoder(encoder.clone())),
@@ -155,6 +159,12 @@ pub fn harness_with_system(system: RecordingSystem) -> Harness {
         system: Box::new(SharedSystem(system.clone())),
         secrets: secrets.clone(),
         files: Arc::new(files),
+        terminal: TerminalServices {
+            spawner: Box::new(shells.clone()),
+            shells: vec![Shell { kind: ShellKind::Cmd, program: "cmd.exe".to_owned(), arguments: Vec::new() }],
+            directory: "C:\\Users\\me".to_owned(),
+            environment: Vec::new(),
+        },
         home_directory: "C:\\Users\\me".to_owned(),
     };
     let profile = HostProfile {
@@ -166,7 +176,7 @@ pub fn harness_with_system(system: RecordingSystem) -> Harness {
         clock: clock.clone(),
     };
     let runtime = HostRuntime::new(profile, services).expect("the runtime builds over fakes");
-    Harness { runtime, capture, encoder, input, system, secrets, clock }
+    Harness { runtime, capture, encoder, input, system, secrets, clock, shells }
 }
 
 pub fn direct_peer() -> PeerInfo {
@@ -317,6 +327,15 @@ pub async fn pair_with_peer(
     phone.send_json(MessageKind::PairConfirm, &PairConfirm { accepted: true, proof: Some(proof) }).await;
     let result: PairResult = decode_json(&phone.next_of(MessageKind::PairResult).await);
     (phone, result, offer)
+}
+
+/// A second connection of the already paired phone, authorised once the catalogue arrives.
+pub async fn reconnected_phone(runtime: &HostRuntime) -> Phone {
+    let mut phone = Phone::connect(runtime, direct_peer());
+    phone.send(role_frame(CONTROL_ROLE)).await;
+    phone.send(hello()).await;
+    phone.next_of(MessageKind::Catalog).await;
+    phone
 }
 
 /// Pairs over a direct connection with the proof computed from the QR secret, and returns the phone authorised.

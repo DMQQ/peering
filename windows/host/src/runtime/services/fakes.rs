@@ -8,10 +8,11 @@ use peering_core::fakes::input::RecordingInput;
 use peering_core::fakes::secret_store::InMemorySecretStore;
 use peering_core::fakes::capture::FakeCapture;
 use peering_core::fakes::system::RecordingSystem;
+use peering_core::terminal::fake::FakeSpawner;
 
 use super::adapters::Adapters;
 use crate::runtime::files::DiskFileSystem;
-use crate::runtime::RuntimeError;
+use crate::runtime::{RuntimeError, TerminalServices};
 
 pub fn build() -> Result<Adapters, RuntimeError> {
     Ok(Adapters {
@@ -21,5 +22,11 @@ pub fn build() -> Result<Adapters, RuntimeError> {
         system: Box::new(RecordingSystem::new(false, None)),
         secrets: Arc::new(InMemorySecretStore::default()),
         files: Arc::new(DiskFileSystem),
+        terminal: TerminalServices {
+            spawner: Box::new(FakeSpawner::default()),
+            shells: Vec::new(),
+            directory: String::new(),
+            environment: Vec::new(),
+        },
     })
 }

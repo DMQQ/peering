@@ -22,13 +22,17 @@ impl ProcessLauncher for StdLauncher {
     }
 }
 
-fn start(command: &LaunchSpec) -> io::Result<Child> {
+/// Where agent CLIs are looked for, from this process's environment.
+pub(super) fn search_env() -> SearchEnv {
     let path = env::var("PATH").unwrap_or_default();
     let path_ext = env::var("PATHEXT").ok();
     let user_profile = env::var("USERPROFILE").unwrap_or_default();
     let app_data = env::var("APPDATA").ok();
-    let search = SearchEnv::new(&path, path_ext.as_deref(), &user_profile, app_data.as_deref());
-    let resolved = find_binary(&command.program, &search, &DiskExists)
+    SearchEnv::new(&path, path_ext.as_deref(), &user_profile, app_data.as_deref())
+}
+
+fn start(command: &LaunchSpec) -> io::Result<Child> {
+    let resolved = find_binary(&command.program, &search_env(), &DiskExists)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("{} is not installed", command.program)))?;
     let (program, arguments) = launch_command(&resolved, &command.arguments);
     Command::new(program)
@@ -40,7 +44,7 @@ fn start(command: &LaunchSpec) -> io::Result<Child> {
         .spawn()
 }
 
-struct DiskExists;
+pub(super) struct DiskExists;
 
 impl Exists for DiskExists {
     fn exists(&self, path: &str) -> bool {

@@ -21,10 +21,11 @@ mod relay;
 mod relay_lane;
 mod services;
 mod shared;
+mod terminal;
 mod video;
 mod video_requests;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::io;
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
@@ -45,7 +46,7 @@ use tokio::task::LocalSet;
 
 pub use clock::SystemClock;
 pub use control::{ApprovalView, DeviceView, HostHandle, HostSnapshot, OfferView, RelayStatus, RuntimeCommand};
-pub use services::{platform_services, HostServices};
+pub use services::{platform_services, HostServices, TerminalServices};
 
 use control::ControlChannel;
 use peer_address::PeerAddressRouter;
@@ -146,8 +147,9 @@ pub struct HostRuntime {
 impl HostRuntime {
     /// Builds the shared state from the adapters. Must be called on the thread that runs the `LocalSet` from `run`.
     pub fn new(profile: HostProfile, services: HostServices) -> Result<Self, RuntimeError> {
-        let HostServices { capture, encoder, input, system, secrets, files, home_directory } = services;
+        let HostServices { capture, encoder, input, system, secrets, files, terminal, home_directory } = services;
         let profile = HostProfile { can_lock_screen: system.can_lock_workstation(), ..profile };
+        let terminals = terminal::manager(terminal, secrets.clone(), profile.clock.clone())?;
         let pins: Arc<dyn PinStore> = Arc::new(SecretPins::open(secrets)?);
         let capture = SharedCapture::new(capture);
         let state = HostState {
@@ -160,6 +162,8 @@ impl HostRuntime {
             input: BoxedInput(input),
             system: BoxedSystem(system),
             files: FileBrowser::new(SharedFileSystem(files), home_directory),
+            terminals,
+            notifications: VecDeque::new(),
             sessions: HashMap::new(),
             next_session: 0,
             catalog_checked_at: None,
@@ -205,6 +209,12 @@ impl HostRuntime {
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + 'static,
     {
         connection::serve(self.shared.clone(), self.profile.clone(), stream, peer).await;
+    }
+
+    /// One pass of the terminal pump: reads the shells and delivers what they printed. The pump task calls this every tick.
+    pub fn pump_terminals(&self) {
+        let outgoing = self.shared.lock().pump_terminals();
+        video::deliver(outgoing);
     }
 
     /// One pass of the video pump at `now`, delivered to the connections. The timer calls this every frame interval.

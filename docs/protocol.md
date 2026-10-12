@@ -270,5 +270,10 @@ bit 8 asks for the F-key's printed action (`Modifiers.topRowAction`). See [keyma
 * Terminal, file and agent requests and events are JSON enums in `TerminalWire.swift` and `AgentWire.swift`
   (documented by the vectors; a prose reference for each is a follow-up). File paths are POSIX shaped and the permissions
   string is a 10 character `ls -l` style mode. A non-POSIX host presents a virtual tree (`/C:/Users/me`).
+* Windows terminals: a session belongs to the client id that created it and survives that client's connection; `list`
+  answers a snapshot followed by the retained output (at most 512 KiB, sent in events of at most 64 KiB). File requests
+  are answered only for a running terminal of the client or a scope it opened with `startBrowser` (four per client).
+  The host sets `supportsAgentList` and does not set `pushesTerminalAlertsWhileConnected`: it pushes an alert only
+  while the client is not connected.
 * Push registration: `terminalRequest` `registerPushToken` carries opaque bytes. The host hex-encodes them verbatim
   and forwards them to the relay for `notifyDevice`. Android registers the UTF-8 bytes `fcm:` followed by the FCM token.

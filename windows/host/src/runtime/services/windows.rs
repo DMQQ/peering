@@ -10,11 +10,14 @@ use peering_platform::keyboard::KeyboardInjector;
 use peering_platform::mouse::MouseInjector;
 use peering_platform::services::PlatformServices;
 use peering_platform::system::WindowsSystem;
+use peering_platform::terminal::environment::{installed_shells, start_directory};
+use peering_platform::terminal::ConPtySpawner;
+use peering_core::terminal::shell::terminal_environment;
 use peering_wire::command::RemoteCommand;
 
 use super::adapters::Adapters;
 use crate::runtime::files::DiskFileSystem;
-use crate::runtime::RuntimeError;
+use crate::runtime::{RuntimeError, TerminalServices};
 
 pub fn build() -> Result<Adapters, RuntimeError> {
     let directory: PathBuf = default_directory().ok_or(RuntimeError::NoDataDirectory)?;
@@ -26,7 +29,18 @@ pub fn build() -> Result<Adapters, RuntimeError> {
         system: Box::new(WindowsSystem),
         secrets: Arc::new(DpapiStore::new(directory, DpapiProtector)),
         files: Arc::new(DiskFileSystem),
+        terminal: terminal_services(),
     })
+}
+
+fn terminal_services() -> TerminalServices {
+    let get = |name: &str| std::env::var(name).ok();
+    TerminalServices {
+        spawner: Box::new(ConPtySpawner),
+        shells: installed_shells(&get),
+        directory: start_directory(&get),
+        environment: terminal_environment(std::env::vars()),
+    }
 }
 
 struct WindowsInput {

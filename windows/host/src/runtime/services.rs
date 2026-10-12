@@ -9,6 +9,8 @@ use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
 use peering_core::ports::input::{InputSink, TransformSnapshot};
 use peering_core::ports::secret_store::SecretStore;
 use peering_core::ports::system::{SystemActions, SystemError};
+use peering_core::terminal::pty::PtySpawner;
+use peering_core::terminal::shell::Shell;
 use peering_wire::command::RemoteCommand;
 
 mod adapters {
@@ -25,6 +27,7 @@ mod adapters {
         pub system: Box<dyn peering_core::ports::system::SystemActions + Send>,
         pub secrets: std::sync::Arc<dyn peering_core::ports::secret_store::SecretStore + Send + Sync>,
         pub files: std::sync::Arc<dyn peering_core::files::vfs::FileSystem + Send + Sync>,
+        pub terminal: super::TerminalServices,
     }
 }
 
@@ -36,6 +39,14 @@ mod fakes;
 
 use super::RuntimeError;
 
+/// What terminals run on: the pseudo console, the shells this PC has, where a new one starts and the environment it gets.
+pub struct TerminalServices {
+    pub spawner: Box<dyn PtySpawner>,
+    pub shells: Vec<Shell>,
+    pub directory: String,
+    pub environment: Vec<(String, String)>,
+}
+
 /// The adapters the runtime owns. `capture` is shared with the runtime, which lists displays through it.
 pub struct HostServices {
     pub capture: Box<dyn Capture + Send>,
@@ -44,6 +55,7 @@ pub struct HostServices {
     pub system: Box<dyn SystemActions + Send>,
     pub secrets: Arc<dyn SecretStore + Send + Sync>,
     pub files: Arc<dyn FileSystem + Send + Sync>,
+    pub terminal: TerminalServices,
     pub home_directory: String,
 }
 
@@ -146,6 +158,6 @@ impl FileSystem for SharedFileSystem {
 
 /// The platform adapters for this machine. `home_directory` is where a file listing starts when the client names none.
 pub fn platform_services(home_directory: String) -> Result<HostServices, RuntimeError> {
-    let adapters::Adapters { capture, encoder, input, system, secrets, files } = adapters::build()?;
-    Ok(HostServices { capture, encoder, input, system, secrets, files, home_directory })
+    let adapters::Adapters { capture, encoder, input, system, secrets, files, terminal } = adapters::build()?;
+    Ok(HostServices { capture, encoder, input, system, secrets, files, terminal, home_directory })
 }

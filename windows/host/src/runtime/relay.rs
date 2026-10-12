@@ -77,13 +77,28 @@ pub async fn run(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, r
                         break;
                     }
                 }
-                _ = ticks.tick() => pending = registration.tick(profile.clock.as_ref()),
+                _ = ticks.tick() => {
+                    pending = registration.tick(profile.clock.as_ref());
+                    if registration.is_registered() && send_notifications(&mut socket, &shared).await.is_err() {
+                        break;
+                    }
+                }
             }
         }
         shared.peer_addresses().attach(None);
         set_relay_status(&shared, RelayStatus::Retrying);
         registration.on_disconnect(profile.clock.as_ref());
     }
+}
+
+/// Sends the push notifications waiting for the relay. They are taken before sending, so a socket that fails
+/// mid-way loses the ones not yet sent; the phone is told again by its next prompt.
+async fn send_notifications(socket: &mut Socket, shared: &Shared) -> Result<(), ()> {
+    let waiting: Vec<_> = shared.lock().notifications.drain(..).collect();
+    for message in waiting {
+        socket.send(Message::Text(encode_sorted(&message).into())).await.map_err(|_| ())?;
+    }
+    Ok(())
 }
 
 fn set_relay_status(shared: &Shared, status: RelayStatus) {
