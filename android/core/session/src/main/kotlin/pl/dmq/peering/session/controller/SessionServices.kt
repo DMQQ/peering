@@ -3,6 +3,7 @@ package pl.dmq.peering.session.controller
 import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.files.FileBrowser
+import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.MessageKind
 import pl.dmq.peering.wire.ServerHello
@@ -18,7 +19,15 @@ internal class SessionServices(private val ports: SessionPorts, private val curr
     var fileBrowser: FileBrowser? = null
         private set
 
+    var terminals: TerminalSessions? = null
+        private set
+
     fun attach(hello: ServerHello) {
+        if (terminals == null) {
+            terminals = TerminalSessions(send = { request ->
+                currentLink()?.enqueue(Frame(MessageKind.TerminalRequest, request.toJson().toByteArray(Charsets.UTF_8)))
+            })
+        }
         if (hello.supportsAgentChat == true && agentChat == null) {
             agentChat = AgentChat(AgentCapabilities.declaredBy(hello)) { request ->
                 currentLink()?.enqueue(Frame(MessageKind.AgentRequest, request.toJson().toByteArray(Charsets.UTF_8)))

@@ -16,6 +16,7 @@ import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.connection.ClientConfig
 import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.session.files.FileBrowser
+import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.session.history.SessionHistory
 import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.session.relay.RelayConnect
@@ -65,6 +66,9 @@ class SessionController(
 
     /** The file browser, present once the host has declared that it supports one. */
     val files: FileBrowser? get() = services.fileBrowser
+
+    /** The shells of the computer, present once a session has been ready. */
+    val terminals: TerminalSessions? get() = services.terminals
 
     /** The agent ids the host declared for chats, or an empty list while no session is ready. */
     val declaredAgentIDs: List<String> get() = link?.hello?.agentChatAgents.orEmpty()
@@ -304,6 +308,7 @@ class SessionController(
             selection = selection,
             agent = services.agentChat,
             files = services.fileBrowser,
+            terminals = services.terminals,
             relay = ports.relay?.let { RelayConnect(it.signalling, ports.identity, ports.clock) },
             quality = ports.quality.choice(),
             ceiling = QualityCeiling.of(route.path, ports.quality.unlimitedRelay()),

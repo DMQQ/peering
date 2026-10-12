@@ -47,13 +47,14 @@ import pl.dmq.peering.ui.wiring.ControllerQualityPort
 import pl.dmq.peering.ui.wiring.ControllerRemoteModel
 import pl.dmq.peering.ui.wiring.SessionFileBrowsing
 import pl.dmq.peering.ui.wiring.StorePaywallBilling
+import pl.dmq.peering.ui.wiring.TerminalHost
 import pl.dmq.peering.ui.wiring.SurfacePicture
 import pl.dmq.peering.ui.wiring.findActivity
 import pl.dmq.peering.ui.theme.FailureNotice
 import pl.dmq.peering.ui.wiring.messageRes
 
 /** The screens a session presents over its remote screen. */
-enum class SessionRoute { REMOTE, AGENTS, FILES, PAYWALL }
+enum class SessionRoute { REMOTE, AGENTS, FILES, TERMINAL, PAYWALL }
 
 /**
  * The session's screens, one at a time. Back returns to the remote screen first, then leaves the session through
@@ -105,6 +106,7 @@ internal fun SessionScreens(
             SessionRoute.REMOTE -> RemoteWithNotice(remote, session.phase)
             SessionRoute.AGENTS -> AgentsScreen(active, drafts, folderRecents, clock) { route = SessionRoute.REMOTE }
             SessionRoute.FILES -> FilesScreen(active) { route = SessionRoute.REMOTE }
+            SessionRoute.TERMINAL -> TerminalHost(active) { route = SessionRoute.REMOTE }
             SessionRoute.PAYWALL -> PaywallRoute(
                 billing = StorePaywallBilling(billing) { context.findActivity() },
                 allowance = relayAllowance.allowance,
