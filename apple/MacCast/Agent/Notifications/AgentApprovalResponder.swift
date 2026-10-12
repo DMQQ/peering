@@ -20,12 +20,13 @@ enum AgentApprovalResponder {
             if backgroundTask != .invalid { UIApplication.shared.endBackgroundTask(backgroundTask) }
         }
 
-        let delivered = await send(decision, to: reference)
+        let failure = await send(decision, to: reference)
         let notifier = AgentApprovalNotifier.shared
-        if delivered {
+        if failure == nil {
             notifier.retract(approvalID: reference.approvalID)
             InAppBanner.shared.resolve(chatID: reference.sessionID)
         } else {
+            Analytics.agentFailed(stage: .approval, cause: failure ?? .other)
             await notifier.postDeliveryFailure(reference, sessionTitle: IntentHost.model?.agentTitle(reference.sessionID))
         }
     }
@@ -50,11 +51,15 @@ enum AgentApprovalResponder {
         session.sendAgentPrompt(prompt, to: reference.sessionID)
     }
 
-    private static func send(_ decision: AgentApprovalDecision, to reference: AgentApprovalNotification.Reference) async -> Bool {
-        guard let model = await waitForModel(), let hostID = reference.hostID else { return false }
-        guard let session = await readySession(of: model, hostID: hostID) else { return false }
+    /// Nil when the Mac confirmed; otherwise why the answer did not get there.
+    private static func send(_ decision: AgentApprovalDecision, to reference: AgentApprovalNotification.Reference) async -> PhoneFailure.Cause? {
+        guard let model = await waitForModel(), let hostID = reference.hostID else { return .offline }
+        guard let session = await readySession(of: model, hostID: hostID) else { return .offline }
         let sent = session.respondToAgentApproval(reference.approvalID, decision: decision, in: reference.sessionID)
-        return await awaitConfirmation(of: reference.approvalID, sent: sent, on: session)
+        guard await awaitConfirmation(of: reference.approvalID, sent: sent, on: session) else {
+            return PhoneFailure.approvalCause(wasSent: sent)
+        }
+        return nil
     }
 
     /// Delivered means the Mac reported the approval resolved. The background task above is still held, which is what keeps the process alive for the wait.

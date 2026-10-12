@@ -107,6 +107,9 @@ extension MacSession {
             agentChangesLoading.remove(id)
 
         case .gitResult(let id, let result):
+            if !result.succeeded {
+                Analytics.agentFailed(stage: PhoneFailure.AgentStage(operation: result.operation))
+            }
             agentGitBusy[id] = nil
             agentGitResults[id] = result
 
