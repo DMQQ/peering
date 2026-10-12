@@ -16,9 +16,9 @@ class MotionKindTest {
     }
 
     @Test
-    fun liveScreenOnEitherSideOnlyFades() {
-        assertEquals(MotionKind.FADE, stageMotion(0, false, 3, true))
-        assertEquals(MotionKind.FADE, stageMotion(3, true, 0, false))
+    fun liveScreenOnEitherSideOnlyCrossfades() {
+        assertEquals(MotionKind.CROSSFADE, stageMotion(0, false, 3, true))
+        assertEquals(MotionKind.CROSSFADE, stageMotion(3, true, 0, false))
     }
 
     @Test

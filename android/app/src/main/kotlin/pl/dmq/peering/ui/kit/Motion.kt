@@ -4,70 +4,104 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
-private const val FADE_IN_MS = 210
-private const val FADE_OUT_MS = 90
-private const val TAB_IN_MS = 150
-private const val AXIS_MS = 300
-private const val MODAL_IN_MS = 280
-private const val MODAL_OUT_MS = 200
-private const val STACK_MS = 340
-private const val STACK_PARALLAX = 4
-private const val CROSSFADE_MS = 120
-private val axisDistance = 30.dp
+/**
+ * The app's whole motion vocabulary. Anything that moves takes its timing from here. Entrances fade and rise by [rise]
+ * at most; exits are shorter than entrances; nothing scales in and nothing bounces.
+ */
+object Motion {
+    const val FAST_MS = 120
+    const val STANDARD_MS = 220
+    const val EMPHASIZED_MS = 320
+    const val EXIT_MS = 90
 
-/** Fade through for peers such as the root tabs: the old content fades out, then the new fades in. No scale, no movement. */
-val FadeThroughEnter: EnterTransition =
-    fadeIn(tween(TAB_IN_MS, delayMillis = FADE_OUT_MS, easing = FastOutSlowInEasing))
+    /** Material 3 shared axis: the slide takes [AXIS_MS], the old page is gone after [EXIT_MS], the new one fades in over [AXIS_FADE_IN_MS] after that. */
+    const val AXIS_MS = 300
+    const val AXIS_FADE_IN_MS = 210
 
-val FadeThroughExit: ExitTransition = fadeOut(tween(FADE_OUT_MS, easing = FastOutLinearInEasing))
+    /** How long a loading state waits before it shows, so a fast answer never flashes a skeleton. */
+    const val LOADING_DELAY_MS = 150L
 
-fun motionTransition(kind: MotionKind, axisDistancePx: Int): ContentTransform = when (kind) {
-    MotionKind.FADE_THROUGH -> FadeThroughEnter togetherWith FadeThroughExit
-    MotionKind.FORWARD -> stackPush(1)
-    MotionKind.BACKWARD -> stackPush(-1)
-    MotionKind.CROSSFADE -> fadeIn(tween(CROSSFADE_MS)) togetherWith fadeOut(tween(CROSSFADE_MS))
-    MotionKind.FADE -> fadeIn(tween(FADE_IN_MS, easing = FastOutSlowInEasing)) togetherWith fadeOut(tween(CROSSFADE_MS))
-    MotionKind.MODAL_UP -> (
-        fadeIn(tween(MODAL_IN_MS, easing = FastOutSlowInEasing)) +
-            slideInVertically(tween(MODAL_IN_MS, easing = FastOutSlowInEasing)) { it }
-        ).togetherWith(ExitTransition.None).apply { targetContentZIndex = 1f }
-    MotionKind.MODAL_DOWN -> EnterTransition.None togetherWith (
-        fadeOut(tween(MODAL_OUT_MS, easing = FastOutLinearInEasing)) +
-            slideOutVertically(tween(MODAL_OUT_MS, easing = FastOutLinearInEasing)) { it }
-        )
+    val rise = 8.dp
+    val axisDistance = 30.dp
+
+    val emphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+
+    /** Press feedback, small reveals and crossfades. */
+    fun <T> fast(): FiniteAnimationSpec<T> = tween(FAST_MS, easing = FastOutSlowInEasing)
+
+    /** The default for anything that enters, moves or changes colour. */
+    fun <T> standard(): FiniteAnimationSpec<T> = tween(STANDARD_MS, easing = FastOutSlowInEasing)
+
+    /** Large surfaces arriving. */
+    fun <T> emphasized(): FiniteAnimationSpec<T> = tween(EMPHASIZED_MS, easing = emphasizedDecelerate)
+
+    /** Anything leaving: shorter than its entrance, accelerating out. */
+    fun <T> exit(): FiniteAnimationSpec<T> = tween(EXIT_MS, easing = FastOutLinearInEasing)
+
+    /** Resizes and expansions. Critically damped, so it settles without bouncing. */
+    fun <T> spring(visibilityThreshold: T? = null): FiniteAnimationSpec<T> =
+        spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium, visibilityThreshold = visibilityThreshold)
+
+    val enter: EnterTransition = fadeIn(standard())
+    val leave: ExitTransition = fadeOut(exit())
+
+    /** Fade in while rising [risePx] from below. */
+    fun enterRising(risePx: Int): EnterTransition = fadeIn(standard()) + slideInVertically(standard()) { risePx }
 }
 
-/** The native stack push: the new screen covers the old one from the right, and the old one drifts a quarter of the way left and fades. Going back is the same in reverse. */
-private fun stackPush(sign: Int): ContentTransform {
-    val slide = tween<IntOffset>(STACK_MS, easing = FastOutSlowInEasing)
-    val fade = tween<Float>(STACK_MS, easing = FastOutSlowInEasing)
-    return if (sign > 0) {
-        (slideInHorizontally(slide) { it } togetherWith (slideOutHorizontally(slide) { -it / STACK_PARALLAX } + fadeOut(fade)))
-            .apply { targetContentZIndex = 1f }
-    } else {
-        ((slideInHorizontally(slide) { -it / STACK_PARALLAX } + fadeIn(fade)) togetherWith slideOutHorizontally(slide) { it })
-            .apply { targetContentZIndex = -1f }
+/** Pixel values the transitions need, resolved once per density. */
+class MotionDistances(val axisPx: Int, val risePx: Int)
+
+@Composable
+fun rememberMotionDistances(): MotionDistances {
+    val density = LocalDensity.current
+    return remember(density) {
+        MotionDistances(with(density) { Motion.axisDistance.roundToPx() }, with(density) { Motion.rise.roundToPx() })
     }
 }
 
-@Composable
-fun rememberAxisDistancePx(): Int = with(LocalDensity.current) { axisDistance.roundToPx() }
+private val snapSize = SizeTransform(clip = false) { _, _ -> snap() }
+
+private fun transform(enter: EnterTransition, exit: ExitTransition, zIndex: Float = 0f) =
+    ContentTransform(enter, exit, zIndex, snapSize)
+
+fun motionTransition(kind: MotionKind, distances: MotionDistances): ContentTransform = when (kind) {
+    MotionKind.FORWARD -> sharedAxisX(1, distances.axisPx)
+    MotionKind.BACKWARD -> sharedAxisX(-1, distances.axisPx)
+    MotionKind.CROSSFADE -> transform(fadeIn(Motion.fast()), fadeOut(Motion.fast()))
+    MotionKind.MODAL_UP -> transform(Motion.enterRising(distances.risePx), ExitTransition.None, zIndex = 1f)
+    MotionKind.MODAL_DOWN -> transform(EnterTransition.None, Motion.leave, zIndex = 1f)
+}
+
+/** Material 3 shared axis X: both pages slide 30 dp the same way, the old one fades out quickly and the new one fades in after it. */
+private fun sharedAxisX(sign: Int, axisPx: Int): ContentTransform {
+    val slide = tween<IntOffset>(Motion.AXIS_MS, easing = FastOutSlowInEasing)
+    val enter = slideInHorizontally(slide) { sign * axisPx } +
+        fadeIn(tween(Motion.AXIS_FADE_IN_MS, delayMillis = Motion.EXIT_MS, easing = FastOutSlowInEasing))
+    val exit = slideOutHorizontally(slide) { -sign * axisPx } + fadeOut(tween(Motion.EXIT_MS, easing = FastOutLinearInEasing))
+    return transform(enter, exit)
+}
 
 /** Content that moves deeper or back by [depth] between states: shared axis forward and back, a crossfade between peers. */
 @Composable
@@ -78,11 +112,11 @@ fun <T> DepthTransition(
     label: String = "depth",
     content: @Composable (T) -> Unit,
 ) {
-    val distance = rememberAxisDistancePx()
+    val distances = rememberMotionDistances()
     AnimatedContent(
         targetState = state,
         modifier = modifier,
-        transitionSpec = { motionTransition(depthMotion(depth(initialState), depth(targetState)), distance) },
+        transitionSpec = { motionTransition(depthMotion(depth(initialState), depth(targetState)), distances) },
         label = label,
     ) { content(it) }
 }
