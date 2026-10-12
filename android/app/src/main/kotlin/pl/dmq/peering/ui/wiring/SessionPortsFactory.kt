@@ -6,6 +6,7 @@ import pl.dmq.peering.SessionFactory
 import pl.dmq.peering.platform.net.UdpLane
 import pl.dmq.peering.platform.video.codecSupport
 import pl.dmq.peering.billing.Billing
+import pl.dmq.peering.session.clipboard.ClipboardHistory
 import pl.dmq.peering.session.controller.ConnectTarget
 import pl.dmq.peering.session.controller.QualitySource
 import pl.dmq.peering.session.controller.RelayPorts
@@ -23,6 +24,7 @@ internal class SessionPortsFactory(
     private val quality: QualitySource,
     private val billing: Billing,
     private val lanAddresses: RememberedLanAddresses,
+    private val clipboardHistory: ClipboardHistory,
     private val deviceName: () -> String,
 ) : SessionOpener {
     override fun open(target: ConnectTarget, scope: CoroutineScope): ActiveSession {
@@ -44,6 +46,7 @@ internal class SessionPortsFactory(
             videoCodecs = codecSupport(),
             log = { message -> Log.d(TAG, message) },
             lanReached = lanAddresses::remember,
+            clipboardHistory = clipboardHistory,
         )
         return ActiveSession(target, SessionController(scope, target, ports, history), lane, downloads)
     }

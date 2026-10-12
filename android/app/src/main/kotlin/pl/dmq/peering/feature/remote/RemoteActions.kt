@@ -5,6 +5,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pl.dmq.peering.feature.settings.DevicePrefs
+import pl.dmq.peering.session.clipboard.ClipboardPush
 import pl.dmq.peering.wire.JoystickMove
 import pl.dmq.peering.wire.LockScreen
 import pl.dmq.peering.wire.Modifiers
@@ -86,6 +87,14 @@ class RemoteActions(
     }
 
     fun send(text: String) = input.send(PushClipboard(text))
+
+    /** Puts a picture on the computer's clipboard, and pastes it when [paste]. While observing nothing is sent. */
+    fun sendImage(png: ByteArray, paste: Boolean): ClipboardPush {
+        if (prefs().interaction == InputMode.OBSERVE) return ClipboardPush.NotReady
+        val result = model.clipboard.sendImage(png)
+        if (paste && result == ClipboardPush.Sent) keyboard.sendKey(PASTE_KEY, Modifiers.COMMAND)
+        return result
+    }
 
     fun requestHostClipboard() = input.send(RequestClipboard)
 

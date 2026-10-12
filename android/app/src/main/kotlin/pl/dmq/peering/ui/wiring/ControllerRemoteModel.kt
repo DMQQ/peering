@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import pl.dmq.peering.feature.paywall.RelayAllowance
+import pl.dmq.peering.feature.remote.ClipboardPort
 import pl.dmq.peering.feature.remote.CommandSink
 import pl.dmq.peering.feature.remote.HubCapabilities
 import pl.dmq.peering.feature.remote.HubEntry
@@ -42,6 +43,16 @@ internal class ControllerRemoteModel(
     override val commands: CommandSink = CommandSink { controller.send(it) }
 
     override val surface: SurfaceListener = picture
+
+    override val clipboard: ClipboardPort = object : ClipboardPort {
+        override val history = controller.clipboardHistory.entries
+
+        override fun sendImage(png: ByteArray) = controller.sendClipboardImage(png)
+
+        override fun remove(id: Long) = controller.clipboardHistory.remove(id)
+
+        override fun clear() = controller.clipboardHistory.clear()
+    }
 
     override fun onHubEntry(entry: HubEntry) {
         when (entry) {

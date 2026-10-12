@@ -3,7 +3,7 @@ package pl.dmq.peering.ui.wiring
 import pl.dmq.peering.feature.remote.HubCapabilities
 import pl.dmq.peering.feature.remote.PictureState
 import pl.dmq.peering.feature.remote.RemoteUiState
-import pl.dmq.peering.session.clipboard.ClipboardContent
+import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.session.controller.PictureState as SessionPictureState
 import pl.dmq.peering.session.controller.SessionPhase
 import pl.dmq.peering.session.controller.SessionUiState
@@ -33,7 +33,8 @@ internal fun remoteUiState(
         capabilities = capabilities,
         hostName = ready?.hostName,
         reconnecting = session.phase is SessionPhase.Reconnecting,
-        hostClipboard = (session.hostClipboard as? ClipboardContent.Text)?.text,
+        hostClipboard = session.hostClipboard,
+        clipboardImages = ready?.capabilities?.contains(HostCapability.ClipboardImages) == true,
     )
 }
 

@@ -22,6 +22,9 @@ interface RemoteModel {
     /** The choices Settings keeps: interaction, fit or fill, keyboard mode, closing panels, device name. */
     val prefs: DevicePreferences
 
+    /** The clipboard history and the pictures the Clipboard panel moves. */
+    val clipboard: ClipboardPort
+
     /** The shortcuts the user added. */
     val macros: MacroStore
 

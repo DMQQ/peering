@@ -75,12 +75,26 @@
     <string name="clipboard_phone">Phone</string>
     <string name="clipboard_computer">Computer</string>
     <string name="clipboard_nothing_copied">Nothing copied</string>
-    <string name="clipboard_other_copied">Something that is not text was copied</string>
+    <string name="clipboard_other_copied">Something that is not text or an image was copied</string>
     <string name="clipboard_not_checked">Not checked yet</string>
     <string name="clipboard_nothing_to_copy">Nothing to copy</string>
     <string name="clipboard_send">Send</string>
     <string name="clipboard_paste_on_computer">Paste on computer</string>
     <string name="clipboard_copy_to_phone">Copy to phone</string>
+    <string name="clipboard_image_copied">Image copied</string>
+    <string name="clipboard_image">Image</string>
+    <string name="clipboard_image_unsupported">This computer needs an update to take pictures</string>
+    <string name="clipboard_image_too_large">Image too large to send (%1$s, limit %2$s)</string>
+    <string name="clipboard_history">History</string>
+    <string name="clipboard_history_empty">Text copied from the computer lands here, so the next copy does not lose it.</string>
+    <string name="clipboard_back">Back to clipboard</string>
+    <string name="clipboard_clear">Clear</string>
+    <string name="clipboard_cancel">Cancel</string>
+    <string name="clipboard_clear_title">Clear the clipboard history?</string>
+    <string name="clipboard_clear_message">The computer\'s own clipboard is untouched. This only forgets what this device kept.</string>
+    <string name="clipboard_copied">Copied</string>
+    <string name="clipboard_send_to_computer">Send to computer</string>
+    <string name="clipboard_delete">Delete</string>
 
     <string name="sources_search">Find a display, application or window</string>
     <string name="sources_section_screens">Screens</string>
