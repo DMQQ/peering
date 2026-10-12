@@ -56,7 +56,7 @@ internal fun PortraitChrome(
                 KeyboardBar(handlers.keyboardKeys, Modifier.padding(horizontal = ChromeMetrics.edgeInset))
             } else {
                 SessionDock(
-                    pages = DockPages.of(state.dockExpanded, state.profile),
+                    groups = DockGroups.of(state.profile),
                     expanded = state.dockExpanded,
                     onExpandedChange = handlers.onDockExpanded,
                     control = { DockControlButton(it, state, handlers) },

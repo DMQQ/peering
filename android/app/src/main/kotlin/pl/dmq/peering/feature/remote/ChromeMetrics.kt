@@ -15,8 +15,9 @@ object ChromeMetrics {
     val backKeySize = 46.dp
     val railPadding = 4.dp
     val dockToggleWidth = 52.dp
-    val dockDotsGap = 6.dp
-    val dockDotsHeight = 10.dp
+    val dockBarHeight = 56.dp
+    val dockButtonHeight = 48.dp
+    val dockButtonMinWidth = 56.dp
     val circleButton = 48.dp
     val pillHeight = 56.dp
     val joystickRadius = 50.dp
