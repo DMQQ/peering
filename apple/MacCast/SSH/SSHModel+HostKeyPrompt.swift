@@ -5,20 +5,33 @@ import RemoteCore
 import SSHCore
 
 extension SSHModel {
-    /// Called from the transport, so it hops to the main actor to show a sheet and waits; the `Task` makes the hop legal from a non-isolated `@Sendable` closure.
-    func ask(about prompt: SSHHostKeyPrompt) async -> Bool {
+    /// Called from the transport, so it hops to the main actor to queue a sheet and waits. `owner` is the tab that asked: closing it answers its prompts with no.
+    func ask(about prompt: SSHHostKeyPrompt, owner: UUID) async -> Bool {
         await withCheckedContinuation { continuation in
             Task { @MainActor in
-                self.keyAnswer = continuation
-                self.keyPrompt = SSHKeyPrompt(prompt: prompt)
+                guard terminals.contains(where: { $0.id == owner }) else {
+                    continuation.resume(returning: false)
+                    return
+                }
+                keyQueue.enqueue(PendingKeyPrompt(prompt: SSHKeyPrompt(prompt: prompt), continuation: continuation), owner: owner)
+                keyPrompt = keyQueue.current?.prompt
             }
         }
     }
 
     func answerKeyPrompt(_ accepted: Bool) {
+        keyQueue.removeCurrent()?.continuation.resume(returning: accepted)
+        keyPrompt = keyQueue.current?.prompt
+    }
+
+    func refuseKeyPrompts() {
+        for pending in keyQueue.removeAll() { pending.continuation.resume(returning: false) }
         keyPrompt = nil
-        keyAnswer?.resume(returning: accepted)
-        keyAnswer = nil
+    }
+
+    func refuseKeyPrompts(ownedBy owner: UUID) {
+        for pending in keyQueue.removeAll(owner: owner) { pending.continuation.resume(returning: false) }
+        keyPrompt = keyQueue.current?.prompt
     }
 
     static func describe(_ error: SSHSessionError) -> String {

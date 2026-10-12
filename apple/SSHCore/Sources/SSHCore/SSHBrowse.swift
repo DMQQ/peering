@@ -55,8 +55,8 @@ struct SSHBrowseRequest: Sendable {
 
     let kind: Kind
     let path: String
-    /// Resumed exactly once. A `CheckedContinuation` rather than an event on the session's stream, which is `.bufferingNewest(1024)` and would drop the oldest answer under pressure and leave the browser spinning.
-    let continuation: CheckedContinuation<SSHBrowseResult, any Error>
+    /// A continuation rather than an event on the session's stream, which is `.bufferingNewest(1024)` and would drop the oldest answer under pressure and leave the browser spinning.
+    let reply: SSHBrowseReply
 }
 
 enum SSHBrowseResult: Sendable {
