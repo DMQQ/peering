@@ -441,17 +441,29 @@ WIN-134 | done | S : a disconnect path that calls `InputSink::release_all` (the 
 WIN-135 | done | S : export the scripted launcher and pin store fakes behind a `testing` feature so flows stop re-implementing them. Owns `peering-agent/src/claude_adapter/fake.rs` exposure and `peering-core/src/session/test_support.rs`.
 AND-137 | done | S : SessionController, the coroutine orchestrator tying transport, state machine, lanes, reconnect, chat and files together (core:session/controller). Added because no task owned the glue. Being built in wave 7.
 AND-138 | done | integration | S : wire the feature presenters to SessionController and register the routes (ScreenRegistry) in the app module. Owns `app/.../ui/Features.kt`. Done: `./gradlew :app:assembleDebug`; the connect, pairing, remote, agents, files, settings, paywall routes open with the real graph.
-AND-139 | todo | S : camera QR scanner source (`QrSource` implementation with CameraX and ML Kit or ZXing). Needs a device to verify.
+AND-139 | done | S : camera QR scanner source (`QrSource` implementation with CameraX and ML Kit or ZXing). Needs a device to verify.
 WIN-136 | done | S : change the `SecretStore::read` port to `Result<Option<Vec<u8>>, StoreError>` so a failed read is not mistaken for an absent key (identity would mint a new key and un-pair every device); update the DPAPI store, fakes and the identity test (the failed-read test is currently missing). Owns `peering-core/src/ports/secret_store.rs`, fakes, `peering-net/src/identity.rs`, `peering-platform/src/dpapi*`.
 WIN-137 | done | S : texture handoff between capture, convert and the MFT encoder (the Encoder port carries no pixels; `MftEncoder::stage_texture` is called today). Define a `FrameSource` handoff in peering-platform and wire DDA -> NV12 -> MFT.
 WIN-138 | done | integration | S : host runtime wiring (WIN-071 expanded): tokio runtime, TCP listener on 51515 with rustls, relay registration, session loops over the core state machines, capture to encode to lane. Owns `host/src/runtime*`.
 AND-140 | done | S : `connection/HandshakeFrames.clientHello` omits `resumeSource`; SessionHandshake rewrites the hello on reconnect as a workaround. Fix it at the source and drop the workaround.
 AND-141 | done | S : wire `DirectPathProber` into `SessionController` so the DIRECT path is produced and reported.
 AND-142 | todo | S : decide identity reset exposure (the Swift settings say not to offer it because the free allowance is keyed to the client id) and the "per day" versus "rolling 24 hours" wording of the free allowance.
-WIN-139 | todo | S : expose the D3D11 device that DDA creates and bind `MftEncoder` to it, replacing the fail-closed `UnboundEncoder` in the runtime. Until this lands no video reaches a client on Windows. Needs a Windows machine to verify.
-WIN-140 | todo | S : relayed video over the UDP datagram lane in the host runtime (today relayed sessions use the control-connection fallback only). Owns `host/src/runtime/video.rs`.
-WIN-141 | todo | S : host Settings window entries for autostart and the firewall helper (executors exist), frame rate and lock screen requests applied.
-AND-143 | todo | S : bind relay presence, hostIds with names, file download forwarding, agent setModel/permission mode/browse through AgentChat, hub Quality entry, legal pages, paywall trigger, relay allowance tracking, reopening relay signalling after a drop (the stubs listed by the wiring builder).
+WIN-139 | done | S : expose the D3D11 device that DDA creates and bind `MftEncoder` to it, replacing the fail-closed `UnboundEncoder` in the runtime. Until this lands no video reaches a client on Windows. Needs a Windows machine to verify.
+WIN-140 | done | S : relayed video over the UDP datagram lane in the host runtime (today relayed sessions use the control-connection fallback only). Owns `host/src/runtime/video.rs`.
+WIN-141 | done | S : host Settings window entries for autostart and the firewall helper (executors exist), frame rate and lock screen requests applied.
+AND-143 | done | S : bind relay presence, hostIds with names, file download forwarding, agent setModel/permission mode/browse through AgentChat, hub Quality entry, legal pages, paywall trigger, relay allowance tracking, reopening relay signalling after a drop (the stubs listed by the wiring builder).
+
+## Android design pass (after the stubs were removed)
+
+The owner judged the first Android UI far below the iPhone app. Each pass is built by a sonnet class builder, one screen group at a time, on the attached phone (adb screencap, compare with the SwiftUI view, iterate). Screenshots go to the scratchpad, not the repo.
+
+AND-150 | todo | S : brand foundation: Plus Jakarta Sans font files in res/font, the Peeri mascot and app icon (adaptive launcher icon, splash), icon set, theme polish (edge to edge, insets), and the Connect + pairing screens.
+AND-151 | todo | S : remote session screen, hub, sources, overlay, keyboard bars.
+AND-152 | todo | S : agents hub, transcript, composer, approval card.
+AND-153 | todo | S : files list and preview.
+AND-154 | todo | S : settings, sessions tab, paywall, onboarding, FAQ, legal.
+AND-155 | todo | S : no-network and permission empty states (Wi-Fi off, no local network, camera denied); the phone used for the first test had Wi-Fi disabled and no mobile data, which is why Nearby showed nothing.
+AND-113 | todo | S : FCM client against a gitignored runtime config (no Google Services plugin needed at build time), registerPushToken with the `fcm:` prefix, notification display, approval actions.
 
 ## Windows: LATER and SKIP
 
