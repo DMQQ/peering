@@ -72,7 +72,7 @@ extension RemoteScreen {
     /// Above the gesture surface, or the surface takes the tap meant for Unlock.
     @ViewBuilder var remoteNoticeLayer: some View {
         // A sleeping screen is streaming on time and entirely black, so the paused card never fires for it.
-        if let notice = model.remoteNotice, let message = notice.message, model.phase == .ready,
+        if let notice = model.remoteNotice, let message = HostNoticeText.message(for: notice), model.phase == .ready,
            !isUnlocking(notice) {
             ZStack {
                 Color.black.opacity(0.72).ignoresSafeArea()

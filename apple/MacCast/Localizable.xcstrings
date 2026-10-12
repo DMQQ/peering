@@ -878,6 +878,64 @@
         }
       }
     },
+    "Privacy Mode could not darken this Mac's displays." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Privatmodus konnte die Displays dieses Mac nicht abdunkeln."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El modo privado no pudo oscurecer las pantallas de este Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le mode confidentiel n'a pas pu assombrir les écrans de ce Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La modalità privacy non è riuscita a oscurare i display di questo Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プライバシーモードでこのMacのディスプレイを暗くできませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "개인정보 보호 모드가 이 Mac의 디스플레이를 어둡게 하지 못했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Modo Privacidade não conseguiu escurecer os monitores deste Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Режим конфиденциальности не смог затемнить дисплеи этого Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐私模式无法调暗这台 Mac 的显示器。"
+          }
+        }
+      }
+    },
     "Sending “%@”…" : {
       "localizations" : {
         "de" : {
@@ -932,6 +990,354 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在发送“%@”…"
+          }
+        }
+      }
+    },
+    "Some of this Mac's displays are still visible: Privacy Mode could not cover them." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einige Displays dieses Mac sind noch sichtbar: Der Privatmodus konnte sie nicht abdecken."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Algunas pantallas de este Mac siguen visibles: el modo privado no pudo cubrirlas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certains écrans de ce Mac sont encore visibles : le mode confidentiel n'a pas pu les couvrir."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alcuni display di questo Mac sono ancora visibili: la modalità privacy non è riuscita a coprirli."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacの一部のディスプレイはまだ見える状態です。プライバシーモードで覆えませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac의 일부 디스플레이가 여전히 보입니다. 개인정보 보호 모드가 이를 가리지 못했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alguns monitores deste Mac ainda estão visíveis: o Modo Privacidade não conseguiu cobri-los."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Некоторые дисплеи этого Mac всё ещё видны: режим конфиденциальности не смог их закрыть."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 的部分显示器仍然可见：隐私模式无法将其遮盖。"
+          }
+        }
+      }
+    },
+    "That display is no longer connected. Choose another from Sources." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Display ist nicht mehr verbunden. Wähle unter Quellen ein anderes."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esa pantalla ya no está conectada. Elige otra en Fuentes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet écran n'est plus connecté. Choisissez-en un autre dans Sources."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quel display non è più collegato. Scegline un altro da Sorgenti."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのディスプレイは接続されていません。「ソース」から別のものを選んでください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해당 디스플레이가 더 이상 연결되어 있지 않습니다. 소스에서 다른 디스플레이를 선택하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esse monitor não está mais conectado. Escolha outro em Fontes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот дисплей больше не подключён. Выберите другой в разделе «Источники»."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该显示器已断开连接。请在“来源”中选择其他显示器。"
+          }
+        }
+      }
+    },
+    "The picture stopped and this Mac could not start it again. Reconnect to try once more, or check Screen Recording and the display on the Mac." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Bild ist stehen geblieben und dieser Mac konnte es nicht neu starten. Verbinde dich erneut, um es noch einmal zu versuchen, oder prüfe Bildschirmaufnahme und Display am Mac."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La imagen se detuvo y este Mac no pudo reiniciarla. Vuelve a conectar para intentarlo de nuevo, o revisa la Grabación de pantalla y la pantalla del Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'image s'est arrêtée et ce Mac n'a pas pu la relancer. Reconnectez-vous pour réessayer, ou vérifiez l'Enregistrement d'écran et l'écran du Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'immagine si è fermata e questo Mac non è riuscito a riavviarla. Riconnettiti per riprovare, oppure controlla Registrazione schermo e lo schermo del Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "映像が止まり、このMacでは再開できませんでした。再接続してもう一度試すか、Macの画面収録とディスプレイを確認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "화면이 멈췄고 이 Mac에서 다시 시작하지 못했습니다. 다시 연결해 보거나, Mac의 화면 기록과 디스플레이를 확인하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A imagem parou e este Mac não conseguiu reiniciá-la. Reconecte para tentar de novo ou verifique a Gravação de Tela e o monitor do Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изображение остановилось, и этот Mac не смог запустить его снова. Подключитесь заново, чтобы повторить попытку, или проверьте «Запись экрана» и дисплей на Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面已停止，这台 Mac 无法重新启动它。请重新连接再试一次，或检查 Mac 上的“屏幕录制”和显示器。"
+          }
+        }
+      }
+    },
+    "This Mac cannot record its screen. Someone there has to allow Screen Recording for Peering in System Settings, then quit Peering on the Mac and open it again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Mac kann seinen Bildschirm nicht aufnehmen. Jemand am Mac muss Peering in den Systemeinstellungen die Bildschirmaufnahme erlauben, dann Peering auf dem Mac beenden und erneut öffnen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac no puede grabar su pantalla. Alguien tiene que permitir la Grabación de pantalla para Peering en Ajustes del Sistema, y luego salir de Peering en el Mac y abrirlo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce Mac ne peut pas enregistrer son écran. Quelqu'un doit autoriser l'Enregistrement d'écran pour Peering dans Réglages Système, puis quitter Peering sur le Mac et le rouvrir."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo Mac non può registrare il proprio schermo. Qualcuno deve consentire la Registrazione schermo per Peering in Impostazioni di Sistema, poi chiudere Peering sul Mac e riaprirlo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacは画面を収録できません。Macの前にいる人が、システム設定でPeeringに画面収録を許可し、Mac上でPeeringを終了してから開き直す必要があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac이 화면을 기록할 수 없습니다. Mac 앞에 있는 사람이 시스템 설정에서 Peering에 화면 기록을 허용한 다음, Mac에서 Peering을 종료하고 다시 열어야 합니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac não consegue gravar a própria tela. Alguém precisa permitir a Gravação de Tela para o Peering em Ajustes do Sistema, depois encerrar o Peering no Mac e abri-lo de novo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот Mac не может записывать свой экран. Кто-то должен разрешить Peering «Запись экрана» в Системных настройках, затем завершить Peering на Mac и открыть его снова."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 无法录制屏幕。需要有人在“系统设置”中允许 Peering 使用“屏幕录制”，然后在 Mac 上退出 Peering 并重新打开。"
+          }
+        }
+      }
+    },
+    "This Mac is locked." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Mac ist gesperrt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac está bloqueado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce Mac est verrouillé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo Mac è bloccato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacはロックされています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac이 잠겨 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac está bloqueado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот Mac заблокирован."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 已锁定。"
+          }
+        }
+      }
+    },
+    "This Mac's screen is asleep." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Bildschirm dieses Mac ist im Ruhezustand."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La pantalla de este Mac está en reposo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'écran de ce Mac est en veille."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo schermo di questo Mac è in stop."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacの画面はスリープ中です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac의 화면이 잠자기 상태입니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A tela deste Mac está em repouso."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Экран этого Mac в режиме сна."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 的屏幕已进入睡眠。"
           }
         }
       }
