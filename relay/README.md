@@ -55,7 +55,8 @@ video, and serves signalling in plaintext. That is exactly right for pointing bo
 | `PEERINGD_SESSION_TTL` | `300` | Seconds a session survives without activity. `0` is refused at startup, as it is for the two timeouts below: it would end every session or socket as it is made |
 | `PEERINGD_MAX_SESSIONS` | `1000` | Sessions that may exist at once. A session costs a kilobyte of bookkeeping before its splice exists (see Cost), and asking for one is unauthenticated, so this is what turns "someone loops `ConnectToHost`" from an OOM kill into a refusal. Zero is refused as a value: a relay that answers nothing looks healthy, and that is an outage nobody diagnoses from the config |
 | `PEERINGD_MAX_CONNECTIONS` | `4096` | Sockets that may be open on the signalling listener at once. Has to be larger than the number of registered Macs, since each holds its registration socket open for as long as it runs. A connection beyond it is closed rather than queued |
-| `PEERINGD_MAX_SIGNALLING_PER_IP` | `256` | Signalling sockets one peer address may hold at once. Generous because many users share a NAT; the global `PEERINGD_MAX_CONNECTIONS` is what this stops one address from spending. IPv6 peers count by /64. A loopback peer (nginx on the same box) is taken to be the client named by `CF-Connecting-IP`, else the left-most valid `X-Forwarded-For` entry, else `X-Real-IP`, and is exempt only when none is valid (health checks). The headers are ignored for any non-loopback peer, so a direct client cannot spoof its address. The same address drives the allocation rate and unspliced limits |
+| `PEERINGD_MAX_SIGNALLING_PER_IP` | `256` | Signalling sockets one peer address may hold at once. Generous because many users share a NAT; the global `PEERINGD_MAX_CONNECTIONS` is what this stops one address from spending. IPv6 peers count by /64. A loopback peer (nginx on the same box) is taken to be the client named by the `PEERINGD_CLIENT_IP_HEADER` header (default `X-Real-IP`), and is exempt only when that header is missing or invalid (health checks). The header is ignored for any non-loopback peer, so a direct client cannot spoof its address. The relay logs one startup warning if the first loopback WebSocket carries no usable header, since the limits then do nothing. The same address drives the allocation rate and unspliced limits |
+| `PEERINGD_CLIENT_IP_HEADER` | `X-Real-IP` | The one header a loopback proxy names the client in: `X-Real-IP`, `CF-Connecting-IP` or `X-Forwarded-For` (the right-most valid entry, the one the local proxy appended). Anything else is refused at startup. Leave it alone unless the front end is not nginx: nginx overwrites `X-Real-IP`, but passes a client's own `CF-Connecting-IP` and appends to a client's own `X-Forwarded-For`, so those two are forgeable by anyone who reaches nginx directly |
 | `PEERINGD_MAX_CONTROL_PER_IP` | `512` | Control sockets one peer address may hold, waiting for a peer or spliced. Control is not proxied, so this always sees real addresses |
 | `PEERINGD_SESSIONS_PER_IP_PER_MINUTE` | `120` | Sessions one signalling peer address may allocate per minute. Over it the answer is `tooManySessions` |
 | `PEERINGD_MAX_UNSPLICED_PER_IP` | `64` | Sessions one address may have allocated whose two control ends have not both arrived. A fake host that never connects can otherwise keep every session alive against the TTL |
@@ -417,6 +418,20 @@ Environment=PEERINGD_TLS_KEY=/etc/letsencrypt/live/getpeering.app/privkey.pem
 Bind 443 if it is free — it is the one port guest and corporate networks never block. Otherwise use
 anything, accepting that a restrictive network may refuse it.
 
+#### Client addresses behind nginx
+
+The per address limits trust one header from a loopback peer, `X-Real-IP`, which nginx sets from
+`$remote_addr`. That is only the true client if nginx recovers it first: with Cloudflare in front,
+list Cloudflare's published ranges and read the address Cloudflare names, so a direct visitor keeps
+the TCP address it connected from and cannot forge anything.
+
+```nginx
+# in the http block, one line per Cloudflare range (https://www.cloudflare.com/ips/)
+set_real_ip_from 173.245.48.0/20;
+set_real_ip_from 2400:cb00::/32;
+real_ip_header CF-Connecting-IP;
+```
+
 #### B — nginx in front of signalling
 
 For a machine already serving HTTPS, where 443 is taken. nginx terminates TLS for the WebSocket and
@@ -438,10 +453,8 @@ server {
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        # CF-Connecting-IP, when Cloudflare is in front, is passed to the relay untouched by nginx,
-        # and the relay prefers it. The per address limits read these three headers from this proxy
-        # only (it connects from loopback); a direct client's headers are ignored.
+        # The relay reads only X-Real-IP, and only from this proxy (it connects from loopback).
+        # $remote_addr must already be the true client: see "Client addresses behind nginx".
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # Not optional. A Mac that is registered holds this socket open and says nothing for
@@ -506,10 +519,8 @@ server {
         proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        # CF-Connecting-IP, when Cloudflare is in front, is passed to the relay untouched by nginx,
-        # and the relay prefers it. The per address limits read these three headers from this proxy
-        # only (it connects from loopback); a direct client's headers are ignored.
+        # The relay reads only X-Real-IP, and only from this proxy (it connects from loopback).
+        # $remote_addr must already be the true client: see "Client addresses behind nginx".
 
         # Only the WebSocket needs this. A Mac that is registered holds its socket open and says
         # nothing for minutes at a time, and nginx closes an idle proxied connection at 60

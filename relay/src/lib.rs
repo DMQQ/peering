@@ -34,6 +34,7 @@
 pub mod activity;
 pub mod apns;
 pub mod apns_policy;
+pub mod client_ip;
 pub mod config;
 pub mod counted_stream;
 pub mod device_bindings;

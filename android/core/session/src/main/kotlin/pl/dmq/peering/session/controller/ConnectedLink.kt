@@ -64,6 +64,8 @@ internal class ConnectedLink(
     private val ceiling: QualityTier,
     private val clipboard: ClipboardHistory,
     private val tally: ByteTally,
+    private val note: (String) -> Unit,
+    lanPeerKey: ByteArray?,
 ) {
     private val liveness = LivenessMonitor(clock)
     val commands = SessionCommands(hello)
@@ -77,7 +79,7 @@ internal class ConnectedLink(
     private val picture: PictureWatch = PictureWatch(
         clock,
         lane = route.path.takeIf { it == SessionRecord.Path.LAN }?.let {
-            LanVideoLane(videoConnector, route.videoPeer, PictureSink(streamRecord, selection::onVideoConfig, seen), tally)
+            LanVideoLane(videoConnector, route.videoPeer, lanPeerKey, PictureSink(streamRecord, selection::onVideoConfig, seen), tally)
         },
     )
     private var automatic: AutoQualityPolicy? = null
@@ -157,7 +159,7 @@ internal class ConnectedLink(
     fun CoroutineScope.serve(ended: CompletableDeferred<LinkEnd>, onTick: () -> Unit) {
         applyQuality(quality, ceiling)
         picture.start(this)
-        launchLinkTask(ended) {
+        launchLinkTask(ended, note) {
             if (route.path == SessionRecord.Path.RELAY) {
                 for (event in lanes.start().asEvents()) applyEvent(event, ended)
             }
@@ -166,7 +168,7 @@ internal class ConnectedLink(
             }
         }
         route.datagrams?.let { datagrams ->
-            launchLinkTask(ended) {
+            launchLinkTask(ended, note) {
                 datagrams.received.collect { datagram ->
                     tally.addReceived(datagram.bytes.size)
                     if (datagram.source == route.videoPeer) {
@@ -179,11 +181,11 @@ internal class ConnectedLink(
             }
         }
         direct?.let { runner ->
-            launchLinkTask(ended) { every(PROBE_INTERVAL) { runner.tick(clock.monotonicSeconds()) } }
+            launchLinkTask(ended, note) { every(PROBE_INTERVAL) { runner.tick(clock.monotonicSeconds()) } }
         }
-        launchLinkTask(ended) { every(COMMAND_INTERVAL) { commands.drain().forEach(writer::enqueue) } }
-        launchLinkTask(ended) { every(PING_INTERVAL) { writer.enqueue(liveness.nextPing()) } }
-        launchLinkTask(ended) {
+        launchLinkTask(ended, note) { every(COMMAND_INTERVAL) { commands.drain().forEach(writer::enqueue) } }
+        launchLinkTask(ended, note) { every(PING_INTERVAL) { writer.enqueue(liveness.nextPing()) } }
+        launchLinkTask(ended, note) {
             every(LANE_INTERVAL) {
                 for (event in lanes.tick(clock.monotonicSeconds()).asEvents()) applyEvent(event, ended)
                 steerAutomatic()

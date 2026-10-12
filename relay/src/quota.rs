@@ -72,7 +72,7 @@ use tracing::warn;
 use crate::config::PlanAllowances;
 use crate::referrals::{ReferralTerms, Referrals};
 use crate::stats::PlanTier;
-use crate::usage_log::UsageLogWriter;
+use crate::usage_log::{Totals, UsageLogWriter, WindowUsage};
 
 /// One-day rolling window. Dividing epoch seconds by this gives a bucket number that advances
 /// every 24 hours — no calendar library needed, and the exact hour it rolls over does not matter
@@ -162,8 +162,7 @@ pub struct QuotaTracker {
 }
 
 struct Inner {
-    /// client_id → (window the usage belongs to, seconds used in that window)
-    usage: HashMap<String, (u64, u64)>,
+    usage: Totals,
     paid_keys: HashSet<String>,
     /// Absent when no path was configured or the file would not open. See ``with_usage_log``.
     log: Option<UsageLogWriter>,
@@ -305,8 +304,8 @@ impl QuotaTracker {
         let used = inner
             .usage
             .get(client_id)
-            .filter(|(w, _)| *w == window)
-            .map(|(_, s)| *s)
+            .filter(|usage| usage.window == window)
+            .map(|usage| usage.seconds)
             .unwrap_or(0);
         Some(allowance.saturating_sub(used))
     }
@@ -349,11 +348,11 @@ impl QuotaTracker {
         let secs = duration.as_secs().max(1);
         let mut inner = self.lock();
         let window = window_key();
-        let entry = inner.usage.entry(client_id.to_string()).or_insert((window, 0));
-        if entry.0 != window {
-            *entry = (window, 0);
+        let entry = inner.usage.entry(client_id.to_string()).or_insert(WindowUsage { window, seconds: 0 });
+        if entry.window != window {
+            *entry = WindowUsage { window, seconds: 0 };
         }
-        entry.1 = entry.1.saturating_add(secs);
+        entry.seconds = entry.seconds.saturating_add(secs);
 
         let Inner { usage, log, log_backlogged, evicting, .. } = &mut *inner;
 
@@ -395,12 +394,12 @@ impl QuotaTracker {
     /// and giving it an order would cost a second structure to maintain on the hot path of every
     /// charge. The choice changes which client is unlucky, not how much is forgotten.
     fn evict(
-        usage: &mut HashMap<String, (u64, u64)>,
+        usage: &mut Totals,
         window: u64,
         keep: &str,
         evicting: &mut bool,
     ) {
-        usage.retain(|_, (entry_window, _)| *entry_window == window);
+        usage.retain(|_, entry| entry.window == window);
         let was = usage.len();
         if was > MAX_TRACKED_CLIENTS {
             let overflow = was - MAX_TRACKED_CLIENTS;
@@ -1166,7 +1165,7 @@ mod tests {
         let inner = tracker.lock();
         assert_eq!(
             inner.usage.get("the-client-being-charged"),
-            Some(&(window_key(), 7)),
+            Some(&WindowUsage { window: window_key(), seconds: 7 }),
             "the charge in progress survived the eviction"
         );
         assert!(inner.usage.len() <= MAX_TRACKED_CLIENTS);

@@ -35,6 +35,28 @@ class RelaySessionTest {
     }
 
     @Test
+    fun theRelaysOwnCountOfTheTimeLeftIsPassedOn() = runTest {
+        val rig = relayRig()
+        rig.signalling.grantSession(remainingSeconds = 1703)
+
+        rig.controller.connect()
+        settle()
+
+        assertEquals(listOf(1703L), rig.remainingReported)
+    }
+
+    @Test
+    fun aGrantWithoutACountPassesNothingOn() = runTest {
+        val rig = relayRig()
+        rig.signalling.grantSession()
+
+        rig.controller.connect()
+        settle()
+
+        assertTrue(rig.remainingReported.isEmpty())
+    }
+
+    @Test
     fun aQuotaExceededReplyEndsTheSessionWithoutADialOrARetry() = runTest {
         val rig = relayRig()
         rig.signalling.reply(RelayServerMessage.Error("quotaExceeded", "free time used"))

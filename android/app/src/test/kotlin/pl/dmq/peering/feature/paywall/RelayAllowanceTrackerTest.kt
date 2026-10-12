@@ -41,6 +41,15 @@ class RelayAllowanceTrackerTest {
     }
 
     @Test
+    fun theRelaysCountOfTheTimeLeftReplacesTheLocalGuess() = runTest {
+        val tracker = tracker(backgroundScope)
+        tracker.recordRelaySeconds(600)
+        tracker.relayReportedRemaining(1703)
+        assertEquals(97L, tracker.allowance.value.usedSeconds)
+        assertEquals(1703L, tracker.allowance.value.remainingSeconds)
+    }
+
+    @Test
     fun sessionTimeOnTheRelayIsRecordedWhileItLasts() = runTest {
         val active = MutableStateFlow(true)
         val tracker = tracker(backgroundScope)

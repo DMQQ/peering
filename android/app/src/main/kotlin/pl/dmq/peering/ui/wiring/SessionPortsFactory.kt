@@ -31,12 +31,13 @@ internal class SessionPortsFactory(
     private val billing: Billing,
     private val lanAddresses: RememberedLanAddresses,
     private val clipboardHistory: ClipboardHistory,
+    private val onRelayRemainingSeconds: (Long) -> Unit,
     private val foreground: Flow<Boolean> = processForeground(),
     private val deviceName: () -> String,
 ) : SessionOpener {
     override fun open(target: ConnectTarget, scope: CoroutineScope): ActiveSession {
         val lane = if (target.mayUseRelay()) UdpLane.bind() else null
-        val relay = lane?.let { RelayPorts(sessions.newRelaySignalling(), it, billing::entitlement) }
+        val relay = lane?.let { RelayPorts(sessions.newRelaySignalling(), it, onRelayRemainingSeconds, billing::entitlement) }
         val downloads = SessionDownloads()
         val ports = SessionPorts(
             identity = sessions.identity,

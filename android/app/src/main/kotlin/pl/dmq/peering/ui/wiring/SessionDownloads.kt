@@ -16,6 +16,7 @@ import pl.dmq.peering.session.controller.DownloadWriter
 import pl.dmq.peering.session.files.FileBrowser
 import pl.dmq.peering.session.files.FileTransfer
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -27,6 +28,7 @@ internal class SessionDownloads : DownloadWriter {
     private val writer: ExecutorService = Executors.newSingleThreadExecutor { task ->
         Thread(task, "peering-downloads").apply { isDaemon = true }
     }
+    @Volatile private var closed = false
     private var coordinator: DownloadCoordinator? = null
     private val mutableDestinationFailed = MutableStateFlow(false)
     private val pending = AtomicInteger(0)
@@ -40,7 +42,7 @@ internal class SessionDownloads : DownloadWriter {
     /** Routes the next download's bytes to [sink]. Call it before the request for the download is sent. */
     fun begin(sink: DownloadSink) {
         mutableDestinationFailed.value = false
-        writer.execute { coordinator = DownloadCoordinator(sink) }
+        submit { coordinator = DownloadCoordinator(sink) }
     }
 
     /** The user picked no destination, or it could not be opened, so the download does not start. */
@@ -50,7 +52,7 @@ internal class SessionDownloads : DownloadWriter {
 
     override fun writeRange(offset: Long, bytes: ByteArray) {
         pending.incrementAndGet()
-        writer.execute {
+        val queued = submit {
             try {
                 settle { accept(offset, bytes) }
             } finally {
@@ -58,14 +60,22 @@ internal class SessionDownloads : DownloadWriter {
                 caughtUp.trySend(Unit)
             }
         }
+        if (!queued) pending.decrementAndGet()
     }
 
-    fun commit() = writer.execute { settle { complete() } }
+    fun commit() {
+        submit { settle { complete() } }
+    }
 
-    fun discard() = writer.execute { settle { cancel() } }
+    fun discard() {
+        submit { settle { cancel() } }
+    }
 
     /** Ends the writer after the work already queued. */
-    fun close() = writer.shutdown()
+    fun close() {
+        closed = true
+        writer.shutdown()
+    }
 
     /**
      * Ends the downloads the browser reports: a finished transfer is committed, a failed one or a destination that
@@ -90,9 +100,26 @@ internal class SessionDownloads : DownloadWriter {
         }
     }
 
+    /** False when the writer has ended: a late call from another thread has nothing to write to. */
+    private fun submit(task: () -> Unit): Boolean {
+        if (closed) return false
+        return try {
+            writer.execute(task)
+            true
+        } catch (_: RejectedExecutionException) {
+            false
+        }
+    }
+
     private fun settle(action: DownloadCoordinator.() -> Unit) {
         val current = coordinator ?: return
-        current.action()
+        try {
+            current.action()
+        } catch (_: Exception) {
+            mutableDestinationFailed.value = true
+            coordinator = null
+            return
+        }
         val outcome = current.outcome ?: return
         if (outcome is DownloadOutcome.Failed) mutableDestinationFailed.value = true
         coordinator = null

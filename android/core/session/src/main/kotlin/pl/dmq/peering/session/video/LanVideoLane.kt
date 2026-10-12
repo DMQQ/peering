@@ -17,11 +17,14 @@ import pl.dmq.peering.wire.MessageKind
 /**
  * The picture of a local session: a second TCP connection to the computer whose first frame names it a video
  * connection. The computer starts streaming when it has read that frame, and refuses the connection unless the control
- * session is already authenticated, so this is opened only once the session is ready. It carries no handshake.
+ * session is already authenticated, so this is opened only once the session is ready. It carries no handshake, so the
+ * key the connection shows is compared with [expectedPeerKey], the host's pin; a lane to any other key is never used and
+ * is not retried. A missing expected key fails the lane rather than trusting the address.
  */
 internal class LanVideoLane(
     private val connector: ControlConnector,
     private val address: PeerAddress,
+    private val expectedPeerKey: ByteArray?,
     sink: VideoSink,
     private val tally: ByteTally,
 ) {
@@ -41,7 +44,12 @@ internal class LanVideoLane(
     /** Opens the connection and reopens it down the ladder whenever it ends, until the ladder is spent. */
     suspend fun run() {
         while (true) {
-            val opened = attempt()
+            val opened = try {
+                attempt()
+            } catch (mismatch: PeerKeyMismatch) {
+                failure = PictureFailure.CouldNotOpen
+                return
+            }
             val wait = ladder.next()
             if (wait == null) {
                 failure = if (opened) PictureFailure.Dropped else PictureFailure.CouldNotOpen
@@ -59,6 +67,11 @@ internal class LanVideoLane(
             throw cancelled
         } catch (error: Exception) {
             return false
+        }
+        val observed = transport.peerPublicKey()
+        if (expectedPeerKey == null || observed == null || !observed.contentEquals(expectedPeerKey)) {
+            transport.close()
+            throw PeerKeyMismatch()
         }
         try {
             val hello = FrameEncoder.encode(MessageKind.ConnectionRole, byteArrayOf(ConnectionRole.Video.byte.toByte()))
@@ -83,3 +96,5 @@ internal class LanVideoLane(
         return true
     }
 }
+
+private class PeerKeyMismatch : Exception()

@@ -36,6 +36,22 @@ class LanPictureTest {
     }
 
     @Test
+    fun aPictureConnectionShowingAnotherKeyThanThePinIsClosedAndNeverRetried() = runTest {
+        val rig = lanRig()
+        rig.videoPeerKey = ByteArray(ScriptedPairingHost.HOST_KEY.size) { 9 }
+        rig.controller.connect()
+        settle()
+        advanceTimeBy(60_000)
+        runCurrent()
+
+        assertEquals(1, rig.videoConnections.size)
+        assertTrue(rig.videoConnections.single().closed)
+        assertTrue(rig.videoConnections.single().phoneFrames.isEmpty())
+        assertEquals(PictureState.Failed(PictureFailure.CouldNotOpen), rig.controller.state.value.picture)
+        assertTrue(rig.controller.state.value.phase is SessionPhase.Ready)
+    }
+
+    @Test
     fun theVideoConnectionOpensOnlyAfterTheControlSessionIsReady() = runTest {
         val rig = lanRig()
         rig.mac.silentOn = MessageKind.ClientHello

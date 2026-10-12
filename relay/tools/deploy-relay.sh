@@ -18,9 +18,10 @@
 #   relay/tools/deploy-relay.sh v0.1.6 --yes      # skip the confirmation
 #
 # Environment overrides: PEERINGD_SSH (default below), PEERINGD_SSH_PORT, PEERINGD_REPO,
-# PEERINGD_REMOTE_BIN, PEERINGD_HEALTH_URL (what the box probes after restarting; the web
-# listener's /healthz by default). The site travels by deploy-site.sh, which this calls at the end, so
-# PEERINGD_REMOTE_SITE and PEERINGD_PUBLIC are read there rather than here.
+# PEERINGD_REMOTE_BIN, PEERINGD_HEALTH_URL (the web listener's /healthz by default) and
+# PEERINGD_HEALTH_PORTS (signalling and control, which the box probes after restarting). The site
+# travels by deploy-site.sh, which this calls at the end, so PEERINGD_REMOTE_SITE and
+# PEERINGD_PUBLIC are read there rather than here.
 
 set -euo pipefail
 
@@ -34,6 +35,8 @@ SCP_ARGS=(-P "${PEERINGD_SSH_PORT:-10190}")
 REMOTE_BIN="${PEERINGD_REMOTE_BIN:-/usr/local/bin/peeringd}"
 ASSET="peeringd-linux-x86_64"
 HEALTH_URL="${PEERINGD_HEALTH_URL:-http://127.0.0.1:8080/healthz}"
+# The listeners that must accept a connection, signalling then control, as on the health check script.
+HEALTH_PORTS="${PEERINGD_HEALTH_PORTS:-127.0.0.1:8443 127.0.0.1:9443}"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 TAG="${1:-}"
@@ -178,18 +181,14 @@ fi
 # **Active is not the same as answering.** A binary that crash loops is "active" for most of every
 # restart interval, and one that starts but never opens its listeners passes the check above. So
 # the new binary has to answer /healthz, and if it does not, the BINARY is put back from the copy
-# taken above. Only the binary: the unit was already proved good by being active.
-healthy() {
-    for attempt in 1 2 3 4 5 6 7 8 9 10; do
-        if curl -fs --max-time 3 "$HEALTH_URL" >/dev/null; then
-            return 0
-        fi
-        sleep 1
-    done
-    return 1
-}
+# taken above. Only the binary: the unit was already proved good by being active. The decision
+# lives in deploy/peeringd-deploy-health.sh so a test can run it: signalling and control must accept
+# connections, and a web listener that is not bound is not a reason to roll back.
+HEALTH_URL="$HEALTH_URL"
+HEALTH_PORTS="$HEALTH_PORTS"
+$(cat "$REPO_DIR/deploy/peeringd-deploy-health.sh")
 if ! healthy; then
-    echo "!! the new peeringd is running but does not answer $HEALTH_URL; putting the previous binary back"
+    echo "!! the new peeringd is running but does not answer on $HEALTH_PORTS or $HEALTH_URL; putting the previous binary back"
     if [ -f "$REMOTE_BIN.bak-\$stamp" ]; then
         cp -p "$REMOTE_BIN.bak-\$stamp" "$REMOTE_BIN.rollback"
         mv "$REMOTE_BIN.rollback" "$REMOTE_BIN"
@@ -205,7 +204,7 @@ if ! healthy; then
     journalctl -u peeringd -n 20 --no-pager
     exit 1
 fi
-echo "peeringd answers $HEALTH_URL"
+echo "peeringd answers on $HEALTH_PORTS"
 
 # Only after a healthy deploy, so the copies a rollback might need are never the ones pruned. The
 # newest five stay; \`ls\` failing on no match must not trip pipefail.
