@@ -160,11 +160,11 @@ extension TerminalSessionManager {
             // The prompt alone when there is one: "[sudo] password for damian:" says which password
             // and whose. The sentence stays as the fallback for a prompt that cannot be read.
             let waiting = attention == .password
-                ? String(localized: "Terminal \u{201C}\(session.name)\u{201D} is waiting for a password.")
-                : String(localized: "Terminal \u{201C}\(session.name)\u{201D} is waiting for confirmation.")
+                ? "Terminal \u{201C}\(session.name)\u{201D} is waiting for a password."
+                : "Terminal \u{201C}\(session.name)\u{201D} is waiting for confirmation."
             let message = question ?? waiting
             send(.attention(sessionID: session.id, kind: attention, message: message), to: session.ownerClientID)
-            push(session: session, title: String(localized: "Terminal needs you"), message: message)
+            push(session: session, title: "Terminal needs you", message: message)
         }
 
         if let finish {
@@ -177,9 +177,9 @@ extension TerminalSessionManager {
                 ),
                 to: session.ownerClientID
             )
-            let named = finish.command.map { "\u{201C}\($0)\u{201D}" } ?? String(localized: "Terminal \u{201C}\(session.name)\u{201D}")
-            let message = String(localized: "\(named) finished after \(TerminalCommandFinishDetector.spokenDuration(finish.duration)).")
-            push(session: session, title: String(localized: "Terminal finished"), message: message)
+            let named = finish.command.map { "\u{201C}\($0)\u{201D}" } ?? "Terminal \u{201C}\(session.name)\u{201D}"
+            let message = "\(named) finished after \(TerminalCommandFinishDetector.spokenDuration(finish.duration))."
+            push(session: session, title: "Terminal finished", message: message)
         }
     }
 

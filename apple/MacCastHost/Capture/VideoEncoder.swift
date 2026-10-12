@@ -6,101 +6,6 @@ import os
 
 private let encoderLog = Logger(subsystem: "pl.dmq.peering.host", category: "encoder")
 
-enum VideoCodec: String, CaseIterable, Sendable, Equatable {
-    case h264
-    case hevc
-
-    var title: String { rawValue.uppercased() }
-
-    var codecType: CMVideoCodecType {
-        switch self {
-        case .h264: return kCMVideoCodecType_H264
-        case .hevc: return kCMVideoCodecType_HEVC
-        }
-    }
-
-    var profileLevel: CFString {
-        switch self {
-        case .h264:
-// Main, not Baseline (no B-frames or CABAC, and nothing needs it). AutoLevel because a hardcoded level failed on a 5K display.
-            return kVTProfileLevel_H264_Main_AutoLevel
-        case .hevc:
-            return kVTProfileLevel_HEVC_Main_AutoLevel
-        }
-    }
-
-/// Per codec: the H.264 accessor returns nothing for an HEVC format description and vice versa.
-    func parameterSets(from formatDescription: CMFormatDescription) -> ParameterSets? {
-        switch self {
-        case .h264:
-            var sets: [Data] = []
-            var nalUnitHeaderLength: Int32 = 0
-            var index = 0
-
-            while true {
-                var pointer: UnsafePointer<UInt8>?
-                var size: Int = 0
-                let status = CMVideoFormatDescriptionGetH264ParameterSetAtIndex(
-                    formatDescription,
-                    parameterSetIndex: index,
-                    parameterSetPointerOut: &pointer,
-                    parameterSetSizeOut: &size,
-                    parameterSetCountOut: nil,
-                    nalUnitHeaderLengthOut: &nalUnitHeaderLength
-                )
-                guard status == noErr, let pointer, size > 0 else { break }
-                sets.append(Data(bytes: pointer, count: size))
-                index += 1
-            }
-
-            guard !sets.isEmpty else { return nil }
-            return ParameterSets(sets: sets, nalUnitHeaderLength: Int(nalUnitHeaderLength))
-        case .hevc:
-            var sets: [Data] = []
-            var nalUnitHeaderLength: Int32 = 0
-            var index = 0
-            while true {
-                var pointer: UnsafePointer<UInt8>?
-                var size = 0
-                let status = CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(
-                    formatDescription,
-                    parameterSetIndex: index,
-                    parameterSetPointerOut: &pointer,
-                    parameterSetSizeOut: &size,
-                    parameterSetCountOut: nil,
-                    nalUnitHeaderLengthOut: &nalUnitHeaderLength
-                )
-                guard status == noErr, let pointer, size > 0 else { break }
-                sets.append(Data(bytes: pointer, count: size))
-                index += 1
-            }
-            guard !sets.isEmpty else { return nil }
-            return ParameterSets(sets: sets, nalUnitHeaderLength: Int(nalUnitHeaderLength))
-        }
-    }
-}
-
-struct ParameterSets: Sendable, Equatable {
-    let sets: [Data]
-    let nalUnitHeaderLength: Int
-}
-
-/// AVCC, not Annex-B: 4-byte big-endian NALU lengths with parameter sets out of band; both ends speak AVCC natively, so start codes would cost a rewrite of every frame.
-struct EncodedFrame: Sendable {
-    let data: Data
-    let presentationTime: CMTime
-    let duration: CMTime
-    let isKeyframe: Bool
-/// Non-empty on keyframes. A new client cannot decode until it has these, so they are carried rather than re-derived.
-    let parameterSets: [Data]
-    let nalUnitHeaderLength: Int
-    let codec: VideoCodec
-    let pixelSize: CGSize
-    /// The screen rectangle of this exact picture, kept through the asynchronous encoder so input
-    /// is not remapped for a newer source or window position while the phone still shows this one.
-    let geometry: FrameGeometry
-}
-
 /// Lock-guarded class, not an actor: the session is a CoreFoundation handle, frames arrive on a dispatch queue, and an actor would add a hop per frame.
 /// The session is created once: rebuilding costs a keyframe and a stall, so nothing tears it down to change an option. Keyframes are asked per frame via requestKeyframe().
 final class VideoEncoder: @unchecked Sendable {
@@ -352,7 +257,7 @@ final class VideoEncoder: @unchecked Sendable {
             return
         }
 
-        guard let encoded = Self.makeEncodedFrame(
+        guard let encoded = EncodedFrame.make(
             sampleBuffer,
             codec: codec,
             geometry: geometry
@@ -363,69 +268,6 @@ final class VideoEncoder: @unchecked Sendable {
         }
 // Outside the lock: a consumer must not be able to block the encoder thread.
         consumer?(encoded)
-    }
-
-    private static func makeEncodedFrame(
-        _ sampleBuffer: CMSampleBuffer,
-        codec: VideoCodec,
-        geometry: FrameGeometry
-    ) -> EncodedFrame? {
-        guard let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer),
-              let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer)
-        else {
-            return nil
-        }
-
-// Parameter sets are in the format description, not the frame data; scanning for start codes finds nothing and leaves the first keyframe undecodable.
-        let isKeyframe = isSyncFrame(sampleBuffer)
-
-        var parameterSets: [Data] = []
-        var nalUnitHeaderLength = 4
-        if isKeyframe, let extracted = codec.parameterSets(from: formatDescription) {
-            parameterSets = extracted.sets
-            nalUnitHeaderLength = extracted.nalUnitHeaderLength
-        }
-
-        let length = CMBlockBufferGetDataLength(blockBuffer)
-        guard length > 0 else { return nil }
-
-        var data = Data(count: length)
-        let copied = data.withUnsafeMutableBytes { raw -> OSStatus in
-            guard let base = raw.baseAddress else { return -1 }
-            return CMBlockBufferCopyDataBytes(blockBuffer, atOffset: 0, dataLength: length, destination: base)
-        }
-        guard copied == kCMBlockBufferNoErr else { return nil }
-
-        let dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription)
-
-        return EncodedFrame(
-            data: data,
-            presentationTime: sampleBuffer.presentationTimeStamp,
-            duration: sampleBuffer.duration,
-            isKeyframe: isKeyframe,
-            parameterSets: parameterSets,
-            nalUnitHeaderLength: nalUnitHeaderLength,
-            codec: codec,
-            pixelSize: CGSize(width: Int(dimensions.width), height: Int(dimensions.height)),
-            geometry: geometry
-        )
-    }
-
-/// Read from sample attachments, not CMGetAttachment: that returns nil for every frame (delta frames are marked NotSync on the sample), which reads as every frame being a keyframe and smears a mid-stream joiner.
-    private static func isSyncFrame(_ sampleBuffer: CMSampleBuffer) -> Bool {
-        let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: false)
-        guard let attachments, CFArrayGetCount(attachments) > 0,
-              let raw = CFArrayGetValueAtIndex(attachments, 0) else {
-// An unmarked sample is a sync sample by definition.
-            return true
-        }
-
-        let sample = Unmanaged<CFDictionary>.fromOpaque(raw).takeUnretainedValue()
-        let markedNotSync = CFDictionaryContainsKey(
-            sample,
-            Unmanaged.passUnretained(kCMSampleAttachmentKey_NotSync).toOpaque()
-        )
-        return !markedNotSync
     }
 
     // MARK: - Sizing

@@ -26,7 +26,9 @@ extension AgentSessionManager {
         if let emission = applied.emission {
             AgentTurnTelemetry.send(emission, agentID: session.agentID, sessionID: session.id)
         }
-        applied.sink?(.stream(sessionID: session.id, event: applied.event))
+        if let sink = applied.sink {
+            forward(.stream(sessionID: session.id, event: applied.event), from: session, index: applied.event.index, to: sink)
+        }
         if let corrected = applied.correctedModel {
             applied.sink?(.modelChanged(sessionID: session.id, model: corrected))
         }

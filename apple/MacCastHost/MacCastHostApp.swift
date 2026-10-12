@@ -29,15 +29,17 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
 
             // A menu-bar app remembers that its window was closed. That is useful after setup,
             // but fatal during setup: the permissions are mandatory and a hidden explanation
-            // leaves only an amber menu icon. Reuse the restored window when SwiftUI made one;
-            // otherwise route a URL back into the WindowGroup so it creates one.
-            if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
-                window.makeKeyAndOrderFront(nil)
-            } else if let url = URL(string: "peering-host://setup") {
-                NSWorkspace.shared.open(url)
-            }
-            NSApp.activate(ignoringOtherApps: true)
+            // leaves only an amber menu icon.
+            MainWindowOpener.show()
         }
+    }
+
+    /// Waits for the cards' end events to leave, bounded by the publisher's own timeout, so quitting does not strand a Lock Screen card.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let waiting = model.endLiveActivitiesForTermination {
+            DispatchQueue.main.async { NSApp.reply(toApplicationShouldTerminate: true) }
+        }
+        return waiting ? .terminateLater : .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -63,7 +65,6 @@ struct MacCastHostApp: App {
                 .environment(model)
                 .environment(updater)
                 .onOpenURL { model.handleWidgetCommand($0) }
-                .captureOpenWindow()
                 // Dark by fiat, not by preference. The palette is fixed rather than semantic —
                 // see `HostPalette` — so the appearance has to be pinned too, or every control
                 // the system draws for us (fields, toggles, segmented pickers, sheets, the

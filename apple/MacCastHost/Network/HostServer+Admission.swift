@@ -32,21 +32,8 @@ struct ConnectionOrigin {
 }
 
 extension HostServer {
-    func claimRelayTunnel(loopbackPort: UInt16?) -> RelayTunnel? {
-        let ports = Dictionary(uniqueKeysWithValues: pendingRelayBridges.compactMap { tunnel in
-            tunnel.bridge.localSourcePort.map { (tunnel.id, $0) }
-        })
-        guard let id = tunnelMatcher.claim(loopbackPort: loopbackPort, knownPorts: ports, now: Date()),
-              let index = pendingRelayBridges.firstIndex(where: { $0.id == id })
-        else { return nil }
-        let tunnel = pendingRelayBridges.remove(at: index)
-        activeRelayBridges.append(tunnel)
-        return tunnel
-    }
-
     func admitBeforeAuthentication(address: String) -> Bool {
-        let waiting = controlSessions.filter { !$0.isAuthorized && !$0.isVideoConnection }.map(\.address)
-        let decision = PreAuthAdmission.decide(unauthenticatedAddresses: waiting, newAddress: address)
+        let decision = PreAuthAdmission.decide(unauthenticatedAddresses: connections.unauthenticatedAddresses, newAddress: address)
         guard decision != .admit else { return true }
         admissionLog.notice("refused a connection before its handshake: \(String(describing: decision), privacy: .public)")
         return false
@@ -54,20 +41,19 @@ extension HostServer {
 
     /// Runs on the reaper: closes relay tunnels that no connection claimed in time, and frees a pairing prompt held too long.
     func reapStalePairingAndTunnels() {
-        for id in tunnelMatcher.expire(now: Date()) {
+        for tunnel in connections.expireUnclaimedTunnels(now: Date()) {
             admissionLog.notice("a relay tunnel expired before a connection claimed it")
-            pendingRelayBridges.first { $0.id == id }?.bridge.cancel()
-            pendingRelayBridges.removeAll { $0.id == id }
+            tunnel.bridge.cancel()
         }
-        if let stale = pairingGate.evictStaleHolder(now: Date()) {
+        if let stale = connections.evictStalePairingHolder(now: Date()) {
             emit(.pairingAbandoned(sessionID: stale))
-            controlSessions.first { $0.id == stale }?.cancel()
+            connections.session(id: stale)?.cancel()
         }
     }
 
     /// A departing client's held buttons and keys are released while another client stays; the last one out is handled by the model's full release.
     func releaseHeldInput(of session: HostSession) {
-        guard controlSessions.contains(where: { $0.isAuthorized }) else { return }
-        for command in session.heldInput.releaseCommands() { onCommand?(command) }
+        guard connections.hasAuthorizedSession else { return }
+        for command in session.heldInput.releaseCommands() { callbacks.onCommand?(command) }
     }
 }

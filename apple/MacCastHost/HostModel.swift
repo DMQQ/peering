@@ -265,6 +265,13 @@ final class HostModel {
         restoreSleepDisabledIfOurs()
     }
 
+    /// Quitting ends the phones' Live Activity cards before the process goes. False when there is nothing to wait for, and `completion` is then not called.
+    func endLiveActivitiesForTermination(completion: @escaping @Sendable () -> Void) -> Bool {
+        guard let server else { return false }
+        server.endLiveActivities(completion: completion)
+        return true
+    }
+
     // MARK: - Capture
 
     var captureResolution: CaptureResolution = HostModel.storedCaptureResolution()

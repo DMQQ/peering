@@ -23,9 +23,9 @@ final class HostSessionFacts: Sendable {
 
     private let state = OSAllocatedUnfairLock(initialState: State())
 
-    /// The tag of the session in progress, for events that happen inside one. With two phones at once it is the most recent.
-    var currentSessionRef: String? {
-        state.withLock { $0.entries.values.max { $0.started < $1.started }?.sessionRef }
+    /// The tag of the session in progress, for an event that has no owner of its own. With two phones at once it is nil, because either could be blamed for the other's failure.
+    var soleSessionRef: String? {
+        state.withLock { $0.entries.count == 1 ? $0.entries.values.first?.sessionRef : nil }
     }
 
     /// Returns the entry this one replaces, which is ended as `replaced` by the caller.
@@ -44,11 +44,11 @@ final class HostSessionFacts: Sendable {
         state.withLock { $0.entries[clientID]?.droppedAtStart = droppedFrames }
     }
 
-    /// The first reason wins: a silent session that is then cancelled by the reaper is silence, not a client close.
     func peek(clientID: String) -> Entry? {
         state.withLock { $0.entries[clientID] }
     }
 
+    /// The first reason wins: a silent session that is then cancelled by the reaper is silence, not a client close.
     func noteEnd(clientID: String, _ reason: HostEventCodes.EndReason) {
         state.withLock { state in
             if state.entries[clientID]?.endReason == nil { state.entries[clientID]?.endReason = reason }

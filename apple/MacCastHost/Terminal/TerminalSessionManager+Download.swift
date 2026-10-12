@@ -85,7 +85,7 @@ extension TerminalSessionManager {
     }
 
     private static var tooLargeMessage: String {
-        String(localized: "That folder zips to more than this app moves (\(FileDownloadLimits.maximumBytes / 1_048_576) MB).")
+        "That folder zips to more than this app moves (\(FileDownloadLimits.maximumBytes / 1_048_576) MB)."
     }
 
     static func isArchive(_ url: URL) -> Bool {
@@ -104,7 +104,7 @@ extension TerminalSessionManager {
         }
         removeStaleArchives()
         guard ArchiveBudget.hasRoom(freeBytes: freeBytesOnArchiveVolume(), cap: FileDownloadLimits.maximumBytes) else {
-            return .failure(String(localized: "There is not enough free space on this Mac to zip that folder."))
+            return .failure("There is not enough free space on this Mac to zip that folder.")
         }
         let directory = archiveRoot.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let archive = directory.appendingPathComponent("\(folder.lastPathComponent.isEmpty ? "Folder" : folder.lastPathComponent).zip")

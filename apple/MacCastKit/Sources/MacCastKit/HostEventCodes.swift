@@ -15,6 +15,12 @@ public enum HostEventCodes {
         case virtualDisplayFailed, agentCrashed, fileTransferFailed, pairingRefused, hookInstallFailed
     }
 
+    /// Where an error happened, in the words `docs/analytics-events.md` lists for the `stage` property.
+    public enum ErrorStage: String, Sendable, CaseIterable {
+        case capture, stream, encode, recovery, start, register, connection, confirm, proof, approval, save
+        case display, agent, fileTransfer, permission
+    }
+
     /// `nil` is a phone from before the field, which is an iPhone build.
     public static func clientPlatformName(_ platform: String?) -> String {
         switch platform {

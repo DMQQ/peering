@@ -28,6 +28,23 @@ final class RelayHostRegistration: @unchecked Sendable {
 
     private var pending = NotificationHoldQueue<PendingNotification>()
 
+    private struct ActivitySend: Sendable {
+        let connection: RelaySignallingConnection
+        let push: RelayActivityPush
+        let completion: (@Sendable () -> Void)?
+    }
+
+    /// One queue, so two updates for the same card reach the relay in the order they were raised.
+    private let activitySends = SerialAsyncQueue<ActivitySend> { send in
+        defer { send.completion?() }
+        do {
+            try await send.connection.send(.notifyActivity(send.push))
+        } catch {
+            Analytics.failed(error, in: .relay)
+            relayLog.error("the relay did not take a Live Activity update: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     init(
         device: DeviceIdentity,
         identity: SelfSignedIdentity,
@@ -81,15 +98,7 @@ final class RelayHostRegistration: @unchecked Sendable {
             completion?()
             return
         }
-        Task.detached {
-            defer { completion?() }
-            do {
-                try await connection.send(.notifyActivity(push))
-            } catch {
-                Analytics.failed(error, in: .relay)
-                relayLog.error("the relay did not take a Live Activity update: \(error.localizedDescription, privacy: .public)")
-            }
-        }
+        activitySends.enqueue(ActivitySend(connection: connection, push: push, completion: completion))
     }
 
     /// For a device that was unpaired: nothing held for it should reach it later.
@@ -117,7 +126,7 @@ final class RelayHostRegistration: @unchecked Sendable {
                     ))
                 } catch {
                     Analytics.failed(error, in: .relay)
-                    relayLog.error("the relay did not take a notification for \(item.token, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    relayLog.error("the relay did not take a notification for \(item.token, privacy: .private): \(error.localizedDescription, privacy: .public)")
                     // Back to the front, in order, so the next registration sends these before
                     // anything that was queued behind them.
                     self?.requeue(Array(items[index...]))
@@ -182,7 +191,7 @@ final class RelayHostRegistration: @unchecked Sendable {
                 HostTelemetry.relay(error)
                 connection.cancel()
                 guard !Task.isCancelled else { break }
-                onStatus("Relay unavailable: \(error.localizedDescription)")
+                onStatus(Self.statusSentence(for: error))
             }
 
             if takeReconnectRequest() {
@@ -192,6 +201,12 @@ final class RelayHostRegistration: @unchecked Sendable {
             let delay = policy.delayAfterEnd(at: Date(), jitter: Double.random(in: 0...1))
             try? await Task.sleep(for: .seconds(delay))
         }
+    }
+
+    /// A fixed sentence per kind of failure: a system error's own text can carry the relay's URL into the feed.
+    private static func statusSentence(for error: Error) -> LocalizedStringResource {
+        if case RelaySignallingError.refused = error { return "The relay refused this Mac's registration" }
+        return "Relay unavailable; retrying"
     }
 
     /// Registers and then serves the socket until it fails. Returns only by throwing.

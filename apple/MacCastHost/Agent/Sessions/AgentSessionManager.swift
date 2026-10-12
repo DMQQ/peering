@@ -17,6 +17,8 @@ final class AgentSessionManager: @unchecked Sendable {
     let lock = NSLock()
     var sessions: [UUID: AgentSession] = [:]
     var sinks: [String: Sink] = [:]
+    /// Events held back for a client whose connection is backed up. Guarded by `lock`.
+    var outputs: [String: HeldOutput<UUID, AgentEvent>] = [:]
     var wasActive = false
     /// When each conversation this app closed was last ours, by CLI session id. Guarded by `lock`.
     var releasedConversations: [String: Date] = [:]
@@ -177,7 +179,10 @@ final class AgentSessionManager: @unchecked Sendable {
     }
 
     func disconnect(clientID: String) {
-        _ = lock.withLock { sinks.removeValue(forKey: clientID) }
+        _ = lock.withLock {
+            outputs.removeValue(forKey: clientID)
+            return sinks.removeValue(forKey: clientID)
+        }
     }
 
     private func owned(_ id: UUID, by clientID: String) -> AgentSession? {
@@ -285,7 +290,7 @@ final class AgentSessionManager: @unchecked Sendable {
 
     // MARK: - Replay
 
-    private func replay(_ session: AgentSession, since: UInt64, sink: @escaping Sink) {
+    func replay(_ session: AgentSession, since: UInt64, sink: @escaping Sink) {
         let (chunks, truncated) = lock.withLock {
             (session.transcript.chunks(since: since, byteBudget: Self.replayChunkBytes), session.transcript.truncatedAtFront)
         }

@@ -1,42 +1,30 @@
 import AppKit
+import MacCastKit
 import SwiftUI
 
-/// Opens the main window from outside a scene. `openWindow` only exists inside one, so the
-/// main `WindowGroup` hands its copy over through `captureOpenWindow()`.
+/// Brings the main window forward from outside a scene, where `openWindow` does not exist. When none is open, the app is asked to open its own `peering-host://` URL, which makes the `WindowGroup` create one; that needs nothing to have appeared first.
 @MainActor
-final class MainWindowOpener {
-    static let shared = MainWindowOpener()
-
-    private var openWindow: (() -> Void)?
-
-    func capture(_ action: @escaping () -> Void) {
-        openWindow = action
-    }
-
-    func show() {
-        NSApp.activate()
-        if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
-            window.makeKeyAndOrderFront(nil)
-        } else if let openWindow {
-            openWindow()
-        } else if let url = URL(string: "peering-host://setup") {
-            NSWorkspace.shared.open(url)
+enum MainWindowOpener {
+    static func show() {
+        NSApp.activate(ignoringOtherApps: true)
+        let windows = NSApp.windows
+        let index = MainWindowChoice.index(
+            of: MacCastHostApp.mainWindowID,
+            identifiers: windows.map { $0.identifier?.rawValue },
+            canBecomeMain: windows.map(\.canBecomeMain)
+        )
+        if let index {
+            windows[index].makeKeyAndOrderFront(nil)
+        } else {
+            openThroughURL()
         }
     }
-}
 
-private struct CaptureOpenWindow: ViewModifier {
-    @Environment(\.openWindow) private var openWindow
-
-    func body(content: Content) -> some View {
-        content.onAppear {
-            MainWindowOpener.shared.capture { openWindow(id: MacCastHostApp.mainWindowID) }
-        }
+    /// Addressed to this bundle: another installed copy of the app would otherwise answer the URL.
+    private static func openThroughURL() {
+        guard let url = URL(string: "peering-host://setup") else { return }
+        NSWorkspace.shared.open([url], withApplicationAt: Bundle.main.bundleURL, configuration: NSWorkspace.OpenConfiguration())
     }
-}
-
-extension View {
-    func captureOpenWindow() -> some View { modifier(CaptureOpenWindow()) }
 }
 
 /// A closure cannot sit in an environment entry without invalidating every reader on each update, so the action is

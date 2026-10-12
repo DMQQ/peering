@@ -50,7 +50,10 @@ final class MenuBarController: NSObject {
         if popover.isShown {
             popover.performClose(nil)
         } else if let button = statusItem.button, button.window != nil {
+            // An accessory app is not active when its status item is clicked, and an inactive app's popover never becomes key, so text fields would not take focus.
+            NSApp.activate(ignoringOtherApps: true)
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.makeKey()
         }
     }
 }

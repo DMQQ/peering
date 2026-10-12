@@ -102,6 +102,6 @@ extension HostMenuBarContent {
 
     func openMainWindow() {
         dismissMenuBar()
-        MainWindowOpener.shared.show()
+        MainWindowOpener.show()
     }
 }

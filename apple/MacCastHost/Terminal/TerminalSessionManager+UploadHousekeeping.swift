@@ -57,7 +57,7 @@ extension TerminalSessionManager {
                 .writeFailure(
                     sessionID: key.sessionID,
                     path: pending.path,
-                    message: String(localized: "That transfer stopped sending, so this Mac dropped it.")
+                    message: "That transfer stopped sending, so this Mac dropped it."
                 ),
                 to: pending.ownerClientID
             )

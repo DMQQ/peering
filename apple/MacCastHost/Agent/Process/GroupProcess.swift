@@ -8,6 +8,7 @@ final class GroupProcess: @unchecked Sendable {
     let processIdentifier: pid_t
     private let lock = NSLock()
     private var exited = false  // guarded by lock
+    private var escalation: DispatchWorkItem?  // guarded by lock
 
     var hasExited: Bool { lock.withLock { exited } }
 
@@ -30,7 +31,14 @@ final class GroupProcess: @unchecked Sendable {
         posix_spawnattr_init(&attributes)
         defer { posix_spawnattr_destroy(&attributes) }
         // Closing everything not named below keeps the child from inheriting a pipe end that would stop an EOF arriving.
-        posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT))
+        // An ignored or blocked SIGTERM is inherited across exec, which would make the grace period meaningless.
+        var defaultSignals = sigset_t()
+        sigfillset(&defaultSignals)
+        posix_spawnattr_setsigdefault(&attributes, &defaultSignals)
+        var noBlockedSignals = sigset_t()
+        sigemptyset(&noBlockedSignals)
+        posix_spawnattr_setsigmask(&attributes, &noBlockedSignals)
+        posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK))
         posix_spawnattr_setpgroup(&attributes, 0)
 
         var actions: posix_spawn_file_actions_t?
@@ -61,17 +69,39 @@ final class GroupProcess: @unchecked Sendable {
         Thread.detachNewThread {
             var status: Int32 = 0
             while waitpid(child, &status, 0) < 0, errno == EINTR {}
-            process.lock.withLock { process.exited = true }
+            process.leaderReaped()
             onExit(ProcessWaitStatus.exitCode(fromWaitStatus: status))
         }
         return process
     }
 
-    /// SIGTERM to the whole group, then SIGKILL to it if anything is still alive after the grace.
+    /// SIGTERM to the whole group, then SIGKILL to it after the grace if a member is still alive. The kill is dropped when the group is already gone, because its id may by then belong to an unrelated group.
     func terminateGroup(escalatingAfter grace: TimeInterval = 5) {
         signalGroup(SIGTERM)
-        DispatchQueue.global().asyncAfter(deadline: .now() + grace) { [weak self] in
-            self?.signalGroup(SIGKILL)
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.groupExists else { return }
+            self.signalGroup(SIGKILL)
+        }
+        let alreadyGone = lock.withLock {
+            escalation?.cancel()
+            escalation = work
+            return exited && !groupExists
+        }
+        if alreadyGone {
+            work.cancel()
+        } else {
+            DispatchQueue.global().asyncAfter(deadline: .now() + grace, execute: work)
+        }
+    }
+
+    var escalationPending: Bool { lock.withLock { escalation.map { !$0.isCancelled } ?? false } }
+
+    private var groupExists: Bool { killpg(processIdentifier, 0) == 0 }
+
+    private func leaderReaped() {
+        lock.withLock {
+            exited = true
+            if !groupExists { escalation?.cancel() }
         }
     }
 

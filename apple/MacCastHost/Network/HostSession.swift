@@ -145,7 +145,7 @@ final class HostSession: @unchecked Sendable {
     let outputGate = ClientOutputGate()
 
     /// The control stream has more waiting to go out than the phone is taking (true), or has caught up (false).
-    var onTerminalBackPressure: (@Sendable (Bool) -> Void)?
+    var onBackPressure: (@Sendable (Bool) -> Void)?
 
     /// How long this session may stay silent: longer once the client said it left the foreground.
     var silenceLimit: TimeInterval {
@@ -220,7 +220,7 @@ final class HostSession: @unchecked Sendable {
             onEnded?()
         }
         connection.onBackPressure = { [weak self] change in
-            self?.onTerminalBackPressure?(change == .backedUp)
+            self?.onBackPressure?(change == .backedUp)
         }
         connection.start()
     }

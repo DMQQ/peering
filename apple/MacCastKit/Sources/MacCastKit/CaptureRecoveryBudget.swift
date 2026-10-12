@@ -27,7 +27,7 @@ public struct CaptureRecoveryBudget: Sendable, Equatable {
     /// What a failure looks like in the host's error event.
     public struct Report: Sendable, Equatable {
         public let code: HostEventCodes.ErrorCode
-        public let stage: String
+        public let stage: HostEventCodes.ErrorStage
         public let errorCode: Int?
     }
 
@@ -69,9 +69,9 @@ public struct CaptureRecoveryBudget: Sendable, Equatable {
     /// Wake and display changes are the system moving, not a fault, so they have no report.
     public static func report(for cause: Cause) -> Report? {
         switch cause {
-        case .streamStopped(let code): Report(code: .captureStopped, stage: "stream", errorCode: code)
-        case .encoderFailed: Report(code: .encoderFailed, stage: "encode", errorCode: nil)
-        case .startFailed: Report(code: .captureFailed, stage: "start", errorCode: nil)
+        case .streamStopped(let code): Report(code: .captureStopped, stage: .stream, errorCode: code)
+        case .encoderFailed: Report(code: .encoderFailed, stage: .encode, errorCode: nil)
+        case .startFailed: Report(code: .captureFailed, stage: .start, errorCode: nil)
         case .wokeFromSleep, .displaysChanged: nil
         }
     }
