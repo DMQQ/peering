@@ -69,6 +69,8 @@ pub enum RuntimeError {
     Executor(io::Error),
     #[error("the window could not start: {0}")]
     Window(String),
+    #[error("the firewall rule could not be added: {0}")]
+    Firewall(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

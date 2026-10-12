@@ -5,6 +5,8 @@ use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
 
+#[cfg(windows)]
+use peering_host::firewall;
 use peering_host::runtime::{
     platform_services, HostHandle, HostProfile, HostRuntime, RelayConfig, RuntimeConfig, RuntimeError, SystemClock,
     DEFAULT_PORT,
@@ -15,6 +17,12 @@ const RELAY_URL: &str = "wss://getpeering.app/";
 const FALLBACK_HOST_NAME: &str = "Windows PC";
 
 fn main() -> Result<(), RuntimeError> {
+    #[cfg(windows)]
+    if let Some(port) = firewall::helper_port(&std::env::args().skip(1).collect::<Vec<_>>()) {
+        // The elevated copy the host started only adds the firewall rule, and exits.
+        let program = std::env::current_exe().map_err(|error| RuntimeError::Firewall(error.to_string()))?;
+        return firewall::apply_rule(&program, port).map_err(|error| RuntimeError::Firewall(error.to_string()));
+    }
     let (ready, handles) = mpsc::channel();
     let host = thread::spawn(move || run_host(ready));
     match handles.recv() {
