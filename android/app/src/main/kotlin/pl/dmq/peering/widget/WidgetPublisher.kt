@@ -2,6 +2,7 @@ package pl.dmq.peering.widget
 
 import android.content.Context
 import pl.dmq.peering.DebugLog
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -40,13 +41,14 @@ class WidgetPublisher internal constructor(
         onlineHostIds: Flow<Set<String>>,
         active: Flow<ActiveSession?>,
     ) {
+        clearConnected()
         scope.launch {
             combine(trusted, connectedHostId, onlineHostIds) { hosts, connected, online ->
-                QuickConnectSnapshot(hosts.map { KnownComputer(it.id, it.name.orEmpty()) }, connected, online)
+                WidgetLimits.bounded(QuickConnectSnapshot(hosts.map { KnownComputer(it.id, it.name.orEmpty()) }, connected, online))
             }
                 .distinctUntilChanged()
                 .throttled()
-                .collect { snapshot ->
+                .collectSurvivingFailures(onFailure = ::logFailure) { snapshot ->
                     store.write(snapshot)
                     refresh { QuickConnectWidget().updateAll(appContext) }
                 }
@@ -57,11 +59,25 @@ class WidgetPublisher internal constructor(
                 .map { open -> merge(open) }
                 .distinctUntilChanged { old, new -> old.map(::withoutClock) == new.map(::withoutClock) }
                 .throttled()
-                .collect { chats ->
+                .collectSurvivingFailures(onFailure = ::logFailure) { chats ->
                     store.write(AgentsSnapshot(chats, publishedAtSeconds = clock.unixSeconds()))
                     refresh { AgentsWidget().updateAll(appContext) }
                 }
         }
+    }
+
+    /** A snapshot from a previous process still names the computer that process was connected to. */
+    private fun clearConnected() {
+        try {
+            val last = store.quickConnect()
+            if (last.connectedId != null) store.write(last.copy(connectedId = null))
+        } catch (failure: RuntimeException) {
+            logFailure(failure)
+        }
+    }
+
+    private fun logFailure(failure: Exception) {
+        DebugLog.w(TAG, { "widget publishing failed" }, failure)
     }
 
     private fun merge(open: Pair<String, List<AgentChatSession>>?): List<AgentChatEntry> {
@@ -97,7 +113,9 @@ class WidgetPublisher internal constructor(
     private suspend fun refresh(update: suspend () -> Unit) {
         try {
             update()
-        } catch (failure: IllegalStateException) {
+        } catch (failure: CancellationException) {
+            throw failure
+        } catch (failure: Exception) {
             DebugLog.w(TAG, { "widget update failed" }, failure)
         }
     }
