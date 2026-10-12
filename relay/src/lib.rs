@@ -55,4 +55,5 @@ pub mod storekit;
 pub mod supervise;
 pub mod tcp_relay;
 pub mod udp_relay;
+pub mod usage_log;
 pub mod web;
