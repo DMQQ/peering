@@ -104,18 +104,19 @@ public final class ClientPinStore: @unchecked Sendable {
         case .absent:
             unreadable = false
             return true
-        case .unreadable:
+        case .unreadable(let status):
+            if !unreadable { PinStoreAlarm.raise(status: status) }
             unreadable = true
             return false
         }
     }
 
-    private enum Loaded { case pins([String: Data]), absent, unreadable }
+    private enum Loaded { case pins([String: Data]), absent, unreadable(status: Int32?) }
 
     private static func load(_ backing: any ClientPinBacking) -> Loaded {
         switch backing.read(.primary) {
-        case .unavailable:
-            return .unreadable
+        case .unavailable(let status):
+            return .unreadable(status: status)
         case .found(let data):
             if let decoded = decode(data) { return .pins(decoded) }
             transportLog.error("client pin store could not be decoded; trying the backup")
@@ -123,8 +124,8 @@ public final class ClientPinStore: @unchecked Sendable {
             break
         }
         switch backing.read(.backup) {
-        case .unavailable:
-            return .unreadable
+        case .unavailable(let status):
+            return .unreadable(status: status)
         case .found(let data):
             guard let decoded = decode(data) else { return .absent }
             transportLog.error("client pins restored from the backup item")

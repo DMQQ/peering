@@ -65,6 +65,7 @@ extension SSHModel {
                 )
             } catch {
                 Analytics.failed(error, in: .ssh)
+                Analytics.sshFailed(error, afterConnected: true)
                 guard filePreview?.terminalID == id, filePreview?.path == path else { return }
                 // The same dictionary a refused folder goes in: the panel asks for a failure by path, so the preview panel needs nothing added.
                 browseFailures[RemoteDirectoryKey(terminalID: id, path: path)] = Self.browseMessage(error)
@@ -105,6 +106,7 @@ extension SSHModel {
                 )
             } catch {
                 Analytics.failed(error, in: .ssh)
+                Analytics.sshFailed(error, afterConnected: true)
                 guard filePreview?.terminalID == id, filePreview?.path == path else { return }
                 saveFailure = Self.browseMessage(error)
             }
@@ -158,6 +160,7 @@ extension SSHModel {
                     listDirectory(folder, sessionID: id)
                 } catch {
                     Analytics.failed(error, in: .ssh)
+                    Analytics.sshFailed(error, afterConnected: true)
                     uploadFailure = Self.browseMessage(error)
                 }
             }
@@ -197,6 +200,7 @@ extension SSHModel {
                 _ = try await terminal.session.change(operation)
             } catch {
                 Analytics.failed(error, in: .ssh)
+                Analytics.sshFailed(error, afterConnected: true)
                 // The shell has gone, so nobody is left to tell or re-list.
                 guard terminals.contains(where: { $0.id == id }) else { return }
                 changeFailure = Self.browseMessage(error)

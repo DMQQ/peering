@@ -67,6 +67,7 @@ extension VideoCoordinator {
         let target = lock.withLock { chosenSource ?? currentSource ?? Self.defaultSource }
         do {
             try await startCapture(target)
+            HostSessionFacts.shared.noteEncoderRestart()
             pipeline.requestKeyframe()
         } catch {
             coordinatorLog.error("capture rebuild failed: \(String(describing: error), privacy: .public)")

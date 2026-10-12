@@ -36,6 +36,10 @@
   it is the conservative reading, and the conservative reading of this file is the right one: a
   manifest is a statement to Apple, and understating one is the failure that costs.
 
+  *Failure diagnostics.* Connection and failure events (stage, reason code, error number, a random
+  per-connection tag, size and time buckets) are Other Diagnostic Data for analytics, not linked and
+  not used to track. They are listed in `docs/analytics-events.md`.
+
   *What is deliberately not declared.* Purchases. The app sends the relay the receipt Apple signed,
   because that is how a subscriber is metered as a subscriber, and the relay verifies it against
   Apple's root and keeps it for the life of the connection and nowhere else. It is never written to
@@ -82,6 +86,18 @@
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeCrashData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
 			<false/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>

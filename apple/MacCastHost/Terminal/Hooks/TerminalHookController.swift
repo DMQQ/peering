@@ -42,6 +42,7 @@ final class TerminalHookController {
             try work()
             failure = nil
         } catch {
+            HostTelemetry.hookInstallFailed(error)
             failure = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             controllerLog.error("hook settings change failed: \(error.localizedDescription, privacy: .public)")
         }

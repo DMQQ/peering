@@ -64,6 +64,7 @@ enum Analytics {
 
     /// Handled errors go to Error Tracking as the domain and code only: a message can carry a path, a window title or an address.
     static func failed(_ error: Error, in area: Area, context: [String: String] = [:]) {
+        HostTelemetry.handled(error, in: area)
         guard isEnabled, PostHogConfiguration.isConfigured else { return }
         if (error as? CaptureError)?.isExpectedState == true { return }
         let nsError = error as NSError
@@ -75,7 +76,7 @@ enum Analytics {
         PostHogSDK.shared.captureException(scrubbed, properties: properties)
     }
 
-    private static func send(_ event: String, _ properties: [String: String]) {
+    static func send(_ event: String, _ properties: [String: Any]) {
         guard isEnabled, PostHogConfiguration.isConfigured else { return }
         var props: [String: Any] = properties
         props["$process_person_profile"] = false

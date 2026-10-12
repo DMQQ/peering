@@ -89,6 +89,7 @@ extension HostModel {
         coordinator.onFailure = { [weak self] error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                HostTelemetry.capture(error)
                 self.apply(.failed(error.localizedDescription))
                 self.announceCaptureProblem(error)
             }

@@ -188,6 +188,7 @@ final class StoreManager {
             }
         } catch {
             Analytics.failed(error, in: .purchase)
+            Analytics.purchaseFailed(error, product: Self.analyticsName(for: product.id))
             purchaseError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             storeLog.error("purchase failed: \(error, privacy: .public)")
             return .failed
@@ -355,7 +356,8 @@ final class StoreManager {
             await tx.finish()
             await refreshEntitlement()
             return true
-        case .unverified(_, let error):
+        case .unverified(let transaction, let error):
+            Analytics.receiptVerificationFailed(error, product: Self.analyticsName(for: transaction.productID))
             storeLog.error("transaction not verified: \(error, privacy: .public)")
             return false
         }

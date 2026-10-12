@@ -67,7 +67,6 @@ extension HostModel {
     }
 
     func beginSession(id: String, name: String) {
-        Analytics.track(.sessionStarted)
         openSessions[id] = OpenSession(
             deviceName: name,
             started: Date(),
@@ -75,6 +74,7 @@ extension HostModel {
             lastSeen: Date(),
             bytes: 0
         )
+        HostTelemetry.sessionStarted(clientID: id, droppedFrames: coordinator?.streamStatistics.dropped ?? 0)
         saveOpenSessions()
         hostLog.notice("session opened for \(id, privacy: .public)")
     }
@@ -174,7 +174,12 @@ extension HostModel {
     }
 
     func endSession(id: String) {
-        Analytics.track(.sessionEnded)
+        HostTelemetry.sessionEnded(
+            clientID: id,
+            bytesSent: Int64(max(0, (coordinator?.streamStatistics.bytesSent ?? 0) - (openSessions[id]?.bytesAtStart ?? 0))),
+            droppedFrames: coordinator?.streamStatistics.dropped ?? 0,
+            directPathOpen: coordinator?.isDirectPathOpen ?? false
+        )
         guard let open = openSessions.removeValue(forKey: id) else {
             hostLog.notice("session closed for \(id, privacy: .public) with nothing open for it")
             return

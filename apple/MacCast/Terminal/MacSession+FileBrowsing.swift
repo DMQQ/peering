@@ -111,6 +111,7 @@ extension MacSession {
                 }.value
             } catch {
                 Analytics.failed(error, in: .fileTransfer)
+                Analytics.fileTransferFailed(error, direction: .up, stage: .measure, bytes: nil)
                 writes.removeValue(forKey: id)
                 uploadFailures[id] = error.localizedDescription
                 return

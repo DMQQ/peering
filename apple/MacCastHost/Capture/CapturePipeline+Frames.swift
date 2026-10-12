@@ -78,12 +78,13 @@ extension CapturePipeline {
         replacement.onFrame = { [weak self] encoded in self?.deliver(encoded, source: source) }
         replacement.onFailure = { [weak self] error in self?.report(error) }
 
+        if current != nil { HostSessionFacts.shared.noteEncoderRestart() }
         // A new session owes a keyframe whether or not one was asked for.
         lock.withLock {
             encoder = replacement
             awaitsKeyframe = true
         }
-// Shut down only after the swap, so nothing can hand a frame to a dead session.
+        // Shut down only after the swap, so nothing can hand a frame to a dead session.
         current?.shutdown()
 
         pipelineLog.notice("""
