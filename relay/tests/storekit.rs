@@ -627,6 +627,8 @@ async fn relay(verifier: StoreKitVerifier) -> u16 {
             apns: None,
             fcm: None,
             play: None,
+            limiter: Arc::new(peeringd::limits::PeerLimiter::default()),
+            require_proven_hosts: false,
         },
         None,
     ));

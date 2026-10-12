@@ -79,12 +79,21 @@ pub async fn serve(
     routes: Arc<VideoRoutes>,
     idle_ttl: Duration,
 ) -> std::io::Result<SocketAddr> {
+    let (bound, forwarder) = bind_forwarder(bind, routes, idle_ttl).await?;
+    tokio::spawn(forwarder);
+    Ok(bound)
+}
+
+/// `serve` without the spawn: the bound address, and the forwarding loop for the caller to run
+/// under its own supervision.
+pub async fn bind_forwarder(
+    bind: SocketAddr,
+    routes: Arc<VideoRoutes>,
+    idle_ttl: Duration,
+) -> std::io::Result<(SocketAddr, impl std::future::Future<Output = ()> + Send + 'static)> {
     let socket = UdpSocket::bind(bind).await?;
     let bound = socket.local_addr()?;
-
-    tokio::spawn(forward(socket, routes, idle_ttl));
-
-    Ok(bound)
+    Ok((bound, forward(socket, routes, idle_ttl)))
 }
 
 async fn forward(socket: UdpSocket, routes: Arc<VideoRoutes>, idle_ttl: Duration) {

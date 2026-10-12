@@ -47,6 +47,8 @@ async fn start(play: Option<Arc<PlayVerifier>>) -> u16 {
         apns: None,
         fcm: None,
         play,
+        limiter: Arc::new(peeringd::limits::PeerLimiter::default()),
+        require_proven_hosts: false,
     };
     tokio::spawn(signalling::serve(
         signal,

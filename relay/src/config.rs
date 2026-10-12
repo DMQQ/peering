@@ -7,6 +7,8 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use crate::device_bindings::DEFAULT_MAX_BINDINGS;
+use crate::limits::IpLimits;
 use crate::referrals::ReferralTerms;
 
 /// Runtime configuration, read from the environment.
@@ -122,6 +124,16 @@ pub struct Config {
     /// having no binding at all for the length of a run. Set it, in the same state directory as the
     /// usage log. See `device_bindings.rs`.
     pub device_bindings: Option<PathBuf>,
+    /// Bindings kept before new ids register unbound. `PEERINGD_DEVICE_BINDINGS_MAX`, 100000.
+    pub device_bindings_max: usize,
+    /// Whether `ConnectToHost` may only target a host that proved its device key when it
+    /// registered. `PEERINGD_REQUIRE_PROVEN_HOSTS`, off by default because Macs that predate the
+    /// proof register without one.
+    pub require_proven_hosts: bool,
+    /// Per peer address ceilings. `PEERINGD_MAX_SIGNALLING_PER_IP` (256),
+    /// `PEERINGD_MAX_CONTROL_PER_IP` (512), `PEERINGD_SESSIONS_PER_IP_PER_MINUTE` (120) and
+    /// `PEERINGD_MAX_UNSPLICED_PER_IP` (64). See `limits.rs`.
+    pub ip_limits: IpLimits,
     /// Where invite codes and redemptions are written. `PEERINGD_REFERRALS`.
     ///
     /// Unset means a restart forgets them, which lets a device redeem again and loses the bonus
@@ -339,6 +351,23 @@ impl Config {
                 .unwrap_or_else(|| PathBuf::from("site")),
             usage_log: get("PEERINGD_USAGE_LOG").map(PathBuf::from),
             device_bindings: get("PEERINGD_DEVICE_BINDINGS").map(PathBuf::from),
+            device_bindings_max: count(&get, "PEERINGD_DEVICE_BINDINGS_MAX", DEFAULT_MAX_BINDINGS)?,
+            require_proven_hosts: boolean(&get, "PEERINGD_REQUIRE_PROVEN_HOSTS", false)?,
+            ip_limits: {
+                let defaults = IpLimits::default();
+                IpLimits {
+                    signalling_connections: count(&get, "PEERINGD_MAX_SIGNALLING_PER_IP", defaults.signalling_connections)?,
+                    control_connections: count(&get, "PEERINGD_MAX_CONTROL_PER_IP", defaults.control_connections)?,
+                    sessions_per_minute: count(
+                        &get,
+                        "PEERINGD_SESSIONS_PER_IP_PER_MINUTE",
+                        defaults.sessions_per_minute as usize,
+                    )?
+                    .min(u32::MAX as usize) as u32,
+                    unspliced_sessions: count(&get, "PEERINGD_MAX_UNSPLICED_PER_IP", defaults.unspliced_sessions)?,
+                    exempt_loopback: defaults.exempt_loopback,
+                }
+            },
             referrals: get("PEERINGD_REFERRALS").map(PathBuf::from),
             referral_terms: ReferralTerms {
                 bonus_seconds: seconds(&get, "PEERINGD_REFERRAL_BONUS_MINUTES", 30)? * 60,
@@ -450,6 +479,35 @@ mod tests {
             .map(|(key, value)| (key.to_string(), value.to_string()))
             .collect();
         Config::from_lookup(|name| values.get(name).cloned())
+    }
+
+    #[test]
+    fn per_address_limits_default_to_generous_values_and_can_be_set() {
+        let config = configured(&[]).expect("defaults are valid");
+        assert_eq!(config.ip_limits, IpLimits::default());
+        assert!(!config.require_proven_hosts);
+        assert_eq!(config.device_bindings_max, DEFAULT_MAX_BINDINGS);
+
+        let config = configured(&[
+            ("PEERINGD_MAX_SIGNALLING_PER_IP", "10"),
+            ("PEERINGD_MAX_CONTROL_PER_IP", "20"),
+            ("PEERINGD_SESSIONS_PER_IP_PER_MINUTE", "30"),
+            ("PEERINGD_MAX_UNSPLICED_PER_IP", "4"),
+            ("PEERINGD_REQUIRE_PROVEN_HOSTS", "yes"),
+            ("PEERINGD_DEVICE_BINDINGS_MAX", "50"),
+        ])
+        .expect("valid");
+        assert_eq!(config.ip_limits.signalling_connections, 10);
+        assert_eq!(config.ip_limits.control_connections, 20);
+        assert_eq!(config.ip_limits.sessions_per_minute, 30);
+        assert_eq!(config.ip_limits.unspliced_sessions, 4);
+        assert!(config.require_proven_hosts);
+        assert_eq!(config.device_bindings_max, 50);
+    }
+
+    #[test]
+    fn a_zero_per_address_limit_is_refused_rather_than_read_as_unlimited() {
+        assert!(configured(&[("PEERINGD_MAX_SIGNALLING_PER_IP", "0")]).is_err());
     }
 
     #[test]

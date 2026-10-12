@@ -136,10 +136,12 @@ pub enum Refusal {
     MalformedMessage,
     /// A session ended with an end that never sent a datagram to the shared video socket.
     UdpBindUnclaimed,
+    /// A connection or session refused because its peer address was at one of its own limits.
+    PerIpLimit,
 }
 
 impl Refusal {
-    const ALL: [Self; 9] = [
+    const ALL: [Self; 10] = [
         Self::HostNotRegistered,
         Self::HostOffline,
         Self::BadToken,
@@ -149,6 +151,7 @@ impl Refusal {
         Self::VersionMismatch,
         Self::MalformedMessage,
         Self::UdpBindUnclaimed,
+        Self::PerIpLimit,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -162,6 +165,7 @@ impl Refusal {
             Self::VersionMismatch => "version_mismatch",
             Self::MalformedMessage => "malformed_message",
             Self::UdpBindUnclaimed => "udp_bind_unclaimed",
+            Self::PerIpLimit => "per_ip_limit",
         }
     }
 
@@ -276,6 +280,7 @@ impl Summary {
             refused_version_mismatch = self.refused_for(Refusal::VersionMismatch),
             refused_malformed_message = self.refused_for(Refusal::MalformedMessage),
             failed_udp_bind_unclaimed = self.refused_for(Refusal::UdpBindUnclaimed),
+            refused_per_ip_limit = self.refused_for(Refusal::PerIpLimit),
             udp_datagrams_unclaimed = self.udp_unclaimed,
             activity_push_sent = self.activity_count(ActivityOutcome::Sent),
             activity_push_dropped_rate = self.activity_count(ActivityOutcome::DroppedRate),
