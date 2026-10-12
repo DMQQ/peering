@@ -61,7 +61,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             presence = wiring.presence,
             qrSource = wiring.qrSource,
             onConnect = { hostId ->
-                wiring.connectPaired(hostId)
+                wiring.connectOrResume(hostId)
                 showingSession = true
             },
             onConnectVia = { hostId, via ->
