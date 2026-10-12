@@ -33,4 +33,11 @@ class RelayUsageLedgerTest {
         val spent = RelayUsageLedger.spent(today)
         assertEquals(FREE_DAILY_RELAY_SECONDS, RelayUsageLedger.usedOn(spent, today))
     }
+
+    @Test
+    fun theRelaysRemainingTimeBecomesTheUseOfTheDay() {
+        assertEquals(97L, RelayUsageLedger.fromRemaining(today, 1703).seconds)
+        assertEquals(0L, RelayUsageLedger.fromRemaining(today, 5000).seconds)
+        assertEquals(FREE_DAILY_RELAY_SECONDS, RelayUsageLedger.fromRemaining(today, 0).seconds)
+    }
 }

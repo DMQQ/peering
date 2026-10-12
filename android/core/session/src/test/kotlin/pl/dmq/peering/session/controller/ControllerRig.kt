@@ -47,6 +47,7 @@ class ControllerRig(
 
     /** What the controller reported to its debug log. */
     val logged = mutableListOf<String>()
+    val remainingReported = mutableListOf<Long>()
 
     /** The local addresses the controller reported reaching hosts at. */
     val reachedOnLan = mutableMapOf<String, PeerAddress>()
@@ -102,7 +103,7 @@ class ControllerRig(
         },
         sink = sink,
         downloads = DownloadWriter { offset, bytes -> downloads[offset] = bytes },
-        relay = RelayPorts(signalling, datagrams) { entitlement },
+        relay = RelayPorts(signalling, datagrams, onRemainingSeconds = { remainingReported += it }) { entitlement },
         log = { logged += it },
         lanReached = { hostId, address -> reachedOnLan[hostId] = address },
     )
