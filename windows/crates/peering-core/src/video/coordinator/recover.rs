@@ -14,7 +14,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
     /// Only the newest frame survives a burst, except that a keyframe is never lost to a delta behind it.
     ///
     /// A failure is returned once and then the pump goes quiet until the backoff runs out, when it rebuilds what failed
-    /// and tries again. A capture that stops delivering without an error is restarted by the stall check.
+    /// and tries again. A capture that stops delivering without an error is restarted after a stall is noticed.
     pub fn pump(&mut self, now: f64) -> Result<Vec<VideoOutput>, CoordinatorError> {
         self.note_capture_health(now);
         if self.recovery.waiting(now) {
@@ -22,20 +22,13 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         }
         if let Some(remedy) = self.recovery.due(now) {
             self.attempt_rebuild(remedy, now)?;
-        } else if self.stalled(now) {
-            if self.frame_ever_seen {
-                self.recovery.stall_probe_started(now);
-                self.attempt_rebuild(Remedy::Pipeline, now)?;
-            } else {
-                self.recovery.failed(Remedy::Pipeline, now);
-                return Ok(Vec::new());
-            }
         }
         match self.pump_pass(now) {
             Ok(outputs) => {
                 if outputs.iter().any(|output| matches!(output, VideoOutput::Frame(_))) {
                     self.recovery.produced_output();
                 }
+                self.schedule_restart_if_stalled(now);
                 Ok(outputs)
             }
             Err(error) => {
@@ -59,6 +52,17 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         if self.source.is_some() && self.capture.is_failed() {
             self.recovery.capture_failed(now);
         }
+    }
+
+    /// Judged after the pass, so frames that were waiting count: a pump that was not called for a while is not a stall.
+    fn schedule_restart_if_stalled(&mut self, now: f64) {
+        if !self.stalled(now) {
+            return;
+        }
+        if self.frame_ever_seen {
+            self.recovery.stall_probe_started(now);
+        }
+        self.recovery.failed(Remedy::Pipeline, now);
     }
 
     /// A capture that never delivered, or one that delivered and then went quiet while someone was watching. A still
