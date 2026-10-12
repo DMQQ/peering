@@ -303,6 +303,8 @@ final class MacSession: Identifiable {
     var agentSessions: [RemoteAgentSession] = []
     /// Messages typed while a turn runs: the CLIs take one question at a time, so the rest wait here and go as each turn ends.
     var agentQueues: [UUID: AgentPromptQueue] = [:]
+    /// Approvals the Mac has reported resolved on this connection; an answer is delivered only once its id is here. See ``ApprovalAnswerPolicy``.
+    @ObservationIgnored var resolvedApprovalIDs: Set<String> = []
     /// The chat list's own copy, rebuilt at most a few times a second: see ``AgentCardDigest``.
     var agentCards: [AgentCardDigest] = []
     @ObservationIgnored var agentPauses = AgentPauseClock()

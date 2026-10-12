@@ -125,11 +125,16 @@ extension MacSession {
         }
     }
 
-    func respondToAgentApproval(_ approvalID: String, decision: AgentApprovalDecision, in id: UUID) {
+    /// - Returns: whether the answer went onto a ready connection; the Mac confirming it is a separate fact (``resolvedApprovalIDs``).
+    @discardableResult
+    func respondToAgentApproval(_ approvalID: String, decision: AgentApprovalDecision, in id: UUID) -> Bool {
         #if DEBUG
-        if AgentSeed.wantsFakeMac { return answerSeededApproval(approvalID, decision: decision, in: id) }
+        if AgentSeed.wantsFakeMac {
+            answerSeededApproval(approvalID, decision: decision, in: id)
+            return true
+        }
         #endif
-        wire?.sendAgent(.approval(sessionID: id, approvalID: approvalID, decision: decision))
+        return wire?.sendAgent(.approval(sessionID: id, approvalID: approvalID, decision: decision)) ?? false
     }
 
     func interruptAgent(_ id: UUID) {

@@ -53,8 +53,27 @@ enum AgentApprovalResponder {
     private static func send(_ decision: AgentApprovalDecision, to reference: AgentApprovalNotification.Reference) async -> Bool {
         guard let model = await waitForModel(), let hostID = reference.hostID else { return false }
         guard let session = await readySession(of: model, hostID: hostID) else { return false }
-        session.respondToAgentApproval(reference.approvalID, decision: decision, in: reference.sessionID)
-        return true
+        let sent = session.respondToAgentApproval(reference.approvalID, decision: decision, in: reference.sessionID)
+        return await awaitConfirmation(of: reference.approvalID, sent: sent, on: session)
+    }
+
+    /// Delivered means the Mac reported the approval resolved. The background task above is still held, which is what keeps the process alive for the wait.
+    private static func awaitConfirmation(of approvalID: String, sent: Bool, on session: MacSession) async -> Bool {
+        let start = ContinuousClock.now
+        while true {
+            let waited = start.duration(to: .now)
+            let outcome = ApprovalAnswerPolicy.outcome(
+                wasSent: sent,
+                macResolved: session.resolvedApprovalIDs.contains(approvalID),
+                sessionReady: session.phase == .ready,
+                waited: Double(waited.components.seconds)
+            )
+            switch outcome {
+            case .confirmed: return true
+            case .failed: return false
+            case .waiting: try? await Task.sleep(for: poll)
+            }
+        }
     }
 
     private static func waitForModel() async -> SessionModel? {
