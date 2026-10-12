@@ -42,7 +42,8 @@ import pl.dmq.peering.feature.paywall.PlanOffer
 import pl.dmq.peering.feature.paywall.PurchaseState
 import pl.dmq.peering.ui.kit.PageDots
 import pl.dmq.peering.ui.kit.WelcomePrimaryButton
-import pl.dmq.peering.ui.kit.rememberSheen
+import pl.dmq.peering.ui.kit.HeadingBrush
+import pl.dmq.peering.ui.kit.Motion
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.peeringBackdrop
@@ -74,7 +75,7 @@ internal fun TourScreen(
     }
     LaunchedEffect(paywall.purchase) { if (paywall.purchase == PurchaseState.PURCHASED) onFinished() }
     val goBack = {
-        if (pager.currentPage > 0) scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } else presenter.back()
+        if (pager.currentPage > 0) scope.launch { pager.animateScrollToPage(pager.currentPage - 1, animationSpec = Motion.spring()) } else presenter.back()
     }
     BackHandler(onBack = { goBack() })
     val current = tourPages[pager.currentPage]
@@ -92,7 +93,7 @@ internal fun TourScreen(
                             Modifier.weight(1f).fillMaxWidth().onSizeChanged { if (index == pager.currentPage) stageHeight = it.height },
                         )
                         Spacer(Modifier.height(18.dp))
-                        Words(page, isCurrent = index == pager.currentPage)
+                        Words(page)
                     }
                 }
             }
@@ -104,7 +105,7 @@ internal fun TourScreen(
                     onClick = {
                         val action = plansAction(onPlans, freeChosen, paywall.entitled, paywall.products.isNotEmpty())
                         when (action) {
-                            PlansAction.Next -> scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
+                            PlansAction.Next -> scope.launch { pager.animateScrollToPage(pager.currentPage + 1, animationSpec = Motion.spring()) }
                             PlansAction.Finish -> onFinished()
                             PlansAction.Buy -> plans.buy()
                         }
@@ -139,17 +140,17 @@ private fun buttonTitle(page: TourPage, paywall: PaywallUi, freeChosen: Boolean)
 }
 
 @Composable
-private fun Words(page: TourPage, isCurrent: Boolean) {
+private fun Words(page: TourPage) {
     Column(Modifier.fillMaxWidth().heightIn(min = wordsHeight), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Heading(stringResource(page.title), isCurrent)
+        Heading(stringResource(page.title))
         Text(stringResource(page.body), style = PeeringText.subheadline.copy(letterSpacing = (-0.2).sp), color = PeeringColors.muted)
         if (page.showsDownload) DownloadLink()
     }
 }
 
 @Composable
-internal fun Heading(title: String, lit: Boolean) {
-    Text(title, style = PeeringText.display(size = 34f, tracking = -1f, lineHeight = 38f).copy(brush = rememberSheen(lit)))
+internal fun Heading(title: String) {
+    Text(title, style = PeeringText.display(size = 34f, tracking = -1f, lineHeight = 38f).copy(brush = HeadingBrush))
 }
 
 @Composable
@@ -163,7 +164,7 @@ private fun PlansPage(
 ) {
     val onChooseFree = { if (freeChosen || paywall.products.isEmpty()) onFinished() else setFree(true) }
     Column(Modifier.fillMaxSize().padding(start = 22.dp, end = 22.dp, top = 14.dp, bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Heading(stringResource(page.title), lit = true)
+        Heading(stringResource(page.title))
         PlansHero(Modifier.weight(1f).fillMaxWidth().heightIn(min = 120.dp))
         PlansSection(
             ui = paywall,

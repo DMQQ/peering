@@ -17,44 +17,24 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.WelcomePrimaryButton
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
-import pl.dmq.peering.ui.theme.PeeringMotion
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.peeringBackdrop
-import androidx.compose.animation.core.Animatable
 
 /** The first screen for someone who has not decided yet: the product above the fold, one line of what it does, one way forward. */
 @Composable
 internal fun WelcomeLanding(onStart: () -> Unit, onSkip: () -> Unit, modifier: Modifier = Modifier) {
-    val hero = remember { Animatable(0f) }
-    val copy = remember { Animatable(0f) }
-    val action = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        delay(60)
-        hero.animateTo(1f, PeeringMotion.arrive)
-    }
-    LaunchedEffect(Unit) {
-        delay(180)
-        copy.animateTo(1f, PeeringMotion.arrive)
-    }
-    LaunchedEffect(Unit) {
-        delay(300)
-        action.animateTo(1f, PeeringMotion.arrive)
-    }
     Box(modifier.fillMaxSize().peeringBackdrop()) {
         Column(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(top = 44.dp, bottom = 8.dp),
@@ -64,18 +44,10 @@ internal fun WelcomeLanding(onStart: () -> Unit, onSkip: () -> Unit, modifier: M
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 22.dp)
-                    .graphicsLayer {
-                        alpha = hero.value
-                        translationY = (1f - hero.value) * 28.dp.toPx()
-                        scaleX = 0.96f + 0.04f * hero.value
-                        scaleY = 0.96f + 0.04f * hero.value
-                    },
+                    .padding(horizontal = 22.dp),
             )
             Column(
-                Modifier
-                    .padding(horizontal = 22.dp)
-                    .graphicsLayer { alpha = copy.value; translationY = (1f - copy.value) * 16.dp.toPx() },
+                Modifier.padding(horizontal = 22.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Text(
@@ -90,8 +62,7 @@ internal fun WelcomeLanding(onStart: () -> Unit, onSkip: () -> Unit, modifier: M
                     .fillMaxWidth()
                     .background(PeeringColors.backdrop.copy(alpha = 0.92f))
                     .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(start = 22.dp, end = 22.dp, top = 14.dp, bottom = 18.dp)
-                    .graphicsLayer { alpha = action.value },
+                    .padding(start = 22.dp, end = 22.dp, top = 14.dp, bottom = 18.dp),
             ) {
                 WelcomePrimaryButton(stringResource(R.string.welcome_start), onStart)
             }
