@@ -18,6 +18,12 @@ mod menu {
     }
 
     #[test]
+    fn a_stopped_runtime_replaces_the_status_with_its_reason() {
+        let snapshot = HostSnapshot { stopped: Some("port 51515 could not be opened".to_owned()), ..snapshot(false, RelayStatus::Off, 0) };
+        assert_eq!(MenuModel::new(snapshot).status_line(), "Host stopped: port 51515 could not be opened");
+    }
+
+    #[test]
     fn the_pairing_code_is_offered_only_while_hosting() {
         let hosting = MenuModel::new(snapshot(true, RelayStatus::Off, 0));
         let stopped = MenuModel::new(snapshot(false, RelayStatus::Off, 0));

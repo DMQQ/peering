@@ -34,6 +34,9 @@ impl MenuModel {
 
     /// The first line of the tooltip and the menu header: hosting state, relay state and the connected phones.
     pub fn status_line(&self) -> String {
+        if let Some(reason) = &self.snapshot.stopped {
+            return strings::host_stopped(reason);
+        }
         let hosting = if self.snapshot.hosting { strings::HOSTING_ON } else { strings::HOSTING_OFF };
         format!("{hosting} · {} · {}", relay_text(self.snapshot.relay), strings::connected_clients(self.snapshot.connected_clients))
     }

@@ -64,6 +64,10 @@ pub fn frame_rate_label(fps: u32) -> String {
     format!("{fps} fps")
 }
 
+pub fn host_stopped(reason: &str) -> String {
+    format!("Host stopped: {reason}")
+}
+
 pub fn connected_clients(count: usize) -> String {
     match count {
         0 => "No phone connected".to_owned(),
