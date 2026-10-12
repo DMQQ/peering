@@ -126,7 +126,7 @@ final class RelayHostRegistration: @unchecked Sendable {
                     ))
                 } catch {
                     Analytics.failed(error, in: .relay)
-                    relayLog.error("the relay did not take a notification for \(item.token, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    relayLog.error("the relay did not take a notification for \(item.token, privacy: .private): \(error.localizedDescription, privacy: .public)")
                     // Back to the front, in order, so the next registration sends these before
                     // anything that was queued behind them.
                     self?.requeue(Array(items[index...]))
@@ -181,7 +181,7 @@ final class RelayHostRegistration: @unchecked Sendable {
 
         while !Task.isCancelled {
             _ = takeReconnectRequest()
-            onStatus("Connecting to getpeering.app…")
+            onStatus(String(localized: "Connecting to getpeering.app…"))
             let connection = RelaySignallingConnection(url: ProtocolInfo.relaySignallingURL)
             lock.withLock { self.connection = connection }
             do {
@@ -191,7 +191,7 @@ final class RelayHostRegistration: @unchecked Sendable {
                 HostTelemetry.relay(error)
                 connection.cancel()
                 guard !Task.isCancelled else { break }
-                onStatus("Relay unavailable: \(error.localizedDescription)")
+                onStatus(Self.statusSentence(for: error))
             }
 
             if takeReconnectRequest() {
@@ -203,6 +203,12 @@ final class RelayHostRegistration: @unchecked Sendable {
         }
     }
 
+    /// A fixed sentence per kind of failure: a system error's own text can carry the relay's URL into the feed.
+    private static func statusSentence(for error: Error) -> String {
+        if case RelaySignallingError.refused = error { return String(localized: "The relay refused this Mac's registration") }
+        return String(localized: "Relay unavailable; retrying")
+    }
+
     /// Registers and then serves the socket until it fails. Returns only by throwing.
     private func register(over connection: RelaySignallingConnection, policy: inout ReconnectPolicy) async throws {
         // Signed per attempt, not once: the proof carries a timestamp the relay only
@@ -211,7 +217,7 @@ final class RelayHostRegistration: @unchecked Sendable {
         // attempt and the Mac would never register again after a network blip.
         let proof = try? RelayDeviceProof.make(deviceID: device.id, identity: identity)
         if proof == nil {
-            onStatus("This Mac could not sign its registration; the relay may refuse it.")
+            onStatus(String(localized: "This Mac could not sign its registration; the relay may refuse it."))
         }
 
         try await connection.send(.registerHost(
@@ -227,7 +233,7 @@ final class RelayHostRegistration: @unchecked Sendable {
                 try? await Task.sleep(for: .seconds(25))
                 guard !Task.isCancelled else { return }
                 if watchdog.pingDue() {
-                    onStatus("The relay stopped answering; registering again")
+                    onStatus(String(localized: "The relay stopped answering; registering again"))
                     connection.cancel()
                     return
                 }
@@ -245,7 +251,7 @@ final class RelayHostRegistration: @unchecked Sendable {
                 if !registered {
                     registered = true
                     policy.registered(at: Date())
-                    onStatus("Registered with getpeering.app")
+                    onStatus(String(localized: "Registered with getpeering.app"))
                     // Anything held while there was no relay goes now, in the order it was
                     // raised. See ``notifyDevice(token:title:body:)``.
                     flush(over: connection)
