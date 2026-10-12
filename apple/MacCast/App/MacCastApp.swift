@@ -110,8 +110,8 @@ struct MacCastApp: App {
                     // Handed over once so Siri and Shortcuts have something to reach: intents cannot read a view hierarchy (see ``IntentHost``).
                     IntentHost.model = model
                     IntentHost.servers = servers
-                    SessionPiP.shared.onActiveChanged = { [weak model] active in
-                        model?.pictureInPictureChanged(active: active)
+                    SessionPiP.shared.onActiveChanged = { active in
+                        model.pictureInPictureChanged(active: active)
                     }
                     NotificationRoute.deliverPending()
                     // Browsing triggers the local network permission prompt. Defer it until

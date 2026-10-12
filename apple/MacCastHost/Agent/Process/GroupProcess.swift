@@ -56,10 +56,11 @@ final class GroupProcess: @unchecked Sendable {
         let result = posix_spawn(&pid, executable, &actions, &attributes, argv, envp)
         guard result == 0 else { throw POSIXError(POSIXErrorCode(rawValue: result) ?? .EIO) }
 
-        let process = GroupProcess(processIdentifier: pid)
+        let child = pid
+        let process = GroupProcess(processIdentifier: child)
         Thread.detachNewThread {
             var status: Int32 = 0
-            while waitpid(pid, &status, 0) < 0, errno == EINTR {}
+            while waitpid(child, &status, 0) < 0, errno == EINTR {}
             process.lock.withLock { process.exited = true }
             onExit(ProcessWaitStatus.exitCode(fromWaitStatus: status))
         }
