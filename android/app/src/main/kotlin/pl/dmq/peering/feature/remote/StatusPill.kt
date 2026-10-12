@@ -1,6 +1,14 @@
 package pl.dmq.peering.feature.remote
 
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -71,13 +79,18 @@ fun StatusPill(
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(
+    AnimatedContent(
+        targetState = expanded,
         modifier = modifier
-            .sessionSurface(if (expanded) peeringShapes.large else PillShape)
-            .blockTouches()
-            .animateContentSize(),
-    ) {
-        if (expanded) {
+            .sessionSurface(peeringShapes.large)
+            .blockTouches(),
+        transitionSpec = {
+            (fadeIn(tween(160, delayMillis = 70, easing = LinearOutSlowInEasing)) togetherWith fadeOut(tween(90, easing = FastOutLinearInEasing)))
+                .using(SizeTransform(clip = true) { _, _ -> tween(260, easing = FastOutSlowInEasing) })
+        },
+        label = "statusPill",
+    ) { open ->
+        if (open) {
             ExpandedPill(ui, actions, onTap)
         } else {
             CollapsedPill(ui, onTap)
