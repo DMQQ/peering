@@ -49,7 +49,7 @@ a missing proof is not a refusal, but a proven host id can only be claimed by th
 | type | fields |
 |---|---|
 | `registered` | `sessionTtlSeconds` |
-| `sessionReady` | `controlHost`, `controlPort`, `videoHost`, `videoPort`, `controlToken`, `videoToken` (tokens: 32 hex digits = 16 bytes) |
+| `sessionReady` | `controlHost`, `controlPort`, `videoHost`, `videoPort`, `controlToken`, `videoToken` (tokens: 32 hex digits = 16 bytes), `remainingSeconds?` (unsigned integer: seconds of relay time the client's metered plan has left in the current one-day window, referral bonus included; omitted when the plan is unmetered, so absence means unlimited) |
 | `hostOffline` | `deviceId` |
 | `peerAddress` | `host`, `port` |
 | `hostPresence` | `hostId`, `online` (registration with the relay, not reachability) |

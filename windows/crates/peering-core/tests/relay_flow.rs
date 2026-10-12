@@ -165,6 +165,7 @@ fn a_session_ready_message_yields_a_dial_whose_first_bytes_are_the_relay_token()
             video_port: session.video_port,
             control_token: session.control_token,
             video_token: session.video_token,
+            remaining_seconds: None,
         },
         &clock,
     );
@@ -203,6 +204,7 @@ fn a_session_ready_before_registration_is_ignored() {
             video_port: session.video_port,
             control_token: session.control_token,
             video_token: session.video_token,
+            remaining_seconds: None,
         },
         &clock,
     );

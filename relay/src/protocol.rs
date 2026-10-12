@@ -238,6 +238,11 @@ pub enum ServerMessage {
         control_token: String,
         /// Hex.
         video_token: String,
+        /// Seconds of relay time the client's metered plan has left in the current window,
+        /// referral bonus included. Absent when the plan is unmetered, which clients read as
+        /// unlimited.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        remaining_seconds: Option<u64>,
     },
 
     /// The Mac is not registered. It is asleep, off, or has not been launched.
@@ -608,6 +613,7 @@ mod tests {
             video_port: 51234,
             control_token: hex(&[0xab; 16]),
             video_token: hex(&[0xcd; 16]),
+            remaining_seconds: None,
         };
         let json = serde_json::to_string(&message).expect("should encode");
 
@@ -621,6 +627,23 @@ mod tests {
         ] {
             assert!(json.contains(key), "missing {key} in {json}");
         }
+        assert!(!json.contains("remainingSeconds"), "unmetered plans omit the field: {json}");
+    }
+
+    #[test]
+    fn session_ready_carries_remaining_seconds_when_metered() {
+        let message = ServerMessage::SessionReady {
+            control_host: "h".into(),
+            control_port: 1,
+            video_host: "h".into(),
+            video_port: 2,
+            control_token: hex(&[0xab; 16]),
+            video_token: hex(&[0xcd; 16]),
+            remaining_seconds: Some(1703),
+        };
+        let json = serde_json::to_string(&message).expect("should encode");
+        assert!(json.contains(r#""remainingSeconds":1703"#), "{json}");
+        assert_eq!(serde_json::from_str::<ServerMessage>(&json).unwrap(), message);
     }
 
     /// The Swift side decodes these by name, so a rename here is a silent break at runtime rather

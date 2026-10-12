@@ -56,6 +56,7 @@ fn typed_server_message(name: &str) -> RelayServerMessage {
             video_port: 30190,
             control_token: Token(std::array::from_fn(|index| index as u8)),
             video_token: Token(std::array::from_fn(|index| 0xff - index as u8)),
+            remaining_seconds: None,
         },
         "registered" => RelayServerMessage::Registered { session_ttl_seconds: 300 },
         "hostOffline" => RelayServerMessage::HostOffline { device_id: "mac-1".into() },
@@ -127,6 +128,17 @@ fn invalid_tokens_are_refused() {
 fn a_session_ready_with_a_bad_token_fails_to_decode() {
     let json = r#"{"type":"sessionReady","controlHost":"h","controlPort":1,"videoHost":"h","videoPort":2,"controlToken":"+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1","videoToken":"000102030405060708090a0b0c0d0e0f"}"#;
     assert!(serde_json::from_str::<RelayServerMessage>(json).is_err());
+}
+
+#[test]
+fn a_session_ready_decodes_with_and_without_remaining_seconds() {
+    let base = r#""type":"sessionReady","controlHost":"h","controlPort":1,"videoHost":"h","videoPort":2,"controlToken":"000102030405060708090a0b0c0d0e0f","videoToken":"000102030405060708090a0b0c0d0e0f""#;
+    let remaining = |json: String| match serde_json::from_str::<RelayServerMessage>(&json).expect("decodes") {
+        RelayServerMessage::SessionReady { remaining_seconds, .. } => remaining_seconds,
+        other => panic!("expected a session, got {other:?}"),
+    };
+    assert_eq!(remaining(format!("{{{base}}}")), None);
+    assert_eq!(remaining(format!("{{{base},\"remainingSeconds\":1703}}")), Some(1703));
 }
 
 #[test]

@@ -200,6 +200,19 @@ class RelayMessagesTest {
     }
 
     @Test
+    fun aSessionReadyDecodesWithAndWithoutRemainingSeconds() {
+        val base = "\"type\":\"sessionReady\",\"controlHost\":\"h\",\"controlPort\":1,\"videoHost\":\"h\"," +
+            "\"videoPort\":2,\"controlToken\":\"000102030405060708090a0b0c0d0e0f\"," +
+            "\"videoToken\":\"000102030405060708090a0b0c0d0e0f\""
+
+        val without = RelayServerMessage.parse("{$base}") as SessionReady
+        val with = RelayServerMessage.parse("{$base,\"remainingSeconds\":1703}") as SessionReady
+
+        assertNull(without.remainingSeconds)
+        assertEquals(1703L, with.remainingSeconds)
+    }
+
+    @Test
     fun aSessionReadyWithAMalformedTokenThrows() {
         val text = "{\"type\":\"sessionReady\",\"controlHost\":\"h\",\"controlPort\":1,\"videoHost\":\"h\"," +
             "\"videoPort\":2,\"controlToken\":\"0001\",\"videoToken\":\"000102030405060708090a0b0c0d0e0f\"}"

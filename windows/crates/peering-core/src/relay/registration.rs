@@ -115,6 +115,7 @@ impl RelayRegistration {
                 video_port,
                 control_token,
                 video_token,
+                remaining_seconds: _,
             } => vec![RegAction::DialSession(RelaySession {
                 control_host,
                 control_port,

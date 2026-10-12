@@ -109,6 +109,9 @@ pub enum RelayServerMessage {
         video_port: u16,
         control_token: Token,
         video_token: Token,
+        /// Seconds of relay time left in the current window, bonus included. Absent means unlimited.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        remaining_seconds: Option<u64>,
     },
     HostOffline {
         device_id: String,

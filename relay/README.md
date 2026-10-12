@@ -947,8 +947,13 @@ identically** — the `videoToken` differs, for the reason given under video bel
 
 ```jsonc
 {"type":"sessionReady","controlHost":"…","controlPort":9443,"videoHost":"…","videoPort":51234,
- "controlToken":"…","videoToken":"…"}
+ "controlToken":"…","videoToken":"…","remainingSeconds":1703}
 ```
+
+`remainingSeconds` is optional: the seconds of relay time the client's metered plan has left in the
+current one-day window when the session is allocated, referral bonus included. It is omitted when
+the plan is unmetered (paid or unlimited), so a client reads absence as unlimited, and older clients
+ignore the key.
 
 The Mac receives it unsolicited — it never asked for this, and a phone may connect to it at any
 time. If the Mac is not registered, the phone gets:

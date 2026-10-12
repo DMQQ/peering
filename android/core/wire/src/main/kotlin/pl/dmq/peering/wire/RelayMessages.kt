@@ -182,6 +182,8 @@ sealed interface RelayServerMessage {
         val videoPort: Int,
         val controlToken: Token,
         val videoToken: Token,
+        /** Relay seconds left in the current window, or null when the plan is unmetered. */
+        val remainingSeconds: Long? = null,
     ) : RelayServerMessage
 
     data class HostOffline(val deviceId: String) : RelayServerMessage
@@ -216,6 +218,7 @@ sealed interface RelayServerMessage {
                     videoPort = fields.port("videoPort"),
                     controlToken = fields.token("controlToken"),
                     videoToken = fields.token("videoToken"),
+                    remainingSeconds = fields.optionalLong("remainingSeconds"),
                 )
                 "hostOffline" -> HostOffline(fields.string("deviceId"))
                 "peerAddress" -> PeerAddress(fields.string("host"), fields.port("port"))

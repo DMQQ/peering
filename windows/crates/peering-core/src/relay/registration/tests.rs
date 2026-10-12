@@ -168,6 +168,7 @@ fn a_session_ready_asks_for_the_session_to_be_dialled() {
             video_port: 7001,
             control_token: Token([1; 16]),
             video_token: Token([2; 16]),
+            remaining_seconds: None,
         },
         &clock,
     );

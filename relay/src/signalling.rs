@@ -865,6 +865,7 @@ async fn dispatch(
                 video_port: settings.video_port,
                 control_token: hex(&allocated.control_token),
                 video_token: hex(&video_token),
+                remaining_seconds: remaining,
             };
 
             // Pushed to the Mac first. It did not ask for this, so a failure here means the Mac has
@@ -1063,6 +1064,7 @@ mod tests {
 
     use super::*;
     use crate::config::PlanAllowances;
+    use crate::referrals::{ReferralTerms, Referrals};
 
     #[test]
     fn a_mac_may_name_only_the_categories_the_phone_registers() {
@@ -1514,6 +1516,7 @@ mod tests {
                 video_port,
                 control_token,
                 video_token,
+                remaining_seconds: _,
             } => (control_host, control_port, video_host, video_port, control_token, video_token),
             other => panic!("expected a session, got {other:?}"),
         };
@@ -1534,6 +1537,7 @@ mod tests {
             video_port,
             control_token,
             video_token,
+            remaining_seconds: _,
         }) = host_rx.recv().await
         else {
             panic!("the Mac should be pushed a session too");
@@ -1548,6 +1552,13 @@ mod tests {
     /// Sends one connect request against a Mac that is registered and a counter that is already
     /// spent, and reports what the phone was told.
     async fn connect_with(plan: Option<&str>, spent_seconds: u64) -> Option<ServerMessage> {
+        let quota = Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default()));
+        // Recorded rather than configured away, so the test travels the same path a client does.
+        quota.record("phone", Duration::from_secs(spent_seconds));
+        connect_against(quota, plan).await
+    }
+
+    async fn connect_against(quota: Arc<QuotaTracker>, plan: Option<&str>) -> Option<ServerMessage> {
         let registry = Arc::new(Registry::new(usize::MAX));
         let hosts = HostRegistry::new();
         let (host_tx, _host_rx) = channel();
@@ -1556,9 +1567,6 @@ mod tests {
             .await
             .expect("an unproved registration is accepted while nothing is bound");
 
-        let quota = Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default()));
-        // Recorded rather than configured away, so the test travels the same path a client does.
-        quota.record("phone", Duration::from_secs(spent_seconds));
         let settings = settings_with(quota);
 
         let (tx, _rx) = channel();
@@ -1585,6 +1593,51 @@ mod tests {
             &mut state,
         )
         .await
+    }
+
+    fn remaining_in(reply: Option<ServerMessage>) -> Option<u64> {
+        match reply {
+            Some(ServerMessage::SessionReady { remaining_seconds, .. }) => remaining_seconds,
+            other => panic!("expected a session, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_free_session_reports_what_is_left_of_the_allowance() {
+        let reply = connect_with(None, 100).await;
+        assert_eq!(remaining_in(reply), Some(30 * 60 - 100));
+    }
+
+    #[tokio::test]
+    async fn a_paid_plan_session_omits_the_remaining_seconds() {
+        for plan in ["relay", "plus", "pro"] {
+            let reply = connect_with(Some(plan), 100).await;
+            assert_eq!(remaining_in(reply), None, "{plan}");
+        }
+    }
+
+    #[tokio::test]
+    async fn an_unlimited_allowance_omits_the_remaining_seconds() {
+        let allowances = PlanAllowances { free_seconds: None, ..PlanAllowances::default() };
+        let quota = Arc::new(QuotaTracker::new(allowances, Default::default()));
+        assert_eq!(remaining_in(connect_against(quota, None).await), None);
+    }
+
+    #[tokio::test]
+    async fn a_referral_bonus_is_included_in_the_remaining_seconds() {
+        let referrals = Arc::new(Referrals::in_memory(ReferralTerms::default()));
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let code = referrals.standing("owner", now).unwrap().code;
+        referrals.redeem("phone", &code, now).unwrap();
+        let quota = Arc::new(
+            QuotaTracker::new(PlanAllowances::default(), Default::default()).with_referrals(referrals),
+        );
+        quota.record("phone", Duration::from_secs(1000));
+        let bonus = ReferralTerms::default().bonus_seconds;
+        assert_eq!(remaining_in(connect_against(quota, None).await), Some(30 * 60 + bonus - 1000));
     }
 
     /// 30 minutes free means 30 minutes: a client that has spent more than that is refused.
