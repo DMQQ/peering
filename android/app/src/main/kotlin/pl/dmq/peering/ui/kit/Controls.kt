@@ -54,13 +54,13 @@ fun ControlIcon(icon: ImageVector, modifier: Modifier = Modifier, tint: Color = 
 
 /** A tile, a title and whatever control sits at the trailing edge. */
 @Composable
-fun ControlRow(title: String, icon: ImageVector, modifier: Modifier = Modifier, control: @Composable () -> Unit = {}) {
+fun ControlRow(title: String, icon: ImageVector, modifier: Modifier = Modifier, control: (@Composable () -> Unit)? = null) {
     Row(modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         ControlIcon(icon)
         Spacer(Modifier.width(11.dp))
         Text(title, style = PeeringText.subheadlineMedium, color = PeeringColors.ink, modifier = Modifier.weight(1f))
         Spacer(Modifier.width(10.dp))
-        control()
+        control?.invoke()
     }
 }
 

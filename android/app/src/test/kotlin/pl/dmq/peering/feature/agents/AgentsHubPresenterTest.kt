@@ -168,4 +168,27 @@ class AgentsHubPresenterTest {
         val harness = Harness(FakeAgentsPort(), declared = listOf("opencode"))
         assertEquals(listOf(AgentOption("opencode", "OpenCode")), harness.presenter.ui.value.agents)
     }
+
+    @Test
+    fun startingReportsWhetherAChatWasRequested() = runTest {
+        val harness = Harness(FakeAgentsPort())
+        harness.presenter.beginNewChat()
+        harness.presenter.chooseAgent("claude")
+        assertEquals(false, harness.presenter.startInChosenFolder())
+        harness.folders.onEvent(AgentEvent.Directory("/Users/me", emptyList(), truncated = false))
+        assertEquals(true, harness.presenter.startInChosenFolder())
+    }
+
+    @Test
+    fun cancellingTheNewChatClosesItWithoutStarting() = runTest {
+        val port = FakeAgentsPort()
+        val harness = Harness(port)
+        harness.presenter.beginNewChat()
+        harness.presenter.chooseAgent("claude")
+
+        harness.presenter.cancelNewChat()
+
+        assertEquals(NewChatStep.Closed, harness.presenter.ui.value.newChat)
+        assertTrue(port.calls.isEmpty())
+    }
 }

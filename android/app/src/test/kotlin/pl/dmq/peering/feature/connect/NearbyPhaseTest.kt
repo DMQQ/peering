@@ -38,6 +38,7 @@ class NearbyPhaseTest {
         qrSource = FakeQrSource(),
         onConnect = {},
         onPair = {},
+        onConnectAddress = {},
         scope = backgroundScope,
         network = network,
         searchWindowMillis = 1_000,

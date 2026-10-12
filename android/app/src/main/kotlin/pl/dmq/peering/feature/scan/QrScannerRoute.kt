@@ -53,7 +53,7 @@ fun QrScannerRoute(
     }
     LifecycleResumeEffect(Unit) {
         granted = context.hasCameraPermission()
-        onPauseOrDispose {}
+        onPauseOrDispose { granted = context.hasCameraPermission() }
     }
     BackHandler(onBack = onClose)
     val permission = CameraPermissionState.of(granted, requested, rationale)
@@ -80,15 +80,13 @@ fun QrScannerRoute(
             permission == CameraPermissionState.Rationale -> ScanMessage(
                 icon = AppIcons.camera,
                 text = stringResource(R.string.scan_rationale),
-                action = stringResource(R.string.scan_allow),
-                onAction = { launcher.launch(Manifest.permission.CAMERA) },
+                action = ScanAction(stringResource(R.string.scan_allow)) { launcher.launch(Manifest.permission.CAMERA) },
             )
             permission == CameraPermissionState.PermanentlyDenied -> ScanMessage(
                 icon = AppIcons.camera,
                 title = stringResource(R.string.scan_denied_title),
                 text = stringResource(R.string.scan_denied),
-                action = stringResource(R.string.scan_open_settings),
-                onAction = { context.openAppSettings() },
+                action = ScanAction(stringResource(R.string.scan_open_settings)) { context.openAppSettings() },
             )
         }
         ScanOverlay(notice = notice, onClose = onClose, showHint = permission == CameraPermissionState.Granted)

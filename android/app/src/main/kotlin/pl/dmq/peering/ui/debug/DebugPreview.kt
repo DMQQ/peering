@@ -14,6 +14,7 @@ import pl.dmq.peering.feature.pairing.PairingActions
 import pl.dmq.peering.feature.pairing.PairingCodeContent
 import pl.dmq.peering.feature.pairing.PairingCodeScreen
 import pl.dmq.peering.feature.pairing.PairingMessage
+import pl.dmq.peering.feature.scan.ScanAction
 import pl.dmq.peering.feature.scan.ScanMessage
 import pl.dmq.peering.session.controller.PairingCodeError
 import androidx.compose.ui.Modifier
@@ -49,21 +50,21 @@ fun DebugPreview(name: String) {
             "connect_found" -> connect(NearbyPhase.Found, HostListing(samplePaired, sampleNearby))
             "connect_searching" -> connect(NearbyPhase.Searching, HostListing(emptyList(), emptyList()))
             "connect_none" -> connect(NearbyPhase.NoneFound, HostListing(emptyList(), emptyList()))
-            "pairing_entry" -> PairingCodeContent(PairingCodeScreen.EnteringCode(0, null), PairingActions(onScan = {}))
+            "pairing_entry" -> PairingCodeContent(PairingCodeScreen.EnteringCode(0, null), previewPairing())
             "pairing_wrong" -> PairingCodeContent(
                 PairingCodeScreen.EnteringCode(1, PairingCodeError.WrongCode),
-                PairingActions(onScan = {}),
+                previewPairing(),
             )
-            "pairing_too_many" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.TooManyAttempts), PairingActions())
-            "pairing_connecting" -> PairingCodeContent(PairingCodeScreen.Connecting, PairingActions())
-            "pairing_wait" -> PairingCodeContent(PairingCodeScreen.Waiting, PairingActions())
-            "pairing_done" -> PairingCodeContent(PairingCodeScreen.Done, PairingActions())
-            "pairing_failed" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.Unreachable, "ConnectException: failed to connect to /192.168.1.20 (port 51515)"), PairingActions())
+            "pairing_too_many" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.TooManyAttempts), previewPairing(scan = false))
+            "pairing_connecting" -> PairingCodeContent(PairingCodeScreen.Connecting, previewPairing(scan = false))
+            "pairing_wait" -> PairingCodeContent(PairingCodeScreen.Waiting, previewPairing(scan = false))
+            "pairing_done" -> PairingCodeContent(PairingCodeScreen.Done, previewPairing(scan = false))
+            "pairing_failed" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.Unreachable, "ConnectException: failed to connect to /192.168.1.20 (port 51515)"), previewPairing(scan = false))
             "scan_denied" -> ScanMessage(
                 icon = AppIcons.camera,
                 title = stringResource(R.string.scan_denied_title),
                 text = stringResource(R.string.scan_denied),
-                action = stringResource(R.string.scan_open_settings),
+                action = ScanAction(stringResource(R.string.scan_open_settings), note("open settings")),
             )
             "onboarding_landing" -> sampleOnboarding(OnboardingStep.LANDING)
             "onboarding_1" -> sampleOnboarding(OnboardingStep.INSTALL)
@@ -76,16 +77,16 @@ fun DebugPreview(name: String) {
             "onboarding_8" -> sampleOnboarding(OnboardingStep.PLANS)
             "connect_address" -> {
                 connect(NearbyPhase.Found, HostListing(emptyList(), sampleNearby))
-                ManualAddressSheet(onConnect = { _, _ -> }, onDismiss = {})
+                ManualAddressSheet(onConnect = { host, port -> note("connect $host:$port") }, onDismiss = note("dismiss"))
             }
             "connect_entry" -> {
                 connect(NearbyPhase.Found, HostListing(emptyList(), sampleNearby))
-                HostIdEntrySheet(HostIdEntryState(), {}, {}, {}, {})
+                HostIdEntrySheet(HostIdEntryState(), { note("text $it") }, note("submit"), note("scan"), note("dismiss"))
             }
             "first_connection" -> FirstConnectionScreen(
                 ConnectUiState(listing = HostListing(emptyList(), sampleNearby), nearbyPhase = NearbyPhase.Found),
-                ConnectActions(onScan = {}),
-                onSkip = {},
+                previewConnect(),
+                onSkip = note("skip"),
             )
             "connect_nonetwork" -> connect(NearbyPhase.NoNetwork, HostListing(samplePaired.take(1), emptyList()))
         }
@@ -94,10 +95,33 @@ fun DebugPreview(name: String) {
 
 @Composable
 private fun connect(phase: NearbyPhase, listing: HostListing) {
-    ConnectScreen(ConnectUiState(listing = listing, nearbyPhase = phase), ConnectActions(onScan = {}))
+    ConnectScreen(ConnectUiState(listing = listing, nearbyPhase = phase), previewConnect())
 }
 
 @Composable
 private fun sampleOnboarding(step: OnboardingStep) {
-    OnboardingRoute(store = SampleFirstRun, billing = SampleBilling, onFinished = { Log.i("PeeringPreview", "first run finished") }, startAt = step)
+    OnboardingRoute(store = SampleFirstRun, billing = SampleBilling, onFinished = { Log.i(TAG, "first run finished") }, startAt = step)
 }
+
+private const val TAG = "PeeringPreview"
+
+private fun note(what: String): () -> Unit = { Log.i(TAG, what) }
+
+private fun previewPairing(scan: Boolean = true) = PairingActions(
+    onDigitsEntered = { digits -> Log.i(TAG, "digits $digits") },
+    onCancel = note("cancel"),
+    onFinished = note("finished"),
+    onScan = if (scan) note("scan") else null,
+)
+
+private fun previewConnect() = ConnectActions(
+    onConnect = { id -> Log.i(TAG, "connect $id") },
+    onPair = { id -> Log.i(TAG, "pair $id") },
+    onForget = { id -> Log.i(TAG, "forget $id") },
+    onConnectAddress = { host, port -> Log.i(TAG, "address $host:$port") },
+    onSearchAgain = note("search again"),
+    onOpenWifiSettings = note("wifi settings"),
+    onEntryTextChanged = { text -> Log.i(TAG, "entry $text") },
+    onEntrySubmit = note("entry submit"),
+    onScan = note("scan"),
+)

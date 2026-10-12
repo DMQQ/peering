@@ -61,7 +61,7 @@ internal fun NearbySection(
             NearbyPhase.NoneFound -> NoneFound()
             NearbyPhase.Found -> {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    hosts.forEach { row -> HostRowItem(row, paired = false, onOpen = { actions.onPair(row.id) }, onForget = {}) }
+                    hosts.forEach { row -> HostRowItem(row, paired = false, onOpen = { actions.onPair(row.id) }, onForget = null) }
                 }
                 Text(
                     pluralStringResource(R.plurals.connect_macs_found, hosts.size, hosts.size),

@@ -37,7 +37,7 @@ fun GuideStepRow(
     title: String,
     modifier: Modifier = Modifier,
     isLast: Boolean = false,
-    content: @Composable ColumnScope.() -> Unit = {},
+    content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     Row(modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Column(Modifier.width(30.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -59,7 +59,7 @@ fun GuideStepRow(
                     color = if (state == GuideStepState.Pending) PeeringColors.muted else PeeringColors.ink,
                 )
             }
-            content()
+            content?.invoke(this)
         }
     }
 }

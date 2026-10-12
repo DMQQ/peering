@@ -18,7 +18,7 @@ class ConnectPresenter(
     qrSource: QrSource,
     private val onConnect: (String) -> Unit,
     private val onPair: (String) -> Unit,
-    private val onConnectAddress: (ManualAddress) -> Unit = {},
+    private val onConnectAddress: (ManualAddress) -> Unit,
     private val scope: CoroutineScope,
     network: NetworkSource = NetworkSource.Always,
     private val searchWindowMillis: Long = SEARCH_WINDOW_MILLIS,

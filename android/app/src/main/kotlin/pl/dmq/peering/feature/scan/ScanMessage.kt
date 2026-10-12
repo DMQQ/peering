@@ -14,6 +14,9 @@ import pl.dmq.peering.R
 import pl.dmq.peering.ui.theme.EmptyState
 import pl.dmq.peering.ui.kit.InkButton
 
+/** The button that fixes a missing camera picture. */
+internal class ScanAction(val label: String, val onClick: () -> Unit)
+
 /** Why there is no camera picture: unavailable, not yet allowed, or switched off, with the one button that fixes it. */
 @Composable
 internal fun ScanMessage(
@@ -21,15 +24,14 @@ internal fun ScanMessage(
     text: String,
     modifier: Modifier = Modifier,
     title: String = stringResource(R.string.scan_title),
-    action: String? = null,
-    onAction: () -> Unit = {},
+    action: ScanAction? = null,
 ) {
     Box(modifier = modifier.fillMaxSize().padding(horizontal = 32.dp), contentAlignment = Alignment.Center) {
         EmptyState(
             icon = icon,
             title = title,
             body = text,
-            action = action?.let { label -> { InkButton(onClick = onAction) { Text(label) } } },
+            action = action?.let { fix -> { InkButton(onClick = fix.onClick) { Text(fix.label) } } },
         )
     }
 }

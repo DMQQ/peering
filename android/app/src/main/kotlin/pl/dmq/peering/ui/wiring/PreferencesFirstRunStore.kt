@@ -10,6 +10,10 @@ internal class PreferencesFirstRunStore(private val preferences: SharedPreferenc
         preferences.edit().putBoolean(KEY_COMPLETE, true).apply()
     }
 
+    fun reset() {
+        preferences.edit().remove(KEY_COMPLETE).apply()
+    }
+
     private companion object {
         const val KEY_COMPLETE = "first_run_complete"
     }

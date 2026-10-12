@@ -14,6 +14,7 @@ class ConnectPresenterTest {
         presence: FakePresenceSource,
         onConnect: (String) -> Unit = {},
         onPair: (String) -> Unit = {},
+        onConnectAddress: (ManualAddress) -> Unit = {},
         scope: CoroutineScope,
     ) = ConnectPresenter(
         hosts = hosts,
@@ -21,6 +22,7 @@ class ConnectPresenterTest {
         qrSource = FakeQrSource(),
         onConnect = onConnect,
         onPair = onPair,
+        onConnectAddress = onConnectAddress,
         scope = scope,
     )
 

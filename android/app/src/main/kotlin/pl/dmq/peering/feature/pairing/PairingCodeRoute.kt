@@ -14,7 +14,7 @@ fun PairingCodeRoute(
     presenter: PairingCodePresenter,
     onFinished: () -> Unit,
     modifier: Modifier = Modifier,
-    onScanRequested: (() -> Unit)? = null,
+    onScanRequested: (() -> Unit)?,
 ) {
     val screen by presenter.state.collectAsState()
     LaunchedEffect(screen) {

@@ -90,8 +90,8 @@ fun FirstConnectionScreen(state: ConnectUiState, actions: ConnectActions, onSkip
                 GuideStepRow(3, if (ticked >= 2) GuideStepState.Current else GuideStepState.Pending, stringResource(R.string.first_step_choose), Modifier.arrive(180)) {
                     ChooseContent(found, ticked >= 2, actions, onEnterId = { entryOpen = true }, onEnterAddress = { addressOpen = true })
                 }
-                GuideStepRow(4, GuideStepState.Pending, stringResource(R.string.pairing_step_code), Modifier.arrive(240)) {}
-                GuideStepRow(5, GuideStepState.Pending, stringResource(R.string.pairing_step_approve), Modifier.arrive(300), isLast = true) {}
+                GuideStepRow(4, GuideStepState.Pending, stringResource(R.string.pairing_step_code), Modifier.arrive(240))
+                GuideStepRow(5, GuideStepState.Pending, stringResource(R.string.pairing_step_approve), Modifier.arrive(300), isLast = true)
             }
         }
         TextButton(

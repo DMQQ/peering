@@ -140,4 +140,15 @@ class HostIdEntryUntouchedTest {
         presenter.onTextChanged("zzzz")
         assertNull(presenter.state.value.error)
     }
+
+    @Test
+    fun aScannedIdFillsTheFieldAndIsAccepted() = runTest(UnconfinedTestDispatcher()) {
+        val accepted = mutableListOf<String>()
+        val presenter = HostIdEntryPresenter(FakeQrSource(), backgroundScope) { accepted += it }
+
+        presenter.onScanned("3d9f1c7a-2b44-4e71-9c0a-5f2e8b1d6a33")
+
+        assertEquals(listOf("3D9F1C7A-2B44-4E71-9C0A-5F2E8B1D6A33"), accepted)
+        assertEquals("3d9f1c7a-2b44-4e71-9c0a-5f2e8b1d6a33", presenter.state.value.text)
+    }
 }

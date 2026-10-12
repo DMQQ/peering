@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -22,12 +23,12 @@ fun PageDots(count: Int, current: Int, modifier: Modifier = Modifier) {
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(count) { index ->
             val width by animateDpAsState(if (index == current) 24.dp else 6.dp, tween(durationMillis = 200), label = "dot")
-            Row(
+            Box(
                 Modifier
                     .width(width)
                     .height(6.dp)
                     .background(if (index == current) PeeringColors.ink else Color.White.copy(alpha = 0.22f), CircleShape),
-            ) {}
+            )
         }
     }
 }

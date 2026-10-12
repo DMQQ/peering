@@ -13,11 +13,7 @@ class PeeringApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-        val preferences = getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+        val preferences = getSharedPreferences(MainActivity.PREFERENCES_NAME, Context.MODE_PRIVATE)
         FeatureWiring(graph, scope, preferences).install()
-    }
-
-    private companion object {
-        const val PREFERENCES_NAME = "peering"
     }
 }

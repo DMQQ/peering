@@ -21,6 +21,7 @@ import pl.dmq.peering.feature.paywall.FREE_DAILY_RELAY_SECONDS
 import pl.dmq.peering.feature.paywall.PaywallUi
 import pl.dmq.peering.feature.paywall.PlanOffer
 import pl.dmq.peering.feature.paywall.RestoreState
+import pl.dmq.peering.feature.paywall.explanationRes
 import pl.dmq.peering.ui.kit.PeeringSpinner
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.tappable
@@ -50,7 +51,7 @@ internal fun PlansSection(ui: PaywallUi, freeChosen: Boolean, onChooseFree: () -
                 onClick = onChooseFree,
             )
             Text(
-                stringResource(R.string.tour_plans_unreachable),
+                stringResource(ui.unavailable?.explanationRes() ?: R.string.tour_plans_unreachable),
                 style = PeeringText.caption,
                 color = PeeringColors.muted,
                 textAlign = TextAlign.Center,

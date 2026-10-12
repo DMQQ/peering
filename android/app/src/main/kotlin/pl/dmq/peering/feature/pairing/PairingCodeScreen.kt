@@ -3,6 +3,9 @@ package pl.dmq.peering.feature.pairing
 import pl.dmq.peering.session.controller.PairingCodeError
 
 sealed interface PairingCodeScreen {
+    /** Only a finished pairing leaves its connection open. Any other way off this screen closes it. */
+    val keepsConnection: Boolean get() = this is Done
+
     data class EnteringCode(val attempts: Int, val error: PairingCodeError?) : PairingCodeScreen
 
     /** The phone is still opening the connection, so there is nothing yet for the computer to approve. */

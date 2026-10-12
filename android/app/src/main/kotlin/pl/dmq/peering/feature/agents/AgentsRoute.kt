@@ -39,6 +39,14 @@ fun AgentsRoute(
     }
     val chatState by port.chats.collectAsState()
     var showingChat by remember { mutableStateOf(false) }
+    var sessionsBeforeStart by remember { mutableStateOf<Set<String>?>(null) }
+    LaunchedEffect(chatState.sessions, sessionsBeforeStart) {
+        val before = sessionsBeforeStart ?: return@LaunchedEffect
+        if (chatState.sessions.any { it.id !in before }) {
+            sessionsBeforeStart = null
+            showingChat = true
+        }
+    }
 
     LaunchedEffect(folders) {
         port.browseEvents.collect(folders::onEvent)
@@ -60,6 +68,7 @@ fun AgentsRoute(
                 presenter = hub,
                 folders = folders,
                 onSessionOpened = { showingChat = true },
+                onChatStarted = { sessionsBeforeStart = chatState.sessions.map { it.id }.toSet() },
             )
         }
     }

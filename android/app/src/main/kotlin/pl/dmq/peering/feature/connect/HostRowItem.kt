@@ -32,7 +32,7 @@ import pl.dmq.peering.ui.theme.PeeringText
 
 /** A computer in a list: its tile with the presence dot, its name and a line of monospaced detail. A trusted one adds a menu. */
 @Composable
-internal fun HostRowItem(row: HostRow, paired: Boolean, onOpen: () -> Unit, onForget: () -> Unit) {
+internal fun HostRowItem(row: HostRow, paired: Boolean, onOpen: () -> Unit, onForget: (() -> Unit)?) {
     Row(Modifier.rowSurface().padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.weight(1f).tappable(onOpen), verticalAlignment = Alignment.CenterVertically) {
             Box {
@@ -57,7 +57,7 @@ internal fun HostRowItem(row: HostRow, paired: Boolean, onOpen: () -> Unit, onFo
                 )
             }
         }
-        if (paired) TrustedMenu(onForget)
+        if (onForget != null) TrustedMenu(onForget)
     }
 }
 

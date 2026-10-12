@@ -94,4 +94,17 @@ class OnboardingPresenterTest {
         assertEquals(OnboardingStep.LANDING, presenter.ui.value.step)
         assertFalse(presenter.back())
     }
+
+    @Test
+    fun finishFromAnyPageCompletesTheFirstRunAndPersistsIt() {
+        val store = FakeFirstRunStore()
+        val presenter = OnboardingPresenter(store)
+        presenter.next()
+
+        presenter.finish()
+
+        assertTrue(presenter.ui.value.completed)
+        assertTrue(store.isComplete())
+        assertEquals(1, store.marks)
+    }
 }

@@ -142,7 +142,7 @@ private fun PlanOffer.detailRes(): Int = when (this) {
 }
 
 @StringRes
-private fun BillingUnavailable.explanationRes(): Int = when (this) {
+internal fun BillingUnavailable.explanationRes(): Int = when (this) {
     BillingUnavailable.NotSupported -> R.string.paywall_unavailable_not_supported
     BillingUnavailable.StoreUnreachable -> R.string.paywall_unavailable_unreachable
     BillingUnavailable.NotConfigured -> R.string.paywall_unavailable_not_configured

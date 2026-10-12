@@ -17,7 +17,7 @@ import pl.dmq.peering.ui.kit.PeeringAlert
 fun ConnectRoute(
     presenter: ConnectPresenter,
     modifier: Modifier = Modifier,
-    onScanRequested: (() -> Unit)? = null,
+    onScanRequested: (() -> Unit)?,
 ) {
     val state by presenter.state.collectAsState()
     val actions = rememberConnectActions(presenter, onScanRequested)

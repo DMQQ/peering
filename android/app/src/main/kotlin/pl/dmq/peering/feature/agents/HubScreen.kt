@@ -26,6 +26,7 @@ fun HubScreen(
     presenter: AgentsHubPresenter,
     folders: FolderPicker,
     onSessionOpened: () -> Unit,
+    onChatStarted: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ui by presenter.ui.collectAsState()
@@ -75,7 +76,7 @@ fun HubScreen(
         is NewChatStep.ChoosingFolder -> FolderSheet(
             folders = folders,
             recentFolders = ui.recentFolders,
-            onUseFolder = presenter::startInChosenFolder,
+            onUseFolder = { if (presenter.startInChosenFolder()) onChatStarted() },
             onBack = presenter::backToAgents,
             onDismiss = presenter::cancelNewChat,
         )

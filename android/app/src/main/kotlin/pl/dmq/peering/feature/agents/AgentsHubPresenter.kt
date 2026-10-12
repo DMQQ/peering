@@ -46,13 +46,14 @@ class AgentsHubPresenter(
         folders.open(null)
     }
 
-    /** Starts the chat in the folder the picker is showing. Nothing happens until a listing has arrived. */
-    fun startInChosenFolder() {
-        val chosen = step.value as? NewChatStep.ChoosingFolder ?: return
-        val directory = folders.ui.value.usablePath ?: return
+    /** Starts the chat in the folder the picker is showing; false, with nothing sent, until a listing has arrived. */
+    fun startInChosenFolder(): Boolean {
+        val chosen = step.value as? NewChatStep.ChoosingFolder ?: return false
+        val directory = folders.ui.value.usablePath ?: return false
         port.start(chosen.agentID, directory)
         recents.record(directory)
         step.value = NewChatStep.Closed
+        return true
     }
 
     fun backToAgents() {

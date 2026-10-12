@@ -122,7 +122,10 @@ internal fun ConnectTab(wiring: FeatureWiring) {
             ConnectStage.Pairing -> presenting?.let { current ->
                 PairingCodeRoute(
                     presenter = current,
-                    onFinished = { pairing = null },
+                    onFinished = {
+                        if (!current.state.value.keepsConnection && active === pairingSession) wiring.holder.end()
+                        pairing = null
+                    },
                     onScanRequested = { scanning = ScanPurpose.ConfirmCode },
                 )
             }
