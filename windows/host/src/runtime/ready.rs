@@ -5,6 +5,7 @@ use peering_wire::agent::AgentRequest;
 use peering_wire::command::RemoteCommand;
 use peering_wire::framing::{Frame, MessageKind};
 
+use super::agent_browse;
 use super::connection::{Connection, Flow};
 use super::video::CoordinatorControl;
 
@@ -60,10 +61,13 @@ impl Connection {
         let Ok(request) = serde_json::from_slice::<AgentRequest>(&frame.payload) else {
             return Flow::Closed;
         };
-        let manager = self
-            .agent
-            .get_or_insert_with(|| peering_agent::manager::AgentSessionManager::new(super::agent::StdLauncher));
-        let events = manager.handle(request);
+        if let AgentRequest::Browse { path } = request {
+            let browser = self.shared.lock().agent_browser.clone();
+            agent_browse::answer(browser, path, self.outbound.clone());
+            return Flow::Open;
+        }
+        let client_id = self.session.client_id().to_owned();
+        let events = self.shared.lock().agents.handle(&client_id, request);
         for event in events {
             self.send_event(&event);
         }

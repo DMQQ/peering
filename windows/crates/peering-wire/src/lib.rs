@@ -11,6 +11,7 @@ pub mod framing;
 pub mod handshake;
 pub mod keymap;
 pub mod pairing_payload;
+pub mod path_segment;
 pub mod quality;
 pub mod relay_messages;
 pub mod relay_proof;

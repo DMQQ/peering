@@ -8,6 +8,8 @@
 
 mod advertise;
 mod agent;
+mod agent_browse;
+mod agent_pump;
 mod clock;
 mod config;
 mod connection;
@@ -34,6 +36,8 @@ use std::collections::HashMap;
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 
+use peering_agent::browse::AgentBrowser;
+use peering_agent::manager::ClientAgents;
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
 use peering_core::ports::clock::Clock;
@@ -53,6 +57,8 @@ pub use error::RuntimeError;
 pub use control::{ApprovalView, DeviceView, HostHandle, HostSnapshot, OfferView, RelayStatus, RuntimeCommand};
 pub use services::{platform_services, HostServices, TerminalServices};
 
+use agent::StdLauncher;
+use agent_browse::DiskFolders;
 use control::ControlChannel;
 use notifications::WaitingNotifications;
 use peer_address::PeerAddressRouter;
@@ -118,6 +124,7 @@ impl HostRuntime {
     /// Builds the shared state from the adapters. Must be called on the thread that runs the `LocalSet` from `run`.
     pub fn new(profile: HostProfile, services: HostServices) -> Result<Self, RuntimeError> {
         let HostServices { capture, encoder, input, system, secrets, files, terminal, home_directory } = services;
+        let agent_browser = Arc::new(AgentBrowser::new(DiskFolders(files.clone()), home_directory.clone()));
         let profile = HostProfile { can_lock_screen: system.can_lock_workstation(), ..profile };
         let terminals = terminal::manager(terminal, secrets.clone(), profile.clock.clone())?;
         let pins: Arc<dyn PinStore> = Arc::new(SecretPins::open(secrets)?);
@@ -132,6 +139,8 @@ impl HostRuntime {
             input: BoxedInput(input),
             system: BoxedSystem(system),
             files: Arc::new(FileBrowser::new(SharedFileSystem(files), home_directory)),
+            agents: ClientAgents::new(StdLauncher::default),
+            agent_browser,
             terminals,
             notifications: WaitingNotifications::default(),
             sessions: HashMap::new(),
@@ -241,6 +250,7 @@ impl HostRuntime {
     /// Starts the video pump and the command loop on the current local task set. `run` does this; tests call it directly.
     pub fn start_pump(&self) {
         video::spawn_pump(self.shared.clone(), self.profile.clone());
+        agent_pump::spawn_pump(self.shared.clone());
     }
 
     /// Runs the host until the process ends: binds the port, announces the host, and serves the relay and the pump.

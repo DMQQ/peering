@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use peering_agent::manager::ClientAgents;
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
 use peering_core::pairing::PairingService;
@@ -14,6 +15,8 @@ use peering_core::video::lane::VideoLane;
 use tokio::sync::broadcast;
 
 use super::control::{ControlChannel, RelayStatus};
+use super::agent::StdLauncher;
+use super::agent_browse::FolderBrowser;
 use super::notifications::WaitingNotifications;
 use super::outbound::{FrameSender, Outbound};
 use super::peer_address::PeerAddressRouter;
@@ -48,6 +51,8 @@ pub struct HostState {
     pub system: BoxedSystem,
     /// Shared so a request runs on the blocking pool with the state lock released.
     pub files: Arc<FileBrowser<SharedFileSystem>>,
+    pub agents: ClientAgents<StdLauncher>,
+    pub agent_browser: Arc<FolderBrowser>,
     pub terminals: TerminalSessionManager,
     /// Push notifications for the relay to send once the host is registered with it, oldest first.
     pub notifications: WaitingNotifications,

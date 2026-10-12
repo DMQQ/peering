@@ -35,5 +35,5 @@ fn is_drive(segment: &str) -> bool {
 }
 
 fn is_name(segment: &str) -> bool {
-    !segment.is_empty() && segment != "." && segment != ".." && !segment.contains(['\\', ':', '\0'])
+    peering_wire::path_segment::is_name(segment)
 }

@@ -17,7 +17,6 @@ use tokio::time::interval;
 
 mod register;
 
-use super::agent::StdLauncher;
 use super::outbound::{outbound, FrameSender, OutboundReceiver};
 use super::pre_auth::PreAuthPermit;
 use super::random::SystemRandomSource;
@@ -42,7 +41,6 @@ pub(super) struct Connection {
     pub(super) session_id: u64,
     pub(super) liveness: LivenessTracker,
     pub(super) supports_agent_chat: bool,
-    pub(super) agent: Option<peering_agent::manager::AgentSessionManager<StdLauncher>>,
     pub(super) video_for_session: Option<u64>,
     /// Held until the connection is authorised or turns out to be a video connection.
     pub(super) pre_auth: Option<PreAuthPermit>,
@@ -89,7 +87,6 @@ where
         session_id,
         liveness: LivenessTracker::started_at(now),
         supports_agent_chat: false,
-        agent: None,
         video_for_session: None,
         pre_auth,
     };
@@ -189,10 +186,6 @@ impl Connection {
         let now = self.now();
         if self.liveness.verdict(now, self.session.state().phase()) == Verdict::End || !self.shared.lock().hosting {
             return Flow::Closed;
-        }
-        let events = self.agent.as_mut().map(|manager| manager.poll()).unwrap_or_default();
-        for event in events {
-            self.send_event(&event);
         }
         Flow::Open
     }

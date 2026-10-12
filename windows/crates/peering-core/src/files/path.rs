@@ -36,29 +36,8 @@ fn is_drive(segment: &str) -> bool {
     )
 }
 
-/// A single name below a drive. `.` and `..` would move the path, a backslash would add a level the wire did not
-/// name, and a reserved device name or a trailing dot or space would open a device instead of a file.
 fn is_name(segment: &str) -> bool {
-    !segment.is_empty()
-        && segment != "."
-        && segment != ".."
-        && !segment.contains(['\\', ':', '\0', '<', '>', '"', '|', '?', '*'])
-        && !segment.ends_with(['.', ' '])
-        && !is_device_name(segment)
-}
-
-/// Windows resolves `con`, `con.txt` and `CON .txt` to the console: the device name is the part before the first dot,
-/// ignoring case and trailing spaces.
-fn is_device_name(segment: &str) -> bool {
-    let stem = segment.split('.').next().unwrap_or(segment).trim_end_matches(' ').to_ascii_uppercase();
-    match stem.as_str() {
-        "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$" => true,
-        _ => ["COM", "LPT"].iter().any(|prefix| {
-            stem.strip_prefix(prefix).is_some_and(|number| {
-                matches!(number, "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "\u{b9}" | "\u{b2}" | "\u{b3}")
-            })
-        }),
-    }
+    peering_wire::path_segment::is_name(segment)
 }
 
 #[cfg(test)]
