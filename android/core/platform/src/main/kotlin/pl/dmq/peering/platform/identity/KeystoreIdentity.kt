@@ -1,7 +1,9 @@
 package pl.dmq.peering.platform.identity
 
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
+import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.PrivateKey
@@ -71,11 +73,14 @@ class KeystoreIdentity(
 
     @Synchronized
     private fun ensureKey() {
-        if (keyStore.containsAlias(IDENTITY_ALIAS)) return
+        if (keyStore.containsAlias(IDENTITY_ALIAS)) {
+            if (signsRawDigests()) return
+            keyStore.deleteEntry(IDENTITY_ALIAS)
+        }
         val now = Instant.now()
         val spec = KeyGenParameterSpec.Builder(IDENTITY_ALIAS, KeyProperties.PURPOSE_SIGN)
             .setAlgorithmParameterSpec(ECGenParameterSpec(CURVE))
-            .setDigests(KeyProperties.DIGEST_SHA256)
+            .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_NONE)
             .setCertificateSubject(X500Principal(subject))
             .setCertificateNotBefore(Date.from(now.minus(notBeforeMargin)))
             .setCertificateNotAfter(Date.from(now.plus(validity)))
@@ -83,6 +88,13 @@ class KeystoreIdentity(
         KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, ANDROID_KEY_STORE)
             .apply { initialize(spec) }
             .generateKeyPair()
+    }
+
+    /** TLS 1.3 has Conscrypt sign with NONEwithECDSA, which a Keystore key only allows when it was made with DIGEST_NONE. Keys made earlier lack it and fail the handshake. */
+    private fun signsRawDigests(): Boolean {
+        val key = keyStore.getKey(IDENTITY_ALIAS, null) as? PrivateKey ?: return false
+        val info = KeyFactory.getInstance(key.algorithm, ANDROID_KEY_STORE).getKeySpec(key, KeyInfo::class.java)
+        return KeyProperties.DIGEST_NONE in info.digests
     }
 
     private fun storedClientId(): String? =
