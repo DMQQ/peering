@@ -53,6 +53,8 @@ pub struct HostSnapshot {
     pub offer: Option<OfferView>,
     pub approvals: Vec<ApprovalView>,
     pub devices: Vec<DeviceView>,
+    /// The frame rate the encoder runs at, as the window's choice shows it.
+    pub frame_rate: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,6 +63,7 @@ pub enum RuntimeCommand {
     Approve(u64),
     Decline(u64),
     Forget(String),
+    SetFrameRate(u32),
 }
 
 /// The UI's end of the channel. Clone it freely; it can be used from any thread.
@@ -118,6 +121,7 @@ impl HostState {
                 .into_iter()
                 .map(|device| DeviceView { id: device.id, name: device.name, last_seen_unix: device.last_seen_unix })
                 .collect(),
+            frame_rate: self.video.frame_rate(),
         }
     }
 
@@ -152,6 +156,7 @@ impl HostState {
                 RuntimeCommand::Forget(client_id) => {
                     self.pairing.revoke(&client_id);
                 }
+                RuntimeCommand::SetFrameRate(fps) => self.video.set_frame_rate(fps),
             }
         }
         decisions

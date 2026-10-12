@@ -46,6 +46,15 @@ pub fn remove_run_key() -> std::io::Result<()> {
     Ok(())
 }
 
+/// Whether the Run entry exists. A reg query that fails to run is read as not set, which is what the box should show.
+#[cfg(windows)]
+pub fn is_enabled() -> bool {
+    std::process::Command::new("reg")
+        .args(["query", RUN_KEY, "/v", VALUE_NAME])
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;

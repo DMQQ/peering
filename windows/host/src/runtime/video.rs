@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use peering_core::ports::input::TransformSnapshot;
+use peering_core::ports::system::SystemActions;
 use peering_core::ports::capture::DisplayInfo;
 use peering_core::session::dispatch::SourceControl;
 use peering_core::video::coordinator::{CoordinatorError, VideoCoordinator};
@@ -31,16 +32,21 @@ pub struct Outgoing {
     pub frame: Frame,
 }
 
-/// The dispatcher's view of the video coordinator. A capture source that cannot be used is kept for the caller to report.
+/// The dispatcher's view of the video coordinator and the workstation. A failure is kept for the caller to report.
 pub struct CoordinatorControl<'a> {
     video: &'a mut VideoCoordinator<SharedCapture, BoxedEncoder>,
+    system: &'a mut dyn SystemActions,
     now: f64,
     pub failure: Option<String>,
 }
 
 impl<'a> CoordinatorControl<'a> {
-    pub fn new(video: &'a mut VideoCoordinator<SharedCapture, BoxedEncoder>, now: f64) -> Self {
-        Self { video, now, failure: None }
+    pub fn new(
+        video: &'a mut VideoCoordinator<SharedCapture, BoxedEncoder>,
+        system: &'a mut dyn SystemActions,
+        now: f64,
+    ) -> Self {
+        Self { video, system, now, failure: None }
     }
 }
 
@@ -51,8 +57,10 @@ impl SourceControl for CoordinatorControl<'_> {
         }
     }
 
-    fn set_quality(&mut self, _fps: Option<u32>, bitrate_kbps: Option<u32>) {
-        // The coordinator paces frames at its own rate, so a frame-rate request is not applied yet.
+    fn set_quality(&mut self, fps: Option<u32>, bitrate_kbps: Option<u32>) {
+        if let Some(fps) = fps {
+            self.video.set_frame_rate(fps);
+        }
         if let Some(kbps) = bitrate_kbps {
             self.video.set_quality(i64::from(kbps));
         }
@@ -63,7 +71,9 @@ impl SourceControl for CoordinatorControl<'_> {
     }
 
     fn lock_screen(&mut self) {
-        // Locking the workstation is not wired yet; the command is accepted and has no effect.
+        if let Err(error) = self.system.lock_workstation() {
+            self.failure.get_or_insert_with(|| error.to_string());
+        }
     }
 }
 

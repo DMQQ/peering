@@ -8,6 +8,7 @@ use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame}
 use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
 use peering_core::ports::input::{InputSink, TransformSnapshot};
 use peering_core::ports::secret_store::SecretStore;
+use peering_core::ports::system::{SystemActions, SystemError};
 use peering_wire::command::RemoteCommand;
 
 mod adapters {
@@ -21,6 +22,7 @@ mod adapters {
         pub capture: Box<dyn peering_core::ports::capture::Capture + Send>,
         pub encoder: Box<dyn peering_core::ports::encoder::Encoder + Send>,
         pub input: Box<dyn peering_core::ports::input::InputSink + Send>,
+        pub system: Box<dyn peering_core::ports::system::SystemActions + Send>,
         pub secrets: std::sync::Arc<dyn peering_core::ports::secret_store::SecretStore + Send + Sync>,
         pub files: std::sync::Arc<dyn peering_core::files::vfs::FileSystem + Send + Sync>,
     }
@@ -39,6 +41,7 @@ pub struct HostServices {
     pub capture: Box<dyn Capture + Send>,
     pub encoder: Box<dyn Encoder + Send>,
     pub input: Box<dyn InputSink + Send>,
+    pub system: Box<dyn SystemActions + Send>,
     pub secrets: Arc<dyn SecretStore + Send + Sync>,
     pub files: Arc<dyn FileSystem + Send + Sync>,
     pub home_directory: String,
@@ -96,6 +99,18 @@ impl Encoder for BoxedEncoder {
     }
 }
 
+pub struct BoxedSystem(pub Box<dyn SystemActions + Send>);
+
+impl SystemActions for BoxedSystem {
+    fn can_lock_workstation(&self) -> bool {
+        self.0.can_lock_workstation()
+    }
+
+    fn lock_workstation(&mut self) -> Result<(), SystemError> {
+        self.0.lock_workstation()
+    }
+}
+
 pub struct BoxedInput(pub Box<dyn InputSink + Send>);
 
 impl InputSink for BoxedInput {
@@ -131,6 +146,6 @@ impl FileSystem for SharedFileSystem {
 
 /// The platform adapters for this machine. `home_directory` is where a file listing starts when the client names none.
 pub fn platform_services(home_directory: String) -> Result<HostServices, RuntimeError> {
-    let adapters::Adapters { capture, encoder, input, secrets, files } = adapters::build()?;
-    Ok(HostServices { capture, encoder, input, secrets, files, home_directory })
+    let adapters::Adapters { capture, encoder, input, system, secrets, files } = adapters::build()?;
+    Ok(HostServices { capture, encoder, input, system, secrets, files, home_directory })
 }

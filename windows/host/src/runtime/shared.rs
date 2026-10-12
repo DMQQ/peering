@@ -14,7 +14,7 @@ use tokio::sync::{broadcast, mpsc};
 
 use super::control::{ControlChannel, RelayStatus};
 use super::peer_address::PeerAddressRouter;
-use super::services::{BoxedEncoder, BoxedInput, SharedCapture, SharedFileSystem};
+use super::services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
 
 /// One authorised control connection. `video_outbound` is set while a direct video connection for the same client is open.
 /// `datagram_outbound` feeds the session's relayed UDP lane; it is set only for a session that has one.
@@ -42,6 +42,7 @@ pub struct HostState {
     pub catalogues: SessionCatalogue<u64>,
     pub video: VideoCoordinator<SharedCapture, BoxedEncoder>,
     pub input: BoxedInput,
+    pub system: BoxedSystem,
     pub files: FileBrowser<SharedFileSystem>,
     pub sessions: HashMap<u64, SessionSlot>,
     pub next_session: u64,

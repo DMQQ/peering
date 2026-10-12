@@ -13,9 +13,12 @@ use peering_core::fakes::clock::FakeClock;
 use peering_core::fakes::encoder::FakeEncoder;
 use peering_core::fakes::input::RecordingInput;
 use peering_core::fakes::secret_store::InMemorySecretStore;
+use peering_core::fakes::system::RecordingSystem;
 use peering_core::files::fake::InMemoryFileSystem;
 use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame};
+use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
 use peering_core::ports::input::{InputSink, TransformSnapshot};
+use peering_core::ports::system::{SystemActions, SystemError};
 use peering_core::session::handshake::PROTOCOL_VERSION;
 use peering_core::pairing::PairingOffer;
 use peering_host::runtime::{HostProfile, HostRuntime, HostServices, PeerInfo};
@@ -77,10 +80,42 @@ impl InputSink for SharedInput {
     }
 }
 
+/// The encoder the test inspects after the runtime has driven it.
+pub struct SharedEncoder(pub Arc<Mutex<FakeEncoder>>);
+
+impl Encoder for SharedEncoder {
+    fn configure(&mut self, width: u32, height: u32, fps: u32, bitrate_bps: u32) -> Result<(), EncodeError> {
+        locked(&self.0).configure(width, height, fps, bitrate_bps)
+    }
+
+    fn encode(&mut self, frame: &RawFrame, force_keyframe: bool) -> Result<Vec<EncodedOutput>, EncodeError> {
+        locked(&self.0).encode(frame, force_keyframe)
+    }
+
+    fn set_bitrate(&mut self, bitrate_bps: u32) {
+        locked(&self.0).set_bitrate(bitrate_bps);
+    }
+}
+
+/// The workstation the test inspects after a lock request.
+pub struct SharedSystem(pub Arc<Mutex<RecordingSystem>>);
+
+impl SystemActions for SharedSystem {
+    fn can_lock_workstation(&self) -> bool {
+        locked(&self.0).can_lock_workstation()
+    }
+
+    fn lock_workstation(&mut self) -> Result<(), SystemError> {
+        locked(&self.0).lock_workstation()
+    }
+}
+
 pub struct Harness {
     pub runtime: HostRuntime,
     pub capture: Arc<Mutex<FakeCapture>>,
+    pub encoder: Arc<Mutex<FakeEncoder>>,
     pub input: Arc<Mutex<RecordingInput>>,
+    pub system: Arc<Mutex<RecordingSystem>>,
     pub secrets: Arc<InMemorySecretStore>,
     pub clock: Arc<FakeClock>,
 }
@@ -99,7 +134,14 @@ pub fn display() -> DisplayInfo {
 }
 
 pub fn harness() -> Harness {
+    harness_with_system(RecordingSystem::new(true, None))
+}
+
+/// A host whose workstation is `system`, for tests of the lock request and of the hello that advertises it.
+pub fn harness_with_system(system: RecordingSystem) -> Harness {
     let capture = Arc::new(Mutex::new(FakeCapture::new(vec![display()])));
+    let encoder = Arc::new(Mutex::new(FakeEncoder::default()));
+    let system = Arc::new(Mutex::new(system));
     let input = Arc::new(Mutex::new(RecordingInput::default()));
     let secrets = Arc::new(InMemorySecretStore::default());
     let mut files = InMemoryFileSystem::default();
@@ -108,8 +150,9 @@ pub fn harness() -> Harness {
     let clock = Arc::new(FakeClock::new(100.0, UNIX_NOW));
     let services = HostServices {
         capture: Box::new(SharedCapture(capture.clone())),
-        encoder: Box::new(FakeEncoder::default()),
+        encoder: Box::new(SharedEncoder(encoder.clone())),
         input: Box::new(SharedInput(input.clone())),
+        system: Box::new(SharedSystem(system.clone())),
         secrets: secrets.clone(),
         files: Arc::new(files),
         home_directory: "C:\\Users\\me".to_owned(),
@@ -119,10 +162,11 @@ pub fn harness() -> Harness {
         host_name: HOST_NAME.to_owned(),
         identity_public_key: HOST_KEY.to_vec(),
         mac_addresses: Vec::new(),
+        can_lock_screen: false,
         clock: clock.clone(),
     };
     let runtime = HostRuntime::new(profile, services).expect("the runtime builds over fakes");
-    Harness { runtime, capture, input, secrets, clock }
+    Harness { runtime, capture, encoder, input, system, secrets, clock }
 }
 
 pub fn direct_peer() -> PeerInfo {

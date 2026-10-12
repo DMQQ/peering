@@ -3,11 +3,14 @@
 
 pub mod model;
 pub mod qr;
+pub mod settings;
 
 #[cfg(windows)]
 mod app;
 #[cfg(windows)]
 mod pairing;
+#[cfg(windows)]
+mod settings_view;
 #[cfg(windows)]
 mod tray;
 

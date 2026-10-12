@@ -50,7 +50,7 @@ pub use services::{platform_services, HostServices};
 use control::ControlChannel;
 use peer_address::PeerAddressRouter;
 use pins::SecretPins;
-use services::{BoxedEncoder, BoxedInput, SharedCapture, SharedFileSystem};
+use services::{BoxedEncoder, BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
 use shared::{HostState, Shared};
 
 pub const DEFAULT_PORT: u16 = peering_core::settings::DEFAULT_PORT;
@@ -100,6 +100,8 @@ pub struct HostProfile {
     pub identity_public_key: Vec<u8>,
     /// Wake-on-LAN addresses for paired clients. Not collected yet, so the hello carries none.
     pub mac_addresses: Vec<String>,
+    /// Whether the host can lock its workstation. `HostRuntime::new` sets this from the system adapter.
+    pub can_lock_screen: bool,
     pub clock: Arc<dyn Clock>,
 }
 
@@ -110,6 +112,7 @@ impl HostProfile {
             host_name: host_name.to_owned(),
             identity_public_key: identity.public_key_bytes(),
             mac_addresses: Vec::new(),
+            can_lock_screen: false,
             clock,
         }
     }
@@ -143,7 +146,8 @@ pub struct HostRuntime {
 impl HostRuntime {
     /// Builds the shared state from the adapters. Must be called on the thread that runs the `LocalSet` from `run`.
     pub fn new(profile: HostProfile, services: HostServices) -> Result<Self, RuntimeError> {
-        let HostServices { capture, encoder, input, secrets, files, home_directory } = services;
+        let HostServices { capture, encoder, input, system, secrets, files, home_directory } = services;
+        let profile = HostProfile { can_lock_screen: system.can_lock_workstation(), ..profile };
         let pins: Arc<dyn PinStore> = Arc::new(SecretPins::open(secrets)?);
         let capture = SharedCapture::new(capture);
         let state = HostState {
@@ -154,6 +158,7 @@ impl HostRuntime {
             catalogues: SessionCatalogue::new(),
             video: VideoCoordinator::new(capture, BoxedEncoder(encoder)),
             input: BoxedInput(input),
+            system: BoxedSystem(system),
             files: FileBrowser::new(SharedFileSystem(files), home_directory),
             sessions: HashMap::new(),
             next_session: 0,

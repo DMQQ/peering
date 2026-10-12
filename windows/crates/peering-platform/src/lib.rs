@@ -16,3 +16,5 @@ pub mod session_state;
 pub mod gpu;
 #[cfg(windows)]
 pub mod services;
+#[cfg(windows)]
+pub mod system;

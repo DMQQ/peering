@@ -11,10 +11,14 @@ use thiserror::Error;
 
 use crate::ports::capture::{Capture, CaptureError, RawFrame};
 use crate::ports::encoder::{EncodeError, EncodedOutput, Encoder};
+use crate::settings::{snap_frame_rate, DEFAULT_FRAME_RATE};
+
+mod pacing;
+
+use pacing::FramePacer;
 
 /// How long a capture may run before the watchdog treats a frame-less start as a failure.
 pub const FIRST_FRAME_GRACE: f64 = 5.0;
-const FRAME_RATE: u32 = 60;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VideoOutput {
@@ -47,6 +51,8 @@ pub struct VideoCoordinator<C: Capture, E: Encoder> {
     keyframe_pending: bool,
     requested_kbps: Option<u32>,
     ceiling_kbps: Option<u32>,
+    pacer: FramePacer,
+    reconfigure_pending: bool,
     capture_started_at: Option<f64>,
     frame_ever_seen: bool,
     last_frame_at: Option<f64>,
@@ -68,6 +74,8 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
             keyframe_pending: false,
             requested_kbps: None,
             ceiling_kbps: None,
+            pacer: FramePacer::new(DEFAULT_FRAME_RATE),
+            reconfigure_pending: false,
             capture_started_at: None,
             frame_ever_seen: false,
             last_frame_at: None,
@@ -114,14 +122,31 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.capture.start(id)?;
         self.size = even_size(display.pixel_width, display.pixel_height);
         let (width, height) = self.size;
-        self.encoder.configure(width, height, FRAME_RATE, self.target_bitrate_bps())?;
+        self.encoder.configure(width, height, self.pacer.rate(), self.target_bitrate_bps())?;
         self.source = Some(source.clone());
         self.chosen_source = Some(source);
         self.last_config = None;
         self.config_pending = false;
         self.keyframe_pending = true;
+        self.reconfigure_pending = false;
+        self.pacer.restart();
         self.capture_started_at = Some(now);
         Ok(())
+    }
+
+    /// Sets the frame rate the encoder runs at, snapped to an allowed rate. A running source is reconfigured on the next
+    /// pump, which asks for a keyframe, and the connections stay up.
+    pub fn set_frame_rate(&mut self, fps: u32) {
+        let fps = snap_frame_rate(fps);
+        if fps == self.pacer.rate() {
+            return;
+        }
+        self.pacer.set_rate(fps);
+        self.reconfigure_pending = self.source.is_some();
+    }
+
+    pub fn frame_rate(&self) -> u32 {
+        self.pacer.rate()
     }
 
     /// Applies a bitrate the client asked for. Values the wire bounds reject are ignored, not an error.
@@ -151,11 +176,18 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
     pub fn pump(&mut self, now: f64) -> Result<Vec<VideoOutput>, CoordinatorError> {
         let mut outputs = Vec::new();
         let mut slot = LatestFrameSlot::new();
+        self.apply_pending_reconfigure()?;
+        let encode_this_pass = self.pacer.due(now);
+        let mut encoded = false;
         while let Some(raw) = self.capture.poll_frame() {
             self.frame_ever_seen = true;
-            if self.sending() {
+            if encode_this_pass && self.sending() {
                 self.encode_into(&raw, now, &mut outputs, &mut slot)?;
+                encoded = true;
             }
+        }
+        if encoded {
+            self.pacer.encoded_at(now);
         }
         if let Some(pending) = slot.take() {
             outputs.push(VideoOutput::Frame(EncodedVideoFrame::decode(&pending.data)?));
@@ -189,6 +221,18 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
 
     fn sending(&self) -> bool {
         self.video_enabled && !self.clients.is_empty() && self.source.is_some()
+    }
+
+    fn apply_pending_reconfigure(&mut self) -> Result<(), CoordinatorError> {
+        if !std::mem::take(&mut self.reconfigure_pending) {
+            return Ok(());
+        }
+        let (width, height) = self.size;
+        self.encoder.configure(width, height, self.pacer.rate(), self.target_bitrate_bps())?;
+        self.last_config = None;
+        self.config_pending = false;
+        self.keyframe_pending = true;
+        Ok(())
     }
 
     fn encode_into(
@@ -250,7 +294,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         let wanted = self
             .requested_kbps
             .map(|kbps| kbps.saturating_mul(1000))
-            .unwrap_or_else(|| default_bitrate_bps(width, height, FRAME_RATE));
+            .unwrap_or_else(|| default_bitrate_bps(width, height, self.pacer.rate()));
         match self.ceiling_kbps {
             Some(ceiling) => wanted.min(ceiling.saturating_mul(1000)),
             None => wanted,

@@ -89,7 +89,8 @@ fn parse_bool(value: &str) -> Option<bool> {
     }
 }
 
-fn snap_frame_rate(requested: u32) -> u32 {
+/// The allowed rate nearest to `requested`; halfway values take the lower rate.
+pub fn snap_frame_rate(requested: u32) -> u32 {
     ALLOWED_FRAME_RATES
         .into_iter()
         .min_by_key(|allowed| allowed.abs_diff(requested))

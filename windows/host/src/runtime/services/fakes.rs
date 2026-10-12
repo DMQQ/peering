@@ -7,6 +7,7 @@ use peering_core::fakes::encoder::FakeEncoder;
 use peering_core::fakes::input::RecordingInput;
 use peering_core::fakes::secret_store::InMemorySecretStore;
 use peering_core::fakes::capture::FakeCapture;
+use peering_core::fakes::system::RecordingSystem;
 
 use super::adapters::Adapters;
 use crate::runtime::files::DiskFileSystem;
@@ -17,6 +18,7 @@ pub fn build() -> Result<Adapters, RuntimeError> {
         capture: Box::new(FakeCapture::new(Vec::new())),
         encoder: Box::new(FakeEncoder::default()),
         input: Box::new(RecordingInput::default()),
+        system: Box::new(RecordingSystem::new(false, None)),
         secrets: Arc::new(InMemorySecretStore::default()),
         files: Arc::new(DiskFileSystem),
     })

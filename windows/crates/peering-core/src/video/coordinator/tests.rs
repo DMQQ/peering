@@ -267,6 +267,55 @@ fn the_chosen_source_is_kept_while_a_client_is_still_attached() {
     assert_eq!(coordinator.chosen_source(), Some(&display_source(2)));
 }
 
+fn encoded_passes(coordinator: &mut VideoCoordinator<FakeCapture, FakeEncoder>, times: &[f64]) -> usize {
+    let mut encoded = 0;
+    for (sequence, now) in times.iter().enumerate() {
+        push(coordinator, &[sequence as u64 + 1]);
+        encoded += frames(&coordinator.pump(*now).expect("the pump runs")).len();
+    }
+    encoded
+}
+
+#[test]
+fn at_the_default_rate_every_pass_that_captures_a_frame_encodes_it() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(1), 0.0).expect("the source starts");
+    assert_eq!(encoded_passes(&mut coordinator, &[0.0, 0.0166, 0.0333, 0.05, 0.0666]), 5);
+}
+
+#[test]
+fn a_lower_frame_rate_encodes_only_the_passes_that_fall_due() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(1), 0.0).expect("the source starts");
+    coordinator.set_frame_rate(15);
+    assert_eq!(encoded_passes(&mut coordinator, &[0.0, 0.0166, 0.0333, 0.05, 0.0666]), 2);
+}
+
+#[test]
+fn a_frame_rate_change_reconfigures_the_encoder_and_asks_for_a_keyframe() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(1), 0.0).expect("the source starts");
+    coordinator.pump(0.0).expect("the pump runs");
+    coordinator.set_frame_rate(30);
+    push(&mut coordinator, &[2]);
+    let outputs = coordinator.pump(0.1).expect("the pump runs");
+    let last_configure = coordinator.encoder.configure_calls().last().copied().expect("configured again");
+    assert_eq!(last_configure.2, 30);
+    assert!(frames(&outputs).first().is_some_and(|frame| frame.is_keyframe));
+}
+
+#[test]
+fn a_requested_frame_rate_is_snapped_to_an_allowed_one() {
+    let mut coordinator = coordinator();
+    coordinator.set_frame_rate(24);
+    assert_eq!(coordinator.frame_rate(), 30);
+    coordinator.set_frame_rate(120);
+    assert_eq!(coordinator.frame_rate(), 60);
+}
+
 #[test]
 fn the_time_of_the_last_encoded_frame_is_recorded() {
     let mut coordinator = coordinator();

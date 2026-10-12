@@ -221,6 +221,9 @@ impl Connection {
         hello.capabilities.supports_agent_chat = Some(true);
         hello.capabilities.supports_agent_list = Some(true);
         hello.capabilities.supports_file_browser = Some(true);
+        if self.profile.can_lock_screen {
+            hello.capabilities.supports_lock_screen = Some(true);
+        }
         hello.agent_chat_agents = Some(peering_agent::manager::agent_chat_agents());
         Frame::new(MessageKind::ServerHello, serde_json::to_vec(&hello).expect("a hello always serialises"))
     }

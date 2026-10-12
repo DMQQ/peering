@@ -6,3 +6,4 @@ pub mod encoder;
 pub mod input;
 pub mod secret_store;
 pub mod stream;
+pub mod system;

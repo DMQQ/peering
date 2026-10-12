@@ -1,5 +1,8 @@
 //! The state the tray menu shows and what each menu choice asks the host to do. No toolkit types appear here.
 
+use peering_core::settings::ALLOWED_FRAME_RATES;
+
+use super::settings::{firewall_note, SettingsChoice, SettingsState};
 use crate::runtime::{HostSnapshot, OfferView, RelayStatus, RuntimeCommand};
 use crate::strings;
 
@@ -46,8 +49,7 @@ impl MenuModel {
             },
             MenuEntry { action: MenuAction::ShowPairingCode, label: strings::SHOW_PAIRING_CODE, enabled: hosting },
             MenuEntry { action: MenuAction::ShowDevices, label: strings::DEVICES, enabled: true },
-            // The settings window is not built yet, so its entry is shown but cannot be chosen.
-            MenuEntry { action: MenuAction::OpenSettings, label: strings::SETTINGS, enabled: false },
+            MenuEntry { action: MenuAction::OpenSettings, label: strings::SETTINGS, enabled: true },
             MenuEntry { action: MenuAction::Quit, label: strings::QUIT, enabled: true },
         ]
     }
@@ -137,6 +139,47 @@ impl UiModel {
 
     pub fn relay_line(&self) -> &'static str {
         relay_text(self.snapshot.relay)
+    }
+
+    /// The settings section: the choices offered, with the frame rate in force marked, and the notes the last actions left.
+    pub fn settings(&self, state: &SettingsState) -> SettingsPanel {
+        SettingsPanel {
+            start_at_login: state.start_at_login(),
+            autostart_note: state.autostart_note().map(str::to_owned),
+            frame_rates: frame_rate_choices(self.snapshot.frame_rate),
+            firewall_note: firewall_note(state.firewall()),
+        }
+    }
+}
+
+/// The settings section as the window draws it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SettingsPanel {
+    pub start_at_login: bool,
+    pub autostart_note: Option<String>,
+    pub frame_rates: Vec<FrameRateChoice>,
+    pub firewall_note: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FrameRateChoice {
+    pub fps: u32,
+    pub label: String,
+    pub selected: bool,
+}
+
+fn frame_rate_choices(current: u32) -> Vec<FrameRateChoice> {
+    ALLOWED_FRAME_RATES
+        .into_iter()
+        .map(|fps| FrameRateChoice { fps, label: strings::frame_rate_label(fps), selected: fps == current })
+        .collect()
+}
+
+/// The command a settings choice sends to the host. Start at login and the firewall run on this PC, so they send nothing.
+pub fn settings_command(choice: &SettingsChoice) -> Option<RuntimeCommand> {
+    match choice {
+        SettingsChoice::FrameRate(fps) => Some(RuntimeCommand::SetFrameRate(*fps)),
+        SettingsChoice::StartAtLogin(_) | SettingsChoice::FixFirewall => None,
     }
 }
 

@@ -9,6 +9,7 @@ use peering_platform::dpapi::{default_directory, DpapiProtector, DpapiStore};
 use peering_platform::keyboard::KeyboardInjector;
 use peering_platform::mouse::MouseInjector;
 use peering_platform::services::PlatformServices;
+use peering_platform::system::WindowsSystem;
 use peering_wire::command::RemoteCommand;
 
 use super::adapters::Adapters;
@@ -22,6 +23,7 @@ pub fn build() -> Result<Adapters, RuntimeError> {
         capture,
         encoder,
         input: Box::new(WindowsInput { mouse: MouseInjector::default(), keyboard: KeyboardInjector::default() }),
+        system: Box::new(WindowsSystem),
         secrets: Arc::new(DpapiStore::new(directory, DpapiProtector)),
         files: Arc::new(DiskFileSystem),
     })

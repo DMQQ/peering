@@ -6,10 +6,16 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use eframe::egui;
 
-use super::model::{MenuAction, MenuModel, UiModel};
+use std::path::PathBuf;
+
+use super::model::{settings_command, MenuAction, MenuModel, UiModel};
 use super::pairing;
+use super::settings::{FirewallOutcome, SettingsChoice, SettingsState};
+use super::settings_view;
 use super::tray::Tray;
-use crate::runtime::{HostHandle, RuntimeCommand};
+use crate::autostart;
+use crate::firewall;
+use crate::runtime::{HostHandle, RuntimeCommand, DEFAULT_PORT};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 
@@ -24,7 +30,8 @@ pub fn run(handle: HostHandle) -> Result<(), eframe::Error> {
         Box::new(move |_creation| {
             let model = MenuModel::new(handle.snapshot());
             let tray = Tray::new(&model.entries())?;
-            Ok(Box::new(HostApp { handle, tray, window_open: false }))
+            let settings = SettingsState::new(autostart::is_enabled());
+            Ok(Box::new(HostApp { handle, tray, window_open: false, settings }))
         }),
     )
 }
@@ -33,6 +40,7 @@ struct HostApp {
     handle: HostHandle,
     tray: Tray,
     window_open: bool,
+    settings: SettingsState,
 }
 
 impl eframe::App for HostApp {
@@ -54,12 +62,16 @@ impl eframe::App for HostApp {
     }
 }
 
+fn program_path() -> std::io::Result<PathBuf> {
+    std::env::current_exe()
+}
+
 impl HostApp {
     fn choose(&mut self, ctx: &egui::Context, menu: &MenuModel, action: MenuAction) {
         match action {
             MenuAction::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
-            MenuAction::ShowPairingCode | MenuAction::ShowDevices => self.show_window(ctx),
-            MenuAction::ToggleHosting | MenuAction::OpenSettings => {
+            MenuAction::ShowPairingCode | MenuAction::ShowDevices | MenuAction::OpenSettings => self.show_window(ctx),
+            MenuAction::ToggleHosting => {
                 if let Some(command) = menu.command_for(action) {
                     self.send(ctx, command);
                 }
@@ -80,12 +92,48 @@ impl HostApp {
 
     fn draw_window(&mut self, ctx: &egui::Context, model: UiModel) {
         let mut commands = Vec::new();
+        let mut choices = Vec::new();
         let now_unix = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_secs());
+        let panel = model.settings(&self.settings);
         egui::CentralPanel::default().show(ctx, |ui| {
             pairing::show(ui, &model, now_unix, &mut commands);
+            ui.separator();
+            settings_view::show(ui, &panel, &mut choices);
         });
         for command in commands {
             self.send(ctx, command);
+        }
+        for choice in choices {
+            self.apply_choice(ctx, choice);
+        }
+    }
+
+    /// Carries out a settings choice. Start at login and the firewall run here, on the window's thread; the frame rate goes
+    /// to the host.
+    fn apply_choice(&mut self, ctx: &egui::Context, choice: SettingsChoice) {
+        match &choice {
+            SettingsChoice::StartAtLogin(wanted) => {
+                let result = program_path().and_then(|path| {
+                    if *wanted {
+                        autostart::write_run_key(&path)
+                    } else {
+                        autostart::remove_run_key()
+                    }
+                });
+                self.settings.record_autostart(*wanted, result.map_err(|error| error.to_string()));
+            }
+            SettingsChoice::FixFirewall => {
+                let outcome = match program_path().and_then(|path| firewall::request_rule_elevated(&path, DEFAULT_PORT)) {
+                    Ok(()) => FirewallOutcome::Requested,
+                    Err(error) => FirewallOutcome::Refused(error.to_string()),
+                };
+                self.settings.record_firewall(outcome);
+            }
+            SettingsChoice::FrameRate(_) => {
+                if let Some(command) = settings_command(&choice) {
+                    self.send(ctx, command);
+                }
+            }
         }
     }
 

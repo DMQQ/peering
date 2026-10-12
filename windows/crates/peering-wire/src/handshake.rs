@@ -45,6 +45,7 @@ capability_flags!(ServerCapabilities {
     supports_agent_usage,
     supports_agent_session_import,
     supports_agent_pause,
+    supports_lock_screen,
 });
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

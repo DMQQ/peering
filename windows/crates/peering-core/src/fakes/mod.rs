@@ -8,6 +8,7 @@ pub mod encoder;
 pub mod input;
 pub mod secret_store;
 pub mod stream;
+pub mod system;
 
 /// Fakes hold no invariant a panicking test could break, so a poisoned lock is read through.
 pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {

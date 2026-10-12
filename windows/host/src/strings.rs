@@ -28,6 +28,13 @@ pub const APPROVALS_HEADING: &str = "Waiting for approval";
 pub const DEVICES_HEADING: &str = "Paired phones";
 pub const NO_DEVICES: &str = "No paired phones yet.";
 
+pub const START_AT_LOGIN: &str = "Start at login";
+pub const FIX_FIREWALL: &str = "Fix firewall";
+pub const FIREWALL_HINT: &str = "Windows asks once for permission to let phones reach this PC.";
+pub const FIREWALL_REQUESTED: &str = "Approve the Windows prompt to add the firewall rule.";
+pub const FRAME_RATE_HEADING: &str = "Frame rate";
+pub const FRAME_RATE_NOTE: &str = "A phone can still ask for its own frame rate.";
+
 pub fn approval_prompt(client_name: &str) -> String {
     format!("{client_name} wants to pair without scanning the code")
 }
@@ -43,6 +50,18 @@ pub fn last_seen(seconds_ago: u64) -> String {
         3600..=86_399 => format!("Seen {} h ago", seconds_ago / 3600),
         _ => format!("Seen {} days ago", seconds_ago / 86_400),
     }
+}
+
+pub fn firewall_refused(reason: &str) -> String {
+    format!("The firewall rule was not added: {reason}")
+}
+
+pub fn autostart_failed(reason: &str) -> String {
+    format!("Start at login could not be changed: {reason}")
+}
+
+pub fn frame_rate_label(fps: u32) -> String {
+    format!("{fps} fps")
 }
 
 pub fn connected_clients(count: usize) -> String {
