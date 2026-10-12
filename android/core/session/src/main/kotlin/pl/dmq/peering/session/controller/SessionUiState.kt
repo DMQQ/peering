@@ -1,5 +1,6 @@
 package pl.dmq.peering.session.controller
 
+import pl.dmq.peering.session.clipboard.ClipboardContent
 import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.MosaicLayout
@@ -15,7 +16,7 @@ data class SessionUiState(
     val latencyMillis: Int? = null,
     val picture: PictureState = PictureState.Connecting,
     val notice: String? = null,
-    /** The text the computer's clipboard held when last asked, or null. */
-    val hostClipboard: String? = null,
+    /** What the computer's clipboard held when last asked, or null before it answered. */
+    val hostClipboard: ClipboardContent? = null,
     val qualityCeiling: QualityTier = QualityTier.HIGH,
 )

@@ -3,10 +3,10 @@ package pl.dmq.peering.ui.wiring
 import pl.dmq.peering.feature.remote.HubCapabilities
 import pl.dmq.peering.feature.remote.PictureState
 import pl.dmq.peering.feature.remote.RemoteUiState
+import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.session.controller.PictureState as SessionPictureState
 import pl.dmq.peering.session.controller.SessionPhase
 import pl.dmq.peering.session.controller.SessionUiState
-import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.PixelSize
 
@@ -39,6 +39,7 @@ internal fun remoteUiState(
         supportsMosaic = ready?.capabilities?.contains(HostCapability.Mosaic) == true,
         mosaic = mosaic,
         rememberedMosaic = session.rememberedMosaic,
+        clipboardImages = ready?.capabilities?.contains(HostCapability.ClipboardImages) == true,
     )
 }
 

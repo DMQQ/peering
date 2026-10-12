@@ -41,6 +41,7 @@ import pl.dmq.peering.ui.wiring.SurfacePicture
 import pl.dmq.peering.ui.wiring.pairedTarget
 import pl.dmq.peering.session.controller.ConnectTarget
 import pl.dmq.peering.session.ports.PeerAddress
+import pl.dmq.peering.session.clipboard.ClipboardHistory
 import pl.dmq.peering.session.hosts.PersistedHostDirectory
 import pl.dmq.peering.session.hosts.RememberedLanAddresses
 import pl.dmq.peering.session.relay.PresenceWatch
@@ -74,6 +75,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
             PeeringQualitySource(settings, billing),
             billing,
             lanAddresses,
+            ClipboardHistory(PreferencesKeyValueStore(preferences)),
         ) { devicePrefs.prefs.value.deviceName },
         hostNames,
         scope,

@@ -1,5 +1,6 @@
 package pl.dmq.peering.session.controller
 
+import pl.dmq.peering.session.clipboard.ClipboardContent
 import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.video.LaneOutput
 import pl.dmq.peering.wire.Frame
@@ -19,8 +20,8 @@ sealed interface SessionEvent {
     /** A standing notice from the host. A null [message] clears it. */
     data class Notice(val message: String?) : SessionEvent
 
-    /** The host answered a clipboard request. [text] is null when the clipboard holds no text. */
-    data class HostClipboard(val text: String?) : SessionEvent
+    /** The host answered a clipboard request. Empty text means its clipboard held nothing the phone can take. */
+    data class HostClipboard(val content: ClipboardContent) : SessionEvent
 
     /** The link must end with [end]. */
     data class Finish(val end: LinkEnd) : SessionEvent

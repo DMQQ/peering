@@ -15,6 +15,10 @@ import kotlinx.coroutines.launch
 import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.connection.ClientConfig
+import pl.dmq.peering.session.clipboard.ClipboardContent
+import pl.dmq.peering.session.clipboard.ClipboardDirection
+import pl.dmq.peering.session.clipboard.ClipboardHistory
+import pl.dmq.peering.session.clipboard.ClipboardPush
 import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.session.files.FileBrowser
 import pl.dmq.peering.session.terminal.TerminalSessions
@@ -24,6 +28,7 @@ import pl.dmq.peering.session.relay.RelayConnect
 import pl.dmq.peering.session.video.SourceSelection
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.Frame
+import pl.dmq.peering.wire.PushClipboard
 import pl.dmq.peering.wire.RemoteCommand
 import pl.dmq.peering.wire.ServerHello
 import pl.dmq.peering.wire.SetCaptureSource
@@ -108,8 +113,15 @@ class SessionController(
         val live = link ?: return false
         if (!accepts(live, command)) return false
         live.commands.offer(command)
+        if (command is PushClipboard) ports.clipboardHistory.record(ClipboardContent.Text(command.text), ClipboardDirection.TO_COMPUTER)
         return true
     }
+
+    /** The clipboards that moved, newest first. It outlives the session when the ports share one history. */
+    val clipboardHistory: ClipboardHistory get() = ports.clipboardHistory
+
+    /** Sends a picture to the computer's clipboard. */
+    fun sendClipboardImage(png: ByteArray): ClipboardPush = link?.sendClipboardImage(png) ?: ClipboardPush.NotReady
 
     /** Switches the picture to [source] and remembers it for a reconnect. False when the switch cannot be sent. */
     fun chooseSource(source: CaptureSource): Boolean {
@@ -315,6 +327,7 @@ class SessionController(
             relay = ports.relay?.let { RelayConnect(it.signalling, ports.identity, ports.clock) },
             quality = ports.quality.choice(),
             ceiling = QualityCeiling.of(route.path, ports.quality.unlimitedRelay()),
+            clipboard = ports.clipboardHistory,
         )
         link = live
         everReady = true

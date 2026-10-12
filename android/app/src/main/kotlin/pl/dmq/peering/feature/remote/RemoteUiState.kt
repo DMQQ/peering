@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.remote
 
+import pl.dmq.peering.session.clipboard.ClipboardContent
 import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
@@ -26,7 +27,9 @@ data class RemoteUiState(
     val hostName: String?,
     val reconnecting: Boolean,
     /** What the computer's clipboard held when last asked, or null. */
-    val hostClipboard: String?,
+    val hostClipboard: ClipboardContent?,
+    /** Whether the computer declared that it takes pictures on its clipboard. */
+    val clipboardImages: Boolean,
     /** Whether the computer declared that it can compose a mosaic. A Windows host does not. */
     val supportsMosaic: Boolean = false,
     /** The mosaic on screen, or null while a single source is. */
@@ -53,6 +56,7 @@ data class RemoteUiState(
             hostName = null,
             reconnecting = false,
             hostClipboard = null,
+            clipboardImages = false,
         )
     }
 }

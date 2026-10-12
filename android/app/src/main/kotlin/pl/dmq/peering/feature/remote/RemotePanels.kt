@@ -42,15 +42,23 @@ internal fun RemotePanel(panel: SessionPanel, context: PanelContext) {
                 onEditMacros = { context.screen.macrosOpen = true },
             ),
         )
-        SessionPanel.CLIPBOARD -> ClipboardPanel(
-            ClipboardActions(
-                ready = context.state.hostName != null,
-                hostText = context.state.hostClipboard,
-                onRequestHost = context.actions::requestHostClipboard,
-                onSend = context.actions::send,
-                onPasteOnComputer = context.actions::paste,
-            ),
-        )
+        SessionPanel.CLIPBOARD -> {
+            val history by context.model.clipboard.history.collectAsState()
+            ClipboardPanel(
+                ClipboardActions(
+                    ready = context.state.hostName != null,
+                    host = context.state.hostClipboard,
+                    imagesAllowed = context.state.clipboardImages,
+                    history = history,
+                    onRequestHost = context.actions::requestHostClipboard,
+                    onSend = context.actions::send,
+                    onPasteOnComputer = context.actions::paste,
+                    onSendImage = context.actions::sendImage,
+                    onRemoveEntry = context.model.clipboard::remove,
+                    onClearHistory = context.model.clipboard::clear,
+                ),
+            )
+        }
         SessionPanel.SOURCES -> SourcesPanel(
             catalog = context.state.catalog,
             chosen = context.state.chosenSource,

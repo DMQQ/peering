@@ -1,6 +1,7 @@
 package pl.dmq.peering.session.controller
 
 import pl.dmq.peering.session.agent.AgentChat
+import pl.dmq.peering.session.clipboard.ClipboardContent
 import pl.dmq.peering.session.connection.HandshakeFrames
 import pl.dmq.peering.session.connection.LivenessMonitor
 import pl.dmq.peering.session.connection.SessionCommands
@@ -9,7 +10,10 @@ import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.session.video.SourceSelection
 import pl.dmq.peering.session.video.VideoLanes
 import pl.dmq.peering.wire.AgentEvent
+import pl.dmq.peering.wire.ChunkException
 import pl.dmq.peering.wire.ClipboardPayload
+import pl.dmq.peering.wire.MAX_CLIPBOARD_REASSEMBLED_BYTES
+import pl.dmq.peering.wire.VideoChunkReassembler
 import pl.dmq.peering.wire.ErrorPayload
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.MessageKind
@@ -26,6 +30,8 @@ internal class FrameRouter(
     private val files: FileBrowser?,
     private val terminals: TerminalSessions?,
 ) {
+    private val clipboardChunks = VideoChunkReassembler(MAX_CLIPBOARD_REASSEMBLED_BYTES)
+
     fun route(frame: Frame): List<SessionEvent> = when (frame.kind) {
         MessageKind.Pong -> {
             liveness.onPong(frame)
@@ -36,7 +42,8 @@ internal class FrameRouter(
             selection.onVideoConfig()
             laneEvents(frame)
         }
-        MessageKind.VideoFrame, MessageKind.VideoChunk, MessageKind.VideoKey -> laneEvents(frame)
+        MessageKind.VideoChunk -> if (isClipboardChunk(frame)) onClipboardChunk(frame) else laneEvents(frame)
+        MessageKind.VideoFrame, MessageKind.VideoKey -> laneEvents(frame)
         MessageKind.AgentEvent -> {
             routeAgent(frame)
             emptyList()
@@ -53,7 +60,22 @@ internal class FrameRouter(
 
     private fun onClipboard(frame: Frame): List<SessionEvent> {
         val clipboard = HandshakeFrames.decode(frame, ClipboardPayload.serializer()) ?: return emptyList()
-        return listOf(SessionEvent.HostClipboard(clipboard.plainText))
+        val png = clipboard.pngBytes
+        val content = if (png != null) ClipboardContent.Image(png) else ClipboardContent.Text(clipboard.plainText.orEmpty())
+        return listOf(SessionEvent.HostClipboard(content))
+    }
+
+    /** A picture from the computer is chunked like the picture stream is, and must not reach that stream's reassembler. */
+    private fun isClipboardChunk(frame: Frame): Boolean =
+        frame.payload.firstOrNull()?.toInt()?.and(0xFF) == MessageKind.ClipboardContent.byte
+
+    private fun onClipboardChunk(frame: Frame): List<SessionEvent> {
+        val whole = try {
+            clipboardChunks.ingest(frame)
+        } catch (error: ChunkException) {
+            null
+        }
+        return whole?.let(::onClipboard).orEmpty()
     }
 
     private fun laneEvents(frame: Frame): List<SessionEvent> = lanes.onControlFrame(frame).asEvents()

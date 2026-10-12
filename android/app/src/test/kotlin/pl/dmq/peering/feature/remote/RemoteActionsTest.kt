@@ -3,6 +3,8 @@ package pl.dmq.peering.feature.remote
 import android.view.Surface
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import pl.dmq.peering.session.clipboard.ClipboardEntry
+import pl.dmq.peering.session.clipboard.ClipboardPush
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -47,6 +49,12 @@ class RemoteActionsTest {
             override val custom = MutableStateFlow(emptyList<Macro>())
             override fun add(macro: Macro) = true
             override fun remove(id: String) = true
+        }
+        override val clipboard = object : ClipboardPort {
+            override val history = MutableStateFlow(emptyList<ClipboardEntry>())
+            override fun sendImage(png: ByteArray) = ClipboardPush.Sent
+            override fun remove(id: Long) = Unit
+            override fun clear() = Unit
         }
         override fun onHubEntry(entry: HubEntry) = Unit
         override fun onStepAway() = Unit
