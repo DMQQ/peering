@@ -244,6 +244,7 @@ impl Connection {
         };
         slot.video_outbound = Some(self.outbound.clone());
         self.video_for_session = Some(session_id);
+        guard.video.request_resync();
         Flow::Open
     }
 
