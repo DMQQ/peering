@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.connection.ClientConfig
 import pl.dmq.peering.session.connection.HostCapability
@@ -70,8 +71,8 @@ class SessionController(
     /** The shells of the computer, present once a session has been ready. */
     val terminals: TerminalSessions? get() = services.terminals
 
-    /** The agent ids the host declared for chats, or an empty list while no session is ready. */
-    val declaredAgentIDs: List<String> get() = link?.hello?.agentChatAgents.orEmpty()
+    /** The agent ids the host declared for chats (Claude Code and Codex for a host that predates the list), or none while no session is ready. */
+    val declaredAgentIDs: List<String> get() = link?.hello?.let(AgentCapabilities::declaredAgents).orEmpty()
 
     /** Starts the session. Does nothing while one is already running. */
     fun connect() {

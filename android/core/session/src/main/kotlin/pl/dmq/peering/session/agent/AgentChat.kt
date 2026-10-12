@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentRequest
+import pl.dmq.peering.wire.AgentResumableSession
+import pl.dmq.peering.wire.decoded
 
 /**
  * The agent chat screen's state, driven by Mac events and user intents. Nothing is sent unless the host declared the
@@ -22,13 +24,22 @@ class AgentChat(
     private val mutableState = MutableStateFlow(AgentChatState())
     private val mutableBrowse = MutableSharedFlow<AgentEvent>(extraBufferCapacity = BROWSE_BUFFER)
 
+    private val mutableResumable = MutableStateFlow<List<AgentResumableSession>?>(null)
+
     val state: StateFlow<AgentChatState> = mutableState.asStateFlow()
+
+    /** Conversations started on the computer that a chat can continue; null until the host has listed them. */
+    val resumable: StateFlow<List<AgentResumableSession>?> = mutableResumable.asStateFlow()
 
     /** The Mac's folder listings, failures and waiting notes. Nothing is buffered for a picker that is not open. */
     val browseEvents: SharedFlow<AgentEvent> = mutableBrowse.asSharedFlow()
 
     fun onEvent(event: AgentEvent) {
         if (!capabilities.admits(event)) return
+        if (event is AgentEvent.Resumable) {
+            mutableResumable.value = event.decoded()
+            return
+        }
         if (event.isBrowseEvent()) {
             mutableBrowse.tryEmit(event)
             return
@@ -51,6 +62,15 @@ class AgentChat(
     fun interrupt() = ifDeclared(capabilities.chat) { mutableState.value.selectedSessionID?.let { send(AgentRequest.Interrupt(it)) } }
 
     fun close() = ifDeclared(capabilities.chat) { mutableState.value.selectedSessionID?.let { send(AgentRequest.Close(it)) } }
+
+    /** Stops the chat's process and keeps its conversation; the next prompt picks it up. */
+    fun pause(sessionID: String) = ifDeclared(capabilities.chat && capabilities.pause) { send(AgentRequest.Pause(sessionID)) }
+
+    fun listResumable() = ifDeclared(capabilities.chat && capabilities.sessionImport) { send(AgentRequest.ListResumable) }
+
+    fun resume(session: AgentResumableSession) = ifDeclared(capabilities.chat && capabilities.sessionImport) {
+        send(AgentRequest.Resume(session.agentID, session.cliSessionID))
+    }
 
     fun setModel(sessionID: String, model: String?) =
         ifDeclared(capabilities.modelPicker) { send(AgentRequest.SetModel(sessionID, model)) }

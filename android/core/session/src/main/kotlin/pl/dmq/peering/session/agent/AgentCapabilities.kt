@@ -9,6 +9,8 @@ data class AgentCapabilities(
     val modelPicker: Boolean = false,
     val permissionModes: Boolean = false,
     val usage: Boolean = false,
+    val sessionImport: Boolean = false,
+    val pause: Boolean = false,
 ) {
     /** Model, permission and usage events are applied only when the host declared the feature they report. */
     fun admits(event: AgentEvent): Boolean = when (event) {
@@ -24,6 +26,11 @@ data class AgentCapabilities(
             modelPicker = hello.supportsAgentModelPicker == true,
             permissionModes = hello.supportsAgentPermissionModes == true,
             usage = hello.supportsAgentUsage == true,
+            sessionImport = hello.supportsAgentSessionImport == true,
+            pause = hello.supportsAgentPause == true,
         )
+
+        /** A host from before the declaration chats with Claude Code and Codex only. */
+        fun declaredAgents(hello: ServerHello): List<String> = hello.agentChatAgents ?: listOf("claude", "codex")
     }
 }
