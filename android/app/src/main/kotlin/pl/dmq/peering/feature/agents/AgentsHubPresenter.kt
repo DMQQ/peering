@@ -49,6 +49,8 @@ class AgentsHubPresenter(
 
     fun closeSession(sessionID: String) = port.close(sessionID)
 
+    fun renameSession(sessionID: String, name: String) = port.rename(sessionID, name)
+
     /** Ends a chat the way the iPhone does: a quiet chat with a conversation moves to history, any other is closed. */
     fun endSession(sessionID: String) {
         val session = port.chats.value.session(sessionID) ?: return
@@ -130,7 +132,7 @@ class AgentsHubPresenter(
             SessionCard(
                 id = session.id,
                 agentID = session.info.agentID,
-                title = session.info.title,
+                title = session.title,
                 directory = session.info.directory,
                 state = session.cardState(pending),
                 lastActivityUnix = activity.lastActivityUnix(session),

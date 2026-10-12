@@ -37,6 +37,7 @@ internal fun HubList(
     presenter: AgentsHubPresenter,
     guide: HubGuidePresenter,
     onClose: (SessionCard) -> Unit,
+    onRename: (SessionCard) -> Unit,
     onSessionOpened: () -> Unit,
     onChatStarted: () -> Unit,
 ) {
@@ -82,6 +83,7 @@ internal fun HubList(
                             presenter.newChatHere(card.id)
                             onChatStarted()
                         },
+                        onRename = { onRename(card) },
                         onPause = { presenter.endSession(card.id) },
                         onClose = { onClose(card) },
                         modifier = listItemMotion(),

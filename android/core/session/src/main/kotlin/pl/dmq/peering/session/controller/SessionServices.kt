@@ -6,6 +6,7 @@ import kotlinx.coroutines.SupervisorJob
 import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.files.FileBrowser
+import pl.dmq.peering.session.preview.PreviewProxyClient
 import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.MessageKind
@@ -25,6 +26,10 @@ internal class SessionServices(private val ports: SessionPorts, private val curr
     var terminals: TerminalSessions? = null
         private set
 
+    /** Pages from the computer's loopback for the web preview; exists where agent chats do, since that is where the preview is offered. */
+    var preview: PreviewProxyClient? = null
+        private set
+
     fun attach(hello: ServerHello) {
         if (terminals == null) {
             terminals = TerminalSessions(
@@ -38,6 +43,11 @@ internal class SessionServices(private val ports: SessionPorts, private val curr
         if (hello.supportsAgentChat == true && agentChat == null) {
             agentChat = AgentChat(AgentCapabilities.declaredBy(hello)) { request ->
                 currentLink()?.enqueue(Frame(MessageKind.AgentRequest, request.toJson().toByteArray(Charsets.UTF_8)))
+            }
+        }
+        if (hello.supportsAgentChat == true && preview == null) {
+            preview = PreviewProxyClient { command ->
+                currentLink()?.enqueue(Frame(MessageKind.PreviewRequest, command.toJson().toByteArray(Charsets.UTF_8))) != null
             }
         }
         if (hello.supportsFileBrowser == true && fileBrowser == null) {

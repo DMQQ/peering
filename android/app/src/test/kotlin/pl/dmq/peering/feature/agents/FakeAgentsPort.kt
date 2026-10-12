@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.ApprovalAnswer
+import pl.dmq.peering.session.agent.changes.AgentChangesByChat
+import pl.dmq.peering.session.preview.PreviewProxyClient
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
@@ -18,6 +20,12 @@ class FakeAgentsPort(
     val chatState = MutableStateFlow(initial)
     val resumableList = MutableStateFlow<List<AgentResumableSession>?>(null)
     val calls = mutableListOf<String>()
+
+    val changesState = MutableStateFlow<AgentChangesByChat>(emptyMap())
+
+    override val preview: PreviewProxyClient? = null
+
+    override val changes: StateFlow<AgentChangesByChat> get() = changesState
 
     override val chats: StateFlow<AgentChatState> get() = chatState
 
@@ -43,6 +51,10 @@ class FakeAgentsPort(
 
     override fun prompt(sessionID: String, text: String) {
         calls += "prompt:$sessionID:$text"
+    }
+
+    override fun rename(sessionID: String, name: String) {
+        calls += "rename:$sessionID:$name"
     }
 
     override fun approve(sessionID: String, approvalID: String, answer: ApprovalAnswer) {
@@ -75,5 +87,17 @@ class FakeAgentsPort(
 
     override fun resume(session: AgentResumableSession) {
         calls += "resume:${session.agentID}:${session.cliSessionID}"
+    }
+
+    override fun loadChanges(sessionID: String) {
+        calls += "changes:$sessionID"
+    }
+
+    override fun commitChanges(sessionID: String, paths: List<String>, message: String) {
+        calls += "commit:$sessionID:${paths.joinToString(",")}:$message"
+    }
+
+    override fun pushChanges(sessionID: String) {
+        calls += "push:$sessionID"
     }
 }

@@ -13,6 +13,7 @@ import pl.dmq.peering.session.clipboard.ClipboardPush
 import pl.dmq.peering.session.connection.LivenessMonitor
 import pl.dmq.peering.session.connection.SessionCommands
 import pl.dmq.peering.session.files.FileBrowser
+import pl.dmq.peering.session.preview.PreviewProxyClient
 import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.session.history.ByteTally
 import pl.dmq.peering.session.history.SessionRecord
@@ -53,6 +54,7 @@ internal class ConnectedLink(
     agent: AgentChat?,
     files: FileBrowser?,
     terminals: TerminalSessions?,
+    preview: PreviewProxyClient?,
     relay: RelayConnect?,
     private val quality: QualityChoice,
     private val ceiling: QualityTier,
@@ -67,7 +69,7 @@ internal class ConnectedLink(
     }
     private val streamRecord = StreamRecord(sink)
     private val lanes = VideoLanes(PictureSink(streamRecord, onPicture = seen), clock, route.videoPeer, route.videoToken)
-    private val router = FrameRouter(liveness, commands, lanes, selection, agent, files, terminals)
+    private val router = FrameRouter(liveness, commands, lanes, selection, agent, files, terminals, preview)
     private val picture: PictureWatch = PictureWatch(
         clock,
         lane = route.path.takeIf { it == SessionRecord.Path.LAN }?.let {

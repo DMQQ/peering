@@ -7,6 +7,8 @@ import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChat
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.session.agent.ApprovalAnswer
+import pl.dmq.peering.session.agent.changes.AgentChangesByChat
+import pl.dmq.peering.session.preview.PreviewProxyClient
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentResumableSession
@@ -15,7 +17,7 @@ import pl.dmq.peering.wire.AgentResumableSession
  * The agents screens over the session's agent chat. The chat acts on the selected session, so each call that names a
  * session selects it first.
  */
-internal class ChatAgentsPort(private val chat: AgentChat) : AgentsPort {
+internal class ChatAgentsPort(private val chat: AgentChat, override val preview: PreviewProxyClient?) : AgentsPort {
     override val chats: StateFlow<AgentChatState> get() = chat.state
 
     override val capabilities: AgentCapabilities get() = chat.capabilities
@@ -23,6 +25,8 @@ internal class ChatAgentsPort(private val chat: AgentChat) : AgentsPort {
     override val resumable: StateFlow<List<AgentResumableSession>?> get() = chat.resumable
 
     override val browseEvents: Flow<AgentEvent> get() = chat.browseEvents
+
+    override val changes: StateFlow<AgentChangesByChat> get() = chat.changes
 
     override fun list() = chat.list()
 
@@ -39,6 +43,8 @@ internal class ChatAgentsPort(private val chat: AgentChat) : AgentsPort {
         chat.select(sessionID)
         chat.prompt(text)
     }
+
+    override fun rename(sessionID: String, name: String) = chat.rename(sessionID, name)
 
     override fun approve(sessionID: String, approvalID: String, answer: ApprovalAnswer) {
         chat.select(sessionID)
@@ -61,4 +67,11 @@ internal class ChatAgentsPort(private val chat: AgentChat) : AgentsPort {
     override fun setModel(sessionID: String, model: String?) = chat.setModel(sessionID, model)
 
     override fun browse(path: String?) = chat.browse(path)
+
+    override fun loadChanges(sessionID: String) = chat.loadChanges(sessionID)
+
+    override fun commitChanges(sessionID: String, paths: List<String>, message: String) =
+        chat.commitChanges(sessionID, paths, message)
+
+    override fun pushChanges(sessionID: String) = chat.pushChanges(sessionID)
 }

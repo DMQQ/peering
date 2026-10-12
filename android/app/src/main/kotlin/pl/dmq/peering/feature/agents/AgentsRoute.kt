@@ -12,8 +12,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import pl.dmq.peering.feature.agents.attach.AttachmentSender
 import pl.dmq.peering.feature.remote.HubTab
 import pl.dmq.peering.feature.remote.ReportHubPage
+import pl.dmq.peering.session.agent.PromptTemplateStore
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.ui.kit.DepthTransition
 import pl.dmq.peering.session.ports.KeyValueStore
@@ -32,6 +34,7 @@ fun AgentsRoute(
     draftStore: ComposerDraftStore,
     guideStore: KeyValueStore,
     clock: Clock,
+    attachments: AttachmentSender?,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -41,9 +44,10 @@ fun AgentsRoute(
     }
     val guide = remember(guideStore) { HubGuidePresenter(guideStore) }
     val chat = remember(port) { ChatPresenter(port, scope) }
+    val templates = remember(guideStore) { PromptTemplatesPresenter(PromptTemplateStore(guideStore)) }
     val transcript = remember(port) { TranscriptPresenter(port.chats, scope) }
-    val composer = remember(port, modelPickerSupported) {
-        ComposerPresenter(port, draftStore, port.chats, modelPickerSupported, scope)
+    val composer = remember(port, modelPickerSupported, attachments) {
+        ComposerPresenter(port, draftStore, port.chats, modelPickerSupported, scope, attachments)
     }
     val chatState by port.chats.collectAsState()
     val hubUi by hub.ui.collectAsState()
@@ -71,6 +75,7 @@ fun AgentsRoute(
                     chat = chat,
                     transcript = transcript,
                     composer = composer,
+                    templates = templates,
                     port = port,
                     onBackToList = { showingChat = false },
                 )

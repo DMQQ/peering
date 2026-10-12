@@ -20,6 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.feature.agents.changes.ChangesOverlay
+import pl.dmq.peering.feature.agents.preview.previewFetchOf
+import pl.dmq.peering.feature.agents.preview.PreviewScreen
 import pl.dmq.peering.session.agent.pendingApprovals
 import pl.dmq.peering.ui.kit.PeeringAlert
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -34,47 +37,76 @@ fun ChatScreen(
     chat: ChatPresenter,
     transcript: TranscriptPresenter,
     composer: ComposerPresenter,
+    templates: PromptTemplatesPresenter,
     port: AgentsPort,
     onBackToList: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ui by chat.ui.collectAsState()
     val transcriptUi by transcript.ui.collectAsState()
+    val saved by templates.templates.collectAsState()
     var showingUsage by remember { mutableStateOf(false) }
+    var showingChanges by remember { mutableStateOf(false) }
+    var showingPreview by remember { mutableStateOf(false) }
+    val previewFetch = remember(port.preview) { port.preview?.let(::previewFetchOf) }
+    var renaming by remember { mutableStateOf(false) }
     var confirmingClose by remember { mutableStateOf(false) }
     val pending = remember(transcriptUi.rows) { pendingApprovals(transcriptUi.rows) }
     var reviewingID by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(pending.firstOrNull()?.approvalID) { reviewingID = pending.firstOrNull()?.approvalID }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        ChatTopBar(
-            ui = ui,
-            onBack = onBackToList,
-            onShowUsage = { showingUsage = true },
-            onPause = { if (chat.pause()) onBackToList() },
-            onClose = { confirmingClose = true },
-        )
-        Box(Modifier.weight(1f)) {
-            when {
-                transcriptUi.loadingHistory && transcriptUi.rows.isEmpty() -> HistoryLoading()
-                ui.showEmptyState -> EmptyChat(ui = ui, onSuggest = chat::suggest)
-                else -> TranscriptList(
-                    presenter = transcript,
-                    onAskAgain = {
-                        transcript.followLatest()
-                        chat.suggest(it)
-                    },
-                    onReview = { reviewingID = it },
-                )
+    Box(modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            ChatTopBar(
+                ui = ui,
+                onBack = onBackToList,
+                onShowUsage = { showingUsage = true },
+                onShowChanges = { showingChanges = true },
+            onShowPreview = previewFetch?.let { { showingPreview = true } },
+            onRename = { renaming = true },
+                onPause = { if (chat.pause()) onBackToList() },
+                onClose = { confirmingClose = true },
+            )
+            Box(Modifier.weight(1f)) {
+                when {
+                    transcriptUi.loadingHistory && transcriptUi.rows.isEmpty() -> HistoryLoading()
+                    ui.showEmptyState -> EmptyChat(
+                        ui = ui,
+                        templates = saved.entries,
+                        onSuggest = chat::suggest,
+                        onSaveTemplate = templates::add,
+                        onRemoveTemplate = templates::remove,
+                    )
+                    else -> TranscriptList(
+                        presenter = transcript,
+                        onAskAgain = {
+                            transcript.followLatest()
+                            chat.suggest(it)
+                        },
+                        onReview = { reviewingID = it },
+                    )
+                }
             }
+            Composer(composer, ui.chip, onShowUsage = { showingUsage = true }, modifier = Modifier.navigationBarsPadding().imePadding())
         }
-        Composer(composer, ui.chip, onShowUsage = { showingUsage = true }, modifier = Modifier.navigationBarsPadding().imePadding())
+        if (showingChanges) ui.sessionID?.let { ChangesOverlay(port, it, onClose = { showingChanges = false }) }
+        if (showingPreview && previewFetch != null) PreviewScreen(previewFetch, onClose = { showingPreview = false })
     }
     if (showingUsage) UsageSheet(usage = ui.usage, agentName = ui.agentName, onDismiss = { showingUsage = false })
     pending.firstOrNull { it.approvalID == reviewingID }?.let { approval ->
         ui.sessionID?.let { sessionID ->
             ApprovalSheet(port, sessionID, approval, onDismiss = { reviewingID = null })
         }
+    }
+    if (renaming) {
+        RenameDialog(
+            initial = ui.title,
+            onSave = {
+                chat.rename(it)
+                renaming = false
+            },
+            onDismiss = { renaming = false },
+        )
     }
     if (confirmingClose) {
         PeeringAlert(

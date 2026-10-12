@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="changes_menu">Changes</string>
+    <string name="changes_title">Changes</string>
+    <string name="changes_close">Close</string>
+    <string name="changes_back">Back to the files</string>
+    <string name="changes_refresh">Refresh</string>
+    <string name="changes_none">No changes</string>
+    <plurals name="changes_count">
+        <item quantity="one">%d changed file</item>
+        <item quantity="other">%d changed files</item>
+    </plurals>
+    <string name="changes_truncated">This project is large, so only part of it is listed.</string>
+    <string name="changes_waiting">Asking your computer</string>
+    <string name="changes_empty">Nothing has changed in this folder yet.</string>
+    <string name="changes_kind_modified">Modified</string>
+    <string name="changes_kind_added">Added</string>
+    <string name="changes_kind_deleted">Deleted</string>
+    <string name="changes_kind_untracked">New, not tracked by git yet</string>
+    <string name="changes_no_diff">There is no text diff to show for this file.</string>
+    <string name="changes_comment_file">Comment on this file</string>
+    <string name="changes_comment_hint">Comment</string>
+    <string name="changes_comment_add">Add</string>
+    <string name="changes_comment_cancel">Cancel</string>
+    <string name="changes_comment_remove">Remove comment</string>
+    <plurals name="changes_send_comments">
+        <item quantity="one">Send %d comment to the agent</item>
+        <item quantity="other">Send %d comments to the agent</item>
+    </plurals>
+    <string name="changes_commented">%d comments on this file</string>
+
+    <string name="review_prompt_intro">Please address these review comments on your changes.</string>
+    <string name="review_prompt_removed">(line removed by the change)</string>
+    <plurals name="review_prompt_left_out">
+        <item quantity="one">%d more comment did not fit and is not included.</item>
+        <item quantity="other">%d more comments did not fit and are not included.</item>
+    </plurals>
+
+    <string name="commit_title">Commit</string>
+    <string name="commit_files">Files to include</string>
+    <string name="commit_none">Nothing has changed in this folder.</string>
+    <string name="commit_message">Commit message</string>
+    <plurals name="commit_button">
+        <item quantity="one">Commit %d file</item>
+        <item quantity="other">Commit %d files</item>
+    </plurals>
+    <string name="commit_busy">Committing</string>
+    <string name="commit_this_folder">this folder</string>
+    <plurals name="commit_confirm_title">
+        <item quantity="one">Commit %1$d file to %2$s?</item>
+        <item quantity="other">Commit %1$d files to %2$s?</item>
+    </plurals>
+    <string name="commit_confirm">Commit</string>
+    <string name="commit_done">Committed</string>
+    <string name="commit_failed">The commit did not happen</string>
+    <string name="push_done">Pushed</string>
+    <string name="push_failed">The push did not happen</string>
+    <string name="push_title">Push</string>
+    <plurals name="push_ready">
+        <item quantity="one">%1$d commit on %2$s is not on %3$s yet.</item>
+        <item quantity="other">%1$d commits on %2$s are not on %3$s yet.</item>
+    </plurals>
+    <string name="push_nothing">Everything on this branch is already pushed.</string>
+    <string name="push_unreadable">This folder\'s branch could not be read.</string>
+    <string name="push_detached">This folder is not on a branch (detached HEAD), so there is nothing to push.</string>
+    <string name="push_no_upstream">This branch has no upstream. Set one on your computer, then push from here.</string>
+    <string name="push_button">Push</string>
+    <string name="push_busy">Pushing</string>
+    <string name="push_confirm_title">Push %1$s to %2$s?</string>
+</resources>

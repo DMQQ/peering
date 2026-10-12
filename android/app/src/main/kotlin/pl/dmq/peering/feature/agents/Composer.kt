@@ -1,5 +1,8 @@
 package pl.dmq.peering.feature.agents
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -32,6 +36,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
+import pl.dmq.peering.feature.agents.attach.AttachmentSource
+import pl.dmq.peering.feature.agents.attach.AttachmentTray
+import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.PeeringMenu
+import pl.dmq.peering.ui.kit.PeeringMenuItem
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.PillShape
@@ -42,21 +51,34 @@ private val barHeight = 48.dp
 @Composable
 fun Composer(presenter: ComposerPresenter, chip: ContextChip?, onShowUsage: () -> Unit, modifier: Modifier = Modifier) {
     val ui by presenter.ui.collectAsState()
+    val pickDocument = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { presenter.attach(AttachmentSource.Document(it.toString())) }
+    }
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { presenter.attach(AttachmentSource.Photo(it.toString())) }
+    }
     Column(modifier.fillMaxWidth()) {
         OptionsBar(ui, chip, presenter::setPermissionMode, presenter::setModel, onShowUsage)
+        AttachmentTray(ui.attachments, ui.uploadingName, onRemoveAttached = presenter::detach, onRemoveFailed = presenter::removeFailedAttachment)
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 6.dp),
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            MessageField(ui, presenter::onTextChanged, Modifier.weight(1f))
+            MessageField(
+                ui = ui,
+                onChange = presenter::onTextChanged,
+                onPickPhoto = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                onPickFile = { pickDocument.launch(arrayOf("*/*")) },
+                modifier = Modifier.weight(1f),
+            )
             SendButton(ui.action, ui.actionEnabled, presenter::send, presenter::stop)
         }
     }
 }
 
 @Composable
-private fun MessageField(ui: ComposerUi, onChange: (String) -> Unit, modifier: Modifier) {
+private fun MessageField(ui: ComposerUi, onChange: (String) -> Unit, onPickPhoto: () -> Unit, onPickFile: () -> Unit, modifier: Modifier) {
     var focused by remember { mutableStateOf(false) }
     val border = if (focused) PeeringColors.ink.copy(alpha = 0.3f) else PeeringColors.hairline
     BasicTextField(
@@ -75,20 +97,53 @@ private fun MessageField(ui: ComposerUi, onChange: (String) -> Unit, modifier: M
                     .clip(PillShape)
                     .background(PeeringColors.surface)
                     .border(1.dp, border, PillShape)
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                    .padding(start = if (ui.canAttach) 4.dp else 18.dp, end = 18.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                if (ui.text.isEmpty()) {
-                    Text(
-                        stringResource(if (ui.action == ComposerAction.SEND) R.string.composer_placeholder else R.string.composer_placeholder_queue),
-                        style = PeeringText.body.copy(fontSize = 16.sp),
-                        color = PeeringColors.ink.copy(alpha = 0.4f),
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (ui.canAttach) AttachMenu(onPickPhoto, onPickFile)
+                    Box(Modifier.weight(1f).padding(vertical = 12.dp), contentAlignment = Alignment.CenterStart) {
+                        if (ui.text.isEmpty()) {
+                            Text(
+                                stringResource(if (ui.action == ComposerAction.SEND) R.string.composer_placeholder else R.string.composer_placeholder_queue),
+                                style = PeeringText.body.copy(fontSize = 16.sp),
+                                color = PeeringColors.ink.copy(alpha = 0.4f),
+                            )
+                        }
+                        field()
+                    }
                 }
-                field()
             }
         },
     )
+}
+
+@Composable
+private fun AttachMenu(onPickPhoto: () -> Unit, onPickFile: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.size(40.dp)) {
+            Icon(AgentIcons.plus, contentDescription = stringResource(R.string.agents_attach), tint = PeeringColors.ink.copy(alpha = 0.85f), modifier = Modifier.size(20.dp))
+        }
+        PeeringMenu(open, { open = false }) {
+            PeeringMenuItem(
+                title = stringResource(R.string.agents_attach_photos),
+                icon = AppIcons.image,
+                onClick = {
+                    open = false
+                    onPickPhoto()
+                },
+            )
+            PeeringMenuItem(
+                title = stringResource(R.string.agents_attach_files),
+                icon = AppIcons.folder,
+                onClick = {
+                    open = false
+                    onPickFile()
+                },
+            )
+        }
+    }
 }
 
 @Composable

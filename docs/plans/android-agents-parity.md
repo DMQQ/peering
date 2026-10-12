@@ -16,7 +16,7 @@ Page column: 16 pt side inset, 20 pt between sections, 28 pt at the bottom, 70 p
 | 6 | Chats section: label with chat glyph, then session cards 10 apart | `ChatsSection` with `SectionLabel` |
 | 6a | Session card: 42 tile with agent glyph, title 15.5 semibold, state pill (outlined, tinted), folder glyph, folder name in monospace, agent name unless the title has it, optional last reply preview in a tinted box | `SessionCardRow` |
 | 6b | Tap opens the chat | `SessionCardRow` click, `presenter.openSession` |
-| 6c | Long press menu: New chat here, Rename, Stop and move to history, Close | `SessionCardMenu` on long press: New chat here, Stop and move to history, Close. Rename has no port call on Android. |
+| 6c | Long press menu: New chat here, Rename, Stop and move to history, Close | `SessionCardMenu` on long press: New chat here, Rename (a name on this phone only), Stop and move to history, Close. |
 | 6d | Close confirmation alert | `PeeringAlert` "End chat" before `closeSession` |
 | 7 | Active on your computer: label with laptop glyph, history card of resumable conversations in use elsewhere | `HistoryCard` entries, tapping asks the "may be open on your computer" confirmation |
 | 8 | Notice: no supported agents found | `AgentsNotice` with tile and caption |
@@ -49,11 +49,11 @@ Page column: 16 pt side inset, 20 pt between sections, 28 pt at the bottom, 70 p
 | # | iPhone element | Android implementation |
 |---|----------------|------------------------|
 | 1 | Top bar: back, centred agent name 15 semibold over the directory in monospace 11 | `ChatTopBar` |
-| 2 | More menu: Usage and limits, Changes, Web preview, Rename, Stop and move to history, divider, Close chat | `ChatMenu`: Usage and limits, Stop and move to history, divider, Close chat. Changes, Web preview and Rename are not built. |
+| 2 | More menu: Usage and limits, Changes, Web preview, Rename, Stop and move to history, divider, Close chat | `ChatMenu`: Usage and limits, Changes, Web preview (where the computer supports it), Rename, Stop and move to history, divider, Close chat. |
 | 3 | Close confirmation | `PeeringAlert` |
 | 4 | Tab strip over the chat when several chats are open | Not built: the hub is the switcher on Android. |
 | 5 | Loading state: spinner and "Loading the conversation" | `HistoryLoading` |
-| 6 | Empty chat: agent tile, serif 30 "What are we working on?", guide card "Before you start", three suggestion rows (34 tile, title, detail, up-left arrow), saved prompts | `EmptyChat`; the guide keeps only its permissions row (slash and Changes do not exist here); saved prompts not built |
+| 6 | Empty chat: agent tile, serif 30 "What are we working on?", guide card "Before you start", three suggestion rows (34 tile, title, detail, up-left arrow), saved prompts | `EmptyChat`; the guide keeps only its permissions row (slash and Changes do not exist here); saved prompts under the suggestions, kept on this phone |
 | 6a | Ended chat copy | `EmptyChat` ended branch |
 | 7 | Transcript column: 14 side, 10 between rows | `TranscriptList` |
 | 7a | User message: right aligned bubble, tinted, with copy and "Ask again" menu | `UserBubble`, long press menu |
@@ -66,11 +66,11 @@ Page column: 16 pt side inset, 20 pt between sections, 28 pt at the bottom, 70 p
 | 7h | Thinking row while working | `ThinkingRow` |
 | 7i | "The start of this conversation is no longer on the computer." | `TranscriptList` |
 | 7j | Sub-agent strip above the composer | Not built: sub-agent transcripts are one summary row on Android. |
-| 8 | Follow-up chips after a turn that changed files | Not built: they open Changes. |
+| 8 | Follow-up chips after a turn that changed files | Not built: Changes is in the chat menu. |
 | 9 | Option chips row: model chip (cpu glyph), permission chip, spacer, context bar with "70k / 1M" and "5h 40%" | `OptionsBar`, `ModelChip`, `PermissionChip`, `ContextBar` |
 | 9a | Model menu: Default, suggestions with check, Custom | `ModelMenu` with Default and the host choices |
 | 9b | Permission menu: title, detail and glyph per mode | `PermissionMenu` |
-| 10 | Composer: capsule with plus (attach), multi line field "Message" or "Queue a message...", round send, Stop or Queue states | `Composer`; attach not built (no upload path on Android) |
+| 10 | Composer: capsule with plus (attach), multi line field "Message" or "Queue a message...", round send, Stop or Queue states | `Composer`; the plus button offers Photo library and Files, uploads through the file browser into the chat's folder, and the tray shows each file |
 | 11 | Expired chat: "Continue in a new chat" ink capsule | Not built: no expiry signal on Android |
 
 ## 4. Approval sheet

@@ -81,8 +81,22 @@ class FileBrowser(
      * the upload was cancelled. Reading a piece may block, so call it off the main thread.
      */
     suspend fun upload(name: String, totalBytes: Long, pieces: Iterator<ByteArray>) {
-        val folder = mutableState.value.listing?.path
-        if (!supportsFileBrowser || folder == null || mutableState.value.upload is FileUpload.Running) return
+        val folder = mutableState.value.listing?.path ?: return
+        sendFile(folder, name, totalBytes, pieces)
+    }
+
+    /**
+     * Sends [pieces] as a file called [name] in [folder], which need not be the one on screen: an agent chat sends
+     * attachments to its own folder. The browsing scope is opened first, since no folder was listed to open it.
+     */
+    suspend fun uploadInto(folder: String, name: String, totalBytes: Long, pieces: Iterator<ByteArray>) {
+        if (!supportsFileBrowser || mutableState.value.upload is FileUpload.Running) return
+        send(TerminalRequest.StartBrowser(browserID))
+        sendFile(folder, name, totalBytes, pieces)
+    }
+
+    private suspend fun sendFile(folder: String, name: String, totalBytes: Long, pieces: Iterator<ByteArray>) {
+        if (!supportsFileBrowser || mutableState.value.upload is FileUpload.Running) return
         val path = FilePath.child(folder, name)
         val refusal = when {
             !RemoteFileName.isValid(name) -> UploadFailure.InvalidName

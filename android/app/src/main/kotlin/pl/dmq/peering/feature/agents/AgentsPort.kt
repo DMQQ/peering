@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.StateFlow
 import pl.dmq.peering.session.agent.AgentCapabilities
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.session.agent.ApprovalAnswer
+import pl.dmq.peering.session.agent.changes.AgentChangesByChat
+import pl.dmq.peering.session.preview.PreviewProxyClient
 import pl.dmq.peering.wire.AgentEvent
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentResumableSession
@@ -24,6 +26,12 @@ interface AgentsPort {
 
     val browseEvents: Flow<AgentEvent>
 
+    /** What git says about each chat's folder, and the commit or push in flight. */
+    val changes: StateFlow<AgentChangesByChat>
+
+    /** The web preview's way to the computer's loopback; null where the preview is not offered. */
+    val preview: PreviewProxyClient?
+
     fun list()
 
     fun start(agentID: String, directory: String?)
@@ -33,6 +41,9 @@ interface AgentsPort {
     fun close(sessionID: String)
 
     fun prompt(sessionID: String, text: String)
+
+    /** Names the chat on this phone only. */
+    fun rename(sessionID: String, name: String)
 
     fun approve(sessionID: String, approvalID: String, answer: ApprovalAnswer)
 
@@ -50,4 +61,10 @@ interface AgentsPort {
 
     /** Asks the Mac to list [path], or its home folder when null. */
     fun browse(path: String?)
+
+    fun loadChanges(sessionID: String)
+
+    fun commitChanges(sessionID: String, paths: List<String>, message: String)
+
+    fun pushChanges(sessionID: String)
 }
