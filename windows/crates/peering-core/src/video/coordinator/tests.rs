@@ -458,3 +458,151 @@ fn a_capture_that_delivered_a_frame_is_never_reported() {
     coordinator.pump(0.1).unwrap();
     assert!(!coordinator.take_watchdog_report(60.0));
 }
+
+fn watched_coordinator() -> VideoCoordinator<FakeCapture, FakeEncoder> {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator
+}
+
+fn has_frame(outputs: &[VideoOutput]) -> bool {
+    !frames(outputs).is_empty()
+}
+
+#[test]
+fn an_encoder_failure_goes_quiet_for_the_backoff_then_rebuilds_the_encoder() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.encoder.fail_encodes(1);
+    push(&mut coordinator, &[2]);
+    assert!(coordinator.pump(1.0).is_err());
+
+    push(&mut coordinator, &[3]);
+    assert!(coordinator.pump(1.2).unwrap().is_empty());
+    assert!(coordinator.pump(1.4).unwrap().is_empty());
+
+    let outputs = coordinator.pump(1.5).unwrap();
+    assert!(has_frame(&outputs));
+    assert!(frames(&outputs)[0].is_keyframe);
+    assert_eq!(configs(&outputs).len(), 1);
+    assert_eq!(coordinator.recovery_failures(), 0);
+}
+
+#[test]
+fn a_capture_that_reports_itself_failed_is_restarted_on_a_fresh_device() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    assert_eq!(coordinator.capture.starts(), 1);
+    coordinator.capture.fail();
+
+    assert!(coordinator.pump(1.0).unwrap().is_empty());
+    assert_eq!(coordinator.capture.starts(), 1);
+
+    assert!(coordinator.pump(1.5).unwrap().is_empty());
+    assert_eq!(coordinator.capture.starts(), 2);
+    push(&mut coordinator, &[2]);
+    assert!(frames(&coordinator.pump(1.6).unwrap())[0].is_keyframe);
+}
+
+#[test]
+fn a_restart_that_keeps_failing_backs_off_and_the_client_is_told_once() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.capture.fail();
+    coordinator.capture.fail_starts(10);
+
+    coordinator.pump(1.0).unwrap();
+    assert!(!coordinator.take_recovery_report());
+    assert!(coordinator.pump(1.5).is_err());
+    assert!(coordinator.take_recovery_report());
+    assert!(coordinator.pump(2.0).unwrap().is_empty());
+    assert!(coordinator.pump(2.5).is_err());
+    assert!(!coordinator.take_recovery_report());
+    assert!(coordinator.pump(4.0).unwrap().is_empty());
+    assert!(coordinator.pump(4.5).is_err());
+    assert_eq!(coordinator.capture.starts(), 4);
+}
+
+#[test]
+fn a_restart_that_fails_once_is_retried_and_the_picture_returns() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.capture.fail();
+    coordinator.capture.fail_starts(1);
+    coordinator.pump(1.0).unwrap();
+    assert!(coordinator.pump(1.5).is_err());
+    assert!(coordinator.pump(3.0).unwrap().is_empty());
+    push(&mut coordinator, &[2]);
+    assert!(has_frame(&coordinator.pump(3.1).unwrap()));
+}
+
+#[test]
+fn a_capture_that_goes_quiet_is_restarted_after_the_stall_window() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.0).unwrap();
+    for second in 1..30 {
+        coordinator.pump(f64::from(second)).unwrap();
+    }
+    assert_eq!(coordinator.capture.starts(), 1);
+    coordinator.pump(30.0).unwrap();
+    assert_eq!(coordinator.capture.starts(), 2);
+    assert!(!coordinator.take_recovery_report());
+}
+
+#[test]
+fn a_still_screen_is_probed_less_often_each_time() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.0).unwrap();
+    coordinator.pump(30.0).unwrap();
+    push(&mut coordinator, &[2]);
+    coordinator.pump(30.5).unwrap();
+    coordinator.pump(89.0).unwrap();
+    assert_eq!(coordinator.capture.starts(), 2);
+    coordinator.pump(90.5).unwrap();
+    assert_eq!(coordinator.capture.starts(), 3);
+}
+
+#[test]
+fn silence_while_nobody_watches_is_not_a_stall() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.0).unwrap();
+    coordinator.set_watched(false);
+    coordinator.pump(100.0).unwrap();
+    coordinator.set_watched(true);
+    coordinator.pump(110.0).unwrap();
+    assert_eq!(coordinator.capture.starts(), 1);
+}
+
+#[test]
+fn a_capture_that_never_delivers_is_restarted_with_growing_waits() {
+    let mut coordinator = watched_coordinator();
+    coordinator.pump(5.0).unwrap();
+    coordinator.pump(5.4).unwrap();
+    assert_eq!(coordinator.capture.starts(), 1);
+    coordinator.pump(5.5).unwrap();
+    assert_eq!(coordinator.capture.starts(), 2);
+    coordinator.pump(10.5).unwrap();
+    assert!(coordinator.pump(11.4).unwrap().is_empty());
+    assert_eq!(coordinator.capture.starts(), 2);
+    coordinator.pump(11.5).unwrap();
+    assert_eq!(coordinator.capture.starts(), 3);
+}
+
+#[test]
+fn the_first_frame_report_is_not_repeated_by_the_recovery_report() {
+    let mut coordinator = watched_coordinator();
+    assert!(coordinator.take_watchdog_report(5.0));
+    coordinator.pump(5.0).unwrap();
+    coordinator.pump(5.5).unwrap();
+    coordinator.pump(10.5).unwrap();
+    assert!(!coordinator.take_recovery_report());
+    assert!(!coordinator.take_watchdog_report(10.5));
+}

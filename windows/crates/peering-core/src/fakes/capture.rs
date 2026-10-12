@@ -8,6 +8,9 @@ pub struct FakeCapture {
     displays: Vec<DisplayInfo>,
     running_display: Option<u32>,
     pending: VecDeque<RawFrame>,
+    failed: bool,
+    start_failures: u32,
+    starts: u32,
 }
 
 impl FakeCapture {
@@ -16,7 +19,24 @@ impl FakeCapture {
             displays,
             running_display: None,
             pending: VecDeque::new(),
+            failed: false,
+            start_failures: 0,
+            starts: 0,
         }
+    }
+
+    /// Makes `is_failed` report true until the next successful `start`.
+    pub fn fail(&mut self) {
+        self.failed = true;
+    }
+
+    /// The next `count` calls to `start` fail.
+    pub fn fail_starts(&mut self, count: u32) {
+        self.start_failures = count;
+    }
+
+    pub fn starts(&self) -> u32 {
+        self.starts
     }
 
     pub fn push_frame(&mut self, frame: RawFrame) {
@@ -37,6 +57,12 @@ impl Capture for FakeCapture {
         if !self.displays.iter().any(|display| display.id == display_id) {
             return Err(CaptureError::DisplayNotFound(display_id));
         }
+        self.starts += 1;
+        if self.start_failures > 0 {
+            self.start_failures -= 1;
+            return Err(CaptureError::Failed("the device was removed".to_owned()));
+        }
+        self.failed = false;
         self.running_display = Some(display_id);
         self.pending.clear();
         Ok(())
@@ -50,6 +76,10 @@ impl Capture for FakeCapture {
     fn poll_frame(&mut self) -> Option<RawFrame> {
         self.running_display?;
         self.pending.pop_front()
+    }
+
+    fn is_failed(&self) -> bool {
+        self.failed
     }
 }
 
