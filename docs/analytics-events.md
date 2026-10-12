@@ -39,7 +39,7 @@ A dial failed or a session dropped.
 
 | Property | Values |
 | --- | --- |
-| `reason` | `busy`, `protocolMismatch`, `pinMismatch`, `noPinOnFile`, `hostIDMismatch`, `identity`, `handshake`, `pairingRefused`, `pairingNotSaved`, `timedOut`, `hostClosed`, `refused`, `transport`, `relay`, `hostReportedError`, `unresponsive`, `unresponsiveAfterCheck`, `videoLost`, `other`, `unknown` |
+| `reason` | `busy`, `protocolMismatch`, `pinMismatch`, `noPinOnFile`, `hostIDMismatch`, `identity`, `handshake`, `pairingRefused`, `pairingNotSaved`, `pinsUnreadable`, `timedOut`, `hostClosed`, `refused`, `transport`, `relay`, `hostReportedError`, `unresponsive`, `unresponsiveAfterCheck`, `videoLost`, `other`, `unknown` |
 | `stage` | `resolving`, `connecting`, `tls`, `handshake`, `pairing`, `ready`, `streaming`, `video`. How far the session got. A TLS error while connecting reads `tls`; a lost picture reads `video`. |
 | `error_domain`, `error_code` | only for a Network.framework error: domain `posix` (errno), `dns` (DNSServiceErrorType) or `tls` (OSStatus, where a TLS alert lands); code is the number. |
 | `ms_to_ready` | number, when the session had been ready |

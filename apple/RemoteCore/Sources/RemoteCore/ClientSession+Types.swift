@@ -158,7 +158,7 @@ extension ClientSession {
     /// Why a session failed, from a closed set: ``Phase/failed(_:)`` carries a sentence that can name a Mac or an address, which analytics must never see.
     public enum FailureReason: String, Sendable, Equatable, CaseIterable {
         case busy, protocolMismatch, pinMismatch, noPinOnFile, hostIDMismatch, identity
-        case handshake, pairingRefused, pairingNotSaved
+        case handshake, pairingRefused, pairingNotSaved, pinsUnreadable
         case timedOut, hostClosed, refused, transport, relay
         case hostReportedError, unresponsive, unresponsiveAfterCheck, videoLost, other
 
@@ -190,6 +190,10 @@ extension ClientSession {
         case pinMismatch(hostID: String)
         /// Dialled by device ID with nothing in the pin store. Not ``pinMismatch``: there was no key to compare.
         case noPinOnFile(hostID: String)
+        /// The Keychain could not be read, so whether a pin exists is unknown. Not ``noPinOnFile``: the user has nothing to pair again.
+        case pinsUnreadable
+        /// The TLS connection came up and the Mac then said nothing, or stopped partway through the handshake.
+        case handshakeTimedOut
         /// The Mac that answered through the relay is not the one whose ID was dialled. A routing check only: authentication is the code comparison.
         case hostIDMismatch(dialled: String, answered: String)
         case unexpected(MessageKind, expected: String)
@@ -206,6 +210,8 @@ extension ClientSession {
             case .protocolMismatch: return .protocolMismatch
             case .pinMismatch: return .pinMismatch
             case .noPinOnFile: return .noPinOnFile
+            case .pinsUnreadable: return .pinsUnreadable
+            case .handshakeTimedOut: return .timedOut
             case .hostIDMismatch: return .hostIDMismatch
             case .identity: return .identity
             case .commitmentMismatch, .noServerKey, .unexpected: return .handshake
@@ -230,6 +236,10 @@ extension ClientSession {
                 return "Something at this address is not the Mac you paired with (\(hostID)). Its key does not match the key this iPhone pinned for it. If the Mac was reset, forget it here and pair again."
             case .noPinOnFile(let hostID):
                 return "This iPhone has no pairing on file for that Mac (\(hostID)). The Mac still trusts this iPhone, so it will not ask to pair again: on the Mac, open Devices and forget this iPhone, then pair again."
+            case .handshakeTimedOut:
+                return "The Mac connected but did not finish setting up the session. Check that it is awake and try again."
+            case .pinsUnreadable:
+                return "This iPhone could not read its saved pairings from the Keychain. Unlock the iPhone and try again. Nothing was changed."
             case .hostIDMismatch(let dialled, let answered):
                 return "A different Mac answered: \(answered), not \(dialled). Check that the code you scanned or typed came from the Mac you meant."
             case .unexpected(let kind, let expected):

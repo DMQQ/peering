@@ -172,6 +172,9 @@ final class SessionModel {
     /// Set when the device's own identity could not be loaded: without a client certificate there is
     var identityFailure: String?
 
+    /// Raised once when the saved pairings could not be read; ``HostPickerView`` shows a card until it is dismissed.
+    var pinsUnreadableNoticeShown = false
+
     // MARK: - User choices
 
     /// Remembered but deliberately not used to reconnect: a stored IP goes stale exactly when a network changes. Kept so a Mac on a custom port is not retyped each launch.
