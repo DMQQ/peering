@@ -84,7 +84,7 @@ struct AgentChatTranscript: View {
                             .transition(.opacity.combined(with: .offset(y: 8)))
                     }
                     if let failure = session.failure {
-                        Text(failure)
+                        Text(HostWireText.localized(failure))
                             .font(.footnote)
                             .foregroundStyle(ColorPalette.danger)
                     }

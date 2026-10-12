@@ -174,15 +174,15 @@ extension RemoteScreen {
 
     var arrowCluster: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            panelKey("delete.backward", label: "Delete", width: 64) { model.handleBackspace() }
-            panelKey("return", label: "Enter", width: 64) { model.pressReturn() }
+            panelKey("delete.backward", label: String(localized: "Delete"), width: 64) { model.handleBackspace() }
+            panelKey("return", label: String(localized: "Enter"), width: 64) { model.pressReturn() }
             Spacer(minLength: 0)
             VStack(spacing: 6) {
-                panelKey("chevron.up", label: "Up arrow") { sendKey(keyCode: 126) }
+                panelKey("chevron.up", label: String(localized: "Up arrow")) { sendKey(keyCode: 126) }
                 HStack(spacing: 6) {
-                    panelKey("chevron.left", label: "Left arrow") { sendKey(keyCode: 123) }
-                    panelKey("chevron.down", label: "Down arrow") { sendKey(keyCode: 125) }
-                    panelKey("chevron.right", label: "Right arrow") { sendKey(keyCode: 124) }
+                    panelKey("chevron.left", label: String(localized: "Left arrow")) { sendKey(keyCode: 123) }
+                    panelKey("chevron.down", label: String(localized: "Down arrow")) { sendKey(keyCode: 125) }
+                    panelKey("chevron.right", label: String(localized: "Right arrow")) { sendKey(keyCode: 124) }
                 }
             }
         }

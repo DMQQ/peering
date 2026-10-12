@@ -411,6 +411,64 @@
         }
       }
     },
+    "%@ exited with status %@ before finishing the turn." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ wurde mit Status %@ beendet, bevor der Durchlauf fertig war."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ terminó con el estado %@ antes de acabar el turno."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ s'est terminé avec le statut %@ avant la fin du tour."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ è terminato con stato %@ prima di finire il turno."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@は、ターンを終える前にステータス%@で終了しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@이(가) 차례를 마치기 전에 상태 %@(으)로 종료되었습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ saiu com status %@ antes de terminar a vez."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ завершился со статусом %@, не закончив ход."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 在完成本轮之前以状态 %@ 退出。"
+          }
+        }
+      }
+    },
     "%@ finished after %@." : {
       "localizations" : {
         "de" : {
@@ -465,6 +523,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ 在 %@ 后已结束。"
+          }
+        }
+      }
+    },
+    "%@ is not a file inside this folder." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ist keine Datei in diesem Ordner."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ no es un archivo dentro de esta carpeta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ n'est pas un fichier de ce dossier."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ non è un file all'interno di questa cartella."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@はこのフォルダ内のファイルではありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@은(는) 이 폴더 안의 파일이 아닙니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ não é um arquivo dentro desta pasta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ не является файлом внутри этой папки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 不是此文件夹内的文件。"
           }
         }
       }
@@ -994,6 +1110,64 @@
         }
       }
     },
+    "A commit needs a message." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Commit braucht eine Nachricht."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un commit necesita un mensaje."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un commit a besoin d'un message."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un commit richiede un messaggio."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コミットにはメッセージが必要です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋에는 메시지가 필요합니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um commit precisa de uma mensagem."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Для коммита нужно сообщение."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提交需要一条信息。"
+          }
+        }
+      }
+    },
     "A different Mac answered: %@, not %@. Check that the code you scanned or typed came from the Mac you meant." : {
       "localizations" : {
         "de" : {
@@ -1048,6 +1222,122 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "响应的是另一台 Mac：%@，而不是 %@。请确认你扫描或输入的代码来自你想连接的那台 Mac。"
+          }
+        }
+      }
+    },
+    "A line from the agent was too long to read and was skipped." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Zeile vom Agenten war zu lang zum Lesen und wurde übersprungen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una línea del agente era demasiado larga para leerla y se omitió."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une ligne de l'agent était trop longue pour être lue et a été ignorée."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una riga dell'agente era troppo lunga per essere letta ed è stata saltata."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エージェントからの1行が長すぎて読み取れず、スキップされました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "에이전트가 보낸 한 줄이 너무 길어 읽을 수 없어 건너뛰었습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uma linha do agente era longa demais para ser lida e foi ignorada."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Одна строка от агента оказалась слишком длинной для чтения и была пропущена."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "智能体的一行内容太长，无法读取，已跳过。"
+          }
+        }
+      }
+    },
+    "Add a dark mode toggle" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Füge einen Schalter für den Dunkelmodus hinzu"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añade un interruptor de modo oscuro"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajoute un bouton pour le mode sombre"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi un interruttore per la modalità scura"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダークモードの切り替えを追加して"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다크 모드 전환 스위치를 추가해 줘"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicione um botão de modo escuro"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавь переключатель тёмной темы"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加深色模式开关"
           }
         }
       }
@@ -1226,6 +1516,180 @@
         }
       }
     },
+    "Choose at least one file to commit." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle mindestens eine Datei zum Committen aus."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige al menos un archivo para confirmar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez au moins un fichier à valider."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scegli almeno un file di cui fare il commit."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コミットするファイルを1つ以上選んでください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋할 파일을 하나 이상 선택하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escolha pelo menos um arquivo para commit."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выберите хотя бы один файл для коммита."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请至少选择一个要提交的文件。"
+          }
+        }
+      }
+    },
+    "Claude Code can no longer reopen this conversation. You can read it here." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code kann diese Unterhaltung nicht mehr öffnen. Du kannst sie hier lesen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code ya no puede reabrir esta conversación. Puedes leerla aquí."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code ne peut plus rouvrir cette conversation. Vous pouvez la lire ici."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code non può più riaprire questa conversazione. Puoi leggerla qui."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Codeはこの会話をもう開き直せません。ここで読むことはできます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code가 더 이상 이 대화를 다시 열 수 없습니다. 여기서는 읽을 수 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Claude Code não consegue mais reabrir esta conversa. Você pode lê-la aqui."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code больше не может открыть эту беседу заново. Её можно прочитать здесь."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code 无法再重新打开这个对话。你可以在这里阅读它。"
+          }
+        }
+      }
+    },
+    "Claude Code exited with status %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code wurde mit Status %@ beendet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code terminó con el estado %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code s'est terminé avec le statut %@."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code è terminato con stato %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Codeがステータス%@で終了しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code가 상태 %@(으)로 종료되었습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Claude Code saiu com status %@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code завершился со статусом %@."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code 以状态 %@ 退出。"
+          }
+        }
+      }
+    },
     "Claude Code is not installed on this Mac, or its command is not on the login shell's PATH." : {
       "localizations" : {
         "de" : {
@@ -1284,6 +1748,64 @@
         }
       }
     },
+    "Claude Code started and stopped before saying anything. Update it, or use the terminal instead." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code wurde gestartet und beendet, ohne etwas zu sagen. Aktualisiere es oder nutze stattdessen das Terminal."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code se inició y se detuvo sin decir nada. Actualízalo o usa el terminal en su lugar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code a démarré puis s'est arrêté sans rien dire. Mettez-le à jour ou utilisez plutôt le terminal."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code si è avviato e fermato senza dire nulla. Aggiornalo o usa invece il terminale."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Codeは何も出力せずに起動して終了しました。アップデートするか、代わりにターミナルを使ってください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code가 아무 말 없이 시작되었다가 종료되었습니다. 업데이트하거나 대신 터미널을 사용하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Claude Code iniciou e parou sem dizer nada. Atualize-o ou use o terminal."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code запустился и остановился, ничего не сказав. Обновите его или используйте вместо него терминал."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code 启动后没有输出任何内容就停止了。请更新它，或改用终端。"
+          }
+        }
+      }
+    },
     "Close all shells?" : {
       "localizations" : {
         "de" : {
@@ -1338,6 +1860,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "关闭所有 shell？"
+          }
+        }
+      }
+    },
+    "Committed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Committet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Validé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit eseguito."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コミットしました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commit feito."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закоммичено."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已提交。"
           }
         }
       }
@@ -1458,6 +2038,64 @@
         }
       }
     },
+    "Continued from a Claude Code session started on this Mac." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fortgesetzt aus einer Claude-Code-Sitzung, die auf diesem Mac gestartet wurde."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuado desde una sesión de Claude Code iniciada en este Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poursuivi depuis une session Claude Code démarrée sur ce Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proseguito da una sessione di Claude Code avviata su questo Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacで開始されたClaude Codeのセッションから続けています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac에서 시작된 Claude Code 세션에서 이어졌습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuado de uma sessão do Claude Code iniciada neste Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Продолжено из сеанса Claude Code, начатого на этом Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接续自在这台 Mac 上开始的 Claude Code 会话。"
+          }
+        }
+      }
+    },
     "Could not create a terminal." : {
       "localizations" : {
         "de" : {
@@ -1512,6 +2150,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法创建终端。"
+          }
+        }
+      }
+    },
+    "Could not listen on %@: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf %@ konnte nicht gelauscht werden: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo escuchar en %@: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d'écouter sur %@ : %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile mettersi in ascolto su %@: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@で待ち受けできませんでした: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에서 수신 대기할 수 없습니다: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível escutar em %@: %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось начать прослушивание %@: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法在 %@ 上监听：%@"
           }
         }
       }
@@ -1922,6 +2618,296 @@
         }
       }
     },
+    "Expected %@ from the Mac, got %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vom Mac wurde %@ erwartet, erhalten: %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se esperaba %@ del Mac, se recibió %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ attendu du Mac, reçu : %@."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dal Mac era atteso %@, ricevuto %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macから%@が必要でしたが、%@を受信しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac에서 %@을(를) 받아야 했지만 %@을(를) 받았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperava-se %@ do Mac, mas veio %@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "От Mac ожидалось %@, получено %@."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应从 Mac 收到 %@，实际收到 %@。"
+          }
+        }
+      }
+    },
+    "Explain this stack trace" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erkläre diesen Stacktrace"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explica este stack trace"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explique cette trace d'appels"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spiega questo stack trace"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このスタックトレースを説明して"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 스택 트레이스를 설명해 줘"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explique este stack trace"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Объясни этот стек вызовов"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解释这段堆栈跟踪"
+          }
+        }
+      }
+    },
+    "Fix the failing test" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Behebe den fehlschlagenden Test"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arregla el test que falla"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Corrige le test qui échoue"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Correggi il test che fallisce"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "失敗しているテストを直して"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실패하는 테스트를 고쳐 줘"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Corrija o teste que está falhando"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Исправь падающий тест"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修复失败的测试"
+          }
+        }
+      }
+    },
+    "git is not installed on this Mac. Install the Xcode Command Line Tools (run xcode-select --install in Terminal) to review changes." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git ist auf diesem Mac nicht installiert. Installiere die Xcode Command Line Tools (führe xcode-select --install im Terminal aus), um Änderungen zu prüfen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git no está instalado en este Mac. Instala las Herramientas de línea de comandos de Xcode (ejecuta xcode-select --install en Terminal) para revisar los cambios."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git n'est pas installé sur ce Mac. Installez les outils en ligne de commande de Xcode (lancez xcode-select --install dans Terminal) pour examiner les modifications."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git non è installato su questo Mac. Installa gli strumenti da riga di comando di Xcode (esegui xcode-select --install in Terminale) per rivedere le modifiche."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacにはgitがインストールされていません。変更を確認するには、Xcode Command Line Tools（ターミナルで xcode-select --install を実行）をインストールしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac에 git이 설치되어 있지 않습니다. 변경 사항을 검토하려면 Xcode 명령줄 도구를 설치하세요(터미널에서 xcode-select --install 실행)."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O git não está instalado neste Mac. Instale as Ferramentas de Linha de Comando do Xcode (execute xcode-select --install no Terminal) para revisar as alterações."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git не установлен на этом Mac. Установите инструменты командной строки Xcode (выполните xcode-select --install в Терминале), чтобы просматривать изменения."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 上没有安装 git。请安装 Xcode 命令行工具（在“终端”中运行 xcode-select --install）以查看更改。"
+          }
+        }
+      }
+    },
+    "git stopped without saying why. It may have run out of time." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git hat ohne Angabe von Gründen aufgehört. Möglicherweise ist die Zeit abgelaufen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git se detuvo sin decir por qué. Puede que se haya agotado el tiempo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git s'est arrêté sans dire pourquoi. Le délai a peut-être expiré."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git si è fermato senza dire perché. Potrebbe aver esaurito il tempo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gitは理由を示さずに停止しました。時間切れになった可能性があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git이 이유를 밝히지 않고 멈췄습니다. 시간이 초과되었을 수 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O git parou sem dizer por quê. Pode ter esgotado o tempo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git остановился, не сообщив причину. Возможно, закончилось время."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git 没有说明原因就停止了。可能是超时了。"
+          }
+        }
+      }
+    },
     "Hosting stopped on this Mac." : {
       "localizations" : {
         "de" : {
@@ -1976,6 +2962,122 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这台 Mac 上的托管已停止。"
+          }
+        }
+      }
+    },
+    "it ends earlier than its own lengths say" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "er endet früher, als seine eigenen Längenangaben sagen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "termina antes de lo que indican sus propias longitudes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "il se termine plus tôt que ne l'indiquent ses propres longueurs"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "termina prima di quanto indicano le sue stesse lunghezze"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データが、自身の長さの記述より早く終わっています"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자체 길이 정보보다 일찍 끝납니다"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "termina antes do que suas próprias medidas indicam"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "он заканчивается раньше, чем указывают его собственные длины"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数据在其自身声明的长度之前就结束了"
+          }
+        }
+      }
+    },
+    "it holds %@ keys, and only single-key files can be used here" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "sie enthält %@ Schlüssel, und hier können nur Dateien mit einem einzigen Schlüssel verwendet werden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "contiene %@ claves, y aquí solo se pueden usar archivos con una sola clave"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "elle contient %@ clés, et seuls les fichiers à une seule clé peuvent être utilisés ici"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "contiene %@ chiavi, e qui si possono usare solo file con una chiave"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@個のキーが含まれていますが、ここで使えるのはキーが1つのファイルだけです"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "키가 %@개 들어 있는데, 여기서는 키가 하나인 파일만 사용할 수 있습니다"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "contém %@ chaves, e aqui só podem ser usados arquivos com uma única chave"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "в нём ключей: %@, а здесь можно использовать только файлы с одним ключом"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其中包含 %@ 个密钥，而这里只能使用单密钥文件"
           }
         }
       }
@@ -2328,6 +3430,64 @@
         }
       }
     },
+    "Peering could not read this folder. If macOS blocked it, you can allow it in System Settings, Privacy & Security, Files and Folders." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering konnte diesen Ordner nicht lesen. Falls macOS ihn blockiert hat, kannst du das in Systemeinstellungen, Datenschutz & Sicherheit, Dateien und Ordner erlauben."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering no pudo leer esta carpeta. Si macOS la bloqueó, puedes permitirlo en Ajustes del Sistema, Privacidad y seguridad, Archivos y carpetas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering n'a pas pu lire ce dossier. Si macOS l'a bloqué, vous pouvez l'autoriser dans Réglages Système, Confidentialité et sécurité, Fichiers et dossiers."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering non è riuscito a leggere questa cartella. Se macOS l'ha bloccata, puoi consentirlo in Impostazioni di Sistema, Privacy e sicurezza, File e cartelle."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peeringはこのフォルダを読み取れませんでした。macOSがブロックした場合は、システム設定、プライバシーとセキュリティ、ファイルとフォルダで許可できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering이 이 폴더를 읽을 수 없습니다. macOS가 차단한 경우 시스템 설정, 개인정보 보호 및 보안, 파일 및 폴더에서 허용할 수 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Peering não conseguiu ler esta pasta. Se o macOS a bloqueou, você pode permitir em Ajustes do Sistema, Privacidade e Segurança, Arquivos e Pastas."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering не смог прочитать эту папку. Если macOS заблокировал доступ, его можно разрешить в Системных настройках, Конфиденциальность и безопасность, Файлы и папки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peering 无法读取这个文件夹。如果被 macOS 阻止，你可以在“系统设置”、“隐私与安全性”、“文件和文件夹”中允许。"
+          }
+        }
+      }
+    },
     "Peering is not allowed to read this. Allow Peering in Files and Folders under Privacy and Security on the Mac." : {
       "localizations" : {
         "de" : {
@@ -2444,6 +3604,64 @@
         }
       }
     },
+    "Pushed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gepusht."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviado (push)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poussé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push eseguito."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プッシュしました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "푸시했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Push feito."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запушено."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已推送。"
+          }
+        }
+      }
+    },
     "renamed %@ to %@" : {
       "localizations" : {
         "de" : {
@@ -2498,6 +3716,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已将 %@ 重命名为 %@"
+          }
+        }
+      }
+    },
+    "Say which machine the server should connect to. It is the machine at the far end of the tunnel, and it is the server that does the connecting." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gib an, mit welchem Rechner sich der Server verbinden soll. Das ist der Rechner am anderen Ende des Tunnels, und der Server baut die Verbindung auf."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indica a qué máquina debe conectarse el servidor. Es la máquina del otro extremo del túnel, y es el servidor quien se conecta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indiquez à quelle machine le serveur doit se connecter. C'est la machine à l'autre bout du tunnel, et c'est le serveur qui se connecte."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indica a quale macchina deve connettersi il server. È la macchina all'altro capo del tunnel, ed è il server a connettersi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバがどのマシンに接続するかを指定してください。トンネルの反対側にあるマシンで、接続を行うのはサーバです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 어느 머신에 연결할지 입력하세요. 터널 반대쪽 끝의 머신이며, 연결을 만드는 쪽은 서버입니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diga a qual máquina o servidor deve se conectar. É a máquina na outra ponta do túnel, e é o servidor que faz a conexão."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Укажите, к какой машине должен подключаться сервер. Это машина на другом конце туннеля, и подключается именно сервер."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请指明服务器应连接到哪台机器。它是隧道另一端的机器，发起连接的是服务器。"
           }
         }
       }
@@ -2730,6 +4006,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请先停止当前这一轮，再将此聊天移入历史记录。"
+          }
+        }
+      }
+    },
+    "Stopped and moved to history. Send a message to pick this chat up where it left off." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestoppt und in den Verlauf verschoben. Sende eine Nachricht, um den Chat dort fortzusetzen, wo er aufgehört hat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detenido y movido al historial. Envía un mensaje para retomar este chat donde se quedó."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrêté et déplacé dans l'historique. Envoyez un message pour reprendre ce chat là où il s'était arrêté."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interrotto e spostato nella cronologia. Invia un messaggio per riprendere questa chat da dove era rimasta."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止して履歴に移しました。メッセージを送ると、このチャットを中断したところから再開します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "중지하고 기록으로 옮겼습니다. 메시지를 보내면 이 채팅을 중단한 지점부터 이어갑니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parado e movido para o histórico. Envie uma mensagem para retomar este chat de onde parou."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Остановлено и перенесено в историю. Отправьте сообщение, чтобы продолжить этот чат с того места, где он остановился."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已停止并移入历史记录。发送一条消息即可从中断处继续这个聊天。"
           }
         }
       }
@@ -3136,6 +4470,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "该聊天已不存在。"
+          }
+        }
+      }
+    },
+    "That commit message is too long." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Commit-Nachricht ist zu lang."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese mensaje de commit es demasiado largo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce message de commit est trop long."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quel messaggio di commit è troppo lungo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのコミットメッセージは長すぎます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해당 커밋 메시지가 너무 깁니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essa mensagem de commit é longa demais."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сообщение коммита слишком длинное."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该提交信息太长。"
           }
         }
       }
@@ -3604,6 +4996,122 @@
         }
       }
     },
+    "That folder has more in it than this app will delete in one go (%@ entries). Delete it on the server instead." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Ordner enthält mehr, als diese App auf einmal löscht (%@ Einträge). Lösche ihn stattdessen auf dem Server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esa carpeta tiene más contenido del que esta app elimina de una vez (%@ elementos). Elimínala en el servidor."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce dossier contient plus que ce que cette app supprime en une fois (%@ éléments). Supprimez-le plutôt sur le serveur."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quella cartella contiene più di quanto questa app elimini in una volta (%@ elementi). Eliminala invece sul server."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのフォルダには、このアプリが一度に削除できる以上の内容があります（%@件）。代わりにサーバ上で削除してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해당 폴더에는 이 앱이 한 번에 삭제할 수 있는 양보다 많은 내용이 있습니다(항목 %@개). 대신 서버에서 삭제하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essa pasta tem mais conteúdo do que este app exclui de uma vez (%@ itens). Exclua-a no servidor."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В этой папке больше, чем это приложение удаляет за один раз (элементов: %@). Удалите её на сервере."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该文件夹中的内容超过本 App 一次能删除的量（%@ 项）。请改为在服务器上删除。"
+          }
+        }
+      }
+    },
+    "That folder has more in it than this app will read at once." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Ordner enthält mehr, als diese App auf einmal liest."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esa carpeta tiene más contenido del que esta app lee de una vez."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce dossier contient plus que ce que cette app lit en une fois."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quella cartella contiene più di quanto questa app legga in una volta."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのフォルダには、このアプリが一度に読み取れる以上の内容があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해당 폴더에는 이 앱이 한 번에 읽을 수 있는 양보다 많은 내용이 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essa pasta tem mais conteúdo do que este app lê de uma vez."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В этой папке больше, чем это приложение читает за один раз."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该文件夹中的内容超过本 App 一次能读取的量。"
+          }
+        }
+      }
+    },
     "That folder is no longer there." : {
       "localizations" : {
         "de" : {
@@ -3894,6 +5402,64 @@
         }
       }
     },
+    "That is not a hostname or an address. Letters, digits, dots, colons and hyphens only." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das ist kein Hostname und keine Adresse. Nur Buchstaben, Ziffern, Punkte, Doppelpunkte und Bindestriche."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eso no es un nombre de host ni una dirección. Solo letras, dígitos, puntos, dos puntos y guiones."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce n'est ni un nom d'hôte ni une adresse. Uniquement des lettres, des chiffres, des points, des deux-points et des tirets."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo non è un nome host né un indirizzo. Solo lettere, cifre, punti, due punti e trattini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホスト名でもアドレスでもありません。使えるのは英字、数字、ドット、コロン、ハイフンだけです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "호스트 이름도 주소도 아닙니다. 문자, 숫자, 마침표, 콜론, 하이픈만 사용할 수 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Isso não é um nome de host nem um endereço. Somente letras, dígitos, pontos, dois-pontos e hífens."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это не имя хоста и не адрес. Допустимы только буквы, цифры, точки, двоеточия и дефисы."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这不是主机名或地址。只能使用字母、数字、点、冒号和连字符。"
+          }
+        }
+      }
+    },
     "That is not a name a file can have." : {
       "localizations" : {
         "de" : {
@@ -4126,6 +5692,180 @@
         }
       }
     },
+    "That is not a private key. A private key starts with -----BEGIN OPENSSH PRIVATE KEY-----. If you pasted a line starting with ssh-ed25519, that is the public half, which goes on the server rather than here." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das ist kein privater Schlüssel. Ein privater Schlüssel beginnt mit -----BEGIN OPENSSH PRIVATE KEY-----. Wenn du eine Zeile eingefügt hast, die mit ssh-ed25519 beginnt, ist das die öffentliche Hälfte, die auf den Server gehört und nicht hierher."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eso no es una clave privada. Una clave privada empieza por -----BEGIN OPENSSH PRIVATE KEY-----. Si pegaste una línea que empieza por ssh-ed25519, es la mitad pública, que va en el servidor y no aquí."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce n'est pas une clé privée. Une clé privée commence par -----BEGIN OPENSSH PRIVATE KEY-----. Si vous avez collé une ligne commençant par ssh-ed25519, c'est la moitié publique, qui va sur le serveur et non ici."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa non è una chiave privata. Una chiave privata inizia con -----BEGIN OPENSSH PRIVATE KEY-----. Se hai incollato una riga che inizia con ssh-ed25519, è la metà pubblica, che va sul server e non qui."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これは秘密鍵ではありません。秘密鍵は -----BEGIN OPENSSH PRIVATE KEY----- で始まります。ssh-ed25519 で始まる行を貼り付けた場合、それは公開鍵のほうで、ここではなくサーバに置くものです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "개인 키가 아닙니다. 개인 키는 -----BEGIN OPENSSH PRIVATE KEY-----로 시작합니다. ssh-ed25519로 시작하는 줄을 붙여넣었다면 그것은 공개 키 쪽이며, 여기가 아니라 서버에 두는 것입니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Isso não é uma chave privada. Uma chave privada começa com -----BEGIN OPENSSH PRIVATE KEY-----. Se você colou uma linha que começa com ssh-ed25519, essa é a metade pública, que vai no servidor e não aqui."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это не закрытый ключ. Закрытый ключ начинается с -----BEGIN OPENSSH PRIVATE KEY-----. Если вы вставили строку, начинающуюся с ssh-ed25519, это открытая половина, которая нужна на сервере, а не здесь."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这不是私钥。私钥以 -----BEGIN OPENSSH PRIVATE KEY----- 开头。如果你粘贴的是以 ssh-ed25519 开头的一行，那是公钥那一半，应放在服务器上，而不是这里。"
+          }
+        }
+      }
+    },
+    "That is too many files for one commit from the phone." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das sind zu viele Dateien für einen Commit vom Telefon aus."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Son demasiados archivos para un solo commit desde el teléfono."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "C'est trop de fichiers pour un seul commit depuis le téléphone."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sono troppi file per un solo commit dal telefono."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneから1回でコミットするにはファイルが多すぎます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone에서 한 번에 커밋하기에는 파일이 너무 많습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "São arquivos demais para um commit pelo telefone."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Слишком много файлов для одного коммита с телефона."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件太多，无法通过手机一次提交。"
+          }
+        }
+      }
+    },
+    "That is too much of the server to delete." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das ist zu viel vom Server, um es zu löschen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es demasiado del servidor para eliminarlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "C'est trop du serveur pour le supprimer."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "È una parte troppo grande del server da eliminare."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバの広い範囲すぎて、削除できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버의 너무 넓은 범위라 삭제할 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "É uma parte grande demais do servidor para excluir."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это слишком большая часть сервера, чтобы её удалить."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这涉及服务器的范围过大，无法删除。"
+          }
+        }
+      }
+    },
     "That is too much of this Mac to delete." : {
       "localizations" : {
         "de" : {
@@ -4184,6 +5924,122 @@
         }
       }
     },
+    "That mode was not accepted." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Modus wurde nicht akzeptiert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese modo no fue aceptado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce mode n'a pas été accepté."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quella modalità non è stata accettata."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのモードは受け付けられませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해당 모드가 받아들여지지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esse modo não foi aceito."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот режим не принят."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该模式未被接受。"
+          }
+        }
+      }
+    },
+    "That model was not accepted." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Modell wurde nicht akzeptiert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ese modelo no fue aceptado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce modèle n'a pas été accepté."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quel modello non è stato accettato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのモデルは受け付けられませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해당 모델이 받아들여지지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esse modelo não foi aceito."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта модель не принята."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该模型未被接受。"
+          }
+        }
+      }
+    },
     "That name is too long for this Mac." : {
       "localizations" : {
         "de" : {
@@ -4238,6 +6094,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "该名称对这台 Mac 来说太长了。"
+          }
+        }
+      }
+    },
+    "That passphrase did not unlock this key." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Passphrase hat den Schlüssel nicht entsperrt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esa frase de contraseña no desbloqueó esta clave."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette phrase secrète n'a pas déverrouillé cette clé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quella passphrase non ha sbloccato questa chiave."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "そのパスフレーズではこのキーを解除できませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해당 암호 문구로 이 키를 잠금 해제할 수 없었습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essa frase secreta não desbloqueou esta chave."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта парольная фраза не разблокировала этот ключ."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该口令无法解锁此密钥。"
           }
         }
       }
@@ -4648,6 +6562,64 @@
         }
       }
     },
+    "the body is not valid base64" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "der Hauptteil ist kein gültiges Base64"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "el cuerpo no es base64 válido"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "le corps n'est pas du base64 valide"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "il corpo non è base64 valido"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本文が有効なbase64ではありません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "본문이 올바른 base64가 아닙니다"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "o corpo não é base64 válido"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "тело не является корректным base64"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正文不是有效的 base64"
+          }
+        }
+      }
+    },
     "The codes did not match." : {
       "localizations" : {
         "de" : {
@@ -4880,6 +6852,180 @@
         }
       }
     },
+    "The folder could not be read." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Ordner konnte nicht gelesen werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer la carpeta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le dossier n'a pas pu être lu."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile leggere la cartella."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フォルダを読み取れませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "폴더를 읽을 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler a pasta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать папку."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取该文件夹。"
+          }
+        }
+      }
+    },
+    "The local port has to be a number." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der lokale Port muss eine Zahl sein."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El puerto local tiene que ser un número."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le port local doit être un nombre."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La porta locale deve essere un numero."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ローカルポートは数字にしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로컬 포트는 숫자여야 합니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A porta local precisa ser um número."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Локальный порт должен быть числом."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地端口必须是数字。"
+          }
+        }
+      }
+    },
+    "The local port has to be between 1 and 65535." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der lokale Port muss zwischen 1 und 65535 liegen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El puerto local tiene que estar entre 1 y 65535."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le port local doit être compris entre 1 et 65535."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La porta locale deve essere tra 1 e 65535."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ローカルポートは1から65535の間にしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로컬 포트는 1에서 65535 사이여야 합니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A porta local precisa estar entre 1 e 65535."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Локальный порт должен быть от 1 до 65535."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地端口必须在 1 到 65535 之间。"
+          }
+        }
+      }
+    },
     "The Mac closed the connection. It may have quit, restarted, or gone to sleep." : {
       "localizations" : {
         "de" : {
@@ -5050,6 +7196,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mac 没有响应。请确认两台设备在同一网络中。"
+          }
+        }
+      }
+    },
+    "The Mac has no saved credential for this remote, and git cannot ask for one from here." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac hat keine gespeicherten Zugangsdaten für dieses Remote, und git kann von hier aus keine erfragen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac no tiene credenciales guardadas para este remoto, y git no puede pedirlas desde aquí."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac n'a aucun identifiant enregistré pour ce dépôt distant, et git ne peut pas en demander d'ici."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac non ha credenziali salvate per questo remoto, e git non può chiederle da qui."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacにはこのリモートの認証情報が保存されておらず、gitはここから入力を求められません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac에는 이 원격에 대해 저장된 자격 증명이 없고, git은 여기서 입력을 요청할 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac não tem credencial salva para este remoto, e o git não pode pedir uma daqui."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На Mac нет сохранённых учётных данных для этого удалённого репозитория, а git не может запросить их отсюда."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 没有保存此远程仓库的凭据，而 git 无法从这里请求输入。"
           }
         }
       }
@@ -5344,6 +7548,354 @@
         }
       }
     },
+    "The Mac's certificate did not expose a public key, so it cannot be pinned." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Zertifikat des Macs enthielt keinen öffentlichen Schlüssel und kann daher nicht gepinnt werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El certificado del Mac no mostró una clave pública, así que no se puede fijar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le certificat du Mac n'exposait pas de clé publique et ne peut donc pas être épinglé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il certificato del Mac non esponeva una chiave pubblica, quindi non può essere bloccato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macの証明書から公開鍵を取り出せなかったため、固定できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac의 인증서에서 공개 키를 확인할 수 없어 고정할 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O certificado do Mac não expôs uma chave pública, então não pode ser fixado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сертификат Mac не содержит открытого ключа, поэтому его нельзя закрепить."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 的证书没有提供公钥，因此无法固定。"
+          }
+        }
+      }
+    },
+    "The Mac's hello could not be read." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Hello des Macs konnte nicht gelesen werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el hello del Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le hello du Mac n'a pas pu être lu."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile leggere l'hello del Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macのhelloを読み取れませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac의 hello를 읽을 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler o hello do Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать hello от Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取 Mac 的 hello。"
+          }
+        }
+      }
+    },
+    "The Mac's pairing commitment could not be read." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Kopplungs-Commitment des Macs konnte nicht gelesen werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el compromiso de emparejamiento del Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'engagement d'association du Mac n'a pas pu être lu."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile leggere l'impegno di associazione del Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macのペアリングのコミットメントを読み取れませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac의 페어링 커밋먼트를 읽을 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler o compromisso de pareamento do Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать обязательство связывания от Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取 Mac 的配对承诺值。"
+          }
+        }
+      }
+    },
+    "The Mac's pairing result could not be read." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Kopplungsergebnis des Macs konnte nicht gelesen werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer el resultado del emparejamiento del Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le résultat de l'association du Mac n'a pas pu être lu."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile leggere il risultato dell'associazione del Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macのペアリング結果を読み取れませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac의 페어링 결과를 읽을 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler o resultado do pareamento do Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать результат связывания от Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取 Mac 的配对结果。"
+          }
+        }
+      }
+    },
+    "The Mac's pairing reveal could not be read." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Kopplungs-Offenlegung des Macs konnte nicht gelesen werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer la revelación de emparejamiento del Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La révélation d'association du Mac n'a pas pu être lue."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile leggere la rivelazione di associazione del Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macのペアリングの公開値を読み取れませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac의 페어링 공개 값을 읽을 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler a revelação de pareamento do Mac."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать раскрытие связывания от Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取 Mac 的配对披露值。"
+          }
+        }
+      }
+    },
+    "The Mac's pairing reveal did not match its commitment." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Kopplungs-Offenlegung des Macs passte nicht zu seinem Commitment."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La revelación de emparejamiento del Mac no coincidía con su compromiso."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La révélation d'association du Mac ne correspondait pas à son engagement."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La rivelazione di associazione del Mac non corrispondeva al suo impegno."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macのペアリングの公開値が、そのコミットメントと一致しませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac의 페어링 공개 값이 해당 커밋먼트와 일치하지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A revelação de pareamento do Mac não correspondeu ao seu compromisso."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Раскрытие связывания от Mac не совпало с его обязательством."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 的配对披露值与其承诺值不一致。"
+          }
+        }
+      }
+    },
     "The pairing code was not accepted." : {
       "localizations" : {
         "de" : {
@@ -5398,6 +7950,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "配对码未被接受。"
+          }
+        }
+      }
+    },
+    "The pairing exchange lost its state." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beim Kopplungsablauf ging der Zustand verloren."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El intercambio de emparejamiento perdió su estado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'échange d'association a perdu son état."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo scambio di associazione ha perso il proprio stato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリングのやり取りで状態が失われました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링 교환이 상태를 잃었습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A troca de pareamento perdeu o estado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Обмен при связывании потерял своё состояние."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "配对交换丢失了状态。"
           }
         }
       }
@@ -5518,6 +8128,354 @@
         }
       }
     },
+    "The port on the server has to be a number." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Port auf dem Server muss eine Zahl sein."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El puerto del servidor tiene que ser un número."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le port du serveur doit être un nombre."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La porta sul server deve essere un numero."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバ側のポートは数字にしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버의 포트는 숫자여야 합니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A porta no servidor precisa ser um número."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Порт на сервере должен быть числом."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器上的端口必须是数字。"
+          }
+        }
+      }
+    },
+    "The port on the server has to be between 1 and 65535." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Port auf dem Server muss zwischen 1 und 65535 liegen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El puerto del servidor tiene que estar entre 1 y 65535."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le port du serveur doit être compris entre 1 et 65535."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La porta sul server deve essere tra 1 e 65535."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバ側のポートは1から65535の間にしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버의 포트는 1에서 65535 사이여야 합니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A porta no servidor precisa estar entre 1 e 65535."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Порт на сервере должен быть от 1 до 65535."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器上的端口必须在 1 到 65535 之间。"
+          }
+        }
+      }
+    },
+    "The server answered a change with something else." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server hat eine Änderung mit etwas anderem beantwortet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor respondió a un cambio con otra cosa."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur a répondu à une modification par autre chose."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il server ha risposto a una modifica con qualcos'altro."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバが変更に別のもので応答しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 변경 요청에 다른 것으로 응답했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor respondeu a uma alteração com outra coisa."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер ответил на изменение чем-то другим."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器用其他内容回应了更改请求。"
+          }
+        }
+      }
+    },
+    "The server answered a file request with a folder." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server hat eine Dateianfrage mit einem Ordner beantwortet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor respondió a una petición de archivo con una carpeta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur a répondu à une demande de fichier par un dossier."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il server ha risposto a una richiesta di file con una cartella."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバがファイルの要求にフォルダで応答しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 파일 요청에 폴더로 응답했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor respondeu a um pedido de arquivo com uma pasta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер ответил на запрос файла папкой."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器用一个文件夹回应了文件请求。"
+          }
+        }
+      }
+    },
+    "The server answered a listing request with a file." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server hat eine Listenanfrage mit einer Datei beantwortet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor respondió a una petición de listado con un archivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur a répondu à une demande de liste par un fichier."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il server ha risposto a una richiesta di elenco con un file."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバが一覧の要求にファイルで応答しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 목록 요청에 파일로 응답했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor respondeu a um pedido de listagem com um arquivo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер ответил на запрос списка файлом."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器用一个文件回应了列表请求。"
+          }
+        }
+      }
+    },
+    "The server answered a write with something else." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server hat einen Schreibvorgang mit etwas anderem beantwortet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor respondió a una escritura con otra cosa."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur a répondu à une écriture par autre chose."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il server ha risposto a una scrittura con qualcos'altro."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバが書き込みに別のもので応答しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 쓰기 요청에 다른 것으로 응답했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor respondeu a uma gravação com outra coisa."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер ответил на запись чем-то другим."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器用其他内容回应了写入请求。"
+          }
+        }
+      }
+    },
     "The server did not answer in time." : {
       "localizations" : {
         "de" : {
@@ -5572,6 +8530,470 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "服务器未在规定时间内响应。"
+          }
+        }
+      }
+    },
+    "The server did not answer." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server hat nicht geantwortet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor no respondió."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur n'a pas répondu."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il server non ha risposto."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバから応答がありませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 응답하지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor não respondeu."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер не ответил."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器没有响应。"
+          }
+        }
+      }
+    },
+    "The server refused to list that folder (status %@)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server hat sich geweigert, diesen Ordner aufzulisten (Status %@)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor se negó a listar esa carpeta (estado %@)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur a refusé de lister ce dossier (statut %@)."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il server ha rifiutato di elencare quella cartella (stato %@)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバがそのフォルダの一覧表示を拒否しました（ステータス%@）。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 해당 폴더의 목록 표시를 거부했습니다(상태 %@)."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor se recusou a listar essa pasta (status %@)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер отказался показать содержимое этой папки (статус %@)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器拒绝列出该文件夹（状态 %@）。"
+          }
+        }
+      }
+    },
+    "The server refused to list that folder." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server hat sich geweigert, diesen Ordner aufzulisten."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor se negó a listar esa carpeta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur a refusé de lister ce dossier."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il server ha rifiutato di elencare quella cartella."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバがそのフォルダの一覧表示を拒否しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 해당 폴더의 목록 표시를 거부했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor se recusou a listar essa pasta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер отказался показать содержимое этой папки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器拒绝列出该文件夹。"
+          }
+        }
+      }
+    },
+    "The server refused." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server hat abgelehnt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor lo rechazó."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur a refusé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il server ha rifiutato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバが拒否しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 거부했습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor recusou."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер отказал."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器拒绝了。"
+          }
+        }
+      }
+    },
+    "The server would not let this account read that." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server lässt dieses Konto das nicht lesen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor no permite que esta cuenta lea eso."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur ne laisse pas ce compte lire cela."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il server non permette a questo account di leggerlo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバは、このアカウントにそれを読み取らせませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 이 계정이 그것을 읽도록 허용하지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor não permitiu que esta conta lesse isso."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер не разрешил этой учётной записи прочитать это."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器不允许此账户读取该内容。"
+          }
+        }
+      }
+    },
+    "The server would not open another channel." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server wollte keinen weiteren Kanal öffnen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor no quiso abrir otro canal."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur n'a pas voulu ouvrir un autre canal."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il server non ha voluto aprire un altro canale."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバがこれ以上チャネルを開こうとしませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 다른 채널을 열어 주지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor não quis abrir outro canal."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер не открыл ещё один канал."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器不愿再打开另一个通道。"
+          }
+        }
+      }
+    },
+    "The server would not say where it starts." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server hat nicht gesagt, wo er beginnt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor no dijo dónde empieza."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le serveur n'a pas dit où il commence."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il server non ha detto da dove inizia."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバが開始場所を教えてくれませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 시작 위치를 알려 주지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O servidor não disse onde começa."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер не сообщил, откуда начинать."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器没有说明从哪里开始。"
+          }
+        }
+      }
+    },
+    "The shell this forward runs on has ended." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Shell, auf der diese Portweiterleitung läuft, wurde beendet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El shell en el que se ejecuta este reenvío ha terminado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le shell sur lequel tourne cette redirection est terminé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La shell su cui gira questo inoltro è terminata."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このポートフォワードが動いているシェルは終了しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 포트 포워드가 실행되던 셸이 종료되었습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O shell em que este redirecionamento roda foi encerrado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shell, в котором работает эта переадресация, завершился."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行此端口转发的 Shell 已结束。"
           }
         }
       }
@@ -5808,6 +9230,64 @@
         }
       }
     },
+    "This app can sign with ed25519 and RSA keys. A %@ key cannot be used here, so it is better not to save one and find out at the next connection." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese App kann mit ed25519- und RSA-Schlüsseln signieren. Ein %@-Schlüssel kann hier nicht verwendet werden, daher speicherst du ihn besser nicht und erfährst es erst bei der nächsten Verbindung."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta app puede firmar con claves ed25519 y RSA. Una clave %@ no se puede usar aquí, así que es mejor no guardarla y descubrirlo en la próxima conexión."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette app peut signer avec des clés ed25519 et RSA. Une clé %@ ne peut pas être utilisée ici : mieux vaut ne pas l'enregistrer plutôt que de s'en apercevoir à la prochaine connexion."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa app può firmare con chiavi ed25519 e RSA. Una chiave %@ non può essere usata qui, quindi è meglio non salvarla e scoprirlo alla connessione successiva."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このアプリはed25519とRSAのキーで署名できます。%@のキーはここでは使えないため、保存して次の接続で気づくより、保存しないほうがよいでしょう。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 앱은 ed25519 및 RSA 키로 서명할 수 있습니다. %@ 키는 여기서 사용할 수 없으므로, 저장했다가 다음 연결에서 알게 되기보다 저장하지 않는 편이 좋습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este app pode assinar com chaves ed25519 e RSA. Uma chave %@ não pode ser usada aqui, então é melhor não salvá-la e descobrir só na próxima conexão."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это приложение может подписывать ключами ed25519 и RSA. Ключ %@ здесь использовать нельзя, поэтому лучше не сохранять его, чем выяснить это при следующем подключении."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 App 可以使用 ed25519 和 RSA 密钥签名。%@ 密钥无法在这里使用，所以最好不要保存，免得下次连接时才发现。"
+          }
+        }
+      }
+    },
     "This app cannot chat with that agent." : {
       "localizations" : {
         "de" : {
@@ -5862,6 +9342,238 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此 App 无法与该智能体聊天。"
+          }
+        }
+      }
+    },
+    "This branch has no upstream. Set one on the Mac, then push from here." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Branch hat keinen Upstream. Lege am Mac einen fest und pushe dann von hier."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta rama no tiene upstream. Configura uno en el Mac y luego envía desde aquí."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette branche n'a pas d'amont. Définissez-en un sur le Mac, puis poussez d'ici."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo branch non ha un upstream. Impostane uno sul Mac, poi invia da qui."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このブランチにはアップストリームがありません。Macで設定してから、ここからプッシュしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 브랜치에는 업스트림이 없습니다. Mac에서 설정한 다음 여기서 푸시하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta branch não tem upstream. Defina um no Mac e depois envie daqui."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У этой ветки нет upstream. Задайте его на Mac, затем отправляйте отсюда."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此分支没有上游分支。请先在 Mac 上设置，然后再从这里推送。"
+          }
+        }
+      }
+    },
+    "This branch's name is not one the phone will push." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Name dieses Branches ist keiner, den das Telefon pusht."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El nombre de esta rama no es uno que el teléfono vaya a enviar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le nom de cette branche n'est pas de ceux que le téléphone poussera."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il nome di questo branch non è uno che il telefono invierà."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このブランチ名は、iPhoneからはプッシュできない名前です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 브랜치의 이름은 iPhone에서 푸시할 수 없는 이름입니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O nome desta branch não é um que o telefone enviará."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Имя этой ветки не из тех, которые телефон будет отправлять."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此分支的名称不是手机会推送的那种。"
+          }
+        }
+      }
+    },
+    "This branch's remote is not one the phone will push to." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Remote dieses Branches ist keines, an das das Telefon pusht."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El remoto de esta rama no es uno al que el teléfono vaya a enviar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le dépôt distant de cette branche n'est pas de ceux vers lesquels le téléphone poussera."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il remoto di questo branch non è uno a cui il telefono invierà."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このブランチのリモートは、iPhoneからのプッシュ先にできないものです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 브랜치의 원격은 iPhone에서 푸시할 수 없는 곳입니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O remoto desta branch não é um para o qual o telefone enviará."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалённый репозиторий этой ветки не из тех, куда телефон будет отправлять."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此分支的远程仓库不是手机会推送到的那种。"
+          }
+        }
+      }
+    },
+    "This device could not obtain secure random bytes." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieses Gerät konnte keine sicheren Zufallsbytes beschaffen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este dispositivo no pudo obtener bytes aleatorios seguros."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil n'a pas pu obtenir d'octets aléatoires sécurisés."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo dispositivo non è riuscito a ottenere byte casuali sicuri."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデバイスは安全な乱数バイトを取得できませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기에서 안전한 난수 바이트를 가져올 수 없었습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este dispositivo não conseguiu obter bytes aleatórios seguros."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это устройство не смогло получить безопасные случайные байты."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此设备无法获取安全随机字节。"
           }
         }
       }
@@ -5982,6 +9694,64 @@
         }
       }
     },
+    "This device's identity could not be loaded: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Identität dieses Geräts konnte nicht geladen werden: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cargar la identidad de este dispositivo: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'identité de cet appareil n'a pas pu être chargée : %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile caricare l'identità di questo dispositivo: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデバイスのIDを読み込めませんでした: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기의 신원을 불러올 수 없습니다: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível carregar a identidade deste dispositivo: %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось загрузить идентификатор этого устройства: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法加载此设备的身份：%@"
+          }
+        }
+      }
+    },
     "This folder is not in a git repository, so only the agent's own edits are listed." : {
       "localizations" : {
         "de" : {
@@ -6098,6 +9868,122 @@
         }
       }
     },
+    "This folder is not on a branch (detached HEAD), so there is nothing to push." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Ordner befindet sich auf keinem Branch (detached HEAD), daher gibt es nichts zu pushen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta carpeta no está en una rama (HEAD desacoplado), así que no hay nada que enviar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce dossier n'est sur aucune branche (HEAD détachée), il n'y a donc rien à pousser."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa cartella non è su un branch (HEAD detached), quindi non c'è nulla da inviare."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このフォルダはブランチ上にありません（detached HEAD）。プッシュするものはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 폴더는 브랜치에 있지 않으므로(detached HEAD) 푸시할 것이 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta pasta não está em uma branch (HEAD desanexado), então não há nada para enviar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта папка не на ветке (detached HEAD), поэтому отправлять нечего."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此文件夹不在任何分支上（分离的 HEAD），所以没有可推送的内容。"
+          }
+        }
+      }
+    },
+    "This folder's branch could not be read." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Branch dieses Ordners konnte nicht gelesen werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer la rama de esta carpeta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La branche de ce dossier n'a pas pu être lue."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile leggere il branch di questa cartella."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このフォルダのブランチを読み取れませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 폴더의 브랜치를 읽을 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler a branch desta pasta."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать ветку этой папки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取此文件夹的分支。"
+          }
+        }
+      }
+    },
     "This iPhone has no pairing on file for that Mac (%@). The Mac still trusts this iPhone, so it will not ask to pair again: on the Mac, open Devices and forget this iPhone, then pair again." : {
       "localizations" : {
         "de" : {
@@ -6152,6 +10038,238 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此 iPhone 上没有该 Mac（%@）的配对记录。该 Mac 仍然信任此 iPhone，因此不会再次要求配对：请在 Mac 上打开“设备”，移除此 iPhone，然后重新配对。"
+          }
+        }
+      }
+    },
+    "This key could not be read: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Schlüssel konnte nicht gelesen werden: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer esta clave: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette clé n'a pas pu être lue : %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è stato possibile leggere questa chiave: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このキーを読み取れませんでした: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 키를 읽을 수 없습니다: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler esta chave: %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать этот ключ: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取此密钥：%@"
+          }
+        }
+      }
+    },
+    "This key has a passphrase. Type it so the app can unlock the key when it connects." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Schlüssel hat eine Passphrase. Gib sie ein, damit die App den Schlüssel beim Verbinden entsperren kann."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta clave tiene una frase de contraseña. Escríbela para que la app pueda desbloquear la clave al conectarse."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette clé a une phrase secrète. Saisissez-la pour que l'app puisse déverrouiller la clé lors de la connexion."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa chiave ha una passphrase. Scrivila perché l'app possa sbloccare la chiave quando si connette."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このキーにはパスフレーズがあります。接続時にアプリがキーを解除できるよう、入力してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 키에는 암호 문구가 있습니다. 앱이 연결할 때 키를 잠금 해제할 수 있도록 입력하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta chave tem uma frase secreta. Digite-a para o app poder desbloquear a chave ao conectar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У этого ключа есть парольная фраза. Введите её, чтобы приложение могло разблокировать ключ при подключении."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此密钥有口令。请输入口令，以便 App 在连接时解锁密钥。"
+          }
+        }
+      }
+    },
+    "This key is encrypted with %@ and %@, and this app can only open the default OpenSSH format (aes256-ctr with bcrypt). Removing or changing the passphrase with `ssh-keygen -p` would make it usable." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Schlüssel ist mit %@ und %@ verschlüsselt, und diese App kann nur das Standard-OpenSSH-Format öffnen (aes256-ctr mit bcrypt). Wenn du die Passphrase mit `ssh-keygen -p` entfernst oder änderst, wird er verwendbar."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta clave está cifrada con %@ y %@, y esta app solo puede abrir el formato OpenSSH predeterminado (aes256-ctr con bcrypt). Quitar o cambiar la frase de contraseña con `ssh-keygen -p` la haría utilizable."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette clé est chiffrée avec %@ et %@, et cette app ne peut ouvrir que le format OpenSSH par défaut (aes256-ctr avec bcrypt). Supprimer ou changer la phrase secrète avec `ssh-keygen -p` la rendrait utilisable."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa chiave è cifrata con %@ e %@, e questa app può aprire solo il formato OpenSSH predefinito (aes256-ctr con bcrypt). Rimuovere o cambiare la passphrase con `ssh-keygen -p` la renderebbe utilizzabile."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このキーは%@と%@で暗号化されていますが、このアプリで開けるのは既定のOpenSSH形式（bcrypt付きaes256-ctr）だけです。`ssh-keygen -p`でパスフレーズを削除または変更すると使えるようになります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 키는 %@ 및 %@로 암호화되어 있는데, 이 앱은 기본 OpenSSH 형식(bcrypt를 쓰는 aes256-ctr)만 열 수 있습니다. `ssh-keygen -p`로 암호 문구를 제거하거나 변경하면 사용할 수 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta chave está criptografada com %@ e %@, e este app só abre o formato OpenSSH padrão (aes256-ctr com bcrypt). Remover ou trocar a frase secreta com `ssh-keygen -p` a tornaria utilizável."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот ключ зашифрован с помощью %@ и %@, а это приложение открывает только стандартный формат OpenSSH (aes256-ctr с bcrypt). Удаление или смена парольной фразы командой `ssh-keygen -p` сделает его пригодным."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此密钥使用 %@ 和 %@ 加密，而此 App 只能打开默认的 OpenSSH 格式（aes256-ctr 配 bcrypt）。用 `ssh-keygen -p` 移除或更改口令即可使用。"
+          }
+        }
+      }
+    },
+    "This key was saved with a bcrypt cost of %@, and this app can only open keys at 16 or below. Saving it again with `ssh-keygen -p -a 16` would make it usable." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Schlüssel wurde mit einem bcrypt-Aufwand von %@ gespeichert, und diese App kann nur Schlüssel bis 16 öffnen. Mit `ssh-keygen -p -a 16` erneut gespeichert, wäre er verwendbar."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta clave se guardó con un coste de bcrypt de %@, y esta app solo puede abrir claves con 16 o menos. Guardarla de nuevo con `ssh-keygen -p -a 16` la haría utilizable."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette clé a été enregistrée avec un coût bcrypt de %@, et cette app ne peut ouvrir que des clés à 16 ou moins. La réenregistrer avec `ssh-keygen -p -a 16` la rendrait utilisable."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa chiave è stata salvata con un costo bcrypt di %@, e questa app può aprire solo chiavi con 16 o meno. Salvarla di nuovo con `ssh-keygen -p -a 16` la renderebbe utilizzabile."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このキーはbcryptコスト%@で保存されていますが、このアプリで開けるのは16以下のキーだけです。`ssh-keygen -p -a 16`で保存し直すと使えるようになります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 키는 bcrypt 비용 %@로 저장되었는데, 이 앱은 16 이하의 키만 열 수 있습니다. `ssh-keygen -p -a 16`으로 다시 저장하면 사용할 수 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta chave foi salva com custo bcrypt de %@, e este app só abre chaves com 16 ou menos. Salvá-la de novo com `ssh-keygen -p -a 16` a tornaria utilizável."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот ключ сохранён со стоимостью bcrypt %@, а это приложение открывает только ключи со стоимостью 16 и ниже. Пересохранение командой `ssh-keygen -p -a 16` сделает его пригодным."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此密钥保存时的 bcrypt 开销为 %@，而此 App 只能打开 16 及以下的密钥。用 `ssh-keygen -p -a 16` 重新保存即可使用。"
           }
         }
       }
@@ -6446,6 +10564,64 @@
         }
       }
     },
+    "This Mac speaks protocol v%@ and this app speaks v%@. Update whichever is older." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Mac spricht Protokoll v%@ und diese App v%@. Aktualisiere die ältere."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac usa el protocolo v%@ y esta app usa v%@. Actualiza la más antigua."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce Mac parle le protocole v%@ et cette app parle v%@. Mettez à jour la plus ancienne."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo Mac usa il protocollo v%@ e questa app usa v%@. Aggiorna la più vecchia."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacはプロトコルv%@、このアプリはv%@です。古いほうをアップデートしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac은 프로토콜 v%@를 사용하고 이 앱은 v%@를 사용합니다. 더 오래된 쪽을 업데이트하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac usa o protocolo v%@ e este app usa v%@. Atualize o mais antigo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот Mac использует протокол v%@, а это приложение v%@. Обновите то, что старше."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 使用协议 v%@，此 App 使用 v%@。请更新较旧的一方。"
+          }
+        }
+      }
+    },
     "This Mac's disk is not keeping up, so that transfer was stopped." : {
       "localizations" : {
         "de" : {
@@ -6558,6 +10734,412 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这台 Mac 的屏幕处于睡眠状态。"
+          }
+        }
+      }
+    },
+    "This server already forwards %@. Two forwards cannot listen on the same port, so one of them would never start." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Server leitet bereits %@ weiter. Zwei Weiterleitungen können nicht auf demselben Port lauschen, sodass eine von beiden nie starten würde."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor ya reenvía %@. Dos reenvíos no pueden escuchar en el mismo puerto, así que uno de ellos nunca se iniciaría."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce serveur redirige déjà %@. Deux redirections ne peuvent pas écouter sur le même port, donc l'une d'elles ne démarrerait jamais."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo server inoltra già %@. Due inoltri non possono restare in ascolto sulla stessa porta, quindi uno dei due non partirebbe mai."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このサーバはすでに%@を転送しています。同じポートで待ち受けられる転送は1つだけなので、どちらかは開始されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 서버는 이미 %@을(를) 포워딩하고 있습니다. 두 포워드가 같은 포트에서 수신 대기할 수 없으므로 하나는 시작되지 않습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor já redireciona %@. Dois redirecionamentos não podem escutar na mesma porta, então um deles nunca iniciaria."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот сервер уже перенаправляет %@. Две переадресации не могут слушать один порт, поэтому одна из них никогда не запустится."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此服务器已在转发 %@。两个转发不能监听同一个端口，所以其中一个永远不会启动。"
+          }
+        }
+      }
+    },
+    "This server does not offer SFTP, so a file cannot be read here." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Server bietet kein SFTP an, daher kann hier keine Datei gelesen werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor no ofrece SFTP, así que aquí no se puede leer un archivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce serveur ne propose pas SFTP : impossible de lire un fichier ici."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo server non offre SFTP, quindi qui non si può leggere un file."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このサーバはSFTPを提供していないため、ここではファイルを読み取れません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 서버는 SFTP를 제공하지 않으므로 여기서는 파일을 읽을 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor não oferece SFTP, então não é possível ler um arquivo aqui."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот сервер не предоставляет SFTP, поэтому файл здесь прочитать нельзя."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此服务器不提供 SFTP，因此无法在这里读取文件。"
+          }
+        }
+      }
+    },
+    "This server does not offer SFTP, so a file cannot be saved here." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Server bietet kein SFTP an, daher kann hier keine Datei gespeichert werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor no ofrece SFTP, así que aquí no se puede guardar un archivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce serveur ne propose pas SFTP : impossible d'enregistrer un fichier ici."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo server non offre SFTP, quindi qui non si può salvare un file."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このサーバはSFTPを提供していないため、ここではファイルを保存できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 서버는 SFTP를 제공하지 않으므로 여기서는 파일을 저장할 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor não oferece SFTP, então não é possível salvar um arquivo aqui."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот сервер не предоставляет SFTP, поэтому файл здесь сохранить нельзя."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此服务器不提供 SFTP，因此无法在这里保存文件。"
+          }
+        }
+      }
+    },
+    "This server does not offer SFTP, so files cannot be changed here." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Server bietet kein SFTP an, daher können hier keine Dateien geändert werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor no ofrece SFTP, así que aquí no se pueden modificar archivos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce serveur ne propose pas SFTP : impossible de modifier des fichiers ici."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo server non offre SFTP, quindi qui non si possono modificare i file."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このサーバはSFTPを提供していないため、ここではファイルを変更できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 서버는 SFTP를 제공하지 않으므로 여기서는 파일을 변경할 수 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor não oferece SFTP, então não é possível alterar arquivos aqui."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот сервер не предоставляет SFTP, поэтому файлы здесь изменить нельзя."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此服务器不提供 SFTP，因此无法在这里更改文件。"
+          }
+        }
+      }
+    },
+    "This server speaks a version of SFTP this app does not." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Server spricht eine SFTP-Version, die diese App nicht versteht."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor usa una versión de SFTP que esta app no entiende."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce serveur parle une version de SFTP que cette app ne comprend pas."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo server usa una versione di SFTP che questa app non conosce."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このサーバは、このアプリが対応していないバージョンのSFTPを使っています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 서버는 이 앱이 지원하지 않는 SFTP 버전을 사용합니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor usa uma versão do SFTP que este app não entende."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот сервер использует версию SFTP, которую это приложение не поддерживает."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此服务器使用的 SFTP 版本，本 App 不支持。"
+          }
+        }
+      }
+    },
+    "This server's key has changed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Schlüssel dieses Servers hat sich geändert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La clave de este servidor ha cambiado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La clé de ce serveur a changé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La chiave di questo server è cambiata."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このサーバの鍵が変わりました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 서버의 키가 변경되었습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A chave deste servidor mudou."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ключ этого сервера изменился."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此服务器的密钥已更改。"
+          }
+        }
+      }
+    },
+    "This server's key was not accepted." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Schlüssel dieses Servers wurde nicht akzeptiert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se aceptó la clave de este servidor."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La clé de ce serveur n'a pas été acceptée."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La chiave di questo server non è stata accettata."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このサーバの鍵は受け入れられませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 서버의 키가 수락되지 않았습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A chave deste servidor não foi aceita."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ключ этого сервера не принят."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此服务器的密钥未被接受。"
           }
         }
       }
@@ -6790,6 +11372,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已接收视频：%@"
+          }
+        }
+      }
+    },
+    "Waiting for your Mac. macOS asks once per folder before an app may open it: choose Allow on the Mac. Peering and the agent only read what you ask them to." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warte auf deinen Mac. macOS fragt einmal pro Ordner, bevor eine App ihn öffnen darf: Wähle am Mac „Erlauben“. Peering und der Agent lesen nur, was du ihnen aufträgst."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando a tu Mac. macOS pregunta una vez por carpeta antes de que una app pueda abrirla: elige Permitir en el Mac. Peering y el agente solo leen lo que les pides."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente de votre Mac. macOS demande une fois par dossier avant qu'une app puisse l'ouvrir : choisissez Autoriser sur le Mac. Peering et l'agent ne lisent que ce que vous leur demandez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In attesa del tuo Mac. macOS chiede una volta per cartella prima che un'app possa aprirla: scegli Consenti sul Mac. Peering e l'agente leggono solo ciò che chiedi loro."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macの応答を待っています。macOSはアプリがフォルダを開く前にフォルダごとに1回確認します。Macで「許可」を選んでください。Peeringとエージェントは、あなたが頼んだものしか読み取りません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac의 응답을 기다리는 중입니다. macOS는 앱이 폴더를 열기 전에 폴더마다 한 번 확인합니다. Mac에서 허용을 선택하세요. Peering과 에이전트는 요청한 것만 읽습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aguardando o Mac. O macOS pergunta uma vez por pasta antes de um app poder abri-la: escolha Permitir no Mac. O Peering e o agente só leem o que você pede."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ожидание вашего Mac. macOS один раз для каждой папки спрашивает, можно ли приложению открыть её: выберите «Разрешить» на Mac. Peering и агент читают только то, что вы просите."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待你的 Mac。macOS 会在 App 打开每个文件夹之前询问一次：请在 Mac 上选择“允许”。Peering 和智能体只会读取你要求的内容。"
           }
         }
       }
@@ -7312,6 +11952,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这部 iPhone 的存储空间不足，无法保存该文件。"
+          }
+        }
+      }
+    },
+    "Your Mac is probably asking whether Peering may open this folder. That is a normal macOS question, asked once per folder. Choose Allow on the Mac and the list appears here." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Mac fragt vermutlich gerade, ob Peering diesen Ordner öffnen darf. Das ist eine normale macOS-Frage, die einmal pro Ordner gestellt wird. Wähle am Mac „Erlauben“, dann erscheint die Liste hier."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu Mac probablemente está preguntando si Peering puede abrir esta carpeta. Es una pregunta normal de macOS, que se hace una vez por carpeta. Elige Permitir en el Mac y la lista aparecerá aquí."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre Mac demande probablement si Peering peut ouvrir ce dossier. C'est une question normale de macOS, posée une fois par dossier. Choisissez Autoriser sur le Mac et la liste apparaîtra ici."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo Mac sta probabilmente chiedendo se Peering può aprire questa cartella. È una normale domanda di macOS, posta una volta per cartella. Scegli Consenti sul Mac e l'elenco apparirà qui."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macで、Peeringがこのフォルダを開いてよいか尋ねられている可能性があります。これはmacOSの通常の確認で、フォルダごとに1回だけです。Macで「許可」を選ぶと、ここに一覧が表示されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac에서 Peering이 이 폴더를 열어도 되는지 묻고 있을 가능성이 큽니다. 폴더마다 한 번 묻는 macOS의 일반적인 질문입니다. Mac에서 허용을 선택하면 여기에 목록이 나타납니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seu Mac provavelmente está perguntando se o Peering pode abrir esta pasta. É uma pergunta normal do macOS, feita uma vez por pasta. Escolha Permitir no Mac e a lista aparecerá aqui."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваш Mac, вероятно, спрашивает, может ли Peering открыть эту папку. Это обычный вопрос macOS, он задаётся один раз для каждой папки. Выберите «Разрешить» на Mac, и список появится здесь."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的 Mac 可能正在询问 Peering 是否可以打开这个文件夹。这是 macOS 的正常提示，每个文件夹只问一次。在 Mac 上选择“允许”，列表就会显示在这里。"
           }
         }
       }

@@ -117,7 +117,7 @@ extension RemoteScreen {
                     }
 
                     actionRow(String(localized: "Mac"), systemImage: "macbook") {
-                        actionChip("Lock", systemImage: "lock.fill") { model.lockMac() }
+                        actionChip(String(localized: "Lock"), systemImage: "lock.fill") { model.lockMac() }
                         actionChip(
                             model.privacyModeEnabled ? String(localized: "Restore") : String(localized: "Darken"),
                             systemImage: model.privacyModeEnabled ? "sun.max" : "sun.min"
@@ -127,7 +127,7 @@ extension RemoteScreen {
                     }
 
                     actionRow(String(localized: "Session"), systemImage: "antenna.radiowaves.left.and.right") {
-                        actionChip("Connect", systemImage: "macbook.and.iphone") {
+                        actionChip(String(localized: "Connect"), systemImage: "macbook.and.iphone") {
                             model.stepAwayFromSession()
                         }
                         actionChip(
@@ -139,7 +139,7 @@ extension RemoteScreen {
                         }
                         if canReturnToMosaic {
                             actionChip(
-                                "Mosaic",
+                                String(localized: "Mosaic"),
                                 systemImage: "rectangle.split.2x2",
                                 tint: ColorPalette.accent
                             ) {
@@ -234,7 +234,7 @@ extension RemoteScreen {
 
     var connectionDotLabel: String {
         if isReconnectingToMac { return String(localized: "Reconnecting to the Mac") }
-        return model.isVideoStreaming ? "Connected" : String(localized: "Not streaming")
+        return model.isVideoStreaming ? String(localized: "Connected") : String(localized: "Not streaming")
     }
 
     var connectionPathChip: some View {

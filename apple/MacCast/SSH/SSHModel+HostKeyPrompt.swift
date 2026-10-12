@@ -49,7 +49,7 @@ extension SSHModel {
             return reason
         // Nor is a forward that failed: its sentence belongs on the forward's row. This case only keeps the switch exhaustive as the error type grows.
         case .forward(let reason):
-            return SSHForwarder.describe(reason)
+            return HostWireText.localized(SSHForwarder.describe(reason))
         }
     }
 }

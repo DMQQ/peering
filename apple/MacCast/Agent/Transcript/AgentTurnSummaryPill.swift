@@ -20,7 +20,7 @@ struct AgentTurnSummaryPill: View {
                 Text("\(input) in / \(output) out")
             }
             if let duration = summary.duration {
-                Text(AgentTurnFormat.duration(duration))
+                Text(TerminalCommandFinishDetector.spokenDuration(duration))
             }
         }
         .font(.caption2.monospaced())

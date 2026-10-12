@@ -8,7 +8,7 @@ extension FileBrowserPanel {
     // MARK: - The three dialogs
 
     var createTitle: String {
-        pendingCreate == .folder ? "New Folder" : "New File"
+        pendingCreate == .folder ? String(localized: "New Folder") : String(localized: "New File")
     }
 
     /// The emptiness check reads the raw listing, not the visible rows: a folder holding only hidden files draws empty and is not.
@@ -18,13 +18,13 @@ extension FileBrowserPanel {
     }
 
     var deleteTitle: String {
-        guard let entry = pendingDelete else { return "Delete" }
+        guard let entry = pendingDelete else { return String(localized: "Delete") }
         return deleteIsRecursive
             ? String(localized: "Delete “\(entry.name)” and everything in it?")
             : String(localized: "Delete “\(entry.name)”?")
     }
 
-    var deleteButtonTitle: String { deleteIsRecursive ? String(localized: "Delete All") : "Delete" }
+    var deleteButtonTitle: String { deleteIsRecursive ? String(localized: "Delete All") : String(localized: "Delete") }
 
     var deleteMessage: String {
         let scope = pendingDelete?.isDirectory == true
@@ -99,7 +99,7 @@ extension FileBrowserPanel {
 
     /// The collision check runs against the raw listing, not the visible rows: a hidden `New Folder` would otherwise leave the name looking free and the machine would refuse it.
     func beginCreate(_ kind: RemoteEntryKind) {
-        let base = kind == .folder ? "New Folder" : "New File"
+        let base = kind == .folder ? String(localized: "New Folder") : String(localized: "New File")
         let suffix = kind == .folder ? "" : ".txt"
         nameDraft = RemoteFileName.available(
             base: base,

@@ -209,10 +209,9 @@ struct TerminalWindowCard: View {
 
     static func age(of date: Date?) -> String {
         guard let date else { return String(localized: "Running") }
-        let minutes = Int(Date.now.timeIntervalSince(date) / 60)
-        if minutes < 1 { return String(localized: "now") }
-        if minutes < 60 { return "\(minutes)m" }
-        return "\(minutes / 60)h \(minutes % 60)m"
+        let seconds = Date.now.timeIntervalSince(date)
+        if seconds < 60 { return String(localized: "now") }
+        return TerminalCommandFinishDetector.spokenDuration(seconds)
     }
 }
 
@@ -298,10 +297,10 @@ struct TerminalEmptyState: View {
 /// No chats yet: a conversation that asks itself a few things and gets a reply drawn in, so the page shows what it is for.
 struct AgentEmptyState: View {
     private static let script = [
-        "What does this project do?",
-        "Fix the failing test",
-        "Explain this stack trace",
-        "Add a dark mode toggle",
+        String(localized: "What does this project do?"),
+        String(localized: "Fix the failing test"),
+        String(localized: "Explain this stack trace"),
+        String(localized: "Add a dark mode toggle"),
     ]
     private static let cycle = 6.4
 

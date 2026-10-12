@@ -50,8 +50,8 @@ struct TerminalDeck: View {
             .buttonStyle(RailButtonStyle(scale: 0.9))
             .accessibilityLabel("More keys and quick commands")
 
-            narrowKey("esc", label: "Escape", bytes: "\u{1B}")
-            narrowKey("tab", label: "Tab", bytes: "\t")
+            narrowKey("esc", label: String(localized: "Escape"), bytes: "\u{1B}")
+            narrowKey("tab", label: String(localized: "Tab"), bytes: "\t")
             narrowKey("⌃C", label: String(localized: "Interrupt"), bytes: "\u{03}")
 
             HStack(spacing: 1) {
@@ -199,7 +199,7 @@ private struct TerminalAllKeys: View {
             ]),
             Group(id: "page", title: "Pages and ends", keys: [
                 ("home", String(localized: "Home"), "\u{1B}[H"),
-                ("end", "End", "\u{1B}[F"),
+                ("end", String(localized: "End"), "\u{1B}[F"),
                 ("pg↑", String(localized: "Page up"), "\u{1B}[5~"),
                 ("pg↓", String(localized: "Page down"), "\u{1B}[6~"),
                 ("ins", String(localized: "Insert"), "\u{1B}[2~")

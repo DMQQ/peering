@@ -77,7 +77,7 @@ extension RemoteScreen {
     }
 
     var tabButton: some View {
-        RailButton(icon: "arrow.right.to.line", label: "Tab") { sendKey(keyCode: 48) }
+        RailButton(icon: "arrow.right.to.line", label: String(localized: "Tab")) { sendKey(keyCode: 48) }
     }
 
     @ViewBuilder
@@ -94,10 +94,10 @@ extension RemoteScreen {
 
     var quickActions: [QuickAction] {
         [
-            QuickAction(chord: "⌘C", label: "Copy", accessibilityLabel: "Copy") {
+            QuickAction(chord: "⌘C", label: String(localized: "Copy"), accessibilityLabel: String(localized: "Copy")) {
                 sendKey(keyCode: 8, modifiers: [.command])
             },
-            QuickAction(chord: "⌘V", label: "Paste", accessibilityLabel: "Paste") {
+            QuickAction(chord: "⌘V", label: String(localized: "Paste"), accessibilityLabel: String(localized: "Paste")) {
                 sendKey(keyCode: 9, modifiers: [.command])
             },
             QuickAction(chord: "⌘Z", label: String(localized: "Undo"), accessibilityLabel: String(localized: "Undo")) {
@@ -258,7 +258,7 @@ extension RemoteScreen {
     }
 
     var returnKey: some View {
-        QuickKeyButton(icon: "return", label: "Enter", caption: "Enter") { model.pressReturn() }
+        QuickKeyButton(icon: "return", label: String(localized: "Enter"), caption: String(localized: "Enter")) { model.pressReturn() }
     }
 
     /// ⌘[ is the other spelling of Back and the one that first went here, and it does not work

@@ -11,7 +11,7 @@ struct FAQView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     TabScreenHeader(
-                        "FAQ",
+                        String(localized: "FAQ"),
                         detail: String(localized: "Pairing, privacy, and what moves between your devices.")
                     )
 
