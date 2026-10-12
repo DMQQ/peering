@@ -180,6 +180,8 @@ impl HostRuntime {
                 control: Arc::new(Mutex::new(control)),
                 peer_addresses: Arc::new(Mutex::new(PeerAddressRouter::default())),
             },
+            // The profile holds a clock that is not Send. Only the runtime's own thread reads it, so it is never shared.
+            #[allow(clippy::arc_with_non_send_sync)]
             profile: Arc::new(profile),
             commands,
         })

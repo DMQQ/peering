@@ -75,3 +75,30 @@ folder is ignored by git.
 
 The Windows-only code has not yet been run on a Windows machine. The build steps and the installer script are written
 but have not been run either. Until a real run has been recorded, treat them as untested.
+
+## What is verified
+
+Checked on macOS, with the commands in this file:
+
+- `cargo test --workspace` passes. It covers the protocol, the core state machines, the platform crate's pure parts
+  (the NV12 layout, the encoder settings and candidate order, frame timing, the link between capture and encoder, the
+  duplication back-off), the host's runtime over fakes and loopback UDP sockets (the relayed video lane, the pings and
+  pongs, the fallback to the control connection and back, the direct probe), the lock and frame rate requests, and the
+  settings model that the window draws.
+- `cargo check -p peering-platform --target x86_64-pc-windows-msvc` and `cargo clippy -p peering-platform --target
+  x86_64-pc-windows-msvc --all-targets` are clean. They compile the Windows adapters (desktop duplication, the D3D11
+  device, the NV12 video processor, the Media Foundation encoder, SendInput, DPAPI, LockWorkStation) against the
+  `windows` crate 0.58. Compiling is not running: none of those calls has been executed.
+
+Not verified, and not compiled on any machine yet:
+
+- The host binary and its Windows-only code: the `ui` window and tray (eframe, tray-icon), `ui/settings_view.rs`, the
+  Windows adapters in `host/src/runtime/services/windows.rs`, the firewall and autostart executors, and the elevated
+  firewall helper. The host depends on `ring`, which does not cross compile from macOS.
+- Running on Windows: desktop duplication frames and their reacquisition after a secure desktop, the NV12 conversion,
+  the hardware and software H.264 encoders, the keyframe and bitrate changes on a live encoder, the frame rate change
+  on a live encoder, input injection, the lock screen, the Run key and the firewall rule.
+- The relayed UDP lane against a real relay and a real phone, and Windows UDP behaviour for it (the ICMP error on an
+  unconnected socket is treated as a dropped datagram but has not been seen on Windows).
+- Settings persistence: the frame rate choice applies to the running host and is not saved, so the host starts again at
+  60 fps after a restart. The start at login box reads the Run key when the window opens.

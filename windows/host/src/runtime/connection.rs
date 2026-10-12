@@ -56,7 +56,7 @@ where
 
     let session_id = shared.lock().allocate_session();
     let deps = HostDeps {
-        random: Box::new(SystemRandomSource::default()) as Box<dyn Random>,
+        random: Box::new(SystemRandomSource) as Box<dyn Random>,
         pins: shared.lock().pins.clone(),
         clock: profile.clock.clone(),
     };

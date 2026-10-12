@@ -17,7 +17,7 @@ impl Connection {
                 .sessions
                 .get_mut(&self.session_id)
                 .filter(|slot| slot.has_relay_lane())
-                .map(|slot| slot.lane.answer_key_request(&mut SystemRandomSource::default()))
+                .map(|slot| slot.lane.answer_key_request(&mut SystemRandomSource))
         };
         match grant {
             Some(Ok(frame)) => {

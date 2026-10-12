@@ -34,6 +34,12 @@ pub struct DesktopDuplicationCapture {
     sequence: u64,
 }
 
+impl Default for DesktopDuplicationCapture {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DesktopDuplicationCapture {
     pub fn new() -> Self {
         Self {

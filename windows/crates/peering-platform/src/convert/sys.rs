@@ -24,6 +24,7 @@ use crate::handoff::FrameHandoff;
 const RGB_FULL_RANGE: u32 = 2 << 4;
 const BT709_LIMITED_YCBCR: u32 = (1 << 2) | (1 << 4);
 
+#[derive(Default)]
 pub struct Nv12Converter {
     stage: Option<Stage>,
 }
