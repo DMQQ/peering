@@ -9,6 +9,8 @@ final class RelayHostRegistration: @unchecked Sendable {
     private let identity: SelfSignedIdentity
     private let onSession: @Sendable (RelaySession) -> Void
     private let onStatus: @Sendable (String) -> Void
+    /// Called when the relay answers a Live Activity push with a refusal.
+    var onActivityRefused: (@Sendable (RelayActivityRefusal) -> Void)?
     private let lock = NSLock()
     private var task: Task<Void, Never>?
     private var connection: RelaySignallingConnection?
@@ -79,6 +81,24 @@ final class RelayHostRegistration: @unchecked Sendable {
         }
         guard let batch else { return }
         send(batch.1, over: batch.0)
+    }
+
+    /// A Live Activity update is perishable, so unlike a notification it is not held for a relay that is away: the planner sends the latest state again at the next change.
+    func notifyActivity(_ push: RelayActivityPush, completion: (@Sendable () -> Void)? = nil) {
+        guard let connection = lock.withLock({ self.connection }) else {
+            relayLog.notice("a Live Activity update was not sent: this Mac is not registered with the relay")
+            completion?()
+            return
+        }
+        Task.detached {
+            defer { completion?() }
+            do {
+                try await connection.send(.notifyActivity(push))
+            } catch {
+                Analytics.failed(error, in: .relay)
+                relayLog.error("the relay did not take a Live Activity update: \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     /// Sends a batch in order, and puts back whatever the relay did not take.
@@ -189,6 +209,8 @@ final class RelayHostRegistration: @unchecked Sendable {
                         throw RelaySignallingError.refused(code: "relay", message: message)
                     case .hostOffline:
                         break
+                    case .activityRefused(let reason):
+                        onActivityRefused?(reason)
                     // Never sent unsolicited, and never in answer to anything this end says: the
                     // Mac learns where its clients are by being sent to. Ignored rather than
                     // refused, because a relay that says more than this build expects is no reason

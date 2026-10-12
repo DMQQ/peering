@@ -74,6 +74,19 @@ extension HostSession {
             let state = try decode(ClientStatePayload.self, from: frame, as: .clientState)
             hostSessionLog.notice("client \(state.background ? "left" : "returned to", privacy: .public) the foreground")
             perform(pictureState.clientBackground(state.background))
+            onClientBackground?(state.background)
+
+        case .activityToken:
+            guard frame.payload.count <= Self.maxControlPayload else {
+                throw SessionError.malformedPayload(.activityToken, SessionError.protocolMismatch(client: 0, host: 0))
+            }
+            let tokens = try decode(ActivityTokenPayload.self, from: frame, as: .activityToken)
+            let plausible = [tokens.pushToken, tokens.pushToStartToken].compactMap { $0 }.allSatisfy(LiveActivityPushSupport.isPlausible)
+            guard plausible else {
+                hostSessionLog.notice("ignored a Live Activity token that is not hex")
+                return
+            }
+            onActivityToken?(tokens)
 
         case .videoKeyRequest:
             guard frame.payload.count <= Self.maxControlPayload else {

@@ -13,13 +13,15 @@ extension AgentSessionManager {
         var correctedModel: String?
         var emission: AgentTurnTelemetry.Emission?
         var activityChanged: Bool?
+        var stateChanged = false
         var persists = false
     }
 
     func append(_ payload: AgentStreamEvent.Payload, to session: AgentSession) {
         // Read before the lock: one lock order everywhere avoids deadlock with the token store. Only the two events that can push need it, not every delta.
         let token = Self.mayPush(payload) ? PushTokenStore.shared.tokensByClient()[session.ownerClientID] : nil
-        let applied = lock.withLock { apply(payload, to: session, token: token) }
+        let phone = presence?(session.ownerClientID) ?? .gone
+        let applied = lock.withLock { apply(payload, to: session, token: token, presence: phone) }
 
         if let emission = applied.emission {
             AgentTurnTelemetry.send(emission, agentID: session.agentID, sessionID: session.id)
@@ -34,6 +36,7 @@ extension AgentSessionManager {
         if let active = applied.activityChanged {
             onActivityChanged?(active)
         }
+        if applied.stateChanged { onChatStateChanged?(session.ownerClientID) }
         if applied.persists { persist(session) }
     }
 
@@ -45,7 +48,12 @@ extension AgentSessionManager {
     }
 
     /// Called with the lock held.
-    private func apply(_ payload: AgentStreamEvent.Payload, to session: AgentSession, token: String?) -> Applied {
+    private func apply(
+        _ payload: AgentStreamEvent.Payload,
+        to session: AgentSession,
+        token: String?,
+        presence: PhonePresence
+    ) -> Applied {
         let stateBefore = session.state
         let event = session.transcript.append(payload)
         var applied = Applied(event: event)
@@ -87,7 +95,7 @@ extension AgentSessionManager {
                 session.model = model
                 applied.correctedModel = model
             }
-            if sinks[session.ownerClientID] == nil, token != nil {
+            if PushPolicy.shouldPush(presence: presence, hasToken: token != nil) {
                 let text = AgentNotificationText.finished(
                     agentName: name, ok: summary.ok, stopped: summary.stopped, lastReply: session.lastReply,
                     editedFiles: session.turnEditedFiles.count, duration: summary.duration
@@ -121,6 +129,7 @@ extension AgentSessionManager {
         applied.emission = session.telemetry.record(payload, model: session.model)
         applied.sink = sinks[session.ownerClientID]
         if session.state != stateBefore {
+            applied.stateChanged = true
             let nowActive = sessions.values.contains { $0.isBusy }
             if nowActive != wasActive {
                 wasActive = nowActive

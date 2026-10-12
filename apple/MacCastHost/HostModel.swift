@@ -170,7 +170,10 @@ final class HostModel {
                 guard let self else { return }
                 if tick % 10 == 0 { resources.sample(bytesSent: streamedBytes ?? 0) }
                 let open = coordinator?.isDirectPathOpen ?? false
-                if directPathOpen != open { directPathOpen = open }
+                if directPathOpen != open {
+                    directPathOpen = open
+                    server?.directPathChanged(open)
+                }
                 tick += 1
                 try? await Task.sleep(for: .seconds(1))
             }
