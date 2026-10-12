@@ -1,0 +1,24 @@
+package pl.dmq.peering.session.controller
+
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+
+/**
+ * Runs one task of a control connection. However the task ends, the connection is over, so the link ends as
+ * [LinkEnd.Lost]. A failure of the task reads the same way: the cause does not change what happens next.
+ */
+internal fun CoroutineScope.launchLinkTask(ended: CompletableDeferred<LinkEnd>, task: suspend () -> Unit) {
+    launch {
+        try {
+            task()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            ended.complete(LinkEnd.Lost)
+            return@launch
+        }
+        ended.complete(LinkEnd.Lost)
+    }
+}
