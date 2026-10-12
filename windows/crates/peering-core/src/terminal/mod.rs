@@ -3,5 +3,11 @@
 //! Mirrors `apple/MacCastHost/Terminal/TerminalSessionManager.swift` and its extensions.
 
 pub mod attention;
+pub mod fake;
 pub mod finish;
+pub mod manager;
+pub mod push;
+pub mod pty;
+mod session;
+pub mod shell;
 mod text;
