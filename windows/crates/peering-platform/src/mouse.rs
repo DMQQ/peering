@@ -3,7 +3,7 @@
 //! Wire scroll deltas are in wheel lines. Positive `dy` (the phone's downward drag) becomes a negative wheel delta, and
 //! `dx` is negated the same way, both as the Mac host does (`InputInjector.swift`, scroll case).
 
-use peering_core::ports::input::{InputSink, TransformSnapshot};
+use peering_core::ports::input::TransformSnapshot;
 use peering_wire::command::{MouseButton, RemoteCommand};
 use peering_wire::source::NormalizedPoint;
 use peering_wire::transform::{to_absolute_mouse, InputTransform};
@@ -11,6 +11,8 @@ use std::ops::BitOr;
 
 #[cfg(windows)]
 mod sys;
+#[cfg(windows)]
+use peering_core::ports::input::InputSink;
 #[cfg(test)]
 mod tests;
 
