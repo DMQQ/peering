@@ -152,8 +152,10 @@ pub async fn run_pump(shared: Shared, profile: Arc<HostProfile>, meter: Arc<Pass
         if video.ready(now) {
             let outcome = run_video_pass(&shared, &profile, now).await;
             let pass = video.settle(now, outcome, |text| record_problem(&shared, "video", text));
-            if let Pass::Done(finished) = pass {
-                deliver_pass(&shared, finished, &mut failures, now);
+            match pass {
+                Pass::Done(finished) => deliver_pass(&shared, finished, &mut failures, now),
+                Pass::Panicked => shared.lock().reset_after_video_panic(now),
+                Pass::Skipped => {}
             }
         }
         let terminal_pass = terminals.run(now, || shared.lock().pump_terminals(), |text| record_problem(&shared, "terminals", text));

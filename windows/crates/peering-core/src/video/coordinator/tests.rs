@@ -577,6 +577,32 @@ fn a_capture_that_keeps_failing_its_probe_is_probed_less_often_each_time() {
 }
 
 #[test]
+fn after_a_panic_the_capture_is_rebuilt_and_the_phones_get_a_description_and_a_keyframe() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.0).unwrap();
+    coordinator.reset_after_panic(1.0);
+    push(&mut coordinator, &[2]);
+    assert!(coordinator.pump(1.2).unwrap().is_empty(), "nothing is trusted until the backoff has run out");
+    assert_eq!(coordinator.capture.starts(), 1);
+    coordinator.pump(1.5).unwrap();
+    assert_eq!(coordinator.capture.starts(), 2, "the capture was stopped and started again");
+    push(&mut coordinator, &[3]);
+    let outputs = coordinator.pump(1.6).unwrap();
+    assert_eq!(configs(&outputs).len(), 1);
+    assert!(frames(&outputs)[0].is_keyframe);
+}
+
+#[test]
+fn a_reset_with_nothing_captured_only_owes_the_clients_a_keyframe() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.reset_after_panic(1.0);
+    assert!(coordinator.pump(5.0).unwrap().is_empty());
+    assert_eq!(coordinator.capture.starts(), 0);
+}
+
+#[test]
 fn a_still_screen_is_never_restarted_while_its_probe_passes() {
     let mut coordinator = watched_coordinator();
     push(&mut coordinator, &[1]);

@@ -7,7 +7,7 @@ use peering_wire::source::CaptureSource;
 use super::{CoordinatorError, VideoCoordinator, VideoOutput};
 use crate::ports::capture::{Capture, CaptureError};
 use crate::ports::encoder::Encoder;
-use crate::video::recovery::{remedy_for, Remedy};
+use crate::video::recovery::{remedy_for, Recovery, Remedy};
 
 impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
     /// Takes every frame the capture has ready, encodes it while anyone is watching, and returns what to send.
@@ -35,6 +35,22 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
                 self.recovery.failed(remedy_for(&error), now);
                 Err(error)
             }
+        }
+    }
+
+    /// After a pass panicked part way through its update, what the coordinator holds cannot be trusted. Attached clients and
+    /// the chosen source are kept; everything else about the running capture is dropped and rebuilt, after the usual
+    /// backoff, as if the pipeline had failed. The clients are owed a description and a keyframe.
+    pub fn reset_after_panic(&mut self, now: f64) {
+        self.last_config = None;
+        self.reconfigure_pending = false;
+        self.capture_started_at = None;
+        self.frame_ever_seen = false;
+        self.watchdog_reported = false;
+        self.recovery = Recovery::default();
+        self.request_resync();
+        if self.source.is_some() {
+            self.recovery.failed(Remedy::Pipeline, now);
         }
     }
 

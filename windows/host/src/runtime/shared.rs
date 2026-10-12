@@ -16,6 +16,8 @@ use peering_core::video::lane::VideoLane;
 use tokio::sync::broadcast;
 
 use super::control::{ControlChannel, RelayStatus};
+use super::diagnostics;
+use super::lock::lock_clearing_poison;
 use super::agent::StdLauncher;
 use super::agent_browse::FolderBrowser;
 use super::notifications::WaitingNotifications;
@@ -122,6 +124,15 @@ impl HostState {
         dropped
     }
 
+    /// After a video pass panicked, what it owned is rebuilt from scratch: the capture and encoder restart, and every phone is
+    /// sent the catalogue again.
+    pub(super) fn reset_after_video_panic(&mut self, now: f64) {
+        self.catalog_checked_at = None;
+        self.notice_checked_at = None;
+        self.catalogues = SessionCatalogue::new();
+        self.video.lock().reset_after_panic(now);
+    }
+
     pub fn allocate_session(&mut self) -> u64 {
         self.next_session += 1;
         self.next_session
@@ -140,8 +151,14 @@ pub struct Shared {
 }
 
 impl Shared {
+    /// A pass that panicked under the lock leaves the state half updated. The supervisor resets what that pass owns, so the
+    /// lock carries on, and says so once.
     pub fn lock(&self) -> MutexGuard<'_, HostState> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+        let (guard, was_poisoned) = lock_clearing_poison(&self.state);
+        if was_poisoned {
+            diagnostics::log("a pass panicked while it held the host state; carrying on with the state its supervisor resets");
+        }
+        guard
     }
 
     pub fn peer_addresses(&self) -> MutexGuard<'_, PeerAddressRouter> {
