@@ -1,0 +1,141 @@
+package pl.dmq.peering.ui.nav
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.emptyFlow
+import pl.dmq.peering.R
+import pl.dmq.peering.feature.agents.AgentsRoute
+import pl.dmq.peering.feature.agents.ComposerDraftStore
+import pl.dmq.peering.feature.files.FilesRoute
+import pl.dmq.peering.feature.paywall.PaywallReason
+import pl.dmq.peering.feature.paywall.PaywallRoute
+import pl.dmq.peering.feature.remote.RemoteModel
+import pl.dmq.peering.feature.remote.RemoteRoute
+import pl.dmq.peering.session.controller.SessionPhase
+import pl.dmq.peering.session.ports.Clock
+import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.wiring.ActiveSession
+import pl.dmq.peering.ui.wiring.ChatAgentsPort
+import pl.dmq.peering.ui.wiring.ControllerRemoteModel
+import pl.dmq.peering.ui.wiring.SessionFileBrowsing
+import pl.dmq.peering.ui.wiring.StorePaywallBilling
+import pl.dmq.peering.ui.wiring.SurfacePicture
+import pl.dmq.peering.ui.wiring.UnboundBilling
+import pl.dmq.peering.ui.wiring.UntrackedRelayAllowance
+import pl.dmq.peering.ui.wiring.messageRes
+
+/** The screens a session presents over its remote screen. */
+enum class SessionRoute { REMOTE, AGENTS, FILES, PAYWALL }
+
+/**
+ * The session's screens, one at a time. Back returns to the remote screen first, then leaves the session through
+ * [onClose] when the caller provides one.
+ */
+@Composable
+internal fun SessionScreens(
+    active: ActiveSession,
+    picture: SurfacePicture,
+    drafts: ComposerDraftStore,
+    clock: Clock,
+    onClose: (() -> Unit)?,
+) {
+    val scope = rememberCoroutineScope()
+    var route by rememberSaveable { mutableStateOf(SessionRoute.REMOTE) }
+    val remote = remember(active) { ControllerRemoteModel(active.controller, picture, scope) { route = it } }
+    val session by active.controller.state.collectAsState()
+    BackHandler(enabled = route != SessionRoute.REMOTE || onClose != null) {
+        if (route != SessionRoute.REMOTE) route = SessionRoute.REMOTE else onClose?.invoke()
+    }
+    when (route) {
+        SessionRoute.REMOTE -> RemoteWithNotice(remote, session.phase)
+        SessionRoute.AGENTS -> AgentsScreen(active, drafts, clock) { route = SessionRoute.REMOTE }
+        SessionRoute.FILES -> FilesScreen(active) { route = SessionRoute.REMOTE }
+        SessionRoute.PAYWALL -> PaywallRoute(
+            billing = StorePaywallBilling(UnboundBilling),
+            allowance = UntrackedRelayAllowance.allowance,
+            reason = PaywallReason.Upgrade,
+            startsWithAllowanceNotice = false,
+            onDismiss = { route = SessionRoute.REMOTE },
+        )
+    }
+}
+
+@Composable
+private fun RemoteWithNotice(remote: RemoteModel, phase: SessionPhase) {
+    RemoteRoute(remote)
+    val notice = when (phase) {
+        is SessionPhase.Failed -> stringResource(phase.reason.messageRes())
+        SessionPhase.Ended -> stringResource(R.string.session_ended)
+        else -> null
+    }
+    if (notice != null) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.Bottom,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(text = notice, style = MaterialTheme.typography.bodyMedium, color = PeeringColors.danger)
+        }
+    }
+}
+
+@Composable
+private fun AgentsScreen(
+    active: ActiveSession,
+    drafts: ComposerDraftStore,
+    clock: Clock,
+    onBack: () -> Unit,
+) {
+    val chat = active.controller.agentChat
+    if (chat == null) {
+        Unavailable(R.string.session_unavailable_agents, onBack)
+        return
+    }
+    BackHandler(onBack = onBack)
+    AgentsRoute(
+        port = remember(chat) { ChatAgentsPort(chat) },
+        browseEvents = remember { emptyFlow() },
+        declaredAgentIDs = active.controller.declaredAgentIDs,
+        chatSupported = true,
+        modelPickerSupported = false,
+        draftStore = drafts,
+        clock = clock,
+    )
+}
+
+@Composable
+private fun FilesScreen(active: ActiveSession, onBack: () -> Unit) {
+    val browser = active.controller.files
+    if (browser == null) {
+        Unavailable(R.string.session_unavailable_files, onBack)
+        return
+    }
+    BackHandler(onBack = onBack)
+    FilesRoute(port = remember(browser) { SessionFileBrowsing(browser) })
+}
+
+@Composable
+private fun Unavailable(textRes: Int, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Text(text = stringResource(textRes), style = MaterialTheme.typography.bodyMedium, color = PeeringColors.muted)
+    }
+}
