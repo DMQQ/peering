@@ -1,21 +1,15 @@
 package pl.dmq.peering.feature.agents
 
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,16 +17,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
-import pl.dmq.peering.ui.kit.AppIcons
-import pl.dmq.peering.ui.kit.PeeringMenu
-import pl.dmq.peering.ui.kit.PeeringMenuItem
+import pl.dmq.peering.session.agent.pendingApprovals
+import pl.dmq.peering.ui.kit.PeeringAlert
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.PeeringText
 
-/** One chat: a top bar with back, the usage chip and the options menu, the conversation, and the composer. */
+/**
+ * One chat: the top bar, the conversation (or its loading and empty states), and the options chips over the composer.
+ * The approval sheet opens by itself when the agent asks, and again from a tool card's Review.
+ */
 @Composable
 fun ChatScreen(
     chat: ChatPresenter,
@@ -43,105 +39,65 @@ fun ChatScreen(
     modifier: Modifier = Modifier,
 ) {
     val ui by chat.ui.collectAsState()
+    val transcriptUi by transcript.ui.collectAsState()
     var showingUsage by remember { mutableStateOf(false) }
+    var confirmingClose by remember { mutableStateOf(false) }
+    val pending = remember(transcriptUi.rows) { pendingApprovals(transcriptUi.rows) }
+    var reviewingID by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pending.firstOrNull()?.approvalID) { reviewingID = pending.firstOrNull()?.approvalID }
+
     Column(modifier = modifier.fillMaxSize()) {
         ChatTopBar(
             ui = ui,
             onBack = onBackToList,
             onShowUsage = { showingUsage = true },
             onPause = { if (chat.pause()) onBackToList() },
-            onClose = {
+            onClose = { confirmingClose = true },
+        )
+        Box(Modifier.weight(1f)) {
+            when {
+                transcriptUi.loadingHistory && transcriptUi.rows.isEmpty() -> HistoryLoading()
+                ui.showEmptyState -> EmptyChat(ui = ui, onSuggest = chat::suggest)
+                else -> TranscriptList(
+                    presenter = transcript,
+                    onAskAgain = {
+                        transcript.followLatest()
+                        chat.suggest(it)
+                    },
+                    onReview = { reviewingID = it },
+                )
+            }
+        }
+        Composer(composer, ui.chip, onShowUsage = { showingUsage = true }, modifier = Modifier.navigationBarsPadding().imePadding())
+    }
+    if (showingUsage) UsageSheet(usage = ui.usage, agentName = ui.agentName, onDismiss = { showingUsage = false })
+    pending.firstOrNull { it.approvalID == reviewingID }?.let { approval ->
+        ui.sessionID?.let { sessionID ->
+            ApprovalSheet(port, sessionID, approval, onDismiss = { reviewingID = null })
+        }
+    }
+    if (confirmingClose) {
+        PeeringAlert(
+            title = stringResource(R.string.agents_close_title, ui.title),
+            message = stringResource(R.string.agents_close_message),
+            confirm = stringResource(R.string.agents_end_chat),
+            onConfirm = {
+                confirmingClose = false
                 chat.close()
                 onBackToList()
             },
-        )
-        Box(modifier = Modifier.weight(1f)) {
-            TranscriptList(presenter = transcript, port = port, modifier = Modifier.fillMaxSize())
-            if (ui.showEmptyState) EmptyChat(ui = ui, onSuggest = chat::suggest)
-        }
-        Composer(presenter = composer)
-    }
-    if (showingUsage) UsageSheet(usage = ui.usage, onDismiss = { showingUsage = false })
-}
-
-@Composable
-private fun ChatTopBar(
-    ui: ChatUi,
-    onBack: () -> Unit,
-    onShowUsage: () -> Unit,
-    onPause: () -> Unit,
-    onClose: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
-            Icon(AppIcons.back, contentDescription = stringResource(R.string.agents_back_to_list), tint = PeeringColors.ink)
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(ui.title, style = MaterialTheme.typography.titleMedium, color = PeeringColors.ink, maxLines = 1)
-            Text(ui.directory, style = MaterialTheme.typography.bodySmall, color = PeeringColors.muted, maxLines = 1)
-        }
-        ui.chip?.let { ContextChipButton(it, onClick = onShowUsage) }
-        ChatMenu(ui, onShowUsage, onPause, onClose)
-    }
-}
-
-@Composable
-private fun ContextChipButton(chip: ContextChip, onClick: () -> Unit) {
-    val tint = if (chip.nearlyFull) PeeringColors.caution else PeeringColors.muted
-    Box(modifier = Modifier.heightIn(min = 48.dp).clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Text(
-            chipText(chip),
-            style = MaterialTheme.typography.labelMedium,
-            color = tint,
-            maxLines = 1,
-            modifier = Modifier.border(1.dp, PeeringColors.hairline, CircleShape).padding(horizontal = 12.dp, vertical = 6.dp),
+            cancel = stringResource(R.string.agents_cancel),
+            onCancel = { confirmingClose = false },
+            destructive = true,
         )
     }
 }
 
-@Composable
-private fun chipText(chip: ContextChip): String {
-    val parts = listOfNotNull(chip.contextLabel, chip.fiveHourPercent?.let { "5h $it%" })
-    return parts.joinToString("  ·  ")
-}
 
 @Composable
-private fun ChatMenu(ui: ChatUi, onShowUsage: () -> Unit, onPause: () -> Unit, onClose: () -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { open = true }, modifier = Modifier.size(48.dp)) {
-            Icon(AppIcons.more, contentDescription = stringResource(R.string.agents_chat_options), tint = PeeringColors.ink)
-        }
-        PeeringMenu(open, { open = false }) {
-            if (ui.usageSupported) {
-                PeeringMenuItem(
-                    title = stringResource(R.string.agents_usage_title),
-                    onClick = {
-                        open = false
-                        onShowUsage()
-                    },
-                )
-            }
-            if (ui.canPause) {
-                PeeringMenuItem(
-                    title = stringResource(R.string.agents_stop_to_history),
-                    onClick = {
-                        open = false
-                        onPause()
-                    },
-                )
-            }
-            PeeringMenuItem(
-                title = stringResource(R.string.agents_end_chat),
-                destructive = true,
-                onClick = {
-                    open = false
-                    onClose()
-                },
-            )
-        }
+private fun HistoryLoading() {
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
+        CircularProgressIndicator(color = PeeringColors.ink.copy(alpha = 0.7f), strokeWidth = 2.dp)
+        Text(stringResource(R.string.agents_history_loading), style = PeeringText.footnote, color = PeeringColors.ink.copy(alpha = 0.5f))
     }
 }

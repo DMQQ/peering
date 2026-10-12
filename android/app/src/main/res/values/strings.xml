@@ -124,7 +124,7 @@
     <string name="agents_usage_output">Output</string>
     <string name="agents_usage_cached">Read from cache</string>
     <string name="agents_usage_cost">Cost</string>
-    <string name="agents_usage_limits">Limit used</string>
+    <string name="agents_usage_limits">Limit left</string>
     <string name="agents_usage_limits_none">This agent does not report limits.</string>
     <string name="agents_usage_resets">Resets %1$s</string>
     <string name="agents_empty_chat_title">What are we working on?</string>

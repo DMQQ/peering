@@ -11,7 +11,7 @@ Page column: 16 pt side inset, 20 pt between sections, 28 pt at the bottom, 70 p
 | 1 | Hub tab switcher (Agents, Terminals, Files) | Not built here: the Terminals and Files hubs belong to other screens. The page is the Agents tab on its own. |
 | 2 | Page heading: serif 34 "Agents", subheadline detail ("N open on your computer" or "Chat with a coding agent on your computer") | `HubHeading` |
 | 3 | Help button after the guide was read, bringing it back | `HubHeading` question mark, `HubGuideCard` state in `HubScreen` |
-| 4 | Guide card "How agents work": title serif 22, four rows (tile, title, detail), "Got it" ink capsule | `HubGuideCard` |
+| 4 | Guide card "How agents work": title serif 22, rows (tile, title, detail), "Got it" ink capsule | `HubGuideCard`, three rows: the "To review" row is left out because Android has no review inbox |
 | 5 | To review card | Not built: Android has no review inbox. |
 | 6 | Chats section: label with chat glyph, then session cards 10 apart | `ChatsSection` with `SectionLabel` |
 | 6a | Session card: 42 tile with agent glyph, title 15.5 semibold, state pill (outlined, tinted), folder glyph, folder name in monospace, agent name unless the title has it, optional last reply preview in a tinted box | `SessionCardRow` |
@@ -23,7 +23,7 @@ Page column: 16 pt side inset, 20 pt between sections, 28 pt at the bottom, 70 p
 | 9 | Empty state: "No chats yet" and the sentence under the animated sample | `AgentEmptyState` (mascot in place of the typing animation) |
 | 10 | History: label with clock glyph, grouped card (Today, Yesterday, date), 32 tile, title, detail, time and a restart glyph per row | `HistorySection` over paused chats and resumable conversations |
 | 10a | "Clear" beside the History label | Not built: it clears the iPhone's own terminal launch log, which Android does not keep. |
-| 10b | Footnote when the computer has no conversations | `HistorySection` footnote |
+| 10b | Footnote when the computer has no conversations | Not built: the port cannot tell "not listed yet" from "none found". |
 | 11 | Dock: floating bar over the page, ink capsule with the agent glyph in a white circle and "Chat with Claude Code"; "Choose an agent" when none is selected | `HubDock` |
 | 11a | Hold the dock button to change agent | `combinedClickable` long press opens the picker |
 | 11b | CLI button beside the dock capsule | Not built: it runs the agent in a terminal, which is the Terminals hub's job. |
@@ -34,7 +34,7 @@ Page column: 16 pt side inset, 20 pt between sections, 28 pt at the bottom, 70 p
 
 | # | iPhone element | Android implementation |
 |---|----------------|------------------------|
-| 1 | Navigation title: folder name, back arrow, ancestors menu | `FolderPage` top bar with back |
+| 1 | Navigation title: folder name, back arrow, ancestors menu | `FolderPage` top bar with back and the folder name; the ancestors menu is not built |
 | 2 | Waiting note with computer glyph | `FolderPage` list head |
 | 3 | Failure line in danger | `FolderPage` list head |
 | 4 | Recent folders (home only, three): label, rows with clock tile, path, "Work here again", turn arrow | `RecentFolders` |
@@ -53,7 +53,7 @@ Page column: 16 pt side inset, 20 pt between sections, 28 pt at the bottom, 70 p
 | 3 | Close confirmation | `PeeringAlert` |
 | 4 | Tab strip over the chat when several chats are open | Not built: the hub is the switcher on Android. |
 | 5 | Loading state: spinner and "Loading the conversation" | `HistoryLoading` |
-| 6 | Empty chat: breathing agent tile, serif 30 "What are we working on?", guide card "Before you start", three suggestion rows (34 tile, title, detail, up-left arrow), saved prompts | `EmptyChat`; saved prompts not built |
+| 6 | Empty chat: agent tile, serif 30 "What are we working on?", guide card "Before you start", three suggestion rows (34 tile, title, detail, up-left arrow), saved prompts | `EmptyChat`; the guide keeps only its permissions row (slash and Changes do not exist here); saved prompts not built |
 | 6a | Ended chat copy | `EmptyChat` ended branch |
 | 7 | Transcript column: 14 side, 10 between rows | `TranscriptList` |
 | 7a | User message: right aligned bubble, tinted, with copy and "Ask again" menu | `UserBubble`, long press menu |
@@ -82,7 +82,7 @@ Page column: 16 pt side inset, 20 pt between sections, 28 pt at the bottom, 70 p
 | 3 | The agent's reason under it, caption | `ApprovalSheet` |
 | 4 | Deny (outlined) and Allow (ink) side by side | `ApprovalSheet` |
 | 5 | Question options: outlined rows with label, detail, check or chevron; Back | `ApprovalSheet` options |
-| 6 | Presented on its own when the agent asks | `ChatScreen` opens it for the first pending approval |
+| 6 | Presented on its own when the agent asks | `ChatScreen` opens it for the first pending approval; the tool card's Review reopens it |
 
 ## 5. Usage sheet
 
