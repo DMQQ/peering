@@ -140,6 +140,7 @@ fn a_registered_host_pings_every_twenty_five_seconds() {
     assert!(registration.tick(&clock).is_empty());
     clock.advance(0.1);
     assert_eq!(registration.tick(&clock), vec![RegAction::Send(RelayClientMessage::Ping)]);
+    registration.on_message(RelayServerMessage::Pong, &clock);
     clock.advance(24.9);
     assert!(registration.tick(&clock).is_empty());
     clock.advance(0.1);
@@ -151,8 +152,74 @@ fn nothing_is_pinged_before_the_relay_has_registered_the_host() {
     let clock = clock();
     let mut registration = registration();
     registration.start(&clock);
-    clock.advance(60.0);
+    clock.advance(49.0);
     assert!(registration.tick(&clock).is_empty());
+}
+
+#[test]
+fn a_socket_that_says_nothing_for_two_ping_intervals_is_closed_and_reconnected() {
+    let clock = clock();
+    let mut registration = registration();
+    registered(&mut registration, &clock);
+    clock.advance(25.0);
+    assert_eq!(registration.tick(&clock), vec![RegAction::Send(RelayClientMessage::Ping)]);
+    clock.advance(24.9);
+    assert!(registration.tick(&clock).is_empty());
+    clock.advance(0.1);
+    assert_eq!(registration.tick(&clock), vec![RegAction::Close]);
+    assert!(!registration.is_registered());
+    assert_eq!(wait_for_connect(&mut registration, &clock), 1.0);
+}
+
+#[test]
+fn any_frame_from_the_relay_keeps_the_socket_alive() {
+    let clock = clock();
+    let mut registration = registration();
+    registered(&mut registration, &clock);
+    for _ in 0..4 {
+        clock.advance(40.0);
+        registration.note_frame(&clock);
+        assert_ne!(registration.tick(&clock), vec![RegAction::Close]);
+    }
+}
+
+#[test]
+fn closing_a_silent_socket_and_then_reporting_the_disconnect_counts_one_loss() {
+    let clock = clock();
+    let mut registration = registration();
+    registered(&mut registration, &clock);
+    clock.advance(50.0);
+    assert_eq!(registration.tick(&clock), vec![RegAction::Close]);
+    registration.on_disconnect(&clock);
+    assert_eq!(wait_for_connect(&mut registration, &clock), 1.0);
+}
+
+#[test]
+fn a_clock_the_relay_refuses_is_reported_as_a_fault_until_a_registration_succeeds() {
+    let clock = clock();
+    let mut registration = registration();
+    registration.start(&clock);
+    assert_eq!(registration.fault(), None);
+    let actions = registration.on_message(
+        RelayServerMessage::Error { code: "proofStale".to_owned(), message: "old".to_owned() },
+        &clock,
+    );
+    assert_eq!(actions, vec![RegAction::Close]);
+    assert_eq!(registration.fault(), Some(RelayFault::ClockSkew));
+    wait_for_connect(&mut registration, &clock);
+    registration.start(&clock);
+    assert_eq!(registration.fault(), Some(RelayFault::ClockSkew));
+    registration.on_message(RelayServerMessage::Registered { session_ttl_seconds: 300 }, &clock);
+    assert_eq!(registration.fault(), None);
+}
+
+#[test]
+fn another_refusal_is_not_a_clock_fault() {
+    let clock = clock();
+    let mut registration = registration();
+    registration.start(&clock);
+    registration.on_message(RelayServerMessage::Error { code: "refused".to_owned(), message: "no".to_owned() }, &clock);
+    assert_eq!(registration.fault(), None);
 }
 
 #[test]
@@ -213,13 +280,73 @@ fn reconnect_delays_climb_one_two_five_ten_then_stay_at_thirty_seconds() {
 }
 
 #[test]
-fn registering_again_resets_the_reconnect_ladder() {
+fn a_registration_that_drops_at_once_does_not_reset_the_ladder() {
     let clock = clock();
     let mut registration = registration();
+    let mut gaps = Vec::new();
+    for _ in 0..4 {
+        registration.on_disconnect(&clock);
+        gaps.push(wait_for_connect(&mut registration, &clock).round());
+        registered(&mut registration, &clock);
+        clock.advance(5.0);
+    }
+    assert_eq!(gaps, [1.0, 2.0, 5.0, 10.0]);
+}
+
+#[test]
+fn a_registration_that_held_for_a_minute_resets_the_ladder() {
+    let clock = clock();
+    let mut registration = registration();
+    for _ in 0..3 {
+        registration.on_disconnect(&clock);
+        wait_for_connect(&mut registration, &clock);
+    }
+    registered(&mut registration, &clock);
+    for _ in 0..3 {
+        clock.advance(20.0);
+        registration.on_message(RelayServerMessage::Pong, &clock);
+    }
     registration.on_disconnect(&clock);
-    wait_for_connect(&mut registration, &clock);
-    registration.start(&clock);
-    registration.on_message(RelayServerMessage::Registered { session_ttl_seconds: 300 }, &clock);
+    assert_eq!(wait_for_connect(&mut registration, &clock), 1.0);
+}
+
+#[test]
+fn a_registration_that_held_for_less_than_a_minute_does_not_reset_the_ladder() {
+    let clock = clock();
+    let mut registration = registration();
+    for _ in 0..2 {
+        registration.on_disconnect(&clock);
+        wait_for_connect(&mut registration, &clock);
+    }
+    registered(&mut registration, &clock);
+    clock.advance(59.0);
+    registration.on_disconnect(&clock);
+    assert_eq!(wait_for_connect(&mut registration, &clock), 5.0);
+}
+
+#[test]
+fn the_reconnect_wait_is_a_random_share_of_the_ladder_step() {
+    let clock = clock();
+    let mut registration = registration().with_jitter(Box::new(|| 0.5));
+    registration.on_disconnect(&clock);
+    assert_eq!(wait_for_connect(&mut registration, &clock), 0.5);
+    registered(&mut registration, &clock);
+    registration.on_disconnect(&clock);
+    assert_eq!(wait_for_connect(&mut registration, &clock), 1.0);
+}
+
+#[test]
+fn full_jitter_never_waits_less_than_a_quarter_second() {
+    let clock = clock();
+    let mut registration = registration().with_jitter(Box::new(|| 0.0));
+    registration.on_disconnect(&clock);
+    assert_eq!(wait_for_connect(&mut registration, &clock), 0.25);
+}
+
+#[test]
+fn a_jitter_outside_the_unit_range_is_clamped() {
+    let clock = clock();
+    let mut registration = registration().with_jitter(Box::new(|| 7.0));
     registration.on_disconnect(&clock);
     assert_eq!(wait_for_connect(&mut registration, &clock), 1.0);
 }

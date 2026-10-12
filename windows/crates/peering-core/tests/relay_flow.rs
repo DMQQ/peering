@@ -116,6 +116,7 @@ fn a_registered_host_pings_the_relay_every_twenty_five_seconds() {
     assert!(reg.tick(&clock).is_empty());
     clock.advance(0.1);
     assert_eq!(reg.tick(&clock), vec![RegAction::Send(RelayClientMessage::Ping)]);
+    reg.on_message(RelayServerMessage::Pong, &clock);
     clock.advance(24.9);
     assert!(reg.tick(&clock).is_empty());
     clock.advance(0.1);
@@ -136,7 +137,7 @@ fn reconnects_wait_one_two_five_ten_then_thirty_seconds_and_stay_at_thirty() {
 }
 
 #[test]
-fn a_registration_resets_the_reconnect_ladder() {
+fn a_registration_that_held_for_a_minute_resets_the_reconnect_ladder() {
     let clock = FakeClock::new(0.0, UNIX_NOW);
     let mut reg = registration();
     reg.on_disconnect(&clock);
@@ -146,6 +147,7 @@ fn a_registration_resets_the_reconnect_ladder() {
     assert_eq!(seconds_until_connect(&mut reg, &clock), 2.0);
     reg.start(&clock);
     reg.on_message(RelayServerMessage::Registered { session_ttl_seconds: 300 }, &clock);
+    clock.advance(60.0);
     reg.on_disconnect(&clock);
     assert_eq!(seconds_until_connect(&mut reg, &clock), 1.0);
 }
@@ -265,7 +267,7 @@ fn a_relay_error_drops_the_link_and_asks_the_caller_to_close_it() {
     );
     assert_eq!(actions, vec![RegAction::Close]);
     assert!(!reg.is_registered());
-    assert_eq!(seconds_until_connect(&mut reg, &clock), 1.0);
+    assert_eq!(seconds_until_connect(&mut reg, &clock), 2.0, "a link that was up for seconds keeps climbing the ladder");
 }
 
 #[test]
