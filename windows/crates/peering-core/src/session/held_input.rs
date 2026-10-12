@@ -1,7 +1,7 @@
 //! Keys and mouse buttons the client has pressed and not released. A disconnect sends their releases through the
 //! sink before the sink's own `release_all`, so nothing stays down on the host.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use peering_wire::command::{Modifiers, MouseButton, RemoteCommand};
 
@@ -38,13 +38,18 @@ impl HeldInput {
 
     /// Releases every held key and button through `input`, then calls its `release_all`.
     pub fn release_held(&mut self, transform: &TransformSnapshot, input: &mut dyn InputSink) {
+        self.release_keys(transform, input);
+        input.release_all();
+    }
+
+    /// Releases every held key and button through `input` and leaves the rest of the sink alone.
+    pub fn release_keys(&mut self, transform: &TransformSnapshot, input: &mut dyn InputSink) {
         for key_code in std::mem::take(&mut self.keys) {
             input.apply(&RemoteCommand::KeyUp { key_code, modifiers: Modifiers::NONE }, transform);
         }
         for button in std::mem::take(&mut self.buttons) {
             input.apply(&RemoteCommand::MouseUp { button }, transform);
         }
-        input.release_all();
     }
 }
 
@@ -52,30 +57,33 @@ impl HeldInput {
 /// really still down.
 pub const HELD_INPUT_TTL_SECONDS: f64 = 5.0;
 
-/// What the host's clients have left held, and when any of them was last heard from. A phone that drops without a word
-/// leaves its keys down until the session is reaped, which takes a minute; this lets go of them after a few seconds.
+/// What each of the host's sessions has left held, and when each was last heard from. A phone that drops without a word
+/// leaves its keys down until the session is reaped, which takes a minute; this lets go of them after a few seconds. Each
+/// session is judged on its own, so a second phone that is still talking does not keep a dropped phone's keys down.
 #[derive(Debug, Default)]
 pub struct HoldGuard {
-    held: HeldInput,
-    last_heard: f64,
+    held: BTreeMap<u64, HeldInput>,
+    last_heard: BTreeMap<u64, f64>,
 }
 
 impl HoldGuard {
-    /// Any frame from any authorised session proves a phone is still there.
-    pub fn heard(&mut self, now: f64) {
-        self.last_heard = now;
+    /// Any frame from an authorised session proves that session's phone is still there.
+    pub fn heard(&mut self, session: u64, now: f64) {
+        self.last_heard.insert(session, now);
     }
 
-    /// Wraps `sink` so what a command leaves held is recorded here.
-    pub fn track<'a>(&'a mut self, sink: &'a mut dyn InputSink) -> TrackedInput<'a> {
-        TrackedInput::new(sink, &mut self.held)
+    /// Wraps `sink` so what a command leaves held is recorded against `session`.
+    pub fn track<'a>(&'a mut self, session: u64, sink: &'a mut dyn InputSink) -> TrackedInput<'a> {
+        TrackedInput::new(sink, self.held.entry(session).or_default())
     }
 
     pub fn has_held(&self) -> bool {
-        !self.held.is_empty()
+        self.held.values().any(|held| !held.is_empty())
     }
 
-    /// Releases everything held once no session has been heard for `ttl_seconds`. Returns true when it released.
+    /// Releases what each session holds once that session has been silent for `ttl_seconds`. The sink's own `release_all`
+    /// runs only when nothing is held any more, so a session that is still talking keeps its keys. Returns true when
+    /// anything was released.
     pub fn release_if_silent(
         &mut self,
         now: f64,
@@ -83,11 +91,23 @@ impl HoldGuard {
         transform: &TransformSnapshot,
         input: &mut dyn InputSink,
     ) -> bool {
-        if self.held.is_empty() || now - self.last_heard < ttl_seconds {
-            return false;
+        let silent: Vec<u64> = self
+            .held
+            .iter()
+            .filter(|(session, held)| !held.is_empty() && now - self.last_heard.get(session).copied().unwrap_or_default() >= ttl_seconds)
+            .map(|(session, _)| *session)
+            .collect();
+        for session in &silent {
+            if let Some(held) = self.held.get_mut(session) {
+                held.release_keys(transform, input);
+            }
         }
-        self.held.release_held(transform, input);
-        true
+        self.held.retain(|_, held| !held.is_empty());
+        self.last_heard.retain(|_, heard| now - *heard < ttl_seconds);
+        if !silent.is_empty() && self.held.is_empty() {
+            input.release_all();
+        }
+        !silent.is_empty()
     }
 }
 
@@ -133,8 +153,8 @@ mod tests {
     fn keys_held_by_a_silent_phone_are_released_after_the_ttl() {
         let mut guard = HoldGuard::default();
         let mut input = RecordingInput::default();
-        guard.heard(10.0);
-        guard.track(&mut input).apply(&key_down(0x10), &transform());
+        guard.heard(1, 10.0);
+        guard.track(1, &mut input).apply(&key_down(0x10), &transform());
 
         assert!(!guard.release_if_silent(14.9, HELD_INPUT_TTL_SECONDS, &transform(), &mut input));
         assert!(guard.release_if_silent(15.0, HELD_INPUT_TTL_SECONDS, &transform(), &mut input));
@@ -147,12 +167,34 @@ mod tests {
     fn a_phone_that_keeps_talking_keeps_its_keys() {
         let mut guard = HoldGuard::default();
         let mut input = RecordingInput::default();
-        guard.heard(0.0);
-        guard.track(&mut input).apply(&key_down(0x10), &transform());
+        guard.heard(1, 0.0);
+        guard.track(1, &mut input).apply(&key_down(0x10), &transform());
         for second in 1..30 {
-            guard.heard(f64::from(second));
+            guard.heard(1, f64::from(second));
             assert!(!guard.release_if_silent(f64::from(second), HELD_INPUT_TTL_SECONDS, &transform(), &mut input));
         }
+        assert!(guard.has_held());
+    }
+
+    #[test]
+    fn a_live_second_phone_does_not_keep_a_dropped_phones_keys_down() {
+        let mut guard = HoldGuard::default();
+        let mut input = RecordingInput::default();
+        guard.heard(1, 0.0);
+        guard.heard(2, 0.0);
+        guard.track(1, &mut input).apply(&key_down(0x10), &transform());
+        guard.track(2, &mut input).apply(&key_down(0x20), &transform());
+        for second in 1..=6 {
+            guard.heard(2, f64::from(second));
+        }
+
+        assert!(guard.release_if_silent(6.0, HELD_INPUT_TTL_SECONDS, &transform(), &mut input));
+
+        let released = RemoteCommand::KeyUp { key_code: 0x10, modifiers: Modifiers::NONE };
+        assert!(input.applied().contains(&(released, transform())), "the dropped phone's key came up");
+        let kept = RemoteCommand::KeyUp { key_code: 0x20, modifiers: Modifiers::NONE };
+        assert!(!input.applied().contains(&(kept, transform())), "the live phone keeps its key");
+        assert_eq!(input.release_all_count(), 0, "the sink is not blanket-released while a phone still holds a key");
         assert!(guard.has_held());
     }
 
@@ -168,8 +210,8 @@ mod tests {
     fn a_mouse_button_held_by_a_silent_phone_is_released_too() {
         let mut guard = HoldGuard::default();
         let mut input = RecordingInput::default();
-        guard.heard(0.0);
-        guard.track(&mut input).apply(&RemoteCommand::MouseDown { button: MouseButton::Left }, &transform());
+        guard.heard(1, 0.0);
+        guard.track(1, &mut input).apply(&RemoteCommand::MouseDown { button: MouseButton::Left }, &transform());
         assert!(guard.release_if_silent(6.0, HELD_INPUT_TTL_SECONDS, &transform(), &mut input));
         assert!(input.applied().contains(&(RemoteCommand::MouseUp { button: MouseButton::Left }, transform())));
     }

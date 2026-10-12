@@ -50,7 +50,7 @@ impl Connection {
         let state = &mut *guard;
         let transform = state.active_transform();
         let mut source = CoordinatorControl::new(&state.video, &mut state.system, now);
-        let mut tracked = state.hold.track(&mut state.input);
+        let mut tracked = state.hold.track(self.session_id, &mut state.input);
         let mut context = DispatchContext { observe_mode: false, transform, input: &mut tracked, source: &mut source };
         let outcome = run(&mut context);
         let failure = source.failure.take();

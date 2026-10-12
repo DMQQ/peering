@@ -179,7 +179,7 @@ impl Connection {
         }
         if self.registered && self.video_for_session.is_none() {
             let now = self.now();
-            self.shared.lock().hold.heard(now);
+            self.shared.lock().hold.heard(self.session_id, now);
         }
         if self.video_for_session.is_some() {
             // A video connection only carries frames out; key and transport requests are answered on the control connection.
