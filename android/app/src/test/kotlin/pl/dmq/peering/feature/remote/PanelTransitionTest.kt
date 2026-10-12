@@ -1,27 +1,31 @@
 package pl.dmq.peering.feature.remote
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PanelTransitionTest {
     @Test
-    fun openingFromNothingRises() {
-        assertEquals(PanelTransition.RISE, panelTransition(null, SessionPanel.CLIPBOARD))
+    fun tappingTheOpenPanelsButtonCloses() {
+        assertNull(panelAfterTap(SessionPanel.SETTINGS, SessionPanel.SETTINGS))
     }
 
     @Test
-    fun closingFalls() {
-        assertEquals(PanelTransition.FALL, panelTransition(SessionPanel.SETTINGS, null))
+    fun tappingAnotherButtonSwitchesDirectlyWithoutPassingThroughClosed() {
+        assertEquals(SessionPanel.CLIPBOARD, panelAfterTap(SessionPanel.SETTINGS, SessionPanel.CLIPBOARD))
     }
 
     @Test
-    fun switchingBetweenPanelsOnlyFades() {
-        assertEquals(PanelTransition.CROSSFADE, panelTransition(SessionPanel.SOURCES, SessionPanel.SETTINGS))
+    fun tappingWithNothingOpenOpens() {
+        assertEquals(SessionPanel.SOURCES, panelAfterTap(null, SessionPanel.SOURCES))
     }
 
     @Test
-    fun staysPutWhenNothingChanges() {
-        assertEquals(PanelTransition.NONE, panelTransition(null, null))
-        assertEquals(PanelTransition.NONE, panelTransition(SessionPanel.SOURCES, SessionPanel.SOURCES))
+    fun theLeavingSurfaceKeepsTheLastPanel() {
+        val memory = PanelMemory()
+        assertNull(memory.shown(null))
+        assertEquals(SessionPanel.SOURCES, memory.shown(SessionPanel.SOURCES))
+        assertEquals(SessionPanel.SOURCES, memory.shown(null))
+        assertEquals(SessionPanel.SETTINGS, memory.shown(SessionPanel.SETTINGS))
     }
 }

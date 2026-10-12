@@ -31,7 +31,7 @@ class SessionScreenState(openPanel: SessionPanel? = null, keyboardShown: Boolean
     var macrosOpen by mutableStateOf(false)
 
     fun togglePanel(panel: SessionPanel) {
-        openPanel = if (openPanel == panel) null else panel
+        openPanel = panelAfterTap(openPanel, panel)
         if (openPanel != null) keyboardShown = false
     }
 
