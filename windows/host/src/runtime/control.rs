@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use peering_core::pairing::ApprovalDecision;
 use peering_core::ports::input::InputSink;
 use peering_core::session::slots::sessions_of_client;
+use peering_wire::handshake::ErrorPayload;
 use peering_wire::pairing_payload;
 
 use super::shared::HostState;
@@ -139,9 +140,11 @@ impl HostState {
         self.terminals.disconnect(client_id);
     }
 
-    /// Stops the sessions when hosting is switched off: their outbound channels close, which ends each connection.
+    /// Stops the sessions when hosting is switched off. Each is told first, so the client does not reconnect; the frame
+    /// is queued ahead of the close, and the writer sends what is queued before it shuts the stream.
     fn stop_sessions(&mut self) {
         for (_, slot) in self.sessions.drain() {
+            let _queued = slot.outbound.send(ErrorPayload::host_stopped_frame());
             self.video.detach(&slot.client_id);
         }
         self.video.stop_when_idle();
