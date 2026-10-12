@@ -48,6 +48,17 @@ impl LivenessTracker {
     }
 }
 
+impl LivenessTracker {
+    /// A video connection only carries frames out and the client never writes on it, so silence is not a sign it died.
+    pub fn verdict_for(&self, now: f64, phase: HostPhase, video_connection: bool) -> Verdict {
+        if video_connection {
+            Verdict::Keep
+        } else {
+            self.verdict(now, phase)
+        }
+    }
+}
+
 /// The pong echoes the ping's payload, which is how a client matches it to the ping it sent.
 pub fn pong_for(ping: &Frame) -> Frame {
     Frame::new(MessageKind::Pong, ping.payload.clone())

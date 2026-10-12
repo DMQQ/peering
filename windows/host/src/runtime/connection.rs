@@ -166,7 +166,8 @@ impl Connection {
 
     fn on_tick(&mut self) -> Flow {
         let now = self.now();
-        if self.liveness.verdict(now, self.session.state().phase()) == Verdict::End || !self.shared.lock().hosting {
+        let verdict = self.liveness.verdict_for(now, self.session.state().phase(), self.video_for_session.is_some());
+        if verdict == Verdict::End || !self.shared.lock().hosting {
             return Flow::Closed;
         }
         let events = self.agent.as_mut().map(|manager| manager.poll()).unwrap_or_default();
