@@ -1,5 +1,6 @@
 package pl.dmq.peering.session.controller
 
+import pl.dmq.peering.session.clipboard.ClipboardHistory
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.session.ports.DeviceIdentity
 import pl.dmq.peering.session.ports.Discovery
@@ -14,6 +15,7 @@ import pl.dmq.peering.session.ports.VideoSink
  * for pairing, since a QR code names a host but not where it is. [videoCodecs] are the codecs this device decodes, best first; null
  * declares none, which the host reads as both. [lanReached] hears the address of each host a session
  * opened to on the local network, so the next dial can start there before discovery has answered.
+ * [clipboardHistory] outlives a session when the owner passes the same one to each.
  */
 class SessionPorts(
     val identity: DeviceIdentity,
@@ -30,4 +32,5 @@ class SessionPorts(
     val videoCodecs: List<String>? = null,
     val log: SessionLog = SessionLog.None,
     val lanReached: (hostId: String, address: PeerAddress) -> Unit = { _, _ -> },
+    val clipboardHistory: ClipboardHistory = ClipboardHistory(),
 )

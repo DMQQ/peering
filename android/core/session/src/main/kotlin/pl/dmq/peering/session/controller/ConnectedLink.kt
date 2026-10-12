@@ -5,6 +5,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.delay
 import pl.dmq.peering.session.agent.AgentChat
+import pl.dmq.peering.session.clipboard.ClipboardContent
+import pl.dmq.peering.session.clipboard.ClipboardDirection
+import pl.dmq.peering.session.clipboard.ClipboardHistory
+import pl.dmq.peering.session.clipboard.ClipboardImageFrames
+import pl.dmq.peering.session.clipboard.ClipboardPush
 import pl.dmq.peering.session.connection.LivenessMonitor
 import pl.dmq.peering.session.connection.SessionCommands
 import pl.dmq.peering.session.files.FileBrowser
@@ -49,6 +54,7 @@ internal class ConnectedLink(
     relay: RelayConnect?,
     private val quality: QualityChoice,
     private val ceiling: QualityTier,
+    private val clipboard: ClipboardHistory,
 ) {
     private val liveness = LivenessMonitor(clock)
     val commands = SessionCommands(hello)
@@ -79,9 +85,24 @@ internal class ConnectedLink(
     var notice: String? = null
         private set
 
-    /** The text the host last sent for a clipboard request, or null before one answered or when it held none. */
-    var hostClipboard: String? = null
+    /** What the host last sent for a clipboard request, or null before one answered. */
+    var hostClipboard: ClipboardContent? = null
         private set
+
+    private var clipboardFrameId = 0L
+
+    /** Sends a picture to the computer's clipboard and keeps it in the history when it went. */
+    fun sendClipboardImage(png: ByteArray): ClipboardPush {
+        clipboardFrameId += 1
+        return when (val built = ClipboardImageFrames.build(hello, png, clipboardFrameId)) {
+            is ClipboardImageFrames.Refused -> built.reason
+            is ClipboardImageFrames.Ready -> {
+                built.frames.forEach(writer::enqueue)
+                clipboard.record(ClipboardContent.Image(png), ClipboardDirection.TO_COMPUTER)
+                ClipboardPush.Sent
+            }
+        }
+    }
 
     val latencyMillis: Int? get() = liveness.smoothedLatencyMillis()?.roundToInt()
 
@@ -168,7 +189,10 @@ internal class ConnectedLink(
             is SessionEvent.Offer -> commands.offer(event.command)
             is SessionEvent.Datagram -> route.datagrams?.send(event.bytes, event.destination)
             is SessionEvent.Notice -> notice = event.message
-            is SessionEvent.HostClipboard -> hostClipboard = event.text
+            is SessionEvent.HostClipboard -> {
+                hostClipboard = event.content
+                clipboard.record(event.content, ClipboardDirection.FROM_COMPUTER)
+            }
             is SessionEvent.Finish -> ended.complete(event.end)
         }
     }
