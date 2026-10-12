@@ -43,14 +43,7 @@ internal class RouteRace(private val attempts: List<Attempt>) {
         try {
             startNext()
             while (running > 0 || started < attempts.size) {
-                val wait = attempts.getOrNull(started)?.startsAfter
-                val outcome = if (started < attempts.size && wait != null) {
-                    withTimeoutOrNull(wait) { outcomes.receive() }
-                } else if (running > 0) {
-                    outcomes.receive()
-                } else {
-                    null
-                }
+                val outcome = nextOutcome(started, running, outcomes)
                 if (outcome == null) {
                     startNext()
                     continue
@@ -65,8 +58,22 @@ internal class RouteRace(private val attempts: List<Attempt>) {
         } finally {
             coroutineContext.cancelChildren()
             outcomes.close()
-            // A route that opened after the winner did sits unread in the queue; nothing else would close it.
-            while (true) outcomes.tryReceive().getOrNull()?.route?.transport?.close() ?: break
+            closeUnread(outcomes)
         }
+    }
+
+    /** The next outcome, or null when the next attempt is due to start: its delay passed, or nothing is running to wait for. */
+    private suspend fun nextOutcome(started: Int, running: Int, outcomes: Channel<Outcome>): Outcome? {
+        val wait = attempts.getOrNull(started)?.startsAfter
+        return when {
+            started < attempts.size && wait != null -> withTimeoutOrNull(wait) { outcomes.receive() }
+            running > 0 -> outcomes.receive()
+            else -> null
+        }
+    }
+
+    /** A route that opened after the winner did sits unread in the queue; nothing else would close it. */
+    private fun closeUnread(outcomes: Channel<Outcome>) {
+        while (true) outcomes.tryReceive().getOrNull()?.route?.transport?.close() ?: break
     }
 }
