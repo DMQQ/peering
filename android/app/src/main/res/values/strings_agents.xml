@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="agents_back_to_remote">Back</string>
+    <string name="agents_detail_idle">Chat with a coding agent on your computer</string>
+    <plurals name="agents_open_on_computer">
+        <item quantity="one">%d open on your computer</item>
+        <item quantity="other">%d open on your computer</item>
+    </plurals>
+    <string name="agents_guide_reopen">How this page works</string>
+    <string name="agents_guide_title">How agents work</string>
+    <string name="agents_guide_pick">Pick an agent below</string>
+    <string name="agents_guide_pick_detail">The bar at the bottom chooses which coding agent you talk to. Hold it to switch.</string>
+    <string name="agents_guide_folder">A chat works in a folder</string>
+    <string name="agents_guide_folder_detail">Chat with an agent and it works on your computer in the folder you pick. The chat stays here when you leave.</string>
+    <string name="agents_guide_waiting">Waiting on you</string>
+    <string name="agents_guide_waiting_detail">A chat marked this way needs a yes or a no before the agent carries on.</string>
+    <string name="agents_guide_got_it">Got it</string>
+    <string name="agents_active_on_computer">Active on your computer</string>
+    <string name="agents_none_found">No supported agents were found on this computer. Install one and it will show up here.</string>
+    <string name="agents_empty_hub_body">Pick an agent below and talk to it. It works on your computer, and the chat stays here when you leave.</string>
+    <string name="agents_new_chat_here">New chat here</string>
+    <string name="agents_close_chat">Close</string>
+    <string name="agents_close_title">Close %1$s?</string>
+    <string name="agents_close_message">The agent stops working on your computer. The computer and the rest of the chats are left alone.</string>
+    <string name="agents_cancel">Cancel</string>
+    <string name="agents_state_finished">Finished</string>
+    <string name="agents_open_elsewhere_title">This conversation may be open on your computer</string>
+    <string name="agents_open_elsewhere_message">It was written to a moment ago. If a terminal still has it open, both would add to the same conversation.</string>
+    <string name="agents_continue_anyway">Continue here anyway</string>
+    <string name="agents_day_today">Today</string>
+    <string name="agents_day_yesterday">Yesterday</string>
+    <string name="agents_dock_chat_with">Chat with %1$s</string>
+    <string name="agents_dock_choose">Choose an agent</string>
+    <string name="agents_dock_choose_action">Choose the agent</string>
+    <string name="agents_waiting_on_you">%1$d waiting on you</string>
+    <string name="agents_working_count">%1$d working</string>
+    <plurals name="agents_open_count">
+        <item quantity="one">%d open</item>
+        <item quantity="other">%d open</item>
+    </plurals>
+    <string name="agents_never_used">Never used</string>
+    <string name="agents_last_used">Last used %1$s</string>
+    <string name="agents_folder_no_match">No folder here matches “%1$s”.</string>
+    <string name="agents_folder_kind">Folder</string>
+    <string name="agents_work_here_again">Work here again</string>
+    <string name="agents_search_in">Search in %1$s</string>
+    <string name="agents_use">Use</string>
+</resources>

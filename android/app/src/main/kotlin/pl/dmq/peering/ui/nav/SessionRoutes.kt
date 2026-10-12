@@ -165,6 +165,7 @@ private fun AgentsScreen(
         modelPickerSupported = chat.capabilities.modelPicker,
         draftStore = drafts,
         clock = clock,
+        onBack = onBack,
     )
 }
 

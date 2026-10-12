@@ -27,13 +27,18 @@ class AgentsHubPresenter(
     private val agents = if (chatSupported) AgentCatalog.options(declaredAgentIDs) else emptyList()
     private val activity = SessionActivity(clock)
     private val step = MutableStateFlow<NewChatStep>(NewChatStep.Closed)
+    private val selectedAgent = MutableStateFlow(agents.singleOrNull()?.id)
 
     private val canImport = chatSupported && port.capabilities.sessionImport
     private val canPause = chatSupported && port.capabilities.pause
 
-    val ui: StateFlow<HubUi> = combine(port.chats, step, recents.paths, port.resumable) { chats, currentStep, folderPaths, listed ->
-        derive(chats, currentStep, folderPaths, listed)
-    }.stateIn(scope, SharingStarted.Eagerly, derive(port.chats.value, NewChatStep.Closed, recents.paths.value, port.resumable.value))
+    val ui: StateFlow<HubUi> = combine(port.chats, step, recents.paths, port.resumable, selectedAgent) { chats, currentStep, folderPaths, listed, agentID ->
+        derive(chats, currentStep, folderPaths, listed, agentID)
+    }.stateIn(
+        scope,
+        SharingStarted.Eagerly,
+        derive(port.chats.value, NewChatStep.Closed, recents.paths.value, port.resumable.value, selectedAgent.value),
+    )
 
     fun refresh() {
         port.list()
@@ -53,38 +58,60 @@ class AgentsHubPresenter(
         }
     }
 
-    /** Continues a conversation started on the computer; false, with nothing sent, while a terminal there may have it open. */
-    fun resume(resumableID: String): Boolean {
+    /** Continues a conversation started on the computer; false, with nothing sent, while a terminal there may have it open unless [anyway]. */
+    fun resume(resumableID: String, anyway: Boolean = false): Boolean {
         if (!canImport) return false
         val target = port.resumable.value.orEmpty().firstOrNull { it.id == resumableID } ?: return false
-        if (target.mayBeOpenElsewhere) return false
+        if (target.mayBeOpenElsewhere && !anyway) return false
         port.resume(target)
         recents.record(target.directory)
         return true
     }
 
+    /** The dock's main button: the folder page for the selected agent, or the agent choice while none is selected. */
     fun beginNewChat() {
-        if (chatSupported && agents.isNotEmpty()) step.value = NewChatStep.ChoosingAgent
+        if (!chatSupported || agents.isEmpty()) return
+        val agentID = selectedAgent.value
+        if (agentID == null) {
+            step.value = NewChatStep.ChoosingAgent
+        } else {
+            step.value = NewChatStep.ChoosingFolder(agentID)
+            folders.open(null)
+        }
     }
 
+    fun openAgentPicker() {
+        if (chatSupported && agents.size > 1) step.value = NewChatStep.ChoosingAgent
+    }
+
+    /** Selects the agent the dock chats with, and closes the choice if it was open. */
     fun chooseAgent(agentID: String) {
         if (agents.none { it.id == agentID }) return
-        step.value = NewChatStep.ChoosingFolder(agentID)
-        folders.open(null)
+        selectedAgent.value = agentID
+        if (step.value == NewChatStep.ChoosingAgent) step.value = NewChatStep.Closed
+    }
+
+    /** A new chat with the same agent in the same folder, as close to continuing one as a CLI offers. */
+    fun newChatHere(sessionID: String) {
+        val session = port.chats.value.session(sessionID) ?: return
+        if (agents.none { it.id == session.info.agentID }) return
+        port.start(session.info.agentID, session.info.directory)
+        recents.record(session.info.directory)
     }
 
     /** Starts the chat in the folder the picker is showing; false, with nothing sent, until a listing has arrived. */
-    fun startInChosenFolder(): Boolean {
+    fun startInChosenFolder(): Boolean = startIn(folders.ui.value.usablePath)
+
+    /** Starts the chat in a recent folder without browsing to it first. */
+    fun startInRecentFolder(directory: String): Boolean = directory in recents.paths.value && startIn(directory)
+
+    private fun startIn(directory: String?): Boolean {
         val chosen = step.value as? NewChatStep.ChoosingFolder ?: return false
-        val directory = folders.ui.value.usablePath ?: return false
+        if (directory == null) return false
         port.start(chosen.agentID, directory)
         recents.record(directory)
         step.value = NewChatStep.Closed
         return true
-    }
-
-    fun backToAgents() {
-        if (step.value is NewChatStep.ChoosingFolder) step.value = NewChatStep.ChoosingAgent
     }
 
     fun cancelNewChat() {
@@ -96,6 +123,7 @@ class AgentsHubPresenter(
         currentStep: NewChatStep,
         folderPaths: List<String>,
         listed: List<AgentResumableSession>?,
+        selectedAgentID: String?,
     ): HubUi {
         val cards = chats.sessions.map { session ->
             val pending = session.pendingApprovalCount()
@@ -109,6 +137,7 @@ class AgentsHubPresenter(
                 pendingApprovals = pending,
                 agentName = AgentCatalog.name(session.info.agentID),
                 canPause = AgentEndAction.choose(session, canPause) == AgentEndAction.PAUSE,
+                preview = session.lastReplyPreview(),
             )
         }
         activity.forget(chats.sessions.map { it.id }.toSet())
@@ -119,9 +148,23 @@ class AgentsHubPresenter(
             canImport = canImport,
             selectedSessionID = chats.selectedSessionID,
             agents = agents,
+            agentUsage = agents.map { agentUsage(it.id, cards) },
+            selectedAgentID = selectedAgentID,
             newChat = currentStep,
             failure = chats.failure,
             recentFolders = folderPaths,
+        )
+    }
+
+    private fun agentUsage(agentID: String, cards: List<SessionCard>): AgentUsage {
+        val mine = cards.filter { it.agentID == agentID }
+        val live = mine.filter { it.state != SessionCardState.PAUSED && it.state != SessionCardState.ENDED }
+        return AgentUsage(
+            agentID = agentID,
+            working = live.count { it.state == SessionCardState.WORKING },
+            needsYou = live.count { it.state == SessionCardState.NEEDS_YOU },
+            open = live.size,
+            lastUsedUnix = mine.maxOfOrNull { it.lastActivityUnix },
         )
     }
 

@@ -1,18 +1,18 @@
 package pl.dmq.peering.feature.agents
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,85 +25,90 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.PeeringMenu
 import pl.dmq.peering.ui.kit.PeeringMenuItem
 import pl.dmq.peering.ui.theme.IconTile
-import pl.dmq.peering.ui.theme.OutlinedPanel
 import pl.dmq.peering.ui.theme.PeeringColors
+import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.PillShape
+import pl.dmq.peering.ui.theme.peeringShapes
 
-/** One chat as an outlined card: who and where, what it is doing, and a menu to stop or close it. */
+/**
+ * One chat as the iPhone draws it: the agent's tile, the title, a state pill with the folder beside it, and the
+ * latest reply underneath. A long press offers a new chat here, stopping it to history, and closing it.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SessionCardRow(
     card: SessionCard,
     onOpen: () -> Unit,
+    onNewChatHere: () -> Unit,
     onPause: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    OutlinedPanel(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
-            .clickable(onClick = onOpen),
-        contentPadding = PaddingValues(start = 16.dp, top = 8.dp, bottom = 12.dp, end = 4.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            IconTile(AgentBrand.of(card.agentID).icon(), size = 44.dp)
-            Column(Modifier.weight(1f)) {
-                Text(card.title, style = MaterialTheme.typography.titleMedium, color = PeeringColors.ink, maxLines = 1)
-                Text(
-                    "${card.agentName}  ·  ${card.directory}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = PeeringColors.muted,
-                    maxLines = 1,
-                )
-            }
-            CardMenu(card, onPause, onClose)
-        }
-        Row(
-            modifier = Modifier.padding(top = 8.dp, end = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+    var menuOpen by remember { mutableStateOf(false) }
+    Box(modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(peeringShapes.medium)
+                .border(1.dp, PeeringColors.hairline, peeringShapes.medium)
+                .combinedClickable(onClick = onOpen, onLongClick = { menuOpen = true })
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (card.preview != null) 10.dp else 0.dp),
         ) {
-            StatusChip(card.state)
-            if (card.pendingApprovals > 0) {
-                Text(
-                    pluralStringResource(R.plurals.agents_pending_approvals, card.pendingApprovals, card.pendingApprovals),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = PeeringColors.caution,
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconTile(AgentBrand.of(card.agentID).icon(), size = 42.dp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(
+                        card.title,
+                        style = PeeringText.subheadlineSemibold.copy(fontSize = 15.5.sp),
+                        color = PeeringColors.ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                        StatePill(card.state)
+                        FolderAndAgent(card)
+                    }
+                }
             }
-            Text(lastActivityLabel(card.lastActivityUnix), style = MaterialTheme.typography.labelMedium, color = PeeringColors.faint)
+            card.preview?.let { Preview(it) }
         }
-    }
-}
-
-@Composable
-private fun CardMenu(card: SessionCard, onPause: () -> Unit, onClose: () -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { open = true }, modifier = Modifier.size(48.dp)) {
-            Icon(AppIcons.more, contentDescription = stringResource(R.string.agents_chat_options), tint = PeeringColors.muted)
-        }
-        PeeringMenu(open, { open = false }) {
+        PeeringMenu(menuOpen, { menuOpen = false }) {
+            PeeringMenuItem(
+                title = stringResource(R.string.agents_new_chat_here),
+                icon = AgentIcons.plus,
+                onClick = {
+                    menuOpen = false
+                    onNewChatHere()
+                },
+            )
             if (card.canPause) {
                 PeeringMenuItem(
                     title = stringResource(R.string.agents_stop_to_history),
+                    icon = AgentIcons.archive,
+                    destructive = true,
                     onClick = {
-                        open = false
+                        menuOpen = false
                         onPause()
                     },
                 )
             }
             PeeringMenuItem(
-                title = stringResource(R.string.agents_end_chat),
+                title = stringResource(R.string.agents_close_chat),
+                icon = AppIcons.close,
                 destructive = true,
                 onClick = {
-                    open = false
+                    menuOpen = false
                     onClose()
                 },
             )
@@ -112,18 +117,62 @@ private fun CardMenu(card: SessionCard, onPause: () -> Unit, onClose: () -> Unit
 }
 
 @Composable
-private fun StatusChip(state: SessionCardState) {
-    val color = stateColor(state)
+private fun FolderAndAgent(card: SessionCard) {
+    val folder = card.directory.trimEnd('/').substringAfterLast('/')
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (folder.isNotEmpty()) {
+            Icon(AppIcons.folder, contentDescription = null, tint = PeeringColors.muted, modifier = Modifier.size(11.dp))
+            Text(
+                folder,
+                style = PeeringText.caption.copy(fontSize = 11.5.sp, fontFamily = FontFamily.Monospace),
+                color = PeeringColors.muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+        }
+        if (!card.title.contains(card.agentName, ignoreCase = true)) {
+            Text(card.agentName, style = PeeringText.caption, color = PeeringColors.muted, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun Preview(text: String) {
+    Text(
+        text,
+        style = PeeringText.footnote.copy(fontSize = 13.sp),
+        color = PeeringColors.ink.copy(alpha = 0.62f),
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(peeringShapes.extraSmall)
+            .background(PeeringColors.surface)
+            .padding(horizontal = 11.dp, vertical = 8.dp),
+    )
+}
+
+/** Outlined and tinted: the caution hue for a chat waiting on you, the danger hue for a failure, white shades otherwise. */
+@Composable
+private fun StatePill(state: SessionCardState) {
+    val tint = stateColor(state)
     Row(
         modifier = Modifier
             .clip(PillShape)
-            .background(color.copy(alpha = 0.14f))
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .border(1.dp, tint.copy(alpha = 0.35f), PillShape)
+            .padding(horizontal = 10.dp)
+            .heightIn(min = 26.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        Box(Modifier.size(6.dp).clip(PillShape).background(color))
-        Text(stateLabel(state), style = MaterialTheme.typography.labelMedium, color = color)
+        when (state) {
+            SessionCardState.WORKING -> Box(Modifier.size(6.dp).clip(PillShape).background(tint))
+            SessionCardState.NEEDS_YOU -> Icon(AgentIcons.hand, contentDescription = null, tint = tint, modifier = Modifier.size(11.dp))
+            SessionCardState.FAILED -> Icon(AppIcons.warning, contentDescription = null, tint = tint, modifier = Modifier.size(11.dp))
+            else -> Unit
+        }
+        Text(stateLabel(state), style = PeeringText.captionSemibold.copy(fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold), color = tint, maxLines = 1)
     }
 }
 
@@ -132,7 +181,7 @@ private fun stateLabel(state: SessionCardState): String = stringResource(
     when (state) {
         SessionCardState.WORKING -> R.string.agents_state_working
         SessionCardState.NEEDS_YOU -> R.string.agents_state_needs_you
-        SessionCardState.IDLE -> R.string.agents_state_idle
+        SessionCardState.IDLE -> R.string.agents_state_finished
         SessionCardState.ENDED -> R.string.agents_state_ended
         SessionCardState.FAILED -> R.string.agents_state_failed
         SessionCardState.PAUSED -> R.string.agents_state_paused
@@ -142,8 +191,9 @@ private fun stateLabel(state: SessionCardState): String = stringResource(
 private fun stateColor(state: SessionCardState): Color = when (state) {
     SessionCardState.NEEDS_YOU -> PeeringColors.caution
     SessionCardState.FAILED -> PeeringColors.danger
-    SessionCardState.WORKING -> PeeringColors.accent
-    SessionCardState.IDLE, SessionCardState.ENDED, SessionCardState.PAUSED -> PeeringColors.muted
+    SessionCardState.WORKING -> PeeringColors.ink.copy(alpha = 0.85f)
+    SessionCardState.IDLE -> PeeringColors.ink.copy(alpha = 0.5f)
+    SessionCardState.ENDED, SessionCardState.PAUSED -> PeeringColors.ink.copy(alpha = 0.4f)
 }
 
 @Composable

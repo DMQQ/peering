@@ -2,6 +2,7 @@ package pl.dmq.peering.feature.agents
 
 import pl.dmq.peering.session.agent.AgentChatSession
 import pl.dmq.peering.session.agent.isPaused
+import pl.dmq.peering.session.agent.TranscriptRow
 import pl.dmq.peering.session.agent.pendingApprovals
 import pl.dmq.peering.wire.AgentSessionState
 
@@ -16,6 +17,7 @@ data class SessionCard(
     val pendingApprovals: Int,
     val agentName: String,
     val canPause: Boolean = false,
+    val preview: String? = null,
 )
 
 enum class SessionCardState {
@@ -37,3 +39,7 @@ internal fun AgentChatSession.cardState(pendingApprovals: Int): SessionCardState
 }
 
 internal fun AgentChatSession.pendingApprovalCount(): Int = pendingApprovals(transcript.rows).size
+
+internal fun AgentChatSession.lastReplyPreview(): String? =
+    transcript.rows.lastOrNull { it is TranscriptRow.AssistantText }
+        ?.let { (it as TranscriptRow.AssistantText).text.trim().takeIf(String::isNotEmpty) }

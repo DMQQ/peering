@@ -95,6 +95,15 @@ class HubHistoryAndImportTest {
     }
 
     @Test
+    fun aConversationOpenElsewhereIsContinuedWhenTheUserConfirmsAnyway() {
+        val port = FakeAgentsPort()
+        port.resumableList.value = listOf(AgentResumableSession("claude", "cli2", "/other", "Busy", 200.0, mayBeOpenElsewhere = true))
+        val presenter = hub(port)
+        assertTrue(presenter.resume("claude:cli2", anyway = true))
+        assertEquals(listOf("resume:claude:cli2"), port.calls)
+    }
+
+    @Test
     fun noImportSectionWithoutHostSupport() {
         val port = FakeAgentsPort(capabilities = AgentCapabilities(chat = true))
         port.resumableList.value = listOf(resumable())
