@@ -89,6 +89,7 @@ or coalesced in one read, and MUST fail on an unknown kind (`Framing.swift:155-1
 | 0x20 | previewRequest | C to H | JSON `PreviewProxyCommand` |
 | 0x21 | previewEvent | H to C | JSON `PreviewProxyEvent` |
 | 0x22 | pointerReport | H to C | JSON `NormalizedPoint`, only to a client that declared `supportsPointerReport` |
+| 0x23 | clientState | C to H | JSON `{"background": bool}`, only to a host that declared `supportsClientState` |
 
 (0x12 is unused.) A host that does not implement a kind it was never sent need not decode it. A host that receives
 a kind it does not implement MUST ignore it rather than close, unless it is malformed.
@@ -210,7 +211,7 @@ Hello flags are the whole capability mechanism. A flag absent or false means uns
 `supportsVideoPause`, `supportsClipboardImages`, `supportsMosaic`, `supportsSourceThumbnails`, `supportsDeviceOrientation`,
 `supportsVirtualDisplayManagement`, `pushesTerminalAlertsWhileConnected`, `supportsAgentList`, `supportsAgentChat`,
 `supportsFileBrowser`, `supportsAgentModelPicker`, `agentChatAgents` (array of strings), `supportsAgentPermissionModes`,
-`supportsAgentUsage`, `supportsAgentSessionImport`, `supportsAgentPause`.
+`supportsAgentUsage`, `supportsAgentSessionImport`, `supportsAgentPause`, `supportsClientState`.
 
 Additive fields, read by the Mac host from the build after the shipped one (older builds ignore them): `ClientHello.clientPlatform`,
 `ClientHello.videoCodecs` (ordered array of `"h264"`/`"hevc"`, best first), `ServerHello.hostPlatform` (`"macos"` from the Mac host).
@@ -267,6 +268,13 @@ bit 8 asks for the F-key's printed action (`Modifiers.topRowAction`). See [keyma
 * `error` (0x0D): `{code, message}`. The code `hostStopped` means the user pressed Stop; the client MUST NOT reconnect.
 * `notice` (0x10): `{message?, symbol?, lockedDisplayID?}`; a nil message clears a standing condition.
 * `videoTransport` (0x18): `{transport:"primary"|"control", reason}`. The host may decline.
+* `clientState` (0x23): `{"background": true}` or `{"background": false}`, control lane, never answered. An OS may freeze a
+  backgrounded client with its sockets open and tell the host nothing, so a client that leaves the foreground says so
+  first. A client MUST send it only to a host whose `ServerHello` carried `supportsClientState: true`, and only on a
+  change. On `true` the host stops sending video to that session exactly as for `setVideoEnabled(false)` and allows the
+  session 180 s of silence instead of 60 s. On `false` it restores the 60 s limit, resumes video (with a keyframe) unless
+  the client had paused the picture itself, and a client that never returns is still reaped at 180 s. A client that keeps
+  drawing in the background (picture in picture) sends `false` while it does. No protocol version change.
 * Terminal, file and agent requests and events are JSON enums in `TerminalWire.swift` and `AgentWire.swift`
   (documented by the vectors; a prose reference for each is a follow-up). File paths are POSIX shaped and the permissions
   string is a 10 character `ls -l` style mode. A non-POSIX host presents a virtual tree (`/C:/Users/me`).

@@ -90,6 +90,9 @@ struct MacCastApp: App {
                     // Handed over once so Siri and Shortcuts have something to reach: intents cannot read a view hierarchy (see ``IntentHost``).
                     IntentHost.model = model
                     IntentHost.servers = servers
+                    SessionPiP.shared.onActiveChanged = { [weak model] active in
+                        model?.pictureInPictureChanged(active: active)
+                    }
                     NotificationRoute.deliverPending()
                     // Browsing triggers the local network permission prompt. Defer it until
                     // after the welcome flow so a first-run user sees onboarding first.
@@ -108,8 +111,11 @@ struct MacCastApp: App {
                         SessionNotifier.shared.retractAll()
                         model.enteringForeground()
                         Analytics.appOpened(plan: model.storeManager.access.plan)
+                    case .inactive:
+                        model.leavingForeground()
                     case .background:
                         CrashLog.setForeground(false)
+                        model.leavingForeground()
                         // The few seconds iOS grants before suspending: the session still ends when that runs out (``SessionModel/backgroundTimeExpired()``), but tidy, with the Mac told and the Live Activity taken down.
                         model.enteringBackground()
                     default:

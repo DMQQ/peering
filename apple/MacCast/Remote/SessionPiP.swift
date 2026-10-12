@@ -33,6 +33,9 @@ final class SessionPiP: NSObject {
     /// PiP refuses without naming the missing prerequisite, so the reason is shown on screen.
     private(set) var lastRefusal: String?
 
+    /// Told when the floating window appears or goes, so the Mac keeps sending while it is up.
+    var onActiveChanged: ((Bool) -> Void)?
+
     private var controller: AVPictureInPictureController?
 
     /// Held weakly: `RemoteScreen` is rebuilt per session and a strong ref would keep a torn-down view and its layer alive.
@@ -157,10 +160,12 @@ final class SessionPiP: NSObject {
 extension SessionPiP: AVPictureInPictureControllerDelegate {
     func pictureInPictureControllerDidStartPictureInPicture(_ controller: AVPictureInPictureController) {
         videoLog.notice("Picture in Picture started")
+        onActiveChanged?(true)
     }
 
     func pictureInPictureControllerDidStopPictureInPicture(_ controller: AVPictureInPictureController) {
         videoLog.notice("Picture in Picture stopped")
+        onActiveChanged?(false)
     }
 
     /// The session screen never left the hierarchy, so tell AVKit restoration is ready when the user taps return.

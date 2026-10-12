@@ -74,6 +74,9 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
 
     /// Where the Mac's pointer is after something other than this client moved it. JSON-encoded ``NormalizedPoint``. Sent only to a client that declared ``ClientHello/supportsPointerReport``.
     case pointerReport = 0x22
+
+    /// The client app left or returned to the foreground. JSON-encoded ``ClientStatePayload``. Sent only to a host that declared ``ServerHello/supportsClientState``.
+    case clientState = 0x23
 }
 
 public enum FramingError: Error, LocalizedError, Equatable, Sendable {

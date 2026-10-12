@@ -174,6 +174,8 @@ msgs = [
  ("ping", 0x0B, {"sequence": 7}, "computed"),
  ("videoKey", 0x1A, {"secret": base64.b64encode(video_secret).decode()}, "computed"),
  ("videoTransport", 0x18, {"transport": "control", "reason": "no picture for 3 s"}, "computed"),
+ ("clientState background", 0x23, {"background": True}, "swift-test ClientStateTests.swift"),
+ ("clientState foreground", 0x23, {"background": False}, "swift-test ClientStateTests.swift"),
 ]
 write("messages.json", {"cases": [{"name": n, "kind": k_, "json": js(o), "frame": hx(frame(k_, js(o).encode())), "source": s} for n, k_, o, s in msgs]})
 print("ok")

@@ -167,6 +167,20 @@
    "json": "{\"reason\":\"no picture for 3 s\",\"transport\":\"control\"}",
    "frame": "00000036187b22726561736f6e223a226e6f207069637475726520666f7220332073222c227472616e73706f7274223a22636f6e74726f6c227d",
    "source": "computed"
+  },
+  {
+   "name": "clientState background",
+   "kind": 35,
+   "json": "{\"background\":true}",
+   "frame": "00000014237b226261636b67726f756e64223a747275657d",
+   "source": "swift-test ClientStateTests.swift"
+  },
+  {
+   "name": "clientState foreground",
+   "kind": 35,
+   "json": "{\"background\":false}",
+   "frame": "00000015237b226261636b67726f756e64223a66616c73657d",
+   "source": "swift-test ClientStateTests.swift"
   }
  ]
 }

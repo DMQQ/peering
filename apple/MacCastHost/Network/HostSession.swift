@@ -111,6 +111,14 @@ final class HostSession: @unchecked Sendable {
     /// When the last frame arrived from this client, and what stops a session outliving its peer.
     var lastHeard = DispatchTime.now()
 
+    /// What the client said about being in the background, and the picture decision that follows from it.
+    var pictureState = ClientPictureState()
+
+    /// How long this session may stay silent: longer once the client said it left the foreground.
+    var silenceLimit: TimeInterval {
+        SessionSilenceLimits.limit(isAuthorized: isAuthorized, clientInBackground: pictureState.inBackground)
+    }
+
     /// Seconds since anything arrived from this client.
     var silence: TimeInterval {
         Double(DispatchTime.now().uptimeNanoseconds - lastHeard.uptimeNanoseconds) / 1_000_000_000
