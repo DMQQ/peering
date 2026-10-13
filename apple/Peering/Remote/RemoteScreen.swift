@@ -13,6 +13,7 @@ struct RemoteScreen: View {
     @State var streamLooksPaused = false
     @State var dictation = VoiceDictation()
     @State var barDrag: CGFloat = 0
+    @State var panelDrag: CGFloat = 0
     @AppStorage(PreferenceKeys.keyboardShortcutsExpanded) var shortcutsExpanded = false
     var shortcutsCollapsed: Bool { !shortcutsExpanded }
 
@@ -386,7 +387,6 @@ struct RemoteScreen: View {
         .animation(Motion.settle, value: shortcutsExpanded)
         .padding(.horizontal, 14)
         .padding(.vertical, deviceIsLandscape ? 8 : 12)
-        .matchedGeometryEffect(id: "surface", in: floatingSurface)
         .glassSurface(in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous))
         .padding(.horizontal, ChromeMetrics.edgeInset)
         .padding(.top, deviceIsLandscape ? 4 : ChromeMetrics.edgeInset)

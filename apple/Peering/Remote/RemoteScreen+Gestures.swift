@@ -139,9 +139,8 @@ extension RemoteScreen {
             onMosaicDrop: { dropHeldTile() },
             onPictureTap: {
                 if statusBarExpanded { collapseStatusBar() }
-                guard openPanel != nil else { return false }
-                withAnimation(Motion.settle) { openPanel = nil }
-                return true
+                // An open panel no longer swallows the tap: the picture stays usable under it, and the panel is closed by its handle.
+                return false
             },
         )
         .ignoresSafeArea()
