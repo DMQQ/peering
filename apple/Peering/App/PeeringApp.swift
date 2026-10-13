@@ -100,6 +100,9 @@ struct PeeringApp: App {
                     model.memoryWarningReceived()
                     servers.trimMemory()
                 }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
+                    LiveActivityShutdown.endEverything()
+                }
                 .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
                     model.powerStateChanged()
                 }
