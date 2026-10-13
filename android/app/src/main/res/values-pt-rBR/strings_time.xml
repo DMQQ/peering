@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="time_just_now">agora há pouco</string>
+    <plurals name="time_minutes_ago">
+        <item quantity="one">há %d minuto</item>
+        <item quantity="many">há %d minutos</item>
+        <item quantity="other">há %d minutos</item>
+    </plurals>
+    <plurals name="time_hours_ago">
+        <item quantity="one">há %d hora</item>
+        <item quantity="many">há %d horas</item>
+        <item quantity="other">há %d horas</item>
+    </plurals>
+    <plurals name="time_days_ago">
+        <item quantity="one">há %d dia</item>
+        <item quantity="many">há %d dias</item>
+        <item quantity="other">há %d dias</item>
+    </plurals>
+    <plurals name="time_minutes_ahead">
+        <item quantity="one">em %d minuto</item>
+        <item quantity="many">em %d minutos</item>
+        <item quantity="other">em %d minutos</item>
+    </plurals>
+    <plurals name="time_hours_ahead">
+        <item quantity="one">em %d hora</item>
+        <item quantity="many">em %d horas</item>
+        <item quantity="other">em %d horas</item>
+    </plurals>
+    <plurals name="time_days_ahead">
+        <item quantity="one">em %d dia</item>
+        <item quantity="many">em %d dias</item>
+        <item quantity="other">em %d dias</item>
+    </plurals>
+</resources>

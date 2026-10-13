@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="plan_pro">Pro</string>
+    <string name="plan_pro_yearly">Pro, anual</string>
+    <string name="plan_pro_note">Tempo ilimitado fora, a imagem mais nítida pelo relay</string>
+    <string name="plan_lifetime_note">Tudo do Pro, pago uma vez</string>
+    <string name="plan_button_monthly">Continuar com o Pro · %1$s/mês</string>
+    <string name="plan_button_yearly">Continuar com o Pro · %1$s/ano</string>
+    <string name="plan_button_lifetime">Obter o Vitalício · %1$s</string>
+    <string name="paywall_unavailable_body">Se você já assinou antes, restaurar deve trazer a assinatura de volta. Caso contrário, costuma ser temporário.</string>
+</resources>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="changes_menu">Alterações</string>
+    <string name="changes_title">Alterações</string>
+    <string name="changes_close">Fechar</string>
+    <string name="changes_back">Voltar aos arquivos</string>
+    <string name="changes_refresh">Atualizar</string>
+    <string name="changes_none">Sem alterações</string>
+    <plurals name="changes_count">
+        <item quantity="one">%d arquivo alterado</item>
+        <item quantity="many">%d arquivos alterados</item>
+        <item quantity="other">%d arquivos alterados</item>
+    </plurals>
+    <string name="changes_truncated">Este projeto é grande, então só parte dele é listada.</string>
+    <string name="changes_waiting">Perguntando ao seu computador</string>
+    <string name="changes_empty">Nada mudou nesta pasta ainda.</string>
+    <string name="changes_kind_modified">Modificado</string>
+    <string name="changes_kind_added">Adicionado</string>
+    <string name="changes_kind_deleted">Excluído</string>
+    <string name="changes_kind_untracked">Novo, ainda não rastreado pelo git</string>
+    <string name="changes_no_diff">Não há diff de texto para mostrar neste arquivo.</string>
+    <string name="changes_comment_file">Comentar este arquivo</string>
+    <string name="changes_comment_hint">Comentário</string>
+    <string name="changes_comment_add">Adicionar</string>
+    <string name="changes_comment_cancel">Cancelar</string>
+    <string name="changes_comment_remove">Remover comentário</string>
+    <plurals name="changes_send_comments">
+        <item quantity="one">Enviar %d comentário ao agente</item>
+        <item quantity="many">Enviar %d comentários ao agente</item>
+        <item quantity="other">Enviar %d comentários ao agente</item>
+    </plurals>
+    <string name="changes_commented">%d comentários neste arquivo</string>
+
+    <string name="review_prompt_intro">Por favor, trate estes comentários de revisão nas suas alterações.</string>
+    <string name="review_prompt_removed">(linha removida pela alteração)</string>
+    <plurals name="review_prompt_left_out">
+        <item quantity="one">Mais %d comentário não coube e não está incluído.</item>
+        <item quantity="many">Mais %d comentários não couberam e não estão incluídos.</item>
+        <item quantity="other">Mais %d comentários não couberam e não estão incluídos.</item>
+    </plurals>
+
+    <string name="commit_title">Fazer commit</string>
+    <string name="commit_files">Arquivos a incluir</string>
+    <string name="commit_none">Nada mudou nesta pasta.</string>
+    <string name="commit_message">Mensagem de commit</string>
+    <plurals name="commit_button">
+        <item quantity="one">Fazer commit de %d arquivo</item>
+        <item quantity="many">Fazer commit de %d arquivos</item>
+        <item quantity="other">Fazer commit de %d arquivos</item>
+    </plurals>
+    <string name="commit_busy">Fazendo commit</string>
+    <string name="commit_this_folder">esta pasta</string>
+    <plurals name="commit_confirm_title">
+        <item quantity="one">Fazer commit de %1$d arquivo em %2$s?</item>
+        <item quantity="many">Fazer commit de %1$d arquivos em %2$s?</item>
+        <item quantity="other">Fazer commit de %1$d arquivos em %2$s?</item>
+    </plurals>
+    <string name="commit_confirm">Fazer commit</string>
+    <string name="commit_done">Commit feito</string>
+    <string name="commit_failed">O commit não foi feito</string>
+    <string name="push_done">Push feito</string>
+    <string name="push_failed">O push não aconteceu</string>
+    <string name="push_title">Push</string>
+    <plurals name="push_ready">
+        <item quantity="one">%1$d commit em %2$s ainda não está em %3$s.</item>
+        <item quantity="many">%1$d commits em %2$s ainda não estão em %3$s.</item>
+        <item quantity="other">%1$d commits em %2$s ainda não estão em %3$s.</item>
+    </plurals>
+    <string name="push_nothing">Tudo nesta branch já foi enviado.</string>
+    <string name="push_unreadable">Não foi possível ler a branch desta pasta.</string>
+    <string name="push_detached">Esta pasta não está em uma branch (HEAD desanexado), então não há nada para enviar.</string>
+    <string name="push_no_upstream">Esta branch não tem upstream. Defina um no seu computador e depois faça o push daqui.</string>
+    <string name="push_button">Push</string>
+    <string name="push_busy">Fazendo push</string>
+    <string name="push_confirm_title">Fazer push de %1$s para %2$s?</string>
+</resources>

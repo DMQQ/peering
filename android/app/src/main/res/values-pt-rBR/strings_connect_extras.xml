@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connect_wake">Acordar computador pela LAN</string>
+    <string name="connect_wake_refusal_no_address">Ainda não há endereço de hardware salvo. Conecte uma vez primeiro.</string>
+    <string name="connect_wake_refusal_awake">Esse computador já está ligado.</string>
+    <string name="connect_wake_no_address">Não há endereço de hardware salvo para esse computador, então não há para onde enviar um pacote de despertar.</string>
+    <string name="connect_wake_unreadable">Não foi possível ler o endereço de hardware salvo desse computador, então nenhum pacote de despertar foi enviado.</string>
+    <plurals name="connect_wake_sent">
+        <item quantity="one">Pacote de despertar enviado a %d endereço de hardware. Ele só alcança um computador nesta rede.</item>
+        <item quantity="many">Pacote de despertar enviado a %d endereços de hardware. Ele só alcança um computador nesta rede.</item>
+        <item quantity="other">Pacote de despertar enviado a %d endereços de hardware. Ele só alcança um computador nesta rede.</item>
+    </plurals>
+    <string name="session_failed_key_changed">A chave deste computador mudou desde que você o pareou. Se você não esperava isso, não se conecte. Para confiar na nova chave, esqueça o computador aqui e pareie de novo.</string>
+    <string name="session_failed_wrong_computer">O computador que respondeu não é o que você pediu. Esqueça-o aqui e pareie de novo se ele mudou de lugar.</string>
+    <string name="session_failed_no_pin">Este telefone não confia mais nesse computador. Pareie de novo para conectar.</string>
+    <string name="link_end_title">Encerrar esta sessão?</string>
+    <string name="link_end_message">Um link de fora do Peering pediu para desconectar você do seu computador.</string>
+    <string name="link_end_confirm">Encerrar sessão</string>
+</resources>

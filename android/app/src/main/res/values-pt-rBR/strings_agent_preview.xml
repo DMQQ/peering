@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_menu">Pré-visualização web</string>
+    <string name="preview_title">Pré-visualização web</string>
+    <string name="preview_done">Concluído</string>
+    <string name="preview_address_hint">localhost:3000</string>
+    <string name="preview_back">Voltar</string>
+    <string name="preview_reload">Recarregar</string>
+    <string name="preview_start_title">Abrir um servidor em execução no seu computador</string>
+    <string name="preview_start_detail">Digite uma porta ou escolha uma que esteja respondendo agora. Só é possível abrir localhost e 127.0.0.1 do computador.</string>
+    <string name="preview_found_none">Nada encontrado nas portas usuais</string>
+    <string name="preview_found_some">No computador agora</string>
+    <string name="preview_look_again">Verificar de novo</string>
+    <string name="preview_port_label">:%1$d</string>
+    <string name="preview_note_live_reload">O live reload por WebSocket não é transportado aqui. Recarregue para ver as alterações. Formulários e requisições que enviam dados também não são transportados.</string>
+    <string name="preview_notice_only_loopback">Aqui só é possível abrir localhost e 127.0.0.1, com uma porta.</string>
+    <string name="preview_notice_links_outside">Links fora do localhost não são abertos aqui.</string>
+    <string name="preview_try_again">Tentar de novo</string>
+    <string name="preview_fail_not_listening">Nada está escutando ali</string>
+    <string name="preview_fail_not_listening_detail">Peça ao agente para iniciar o servidor, ou confira a porta, e tente novamente.</string>
+    <string name="preview_fail_disconnected">Sem conexão com o computador</string>
+    <string name="preview_fail_disconnected_detail">Reconecte ao computador e tente de novo.</string>
+    <string name="preview_fail_timed_out">O servidor não respondeu</string>
+    <string name="preview_fail_timed_out_detail">Aceitou a conexão, mas não enviou nada de volta.</string>
+    <string name="preview_fail_other">Não foi possível abrir a página</string>
+    <string name="preview_fail_too_large_detail">Essa solicitação era grande demais para ser enviada pela pré-visualização.</string>
+    <string name="preview_fail_not_allowed_detail">A pré-visualização só consegue abrir páginas simples no localhost.</string>
+    <string name="preview_fail_busy_detail">Há solicitações demais em espera. Tente de novo em instantes.</string>
+    <string name="preview_fail_failed_detail">O computador não conseguiu buscá-la.</string>
+    <string name="preview_reply_not_carried">Requisições que enviam dados não são transportadas pela pré-visualização.</string>
+</resources>

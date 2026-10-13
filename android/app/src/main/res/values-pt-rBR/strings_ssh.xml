@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_servers">Servidores</string>
+
+    <string name="ssh_title">Servidores</string>
+    <string name="ssh_detail">Shells em máquinas que você adicionou à mão.</string>
+    <string name="ssh_section_open">Abrir</string>
+    <string name="ssh_section_servers">Servidores</string>
+    <string name="ssh_add">Adicionar um servidor</string>
+    <string name="ssh_empty_title">Nenhum servidor ainda</string>
+    <string name="ssh_empty_body">Adicione uma máquina que você acessa por SSH e abra um shell nela daqui.</string>
+    <string name="ssh_this_server">Este servidor</string>
+
+    <string name="ssh_row_locked">%1$s · Bloqueado</string>
+    <string name="ssh_row_connecting">%1$s · Conectando</string>
+    <string name="ssh_row_live">%1$s · Ao vivo</string>
+    <string name="ssh_row_ended">%1$s · Encerrado</string>
+    <string name="ssh_row_more">Mais opções para %1$s</string>
+    <string name="ssh_menu_edit">Editar</string>
+    <string name="ssh_menu_public_key">Chave pública</string>
+    <string name="ssh_menu_forget_signin">Esquecer como entrar</string>
+    <string name="ssh_menu_forget_key">Esquecer a chave</string>
+    <string name="ssh_menu_delete">Excluir</string>
+    <string name="ssh_menu_end">Encerrar conexão</string>
+
+    <string name="ssh_forget_title">Esquecer como entrar?</string>
+    <string name="ssh_forget_body">%1$s pedirá uma senha na próxima vez que você abrir um shell. Nada no servidor em si é alterado, e qualquer chave que já esteja em authorized_keys continua lá.</string>
+    <string name="ssh_forget_confirm">Esquecer</string>
+    <string name="ssh_forget_keep">Manter</string>
+
+    <string name="ssh_editor_add_title">Novo servidor</string>
+    <string name="ssh_editor_edit_title">Editar servidor</string>
+    <string name="ssh_save">Salvar</string>
+    <string name="ssh_cancel">Cancelar</string>
+    <string name="ssh_server_card">Servidor</string>
+    <string name="ssh_server_footer">Nome é como a linha se chama; deixe vazio e o host é usado. A porta é 22, a menos que seu servidor diga outra.</string>
+    <string name="ssh_field_name">Nome (opcional)</string>
+    <string name="ssh_field_host">Host</string>
+    <string name="ssh_field_port">Porta</string>
+    <string name="ssh_field_user">Usuário</string>
+    <string name="ssh_error_host_empty">Digite o nome do host ou o endereço.</string>
+    <string name="ssh_error_host_invalid">Isso não é um nome de host. Deixe de fora o nome de usuário e qualquer prefixo ssh://.</string>
+    <string name="ssh_error_port">A porta precisa ser um número de 1 a 65535.</string>
+    <string name="ssh_error_user">Digite o usuário com o qual entrar.</string>
+
+    <string name="ssh_lock_card">Bloqueio</string>
+    <string name="ssh_lock_ask">Pedir</string>
+    <string name="ssh_lock_nothing">Nada</string>
+    <string name="ssh_lock_passcode">Código de acesso</string>
+    <string name="ssh_lock_device">Desbloqueio do dispositivo</string>
+    <string name="ssh_lock_footer_off">Um toque neste servidor abre um shell na hora.</string>
+    <string name="ssh_lock_footer_passcode">Seis dígitos, guardados no armazenamento seguro deste telefone. Voltar o bloqueio para Nada os esquece.</string>
+    <string name="ssh_lock_footer_device">Sua digital, seu rosto ou o bloqueio de tela é pedido antes de o shell abrir.</string>
+    <string name="ssh_lock_choose">Escolha um código</string>
+    <string name="ssh_lock_again">Mais uma vez, para ter certeza.</string>
+    <string name="ssh_lock_mismatch">Esses dois não coincidem. Comece de novo.</string>
+    <string name="ssh_lock_enter">Isto será pedido antes de este servidor abrir.</string>
+    <string name="ssh_lock_wrong">Esse não é o código de acesso.</string>
+    <string name="ssh_lock_change">Alterar código de acesso</string>
+    <string name="ssh_unlock_title">Desbloquear %1$s</string>
+    <string name="ssh_unlock_device">Desbloquear com seu dispositivo</string>
+    <string name="ssh_unlock_reason">Abrir um shell em %1$s.</string>
+    <string name="ssh_unlock_delete">Apagar dígito</string>
+
+    <string name="ssh_signin_card">Entrar com</string>
+    <string name="ssh_signin_using">Usando</string>
+    <string name="ssh_signin_password">Senha</string>
+    <string name="ssh_signin_key">Chave</string>
+    <string name="ssh_signin_password_footer">A senha é pedida quando você abre um shell. Escolha Lembrar nesse aviso para guardá-la no armazenamento seguro deste telefone.</string>
+    <string name="ssh_signin_key_footer">Uma chave substitui a senha deste servidor, e não fica ao lado de uma. A metade privada fica no armazenamento seguro deste telefone; a metade pública é a linha que você coloca em ~/.ssh/authorized_keys no servidor.</string>
+    <string name="ssh_signin_key_missing">Escolha uma chave</string>
+
+    <string name="ssh_key_title">Chave</string>
+    <string name="ssh_key_public">Chave pública</string>
+    <string name="ssh_key_public_footer">Acrescente esta linha a ~/.ssh/authorized_keys no servidor. A metade privada fica no armazenamento seguro deste telefone e nunca é enviada a lugar nenhum, a não ser como assinatura.</string>
+    <string name="ssh_key_copy">Copiar a chave pública</string>
+    <string name="ssh_key_copied">Chave pública copiada</string>
+    <string name="ssh_key_where">De onde</string>
+    <string name="ssh_key_generate">Criar uma nova chave</string>
+    <string name="ssh_key_import_file">Importar um arquivo de chave</string>
+    <string name="ssh_key_paste">Colar uma chave</string>
+    <string name="ssh_key_from_generate">Para um servidor para o qual você ainda não configurou uma chave. É uma chave ed25519, o tipo que o OpenSSH cria por padrão.</string>
+    <string name="ssh_key_from_paste">A metade privada, não a pública. Se o que você tem começa com ssh-ed25519, essa é a metade que o servidor quer.</string>
+    <string name="ssh_key_name">Nome</string>
+    <string name="ssh_key_name_footer">Apenas um rótulo. É o que o servidor mostra ao lado da chave e distingue sua chave da que seu notebook usa.</string>
+    <string name="ssh_key_text">Chave privada</string>
+    <string name="ssh_key_has_passphrase">Tem uma frase secreta</string>
+    <string name="ssh_key_passphrase">Frase secreta</string>
+    <string name="ssh_key_passphrase_footer">Só se a chave tiver uma. Ela é guardada no armazenamento seguro deste telefone junto à chave, porque um telefone não tem ssh-agent para perguntar.</string>
+    <string name="ssh_key_use">Usar esta chave</string>
+    <string name="ssh_key_err_not_private">Isso não é uma chave privada. Uma chave privada começa com -----BEGIN OPENSSH PRIVATE KEY-----. Se você colou uma linha que começa com ssh-ed25519, essa é a metade pública, que vai no servidor e não aqui.</string>
+    <string name="ssh_key_err_malformed">Não foi possível ler esta chave: %1$s</string>
+    <string name="ssh_key_err_needs_passphrase">Esta chave tem uma frase secreta. Digite-a para o app poder desbloquear a chave ao conectar.</string>
+    <string name="ssh_key_err_wrong_passphrase">Essa frase secreta não desbloqueou esta chave.</string>
+    <string name="ssh_key_err_file">Não foi possível ler esse arquivo.</string>
+
+    <string name="ssh_hostkey_title">Esta é a máquina certa?</string>
+    <string name="ssh_hostkey_body">É a primeira vez que você se conecta a %1$s. Confira a impressão digital com o próprio servidor. A maioria dos provedores a mostra no console, e ssh-keygen -lf a imprime na máquina.</string>
+    <string name="ssh_hostkey_trust">Confiar</string>
+    <string name="ssh_changed_title">A chave do servidor mudou</string>
+    <string name="ssh_changed_body">A chave do servidor mudou desde a última vez que você se conectou. Se não foi você, não continue.</string>
+    <string name="ssh_changed_known">Salva: %1$s %2$s</string>
+    <string name="ssh_changed_offered">Oferecida agora: %1$s %2$s</string>
+    <string name="ssh_changed_help">Se você reinstalou o servidor ou sabe por que a chave mudou, use Esquecer a chave no menu do servidor e conecte de novo. Se não sabe, alguém pode estar entre você e o servidor.</string>
+
+    <string name="ssh_fail_rejected">Você não aceitou a chave deste servidor.</string>
+    <string name="ssh_fail_auth_password">O servidor recusou essa senha.</string>
+    <string name="ssh_fail_auth_key">O servidor não aceitou esta chave. Confira se a metade pública está em authorized_keys.</string>
+    <string name="ssh_fail_timeout">O servidor não respondeu a tempo.</string>
+    <string name="ssh_fail_ended">A conexão terminou.</string>
+
+    <string name="ssh_password_title">Senha de %1$s</string>
+    <string name="ssh_password_field">Senha</string>
+    <string name="ssh_password_remember">Lembrar</string>
+    <string name="ssh_password_connect">Conectar</string>
+
+    <string name="ssh_tab_terminal">Terminal</string>
+    <string name="ssh_tab_files">Arquivos</string>
+    <string name="ssh_tab_forwards">Redirecionamentos</string>
+    <string name="ssh_connecting">Conectando a %1$s</string>
+    <string name="ssh_cancel_connecting">Cancelar</string>
+    <string name="ssh_reconnect">Reconectar</string>
+    <string name="ssh_close">Fechar</string>
+    <string name="ssh_end_title">Encerrar a conexão?</string>
+    <string name="ssh_end_body">Os shells no servidor são interrompidos, junto com tudo o que estiver rodando neles.</string>
+    <string name="ssh_end_confirm">Encerrar</string>
+    <string name="ssh_back">Voltar aos servidores</string>
+    <string name="ssh_files_ended">Esta conexão terminou. Abra o servidor de novo para navegar pelos arquivos.</string>
+
+    <string name="ssh_forwards_title">Redirecionamentos de porta</string>
+    <string name="ssh_forwards_footer_idle">Uma lista de túneis a configurar. Cada um escuta só neste telefone, para que outro app do telefone alcance um serviço que o servidor enxerga.</string>
+    <string name="ssh_forwards_footer_live">Um redirecionamento dura enquanto esta conexão durar. Fechá-la, ou sair do app por tempo suficiente, o encerra, e nada aqui o mantém ativo em segundo plano.</string>
+    <string name="ssh_forward_add">Adicionar um redirecionamento</string>
+    <string name="ssh_forward_title">Redirecionamento de porta</string>
+    <string name="ssh_forward_name">Nome (opcional)</string>
+    <string name="ssh_forward_local_card">Este telefone</string>
+    <string name="ssh_forward_local_footer">A porta à qual outro app deste telefone vai se conectar. localhost:%1$s é para onde você aponta.</string>
+    <string name="ssh_forward_local">Porta local</string>
+    <string name="ssh_forward_remote_card">O lado do servidor</string>
+    <string name="ssh_forward_remote_footer">Para onde o servidor se conecta, visto do servidor. Pode ser 127.0.0.1 para um serviço que só escuta no próprio servidor, ou um nome que só se resolve a partir do servidor.</string>
+    <string name="ssh_forward_remote_host">Host</string>
+    <string name="ssh_forward_remote_port">Porta</string>
+    <string name="ssh_forward_when_card">Quando um shell abre</string>
+    <string name="ssh_forward_when_footer">Um redirecionamento dura enquanto a conexão com este servidor durar. Não há como mantê-lo ativo em segundo plano.</string>
+    <string name="ssh_forward_enabled">Iniciar com a conexão</string>
+    <string name="ssh_forward_running">Em execução</string>
+    <string name="ssh_forward_stopped">Parado</string>
+    <string name="ssh_forward_delete">Excluir redirecionamento</string>
+    <string name="ssh_forward_err_local_nan">A porta local precisa ser um número.</string>
+    <string name="ssh_forward_err_local_range">A porta local precisa estar entre 1 e 65535.</string>
+    <string name="ssh_forward_err_remote_nan">A porta no servidor precisa ser um número.</string>
+    <string name="ssh_forward_err_remote_range">A porta no servidor precisa estar entre 1 e 65535.</string>
+    <string name="ssh_forward_err_host_empty">Diga a qual máquina o servidor deve se conectar. É a máquina na outra ponta do túnel, e é o servidor que faz a conexão.</string>
+    <string name="ssh_forward_err_host_invalid">Isso não é um nome de host nem um endereço. Apenas letras, dígitos, pontos, dois-pontos, sublinhados e hifens.</string>
+    <string name="ssh_forward_err_used">Este servidor já redireciona %1$d. Dois redirecionamentos não podem escutar na mesma porta, então um deles nunca iniciaria.</string>
+</resources>
