@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		16B8B3FBF5E26C0FBB419172 /* WatchLink in Frameworks */ = {isa = PBXBuildFile; productRef = 7D7C5B9D810AB36D1EF93D21 /* WatchLink */; };
+		1B6122DEC9384C7483E3E845 /* PeeringNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 27F01A9B57365D31A880C9DD /* PeeringNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		9EDAED34D96B0732CD4DECCC /* PeeringWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 7527CCAAFBCCC10E0FE54C1C /* PeeringWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA00001000000000000000AA /* TerminalActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000AA /* TerminalActivityAttributes.swift */; };
 		AA00002000000000000000AA /* TerminalActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000AA /* TerminalActivityAttributes.swift */; };
@@ -22,6 +23,7 @@
 		AE0200000000000000000000 /* HostKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000000 /* HostKey.swift */; };
 		AE0300000000000000000000 /* HostKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000000 /* HostKey.swift */; };
 		AF0100000000000000000000 /* AgentChatSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000AA /* AgentChatSnapshot.swift */; };
+		BB1F692B39A6A762AEAD4567 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7885FA979AEF3E8D6828D066 /* Foundation.framework */; };
 		C2B2281E306093ED008FB38C /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = E1A00002305B000100ABF943 /* Sparkle */; };
 		C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EC30574AB600ABF943 /* RemoteCore */; };
 		C2C039F030574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EE30574AB600ABF943 /* RemoteCore */; };
@@ -39,12 +41,20 @@
 		D4C0FFA5305B000100ABF943 /* PeeringKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA3305B000100ABF943 /* PeeringKit */; };
 		D4C0FFA6305B000100ABF943 /* PeeringKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA7305B000100ABF943 /* PeeringKit */; };
 		D9850F902C269890FDB9CDF3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D9A91476ADA04FA37C424E36 /* Foundation.framework */; };
+		E18A21900500741C1DBF61F6 /* PeeringKit in Frameworks */ = {isa = PBXBuildFile; productRef = DE8D74BCCF55341A0789D96D /* PeeringKit */; };
 		EE9649D4F46CFB466557FCEF /* WatchLink in Frameworks */ = {isa = PBXBuildFile; productRef = 709D5030F04C8121495FE9B6 /* WatchLink */; };
 		F0A10001305B000100ABF943 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F0A10003305B000100ABF943 /* PostHog */; };
 		F0A10002305B000100ABF943 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F0A10004305B000100ABF943 /* PostHog */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		A0299F532A9780D0392E1A20 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C2C039B730574AB400ABF943 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E547CCAA33ADCBE04C273909;
+			remoteInfo = PeeringNotificationService;
+		};
 		A5306F80B170F4FA9AE220EE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C2C039B730574AB400ABF943 /* Project object */;
@@ -101,6 +111,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				C2C03B093058094B00ABF943 /* PeeringWidgetExtension.appex in Embed Foundation Extensions */,
+				1B6122DEC9384C7483E3E845 /* PeeringNotificationService.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -119,7 +130,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		27F01A9B57365D31A880C9DD /* PeeringNotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PeeringNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7527CCAAFBCCC10E0FE54C1C /* PeeringWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = PeeringWatch.app; path = PeeringWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7885FA979AEF3E8D6828D066 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		AA00000000000000000000AA /* TerminalActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalActivityAttributes.swift; sourceTree = "<group>"; };
 		AB00000000000000000000AA /* AgentChatSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChatSnapshot.swift; sourceTree = "<group>"; };
 		AC0000000000000000000000 /* SessionActivityState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionActivityState.swift; sourceTree = "<group>"; };
@@ -138,6 +151,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		07B09BDEB6EF006770B0B904 /* Exceptions for "PeeringNotificationService" folder in "PeeringNotificationService" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = E547CCAA33ADCBE04C273909 /* PeeringNotificationService */;
+		};
 		C2C03B0D3058094B00ABF943 /* Exceptions for "PeeringWidget" folder in "PeeringWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -155,6 +175,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		80210409DEF4B204224B7E71 /* PeeringNotificationService */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				07B09BDEB6EF006770B0B904 /* Exceptions for "PeeringNotificationService" folder in "PeeringNotificationService" target */,
+			);
+			path = PeeringNotificationService;
+			sourceTree = "<group>";
+		};
 		C2C039C130574AB400ABF943 /* Peering */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -215,6 +243,15 @@
 			files = (
 				D9850F902C269890FDB9CDF3 /* Foundation.framework in Frameworks */,
 				16B8B3FBF5E26C0FBB419172 /* WatchLink in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		51E4CD6919F2E0D632000585 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB1F692B39A6A762AEAD4567 /* Foundation.framework in Frameworks */,
+				E18A21900500741C1DBF61F6 /* PeeringKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -299,6 +336,7 @@
 				C2C039C030574AB400ABF943 /* Products */,
 				C2C03B14305809EC00ABF943 /* Shared */,
 				E9431515AD3317740FC0FE87 /* PeeringWatch */,
+				80210409DEF4B204224B7E71 /* PeeringNotificationService */,
 			);
 			sourceTree = "<group>";
 		};
@@ -312,6 +350,7 @@
 				C2C03AF53058094900ABF943 /* PeeringWidgetExtension.appex */,
 				D4A10006305B000100ABF943 /* PeeringHostWidgetExtension.appex */,
 				7527CCAAFBCCC10E0FE54C1C /* PeeringWatch.app */,
+				27F01A9B57365D31A880C9DD /* PeeringNotificationService.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -322,6 +361,7 @@
 				C2C03AF73058094900ABF943 /* WidgetKit.framework */,
 				C2C03AF93058094A00ABF943 /* SwiftUI.framework */,
 				AF956476AEA121AB0BF43876 /* watchOS */,
+				D21FAA76FAFC1C8368200B6F /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -337,6 +377,14 @@
 				AE0000000000000000000000 /* HostKey.swift */,
 			);
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		D21FAA76FAFC1C8368200B6F /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				7885FA979AEF3E8D6828D066 /* Foundation.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -373,14 +421,15 @@
 				C2C039BC30574AB400ABF943 /* Frameworks */,
 				C2C039BD30574AB400ABF943 /* Resources */,
 				C2C03B0A3058094B00ABF943 /* Embed Foundation Extensions */,
-				F0A10006305B000100ABF943 /* Upload PostHog dSYMs */,
 				06199EFC484E3B8401F5ECDB /* Embed Watch Content */,
+				F0A10006305B000100ABF943 /* Upload PostHog dSYMs */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				C2C03B083058094B00ABF943 /* PBXTargetDependency */,
 				AA11DA292B0ACBC8F8F32284 /* PBXTargetDependency */,
+				B3A22AB6D1036AC7750AF3DE /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				C2C039C130574AB400ABF943 /* Peering */,
@@ -512,6 +561,29 @@
 			productReference = D4A10006305B000100ABF943 /* PeeringHostWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		E547CCAA33ADCBE04C273909 /* PeeringNotificationService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 999A6B5B5EF38AFE4076D148 /* Build configuration list for PBXNativeTarget "PeeringNotificationService" */;
+			buildPhases = (
+				8209E62910FC75456784504E /* Sources */,
+				51E4CD6919F2E0D632000585 /* Frameworks */,
+				7AD4BFC91054663DBDCD5C60 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				80210409DEF4B204224B7E71 /* PeeringNotificationService */,
+			);
+			name = PeeringNotificationService;
+			packageProductDependencies = (
+				DE8D74BCCF55341A0789D96D /* PeeringKit */,
+			);
+			productName = PeeringNotificationService;
+			productReference = 27F01A9B57365D31A880C9DD /* PeeringNotificationService.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -584,12 +656,20 @@
 				C2C03AF43058094900ABF943 /* PeeringWidgetExtension */,
 				D4A1000A305B000100ABF943 /* PeeringHostWidgetExtension */,
 				79F7DF0293D454F9F676E78A /* PeeringWatch */,
+				E547CCAA33ADCBE04C273909 /* PeeringNotificationService */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		1EA8FAD816C80F8EE20A5694 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7AD4BFC91054663DBDCD5C60 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -681,6 +761,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8209E62910FC75456784504E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C2C039BB30574AB400ABF943 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -747,6 +834,12 @@
 			target = 79F7DF0293D454F9F676E78A /* PeeringWatch */;
 			targetProxy = A5306F80B170F4FA9AE220EE /* PBXContainerItemProxy */;
 		};
+		B3A22AB6D1036AC7750AF3DE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = PeeringNotificationService;
+			target = E547CCAA33ADCBE04C273909 /* PeeringNotificationService */;
+			targetProxy = A0299F532A9780D0392E1A20 /* PBXContainerItemProxy */;
+		};
 		C2C039D030574AB600ABF943 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C2C039BE30574AB400ABF943 /* Peering */;
@@ -802,6 +895,73 @@
 				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Release;
+		};
+		AED90F47922E0CB634B57F9C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Config/PeeringNotificationService.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 202610111;
+				DEVELOPMENT_TEAM = 55RA6Q9VSR;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PeeringNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PeeringNotificationService;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 202610111;
+				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.notificationservice;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		B5E47E97F423413E3E90ECD5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Config/PeeringNotificationService.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 202610111;
+				DEVELOPMENT_TEAM = 55RA6Q9VSR;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PeeringNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PeeringNotificationService;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 202610111;
+				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.notificationservice;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
 		};
 		C2C039E030574AB600ABF943 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1306,6 +1466,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		999A6B5B5EF38AFE4076D148 /* Build configuration list for PBXNativeTarget "PeeringNotificationService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AED90F47922E0CB634B57F9C /* Release */,
+				B5E47E97F423413E3E90ECD5 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		C2C039BA30574AB400ABF943 /* Build configuration list for PBXProject "Peering" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1460,6 +1629,11 @@
 		};
 		D4C0FFA7305B000100ABF943 /* PeeringKit */ = {
 			isa = XCSwiftPackageProductDependency;
+			productName = PeeringKit;
+		};
+		DE8D74BCCF55341A0789D96D /* PeeringKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4C0FFA1305B000100ABF943 /* XCLocalSwiftPackageReference "PeeringKit" */;
 			productName = PeeringKit;
 		};
 		E1A00002305B000100ABF943 /* Sparkle */ = {
