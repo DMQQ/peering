@@ -3,6 +3,7 @@
 pub mod agent;
 pub mod annexb;
 pub mod chunks;
+pub mod clipboard;
 pub mod command;
 pub mod drop_policy;
 pub mod fallback;

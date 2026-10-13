@@ -11,6 +11,9 @@ use super::handshake::MAX_CONTROL_PAYLOAD;
 use super::liveness::pong_for;
 use crate::ports::input::{InputSink, TransformSnapshot};
 
+/// The most a command put back together from chunks may be.
+const MAX_ASSEMBLED_COMMAND: usize = 12 * 1024 * 1024;
+
 /// Capture and encoder controls the host performs. `None` for a quality value means keep the current one.
 pub trait SourceControl {
     fn set_source(&mut self, source: CaptureSource);
@@ -31,17 +34,20 @@ pub enum IgnoreReason {
     ObserveMode,
     MosaicSource,
     VirtualDisplay,
-    PrivacyMode,
+    PrivacyMode { enabled: bool },
     WindowAction,
     SpaceSwitch,
-    Clipboard,
+    /// `launchApplication` and `openNewWindow`.
+    Launch,
     NotSupportedHere,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DispatchOutcome {
     Applied,
     Ignored(IgnoreReason),
+    /// A command the host's own services carry out, such as the clipboard, which this core has no port for.
+    ForHost(RemoteCommand),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -57,6 +63,9 @@ pub fn dispatch(command: RemoteCommand, ctx: &mut DispatchContext<'_>) -> Dispat
     if let Some(reason) = ignore_reason(&command) {
         return DispatchOutcome::Ignored(reason);
     }
+    if is_for_host(&command) {
+        return DispatchOutcome::ForHost(command);
+    }
     if command.is_user_input() {
         if ctx.observe_mode {
             return DispatchOutcome::Ignored(IgnoreReason::ObserveMode);
@@ -69,7 +78,7 @@ pub fn dispatch(command: RemoteCommand, ctx: &mut DispatchContext<'_>) -> Dispat
 
 pub fn on_ready_frame(frame: &Frame, ctx: &mut DispatchContext<'_>) -> ReadyOutcome {
     match frame.kind {
-        MessageKind::Command => match decode_command(frame) {
+        MessageKind::Command => match decode_command(frame, MAX_CONTROL_PAYLOAD) {
             Ok(command) => ReadyOutcome::Dispatched(dispatch(command, ctx)),
             Err(reason) => ReadyOutcome::Close(reason),
         },
@@ -78,8 +87,20 @@ pub fn on_ready_frame(frame: &Frame, ctx: &mut DispatchContext<'_>) -> ReadyOutc
     }
 }
 
-fn decode_command(frame: &Frame) -> Result<RemoteCommand, CloseReason> {
-    if frame.payload.len() > MAX_CONTROL_PAYLOAD {
+/// A command that arrived in chunks and was put back together. It is held to the reassembly limit, not the 64 KiB a single
+/// frame is, because a clipboard picture is larger than that by design.
+pub fn on_assembled_command(frame: &Frame, ctx: &mut DispatchContext<'_>) -> ReadyOutcome {
+    if frame.kind != MessageKind::Command {
+        return ReadyOutcome::Unhandled(frame.kind);
+    }
+    match decode_command(frame, MAX_ASSEMBLED_COMMAND) {
+        Ok(command) => ReadyOutcome::Dispatched(dispatch(command, ctx)),
+        Err(reason) => ReadyOutcome::Close(reason),
+    }
+}
+
+fn decode_command(frame: &Frame, limit: usize) -> Result<RemoteCommand, CloseReason> {
+    if frame.payload.len() > limit {
         return Err(CloseReason::MalformedPayload(MessageKind::Command));
     }
     serde_json::from_slice(&frame.payload).map_err(|_| CloseReason::MalformedPayload(MessageKind::Command))
@@ -93,14 +114,19 @@ fn ignore_reason(command: &RemoteCommand) -> Option<IgnoreReason> {
         RemoteCommand::AddVirtualDisplay { .. }
         | RemoteCommand::RemoveVirtualDisplay { .. }
         | RemoteCommand::RenameVirtualDisplay { .. } => Some(IgnoreReason::VirtualDisplay),
-        RemoteCommand::SetPrivacyMode { .. } => Some(IgnoreReason::PrivacyMode),
+        RemoteCommand::SetPrivacyMode { enabled } => Some(IgnoreReason::PrivacyMode { enabled: *enabled }),
         RemoteCommand::PerformWindowAction { .. } => Some(IgnoreReason::WindowAction),
-        RemoteCommand::RequestClipboard {}
-        | RemoteCommand::PushClipboard { .. }
-        | RemoteCommand::PushClipboardImage { .. } => Some(IgnoreReason::Clipboard),
+        RemoteCommand::LaunchApplication { .. } | RemoteCommand::OpenNewWindow { .. } => Some(IgnoreReason::Launch),
         RemoteCommand::SetCaptureSource { source: CaptureSource::Mosaic { .. } } => Some(IgnoreReason::MosaicSource),
         _ => None,
     }
+}
+
+fn is_for_host(command: &RemoteCommand) -> bool {
+    matches!(
+        command,
+        RemoteCommand::RequestClipboard {} | RemoteCommand::PushClipboard { .. } | RemoteCommand::PushClipboardImage { .. }
+    )
 }
 
 fn control(command: RemoteCommand, ctx: &mut DispatchContext<'_>) -> DispatchOutcome {

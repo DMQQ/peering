@@ -7,6 +7,9 @@ use crate::ports::input::{InputSink, TransformSnapshot};
 pub struct RecordingInput {
     applied: Vec<(RemoteCommand, TransformSnapshot)>,
     release_all_count: usize,
+    pointer: Option<(f64, f64)>,
+    injected: Option<(f64, f64)>,
+    nudges: u64,
 }
 
 impl RecordingInput {
@@ -17,15 +20,38 @@ impl RecordingInput {
     pub fn release_all_count(&self) -> usize {
         self.release_all_count
     }
+
+    /// Where the real pointer is from now on, as a hand on the mouse would leave it.
+    pub fn set_pointer(&mut self, position: Option<(f64, f64)>) {
+        self.pointer = position;
+    }
 }
 
 impl InputSink for RecordingInput {
     fn apply(&mut self, command: &RemoteCommand, transform: &TransformSnapshot) {
         self.applied.push((command.clone(), *transform));
+        if let RemoteCommand::MouseMove { .. } | RemoteCommand::JoystickMove { .. } = command {
+            self.injected = self.pointer;
+        }
+        if let RemoteCommand::JoystickMove { .. } = command {
+            self.nudges += 1;
+        }
     }
 
     fn release_all(&mut self) {
         self.release_all_count += 1;
+    }
+
+    fn pointer_position(&self) -> Option<(f64, f64)> {
+        self.pointer
+    }
+
+    fn last_injected_position(&self) -> Option<(f64, f64)> {
+        self.injected
+    }
+
+    fn joystick_nudges(&self) -> u64 {
+        self.nudges
     }
 }
 

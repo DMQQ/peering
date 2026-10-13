@@ -69,16 +69,24 @@ pub struct VirtualDesktop {
     pub height: i32,
 }
 
-/// Maps the normalised point through the captured source to desktop pixels, then to the 0..65535 absolute range.
-pub fn move_event(point: NormalizedPoint, transform: &TransformSnapshot, desktop: VirtualDesktop) -> MouseEventSpec {
-    let source = InputTransform {
+fn source_transform(transform: &TransformSnapshot) -> InputTransform {
+    InputTransform {
         origin_x: f64::from(transform.origin_x),
         origin_y: f64::from(transform.origin_y),
         pixel_width: f64::from(transform.pixel_width),
         pixel_height: f64::from(transform.pixel_height),
         scale: transform.scale,
-    };
-    let (x, y) = source.global_point(point.x, point.y);
+    }
+}
+
+/// Where the normalised point lands on the desktop, in pixels.
+fn global_point(point: NormalizedPoint, transform: &TransformSnapshot) -> (f64, f64) {
+    source_transform(transform).global_point(point.x, point.y)
+}
+
+/// Maps the normalised point through the captured source to desktop pixels, then to the 0..65535 absolute range.
+pub fn move_event(point: NormalizedPoint, transform: &TransformSnapshot, desktop: VirtualDesktop) -> MouseEventSpec {
+    let (x, y) = global_point(point, transform);
     let (dx, dy) = to_absolute_mouse(x, y, desktop.left, desktop.top, desktop.width, desktop.height);
     MouseEventSpec {
         flags: MouseFlags::MOVE | MouseFlags::ABSOLUTE | MouseFlags::VIRTUAL_DESKTOP,
@@ -138,6 +146,8 @@ pub struct MouseInjector {
     held: Vec<MouseButton>,
     wheel: WheelAccumulator,
     joystick: Option<JoystickPointer>,
+    injected: Option<(f64, f64)>,
+    joystick_nudges: u64,
 }
 
 /// Where the joystick has put the pointer, kept as fractions so a nudge under one pixel is not lost to rounding.
@@ -155,7 +165,10 @@ const WIDEST_POINT_WIDTH: f64 = 2560.0;
 impl MouseInjector {
     pub fn plan(&mut self, command: &RemoteCommand, transform: &TransformSnapshot, desktop: VirtualDesktop) -> Vec<MouseEventSpec> {
         match command {
-            RemoteCommand::MouseMove { to } => vec![move_event(*to, transform, desktop)],
+            RemoteCommand::MouseMove { to } => {
+                self.injected = Some(global_point(*to, transform));
+                vec![move_event(*to, transform, desktop)]
+            }
             RemoteCommand::MouseDown { button } => {
                 self.hold(*button);
                 vec![button_event(*button, true)]
@@ -182,13 +195,7 @@ impl MouseInjector {
         if !dx.is_finite() || !dy.is_finite() || transform.pixel_width == 0 || transform.pixel_height == 0 {
             return Vec::new();
         }
-        let source = InputTransform {
-            origin_x: f64::from(transform.origin_x),
-            origin_y: f64::from(transform.origin_y),
-            pixel_width: f64::from(transform.pixel_width),
-            pixel_height: f64::from(transform.pixel_height),
-            scale: transform.scale,
-        };
+        let source = source_transform(transform);
         let moved_by_hand = self.joystick.is_none_or(|last| {
             (real_cursor.0 - last.global.0).hypot(real_cursor.1 - last.global.1) > HAND_MOVED_PIXELS
         });
@@ -201,11 +208,21 @@ impl MouseInjector {
         let normalized = ((x + dx / phone_width).clamp(0.0, 1.0), (y + dy / phone_height).clamp(0.0, 1.0));
         let global = source.global_point(normalized.0, normalized.1);
         self.joystick = Some(JoystickPointer { normalized, global });
+        self.injected = Some(global);
+        self.joystick_nudges += 1;
         vec![move_event(NormalizedPoint { x: normalized.0, y: normalized.1 }, transform, desktop)]
     }
 
     fn phone_measure(pixels: f64) -> f64 {
         if pixels > WIDEST_POINT_WIDTH { pixels / 2.0 } else { pixels }
+    }
+
+    pub fn last_injected(&self) -> Option<(f64, f64)> {
+        self.injected
+    }
+
+    pub fn joystick_nudges(&self) -> u64 {
+        self.joystick_nudges
     }
 
     /// Up events for every button still down, and the wheel remainder cleared.
@@ -241,5 +258,17 @@ impl InputSink for MouseInjector {
     fn release_all(&mut self) {
         let events = self.release_events();
         sys::send(&events);
+    }
+
+    fn pointer_position(&self) -> Option<(f64, f64)> {
+        Some(sys::cursor_position())
+    }
+
+    fn last_injected_position(&self) -> Option<(f64, f64)> {
+        self.last_injected()
+    }
+
+    fn joystick_nudges(&self) -> u64 {
+        self.joystick_nudges
     }
 }

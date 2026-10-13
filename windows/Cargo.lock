@@ -3118,6 +3118,7 @@ version = "0.1.0"
 dependencies = [
  "peering-core",
  "peering-wire",
+ "png 0.17.16",
  "portable-pty",
  "thiserror 1.0.69",
  "windows",

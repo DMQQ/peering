@@ -126,14 +126,13 @@ fn space_switching_is_ignored_even_when_not_observing() {
 }
 
 #[test]
-fn virtual_display_privacy_window_and_clipboard_commands_are_ignored() {
+fn virtual_display_privacy_window_and_launch_commands_are_ignored() {
     let cases = [
         (RemoteCommand::AddVirtualDisplay { name: "x".into(), width: 1, height: 1, start_landscape: false }, IgnoreReason::VirtualDisplay),
         (RemoteCommand::RemoveVirtualDisplay { display_id: 5 }, IgnoreReason::VirtualDisplay),
-        (RemoteCommand::SetPrivacyMode { enabled: true }, IgnoreReason::PrivacyMode),
+        (RemoteCommand::SetPrivacyMode { enabled: true }, IgnoreReason::PrivacyMode { enabled: true }),
         (RemoteCommand::PerformWindowAction { window_id: 7, action: WindowAction::Close }, IgnoreReason::WindowAction),
-        (RemoteCommand::RequestClipboard {}, IgnoreReason::Clipboard),
-        (RemoteCommand::PushClipboard { text: "x".into() }, IgnoreReason::Clipboard),
+        (RemoteCommand::LaunchApplication { bundle_identifier: "x".into() }, IgnoreReason::Launch),
     ];
     for (command, reason) in cases {
         let (outcome, input, source) = run(command, false);
@@ -145,8 +144,6 @@ fn virtual_display_privacy_window_and_clipboard_commands_are_ignored() {
 
 #[test]
 fn commands_without_a_port_here_are_ignored_without_panicking() {
-    let (outcome, _, _) = run(RemoteCommand::LaunchApplication { bundle_identifier: "x".into() }, false);
-    assert_eq!(outcome, DispatchOutcome::Ignored(IgnoreReason::NotSupportedHere));
     let (outcome, _, _) = run(RemoteCommand::RefreshSourceThumbnails {}, false);
     assert_eq!(outcome, DispatchOutcome::Ignored(IgnoreReason::NotSupportedHere));
 }
@@ -199,4 +196,36 @@ fn other_kinds_are_left_unhandled_rather_than_closing_the_session() {
         on_ready_frame(&Frame::empty(MessageKind::VideoKeyRequest), &mut ctx),
         ReadyOutcome::Unhandled(MessageKind::VideoKeyRequest)
     );
+}
+
+#[test]
+fn clipboard_commands_are_handed_to_the_host_untouched() {
+    for command in [
+        RemoteCommand::RequestClipboard {},
+        RemoteCommand::PushClipboard { text: "x".into() },
+        RemoteCommand::PushClipboardImage { png: vec![1, 2] },
+    ] {
+        let (outcome, input, _) = run(command.clone(), false);
+        assert_eq!(outcome, DispatchOutcome::ForHost(command));
+        assert!(input.applied().is_empty());
+    }
+}
+
+#[test]
+fn an_assembled_command_may_exceed_the_single_frame_limit() {
+    let command = RemoteCommand::PushClipboard { text: "x".repeat(MAX_CONTROL_PAYLOAD * 2) };
+    let mut input = RecordingInput::default();
+    let mut source = RecordingSource::default();
+    let mut ctx = DispatchContext { observe_mode: false, transform: transform(), input: &mut input, source: &mut source };
+    assert_eq!(on_assembled_command(&frame_of(&command), &mut ctx), ReadyOutcome::Dispatched(DispatchOutcome::ForHost(command.clone())));
+    assert!(matches!(on_ready_frame(&frame_of(&command), &mut ctx), ReadyOutcome::Close(_)), "a single frame that large is refused");
+}
+
+#[test]
+fn an_assembled_frame_that_is_not_a_command_is_left_unhandled() {
+    let mut input = RecordingInput::default();
+    let mut source = RecordingSource::default();
+    let mut ctx = DispatchContext { observe_mode: false, transform: transform(), input: &mut input, source: &mut source };
+    let other = Frame::new(MessageKind::ClipboardContent, b"{}".to_vec());
+    assert_eq!(on_assembled_command(&other, &mut ctx), ReadyOutcome::Unhandled(MessageKind::ClipboardContent));
 }

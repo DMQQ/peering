@@ -19,4 +19,12 @@ pub trait SystemActions {
     fn session_notice(&self) -> Option<NoticePayload> {
         None
     }
+
+    /// Keeps the PC and its screen from sleeping while true, and lets them sleep again when false. Idempotent.
+    fn set_keep_awake(&mut self, _awake: bool) {}
+
+    /// Hardware addresses of the network adapters, as `aa:bb:cc:dd:ee:ff`, for a phone that wakes this PC over the LAN.
+    fn hardware_addresses(&self) -> Vec<String> {
+        Vec::new()
+    }
 }

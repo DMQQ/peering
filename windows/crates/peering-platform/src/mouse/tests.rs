@@ -206,3 +206,20 @@ fn a_picture_wider_than_the_phone_measures_in_points_moves_half_as_much() {
     let spec = injector.plan_joystick(192.0, 0.0, &transform, VirtualDesktop { left: 0, top: 0, width: 3840, height: 2160 }, (1920.0, 1080.0));
     assert_eq!(spec[0].dx, absolute(0.6, 3840, 2160).0);
 }
+
+#[test]
+fn a_pointer_move_is_remembered_as_where_the_host_put_the_pointer() {
+    let mut injector = MouseInjector::default();
+    assert_eq!(injector.last_injected(), None);
+    injector.plan(&RemoteCommand::MouseMove { to: point(0.5, 0.25) }, &source(0, 0, 1920, 1080), desktop());
+    assert_eq!(injector.last_injected(), Some((960.0, 270.0)));
+}
+
+#[test]
+fn each_joystick_nudge_is_counted_and_remembered() {
+    let mut injector = MouseInjector::default();
+    injector.plan_joystick(10.0, 0.0, &source(0, 0, 1920, 1080), desktop(), (100.0, 100.0));
+    injector.plan_joystick(10.0, 0.0, &source(0, 0, 1920, 1080), desktop(), (110.0, 100.0));
+    assert_eq!(injector.joystick_nudges(), 2);
+    assert!(injector.last_injected().is_some());
+}

@@ -3,6 +3,7 @@
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 pub mod capture;
+pub mod clipboard;
 pub mod clock;
 pub mod encoder;
 pub mod input;

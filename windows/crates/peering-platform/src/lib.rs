@@ -2,6 +2,9 @@
 //! the operating system from a `#[cfg(windows)]` part, so the crate checks with `cargo check --target x86_64-pc-windows-msvc`.
 //! This crate must not depend on `ring` (a C build that does not cross compile from a Mac).
 
+pub mod addresses;
+pub mod clipboard;
+pub mod clipboard_image;
 pub mod convert;
 pub mod dda;
 pub mod dpapi;
