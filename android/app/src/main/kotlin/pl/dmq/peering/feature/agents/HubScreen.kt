@@ -76,10 +76,9 @@ private fun HubBody(
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
-        if (ui.newChat == NewChatStep.ChoosingAgent) {
-            BackHandler(onBack = presenter::cancelNewChat)
-            AgentPicker(ui.agents, ui.agentUsage, ui.selectedAgentID, presenter::chooseAgent, presenter::cancelNewChat)
-        }
+        val choosingAgent = ui.newChat == NewChatStep.ChoosingAgent
+        if (choosingAgent) BackHandler(onBack = presenter::cancelNewChat)
+        AgentPicker(choosingAgent, ui.agents, ui.agentUsage, ui.selectedAgentID, presenter::chooseAgent, presenter::cancelNewChat)
     }
     renaming?.let { card -> RenamePrompt(card, presenter, onDone = { renaming = null }) }
     closing?.let { card -> ClosePrompt(card, presenter, onDone = { closing = null }) }

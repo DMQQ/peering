@@ -1,5 +1,17 @@
 package pl.dmq.peering.feature.agents
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,9 +45,13 @@ import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.peeringShapes
 
-/** The agents as a panel of cards over a dimmed page, rising out of the dock. A tap on the scrim closes it. */
+/**
+ * The agents as a panel of cards over a dimmed page, rising out of the dock. A tap on the scrim closes it.
+ * Always composed, so the way out plays as well as the way in: cards fan up nearest the dock first and fold back farthest first.
+ */
 @Composable
 fun AgentPicker(
+    visible: Boolean,
     agents: List<AgentOption>,
     usage: List<AgentUsage>,
     selectedID: String?,
@@ -43,28 +59,48 @@ fun AgentPicker(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.55f))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
-        contentAlignment = Alignment.BottomCenter,
-    ) {
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        AnimatedVisibility(visible, enter = fadeIn(tween(220)), exit = fadeOut(tween(200))) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
+            )
+        }
         Column(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 84.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            agents.forEach { agent ->
-                AgentHubCard(
-                    agent = agent,
-                    usage = usage.firstOrNull { it.agentID == agent.id },
-                    isSelected = agent.id == selectedID,
-                    onClick = { onChoose(agent.id) },
-                )
+            agents.forEachIndexed { index, agent ->
+                AnimatedVisibility(
+                    visible,
+                    enter = cardEnter(distanceFromDock = agents.size - 1 - index),
+                    exit = cardExit(distanceFromTop = index),
+                ) {
+                    AgentHubCard(
+                        agent = agent,
+                        usage = usage.firstOrNull { it.agentID == agent.id },
+                        isSelected = agent.id == selectedID,
+                        onClick = { onChoose(agent.id) },
+                    )
+                }
             }
         }
     }
 }
+
+private val Settle = CubicBezierEasing(0.2f, 1.25f, 0.4f, 1f)
+
+private fun cardEnter(distanceFromDock: Int): EnterTransition =
+    fadeIn(tween(240, delayMillis = 40 * distanceFromDock)) +
+        slideInVertically(tween(460, delayMillis = 40 * distanceFromDock, easing = Settle)) { it / 2 } +
+        scaleIn(tween(460, delayMillis = 40 * distanceFromDock, easing = Settle), initialScale = 0.92f)
+
+private fun cardExit(distanceFromTop: Int): ExitTransition =
+    fadeOut(tween(180, delayMillis = 35 * distanceFromTop)) +
+        slideOutVertically(tween(260, delayMillis = 35 * distanceFromTop, easing = FastOutSlowInEasing)) { it / 2 } +
+        scaleOut(tween(260, delayMillis = 35 * distanceFromTop), targetScale = 0.94f)
 
 /** One agent: its tile, its name in the display face, what it is doing now, and a check circle for the selection. */
 @Composable
