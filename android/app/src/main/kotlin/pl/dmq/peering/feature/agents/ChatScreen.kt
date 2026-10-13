@@ -55,10 +55,23 @@ fun ChatScreen(
     val previewFetch = remember(port.preview) { port.preview?.let(::previewFetchOf) }
     var renaming by remember { mutableStateOf(false) }
     var typingModel by remember { mutableStateOf(false) }
+    var openSubagent by remember { mutableStateOf<String?>(null) }
+    val chatState by port.chats.collectAsState()
+    val tabs = remember(chatState) { ChatTab.of(chatState) }
+    var afterSelect by remember { mutableStateOf<Pair<String, ChatTabAction>?>(null) }
     var confirmingClose by remember { mutableStateOf(false) }
     val pending = remember(transcriptUi.rows) { pendingApprovals(transcriptUi.rows) }
     var reviewingID by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(pending.firstOrNull()?.approvalID) { reviewingID = pending.firstOrNull()?.approvalID }
+    LaunchedEffect(ui.sessionID, afterSelect) {
+        val (id, action) = afterSelect ?: return@LaunchedEffect
+        if (id != ui.sessionID) return@LaunchedEffect
+        afterSelect = null
+        when (action) {
+            ChatTabAction.RENAME -> renaming = true
+            ChatTabAction.CLOSE -> confirmingClose = true
+        }
+    }
     LaunchedEffect(composer) {
         composer.appCommands.collect { name ->
             when (name) {
@@ -81,6 +94,12 @@ fun ChatScreen(
                 onPause = { if (chat.pause()) onBackToList() },
                 onClose = { confirmingClose = true },
             )
+            ChatTabStrip(
+                tabs,
+                onSelect = port::select,
+                onRename = { id -> afterSelect = id to ChatTabAction.RENAME; port.select(id) },
+                onClose = { id -> afterSelect = id to ChatTabAction.CLOSE; port.select(id) },
+            )
             Box(Modifier.weight(1f)) {
                 when {
                     transcriptUi.loadingHistory && transcriptUi.rows.isEmpty() -> HistoryLoading()
@@ -98,6 +117,7 @@ fun ChatScreen(
                             chat.suggest(it)
                         },
                         onReview = { reviewingID = it },
+                        onOpenSubagent = { openSubagent = it },
                     )
                 }
             }
@@ -123,6 +143,10 @@ fun ChatScreen(
         ui.sessionID?.let { sessionID ->
             ApprovalSheet(port, sessionID, approval, onDismiss = { reviewingID = null })
         }
+    }
+    openSubagent?.let { callID ->
+        val subagents = remember(transcriptUi.rows) { SubagentView.of(transcriptUi.rows) }
+        SubagentSheet(subagents, callID, onSelect = { openSubagent = it }, onDismiss = { openSubagent = null })
     }
     if (typingModel) {
         CustomModelDialog(composerUi.model.orEmpty(), onUse = { composer.setModel(it.ifBlank { null }) }, onDismiss = { typingModel = false })
@@ -167,3 +191,5 @@ private fun followUp(transcript: TranscriptPresenter, chat: ChatPresenter, promp
     transcript.followLatest()
     chat.suggest(prompt)
 }
+
+private enum class ChatTabAction { RENAME, CLOSE }

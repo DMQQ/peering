@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
 import pl.dmq.peering.session.agent.TranscriptRow
+import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.OutlinedPanel
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.wire.AgentPlanStep
@@ -59,10 +60,10 @@ private fun PlanStepLine(step: AgentPlanStep) {
 }
 
 @Composable
-fun SubagentStrip(row: TranscriptRow.Subagent) {
+fun SubagentStrip(row: TranscriptRow.Subagent, onClick: () -> Unit) {
     val steps = row.transcript.rows.size
     val latest = row.transcript.rows.filterIsInstance<TranscriptRow.ToolCall>().lastOrNull()?.call?.title
-    OutlinedPanel(modifier = Modifier.fillMaxWidth()) {
+    OutlinedPanel(modifier = Modifier.fillMaxWidth().tappable(onClick)) {
         Text(stringResource(R.string.agents_subagent_label), style = MaterialTheme.typography.labelMedium, color = PeeringColors.muted)
         Text(
             pluralStringResource(R.plurals.agents_subagent_steps, steps, steps),

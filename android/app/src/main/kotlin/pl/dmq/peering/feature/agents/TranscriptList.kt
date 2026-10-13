@@ -44,6 +44,7 @@ fun TranscriptList(
     presenter: TranscriptPresenter,
     onAskAgain: (String) -> Unit,
     onReview: (String) -> Unit,
+    onOpenSubagent: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ui by presenter.ui.collectAsState()
@@ -85,6 +86,7 @@ fun TranscriptList(
                 onToggleTool = { presenter.toggleTool(row.id) },
                 onAskAgain = onAskAgain,
                 onReview = onReview,
+                onOpenSubagent = onOpenSubagent,
             )
         }
         itemsIndexed(ui.queuedPrompts, key = { index, _ -> "queued-$index" }) { index, text ->
@@ -96,20 +98,21 @@ fun TranscriptList(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TranscriptRowView(
+internal fun TranscriptRowView(
     row: TranscriptRow,
     expanded: Boolean,
     canAskAgain: Boolean,
     onToggleTool: () -> Unit,
     onAskAgain: (String) -> Unit,
     onReview: (String) -> Unit,
+    onOpenSubagent: (String) -> Unit = {},
 ) {
     when (row) {
         is TranscriptRow.User -> UserBubble(row.text, canAskAgain) { onAskAgain(row.text) }
         is TranscriptRow.AssistantText -> Reply(row.text)
         is TranscriptRow.ToolCall -> ToolCallCard(row, expanded = expanded, onToggle = onToggleTool, onReview = onReview)
         is TranscriptRow.Plan -> PlanCard(row.steps)
-        is TranscriptRow.Subagent -> SubagentStrip(row)
+        is TranscriptRow.Subagent -> SubagentStrip(row) { onOpenSubagent(row.parentCallID) }
         is TranscriptRow.TurnSummary -> TurnSummaryPill(TurnSummaryUi.of(row.summary))
         is TranscriptRow.Notice -> NoticeLine(row.text)
         is TranscriptRow.Failure -> FailureLine(row.message)
