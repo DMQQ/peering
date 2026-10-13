@@ -23,6 +23,7 @@ use peering_core::video::coordinator::VideoCoordinator;
 
 use super::agent::StdLauncher;
 use super::audio::AudioPipeline;
+use super::focus_pump::FocusPipeline;
 use super::agent_browse::DiskFolders;
 use super::control::RelayStatus;
 use super::file_writer::FileWriter;
@@ -118,6 +119,7 @@ impl HostState {
             keeping_awake: false,
             pointer: PointerTracker::default(),
             audio: AudioPipeline::new(extras.audio),
+            focus: FocusPipeline::new(extras.focus),
             settings: HostSettings::default_for(host_name),
             settings_saver: Arc::new(|_| Ok(())),
             hook_broker: None,

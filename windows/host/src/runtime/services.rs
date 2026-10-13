@@ -7,6 +7,8 @@ use peering_agent::availability::BinaryLocator;
 use peering_core::files::disk::DiskOps;
 use peering_core::files::vfs::{FileSystem, FsError, RawEntry};
 use peering_core::fakes::audio::SilentAudio;
+use peering_core::fakes::focus::BlindFocus;
+use peering_core::ports::focus::FocusProbe;
 use peering_core::ports::audio::AudioSource;
 use peering_core::ports::clipboard::Clipboard;
 use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame};
@@ -80,15 +82,16 @@ pub struct HostServices {
     pub extras: HostExtras,
 }
 
-/// Adapters that a host without them still works: the sound it plays, and the text field it is typing into. `Default` is the
-/// host that has neither.
+/// Adapters that a host without them still works: the sound it plays, and where its keyboard focus is. `Default` is the host
+/// that has neither.
 pub struct HostExtras {
     pub audio: Box<dyn AudioSource + Send>,
+    pub focus: Box<dyn FocusProbe + Send>,
 }
 
 impl Default for HostExtras {
     fn default() -> Self {
-        Self { audio: Box::new(SilentAudio) }
+        Self { audio: Box::new(SilentAudio), focus: Box::new(BlindFocus) }
     }
 }
 
@@ -197,6 +200,10 @@ impl InputSink for BoxedInput {
 
     fn joystick_nudges(&self) -> u64 {
         self.0.joystick_nudges()
+    }
+
+    fn button_presses(&self) -> u64 {
+        self.0.button_presses()
     }
 }
 

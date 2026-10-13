@@ -7,6 +7,7 @@ pub mod admission;
 pub mod audio;
 pub mod catalogue;
 pub mod files;
+pub mod focus;
 pub mod install_entropy;
 pub mod notice;
 pub mod outbound;

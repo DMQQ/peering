@@ -148,6 +148,7 @@ pub struct MouseInjector {
     joystick: Option<JoystickPointer>,
     injected: Option<(f64, f64)>,
     joystick_nudges: u64,
+    button_presses: u64,
 }
 
 /// Where the joystick has put the pointer, kept as fractions so a nudge under one pixel is not lost to rounding.
@@ -170,6 +171,7 @@ impl MouseInjector {
                 vec![move_event(*to, transform, desktop)]
             }
             RemoteCommand::MouseDown { button } => {
+                self.button_presses += 1;
                 self.hold(*button);
                 vec![button_event(*button, true)]
             }
@@ -270,5 +272,9 @@ impl InputSink for MouseInjector {
 
     fn joystick_nudges(&self) -> u64 {
         self.joystick_nudges
+    }
+
+    fn button_presses(&self) -> u64 {
+        self.button_presses
     }
 }

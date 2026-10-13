@@ -23,6 +23,7 @@ pub mod sealing;
 pub mod source;
 pub mod swift_enum;
 pub mod terminal;
+pub mod text_focus;
 pub mod transform;
 pub mod vectors_dir;
 pub mod video;

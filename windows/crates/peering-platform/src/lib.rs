@@ -10,6 +10,7 @@ pub mod convert;
 pub mod cursor;
 pub mod dda;
 pub mod dpapi;
+pub mod focus;
 pub mod handoff;
 pub mod keyboard;
 pub mod link;

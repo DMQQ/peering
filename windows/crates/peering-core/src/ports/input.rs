@@ -30,4 +30,9 @@ pub trait InputSink {
     fn joystick_nudges(&self) -> u64 {
         0
     }
+
+    /// How many times a phone has pressed a mouse button, so a watcher can tell that a tap just happened.
+    fn button_presses(&self) -> u64 {
+        0
+    }
 }

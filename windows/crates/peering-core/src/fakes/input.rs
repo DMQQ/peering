@@ -10,6 +10,7 @@ pub struct RecordingInput {
     pointer: Option<(f64, f64)>,
     injected: Option<(f64, f64)>,
     nudges: u64,
+    presses: u64,
 }
 
 impl RecordingInput {
@@ -36,6 +37,9 @@ impl InputSink for RecordingInput {
         if let RemoteCommand::JoystickMove { .. } = command {
             self.nudges += 1;
         }
+        if let RemoteCommand::MouseDown { .. } = command {
+            self.presses += 1;
+        }
     }
 
     fn release_all(&mut self) {
@@ -52,6 +56,10 @@ impl InputSink for RecordingInput {
 
     fn joystick_nudges(&self) -> u64 {
         self.nudges
+    }
+
+    fn button_presses(&self) -> u64 {
+        self.presses
     }
 }
 

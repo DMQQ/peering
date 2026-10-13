@@ -8,6 +8,7 @@ pub enum ProblemSource {
     Agents,
     Pointer,
     Audio,
+    Focus,
     Hooks,
     Settings,
     Relay,

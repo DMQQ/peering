@@ -23,6 +23,7 @@ mod disk;
 mod error;
 mod file_writer;
 mod files;
+mod focus_pump;
 mod host_state;
 mod hooks;
 mod listener;

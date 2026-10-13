@@ -64,7 +64,8 @@ fn distance(a: (f64, f64), b: (f64, f64)) -> f64 {
     (a.0 - b.0).hypot(a.1 - b.1)
 }
 
-fn normalised(global: (f64, f64), transform: &TransformSnapshot) -> NormalizedPoint {
+/// Where a desktop pixel lies in the captured source, 0 to 1 across it; outside that range when the pixel is off the source.
+pub(crate) fn unclamped(global: (f64, f64), transform: &TransformSnapshot) -> (f64, f64) {
     let source = InputTransform {
         origin_x: f64::from(transform.origin_x),
         origin_y: f64::from(transform.origin_y),
@@ -72,7 +73,11 @@ fn normalised(global: (f64, f64), transform: &TransformSnapshot) -> NormalizedPo
         pixel_height: f64::from(transform.pixel_height),
         scale: transform.scale,
     };
-    let (x, y) = source.normalized_point(global.0, global.1);
+    source.normalized_point(global.0, global.1)
+}
+
+fn normalised(global: (f64, f64), transform: &TransformSnapshot) -> NormalizedPoint {
+    let (x, y) = unclamped(global, transform);
     NormalizedPoint { x: x.clamp(0.0, 1.0), y: y.clamp(0.0, 1.0) }
 }
 

@@ -10,7 +10,7 @@ use tokio::task::{JoinHandle, LocalSet};
 
 use super::lock::lock_ignoring_poison;
 use super::{
-    advertise, agent_pump, audio, listener, pointer_pump, relay_switch, supervise, video_pass, HostRuntime, RuntimeConfig, RuntimeError,
+    advertise, agent_pump, audio, focus_pump, listener, pointer_pump, relay_switch, supervise, video_pass, HostRuntime, RuntimeConfig, RuntimeError,
 };
 
 struct PumpTasks {
@@ -18,6 +18,7 @@ struct PumpTasks {
     agents: JoinHandle<()>,
     pointer: JoinHandle<()>,
     audio: JoinHandle<()>,
+    focus: JoinHandle<()>,
 }
 
 impl HostRuntime {
@@ -35,6 +36,7 @@ impl HostRuntime {
             agents: agent_pump::spawn_pump(self.shared.clone(), self.profile.clone()),
             pointer: pointer_pump::spawn_pump(self.shared.clone(), self.profile.clone()),
             audio: audio::spawn_pump(self.shared.clone(), self.profile.clone()),
+            focus: focus_pump::spawn_pump(self.shared.clone(), self.profile.clone()),
         }
     }
 
@@ -77,6 +79,7 @@ async fn watch_pumps(pumps: PumpTasks) -> RuntimeError {
         outcome = pumps.agents => RuntimeError::TaskStopped { task: "agent output loop", reason: task_end_text(&outcome) },
         outcome = pumps.pointer => RuntimeError::TaskStopped { task: "pointer loop", reason: task_end_text(&outcome) },
         outcome = pumps.audio => RuntimeError::TaskStopped { task: "audio loop", reason: task_end_text(&outcome) },
+        outcome = pumps.focus => RuntimeError::TaskStopped { task: "text focus loop", reason: task_end_text(&outcome) },
     }
 }
 

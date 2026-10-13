@@ -7,6 +7,7 @@ pub mod capture;
 pub mod clipboard;
 pub mod clock;
 pub mod encoder;
+pub mod focus;
 pub mod input;
 pub mod secret_store;
 pub mod stream;

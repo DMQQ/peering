@@ -33,6 +33,7 @@ use super::file_writer::FileWriter;
 use super::lock::{lock_clearing_poison, lock_ignoring_poison};
 use super::agent::StdLauncher;
 use super::audio::AudioPipeline;
+use super::focus_pump::FocusPipeline;
 use super::agent_browse::FolderBrowser;
 use super::notifications::WaitingNotifications;
 use super::outbound::{FrameSender, Outbound};
@@ -100,6 +101,7 @@ pub struct HostState {
     pub keeping_awake: bool,
     pub pointer: PointerTracker,
     pub audio: AudioPipeline,
+    pub focus: FocusPipeline,
     pub settings: HostSettings,
     pub settings_saver: SettingsSaver,
     /// The hook broker while Claude Code hooks are on, which a phone's Allow or Deny is offered to first.

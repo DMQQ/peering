@@ -13,6 +13,7 @@ use peering_platform::mouse::MouseInjector;
 use peering_platform::services::PlatformServices;
 use peering_platform::audio::LoopbackAudio;
 use peering_platform::clipboard::WindowsClipboard;
+use peering_platform::focus::UiaFocus;
 use peering_platform::recycle::WindowsRecycleBin;
 use peering_platform::system::WindowsSystem;
 use peering_platform::terminal::environment::{installed_shells, start_directory};
@@ -47,7 +48,7 @@ pub fn build() -> Result<Adapters, RuntimeError> {
             protected_folders(&|name| std::env::var(name).ok()),
             default_directory().map(|directory| directory.join("upload-folders.txt")),
         )),
-        extras: HostExtras { audio: Box::new(LoopbackAudio::default()) },
+        extras: HostExtras { audio: Box::new(LoopbackAudio::default()), focus: Box::new(UiaFocus::default()) },
     })
 }
 
@@ -87,5 +88,9 @@ impl InputSink for WindowsInput {
 
     fn joystick_nudges(&self) -> u64 {
         self.mouse.joystick_nudges()
+    }
+
+    fn button_presses(&self) -> u64 {
+        self.mouse.button_presses()
     }
 }

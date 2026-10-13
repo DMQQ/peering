@@ -95,6 +95,10 @@ impl InputSink for SharedInput {
     fn joystick_nudges(&self) -> u64 {
         locked(&self.0).joystick_nudges()
     }
+
+    fn button_presses(&self) -> u64 {
+        locked(&self.0).button_presses()
+    }
 }
 
 /// The encoder the test inspects after the runtime has driven it.
