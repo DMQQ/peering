@@ -34,7 +34,7 @@ import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.PeeringMenu
 import pl.dmq.peering.ui.kit.PeeringMenuItem
-import pl.dmq.peering.ui.kit.sessionSurface
+import pl.dmq.peering.ui.kit.hubCardSurface
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -61,7 +61,7 @@ fun SessionCardRow(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .sessionSurface(peeringShapes.medium)
+                .hubCardSurface(peeringShapes.medium)
                 .combinedClickable(onClick = onOpen, onLongClick = { menuOpen = true })
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),

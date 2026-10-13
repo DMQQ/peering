@@ -15,7 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.ui.kit.loadingFade
-import pl.dmq.peering.ui.kit.sessionSurface
+import pl.dmq.peering.ui.kit.hubCardSurface
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PillShape
 import pl.dmq.peering.ui.theme.peeringShapes
@@ -31,7 +31,7 @@ internal fun HubLoadingRows(modifier: Modifier = Modifier) {
 @Composable
 private fun Placeholder() {
     Row(
-        Modifier.fillMaxWidth().sessionSurface(peeringShapes.medium).padding(12.dp),
+        Modifier.fillMaxWidth().hubCardSurface(peeringShapes.medium).padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

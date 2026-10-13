@@ -6,6 +6,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -32,3 +34,8 @@ fun Modifier.chipSurface(shape: Shape): Modifier = clip(shape)
 
 /** The surface of session chrome over the picture: a tonal fill and no outline, groups told apart by spacing. */
 fun Modifier.sessionSurface(shape: Shape): Modifier = clip(shape).background(PeeringColors.containerHigh)
+
+private val hubOutline = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.18f), Color.White.copy(alpha = 0.05f)))
+
+/** A card on the agents and terminals pages: a fading outline and no fill, so both pages sit on the backdrop alike, as on the iPhone. */
+fun Modifier.hubCardSurface(shape: Shape): Modifier = clip(shape).border(1.dp, hubOutline, shape)

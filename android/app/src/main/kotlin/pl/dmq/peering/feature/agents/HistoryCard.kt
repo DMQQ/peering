@@ -31,7 +31,7 @@ import java.util.Date
 import java.util.Locale
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.PeeringAlert
-import pl.dmq.peering.ui.kit.sessionSurface
+import pl.dmq.peering.ui.kit.hubCardSurface
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -48,7 +48,7 @@ fun HistoryCard(entries: List<HistoryEntry>, onRun: (HistoryEntry) -> Unit, modi
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .sessionSurface(peeringShapes.medium)
+            .hubCardSurface(peeringShapes.medium)
             .padding(bottom = 6.dp),
     ) {
         groups.forEachIndexed { groupIndex, group ->

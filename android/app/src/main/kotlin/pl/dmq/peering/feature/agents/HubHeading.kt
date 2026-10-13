@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
-import pl.dmq.peering.ui.kit.sessionSurface
+import pl.dmq.peering.ui.kit.hubCardSurface
 import pl.dmq.peering.ui.theme.IconTile
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -51,7 +51,7 @@ fun HubHeading(
 /** What the page is for in a few lines, until it has been read once. */
 @Composable
 fun HubGuideCard(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().sessionSurface(peeringShapes.medium).padding(start = 14.dp, top = 4.dp, end = 14.dp, bottom = 12.dp)) {
+    Column(modifier.fillMaxWidth().hubCardSurface(peeringShapes.medium).padding(start = 14.dp, top = 4.dp, end = 14.dp, bottom = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 stringResource(R.string.agents_guide_title),
