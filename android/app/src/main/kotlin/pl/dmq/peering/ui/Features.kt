@@ -30,6 +30,7 @@ import pl.dmq.peering.ui.wiring.ComputerSoundSink
 import pl.dmq.peering.ui.wiring.ConnectivityNetworkSource
 import pl.dmq.peering.ui.wiring.follow
 import pl.dmq.peering.ui.wiring.processForeground
+import pl.dmq.peering.feature.whatsnew.WhatsNewStore
 import pl.dmq.peering.ui.wiring.DevicePower
 import pl.dmq.peering.ui.wiring.DiscoveryHostSource
 import pl.dmq.peering.ui.wiring.MemoryPressure
@@ -77,6 +78,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val folderRecents = PreferencesFolderRecents(preferences)
     val firstRun = PreferencesFirstRunStore(preferences)
     val settings = PreferencesSettingsStore(preferences)
+    val whatsNew = WhatsNewStore(PreferencesKeyValueStore(preferences, writes))
     val devicePrefs = PreferencesDevicePreferences(preferences, Build.MODEL.orEmpty())
     val macros = PreferencesMacroStore(preferences)
     val deviceId: String = graph.sessions.identity.clientId

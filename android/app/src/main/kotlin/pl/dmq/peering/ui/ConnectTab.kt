@@ -13,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.CoroutineScope
 import pl.dmq.peering.feature.connect.ConnectPresenter
+import pl.dmq.peering.feature.whatsnew.WhatsNewHost
 import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.testing.ConnectBridge
 import pl.dmq.peering.ui.kit.motionTransition
@@ -29,6 +30,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
     val flow = rememberConnectFlow(wiring)
     val connect = rememberConnectPresenter(wiring, scope, flow)
     ConnectEffects(wiring, flow, active)
+    WhatsNewHost(wiring.whatsNew, finishedFirstRun = wiring.firstRun.isComplete())
     val connectState by connect.state.collectAsState()
     SideEffect { wiring.lastConnectState = connectState }
     connectState.listing.nearby.forEach { row -> row.name?.let { flow.hostNames[row.id] = it } }

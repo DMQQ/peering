@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="whatsnew_title">What’s new</string>
+    <string name="whatsnew_done">Got it</string>
+    <string name="whatsnew_desktops_title">Desktops and virtual displays</string>
+    <string name="whatsnew_desktops_detail">Jump between your computer’s desktops from the Apps panel, add a display of the phone’s shape, and close or minimise a window with a long press.</string>
+    <string name="whatsnew_composer_title">Commands and files in the composer</string>
+    <string name="whatsnew_composer_detail">Type a slash for commands and skills, or an at sign to mention a file. Review every changed file across your chats in one place.</string>
+    <string name="whatsnew_review_title">To review, and follow-ups</string>
+    <string name="whatsnew_review_detail">Changed files wait on the Agents page until you have looked at them, and a finished turn offers its next step as a button.</string>
+    <string name="whatsnew_wake_title">Wake your computer</string>
+    <string name="whatsnew_wake_detail">Send a wake packet to a sleeping computer on your network from its menu on the Connect page.</string>
+</resources>
