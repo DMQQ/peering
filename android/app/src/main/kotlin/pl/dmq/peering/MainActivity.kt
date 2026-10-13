@@ -1,5 +1,6 @@
 package pl.dmq.peering
 
+import android.Manifest
 import android.graphics.Color
 import android.content.Intent
 import android.media.AudioManager
@@ -8,6 +9,7 @@ import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -20,6 +22,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import pl.dmq.peering.background.NotificationExplanation
 import pl.dmq.peering.ui.LockScreen
 import pl.dmq.peering.ui.debug.DebugPreview
 import pl.dmq.peering.ui.debug.PREVIEW_EXTRA
@@ -41,6 +44,7 @@ class MainActivity : FragmentActivity() {
     private var locked by mutableStateOf(false)
     private var connectRequests by mutableIntStateOf(0)
     private var sessionActive = false
+    private val notificationPermission get() = (application as PeeringApplication).wiring?.background?.permission
     private val linkGate by lazy { WidgetLinkGate(LinkNonce.load(noBackupFilesDir)) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,6 +70,7 @@ class MainActivity : FragmentActivity() {
         locked = appLock.isEnabled() && deviceLockAvailable
         announceUnreadablePairings()
         followSession()
+        followNotificationPermission()
         val preview = if (BuildConfig.DEBUG) intent.getStringExtra(PREVIEW_EXTRA) else null
         if (savedInstanceState == null) openWidgetLink(intent)
         setContent {
@@ -75,6 +80,7 @@ class MainActivity : FragmentActivity() {
                     locked -> LockScreen(onUnlock = ::requestUnlock)
                     else -> PeeringScaffold(connectRequests)
                 }
+                if (!locked) notificationPermission?.let { NotificationExplanation(it) }
             }
         }
     }
@@ -98,6 +104,13 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /** The system dialog is launched from here because only an activity can; the app asks through the permission object. */
+    private fun followNotificationPermission() {
+        val permission = notificationPermission ?: return
+        val launcher = registerForActivityResult(ActivityResultContracts.RequestPermission(), permission::onSystemDialogAnswered)
+        permission.launchSystemDialog = { launcher.launch(Manifest.permission.POST_NOTIFICATIONS) }
+    }
+
     private fun announceUnreadablePairings() {
         val graph = (application as PeeringApplication).graph
         lifecycleScope.launch {
@@ -105,6 +118,11 @@ class MainActivity : FragmentActivity() {
                 Toast.makeText(this@MainActivity, R.string.connect_pairings_unreadable, Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    override fun onDestroy() {
+        notificationPermission?.launchSystemDialog = null
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {

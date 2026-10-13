@@ -27,6 +27,7 @@ internal fun FeatureWiring.openFromWidget(link: WidgetLink) {
     val hostId = link.targetHostId ?: holder.active.value?.target?.hostId ?: return
     if (hostId !in pins.hostIds()) return
     connectOrResume(hostId)
+    if (link is WidgetLink.Chat) holder.active.value?.controller?.agentChat?.select(link.chatId)
     pendingSessionView.value = true
 }
 

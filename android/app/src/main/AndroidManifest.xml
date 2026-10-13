@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
@@ -51,6 +54,18 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/agents_widget_info" />
         </receiver>
+        <!-- Play Console asks for this subtype: a live, user-started remote-control session to the user's own computer that must outlive the screen. -->
+        <service
+            android:name=".background.SessionKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps an active remote session to the user's own computer connected while the app is in the background" />
+        </service>
+        <receiver
+            android:name=".background.NoticeActionReceiver"
+            android:exported="false" />
         <activity
             android:name=".ui.nav.HubActivity"
             android:exported="false"

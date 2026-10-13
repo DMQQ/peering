@@ -9,6 +9,7 @@ import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import pl.dmq.peering.AppGraph
+import pl.dmq.peering.background.BackgroundWiring
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -98,6 +99,8 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
         hostNames,
         scope,
     )
+    val background = BackgroundWiring(graph.applicationContext, scope, preferences, holder.active, devicePrefs)
+
     init {
         scope.launch { relayAllowance.trackSessions(relayInUse(holder.active)) }
     }

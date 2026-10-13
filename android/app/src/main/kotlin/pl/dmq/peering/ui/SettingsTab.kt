@@ -86,6 +86,7 @@ private fun rememberSettingsActions(
         onReportIssue = { context.composeEmail(SUPPORT_ADDRESS, reportSubject, reportBody) },
         onOpenWebPage = { context.openWebPage(it) },
         onShareInvite = { context.shareText(it) },
+        onNotificationsTurnedOn = wiring.background.permission::onNotificationsTurnedOn,
         onCopyDiagnostics = { state ->
             val text = diagnosticsText(version, Build.VERSION.RELEASE, Build.MODEL, state.deviceId, state.trustedHosts.size, state.prefs.allowsRelay, state.relayUnlimited)
             clipboard.setText(AnnotatedString(text))
