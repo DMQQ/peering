@@ -11,7 +11,7 @@ use peering_core::fakes::focus::BlindFocus;
 use peering_core::ports::focus::FocusProbe;
 use peering_core::ports::audio::AudioSource;
 use peering_core::ports::clipboard::Clipboard;
-use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame};
+use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame, WindowInfo};
 use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
 use peering_core::ports::input::{InputSink, TransformSnapshot};
 use peering_core::ports::secret_store::SecretStore;
@@ -111,6 +111,14 @@ impl SharedCapture {
     pub fn displays(&self) -> Vec<DisplayInfo> {
         self.locked().list_displays()
     }
+
+    pub fn windows(&self) -> Vec<WindowInfo> {
+        self.locked().list_windows()
+    }
+
+    pub fn window(&self, id: u32) -> Option<WindowInfo> {
+        self.locked().window(id)
+    }
 }
 
 impl Capture for SharedCapture {
@@ -120,6 +128,18 @@ impl Capture for SharedCapture {
 
     fn start(&mut self, display_id: u32) -> Result<(), CaptureError> {
         self.locked().start(display_id)
+    }
+
+    fn list_windows(&self) -> Vec<WindowInfo> {
+        self.windows()
+    }
+
+    fn window(&self, window_id: u32) -> Option<WindowInfo> {
+        SharedCapture::window(self, window_id)
+    }
+
+    fn start_window(&mut self, window_id: u32) -> Result<(), CaptureError> {
+        self.locked().start_window(window_id)
     }
 
     fn stop(&mut self) {

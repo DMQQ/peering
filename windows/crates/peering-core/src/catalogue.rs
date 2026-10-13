@@ -6,7 +6,7 @@ use std::hash::Hash;
 use peering_wire::frame_budget::{longest_prefix, CONTROL_LIST_BUDGET};
 use peering_wire::source::{CaptureCatalog, CaptureSourceDescriptor};
 
-use crate::ports::capture::DisplayInfo;
+use crate::ports::capture::{DisplayInfo, WindowInfo};
 
 /// "Display 1 (primary)" for the first display, "Display 2" for the next. The ordinal is the display's position
 /// in the catalogue, not its platform id, so the phone's labels stay 1..n whatever the host's ids are.
@@ -36,7 +36,12 @@ impl CatalogueService {
 
     /// Returns the new catalogue when the set of displays changed since the last call, and None otherwise.
     pub fn update(&mut self, displays: &[DisplayInfo]) -> Option<CaptureCatalog> {
-        let catalog = build_catalog(displays);
+        self.update_with_windows(displays, &[])
+    }
+
+    /// As `update`, with the windows that can be captured listed beside the displays.
+    pub fn update_with_windows(&mut self, displays: &[DisplayInfo], windows: &[WindowInfo]) -> Option<CaptureCatalog> {
+        let catalog = build_catalog(displays, windows);
         if self.current.as_ref() == Some(&catalog) {
             return None;
         }
@@ -46,7 +51,7 @@ impl CatalogueService {
 }
 
 /// Primary first, then by id, so the ordinals in the titles do not move when the displays are listed in another order.
-fn build_catalog(displays: &[DisplayInfo]) -> CaptureCatalog {
+fn build_catalog(displays: &[DisplayInfo], windows: &[WindowInfo]) -> CaptureCatalog {
     let mut ordered: Vec<&DisplayInfo> = displays.iter().collect();
     ordered.sort_by_key(|display| (!display.is_primary, display.id));
     let descriptors: Vec<CaptureSourceDescriptor> = ordered
@@ -58,7 +63,19 @@ fn build_catalog(displays: &[DisplayInfo]) -> CaptureCatalog {
         })
         .collect();
     let (displays, _) = longest_prefix(descriptors, CONTROL_LIST_BUDGET);
-    CaptureCatalog { displays, ..CaptureCatalog::default() }
+    let used = serde_json::to_vec(&displays).map_or(0, |encoded| encoded.len());
+    let (windows, _) = longest_prefix(window_descriptors(windows), CONTROL_LIST_BUDGET.saturating_sub(used));
+    CaptureCatalog { displays, windows, ..CaptureCatalog::default() }
+}
+
+/// By program and then title, ignoring case, so a window's place does not move when the list is read in another order.
+fn window_descriptors(windows: &[WindowInfo]) -> Vec<CaptureSourceDescriptor> {
+    let mut ordered: Vec<&WindowInfo> = windows.iter().collect();
+    ordered.sort_by_key(|window| (window.application.to_lowercase(), window.title.to_lowercase(), window.id));
+    ordered
+        .into_iter()
+        .map(|window| CaptureSourceDescriptor::window(window.id, &window.title, &window.application, window.pixel_width, window.pixel_height))
+        .collect()
 }
 
 /// What each session has already been sent. A session that has not received the catalogue gets it, whatever the others
@@ -119,9 +136,60 @@ mod tests {
     #[test]
     fn the_catalogue_frame_stays_under_the_64_kib_rule_however_many_displays_there_are() {
         let displays: Vec<DisplayInfo> = (0..1_000).map(|id| display(id, id == 0, 1920)).collect();
-        let catalog = build_catalog(&displays);
+        let catalog = build_catalog(&displays, &[]);
         assert!(catalog.displays.len() < 1_000);
         assert!(serde_json::to_vec(&catalog).expect("a catalogue serialises").len() < 64 * 1024);
+    }
+
+    fn window(id: u32, application: &str, title: &str) -> WindowInfo {
+        WindowInfo {
+            id,
+            title: title.to_owned(),
+            application: application.to_owned(),
+            pixel_width: 800,
+            pixel_height: 600,
+            origin_x: 0,
+            origin_y: 0,
+            scale: 1.0,
+        }
+    }
+
+    #[test]
+    fn windows_are_listed_by_program_and_then_title() {
+        let mut service = CatalogueService::new();
+        let windows = [window(3, "Notepad", "b.txt"), window(9, "Edge", "News"), window(4, "notepad", "A.txt")];
+        let catalog = service.update_with_windows(&[display(1, true, 1920)], &windows).unwrap();
+        let listed: Vec<&str> = catalog.windows.iter().map(|descriptor| descriptor.title.as_str()).collect();
+        assert_eq!(listed, ["News", "A.txt", "b.txt"]);
+        assert_eq!(catalog.windows[0].id, "window:9");
+        assert_eq!(catalog.windows[0].subtitle.as_deref(), Some("Edge"));
+        assert_eq!(catalog.windows[0].pixel_size, [800.0, 600.0]);
+    }
+
+    #[test]
+    fn a_window_that_appears_or_is_renamed_is_a_change() {
+        let mut service = CatalogueService::new();
+        let displays = [display(1, true, 1920)];
+        service.update_with_windows(&displays, &[window(1, "Edge", "News")]);
+        assert_eq!(service.update_with_windows(&displays, &[window(1, "Edge", "News")]), None);
+        assert!(service.update_with_windows(&displays, &[window(1, "Edge", "Weather")]).is_some());
+        assert!(service.update_with_windows(&displays, &[window(1, "Edge", "Weather"), window(2, "Notepad", "x")]).is_some());
+    }
+
+    #[test]
+    fn the_catalogue_with_windows_stays_under_the_64_kib_rule() {
+        let displays = [display(1, true, 1920)];
+        let windows: Vec<WindowInfo> = (0..2_000).map(|id| window(id, "Program", &format!("A window with a long title number {id}"))).collect();
+        let catalog = build_catalog(&displays, &windows);
+        assert!(!catalog.windows.is_empty() && catalog.windows.len() < 2_000);
+        assert!(serde_json::to_vec(&catalog).expect("a catalogue serialises").len() < 64 * 1024);
+    }
+
+    #[test]
+    fn without_windows_the_window_list_is_empty() {
+        let mut service = CatalogueService::new();
+        let catalog = service.update(&[display(1, true, 1920)]).unwrap();
+        assert!(catalog.windows.is_empty());
     }
 
     #[test]

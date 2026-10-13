@@ -113,6 +113,26 @@ impl CaptureSourceDescriptor {
     }
 }
 
+impl CaptureSourceDescriptor {
+    /// A window: its title, the program it belongs to as the subtitle, and its size in pixels.
+    pub fn window(id: u32, title: &str, application: &str, width: u32, height: u32) -> Self {
+        let source = CaptureSource::Window { id };
+        Self {
+            id: source.stable_id(),
+            kind: CaptureSourceKind::Window,
+            title: title.to_string(),
+            subtitle: Some(application.to_string()).filter(|name| !name.is_empty()),
+            bundle_identifier: None,
+            icon_png_data: None,
+            thumbnail: None,
+            source,
+            pixel_size: [f64::from(width), f64::from(height)],
+            is_managed_virtual_display: false,
+            is_virtual_display: false,
+        }
+    }
+}
+
 /// Every list may be absent on input. All four lists are always written, so an empty list is `[]`.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

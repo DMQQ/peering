@@ -41,7 +41,7 @@ pub enum CaptureCondition {
 
 #[derive(Debug, Error)]
 pub enum CoordinatorError {
-    #[error("only display sources can be captured, not {0}")]
+    #[error("only display and window sources can be captured, not {0}")]
     UnsupportedSource(String),
     #[error(transparent)]
     Capture(#[from] CaptureError),
@@ -246,3 +246,5 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod window_tests;

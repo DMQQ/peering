@@ -51,23 +51,15 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
 
     /// Switches capture to a display. A switch to the source already running changes nothing.
     pub fn set_source(&mut self, source: CaptureSource, now: f64) -> Result<(), CoordinatorError> {
-        let id = match &source {
-            CaptureSource::Display { id } => *id,
-            other => return Err(CoordinatorError::UnsupportedSource(other.stable_id())),
-        };
+        if !matches!(source, CaptureSource::Display { .. } | CaptureSource::Window { .. }) {
+            return Err(CoordinatorError::UnsupportedSource(source.stable_id()));
+        }
         if self.source.as_ref() == Some(&source) {
             self.chosen_source = Some(source);
             return Ok(());
         }
-        let display = self
-            .capture
-            .list_displays()
-            .into_iter()
-            .find(|display| display.id == id)
-            .ok_or(CaptureError::DisplayNotFound(id))?;
-        self.source = None;
-        self.capture.start(id)?;
-        self.size = even_size(display.pixel_width, display.pixel_height);
+        let (width, height) = self.start_capture(&source, true)?;
+        self.size = even_size(width, height);
         let (width, height) = self.size;
         self.encoder.configure(width, height, self.pacer.rate(), self.target_bitrate_bps())?;
         self.source = Some(source.clone());
@@ -83,5 +75,39 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.frame_ever_seen = false;
         self.no_frames = false;
         Ok(())
+    }
+
+    /// Starts the capture on a display or a window and returns its size in pixels. With `replacing`, the running source is
+    /// forgotten once the new one is known to exist, so one that then fails to start leaves none running.
+    pub(super) fn start_capture(&mut self, source: &CaptureSource, replacing: bool) -> Result<(u32, u32), CoordinatorError> {
+        match source {
+            CaptureSource::Display { id } => {
+                let display = self
+                    .capture
+                    .list_displays()
+                    .into_iter()
+                    .find(|display| display.id == *id)
+                    .ok_or(CaptureError::DisplayNotFound(*id))?;
+                if replacing {
+                    self.source = None;
+                }
+                self.capture.start(*id)?;
+                Ok((display.pixel_width, display.pixel_height))
+            }
+            CaptureSource::Window { id } => {
+                let window = self
+                    .capture
+                    .list_windows()
+                    .into_iter()
+                    .find(|window| window.id == *id)
+                    .ok_or(CaptureError::WindowNotFound(*id))?;
+                if replacing {
+                    self.source = None;
+                }
+                self.capture.start_window(*id)?;
+                Ok((window.pixel_width, window.pixel_height))
+            }
+            other => Err(CoordinatorError::UnsupportedSource(other.stable_id())),
+        }
     }
 }

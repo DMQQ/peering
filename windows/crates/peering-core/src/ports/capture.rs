@@ -13,6 +13,20 @@ pub struct DisplayInfo {
     pub is_primary: bool,
 }
 
+/// One window that can be captured. The position and scale are the display convention: the corner in points, the size in pixels.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WindowInfo {
+    pub id: u32,
+    pub title: String,
+    /// The program the window belongs to, such as "Notepad".
+    pub application: String,
+    pub pixel_width: u32,
+    pub pixel_height: u32,
+    pub origin_x: i32,
+    pub origin_y: i32,
+    pub scale: f64,
+}
+
 /// A captured frame before encoding. The pixels stay behind the platform implementation; the core only routes the handle's metadata.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RawFrame {
@@ -25,6 +39,8 @@ pub struct RawFrame {
 pub enum CaptureError {
     #[error("display {0} is not attached")]
     DisplayNotFound(u32),
+    #[error("window {0} is gone")]
+    WindowNotFound(u32),
     #[error("capture failed: {0}")]
     Failed(String),
 }
@@ -34,6 +50,21 @@ pub enum CaptureError {
 pub trait Capture {
     fn list_displays(&self) -> Vec<DisplayInfo>;
     fn start(&mut self, display_id: u32) -> Result<(), CaptureError>;
+
+    /// The windows that can be captured now, each of which `start_window` will take. A capture without window support lists none.
+    fn list_windows(&self) -> Vec<WindowInfo> {
+        Vec::new()
+    }
+
+    /// One window by its id, if it can still be captured. Cheap enough to ask many times a second, which the list is not.
+    fn window(&self, window_id: u32) -> Option<WindowInfo> {
+        self.list_windows().into_iter().find(|window| window.id == window_id)
+    }
+
+    /// Starts capturing one window, replacing any earlier source.
+    fn start_window(&mut self, window_id: u32) -> Result<(), CaptureError> {
+        Err(CaptureError::WindowNotFound(window_id))
+    }
     fn stop(&mut self);
     fn poll_frame(&mut self) -> Option<RawFrame>;
 

@@ -113,7 +113,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
     }
 
     fn rebuild(&mut self, remedy: Remedy, now: f64) -> Result<(), CoordinatorError> {
-        let Some(CaptureSource::Display { id }) = self.source.clone() else {
+        let Some(source) = self.source.clone().filter(|source| matches!(source, CaptureSource::Display { .. } | CaptureSource::Window { .. })) else {
             self.recovery.rebuilt(now);
             return Ok(());
         };
@@ -124,14 +124,11 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         }
         if remedy == Remedy::Pipeline {
             self.capture.stop();
-            let display = self
-                .capture
-                .list_displays()
-                .into_iter()
-                .find(|display| display.id == id)
-                .ok_or(CaptureError::DisplayNotFound(id))?;
-            self.capture.start(id)?;
-            self.size = even_size(display.pixel_width, display.pixel_height);
+            match self.start_capture(&source, false) {
+                Ok((width, height)) => self.size = even_size(width, height),
+                Err(CoordinatorError::Capture(CaptureError::WindowNotFound(_))) => return self.fall_back_to_a_display(now),
+                Err(error) => return Err(error),
+            }
         }
         let (width, height) = self.size;
         self.encoder.configure(width, height, self.pacer.rate(), self.target_bitrate_bps())?;
@@ -143,6 +140,22 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.capture_started_at = Some(now);
         self.frame_ever_seen = false;
         self.recovery.rebuilt(now);
+        Ok(())
+    }
+
+    /// The window being captured is gone, so the picture goes to the primary display rather than freezing. The clients are
+    /// told by the new description, whose source id names the display.
+    fn fall_back_to_a_display(&mut self, now: f64) -> Result<(), CoordinatorError> {
+        let displays = self.capture.list_displays();
+        let display = displays
+            .iter()
+            .find(|display| display.is_primary)
+            .or_else(|| displays.first())
+            .ok_or_else(|| CaptureError::Failed("no display is attached".to_owned()))?;
+        let source = CaptureSource::Display { id: display.id };
+        self.source = None;
+        self.set_source(source.clone(), now)?;
+        self.chosen_source = Some(source);
         Ok(())
     }
 }

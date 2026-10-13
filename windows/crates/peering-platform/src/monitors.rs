@@ -81,7 +81,7 @@ pub fn enumerate_readings() -> Vec<MonitorReading> {
     sys::read_monitors()
 }
 
-fn to_points(pixels: i32, scale: f64) -> i32 {
+pub(crate) fn to_points(pixels: i32, scale: f64) -> i32 {
     clamp_to_i32((f64::from(pixels) / scale).round() as i64)
 }
 

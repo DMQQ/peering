@@ -18,7 +18,7 @@ use peering_core::fakes::input::RecordingInput;
 use peering_core::fakes::secret_store::InMemorySecretStore;
 use peering_core::fakes::system::RecordingSystem;
 use peering_core::files::fake::InMemoryFileSystem;
-use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame};
+use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame, WindowInfo};
 use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
 use peering_core::ports::input::{InputSink, TransformSnapshot};
 use peering_core::ports::system::{SystemActions, SystemError};
@@ -61,6 +61,18 @@ impl Capture for SharedCapture {
 
     fn start(&mut self, display_id: u32) -> Result<(), CaptureError> {
         locked(&self.0).start(display_id)
+    }
+
+    fn list_windows(&self) -> Vec<WindowInfo> {
+        locked(&self.0).list_windows()
+    }
+
+    fn window(&self, window_id: u32) -> Option<WindowInfo> {
+        locked(&self.0).window(window_id)
+    }
+
+    fn start_window(&mut self, window_id: u32) -> Result<(), CaptureError> {
+        locked(&self.0).start_window(window_id)
     }
 
     fn stop(&mut self) {

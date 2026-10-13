@@ -1,12 +1,14 @@
 use std::collections::VecDeque;
 
-use crate::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame};
+use crate::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame, WindowInfo};
 
 /// Scripted displays and a queue of frames the test pushes. Frames pushed while stopped are discarded on start.
 #[derive(Debug)]
 pub struct FakeCapture {
     displays: Vec<DisplayInfo>,
+    windows: Vec<WindowInfo>,
     running_display: Option<u32>,
+    running_window: Option<u32>,
     pending: VecDeque<RawFrame>,
     failed: bool,
     probe_failure: bool,
@@ -18,13 +20,24 @@ impl FakeCapture {
     pub fn new(displays: Vec<DisplayInfo>) -> Self {
         Self {
             displays,
+            windows: Vec::new(),
             running_display: None,
+            running_window: None,
             pending: VecDeque::new(),
             failed: false,
             probe_failure: false,
             start_failures: 0,
             starts: 0,
         }
+    }
+
+    /// The windows that can be captured from now on.
+    pub fn set_windows(&mut self, windows: Vec<WindowInfo>) {
+        self.windows = windows;
+    }
+
+    pub fn running_window(&self) -> Option<u32> {
+        self.running_window
     }
 
     /// Makes `is_failed` report true until the next successful `start`.
@@ -72,17 +85,40 @@ impl Capture for FakeCapture {
         self.failed = false;
         self.probe_failure = false;
         self.running_display = Some(display_id);
+        self.running_window = None;
+        self.pending.clear();
+        Ok(())
+    }
+
+    fn list_windows(&self) -> Vec<WindowInfo> {
+        self.windows.clone()
+    }
+
+    fn start_window(&mut self, window_id: u32) -> Result<(), CaptureError> {
+        if !self.windows.iter().any(|window| window.id == window_id) {
+            return Err(CaptureError::WindowNotFound(window_id));
+        }
+        self.starts += 1;
+        if self.start_failures > 0 {
+            self.start_failures -= 1;
+            return Err(CaptureError::Failed("the window could not be captured".to_owned()));
+        }
+        self.failed = false;
+        self.probe_failure = false;
+        self.running_window = Some(window_id);
+        self.running_display = None;
         self.pending.clear();
         Ok(())
     }
 
     fn stop(&mut self) {
         self.running_display = None;
+        self.running_window = None;
         self.pending.clear();
     }
 
     fn poll_frame(&mut self) -> Option<RawFrame> {
-        self.running_display?;
+        self.running_display.or(self.running_window)?;
         self.pending.pop_front()
     }
 

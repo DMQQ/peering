@@ -139,15 +139,15 @@ fn a_switch_to_a_display_that_is_not_attached_is_refused_and_the_picture_carries
 }
 
 #[test]
-fn a_window_is_refused_as_a_capture_source_without_changing_the_display() {
+fn an_application_is_refused_as_a_capture_source_without_changing_the_display() {
     let (mut coordinator, _capture, _encoder) = shared_coordinator(two_displays());
     coordinator.attach("phone-a");
     coordinator.set_source(CaptureSource::Display { id: 1 }, 0.0).expect("display 1");
     let mut control = CoordinatorControl { coordinator, now: 0.0, rejected: Vec::new() };
 
-    dispatch_switch(&mut control, CaptureSource::Window { id: 5 });
+    dispatch_switch(&mut control, CaptureSource::Application { pid: 5 });
 
-    assert_eq!(control.rejected, ["only display sources can be captured, not window:5"]);
+    assert_eq!(control.rejected, ["only display and window sources can be captured, not application:5"]);
     assert_eq!(control.coordinator.running_source(), Some(&CaptureSource::Display { id: 1 }));
 }
 

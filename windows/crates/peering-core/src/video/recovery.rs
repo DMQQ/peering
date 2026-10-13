@@ -35,7 +35,7 @@ pub enum Remedy {
 
 pub fn remedy_for(error: &CoordinatorError) -> Remedy {
     match error {
-        CoordinatorError::Capture(CaptureError::DisplayNotFound(_) | CaptureError::Failed(_)) => Remedy::Pipeline,
+        CoordinatorError::Capture(CaptureError::DisplayNotFound(_) | CaptureError::WindowNotFound(_) | CaptureError::Failed(_)) => Remedy::Pipeline,
         CoordinatorError::Encode(EncodeError::NotConfigured | EncodeError::Failed(_)) => Remedy::Encoder,
         CoordinatorError::Wire(_) => Remedy::Resync,
         CoordinatorError::Encode(EncodeError::Unsupported(_)) | CoordinatorError::UnsupportedSource(_) => Remedy::Unrecoverable,

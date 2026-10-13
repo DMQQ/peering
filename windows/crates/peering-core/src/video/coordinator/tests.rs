@@ -135,10 +135,10 @@ fn an_unknown_display_is_refused_and_leaves_nothing_running() {
 }
 
 #[test]
-fn a_window_source_is_refused_because_only_displays_are_captured() {
+fn an_application_source_is_refused_because_only_displays_and_windows_are_captured() {
     let mut coordinator = coordinator();
-    let error = coordinator.set_source(CaptureSource::Window { id: 7 }, 0.0).unwrap_err();
-    assert!(matches!(error, CoordinatorError::UnsupportedSource(ref text) if text == "window:7"));
+    let error = coordinator.set_source(CaptureSource::Application { pid: 7 }, 0.0).unwrap_err();
+    assert!(matches!(error, CoordinatorError::UnsupportedSource(ref text) if text == "application:7"));
 }
 
 #[test]

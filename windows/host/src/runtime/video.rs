@@ -6,7 +6,7 @@ use peering_core::video::coordinator::CaptureCondition;
 use peering_core::video::intent::VideoIntent;
 use peering_core::video::lane::LaneSend;
 use peering_wire::handshake::NoticePayload;
-use peering_core::ports::capture::DisplayInfo;
+use peering_core::ports::capture::{DisplayInfo, WindowInfo};
 use peering_core::ports::input::TransformSnapshot;
 use peering_core::ports::system::SystemActions;
 use peering_core::session::dispatch::SourceControl;
@@ -70,8 +70,17 @@ impl SourceControl for CoordinatorControl<'_> {
     }
 }
 
-/// The transform a remote pointer is mapped through: the captured display, else the primary, else the first.
-pub fn transform_for(displays: &[DisplayInfo], source: Option<&CaptureSource>) -> TransformSnapshot {
+/// The transform a remote pointer is mapped through: the captured window or display, else the primary display, else the first.
+pub fn transform_for(displays: &[DisplayInfo], window: Option<&WindowInfo>, source: Option<&CaptureSource>) -> TransformSnapshot {
+    if let (Some(CaptureSource::Window { .. }), Some(window)) = (source, window) {
+        return TransformSnapshot {
+            origin_x: window.origin_x,
+            origin_y: window.origin_y,
+            pixel_width: window.pixel_width,
+            pixel_height: window.pixel_height,
+            scale: window.scale,
+        };
+    }
     let captured = match source {
         Some(CaptureSource::Display { id }) => displays.iter().find(|display| display.id == *id),
         _ => None,
@@ -108,10 +117,20 @@ pub fn catalogue_frame(catalog: &CaptureCatalog) -> Frame {
 }
 
 impl HostState {
-    /// Refreshes the catalogue from the displays now attached and returns the frames due for `session`.
+    /// Refreshes the catalogue from the displays now attached and the windows that can be captured, and returns the frames due
+    /// for `session`.
     pub fn catalogue_frames_for(&mut self, session: u64) -> Vec<Frame> {
+        self.refresh_catalogue();
+        self.catalogue_due(session)
+    }
+
+    fn refresh_catalogue(&mut self) {
         let displays = self.video.capture().displays();
-        self.catalogue.update(&displays);
+        let windows = self.video.capture().windows();
+        self.catalogue.update_with_windows(&displays, &windows);
+    }
+
+    fn catalogue_due(&mut self, session: u64) -> Vec<Frame> {
         let Some(catalog) = self.catalogue.current().cloned() else {
             return Vec::new();
         };
@@ -125,9 +144,10 @@ impl HostState {
         }
         self.catalog_checked_at = Some(now);
         let mut outgoing = Vec::new();
+        self.refresh_catalogue();
         let ids: Vec<u64> = self.sessions.keys().copied().collect();
         for session in ids {
-            for frame in self.catalogue_frames_for(session) {
+            for frame in self.catalogue_due(session) {
                 if let Some(slot) = self.sessions.get(&session) {
                     outgoing.push(Outgoing { to: slot.outbound.clone(), frame });
                 }
@@ -138,7 +158,12 @@ impl HostState {
 
     pub fn active_transform(&self) -> TransformSnapshot {
         let displays = self.video.capture().displays();
-        transform_for(&displays, self.video.running_source().as_ref())
+        let source = self.video.running_source();
+        let window = match &source {
+            Some(CaptureSource::Window { id }) => self.video.capture().window(*id),
+            _ => None,
+        };
+        transform_for(&displays, window.as_ref(), source.as_ref())
     }
 
     /// The notice frames due now: a change in what keeps the screen from being captured, else a standing report that the
