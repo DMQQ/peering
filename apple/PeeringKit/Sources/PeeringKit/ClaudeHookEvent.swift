@@ -5,6 +5,8 @@ public struct ClaudeHookEvent: Equatable, Sendable {
     public enum Kind: Equatable, Sendable {
         case permissionRequest
         case notification
+        /// Claude finished its turn and is waiting for the next message.
+        case stop
         case other(String)
     }
 
@@ -20,9 +22,11 @@ public struct ClaudeHookEvent: Equatable, Sendable {
     public let message: String?
     /// What kind of notification a `Notification` hook is, such as `idle_prompt`, when Claude Code says.
     public let notificationType: String?
+    /// True when Claude is already continuing because a Stop hook asked it to; a push for that would repeat the last one.
+    public let stopHookActive: Bool
 
     /// The folder's name, which is what tells two terminals apart.
-    public init(kind: Kind, sessionID: String, directory: String?, toolName: String?, detail: String?, message: String?, notificationType: String? = nil) {
+    public init(kind: Kind, sessionID: String, directory: String?, toolName: String?, detail: String?, message: String?, notificationType: String? = nil, stopHookActive: Bool = false) {
         self.kind = kind
         self.sessionID = sessionID
         self.directory = directory
@@ -30,6 +34,7 @@ public struct ClaudeHookEvent: Equatable, Sendable {
         self.detail = detail
         self.message = message
         self.notificationType = notificationType
+        self.stopHookActive = stopHookActive
     }
 
     public var projectName: String? {
@@ -57,7 +62,8 @@ public struct ClaudeHookEvent: Equatable, Sendable {
             toolName: toolName,
             detail: detail(of: input),
             message: object["message"] as? String,
-            notificationType: object["notification_type"] as? String
+            notificationType: object["notification_type"] as? String,
+            stopHookActive: object["stop_hook_active"] as? Bool ?? false
         )
     }
 
@@ -65,6 +71,7 @@ public struct ClaudeHookEvent: Equatable, Sendable {
         switch name {
         case "PermissionRequest": .permissionRequest
         case "Notification": .notification
+        case "Stop": .stop
         default: .other(name)
         }
     }

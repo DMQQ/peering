@@ -41,11 +41,15 @@ public final class ClaudeHookBroker: @unchecked Sendable {
         case .permissionRequest:
             permissionRequest(event, devices: devices, reply: reply)
         case .notification:
-            // An idle prompt arrives about a minute after Claude finished and says "waiting for your input", which reads as unfinished work. It is the turn's end, so it is worded as one.
-            let text = event.notificationType == Self.idlePrompt
-                ? (words.title(title(for: event), .finished), words.turn(.finished))
-                : (title(for: event), event.message ?? words.claudeCodeWaiting)
-            for token in devices { push(token, text.0, text.1, nil) }
+            // Never an idle prompt: it fires after a quiet minute while Claude may be mid-task, and the end of a turn is the Stop hook's to say.
+            if event.notificationType != Self.idlePrompt {
+                for token in devices { push(token, title(for: event), event.message ?? words.claudeCodeWaiting, nil) }
+            }
+            reply(nil)
+        case .stop:
+            if !event.stopHookActive {
+                for token in devices { push(token, words.title(title(for: event), .finished), words.turn(.finished), nil) }
+            }
             reply(nil)
         case .other:
             reply(nil)
