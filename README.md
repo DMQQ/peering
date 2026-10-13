@@ -29,6 +29,67 @@ The repository is called MacCast. The products are **Peering** (iPhone and Andro
 - **Files.** Browse, preview, edit, upload and download on the Mac or over SSH.
 - **Virtual displays.** Give the phone its own screen instead of mirroring the Mac's.
 
+## Android app
+
+Peering for Android is a native Kotlin app (Jetpack Compose, Material 3, minSdk 29) that pairs with a Mac or a
+Windows host and does what the iPhone app does. It is in testing on devices and not on Google Play yet.
+
+- **Connect and pair.** Nearby computers over mDNS, six digit code pairing with a QR scanner, connect by address or
+  by device ID, and the same direct-then-relay path as the iPhone. A paired computer's key is pinned.
+- **Remote screen.** Picture with trackpad, touch and joystick pointer modes, keyboard, clipboard, sound, and a
+  picker for displays, apps, windows, desktops and virtual displays, including the mosaic.
+- **Coding agents.** Chats with Claude Code, Codex and OpenCode, changes review, permission prompts answered from
+  a notification, and a home screen widget.
+- **Terminal, SSH and files.** Shells on the computer or on any SSH server you add, and a folder browser with
+  search, preview, upload and download.
+- **Stays connected.** A foreground service keeps a session alive in the background, and the app reconnects by
+  itself when the network changes.
+- **Localised** in the same ten languages as the iPhone app.
+
+Not built yet: push when the app is fully closed, video preview in files, photo upload, and analytics.
+The full comparison is in [docs/reviews/android-feature-parity.md](docs/reviews/android-feature-parity.md).
+
+```sh
+cd android
+./gradlew :app:installDebug      # build and install on a connected phone (USB debugging on)
+./gradlew :core:wire:test :core:session:test :app:testDebugUnitTest
+```
+
+`core/wire` and `core/session` are plain Kotlin with no Android classes, so their tests run on a laptop. Release
+builds, signing, wireless debugging and the background behaviour are covered in [android/README.md](android/README.md).
+
+## Windows host
+
+Peering Host for Windows is a Rust workspace that lets the same iPhone and Android apps reach a Windows PC. It
+speaks the same wire protocol as the Mac host (`docs/protocol.md`), listens on TCP 51515 for the local network and
+registers with the relay for everything else, and shows its pairing code in a tray window. **It has been built and
+tested on a Mac for its logic only and has never been run on Windows**, so treat it as a preview.
+
+- **Picture and input.** Desktop Duplication capture of a display, a single window through Windows.Graphics.Capture,
+  hardware or software H.264 encoding, mouse and keyboard injection, and the cursor drawn into the picture.
+- **Sound** from the PC through WASAPI loopback, sent only while a phone is in the foreground.
+- **Clipboard, files and terminal.** Text and image clipboard, folder browsing with zip download, and shells.
+- **Agents and hooks.** Claude Code, Codex and OpenCode chats, approval pushes through the relay, and the opt-in
+  terminal hooks.
+- **Hosting niceties.** Text field awareness through UI Automation, a rotating log file with an Open log folder
+  button, a daily update check, start at sign-in, and a firewall rule helper.
+- **Safety.** The device key is sealed with DPAPI, and every paired phone is pinned by its public key.
+
+Not built: whole application capture and thumbnails, a real privacy curtain, desktop switching, virtual displays,
+Live Activity pushes and code signing. See [docs/reviews/windows-feature-parity.md](docs/reviews/windows-feature-parity.md).
+
+```sh
+cd windows
+cargo test --workspace                    # runs on any OS: in-memory streams and fakes
+cargo build --release -p peering-host     # on Windows, with the Visual Studio C++ build tools
+powershell -ExecutionPolicy Bypass -File installer\build.ps1   # Inno Setup installer, unsigned
+```
+
+The crates are `peering-wire` (protocol), `peering-core` (sessions and policy), `peering-net` (LAN, relay, direct
+path), `peering-platform` (capture, input, audio, files) and `peering-agent` (coding agents). Details, the first-run
+SmartScreen warning and the checklist of things only a Windows machine can verify are in
+[windows/README.md](windows/README.md).
+
 ## Privacy model
 
 The relay cannot read anything it carries. Control traffic is a TLS session between the two ends
