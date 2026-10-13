@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="agents_rename">重命名</string>
+    <string name="agents_rename_field">名称</string>
+    <string name="agents_rename_save">存储</string>
+    <string name="agents_template_save_title">存储提示词</string>
+    <string name="agents_template_field">要智能体做什么？</string>
+    <string name="agents_template_message">它会与建议一同出现在每个新聊天中。</string>
+    <string name="agents_template_add">存储你自己的提示词</string>
+    <string name="agents_template_yours">你的提示词</string>
+    <string name="agents_template_remove">移除</string>
+    <string name="agents_attach">附加文件</string>
+    <string name="agents_attach_photos">照片库</string>
+    <string name="agents_attach_files">文件</string>
+    <string name="agents_attach_sending">正在发送到你的电脑</string>
+    <string name="agents_attach_remove">移除</string>
+    <string name="agents_attach_too_large">该文件过大，无法从此设备发送（上限为 %1$d MB）。</string>
+    <string name="agents_attach_unreadable">此设备无法读取该文件。</string>
+    <string name="agents_attach_bad_name">该文件的名称无法在电脑上使用。</string>
+</resources>

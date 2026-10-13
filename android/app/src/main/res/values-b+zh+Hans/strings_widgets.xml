@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_connect_label">快速连接</string>
+    <string name="widget_quick_connect_description">打开 Peering 并连接到你的某台电脑。</string>
+    <string name="widget_quick_connect_tap">轻点以连接</string>
+    <string name="widget_quick_connect_empty">配对一台电脑后，它会显示在这里。</string>
+    <string name="widget_agents_label">智能体</string>
+    <string name="widget_agents_description">查看哪个聊天正在工作、哪个在等你、哪些已完成。</string>
+    <string name="widget_agents_waiting">%d 个在等待</string>
+    <string name="widget_agents_working">%d 个在工作</string>
+    <string name="widget_agents_empty_title">没有聊天</string>
+    <string name="widget_agents_empty_detail">请在你电脑的终端中启动一个。</string>
+    <string name="widget_agent_waiting">等待你操作</string>
+    <string name="widget_agent_working">工作中</string>
+    <string name="widget_agent_finished">已完成</string>
+    <string name="widget_agent_failed">因错误而停止</string>
+    <string name="widget_agent_stale">打开 Peering 以刷新</string>
+</resources>

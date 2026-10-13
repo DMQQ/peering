@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sources_section_virtual">虚拟显示器</string>
+    <string name="sources_add_display">添加显示器</string>
+    <string name="sources_virtual_empty">没有虚拟显示器。添加一个，即可在电脑上为你的手机提供专属屏幕，形状与这台手机一致。</string>
+    <string name="sources_desktop">桌面 %d</string>
+    <string name="sources_desktop_here">桌面 %d · 当前</string>
+    <string name="sources_action_close">关闭窗口</string>
+    <string name="sources_action_minimise">最小化窗口</string>
+    <string name="sources_action_zoom">缩放窗口</string>
+    <string name="sources_action_remove_display">移除显示器</string>
+    <string name="sources_action_rename_display">重命名显示器</string>
+    <string name="sources_rename_display">重命名显示器</string>
+    <string name="sources_rename_hint">名称</string>
+    <string name="sources_rename_save">存储</string>
+    <string name="sources_rename_cancel">取消</string>
+</resources>

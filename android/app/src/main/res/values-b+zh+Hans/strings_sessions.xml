@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sessions_detail">最近的会话与中继使用情况。</string>
+    <string name="sessions_relay">中继</string>
+    <string name="sessions_relay_free">免费中继时间</string>
+    <string name="sessions_relay_left">剩余 %1$s</string>
+    <string name="sessions_relay_period">过去 24 小时</string>
+    <string name="sessions_relay_note">你的额度以中继时间计算，而不是固定的会话次数。此处显示的是根据这台设备上记录的会话估算的结果。</string>
+    <string name="sessions_upgrade">升级到 Pro</string>
+    <string name="sessions_recent">最近的连接</string>
+    <string name="sessions_recent_empty">暂无内容。与电脑配对后，你连接过的电脑会显示在这里。</string>
+    <string name="sessions_summary_sessions">会话</string>
+    <string name="sessions_summary_connected">已连接</string>
+    <string name="sessions_summary_received">已接收</string>
+    <string name="sessions_row_detail">%1$s · %2$s · %3$s</string>
+    <string name="sessions_detail_back">返回会话</string>
+    <string name="sessions_detail_connection">连接</string>
+    <string name="sessions_detail_computer">电脑</string>
+    <string name="sessions_detail_path">路径</string>
+    <string name="sessions_detail_started">开始时间</string>
+    <string name="sessions_detail_duration">时长</string>
+    <string name="sessions_detail_ended">结束时间</string>
+    <string name="sessions_detail_received">已接收</string>
+    <string name="sessions_detail_sent">已发送</string>
+    <string name="sessions_detail_copy">拷贝会话日志</string>
+    <string name="sessions_detail_copied">已拷贝</string>
+    <string name="sessions_detail_log">会话日志</string>
+    <string name="sessions_detail_log_empty">此会话没有记录任何诊断事件。</string>
+    <string name="sessions_ended_user">由你结束</string>
+    <string name="sessions_ended_host">由电脑终止</string>
+    <string name="sessions_ended_lost">连接已断开</string>
+    <string name="sessions_ended_failed">失败</string>
+</resources>

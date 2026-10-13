@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="faq_detail">配对、隐私，以及设备之间传输的内容。</string>
+
+    <string name="faq_section_start">开始使用</string>
+    <string name="faq_account_question">需要账户吗？</string>
+    <string name="faq_account_answer">不需要。每台设备都会创建自己的身份，并把密钥保存在自己的安全存储中。没有注册，没有电子邮件，服务器上也不会存储任何关于你的信息。</string>
+    <string name="faq_pair_question">如何配对电脑？</string>
+    <string name="faq_pair_answer">两台设备需要能互相连通一次，而且需要有人在电脑旁。在同一网络下，请从“附近”中选择电脑。如果电脑在别处，请在电脑上打开 Peering 的“设备”，拷贝其设备 ID，然后在手机上使用“从其他网络配对”。无论哪种方式，电脑都会显示六位数字：在手机上输入，只有两者一致才继续。配对只需一次，此后设备会互相识别并自动重新连接。</string>
+    <string name="faq_mac_needs_question">电脑需要什么？</string>
+    <string name="faq_mac_needs_answer">需要运行中的电脑版 Peering，并允许两项权限：屏幕录制（用于捕获屏幕）和辅助功能（用于移动指针和输入）。电脑版 App 会显示这些权限的状态，并提供打开相应面板的按钮。</string>
+    <string name="faq_away_question">离家后也能连接吗？</string>
+    <string name="faq_away_answer">可以，而且会按顺序尝试两种方式。首先，两台设备会寻找彼此之间的直接路径；如果网络不允许，就由 Peering 的中继承载会话。会话屏幕会以“局域网”“中继”或“直连”显示当前使用的方式。你可以在“设置”的“远程访问”中完全关闭中继，这样连接就只限于你自己的网络。</string>
+    <string name="faq_awake_question">我的电脑必须保持唤醒吗？</string>
+    <string name="faq_awake_answer">电脑必须开着才能保持会话。目前还无法从手机唤醒休眠中的电脑。</string>
+    <string name="faq_many_question">可以使用多少台电脑？</string>
+    <string name="faq_many_answer">配对多少台都可以。它们都会显示在“连接”标签页中，各自有自己的菜单，同一时间只运行一个会话。开始另一个会话会结束第一个。</string>
+    <string name="faq_phones_question">两部手机可以使用同一台电脑吗？</string>
+    <string name="faq_phones_answer">可以。电脑可接受多台已连接的设备。画面一次只发送给一台设备，所以第二部手机观看同一台电脑时，并不会得到第二路串流。</string>
+
+    <string name="faq_section_privacy">隐私</string>
+    <string name="faq_relay_sees_question">中继能看到我的屏幕或操作吗？</string>
+    <string name="faq_relay_sees_answer">不能。它转发的是一条加密连接，并不持有任何密钥。视频、剪贴板文本、按键和指针输入都在这条连接之内，中继一概无法读取。</string>
+    <string name="faq_relay_knows_question">中继知道什么？</string>
+    <string name="faq_relay_knows_answer">电脑的设备 ID 和名称、这部手机的设备 ID、协议版本、App 声明你所用的方案，以及你的使用量。它看不到会话内部，也不会保留你屏幕上内容的任何记录。</string>
+    <string name="faq_video_servers_question">视频会经过你们的服务器吗？</string>
+    <string name="faq_video_servers_answer">只在必要时才会。当两台设备可以直接互通时，画面走直接路径，只有控制连接留在中继上。当它们无法互通时（在限制较多的网络上很常见），画面也由中继承载。App 会先尝试直接路径，并自行回退。</string>
+    <string name="faq_darken_question">能阻止电脑旁的人观看吗？</string>
+    <string name="faq_darken_answer">可以。会话中开启“调暗”，电脑自己的屏幕就会变黑，而捕获仍在继续，这样你操作时不必担心旁人从身后偷看。关闭它或结束会话后，屏幕就会恢复。</string>
+    <string name="faq_lock_question">可以给 App 加锁吗？</string>
+    <string name="faq_lock_answer">可以。锁定选项位于“设置”的“安全与隐私”中，每次回到 App 时都会要求验证。除指纹或面容外，也接受设备密码，因此手机认不出你时，你也不会被锁在 App 之外。</string>
+    <string name="faq_collect_question">Peering 会收集什么？</string>
+    <string name="faq_collect_answer">什么都不收集。App 中没有分析、没有广告，也没有第三方跟踪。</string>
+
+    <string name="faq_section_moves">设备之间传输什么</string>
+    <string name="faq_clipboard_question">剪贴板共享如何运作？</string>
+    <string name="faq_clipboard_answer">文本只在你要求时才会传输：把这部手机的剪贴板发送到电脑，或一键在电脑上粘贴。不会在后台拷贝任何内容。</string>
+    <string name="faq_files_question">可以传输文件吗？</string>
+    <string name="faq_files_answer">可以，通过文件浏览器。你可以读取文件、将其下载到手机、编辑文本文件并存回、新建文件或文件夹、重命名或删除列出的项目，也可以把手机上的文件发送到你正在查看的文件夹。删除会把文件移到电脑的废纸篓。文件类型由文件本身而不是名称决定，所以图片会作为图片打开，既不是文本也不是图片的内容则提供下载。</string>
+    <string name="faq_terminal_question">可以打开终端吗？</string>
+    <string name="faq_terminal_answer">可以。电脑上的 shell 会在会话内打开，带有可重命名的标签页，以及一排手机键盘无法发送的控制键。</string>
+    <string name="faq_macros_question">什么是快捷键和宏？</string>
+    <string name="faq_macros_answer">已存储的组合键，轻点一下即可触发，无需在玻璃屏幕上逐个输入。“快捷键”面板包含常用组合、针对屏幕上当前 App 的一组，以及 F1 到 F12。可用“快捷键”组末尾的编辑按钮添加你自己的。</string>
+
+    <string name="faq_section_plans">方案</string>
+    <string name="faq_free_question">什么是免费的？</string>
+    <string name="faq_free_answer">通过你自己的网络连接，没有限制，也不计时。中继是用来连接其他网络上的电脑的部分，免费版每天包含 30 分钟。</string>
+    <string name="faq_run_out_question">中继时间用完会怎样？</string>
+    <string name="faq_run_out_answer">在新的一天开始前，中继将停止承载会话，“会话”标签页会显示计量。你自己网络上的连接则始终可用。任何付费方案都会完全取消此限制。</string>
+    <string name="faq_subscribe_question">为什么 App 会请我订阅？</string>
+    <string name="faq_subscribe_answer">它会在你的首个会话之后询问，在中继时间快用完时也会再次询问。两次都只是一次提示，并且可以关闭；未经你在商店中确认，不会产生任何扣费。</string>
+
+    <string name="faq_section_trouble">安全与故障排除</string>
+    <string name="faq_verified_question">如何验证已配对的设备？</string>
+    <string name="faq_verified_answer">每台设备都会创建自己的密钥，并保存在安全存储中。当你确认六位验证码后，两台设备会记录对方的公钥，并拒绝连接任何声称拥有该身份的其他对象。中继无法冒充任何一端。</string>
+    <string name="faq_black_question">为什么电脑屏幕是黑的？</string>
+    <string name="faq_black_answer">几乎总是屏幕录制权限的问题。请在电脑上检查“系统设置”中“隐私与安全性”下的“屏幕录制”，然后在电脑上彻底退出 Peering 并重新打开。该权限只会在启动时生效。</string>
+    <string name="faq_soft_question">画面看起来比较模糊，可以调整吗？</string>
+    <string name="faq_soft_answer">可以。“设置”中的“串流质量”可设为自动、低、中或高，会话中的“设置”面板也一样。“自动”会跟随连接的承载能力：延迟升高时调低，稳定后再调高，所以信号弱时画面会变柔和，而不是卡住。</string>
+    <string name="faq_background_question">离开 App 会怎样？</string>
+    <string name="faq_background_answer">会话在 Peering 位于屏幕上时持续。Android 会暂停后台的 App，因此离开片刻后连接可能结束。切换 App 时，Peering 会多等一会儿才放弃；如果你离开期间会话丢失，回来时它会再尝试一次。若仍不行，请再次轻点电脑。</string>
+    <string name="faq_network_question">手机切换网络会怎样？</string>
+    <string name="faq_network_answer">连接会安静下来，因为电脑原先发送的目标地址已不存在。Peering 会尝试恢复会话，若已结束会告知你。加入新网络，轻点电脑，即可恢复。</string>
+
+    <string name="faq_section_gaps">已知缺口</string>
+    <string name="faq_gaps_question">Peering 目前还不能做什么？</string>
+    <string name="faq_gaps_answer">这是一份清单，而不是承诺。电脑的声音还不会在这部手机上播放。没有听写按钮。选择器不显示每个桌面（空间），也不能创建虚拟显示器，也没有多窗口马赛克。剪贴板历史记录以及读取电脑拷贝的内容尚未实现。休眠且不在你网络中的电脑无法被唤醒。</string>
+    <string name="faq_coming_question">这些会推出吗？</string>
+    <string name="faq_coming_answer">其中一部分会。清单上没有哪一项是我们坚持的设计决定，只是都还没有做。内容有变化时，常见问题会同步说明，因为这样的清单只有持续更新才值得一读。</string>
+</resources>
