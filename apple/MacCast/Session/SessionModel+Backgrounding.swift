@@ -33,6 +33,7 @@ extension SessionModel {
 
     /// First thing when the app stops being the active scene, before iOS freezes it with its sockets open: the Mac otherwise keeps encoding for a phone that cannot read it. The grace is requested first so the notice has time to leave.
     func leavingForeground() {
+        for session in sessions where session.isLive { session.logEvent("App left the foreground") }
         beginBackgroundGrace()
         applyBackgroundNotice(backgroundNotice.becameBackground())
     }
@@ -80,6 +81,7 @@ extension SessionModel {
     }
 
     func enteringForeground() {
+        for session in sessions where session.isLive { session.logEvent("App came to the foreground") }
         applyBackgroundNotice(backgroundNotice.becameActive())
         // If the card still shows dropped and the Mac is back in reach, jump to "reconnecting" instead of leaving "dropped" up for the round trip. `reachability(ofHost:)` keeps it in agreement with the picker's dot.
         if let session = activeSession,

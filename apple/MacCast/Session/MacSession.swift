@@ -208,13 +208,16 @@ final class MacSession: Identifiable {
     // MARK: - Session history
 
     /// One number for a live session and its record, which is written to `UserDefaults` and read at launch, so it is a size as much as a limit.
-    static let sessionLogLimit = 40
+    static let sessionLogLimit = 80
 
     var activeSessionHistoryID: UUID?
     var activeSessionHistoryStartedAt: Date?
     var activeSessionBytes: Int64 = 0
     var lastBandwidthSampleBytes: Int64 = 0
     var activeSessionLogs: [String] = []
+    /// Lines logged before the session is ready, filed with it once it is.
+    var preReadyLogs: [String] = []
+    var lastLatencyLogAt: Date?
 
     /// Held as the record's identity and totals, not its index: the list moves under anything positional. See ``SessionContinuation``.
     var activeSessionContinuation: SessionContinuation?

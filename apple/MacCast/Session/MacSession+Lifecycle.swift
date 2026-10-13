@@ -43,7 +43,7 @@ extension MacSession {
         notes.append(note)
         if notes.count > 12 { notes.removeFirst(notes.count - 12) }
         if activeSessionHistoryID != nil {
-            activeSessionLogs.append(note)
+            activeSessionLogs.append(Self.stamp(note))
             if activeSessionLogs.count > Self.sessionLogLimit {
                 activeSessionLogs.removeFirst(activeSessionLogs.count - Self.sessionLogLimit)
             }

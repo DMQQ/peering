@@ -44687,64 +44687,6 @@
         }
       }
     },
-    "Install it once" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Einmal installieren"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Instálalo una vez"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Installez-le une fois"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Installalo una volta"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一度インストールするだけ"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "한 번만 설치하세요"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Instale uma vez"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Установите один раз"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "只需安装一次"
-          }
-        }
-      }
-    },
     "Install Peering on your Mac" : {
       "localizations" : {
         "de" : {
@@ -57487,64 +57429,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "暂无内容。首次回复后会显示在这里。"
-          }
-        }
-      }
-    },
-    "Nothing. There is no analytics, no advertising, and no third-party tracking SDK in the app. The diagnostics you can copy from Settings are assembled on the device and only go anywhere if you send them yourself." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nichts. Es gibt keine Analyse, keine Werbung und kein Tracking-SDK von Dritten in der App. Die Diagnose, die du in den Einstellungen kopieren kannst, wird auf dem Gerät zusammengestellt und geht nur irgendwohin, wenn du sie selbst sendest."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nada. No hay analíticas, ni publicidad, ni SDK de seguimiento de terceros en la app. Los diagnósticos que puedes copiar desde Ajustes se generan en el dispositivo y solo van a algún sitio si los envías tú."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rien. Il n'y a ni analyse, ni publicité, ni SDK de suivi tiers dans l'app. Les diagnostics que vous pouvez copier depuis Réglages sont assemblés sur l'appareil et ne vont nulle part si vous ne les envoyez pas vous-même."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Niente. Non ci sono analisi, pubblicità né SDK di tracciamento di terzi nell'app. La diagnostica che puoi copiare da Impostazioni viene assemblata sul dispositivo e va da qualche parte solo se la invii tu."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "何も収集しません。アプリには分析も広告もサードパーティのトラッキングSDKもありません。設定からコピーできる診断情報はデバイス上で作られ、あなたが自分で送らない限りどこにも送られません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "아무것도 수집하지 않습니다. 앱에는 분석도, 광고도, 서드파티 추적 SDK도 없습니다. 설정에서 복사할 수 있는 진단 정보는 기기에서 만들어지며, 내가 직접 보내지 않는 한 어디로도 가지 않습니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nada. Não há análise, nem publicidade, nem SDK de rastreamento de terceiros no app. O diagnóstico que você pode copiar em Ajustes é montado no dispositivo e só vai a algum lugar se você mesmo o enviar."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ничего. В приложении нет аналитики, рекламы и сторонних SDK для отслеживания. Диагностика, которую можно скопировать из Настроек, собирается на устройстве и уходит куда-либо, только если вы отправите её сами."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "什么都不收集。App 中没有分析、没有广告，也没有第三方跟踪 SDK。你可以在“设置”中拷贝的诊断信息在设备上生成，只有你自己发送才会去往别处。"
           }
         }
       }
@@ -75529,64 +75413,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "安全 face id touch id 生物识别 解锁 锁定 密码 隐私 分析 使用情况 统计 匿名"
-          }
-        }
-      }
-    },
-    "See and control every display, app and Space on your Mac from your iPhone." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sieh und steuere jeden Bildschirm, jede App und jeden Space deines Macs von deinem iPhone aus."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mira y controla cada pantalla, app y Space de tu Mac desde tu iPhone."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Voyez et contrôlez chaque écran, app et Space de votre Mac depuis votre iPhone."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vedi e controlla ogni schermo, app e Space del tuo Mac dal tuo iPhone."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mac のすべてのディスプレイ、App、Space を iPhone から見て操作できます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iPhone에서 Mac의 모든 디스플레이, 앱, Space를 보고 제어하세요."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Veja e controle cada tela, app e Space do seu Mac pelo iPhone."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Просматривайте и управляйте каждым дисплеем, приложением и Space на Mac с iPhone."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在 iPhone 上查看并控制 Mac 的每个显示器、App 和 Space。"
           }
         }
       }
@@ -104874,6 +104700,818 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "缩放窗口"
+          }
+        }
+      }
+    },
+    "See and control your Mac from this iPhone. A free Peering app on the Mac does the sharing, so you install it there once." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sieh deinen Mac auf diesem iPhone und steuere ihn. Eine kostenlose Peering-App auf dem Mac übernimmt das Teilen, du installierst sie dort einmal."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira y controla tu Mac desde este iPhone. Una app gratuita de Peering en el Mac se encarga de compartir, así que la instalas allí una sola vez."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voyez et contrôlez votre Mac depuis cet iPhone. Une app Peering gratuite sur le Mac se charge du partage : vous l'installez là-bas une seule fois."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guarda e controlla il tuo Mac da questo iPhone. Un'app Peering gratuita sul Mac si occupa della condivisione, quindi la installi lì una sola volta."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このiPhoneからMacを見て操作できます。共有はMac側の無料のPeeringアプリが行うので、Macに一度だけインストールしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 iPhone에서 Mac을 보고 제어하세요. 공유는 Mac의 무료 Peering 앱이 맡으므로 Mac에 한 번만 설치하면 됩니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veja e controle seu Mac a partir deste iPhone. Um app Peering gratuito no Mac cuida do compartilhamento, então você o instala lá uma única vez."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Смотрите и управляйте своим Mac с этого iPhone. Показ экрана берёт на себя бесплатное приложение Peering на Mac, поэтому его нужно установить там один раз."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在这部 iPhone 上查看并控制你的 Mac。共享由 Mac 上免费的 Peering App 完成，所以只需在 Mac 上安装一次。"
+          }
+        }
+      }
+    },
+    "Your Mac needs the other half" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Mac braucht die andere Hälfte"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu Mac necesita la otra mitad"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre Mac a besoin de l'autre moitié"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo Mac ha bisogno dell'altra metà"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macにはもう半分が必要です"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac에는 나머지 반쪽이 필요합니다"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seu Mac precisa da outra metade"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вашему Mac нужна вторая половина"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的 Mac 需要另一半"
+          }
+        }
+      }
+    },
+    "This is the app that shares the screen. The iPhone only shows it and sends your input back." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das ist die App, die den Bildschirm teilt. Das iPhone zeigt ihn nur an und sendet deine Eingaben zurück."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta es la app que comparte la pantalla. El iPhone solo la muestra y envía de vuelta lo que introduces."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "C'est l'app qui partage l'écran. L'iPhone ne fait que l'afficher et renvoyer vos saisies."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa è l'app che condivide lo schermo. L'iPhone lo mostra soltanto e rimanda indietro i tuoi input."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面を共有するのはMac側のアプリです。iPhoneは映像を表示し、入力を送り返すだけです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "화면을 공유하는 것은 Mac의 앱입니다. iPhone은 화면을 보여 주고 입력을 되돌려 보낼 뿐입니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este é o app que compartilha a tela. O iPhone só a exibe e envia de volta o que você digita e toca."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Экран передаёт приложение на Mac. iPhone только показывает его и отправляет ваш ввод обратно."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享屏幕的是 Mac 上的 App。iPhone 只负责显示画面并把你的输入发回去。"
+          }
+        }
+      }
+    },
+    "Read the source on GitHub" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quellcode auf GitHub lesen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lee el código en GitHub"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lire le code source sur GitHub"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leggi il codice su GitHub"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHubでソースコードを読む"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub에서 소스 코드 읽기"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leia o código no GitHub"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Читать исходный код на GitHub"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 GitHub 上阅读源代码"
+          }
+        }
+      }
+    },
+    "Why it works this way" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warum es so funktioniert"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por qué funciona así"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pourquoi cela fonctionne ainsi"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perché funziona così"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このような仕組みの理由"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이런 방식인 이유"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por que funciona assim"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Почему это устроено так"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为什么是这样的设计"
+          }
+        }
+      }
+    },
+    "Why does my Mac need an app?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warum braucht mein Mac eine App?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Por qué mi Mac necesita una app?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pourquoi mon Mac a-t-il besoin d'une app ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perché il mio Mac ha bisogno di un'app?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "なぜMacにアプリが必要なのですか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "왜 Mac에 앱이 필요한가요?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por que meu Mac precisa de um app?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Зачем моему Mac приложение?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为什么我的 Mac 需要一个 App？"
+          }
+        }
+      }
+    },
+    "Only software running on the Mac can capture its screen and click or type in other apps, and macOS allows that only after you grant Screen Recording and Accessibility. The iPhone cannot do it from outside. So the Mac app does the sharing, and this app shows the picture and sends your input back. The Mac app is a download from getpeering.app rather than a Mac App Store app, because a sandboxed app cannot send input to other apps." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur Software, die auf dem Mac läuft, kann dessen Bildschirm erfassen und in anderen Apps klicken oder tippen, und macOS erlaubt das erst, nachdem du Bildschirmaufnahme und Bedienungshilfen freigegeben hast. Das iPhone kann es nicht von außen. Deshalb übernimmt die Mac-App das Teilen, und diese App zeigt das Bild und sendet deine Eingaben zurück. Die Mac-App ist ein Download von getpeering.app und keine Mac-App-Store-App, weil eine Sandbox-App keine Eingaben an andere Apps senden kann."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo el software que se ejecuta en el Mac puede capturar su pantalla y hacer clic o escribir en otras apps, y macOS lo permite únicamente después de que concedas Grabación de pantalla y Accesibilidad. El iPhone no puede hacerlo desde fuera. Por eso la app del Mac se encarga de compartir, y esta app muestra la imagen y envía de vuelta tu entrada. La app del Mac es una descarga de getpeering.app y no una app de la Mac App Store, porque una app en sandbox no puede enviar entrada a otras apps."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seul un logiciel exécuté sur le Mac peut capturer son écran et cliquer ou saisir du texte dans d'autres apps, et macOS ne l'autorise qu'après que vous avez accordé Enregistrement d'écran et Accessibilité. L'iPhone ne peut pas le faire de l'extérieur. L'app du Mac se charge donc du partage, et cette app affiche l'image et renvoie vos saisies. L'app du Mac se télécharge sur getpeering.app au lieu d'être sur le Mac App Store, car une app sandboxée ne peut pas envoyer de saisies à d'autres apps."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo un software in esecuzione sul Mac può catturarne lo schermo e fare clic o scrivere in altre app, e macOS lo permette solo dopo che hai concesso Registrazione schermo e Accessibilità. L'iPhone non può farlo dall'esterno. Per questo l'app del Mac si occupa della condivisione, e questa app mostra l'immagine e rimanda indietro i tuoi input. L'app del Mac si scarica da getpeering.app e non è sul Mac App Store, perché un'app in sandbox non può inviare input ad altre app."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macの画面を取り込み、他のアプリをクリックしたり入力したりできるのは、Mac上で動くソフトウェアだけです。macOSは「画面収録」と「アクセシビリティ」を許可した後にのみ、それを認めます。iPhoneには外からそれができません。そのため共有はMacアプリが行い、このアプリは映像を表示して入力を送り返します。サンドボックス化されたアプリは他のアプリに入力を送れないため、MacアプリはMac App Storeではなくgetpeering.appからのダウンロードです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac에서 실행되는 소프트웨어만 화면을 캡처하고 다른 앱에서 클릭하거나 입력할 수 있으며, macOS는 화면 기록과 손쉬운 사용을 허용한 뒤에만 이를 허락합니다. iPhone은 바깥에서 그렇게 할 수 없습니다. 그래서 공유는 Mac 앱이 맡고, 이 앱은 화면을 보여 주며 입력을 되돌려 보냅니다. 샌드박스 앱은 다른 앱에 입력을 보낼 수 없기 때문에 Mac 앱은 Mac App Store가 아니라 getpeering.app에서 내려받습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Só um software em execução no Mac consegue capturar a tela dele e clicar ou digitar em outros apps, e o macOS só permite isso depois que você concede Gravação de Tela e Acessibilidade. O iPhone não consegue fazer isso de fora. Por isso o app do Mac cuida do compartilhamento, e este app mostra a imagem e envia de volta suas entradas. O app do Mac é um download em getpeering.app e não um app da Mac App Store, porque um app em sandbox não pode enviar entradas a outros apps."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Захватить экран Mac и нажимать или вводить текст в других приложениях может только программа, запущенная на самом Mac, а macOS разрешает это лишь после того, как вы включите «Запись экрана» и «Универсальный доступ». iPhone снаружи этого сделать не может. Поэтому передачей занимается приложение на Mac, а это приложение показывает картинку и отправляет ваш ввод обратно. Приложение для Mac скачивается с getpeering.app, а не из Mac App Store, потому что приложение в песочнице не может отправлять ввод в другие приложения."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只有运行在 Mac 上的软件才能捕捉它的屏幕，并在其他 App 中点击或输入，而 macOS 只有在你授予“屏幕录制”和“辅助功能”之后才允许这样做。iPhone 无法从外部做到。所以由 Mac App 负责共享，这个 App 负责显示画面并把你的输入发回去。因为沙盒 App 无法向其他 App 发送输入，Mac App 是从 getpeering.app 下载的，而不是 Mac App Store 的 App。"
+          }
+        }
+      }
+    },
+    "What is it actually doing?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was passiert dabei eigentlich?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Qué hace exactamente?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Que fait-elle exactement ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cosa fa in realtà?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実際には何をしているのですか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실제로 무엇을 하나요?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O que ele faz de fato?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Что оно на самом деле делает?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "它实际上在做什么？"
+          }
+        }
+      }
+    },
+    "The Mac app captures a display, an app or a window, compresses it as video and sends it to the phone, with the Mac's sound if you leave it on. Your taps and keys go the other way, and the Mac app turns them into real pointer and keyboard events. Away from your network the session goes through Peering's relay, which copies encrypted bytes it holds no key for." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Mac-App erfasst ein Display, eine App oder ein Fenster, komprimiert es als Video und sendet es ans iPhone, auf Wunsch mit dem Ton des Macs. Deine Taps und Tasten gehen den umgekehrten Weg, und die Mac-App macht daraus echte Zeiger- und Tastaturereignisse. Außerhalb deines Netzwerks läuft die Sitzung über das Relay von Peering, das verschlüsselte Bytes weiterreicht, für die es keinen Schlüssel hat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La app del Mac captura una pantalla, una app o una ventana, la comprime como vídeo y la envía al teléfono, con el sonido del Mac si lo dejas activado. Tus toques y teclas viajan en sentido contrario, y la app del Mac los convierte en eventos reales de puntero y teclado. Fuera de tu red, la sesión pasa por el relay de Peering, que copia bytes cifrados para los que no tiene clave."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'app du Mac capture un écran, une app ou une fenêtre, la compresse en vidéo et l'envoie au téléphone, avec le son du Mac si vous le laissez activé. Vos touches et vos frappes font le chemin inverse, et l'app du Mac les transforme en vrais événements de pointeur et de clavier. Hors de votre réseau, la session passe par le relais de Peering, qui recopie des octets chiffrés dont il n'a pas la clé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'app del Mac cattura un display, un'app o una finestra, la comprime come video e la invia al telefono, con l'audio del Mac se lo lasci attivo. I tuoi tocchi e i tasti fanno il percorso inverso, e l'app del Mac li trasforma in veri eventi di puntatore e tastiera. Fuori dalla tua rete la sessione passa dal relay di Peering, che copia byte cifrati di cui non ha la chiave."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macアプリがディスプレイ、アプリ、またはウインドウを取り込み、ビデオとして圧縮してiPhoneに送ります。オンにしていればMacの音声も届きます。タップやキー入力は逆向きに送られ、Macアプリが本物のポインタ操作とキーボード操作に変換します。自分のネットワークの外では、セッションはPeeringのリレーを経由しますが、リレーは鍵を持たない暗号化済みのバイト列をそのまま中継するだけです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 앱이 디스플레이, 앱 또는 윈도우를 캡처해 비디오로 압축한 뒤 iPhone으로 보내며, 켜 두면 Mac의 소리도 함께 보냅니다. 탭과 키 입력은 반대 방향으로 가고, Mac 앱이 이를 실제 포인터와 키보드 이벤트로 바꿉니다. 사용자의 네트워크 밖에서는 세션이 Peering의 릴레이를 거치며, 릴레이는 키가 없는 암호화된 바이트를 그대로 전달할 뿐입니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O app do Mac captura um monitor, um app ou uma janela, comprime como vídeo e envia ao celular, com o som do Mac se você deixar ativado. Seus toques e teclas seguem o caminho contrário, e o app do Mac os transforma em eventos reais de ponteiro e teclado. Fora da sua rede, a sessão passa pelo relay do Peering, que copia bytes criptografados dos quais não tem a chave."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Приложение на Mac захватывает дисплей, приложение или окно, сжимает его как видео и отправляет на телефон, вместе со звуком Mac, если вы его не отключили. Ваши касания и клавиши идут в обратную сторону, а приложение на Mac превращает их в настоящие события указателя и клавиатуры. Вне вашей сети сеанс идёт через ретранслятор Peering, который копирует зашифрованные байты, ключа к которым у него нет."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac App 捕捉一块显示器、一个 App 或一个窗口，压缩成视频发送到手机，如果你保持开启，还会带上 Mac 的声音。你的点按和按键沿相反方向传回，由 Mac App 转换成真实的指针和键盘事件。在你的网络之外，会话会经过 Peering 的中继，中继只是复制它没有密钥的加密字节。"
+          }
+        }
+      }
+    },
+    "What are the limits?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wo liegen die Grenzen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cuáles son los límites?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quelles sont les limites ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quali sono i limiti?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "制限は何ですか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "한계는 무엇인가요?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quais são os limites?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Каковы ограничения?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有哪些限制？"
+          }
+        }
+      }
+    },
+    "The Mac has to be on, with the Mac app running and both permissions allowed. Away from your own network the relay is free for 30 minutes in each rolling 24 hours. A Mac that is asleep and off your network cannot be woken, and iOS suspends this app in the background unless Picture in Picture or a Live Activity is running. Known gaps, at the bottom, lists what is not built yet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac muss eingeschaltet sein, die Mac-App muss laufen und beide Berechtigungen müssen erteilt sein. Außerhalb deines eigenen Netzwerks ist das Relay in jeweils 24 Stunden (gleitend) 30 Minuten lang kostenlos. Ein Mac, der schläft und nicht in deinem Netzwerk ist, lässt sich nicht aufwecken, und iOS hält diese App im Hintergrund an, sofern nicht Bild-in-Bild oder eine Live Activity läuft. Unter „Bekannte Lücken“ ganz unten steht, was noch nicht gebaut ist."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac tiene que estar encendido, con la app del Mac en ejecución y los dos permisos concedidos. Fuera de tu propia red, el relay es gratuito durante 30 minutos en cada periodo móvil de 24 horas. Un Mac dormido y fuera de tu red no se puede despertar, y iOS suspende esta app en segundo plano salvo que haya Imagen en imagen o una Live Activity en marcha. «Carencias conocidas», al final, enumera lo que aún no está hecho."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac doit être allumé, avec l'app du Mac en cours d'exécution et les deux autorisations accordées. Hors de votre propre réseau, le relais est gratuit pendant 30 minutes par période glissante de 24 heures. Un Mac en veille et hors de votre réseau ne peut pas être réveillé, et iOS suspend cette app en arrière-plan sauf si l'image dans l'image ou une Live Activity est active. « Lacunes connues », en bas, liste ce qui n'est pas encore construit."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac deve essere acceso, con l'app del Mac in esecuzione e i due permessi concessi. Fuori dalla tua rete il relay è gratuito per 30 minuti in ogni periodo mobile di 24 ore. Un Mac in stop e fuori dalla tua rete non può essere riattivato, e iOS sospende questa app in background a meno che non ci sia Picture in Picture o una Live Activity in corso. «Lacune note», in fondo, elenca ciò che non è ancora stato costruito."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macの電源が入っていて、Macアプリが起動し、2つの権限が許可されている必要があります。自分のネットワークの外では、リレーは直近24時間あたり30分まで無料です。スリープ中でネットワーク外のMacは起こせません。また、ピクチャ・イン・ピクチャまたはLive Activityが動いていない限り、iOSはバックグラウンドでこのアプリを一時停止します。まだ作られていないものは、下の「既知の制約」にまとめています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 켜져 있고, Mac 앱이 실행 중이며, 두 권한이 모두 허용되어 있어야 합니다. 사용자의 네트워크 밖에서는 릴레이를 24시간 단위(기간이 계속 이동)로 30분까지 무료로 쓸 수 있습니다. 잠자기 상태이고 네트워크 밖에 있는 Mac은 깨울 수 없으며, 화면 속 화면이나 Live Activity가 실행 중이 아니면 iOS가 백그라운드에서 이 앱을 일시 중단합니다. 아직 만들어지지 않은 기능은 맨 아래 「알려진 한계」에 정리되어 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac precisa estar ligado, com o app do Mac em execução e as duas permissões concedidas. Fora da sua própria rede, o relay é gratuito por 30 minutos a cada período móvel de 24 horas. Um Mac em repouso e fora da sua rede não pode ser acordado, e o iOS suspende este app em segundo plano, a menos que Picture in Picture ou uma Live Activity esteja ativa. «Lacunas conhecidas», no fim, lista o que ainda não foi construído."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac должен быть включён, приложение на нём запущено, а оба разрешения выданы. Вне вашей сети ретранслятор бесплатен 30 минут за любые 24 часа. Mac в режиме сна вне вашей сети разбудить нельзя, а iOS приостанавливает это приложение в фоне, если не работает «Картинка в картинке» или Live Activity. Что ещё не сделано, перечислено внизу, в разделе «Известные пробелы»."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 必须开机，Mac App 正在运行，并且两项权限都已允许。在你自己的网络之外，中继在任意滚动 24 小时内免费 30 分钟。处于睡眠且不在你网络中的 Mac 无法唤醒；除非画中画或实时活动正在运行，否则 iOS 会在后台暂停这个 App。尚未做好的内容列在最下方的“已知的不足”中。"
+          }
+        }
+      }
+    },
+    "Can I read the code?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kann ich den Code lesen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Puedo leer el código?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puis-je lire le code ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posso leggere il codice?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コードを読めますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "코드를 읽어 볼 수 있나요?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posso ler o código?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Можно ли прочитать код?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我可以阅读代码吗？"
+          }
+        }
+      }
+    },
+    "Yes. The iPhone app, the Mac app, the relay and the wire protocol are in one public repository, github.com/DMQQ/peering. Read it to check anything described here, including exactly what is sent." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ja. Die iPhone-App, die Mac-App, das Relay und das Wire-Protokoll liegen in einem öffentlichen Repository, github.com/DMQQ/peering. Lies dort nach, um alles hier Beschriebene zu prüfen, auch was genau gesendet wird."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sí. La app del iPhone, la del Mac, el relay y el protocolo de comunicación están en un único repositorio público, github.com/DMQQ/peering. Léelo para comprobar cualquier cosa descrita aquí, incluido qué se envía exactamente."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oui. L'app iPhone, l'app Mac, le relais et le protocole de communication sont dans un seul dépôt public, github.com/DMQQ/peering. Lisez-le pour vérifier tout ce qui est décrit ici, y compris ce qui est envoyé exactement."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sì. L'app per iPhone, l'app per Mac, il relay e il protocollo sono in un unico repository pubblico, github.com/DMQQ/peering. Leggilo per verificare quanto descritto qui, compreso cosa viene inviato esattamente."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "はい。iPhoneアプリ、Macアプリ、リレー、通信プロトコルは、ひとつの公開リポジトリ github.com/DMQQ/peering にあります。ここで説明した内容や、実際に何が送信されるかを確認できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "네. iPhone 앱, Mac 앱, 릴레이, 통신 프로토콜이 하나의 공개 저장소 github.com/DMQQ/peering에 있습니다. 여기에 설명된 내용과 실제로 무엇이 전송되는지 직접 확인해 보세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sim. O app do iPhone, o app do Mac, o relay e o protocolo estão em um único repositório público, github.com/DMQQ/peering. Leia para conferir qualquer coisa descrita aqui, inclusive exatamente o que é enviado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Да. Приложение для iPhone, приложение для Mac, ретранслятор и протокол обмена лежат в одном открытом репозитории, github.com/DMQQ/peering. Прочитайте его, чтобы проверить всё описанное здесь, в том числе что именно отправляется."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可以。iPhone App、Mac App、中继和通信协议都在同一个公开仓库 github.com/DMQQ/peering 中。你可以用它核对这里描述的任何内容，包括究竟发送了什么。"
+          }
+        }
+      }
+    },
+    "Anonymous usage counts and error codes, sent to PostHog: which screens are opened, whether a connection worked and at which stage it failed, and the kind of network. Never a Mac's name or address, a file name, a command, or anything typed or shown. Events belong to the device, not to a person, and there is no advertising. Turn it off with Share anonymous usage statistics in Settings; the Mac app has the same switch. The diagnostics you can copy from Settings go nowhere unless you send them yourself." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anonyme Nutzungszahlen und Fehlercodes, gesendet an PostHog: welche Bildschirme geöffnet werden, ob eine Verbindung funktioniert hat und in welcher Phase sie scheiterte, und die Art des Netzwerks. Nie der Name oder die Adresse eines Macs, ein Dateiname, ein Befehl oder irgendetwas, das getippt oder angezeigt wurde. Ereignisse gehören zum Gerät, nicht zu einer Person, und es gibt keine Werbung. Schalte es mit „Anonyme Nutzungsstatistik teilen“ in den Einstellungen aus; die Mac-App hat denselben Schalter. Die Diagnose, die du in den Einstellungen kopieren kannst, geht nirgendwohin, wenn du sie nicht selbst sendest."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recuentos de uso anónimos y códigos de error, enviados a PostHog: qué pantallas se abren, si una conexión funcionó y en qué fase falló, y el tipo de red. Nunca el nombre o la dirección de un Mac, el nombre de un archivo, un comando ni nada de lo que escribes o ves. Los eventos pertenecen al dispositivo, no a una persona, y no hay publicidad. Desactívalo con «Compartir estadísticas de uso anónimas» en Ajustes; la app del Mac tiene el mismo interruptor. Los diagnósticos que puedes copiar desde Ajustes no van a ningún sitio si no los envías tú."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Des compteurs d'usage anonymes et des codes d'erreur, envoyés à PostHog : quels écrans sont ouverts, si une connexion a fonctionné et à quelle étape elle a échoué, et le type de réseau. Jamais le nom ou l'adresse d'un Mac, un nom de fichier, une commande, ni rien de ce qui est saisi ou affiché. Les événements appartiennent à l'appareil, pas à une personne, et il n'y a pas de publicité. Désactivez-le avec « Partager des statistiques d'utilisation anonymes » dans les Réglages ; l'app du Mac a le même interrupteur. Les diagnostics que vous pouvez copier depuis les Réglages ne vont nulle part si vous ne les envoyez pas vous-même."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conteggi d'uso anonimi e codici di errore, inviati a PostHog: quali schermate si aprono, se una connessione ha funzionato e in quale fase è fallita, e il tipo di rete. Mai il nome o l'indirizzo di un Mac, il nome di un file, un comando o qualcosa di scritto o mostrato. Gli eventi appartengono al dispositivo, non a una persona, e non c'è pubblicità. Disattivalo con «Condividi statistiche d'uso anonime» nelle Impostazioni; l'app del Mac ha lo stesso interruttore. La diagnostica che puoi copiare dalle Impostazioni non va da nessuna parte se non la invii tu."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匿名の利用回数とエラーコードをPostHogに送信します。開いた画面、接続が成功したかどうか、失敗した段階、ネットワークの種類です。Macの名前やアドレス、ファイル名、コマンド、入力した内容や表示された内容は送りません。イベントは人ではなく端末に紐づき、広告はありません。設定の「匿名の利用統計を共有」でオフにできます。Macアプリにも同じスイッチがあります。設定からコピーできる診断情報は、ご自身で送らない限りどこにも送信されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "익명 사용 횟수와 오류 코드를 PostHog로 보냅니다. 어떤 화면이 열렸는지, 연결이 성공했는지와 어느 단계에서 실패했는지, 네트워크 종류입니다. Mac의 이름이나 주소, 파일 이름, 명령, 입력하거나 화면에 표시된 내용은 절대 보내지 않습니다. 이벤트는 사람이 아니라 기기에 속하며 광고는 없습니다. 설정의 「익명 사용 통계 공유」으로 끌 수 있고, Mac 앱에도 같은 스위치가 있습니다. 설정에서 복사할 수 있는 진단 정보는 직접 보내지 않는 한 어디로도 전송되지 않습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contagens de uso anônimas e códigos de erro, enviados ao PostHog: quais telas são abertas, se uma conexão funcionou e em que etapa falhou, e o tipo de rede. Nunca o nome ou endereço de um Mac, o nome de um arquivo, um comando ou algo digitado ou exibido. Os eventos pertencem ao dispositivo, não a uma pessoa, e não há publicidade. Desative em «Compartilhar estatísticas de uso anônimas» nos Ajustes; o app do Mac tem o mesmo interruptor. O diagnóstico que você pode copiar dos Ajustes não vai a lugar nenhum se você não o enviar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Анонимные счётчики использования и коды ошибок, которые отправляются в PostHog: какие экраны открыты, удалось ли подключение и на каком этапе оно сорвалось, и тип сети. Никогда не отправляются имя или адрес Mac, имя файла, команда или что-либо набранное или показанное. События привязаны к устройству, а не к человеку, и рекламы нет. Отключается переключателем «Делиться анонимной статистикой использования» в настройках; в приложении для Mac такой же переключатель. Диагностика, которую можно скопировать в настройках, никуда не уходит, пока вы сами её не отправите."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匿名的使用次数和错误代码，发送到 PostHog：打开了哪些页面、连接是否成功以及在哪一步失败、网络类型。绝不会发送 Mac 的名称或地址、文件名、命令，或任何输入或显示的内容。事件属于设备而不是个人，也没有广告。可在设置中用“共享匿名使用统计”关闭；Mac App 有同样的开关。你可以在设置中复制的诊断信息，除非你自己发送，否则不会去任何地方。"
           }
         }
       }

@@ -27,7 +27,8 @@ extension MacSession {
         activeSessionHistoryStartedAt = sessionStartedAt ?? Date()
         activeSessionBytes = 0
         lastBandwidthSampleBytes = renderer.currentSnapshot.bytesEnqueued
-        activeSessionLogs = notes
+        activeSessionLogs = Array((preReadyLogs + notes.map { Self.stamp($0) }).suffix(Self.sessionLogLimit))
+        preReadyLogs = []
         activeSessionContinuation = resuming
             ? SessionContinuation.continued(
                 in: model.sessionHistory,

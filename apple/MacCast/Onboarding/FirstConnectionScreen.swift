@@ -88,7 +88,10 @@ struct FirstConnectionScreen: View {
         let shownTicked = isIdle ? ticked : 2
         return VStack(alignment: .leading, spacing: 0) {
             GuideStepRow(number: 1, state: shownTicked >= 1 ? .done : .current, title: String(localized: "Install Peering on your Mac")) {
-                if shownTicked < 1 { installLink }
+                if shownTicked < 1 {
+                    Text("This is the app that shares the screen. The iPhone only shows it and sends your input back.").stepDetail()
+                    installLink
+                }
             }
             .appearing(arrived, index: 1, reduceMotion: reduceMotion)
             GuideStepRow(number: 2, state: shownTicked >= 2 ? .done : .current, title: String(localized: "Open it, on the same Wi-Fi")) {

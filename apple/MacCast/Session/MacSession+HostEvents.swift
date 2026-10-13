@@ -7,6 +7,7 @@ extension MacSession {
         // The host's own name is authoritative; Bonjour is only a hint and can be minutes stale.
         hostName = hello.hostName
         hostID = hello.serverID
+        logHello(hello)
         // Recorded once at the door rather than guessed each time. See ``PicturePause/mayAsk(hostDeclared:)``.
         hostSupportsVideoPause = PicturePause.mayAsk(hostDeclared: hello.supportsVideoPause)
         hostSupportsAgentList = hello.supportsAgentList == true

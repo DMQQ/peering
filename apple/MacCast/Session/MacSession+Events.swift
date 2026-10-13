@@ -16,6 +16,7 @@ extension MacSession {
             apply(video: event)
         case .latency(let milliseconds):
             latencyMilliseconds = milliseconds
+            logLatencyIfDue(milliseconds)
             warnIfConnectionIsVeryBad(milliseconds)
         case .pathLatency(let milliseconds, let fromPeer):
             pathLatencyMilliseconds = milliseconds

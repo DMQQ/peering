@@ -30,10 +30,12 @@ struct OnboardingView: View {
     static let pages: [Page] = [
         Page(
             content: .feature(icon: "macwindow", screenshot: "AppMac"),
-            title: String(localized: "Install it once"),
+            title: String(localized: "Your Mac needs the other half"),
             body: """
-                Put Peering on the Mac you want to reach and open it. That is the whole setup: \
-                no account, router changes, or settings to configure.
+                An iPhone cannot reach into a Mac from outside. A small Peering app on the Mac captures \
+                its screen and turns your taps into clicks and keys, which macOS allows only after you \
+                grant Screen Recording and Accessibility. It is a download, not an App Store app, because \
+                a sandboxed app cannot send input to other apps. The code is public on GitHub.
                 """,
             device: .mac(companion: "AppConnect"),
             chips: [

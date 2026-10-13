@@ -57,7 +57,7 @@ struct WelcomeLanding: View {
                 .foregroundStyle(ColorPalette.ink)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("See and control every display, app and Space on your Mac from your iPhone.")
+            Text("See and control your Mac from this iPhone. A free Peering app on the Mac does the sharing, so you install it there once.")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

@@ -107,6 +107,7 @@ extension MacSession {
         }
         let delay = delays[reconnectAttempt]
         reconnectAttempt += 1
+        logEvent("Reconnecting: attempt \(reconnectAttempt) of \(delays.count) in \(delay.formatted())")
         isReconnecting = true
         reconnectTask = Task { [weak self] in
             try? await Task.sleep(for: delay)
@@ -145,6 +146,7 @@ extension MacSession {
 
     /// One end for both ways a ladder finishes: out of rungs, or out of time.
     private func giveUpOnReconnecting() {
+        logEvent("Gave up reconnecting")
         reportEnd(telemetry.pendingEnd ?? .error)
         stopReconnecting()
         reconnectingSince = nil

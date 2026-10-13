@@ -92,6 +92,7 @@ extension MacSession {
 
     /// For a ready session that failed: ends it now when nothing will retry, otherwise leaves the verdict to the ladder.
     func noteDropped(capped: Bool) {
+        logEvent("Connection dropped\(capped ? " (retry limit reached)" : ""): \(wire?.failureReason.map { String(describing: $0) } ?? "unknown")")
         let reason = capped ? SessionEndReason.retryCapped : SessionEndReason(failure: wire?.failureReason ?? .other)
         if capped || userEndedDeliberately {
             reportEnd(reason)

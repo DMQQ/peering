@@ -251,4 +251,5 @@ enum PeeringSite {
     /// Extensionless, matching ``download`` and what the App Store listing and receipts point at.
     static let privacy = URL(string: "https://getpeering.app/privacy")!
     static let terms = URL(string: "https://getpeering.app/terms")!
+    static let source = URL(string: "https://github.com/DMQQ/peering")!
 }

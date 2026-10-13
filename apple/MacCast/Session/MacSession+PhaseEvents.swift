@@ -28,6 +28,7 @@ extension MacSession {
         if cappedFailure != nil { shouldScheduleReconnect = false }
         failureCause = cappedFailure == nil ? wire?.failureCause : nil
         self.phase = cappedFailure ?? FailureText.localized(phase, cause: failureCause)
+        logPhase(phase)
 
         if phase == .ready { announceReady() }
         if case .failed(let message) = phase {
