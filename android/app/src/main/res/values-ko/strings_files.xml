@@ -61,4 +61,6 @@
     <string name="files_run_message">%1$s이(가) 컴퓨터에서 내 권한으로 실행됩니다.</string>
     <string name="preview_pdf_unreadable">이 PDF를 열 수 없습니다. 암호가 필요할 수 있습니다.</string>
     <string name="preview_pdf_page">%1$d페이지</string>
+    <string name="files_kind_symlink">심볼릭 링크</string>
+    <string name="files_kind_file">파일</string>
 </resources>

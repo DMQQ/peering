@@ -61,4 +61,6 @@
     <string name="files_run_message">%1$s será executado com suas permissões no seu computador.</string>
     <string name="preview_pdf_unreadable">Não foi possível abrir este PDF. Ele pode exigir uma senha.</string>
     <string name="preview_pdf_page">Página %1$d</string>
+    <string name="files_kind_symlink">Link simbólico</string>
+    <string name="files_kind_file">Arquivo</string>
 </resources>
