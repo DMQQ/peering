@@ -7,6 +7,7 @@ extension ClientSession {
     /// ``Failure/errorDescription`` stays English for logs. A few cases carry what the sentence names (a Mac's ID, a version, text the Mac or relay wrote): those values are for display only and must never reach analytics, which reads ``FailureReason``.
     public enum FailureCause: Sendable, Equatable {
         case sessionBusy
+        case anotherDeviceConnected
         case handshakeTimedOut
         case handshakeUnreadable
         case pinsUnreadable
@@ -85,6 +86,7 @@ extension ClientSession.Failure {
     var cause: ClientSession.FailureCause? {
         switch self {
         case .busy: return .sessionBusy
+        case .anotherDeviceConnected: return .anotherDeviceConnected
         case .handshakeTimedOut: return .handshakeTimedOut
         case .pinsUnreadable: return .pinsUnreadable
         case .commitmentMismatch, .noServerKey, .unexpected: return .handshakeUnreadable

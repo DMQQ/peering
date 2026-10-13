@@ -225,6 +225,7 @@ extension ClientSession {
             supportsAgentUsage: true,
             resumeSource: knowsHost ? resumeSource : nil,
             lostPairing: hostID != nil && !knowsHost ? true : nil,
+            takesOver: knowsHost && takesOver ? true : nil,
             sessionRef: sessionRef
         ))
 

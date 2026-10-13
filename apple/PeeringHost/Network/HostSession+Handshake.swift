@@ -85,7 +85,9 @@ extension HostSession {
             throw SessionError.clientKeyMismatch(clientID: clientID)
         }
 
-        if let admitsClient, !admitsClient(hello.clientID) { throw SessionError.anotherDeviceConnected }
+        // The pin was matched above, so a device holding one has proved who it is; only such a device may displace a present phone.
+        let takesOver = hello.takesOver == true && existingPin != nil
+        if let admitsClient, !admitsClient(hello.clientID, takesOver) { throw SessionError.anotherDeviceConnected }
 
         // Only after the key check: a client that fails it must not appear in the session
         // list, because the disconnect that follows would name a device the UI never showed.

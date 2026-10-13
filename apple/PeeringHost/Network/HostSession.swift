@@ -82,7 +82,7 @@ final class HostSession: @unchecked Sendable {
     var heldInput = HeldInputLedger()
 
     /// Asks whether this client may join while others are connected: false when another device is present.
-    var admitsClient: (@Sendable (String) -> Bool)?
+    var admitsClient: (@Sendable (String, Bool) -> Bool)?
     /// Asks for the Mac's one unauthenticated pairing prompt; nil when granted.
     var claimPairingPrompt: (@Sendable () -> PairingGate.Refusal?)?
     /// Gives the prompt back; whether this session was holding it.
@@ -161,6 +161,9 @@ final class HostSession: @unchecked Sendable {
     var silence: TimeInterval {
         Double(DispatchTime.now().uptimeNanoseconds - lastHeard.uptimeNanoseconds) / 1_000_000_000
     }
+
+    /// Devices this session displaces once it is authorised, decided at the hello and carried out only when pairing (if any) has succeeded.
+    var rivalsToEvict: [String] = []
 
     var closedByHost = false
     /// Ended because the client went quiet. That is a phone iOS froze, not a session the Mac chose to close.

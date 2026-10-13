@@ -55,13 +55,18 @@ extension HostSession {
         // Cancel only once the explanation has been handed to the transport: cancelling right
         // after `send` discards the queued frame and the peer sees a bare disconnect with no
         // reason, which is exactly when the user most needs to know why it was turned away.
-        guard let payload = try? MessageCodec.encode(ErrorPayload(code: "session", message: message)) else {
+        guard let payload = try? MessageCodec.encode(ErrorPayload(code: Self.errorCode(for: error), message: message)) else {
             connection.cancel()
             return
         }
         connection.send(FrameEncoder.encode(Frame(kind: .error, payload: payload))) { [connection] _ in
             connection.cancel()
         }
+    }
+
+    private static func errorCode(for error: any Error) -> String {
+        if case SessionError.anotherDeviceConnected = error { return ErrorPayload.anotherDeviceCode }
+        return "session"
     }
 
     static func randomBytes(_ count: Int) throws -> Data {

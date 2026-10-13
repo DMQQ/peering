@@ -52,20 +52,34 @@ extension HostServer {
     }
 
     /// One device drives the Mac at a time. A device that went quiet is replaced, so a phone that vanished does not lock the Mac for the others.
-    func admitDevice(clientID: String, joining session: HostSession) -> Bool {
+    /// Nothing is displaced here: the newcomer has not paired yet, and a stranger must not be able to cut off a phone by asking.
+    func admitDevice(clientID: String, takesOver: Bool, joining session: HostSession) -> Bool {
         let rivals = connections.sessions.filter { $0.isAuthorized && $0 !== session }
         let decision = SingleDevicePolicy.decide(
             newcomer: clientID,
-            others: rivals.map { SingleDevicePolicy.Peer(clientID: $0.clientID, silence: $0.silence) }
+            others: rivals.map {
+                SingleDevicePolicy.Peer(clientID: $0.clientID, silence: $0.silence, inBackground: $0.pictureState.inBackground)
+            },
+            takesOver: takesOver
         )
         switch decision {
         case .refuse:
             admissionLog.notice("turned away a second device while another is connected")
             return false
         case .admit(let evicting):
-            rivals.filter { evicting.contains($0.clientID) }.forEach { $0.cancel() }
+            session.rivalsToEvict = evicting
             return true
         }
+    }
+
+    /// Carries out what ``admitDevice(clientID:takesOver:joining:)`` decided, now that the newcomer is authorised.
+    func evictRivals(of session: HostSession) {
+        let evicting = session.rivalsToEvict
+        session.rivalsToEvict = []
+        guard !evicting.isEmpty else { return }
+        connections.sessions
+            .filter { $0.isAuthorized && $0 !== session && evicting.contains($0.clientID) }
+            .forEach { $0.cancel() }
     }
 
     /// A departing client's held buttons and keys are released while another client stays; the last one out is handled by the model's full release.

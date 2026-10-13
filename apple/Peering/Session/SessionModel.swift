@@ -271,6 +271,9 @@ final class SessionModel {
     /// Coming back to the foreground races the teardown of the session that just ended: its cancelled socket is not finished with, so the connect aborts before it starts. It clears within a second and nobody asked for this attempt, so nobody is told.
     var isResuming = false
 
+    /// For the next dial only: the person chose to displace the phone using the Mac. Cleared as the dial is made, so a later reconnect never repeats it.
+    var takesOverNextDial = false
+
     var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     var backgroundNotice = BackgroundNoticeDebounce()
     var backgroundNoticeTask: Task<Void, Never>?

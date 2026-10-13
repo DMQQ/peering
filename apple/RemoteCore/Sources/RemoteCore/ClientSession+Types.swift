@@ -157,7 +157,7 @@ extension ClientSession {
 
     /// Why a session failed, from a closed set: ``Phase/failed(_:)`` carries a sentence that can name a Mac or an address, which analytics must never see.
     public enum FailureReason: String, Sendable, Equatable, CaseIterable {
-        case busy, protocolMismatch, pinMismatch, noPinOnFile, hostIDMismatch, identity
+        case busy, anotherDevice, protocolMismatch, pinMismatch, noPinOnFile, hostIDMismatch, identity
         case handshake, pairingRefused, pairingNotSaved, pinsUnreadable
         case timedOut, hostClosed, refused, transport, relay
         case hostReportedError, unresponsive, unresponsiveAfterCheck, videoLost, other
@@ -183,6 +183,8 @@ extension ClientSession {
 
     public enum Failure: LocalizedError, Sendable {
         case busy
+        /// Another phone is using this Mac and the Mac turned this one away. Told apart from a refusal so the app can offer to take over.
+        case anotherDeviceConnected
         case protocolMismatch(client: UInt16, host: UInt16)
         case commitmentMismatch
         case noServerKey
@@ -207,6 +209,7 @@ extension ClientSession {
         var reason: FailureReason {
             switch self {
             case .busy: return .busy
+            case .anotherDeviceConnected: return .anotherDevice
             case .protocolMismatch: return .protocolMismatch
             case .pinMismatch: return .pinMismatch
             case .noPinOnFile: return .noPinOnFile
@@ -222,6 +225,8 @@ extension ClientSession {
             switch self {
             case .busy:
                 return "This session is already connecting or connected."
+            case .anotherDeviceConnected:
+                return "Another device is already connected to this Mac."
             case .protocolMismatch(let client, let host):
                 return "This Mac speaks protocol v\(host) and this app speaks v\(client). Update whichever is older."
             case .commitmentMismatch:

@@ -33,6 +33,9 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// Set only by a phone that dialled a Mac by its ID and holds no pin for it, so the Mac may still trust the phone's key while the phone has forgotten the Mac. Without it that pair was stuck: the Mac answered "already paired" and the phone refused to proceed. `nil` reads as no, which is every older client.
     public var lostPairing: Bool?
 
+    /// Set when the person chose to displace the phone that is using this Mac. Optional and additive: an older Mac ignores it and keeps turning the newcomer away. Honoured only for a client whose key the Mac has pinned.
+    public var takesOver: Bool?
+
     /// Which platform this client runs on, for a host whose behaviour differs by it (`"android"`, `"ios"`). Optional and additive: `nil` is an iPhone build from before this field.
     public var clientPlatform: String?
 
@@ -61,12 +64,14 @@ public struct ClientHello: Codable, Sendable, Equatable {
         supportsAgentUsage: Bool? = nil,
         resumeSource: CaptureSource? = nil,
         lostPairing: Bool? = nil,
+        takesOver: Bool? = nil,
         clientPlatform: String? = nil,
         videoCodecs: [String]? = nil,
         sessionRef: String? = nil
     ) {
         self.sessionRef = sessionRef
         self.lostPairing = lostPairing
+        self.takesOver = takesOver
         self.clientPlatform = clientPlatform
         self.videoCodecs = videoCodecs
         self.clientID = clientID
@@ -202,6 +207,9 @@ public struct ErrorPayload: Codable, Sendable, Equatable {
 
     /// The user pressed Stop on the Mac. A client must not reconnect: nothing is listening.
     public static let hostStoppedCode = "hostStopped"
+
+    /// Another phone is using this Mac. The newcomer is told so by code rather than by sentence, so it can offer to take over in its own language.
+    public static let anotherDeviceCode = "anotherDevice"
 
     public init(code: String, message: String) {
         self.code = code

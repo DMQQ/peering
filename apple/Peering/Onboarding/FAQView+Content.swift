@@ -31,7 +31,7 @@ extension FAQView {
                 ),
                 QA(
                     question: String(localized: "Can two phones use the same Mac?"),
-                    answer: String(localized: "Yes. The Mac accepts more than one connected device and can disconnect them one at a time. The picture itself is sent to one device at a time, so a second phone watching the same Mac is not getting a second stream.")
+                    answer: String(localized: "One phone drives a Mac at a time. While one is connected, a second is turned away and offered Take over. A phone that has gone silent is replaced on its own after about 20 seconds, or after about 3 minutes if it was in the background. Take over works only for a phone already paired with that Mac, and it disconnects the other one.")
                 ),
             ]
         ),

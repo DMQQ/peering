@@ -638,6 +638,38 @@ struct ClientPairingTests {
         }
     }
 
+    @Test func aMacInUseByAnotherPhoneIsAnotherDeviceNotAnUnreadableMac() async throws {
+        let pins = TestPins()
+        defer { pins.destroy() }
+
+        try await withTestEnds { client, macIdentity in
+            let mac = try ScriptedMac(identity: macIdentity)
+            await mac.start()
+            defer { mac.stop() }
+
+            let log = SessionLog()
+            let session = ClientSession(
+                identity: client,
+                clientID: "phone-2",
+                clientName: "Test iPhone",
+                pins: pins.store,
+                onEvent: { log.record($0) }
+            )
+            defer { session.disconnect() }
+
+            await session.connect(to: .address(host: "127.0.0.1", port: mac.port), timeout: 10)
+            let link = try #require(await mac.nextConnection(), "the client never connected")
+            _ = try await link.expect(.connectionRole)
+            _ = try await link.expect(.clientHello)
+            let refusal = try MessageCodec.encode(ErrorPayload(code: ErrorPayload.anotherDeviceCode, message: "Another device is already connected to this Mac. Disconnect it first."))
+            link.send(Frame(kind: .error, payload: refusal))
+
+            #expect(await log.wait { $0.failure != nil })
+            #expect(session.failureReason == .anotherDevice)
+            #expect(session.failureCause == .anotherDeviceConnected)
+        }
+    }
+
     @Test func aMacWhoseKeyMatchesThePinIsLetThrough() async throws {
         let pins = TestPins()
         defer { pins.destroy() }

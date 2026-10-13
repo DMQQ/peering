@@ -27,6 +27,12 @@ extension ClientSession {
     }
 
     func handleServerHello(_ frame: Frame) {
+        if frame.kind == .error,
+           let refusal = try? MessageCodec.decode(ErrorPayload.self, from: frame.payload),
+           refusal.code == ErrorPayload.anotherDeviceCode {
+            fail(Failure.anotherDeviceConnected)
+            return
+        }
         guard frame.kind == .serverHello else {
             fail(Failure.unexpected(frame.kind, expected: "serverHello"))
             return

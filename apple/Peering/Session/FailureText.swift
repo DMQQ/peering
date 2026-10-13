@@ -7,6 +7,8 @@ enum FailureText {
         switch cause {
         case .sessionBusy:
             return String(localized: "This session is already connecting or connected.")
+        case .anotherDeviceConnected:
+            return String(localized: "Another phone is using this Mac. Wait for it to finish, or take over if it is yours.")
         case .handshakeTimedOut:
             return String(localized: "The Mac connected but did not finish setting up the session. Check that it is awake and try again.")
         case .handshakeUnreadable:

@@ -170,6 +170,14 @@ extension SessionModel {
         connect(to: .address(host: host, port: port))
     }
 
+    /// The Mac that turned this phone away is dialled again, asking to displace the phone using it. Only a Mac this phone has paired with honours it.
+    func takeOverTheLastMac() {
+        takesOverNextDial = true
+        reconnectToLastHost()
+        // A dial consumes the request; if nothing was dialled (no remembered Mac, or it is out of reach) it must not wait for some later, unrelated connect.
+        takesOverNextDial = false
+    }
+
     func reconnectToLastHost() {
         guard !phase.holdsSession else { return }
         let defaults = UserDefaults.standard

@@ -41,9 +41,9 @@ extension HostServer {
         )
         installRequestHandlers(on: session)
         installPairingPrompt(on: session, address: address)
-        session.admitsClient = { [weak self, weak session] clientID in
+        session.admitsClient = { [weak self, weak session] clientID, takesOver in
             guard let self, let session else { return false }
-            return admitDevice(clientID: clientID, joining: session)
+            return admitDevice(clientID: clientID, takesOver: takesOver, joining: session)
         }
         installVideoHandlers(on: session, peer: peer, tunnel: tunnel)
         installLifecycleHandlers(on: session, relayBridge: tunnel?.bridge)
@@ -114,6 +114,7 @@ extension HostServer {
         // Set for every session, not only relayed ones: this is both the moment the advertisement
         // is withdrawn and the moment a relayed video connection is handed over.
         session.onAuthorized = bind(to: session) { server, session, controlPeer in
+            server.evictRivals(of: session)
             server.presence.connected(clientID: session.clientID, session: session.sessionID)
             server.activityPublisher.sessionBegan(clientID: session.clientID, viaRelay: relayBridge != nil)
             server.updateAdvertisement()

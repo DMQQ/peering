@@ -127,6 +127,9 @@ extension SessionModel {
         let (wire, gate) = makeWire(for: session, identity: identity, race: race)
         let resumeSource = old?.hostID == target.hostID ? old?.sourceToResume : nil
         wire.resumeSource = resumeSource
+        wire.takesOver = takesOverNextDial
+        let takesOver = takesOverNextDial
+        takesOverNextDial = false
         session.wire = wire
         place(session, replacing: old)
         publishOpenMacs()
@@ -154,6 +157,7 @@ extension SessionModel {
                 race.add(rival, gate: rivalGate, path: .relay)
                 session.beginRoute(.relay)
                 rival.resumeSource = resumeSource
+                rival.takesOver = takesOver
                 rival.videoFallbackEnabled = true
                 Task { await rival.connect(to: relay, timeout: Self.standardConnectTimeout) }
             }

@@ -13,6 +13,9 @@ extension HomeTab {
 
     var failurePresentation: FailurePresentation {
         let detail = model.failureMessage ?? String(localized: "The connection could not be completed.")
+        if model.failureCause == .anotherDeviceConnected {
+            return FailurePresentation(title: String(localized: "This Mac is in use"), message: detail, isRelayFailure: false)
+        }
         guard model.connectionPath == .relay else {
             return FailurePresentation(title: String(localized: "Could not connect"), message: detail, isRelayFailure: false)
         }
@@ -73,6 +76,13 @@ extension HomeTab {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if model.failureCause == .anotherDeviceConnected {
+                    Button("Take over") { model.takeOverTheLastMac() }
+                        .font(.caption.weight(.semibold))
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                }
 
                 if failurePresentation.isRelayFailure {
                     Button("Search nearby") { model.restartBrowsing() }

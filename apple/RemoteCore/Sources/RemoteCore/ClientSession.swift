@@ -135,6 +135,13 @@ public final class ClientSession: @unchecked Sendable {
     }
     var _resumeSource: CaptureSource?
 
+    /// Asks the Mac to displace the phone that is using it. Honoured only for a Mac this device has paired with, and set for one attempt: the person chose it.
+    public var takesOver: Bool {
+        get { lock.withLock { _takesOver } }
+        set { lock.withLock { _takesOver = newValue } }
+    }
+    var _takesOver = false
+
     /// Sent in the hello so the Mac can tag its own events with the phone's. See ``ClientHello/sessionRef``.
     public var sessionRef: String? {
         get { lock.withLock { _sessionRef } }

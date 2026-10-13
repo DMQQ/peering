@@ -101850,64 +101850,6 @@
         }
       }
     },
-    "Yes. The Mac accepts more than one connected device and can disconnect them one at a time. The picture itself is sent to one device at a time, so a second phone watching the same Mac is not getting a second stream." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ja. Der Mac akzeptiert mehr als ein verbundenes Gerät und kann sie einzeln trennen. Das Bild wird nur an ein Gerät zur Zeit gesendet, ein zweites Telefon, das denselben Mac ansieht, bekommt also keinen zweiten Stream."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sí. El Mac acepta más de un dispositivo conectado y puede desconectarlos uno a uno. La imagen se envía a un dispositivo a la vez, así que un segundo teléfono que mire el mismo Mac no recibe una segunda transmisión."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Oui. Le Mac accepte plusieurs appareils connectés et peut les déconnecter un par un. L'image n'est envoyée qu'à un appareil à la fois, donc un second téléphone qui regarde le même Mac ne reçoit pas un second flux."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sì. Il Mac accetta più di un dispositivo connesso e può disconnetterli uno alla volta. L'immagine viene inviata a un dispositivo alla volta, quindi un secondo telefono che guarda lo stesso Mac non riceve un secondo flusso."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "はい。Macは複数の接続デバイスを受け付け、1台ずつ切断できます。映像は一度に1台のデバイスにだけ送られるので、同じMacを見ている2台目のiPhoneが2本目のストリームを受け取るわけではありません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "예. Mac은 연결된 기기를 둘 이상 받아들이며 하나씩 연결을 끊을 수 있습니다. 화면은 한 번에 한 기기로만 전송되므로, 같은 Mac을 보는 두 번째 iPhone이 두 번째 스트림을 받는 것은 아닙니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sim. O Mac aceita mais de um dispositivo conectado e pode desconectá-los um a um. A imagem é enviada a um dispositivo por vez, então um segundo telefone olhando o mesmo Mac não recebe uma segunda transmissão."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Да. Mac принимает больше одного подключённого устройства и может отключать их по одному. Картинка отправляется одному устройству за раз, поэтому второй телефон, смотрящий на тот же Mac, не получает второй поток."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "可以。Mac 接受多台已连接的设备，并且可以逐个断开。画面一次只发送给一台设备，所以第二部手机观看同一台 Mac 时不会得到第二路串流。"
-          }
-        }
-      }
-    },
     "Yes. The speedometer chip on the session screen sets Auto, Low, Medium or High. Auto follows what the connection can carry, stepping down when latency rises and back up when it settles, so a weak link goes soft rather than stalling." : {
       "localizations" : {
         "de" : {
@@ -105453,6 +105395,238 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mac 必须开机，Mac App 正在运行，并且两项权限都已允许。在你自己的网络之外，中继每天免费 30 分钟。处于睡眠且不在你网络中的 Mac 无法唤醒；除非画中画或实时活动正在运行，否则 iOS 会在后台暂停这个 App。尚未做好的内容列在最下方的“已知的不足”中。"
+          }
+        }
+      }
+    },
+    "This Mac is in use" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Mac wird benutzt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac está en uso"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce Mac est utilisé"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo Mac è in uso"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacは使用中です"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac은 사용 중입니다"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac está em uso"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот Mac занят"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 正在使用中"
+          }
+        }
+      }
+    },
+    "Take over" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Übernehmen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tomar el control"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prendre la main"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subentra"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引き継ぐ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이어받기"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assumir o controle"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перехватить"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接管"
+          }
+        }
+      }
+    },
+    "Another phone is using this Mac. Wait for it to finish, or take over if it is yours." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein anderes iPhone benutzt diesen Mac. Warte, bis es fertig ist, oder übernimm, falls es deins ist."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otro teléfono está usando este Mac. Espera a que termine, o toma el control si es tuyo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un autre téléphone utilise ce Mac. Attendez qu'il ait fini, ou prenez la main s'il est à vous."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un altro telefono sta usando questo Mac. Aspetta che finisca, oppure subentra se è tuo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "別のiPhoneがこのMacを使っています。終わるまで待つか、自分のものであれば引き継いでください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다른 iPhone이 이 Mac을 사용 중입니다. 끝날 때까지 기다리거나, 본인 기기라면 이어받으세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outro celular está usando este Mac. Espere ele terminar ou assuma o controle se for seu."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Другой телефон использует этот Mac. Подождите, пока он закончит, или перехватите управление, если это ваш телефон."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "另一部手机正在使用这台 Mac。请等它用完，或者如果那是你的手机，就接管。"
+          }
+        }
+      }
+    },
+    "One phone drives a Mac at a time. While one is connected, a second is turned away and offered Take over. A phone that has gone silent is replaced on its own after about 20 seconds, or after about 3 minutes if it was in the background. Take over works only for a phone already paired with that Mac, and it disconnects the other one." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein iPhone steuert einen Mac zur Zeit. Solange eines verbunden ist, wird ein zweites abgewiesen und bekommt „Übernehmen“ angeboten. Ein iPhone, das verstummt ist, wird nach etwa 20 Sekunden von selbst ersetzt, im Hintergrund nach etwa 3 Minuten. „Übernehmen“ funktioniert nur für ein iPhone, das mit diesem Mac schon gekoppelt ist, und trennt das andere."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un teléfono controla un Mac a la vez. Mientras uno está conectado, un segundo es rechazado y se le ofrece Tomar el control. Un teléfono que se ha quedado en silencio se sustituye solo tras unos 20 segundos, o tras unos 3 minutos si estaba en segundo plano. Tomar el control solo funciona con un teléfono ya emparejado con ese Mac, y desconecta al otro."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un seul téléphone pilote un Mac à la fois. Tant qu'un téléphone est connecté, un second est refusé et se voit proposer Prendre la main. Un téléphone devenu silencieux est remplacé de lui-même au bout d'environ 20 secondes, ou d'environ 3 minutes s'il était en arrière-plan. Prendre la main ne fonctionne que pour un téléphone déjà jumelé avec ce Mac, et déconnecte l'autre."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un solo telefono alla volta controlla un Mac. Finché uno è connesso, un secondo viene respinto e gli viene offerto Subentra. Un telefono rimasto in silenzio viene sostituito da solo dopo circa 20 secondi, o dopo circa 3 minuti se era in background. Subentra funziona solo per un telefono già abbinato a quel Mac e disconnette l'altro."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macを操作できるのは一度に1台のiPhoneだけです。1台が接続している間、2台目は拒否され、「引き継ぐ」が表示されます。応答がなくなったiPhoneは約20秒後に自動で入れ替わり、バックグラウンドだった場合は約3分後です。「引き継ぐ」はそのMacとペアリング済みのiPhoneでのみ使え、もう一方を切断します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac은 한 번에 iPhone 한 대만 제어합니다. 한 대가 연결된 동안 두 번째는 거부되고 「이어받기」가 표시됩니다. 응답이 없어진 iPhone은 약 20초 뒤에 자동으로 교체되며, 백그라운드에 있었다면 약 3분 뒤입니다. 「이어받기」는 그 Mac과 이미 페어링된 iPhone에서만 작동하고 다른 기기의 연결을 끊습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um celular controla um Mac por vez. Enquanto um está conectado, um segundo é recusado e recebe a opção Assumir o controle. Um celular que ficou em silêncio é substituído sozinho após cerca de 20 segundos, ou cerca de 3 minutos se estava em segundo plano. Assumir o controle só funciona para um celular já emparelhado com esse Mac e desconecta o outro."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac управляется с одного телефона за раз. Пока один подключён, второй получает отказ и ему предлагается «Перехватить». Телефон, который замолчал, заменяется сам примерно через 20 секунд, а если он был в фоне, примерно через 3 минуты. «Перехватить» работает только для телефона, уже связанного с этим Mac, и отключает другой."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一台 Mac 同一时间只由一部手机操控。有一部已连接时，第二部会被拒绝，并可选择“接管”。沉默的手机约 20 秒后会被自动替换，如果它在后台则约 3 分钟后。“接管”只适用于已与该 Mac 配对的手机，并会断开另一部。"
           }
         }
       }
