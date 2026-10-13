@@ -12,7 +12,8 @@ struct RemoteScreen: View {
 
     @State var streamLooksPaused = false
     @State var dictation = VoiceDictation()
-    @AppStorage(PreferenceKeys.keyboardShortcutsCollapsed) var shortcutsCollapsed = false
+    @AppStorage(PreferenceKeys.keyboardShortcutsExpanded) var shortcutsExpanded = false
+    var shortcutsCollapsed: Bool { !shortcutsExpanded }
 
     @AppStorage(PreferenceKeys.interactionMode) var interactionMode: InteractionMode = .control
 
@@ -371,6 +372,7 @@ struct RemoteScreen: View {
 
     var keyboardInputBar: some View {
         VStack(spacing: 8) {
+            if !dictation.isListeningUI { shortcutsHandle.padding(.top, -10).padding(.bottom, -6) }
             keyboardInputRow
             if !dictation.isListeningUI, !shortcutsCollapsed {
                 keyboardKeyRow
@@ -394,7 +396,6 @@ struct RemoteScreen: View {
                 }
                 keyboardField
                 dictationButton
-                shortcutsToggle
             }
             .opacity(dictation.isActive ? 0 : 1)
             .allowsHitTesting(!dictation.isActive)
@@ -410,18 +411,30 @@ struct RemoteScreen: View {
         .animation(Motion.settle, value: dictation.state)
     }
 
-    private var shortcutsToggle: some View {
-        Button {
-            withAnimation(Motion.settle) { shortcutsCollapsed.toggle() }
-        } label: {
-            Image(systemName: shortcutsCollapsed ? "chevron.up" : "chevron.down")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white.opacity(0.7))
-                .frame(width: 28, height: 36)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(RailButtonStyle(scale: 0.9))
-        .accessibilityLabel(shortcutsCollapsed ? String(localized: "Show shortcut keys", table: "Dictation") : String(localized: "Hide shortcut keys", table: "Dictation"))
+    /// A handle on the bar's top edge: tap it, or drag it up or down, to show or fold the shortcut keys.
+    private var shortcutsHandle: some View {
+        Capsule()
+            .fill(Color.white.opacity(0.32))
+            .frame(width: 38, height: 5)
+            .frame(maxWidth: .infinity)
+            .frame(height: 18)
+            .contentShape(Rectangle())
+            .onTapGesture { toggleShortcuts() }
+            .gesture(
+                DragGesture(minimumDistance: 10).onEnded { drag in
+                    let wantsExpanded = drag.translation.height < 0
+                    if wantsExpanded != shortcutsExpanded { toggleShortcuts() }
+                }
+            )
+            .accessibilityElement()
+            .accessibilityLabel(shortcutsCollapsed ? String(localized: "Show shortcut keys", table: "Dictation") : String(localized: "Hide shortcut keys", table: "Dictation"))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { toggleShortcuts() }
+    }
+
+    private func toggleShortcuts() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        withAnimation(Motion.settle) { shortcutsExpanded.toggle() }
     }
 
     private var dictationButton: some View {
