@@ -12,7 +12,9 @@ use peering_core::fakes::system::RecordingSystem;
 use peering_core::terminal::fake::FakeSpawner;
 
 use super::adapters::Adapters;
+use crate::runtime::disk::StdDisk;
 use crate::runtime::files::DiskFileSystem;
+use peering_core::ports::recycle::NoRecycleBin;
 use crate::runtime::{RuntimeError, TerminalServices};
 
 pub fn build() -> Result<Adapters, RuntimeError> {
@@ -31,5 +33,6 @@ pub fn build() -> Result<Adapters, RuntimeError> {
         },
         rebuild_video: Arc::new(|| (Box::new(FakeCapture::new(Vec::new())), Box::new(FakeEncoder::default()))),
         clipboard: Arc::new(MemoryClipboard::default()),
+        file_disk: Box::new(StdDisk::new(Box::new(NoRecycleBin), Vec::new(), None)),
     })
 }

@@ -1,4 +1,4 @@
-use peering_wire::files::{RemoteDirectoryEntry, RemoteEntryKind, RemoteFileKind, RemoteFileOperation};
+use peering_wire::files::{RemoteDirectoryEntry, RemoteFileKind, RemoteFileOperation};
 use peering_wire::terminal::{TerminalEvent, TerminalRequest};
 
 use super::browse::{FileBrowser, MAXIMUM_LISTING_ENTRIES};
@@ -325,48 +325,14 @@ fn requests_for_other_features_are_not_answered_here() {
 }
 
 #[test]
-fn starting_an_upload_is_refused_with_a_write_failure() {
-    let event = answer(
-        &browser(),
-        TerminalRequest::BeginWrite { session_id: SESSION.to_owned(), path: "/C:/Users/me/new.bin".to_owned(), total_bytes: 10 },
-    );
-    let TerminalEvent::WriteFailure { session_id, path, message } = event else {
-        panic!("expected a write failure");
+fn writes_are_not_answered_here() {
+    let upload = TerminalRequest::BeginWrite { session_id: SESSION.to_owned(), path: "/C:/Users/me/new.bin".to_owned(), total_bytes: 10 };
+    let change = TerminalRequest::ChangeFile {
+        session_id: SESSION.to_owned(),
+        operation: RemoteFileOperation::Delete { path: "/C:/Users/me/d".to_owned() },
     };
-    assert_eq!(session_id, SESSION);
-    assert_eq!(path, "/C:/Users/me/new.bin");
-    assert!(!message.is_empty());
-}
-
-#[test]
-fn an_upload_chunk_is_refused_with_a_write_failure() {
-    let event = answer(
-        &browser(),
-        TerminalRequest::WriteChunk {
-            session_id: SESSION.to_owned(),
-            path: "/C:/Users/me/new.bin".to_owned(),
-            data: vec![1, 2, 3],
-            is_last: true,
-        },
-    );
-    assert!(matches!(event, TerminalEvent::WriteFailure { .. }));
-}
-
-#[test]
-fn every_file_change_is_refused_with_the_failure_for_its_own_path() {
-    let operations = [
-        (RemoteFileOperation::Create { path: "/C:/Users/me/a".to_owned(), kind: RemoteEntryKind::File }, "/C:/Users/me/a"),
-        (RemoteFileOperation::Rename { path: "/C:/Users/me/b".to_owned(), to: "c".to_owned() }, "/C:/Users/me/b"),
-        (RemoteFileOperation::Delete { path: "/C:/Users/me/d".to_owned() }, "/C:/Users/me/d"),
-    ];
-    for (operation, expected) in operations {
-        let event = answer(&browser(), TerminalRequest::ChangeFile { session_id: SESSION.to_owned(), operation });
-        let TerminalEvent::FileOperationFailure { path, message, .. } = event else {
-            panic!("expected a file operation failure");
-        };
-        assert_eq!(path, expected);
-        assert!(!message.is_empty());
-    }
+    assert!(browser().answer(&upload).is_none());
+    assert!(browser().answer(&change).is_none());
 }
 
 #[test]

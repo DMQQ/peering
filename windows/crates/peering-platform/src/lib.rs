@@ -14,6 +14,7 @@ pub mod link;
 pub mod mft;
 pub mod monitors;
 pub mod mouse;
+pub mod recycle;
 pub mod session_state;
 pub mod terminal;
 #[cfg(windows)]

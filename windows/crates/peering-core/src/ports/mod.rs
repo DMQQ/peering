@@ -5,6 +5,7 @@ pub mod clipboard;
 pub mod clock;
 pub mod encoder;
 pub mod input;
+pub mod recycle;
 pub mod secret_store;
 pub mod stream;
 pub mod system;

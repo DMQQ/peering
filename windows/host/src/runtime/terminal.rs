@@ -19,6 +19,7 @@ use tokio::task::spawn_local;
 
 use super::agent::{search_env, DiskExists};
 use super::connection::{Connection, Flow};
+use super::file_writer::Reply;
 use super::outbound::FrameSender;
 use super::random::SystemRandomSource;
 use super::services::{SharedFileSystem, TerminalServices};
@@ -75,7 +76,7 @@ impl AgentLocator for PathAgents {
 }
 
 /// Random version 4 UUIDs in uppercase. A failed random source falls back to a counter, which is still unique.
-fn session_id_source() -> impl FnMut() -> String {
+pub(super) fn session_id_source() -> impl FnMut() -> String {
     let mut fallback = 0u64;
     move || {
         let mut bytes = [0u8; 16];
@@ -94,6 +95,15 @@ fn uuid_v4(mut bytes: [u8; 16]) -> String {
     format!("{}-{}-{}-{}-{}", &hex[..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..])
 }
 
+/// The writer answers on its own thread, into this connection's queue.
+fn reply_to(outbound: &FrameSender) -> Reply {
+    let outbound = outbound.clone();
+    Arc::new(move |event| {
+        // The connection may have closed meanwhile; there is then nobody to tell.
+        let _queued = outbound.send(event_frame(&event));
+    })
+}
+
 fn event_frame(event: &TerminalEvent) -> Frame {
     // Derived Serialize with string keys only: shell output is a byte array and names are strings, which cannot fail.
     Frame::new(MessageKind::TerminalEvent, serde_json::to_vec(event).expect("terminal events always serialise"))
@@ -110,6 +120,7 @@ impl Connection {
             let mut state = self.shared.lock();
             match state.terminals.handle(&client_id, &request) {
                 Outcome::Events(events) => (events, None),
+                Outcome::Browse if state.file_writer.submit(&request, &reply_to(&self.outbound)) => (Vec::new(), None),
                 Outcome::Browse => (Vec::new(), Some(state.files.clone())),
             }
         };

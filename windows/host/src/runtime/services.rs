@@ -4,6 +4,7 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use peering_agent::availability::BinaryLocator;
+use peering_core::files::disk::DiskOps;
 use peering_core::files::vfs::{FileSystem, FsError, RawEntry};
 use peering_core::ports::clipboard::Clipboard;
 use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame};
@@ -32,6 +33,7 @@ mod adapters {
         pub terminal: super::TerminalServices,
         pub rebuild_video: super::RebuildVideo,
         pub clipboard: std::sync::Arc<dyn peering_core::ports::clipboard::Clipboard>,
+        pub file_disk: Box<dyn peering_core::files::disk::DiskOps + Send>,
     }
 }
 
@@ -70,6 +72,8 @@ pub struct HostServices {
     /// Answers whether the agent CLI is installed, which decides if the hello advertises chat.
     pub agent_binaries: Box<dyn BinaryLocator>,
     pub clipboard: Arc<dyn Clipboard>,
+    /// Where files phones send are written, and where a delete goes.
+    pub file_disk: Box<dyn DiskOps + Send>,
 }
 
 /// The capture behind a lock, so the coordinator and the runtime both reach the same device.
@@ -203,7 +207,7 @@ impl FileSystem for SharedFileSystem {
 
 /// The platform adapters for this machine. `home_directory` is where a file listing starts when the client names none.
 pub fn platform_services(home_directory: String) -> Result<HostServices, RuntimeError> {
-    let adapters::Adapters { capture, encoder, input, system, secrets, files, terminal, rebuild_video, clipboard } = adapters::build()?;
+    let adapters::Adapters { capture, encoder, input, system, secrets, files, terminal, rebuild_video, clipboard, file_disk } = adapters::build()?;
     Ok(HostServices {
         capture,
         encoder,
@@ -216,5 +220,6 @@ pub fn platform_services(home_directory: String) -> Result<HostServices, Runtime
         home_directory,
         agent_binaries: Box::new(super::agent::DiskBinaries),
         clipboard,
+        file_disk,
     })
 }

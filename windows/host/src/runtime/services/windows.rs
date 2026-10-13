@@ -12,6 +12,7 @@ use peering_platform::keyboard::KeyboardInjector;
 use peering_platform::mouse::MouseInjector;
 use peering_platform::services::PlatformServices;
 use peering_platform::clipboard::WindowsClipboard;
+use peering_platform::recycle::WindowsRecycleBin;
 use peering_platform::system::WindowsSystem;
 use peering_platform::terminal::environment::{installed_shells, start_directory};
 use peering_platform::terminal::ConPtySpawner;
@@ -19,6 +20,7 @@ use peering_core::terminal::shell::terminal_environment;
 use peering_wire::command::RemoteCommand;
 
 use super::adapters::Adapters;
+use crate::runtime::disk::{protected_folders, StdDisk};
 use crate::runtime::files::DiskFileSystem;
 use crate::runtime::{RuntimeError, TerminalServices};
 
@@ -39,6 +41,11 @@ pub fn build() -> Result<Adapters, RuntimeError> {
             (capture, encoder)
         }),
         clipboard: Arc::new(WindowsClipboard),
+        file_disk: Box::new(StdDisk::new(
+            Box::new(WindowsRecycleBin),
+            protected_folders(&|name| std::env::var(name).ok()),
+            default_directory().map(|directory| directory.join("upload-folders.txt")),
+        )),
     })
 }
 

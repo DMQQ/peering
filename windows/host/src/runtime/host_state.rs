@@ -24,6 +24,7 @@ use peering_core::video::coordinator::VideoCoordinator;
 use super::agent::StdLauncher;
 use super::agent_browse::DiskFolders;
 use super::control::RelayStatus;
+use super::file_writer::FileWriter;
 use super::notifications::WaitingNotifications;
 use super::pins::SecretPins;
 use super::problem_source::ProblemSource;
@@ -49,12 +50,14 @@ struct Opened {
     home_directory: String,
     agent_binaries: Box<dyn BinaryLocator>,
     clipboard: Arc<dyn Clipboard>,
+    file_writer: FileWriter,
 }
 
 impl HostState {
     /// Builds the state from the adapters. A paired list that could not be read starts empty and is shown as a problem.
     pub(super) fn new(profile: &HostProfile, services: HostServices) -> Result<Self, RuntimeError> {
-        let HostServices { capture, encoder, input, system, secrets, files, terminal, rebuild_video, home_directory, agent_binaries, clipboard } = services;
+        let HostServices { capture, encoder, input, system, secrets, files, terminal, rebuild_video, home_directory, agent_binaries, clipboard, file_disk } = services;
+        let file_writer = FileWriter::start(file_disk, Box::new(terminal::session_id_source())).map_err(RuntimeError::Executor)?;
         let terminals = terminal::manager(terminal, secrets.clone(), profile.clock.clone())?;
         let secret_pins = Arc::new(SecretPins::open(secrets)?);
         let pins_problem = secret_pins.load_problem();
@@ -73,6 +76,7 @@ impl HostState {
             home_directory,
             agent_binaries,
             clipboard,
+            file_writer,
         };
         let mut state = Self::assemble(opened);
         if let Some(problem) = pins_problem {
@@ -82,7 +86,7 @@ impl HostState {
     }
 
     fn assemble(opened: Opened) -> Self {
-        let Opened { host_id, host_name, now, secret_pins, terminals, capture, encoder, rebuild_video, input, system, files, home_directory, agent_binaries, clipboard } = opened;
+        let Opened { host_id, host_name, now, secret_pins, terminals, capture, encoder, rebuild_video, input, system, files, home_directory, agent_binaries, clipboard, file_writer } = opened;
         let pins: Arc<dyn PinStore> = secret_pins.clone();
         Self {
             pairing: PairingService::new(&host_id, pins.clone()),
@@ -107,6 +111,7 @@ impl HostState {
             notice_checked_at: None,
             refusal: None,
             clipboard,
+            file_writer,
             keeping_awake: false,
             pointer: PointerTracker::default(),
             settings: HostSettings::default_for(host_name),

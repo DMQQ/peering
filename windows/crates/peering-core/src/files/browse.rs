@@ -1,8 +1,8 @@
-//! Answers the terminal requests that read folders and files. Mirrors `TerminalSessionManager+FileBrowsing.swift`,
+//! Answers the terminal requests that read folders and files. Writing is `transfer` and `changes`. Mirrors `TerminalSessionManager+FileBrowsing.swift`,
 //! `TerminalSessionManager+Download.swift` and `DirectoryListing.swift`.
 
 use peering_wire::frame_budget::{longest_prefix, CONTROL_LIST_BUDGET};
-use peering_wire::files::{RemoteDirectoryEntry, RemoteFileOperation};
+use peering_wire::files::RemoteDirectoryEntry;
 use peering_wire::terminal::{TerminalEvent, TerminalRequest};
 
 use super::path::{self, VirtualPath};
@@ -13,8 +13,6 @@ use super::vfs::{FileSystem, RawEntry};
 pub const MAXIMUM_LISTING_ENTRIES: usize = 2_000;
 const NOT_A_PATH: &str = "That is not a path this PC can open.";
 const ARCHIVE_UNSUPPORTED: &str = "Folders cannot be downloaded from this PC yet.";
-const WRITE_UNSUPPORTED: &str = "This PC cannot receive files yet.";
-const CHANGE_UNSUPPORTED: &str = "This PC cannot change files yet.";
 
 pub struct FileBrowser<F: FileSystem> {
     fs: F,
@@ -44,19 +42,6 @@ impl<F: FileSystem> FileBrowser<F> {
                 session_id: session_id.clone(),
                 path: path.clone(),
                 message: ARCHIVE_UNSUPPORTED.to_owned(),
-            }),
-            // Answered rather than ignored: a client waits on a reply to an upload, a rename or a delete.
-            TerminalRequest::BeginWrite { session_id, path, .. } | TerminalRequest::WriteChunk { session_id, path, .. } => {
-                Some(TerminalEvent::WriteFailure {
-                    session_id: session_id.clone(),
-                    path: path.clone(),
-                    message: WRITE_UNSUPPORTED.to_owned(),
-                })
-            }
-            TerminalRequest::ChangeFile { session_id, operation } => Some(TerminalEvent::FileOperationFailure {
-                session_id: session_id.clone(),
-                path: operation_path(operation).to_owned(),
-                message: CHANGE_UNSUPPORTED.to_owned(),
             }),
             _ => None,
         }
@@ -148,14 +133,6 @@ impl<F: FileSystem> FileBrowser<F> {
             },
             Err(error) => transfer_failure(session_id, &shown, &preview::message(error)),
         }
-    }
-}
-
-fn operation_path(operation: &RemoteFileOperation) -> &str {
-    match operation {
-        RemoteFileOperation::Create { path, .. }
-        | RemoteFileOperation::Rename { path, .. }
-        | RemoteFileOperation::Delete { path } => path,
     }
 }
 

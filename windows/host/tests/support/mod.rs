@@ -12,6 +12,7 @@ use peering_agent::availability::BinaryLocator;
 use peering_core::fakes::capture::FakeCapture;
 use peering_core::fakes::clipboard::MemoryClipboard;
 use peering_core::fakes::clock::FakeClock;
+use peering_core::files::fake_disk::SharedFakeDisk;
 use peering_core::fakes::encoder::FakeEncoder;
 use peering_core::fakes::input::RecordingInput;
 use peering_core::fakes::secret_store::InMemorySecretStore;
@@ -148,6 +149,7 @@ pub struct Harness {
     pub clock: Arc<FakeClock>,
     pub shells: FakeSpawner,
     pub clipboard: Arc<MemoryClipboard>,
+    pub disk: SharedFakeDisk,
 }
 
 pub fn display() -> DisplayInfo {
@@ -237,6 +239,11 @@ fn harness_with(
     let clock = Arc::new(FakeClock::new(100.0, UNIX_NOW));
     let shells = FakeSpawner::default();
     let clipboard = Arc::new(MemoryClipboard::default());
+    let disk = SharedFakeDisk::default();
+    disk.with(|disk| {
+        disk.add_folder("C:\\Users\\me");
+        disk.protect("C:\\Users\\me");
+    });
     let services = HostServices {
         capture: Box::new(SharedCapture(capture.clone())),
         encoder: encoder_port,
@@ -258,6 +265,7 @@ fn harness_with(
         home_directory: "C:\\Users\\me".to_owned(),
         agent_binaries,
         clipboard: clipboard.clone(),
+        file_disk: Box::new(disk.clone()),
     };
     let profile = HostProfile {
         host_id: HOST_ID.to_owned(),
@@ -267,7 +275,7 @@ fn harness_with(
         clock: clock.clone(),
     };
     let runtime = HostRuntime::new(profile, services).expect("the runtime builds over fakes");
-    Harness { runtime, capture, encoder, input, system, secrets, clock, shells, clipboard }
+    Harness { runtime, capture, encoder, input, system, secrets, clock, shells, clipboard, disk }
 }
 
 pub fn direct_peer() -> PeerInfo {

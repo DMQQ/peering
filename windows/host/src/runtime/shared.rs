@@ -28,6 +28,7 @@ use tokio::sync::broadcast;
 
 use super::control::{ControlChannel, RelayStatus};
 use super::diagnostics;
+use super::file_writer::FileWriter;
 use super::lock::{lock_clearing_poison, lock_ignoring_poison};
 use super::agent::StdLauncher;
 use super::agent_browse::FolderBrowser;
@@ -91,6 +92,7 @@ pub struct HostState {
     /// The last thing a phone asked for that this host would not do, shown until it lapses.
     pub refusal: Option<Refusal>,
     pub clipboard: Arc<dyn Clipboard>,
+    pub file_writer: FileWriter,
     /// Whether the PC is being kept awake for the phones connected now.
     pub keeping_awake: bool,
     pub pointer: PointerTracker,
