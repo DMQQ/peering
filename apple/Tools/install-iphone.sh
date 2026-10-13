@@ -21,11 +21,11 @@ cd "$REPO_DIR"
 
 if [ "$TARGET" = "--simulator" ]; then
     DESTINATION="platform=iOS Simulator,name=iPhone 17 Pro"
-    BUILT_APP="$DERIVED_DATA_DIR/Build/Products/Debug-iphonesimulator/MacCast.app"
+    BUILT_APP="$DERIVED_DATA_DIR/Build/Products/Debug-iphonesimulator/Peering.app"
     PRODUCTS="Debug-iphonesimulator"
 else
     DESTINATION="generic/platform=iOS"
-    BUILT_APP="$DERIVED_DATA_DIR/Build/Products/Debug-iphoneos/MacCast.app"
+    BUILT_APP="$DERIVED_DATA_DIR/Build/Products/Debug-iphoneos/Peering.app"
     PRODUCTS="Debug-iphoneos"
 fi
 
@@ -33,8 +33,8 @@ echo "==> building for $DESTINATION"
 # `-allowProvisioningUpdates` because a fresh clone has no profile for this team yet, and without
 # it the failure is a signing error that reads like a code problem.
 xcodebuild \
-    -project MacCast.xcodeproj \
-    -scheme MacCast \
+    -project Peering.xcodeproj \
+    -scheme Peering \
     -configuration Debug \
     -destination "$DESTINATION" \
     -derivedDataPath "$DERIVED_DATA_DIR" \

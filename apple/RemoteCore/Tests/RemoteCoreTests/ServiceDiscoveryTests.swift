@@ -114,7 +114,7 @@ struct ServiceDiscoveryTests {
 
     @Test("a result with no device ID is not offered as a host")
     func dropsResultsThatAreNotHosts() {
-        // `_remotedesktop._tcp` is Apple's Screen Sharing type, so Macs with no MacCast device ID show up and must be dropped.
+        // `_remotedesktop._tcp` is Apple's Screen Sharing type, so Macs with no Peering device ID show up and must be dropped.
         #expect(DiscoveredHost.decode(endpoint: endpoint, txt: nil) == nil)
         #expect(DiscoveredHost.decode(endpoint: endpoint, txt: NWTXTRecord(["name": "Someone's Mac"])) == nil)
     }

@@ -62,7 +62,7 @@ struct CaptureProbe {
 
     struct Options {
         var seconds: Double = 3
-        var output = "/tmp/maccast-capture-probe.mov"
+        var output = "/tmp/peering-capture-probe.mov"
         /// A source's stable id (`display:1`, `window:…`, `application:…`), or a title
         /// fragment. Defaults to the main display.
         var source: String?
@@ -245,7 +245,7 @@ struct CaptureProbe {
                                 [--resources [--burn N] [--interval S]] [--request-access]
 
               --seconds N      how long to capture for (default 3)
-              --output PATH    where to write the movie (default /tmp/maccast-capture-probe.mov)
+              --output PATH    where to write the movie (default /tmp/peering-capture-probe.mov)
               --source ID      a capture source's stable id, or part of its title
               --frame-rate N   frames per second to ask the stream for (default 60)
               --list           print the capture catalogue and exit
@@ -889,7 +889,7 @@ struct CaptureProbe {
                     """)
             }
 
-            let url = URL(fileURLWithPath: "/tmp/maccast-card-\(card.name).png")
+            let url = URL(fileURLWithPath: "/tmp/peering-card-\(card.name).png")
             if let cgImage = CIContext().createCGImage(image, from: image.extent),
                let data = NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:]) {
                 try? data.write(to: url)

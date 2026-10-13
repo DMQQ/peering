@@ -1,6 +1,6 @@
 # Session panels and chrome: iPhone against Android
 
-Reference: apple/MacCast/Remote and marketing/appstore/raw/en/02-session, 03-keyboard, 04-shortcuts. Status: same (already matched), fixed (changed in this round), open (still different).
+Reference: apple/Peering/Remote and marketing/appstore/raw/en/02-session, 03-keyboard, 04-shortcuts. Status: same (already matched), fixed (changed in this round), open (still different).
 
 ## Status pill
 | iPhone element | Value (Swift) | Android | Status |

@@ -22,11 +22,11 @@ fi
 
 only=()
 if [ -n "${1:-}" ]; then
-    only=(-only-testing:"MacCastUITests/$1")
+    only=(-only-testing:"PeeringUITests/$1")
 fi
 
 printf "==> UI tests on %s\n" "$destination"
-if xcodebuild test -project MacCast.xcodeproj -scheme MacCastUI -destination "$destination" \
+if xcodebuild test -project Peering.xcodeproj -scheme PeeringUI -destination "$destination" \
     -derivedDataPath "$DERIVED_DATA_DIR" CODE_SIGNING_ALLOWED=NO ${only[@]+"${only[@]}"} >"$LOG" 2>&1; then
     grep -E "^Test Case .* (passed|failed)|Executed [0-9]+ tests" "$LOG" | sort -u
     echo "    ok"

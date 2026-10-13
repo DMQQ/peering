@@ -1,0 +1,293 @@
+import Foundation
+import PeeringKit
+import Observation
+import RemoteCore
+import SwiftUI
+import UIKit
+import WidgetKit
+import os
+
+private let modelLog = Logger(subsystem: "pl.dmq.peering", category: "app")
+
+/// Everything the UI binds to. One owner of the session, the identity and the renderer, so a
+/// network event becomes observable state in exactly one place.
+@Observable
+@MainActor
+final class SessionModel {
+    let launchedAt = MonotonicStamp()
+
+    /// Declared on ``MacSession`` and merely named here: the answer belongs to one connection (one Mac can be on this network while another is across the country).
+    typealias ConnectionPath = MacSession.ConnectionPath
+
+    typealias FileWrite = MacSession.FileWrite
+    typealias FileChange = MacSession.FileChange
+
+    typealias StreamQuality = PeeringKit.StreamQuality
+
+    // MARK: - The sessions
+
+    /// ``connect(to:)`` replaces the list with the session it starts, so it holds one at a time; per-Mac state lives on the objects.
+    private(set) var sessions: [MacSession] = []
+
+    /// The only place the container changes: a finished Mac is let go, except one still being retried.
+    func place(_ session: MacSession, replacing old: MacSession?) {
+        if let old { sessions.removeAll { $0 === old } }
+        sessions.removeAll { !$0.isLive }
+        sessions.append(session)
+        activeSessionID = session.id
+    }
+
+    var activeSessionID: UUID?
+
+    /// A session that is open and one being watched are two things. While this is set, the control channel, shells, clipboard and sleep assertion stay and only the picture stops (see `setPicturePaused(_:)`).
+    /// Put back by every route that shows a session: ``returnToSession()``, ``activateSession(_:)``,
+    /// ``connect(to:replacing:)`` and ``disconnect(deliberate:)``.
+    var isSessionOnScreen = true
+
+    /// Held apart from `picturePaused` so coming back does not undo a pause somebody asked for. Internal so the end of a session can clear it.
+    var pausedBySteppingAway = false
+
+    // MARK: - Connection state
+
+    var phase: ClientSession.Phase {
+        get { activeSession?.phase ?? .idle }
+        set { activeSession?.phase = newValue }
+    }
+    var hosts: [DiscoveredHost] = []
+
+    /// Read when a stream is set up and re-read when the system flips it. See ``PowerSavingPolicy``.
+    var isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
+
+    /// A `peering://pair` link opened from outside the app (the system camera on the Mac's QR code). Held rather than acted on, because the card that checks it only exists once a Mac is asking; see ``PairingPrompt``.
+    var pairingLink: (url: URL, receivedAt: ContinuousClock.Instant)?
+
+    /// Re-derived from Bonjour at the dial, which is the one moment it cannot be trusted: after a backgrounding its mDNS results are stale and a re-browse takes seconds. Kept on disk so a relaunch dials at once; an address from a network since left loses the race to the relay. See ``DialRace``.
+    var lastLANHosts: [String: DiscoveredHost] = RememberedLANHosts.load() {
+        didSet { RememberedLANHosts.save(lastLANHosts) }
+    }
+
+    /// Three states, so not a `Set`: an absent key is nobody having found out.
+    var relayPresence: [String: Bool] = [:]
+    var relayReachable: Bool? = nil
+
+    var browseStatus = String(localized: "Looking for Macs on this network…")
+    var tlsDescription: String?
+
+    var sessionHistory: [ClientSessionRecord] = SessionHistoryStore.load()
+    var pairedHostIDs: [String] = []
+
+    /// The bitrate preset; redrawing on change requires a stored var, not a UserDefaults read.
+    var streamQuality: StreamQuality = SessionModel.storedQuality
+    /// Seeded from the stored preference so Automatic to Manual returns to the last saved level; nil when the stored value is automatic.
+    var lastManualQuality: StreamQuality? = .storedManualLevel()
+
+    // MARK: - Wake-on-LAN
+    var hostMACAddresses: [String: [String]] = {
+        guard let data = UserDefaults.standard.data(forKey: "hostMACAddresses"),
+              let decoded = try? JSONDecoder().decode([String: [String]].self, from: data) else {
+            return [:]
+        }
+        return decoded
+    }()
+
+    /// The channel also carries system sounds the Mac makes in response to this phone's input, so a chord that leads nowhere is heard a round trip late.
+    var hostAudioMuted = UserDefaults.standard.object(forKey: PreferenceKeys.hostAudioMuted) as? Bool ?? false {
+        didSet {
+            UserDefaults.standard.set(hostAudioMuted, forKey: PreferenceKeys.hostAudioMuted)
+            // Every Mac, not the one on screen: one behind it would keep playing unnoticed.
+            for session in sessions { session.refreshAudioMuteState() }
+        }
+    }
+
+    /// The pin store knows only the ID, and the handshake is the only moment the client is told both.
+    var hostNames: [String: String] = [:]
+
+    /// The relay answers for whatever holds the ID, so "not registered" and a mistyped digit look the same; only the ID asked for tells them apart. Cleared by every other connect.
+    var remotePairingHostID: String?
+
+    var lastConnectedAt: [String: Date] = {
+        guard let data = UserDefaults.standard.data(forKey: "hostLastConnectedAt"),
+              let decoded = try? JSONDecoder().decode([String: Date].self, from: data) else {
+            return [:]
+        }
+        return decoded
+    }()
+
+    /// Kept apart from `hostNames`, which is rewritten from `ServerHello` on every connect, so a rename stored there would silently revert.
+    var customHostNames: [String: String] = [:]
+
+    /// Set when the device's own identity could not be loaded: without a client certificate there is
+    var identityFailure: String?
+
+    /// Raised once when the saved pairings could not be read; ``HostPickerView`` shows a card until it is dismissed.
+    var pinsUnreadableNoticeShown = false
+
+    /// True while the saved pairings are damaged beyond reading, the one unreadable state ``resetPairedMacs()`` may cure.
+    var pinsNeedReset = false
+
+    // MARK: - User choices
+
+    /// Remembered but deliberately not used to reconnect: a stored IP goes stale exactly when a network changes. Kept so a Mac on a custom port is not retyped each launch.
+    var manualAddress: String {
+        didSet { UserDefaults.standard.set(manualAddress, forKey: Self.manualAddressKey) }
+    }
+    var manualPort: String {
+        didSet { UserDefaults.standard.set(manualPort, forKey: Self.manualPortKey) }
+    }
+
+    var keyboardMode: KeyboardMode = KeyboardMode(
+        rawValue: UserDefaults.standard.string(forKey: PreferenceKeys.keyboardMode) ?? "unicode"
+    ) ?? .unicode
+    var isObserving = false
+    var latchedModifiers: Modifiers = []
+
+    /// A number rather than an index so label and arithmetic agree; persisted as a property of the hand.
+    var pointerSpeed: Double =
+        UserDefaults.standard.object(forKey: PreferenceKeys.pointerSpeed) as? Double ?? 1
+
+    var showKeyboard = false {
+        didSet {
+            // Putting the keyboard away ends the line this bar was keeping: nothing would ever correct it, and this is the way out of a drifted preview.
+            if !showKeyboard { typedPreview = "" }
+            keyboardOpenedByFocus = false
+        }
+    }
+
+    /// Whether the keyboard is up because a Mac text field took focus, so it may close itself
+    /// again when focus leaves. A keyboard the user opened is theirs to close.
+    var keyboardOpenedByFocus = false
+
+    /// A keyboard the Mac asked for must not close a panel the user opened: switching desktops from the sources panel moves focus into the new desktop's text field.
+    var isPanelOpen = false
+
+    /// The bar's own record, emptied by Return, a newline as text, and the keyboard going away. Anything that sends characters must go through `handleTypedText(_:)` and `handleBackspace()`, or this shows a character the Mac has lost.
+    var typedPreview = ""
+
+    /// Kept here because the field is rebuilt each time the keyboard opens; the Mac's field keeps its text, so the phone's must. It ends with a Return or when the Mac's focus moves.
+    var typedDraft = ""
+
+    /// Bumped when the Mac's field is applied, so the field takes `typedDraft` and `draftSelection` as they now stand.
+    var fieldSerial = 0
+    var draftSelection = NSRange(location: 0, length: 0)
+    var fieldCaret: NormalizedPoint?
+    /// When the phone's field last changed by typing: the Mac's report of a line still being typed is older than the line, and applying it would delete the last characters.
+    var lastLocalEdit: MonotonicStamp?
+    var pendingField: FieldState?
+
+    /// Where a hand on the Mac last left its pointer. A serial, because a second report at the same spot after the joystick has moved the drawn cursor away must still pull it back.
+    var hostPointer = HostPointer(point: NormalizedPoint(x: 0.5, y: 0.5), serial: 0)
+
+    // MARK: - Purchase
+
+    let storeManager = StoreManager()
+    var paywallReason: PaywallView.Reason?
+
+    /// The one case where a session ends and nothing says why: the relay stops splicing silently, so this end sees an ordinary close and reconnects, and the reason first exists when the reconnect is refused with `quotaExceeded`.
+    var spentAllowance: RelayPlan?
+    /// What the relay last said about this device's invite code. Nil until asked, or when it could not be.
+    var referral: RelayReferral?
+
+    /// `quotaExceeded` looks identical whether the user tapped Connect into a spent allowance or the relay cut a running session, and only the first is a wall they walked into.
+    var relaySessionDropped = false
+
+    /// The relay's own count of what is left today, as of the last relayed session it set up or refused. Outranks ``relaySecondsRemainingEstimate`` wherever a screen would claim the allowance is spent.
+    var relayRemainingSecondsFromRelay: RelayRemainingReport?
+
+    // MARK: - Collaborators
+
+    let renderer = VideoRenderer()
+
+    let pins = ClientPinStore.standard
+    let browser = HostBrowser()
+
+    var networkWatcher: NetworkPathWatcher?
+    var networkContext: NetworkContext { networkWatcher?.context ?? NetworkContext() }
+    let notifier = SessionNotifier.shared
+
+    /// The browser replaces a dead one itself, but a suspended app is not running to do it, so the foreground is the moment to restart.
+    var browseFailed = false
+    /// Set while the system is refusing the browser; see ``HostBrowser/Event/denied``.
+    var localNetworkDenied = false
+    var identity: SelfSignedIdentity?
+    var device = DeviceIdentity(id: "", name: "")
+
+    /// A task rather than a timestamp: the showing must be cancellable, not the decision, and it doubles as the flag that stops a second offer.
+    var pendingOffer: Task<Void, Never>?
+
+    /// Raised on teardown when a rating is due; ``ContentView`` owns the `requestReview` action, which only a view can call, and lowers it.
+    var wantsReviewPrompt = false
+    var pendingReviewPrompt: Task<Void, Never>?
+
+    init() {
+        device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
+        pairedHostIDs = pins.hostIDs
+        hostNames = UserDefaults.standard.dictionary(forKey: Self.hostNamesKey) as? [String: String] ?? [:]
+        customHostNames = UserDefaults.standard.dictionary(forKey: Self.customHostNamesKey) as? [String: String] ?? [:]
+        let defaults = UserDefaults.standard
+        manualAddress = defaults.string(forKey: Self.manualAddressKey) ?? "127.0.0.1"
+        manualPort = defaults.string(forKey: Self.manualPortKey) ?? String(ProtocolInfo.defaultPort)
+        do {
+            identity = try SelfSignedIdentity.loadOrCreate(role: .client, commonName: device.name)
+        } catch {
+            Analytics.failed(error, in: .security)
+            identityFailure = FailureText.identityMessage(for: error)
+            modelLog.error("could not load the client identity: \(String(describing: error), privacy: .public)")
+        }
+
+        renderer.onFirstFrame = { [weak self] in
+            self?.frameArrived += 1
+        }
+        #if DEBUG
+        installSeededMac()
+        #endif
+    }
+
+    /// A hero transition's cue to drop its frozen snapshot: the renderer runs off the main actor and is not observable, so a plain read cannot say the picture is decoded.
+    var frameArrived = 0
+
+    // MARK: - Push token
+
+    /// Held here because reading it is an `await` on the system.
+    var notificationsAuthorized = false
+
+    // MARK: - Clipboard history
+
+    /// The Mac's pasteboard holds one thing, so this is the only place earlier pulls exist; held here because the panel is rebuilt each time it opens.
+    var clipboardHistory: [ClipboardEntry] = SessionModel.loadClipboardHistory()
+
+    /// A count so a view can tell the list changed: entries carry no identity and text can repeat.
+    var clipboardHistoryCount = 0
+
+    /// Reading the pasteboard asks the user, so this is the only text the panel can show for free, and only while the change count matches.
+    var knownPhoneClipboard: (changeCount: Int, text: String)?
+
+    // MARK: - Wake-on-LAN
+
+    var pendingHostID: String?
+
+    /// Coming back to the foreground races the teardown of the session that just ended: its cancelled socket is not finished with, so the connect aborts before it starts. It clears within a second and nobody asked for this attempt, so nobody is told.
+    var isResuming = false
+
+    var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+    var backgroundNotice = BackgroundNoticeDebounce()
+    var backgroundNoticeTask: Task<Void, Never>?
+
+    // MARK: - Input
+
+    var customMacros: [Macro] = {
+        guard let data = UserDefaults.standard.data(forKey: PreferenceKeys.customMacros),
+              let decoded = try? JSONDecoder().decode([Macro].self, from: data) else {
+            return []
+        }
+        return decoded
+    }()
+
+    // MARK: - Commands to the active Mac
+
+    // Forwarders: a command belongs to a session. A terminal ID came from the Mac that made it and is unique across Macs, which routes it to its owner rather than the one on screen.
+
+    /// App-wide rather than per Mac: this is the shortlist the panel offers, and a command from one Mac is likely wanted on another.
+    /// Stored, not computed from the defaults: nothing observes `UserDefaults`.
+    var terminalHistory: [String] =
+        UserDefaults.standard.stringArray(forKey: PreferenceKeys.terminalHistory) ?? []
+}

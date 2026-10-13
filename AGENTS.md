@@ -1,4 +1,8 @@
-# MacCast — agent working notes
+# Peering: agent working notes
+
+The app was briefly called MacCast in its first three days. Strings from that name that still ship
+(the `MacCast-Pairing-*` protocol domains, the `maccast-*` PostHog service names, the probe identifiers
+`pl.dmq.maccast.*`) are kept on purpose: changing them breaks pairing or persisted state.
 
 Everything a fresh agent needs that is **not** derivable from reading the source. Written
 2026-09-14 by the agent that built the bulk of the system. If you are picking this up cold,
@@ -10,10 +14,10 @@ read this top to bottom before touching anything — several of the traps below 
 
 A cross-platform remote desktop system:
 
-- **`MacCastHost`** — a macOS app that captures the screen, encodes it, and injects synthetic
+- **`PeeringHost`** — a macOS app that captures the screen, encodes it, and injects synthetic
   input. Non-sandboxed on purpose (a sandboxed app cannot post `CGEvent`s into other apps,
   which is the entire function of the app — so the Mac App Store is not a target).
-- **`MacCast`** — an iOS app that renders the stream and sends gestures/keystrokes back.
+- **`Peering`** — an iOS app that renders the stream and sends gestures/keystrokes back.
 - **`RemoteCore`** — a local Swift package with everything shared: framing, protocol,
   crypto, coordinate mapping.
 
@@ -22,11 +26,11 @@ recognised across networks with no user interaction after the first pairing.**
 
 ### Targets
 
-`xcodebuild -list -project MacCast.xcodeproj`:
+`xcodebuild -list -project Peering.xcodeproj`:
 
 ```
-Targets: MacCast (iOS), MacCastTests, MacCastUITests, MacCastHost (macOS)
-Schemes: MacCast, MacCastHost, RemoteCore
+Targets: Peering (iOS), PeeringTests, PeeringUITests, PeeringHost (macOS)
+Schemes: Peering, PeeringHost, RemoteCore
 Packages: swift-certificates 1.20.0, swift-crypto 4.5.2, swift-asn1 1.7.2, RemoteCore (local)
 ```
 
@@ -40,26 +44,26 @@ build phases.
 
 ```bash
 # Build the iOS client for the physical device
-xcodebuild -project MacCast.xcodeproj -scheme MacCast \
+xcodebuild -project Peering.xcodeproj -scheme Peering \
   -destination 'id=8A51FAD5-A897-57CD-9C09-395D9F2C258A' build
 
 # Build/run the host
-xcodebuild -project MacCast.xcodeproj -scheme MacCastHost -configuration Debug build
-open ~/Library/Developer/Xcode/DerivedData/MacCast-*/Build/Products/Debug/Peering.app
+xcodebuild -project Peering.xcodeproj -scheme PeeringHost -configuration Debug build
+open ~/Library/Developer/Xcode/DerivedData/Peering-*/Build/Products/Debug/Peering.app
 
 # RemoteCore unit tests (100 tests, 14 suites, all green as of 2026-09-14)
 cd RemoteCore && swift test
 
 # Install + launch on the connected iPhone
 #
-# NOTE: the path is Release-iphoneos, not Debug-iphoneos. The MacCast scheme's Run action builds
+# NOTE: the path is Release-iphoneos, not Debug-iphoneos. The Peering scheme's Run action builds
 # the Release configuration, so a plain `xcodebuild ... build` writes Release-iphoneos and leaves
 # any Debug-iphoneos directory untouched — installing from Debug therefore silently reinstalls a
 # build from some *earlier* session, which looks exactly like your changes not being there. Check
 # `ls -l` on the product before installing if in doubt. (`devicectl list devices` for the current
 # UDID; it is per-machine and does change.)
 xcrun devicectl device install app --device 8A51FAD5-A897-57CD-9C09-395D9F2C258A \
-  ~/Library/Developer/Xcode/DerivedData/MacCast-*/Build/Products/Release-iphoneos/MacCast.app
+  ~/Library/Developer/Xcode/DerivedData/Peering-*/Build/Products/Release-iphoneos/Peering.app
 xcrun devicectl device process launch --device 8A51FAD5-A897-57CD-9C09-395D9F2C258A \
   pl.dmq.peering
 
@@ -83,7 +87,7 @@ it.** Phases 1–5 of the plan were all verified with it before any iOS UI exist
 
 ### `apple/Tools/run-probe.sh`
 
-Builds, **signs**, and runs `apple/Tools/MacCastProbe`. The signing step is load-bearing, not
+Builds, **signs**, and runs `apple/Tools/PeeringProbe`. The signing step is load-bearing, not
 housekeeping — read the comment at the top of the script before you change it.
 
 ```bash
@@ -237,8 +241,8 @@ Reference for the directory layout: `apple/RemoteCore/Sources/RemoteCore/` holds
 
 ### Analytics and Error Tracking
 
-Both apps send anonymous counts and handled errors to PostHog (`Analytics.swift` in `apple/MacCast/App/` and
-`apple/MacCastHost/`), off with one Settings switch. Events carry `$process_person_profile: false`, so a
+Both apps send anonymous counts and handled errors to PostHog (`Analytics.swift` in `apple/Peering/App/` and
+`apple/PeeringHost/`), off with one Settings switch. Events carry `$process_person_profile: false`, so a
 user is a device, not a person.
 
 - **Errors carry no message.** `Analytics.failed(_:in:context:)` sends the domain and code, plus
@@ -278,7 +282,7 @@ These are the ones that cost real time. Each was hit at least once.
    *(This trap was hit a second time by the agent that wrote this file, which had recorded it
    in memory and still violated it. Go through the script.)*
 
-5. **`/Users/dmq/Desktop/projects/MacCast` and `/Users/dmq/Desktop/projects/maccast` are the
+5. **The repository folder and its all-lowercase spelling are the
    same directory** (inode 256522752) — case-insensitive filesystem, not a duplicate. Both are
    registered as working directories; don't be confused by tooling that reports both.
 
@@ -297,7 +301,7 @@ These are the ones that cost real time. Each was hit at least once.
    unrelated-looking errors (`Cannot find type 'ClientSession' in scope`, `Cannot call value of
    non-function type 'Binding<Subject>'`, …). This looks catastrophic and is not. Decisive
    check: look at Xcode's own `*.xcactivitylog` in
-   `~/Library/Developer/Xcode/DerivedData/MacCast-*/Logs/Build/` — a "Build succeeded" next to
+   `~/Library/Developer/Xcode/DerivedData/Peering-*/Logs/Build/` — a "Build succeeded" next to
    a "Clean succeeded" means you are chasing ghosts. Rebuild to repopulate.
 
 9. **Swift 6: a C callback's closure infers `MainActor` isolation and SIGTRAPs.** Needs explicit
@@ -332,7 +336,7 @@ These are the ones that cost real time. Each was hit at least once.
     The prompt uses a system string that cannot be customised.
 
 19. **`INFOPLIST_KEY_NSBonjourServices` is silently inert.** It must go in the real Info.plist
-    (`apple/Config/MacCast-Info.plist`), even though `INFOPLIST_KEY_NSLocalNetworkUsageDescription`
+    (`apple/Config/Peering-Info.plist`), even though `INFOPLIST_KEY_NSLocalNetworkUsageDescription`
     and friends work fine as build settings. Missing Bonjour services makes browse fail
     *quietly* — no prompt, no error.
 
@@ -412,7 +416,7 @@ These are the ones that cost real time. Each was hit at least once.
     Two things to know before touching it. It is a **different keychain**, so nothing already
     stored moves: the host mints a new identity on the first launch and every paired phone pairs
     again, once. And the function **asks whether the process is entitled** rather than assuming,
-    because `apple/Tools/MacCastProbe` is this same code linked into a SwiftPM executable that is signed
+    because `apple/Tools/PeeringProbe` is this same code linked into a SwiftPM executable that is signed
     with no entitlements at all. A process that cannot claim a group gets the login keychain, which
     is where the probe has always been and what its pinned signing identity is arranged around. If
     a future binary of ours mysteriously cannot see its own items, check which branch it took
@@ -528,5 +532,5 @@ recent commits/notes for the outcome before re-investigating from scratch.
 - iOS device id (iPhone 15 Pro Max): `8A51FAD5-A897-57CD-9C09-395D9F2C258A`
 - Bundle ids: `pl.dmq.peering` (iOS), `pl.dmq.peering.host` (Mac). Keychain pin services are
   `pl.dmq.peering.client.pins` (client) and `pl.dmq.peering.pins` (host). The repo, the targets
-  and the scheme are still named MacCast; only what ships is called Peering.
+  and the schemes are all named Peering.
 - Port: **51515**

@@ -6,12 +6,12 @@ Phones: iPhone and Android. Computers: Mac, and Windows (in progress).
 
 [Website](https://getpeering.app) · [App Store](https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408)
 
-The repository is called MacCast. The products are **Peering** (iPhone and Android) and **Peering Host**
+The products are **Peering** (iPhone and Android) and **Peering Host**
 (Mac and Windows).
 
 | | Phone app | Host app | State |
 |---|---|---|---|
-| Apple | iPhone, `apple/MacCast/` | Mac, `apple/MacCastHost/` | Shipped, App Store |
+| Apple | iPhone, `apple/Peering/` | Mac, `apple/PeeringHost/` | Shipped, App Store |
 | Android | `android/` | | In testing on a device, not yet on Google Play |
 | Windows | | `windows/` | Rust host, built and tested on a Mac for the logic only, never run on Windows |
 
@@ -102,16 +102,16 @@ That property is the product, and `relay/` is kept deliberately too simple to br
 | Path | What it is |
 |---|---|
 | `apple/` | The iOS and macOS apps, their packages and scripts, built from one Xcode project |
-| `apple/MacCast/` | The iOS app (Peering) |
-| `apple/MacCastHost/` | The macOS app (Peering Host): capture, encode, input injection |
-| `apple/MacCastKit/` | Logic that needs no UI framework: agent parsing, review, plans, formatting. Has the tests |
+| `apple/Peering/` | The iOS app (Peering) |
+| `apple/PeeringHost/` | The macOS app (Peering Host): capture, encode, input injection |
+| `apple/PeeringKit/` | Logic that needs no UI framework: agent parsing, review, plans, formatting. Has the tests |
 | `apple/RemoteCore/` | Shared protocol, framing, crypto and coordinate mapping |
 | `apple/SSHCore/` | SSH client used by the terminal and file browser |
 | `android/` | The Android app (Kotlin, Compose, Material 3): `core/wire` and `core/session` are plain Kotlin with JVM tests, `core/platform` and `app/` use Android. Home screen widgets for Quick Connect and Agents. See [android/README.md](android/README.md) |
 | `windows/` | The Windows host (Rust workspace): protocol, networking, capture and input, a tray window for the pairing code. See [windows/README.md](windows/README.md) |
 | `relay/` | `peeringd`, the Rust relay, and the marketing site in `relay/site/` |
-| `apple/MacCastWidget/`, `apple/MacCastHostWidget/`, `apple/Shared/` | Widgets and Live Activities |
-| `apple/MacCastTests/`, `apple/MacCastUITests/` | App-level tests |
+| `apple/PeeringWidget/`, `apple/PeeringHostWidget/`, `apple/Shared/` | Widgets and Live Activities |
+| `apple/PeeringTests/`, `apple/PeeringUITests/` | App-level tests |
 | `apple/Tools/`, `relay/tools/` | Build, install and check scripts; relay and site deploy scripts |
 | `marketing/` | App Store art, social media and release material |
 | `docs/` | Research notes, the wire protocol (`docs/protocol.md`) and the Android and Windows plans in `docs/plans/` |
@@ -132,11 +132,11 @@ applied.
 
 ```sh
 # iOS app
-xcodebuild -project MacCast.xcodeproj -scheme MacCast \
+xcodebuild -project Peering.xcodeproj -scheme Peering \
   -destination 'generic/platform=iOS' -derivedDataPath build/ios build
 
 # Mac host
-xcodebuild -project MacCast.xcodeproj -scheme MacCastHost \
+xcodebuild -project Peering.xcodeproj -scheme PeeringHost \
   -configuration Debug -derivedDataPath build/host build
 ```
 
@@ -156,13 +156,13 @@ cd windows && cargo build --release -p peering-host # Windows host, on Windows
 apple/Tools/check.sh           # package tests, then a compile of both apps
 apple/Tools/check.sh --quick   # package tests only
 
-cd apple/MacCastKit && swift test
+cd apple/PeeringKit && swift test
 cd relay && cargo test
 cd android && ./gradlew :core:wire:test :core:session:test :app:testDebugUnitTest
 cd windows && cargo test --workspace
 ```
 
-New logic goes in `MacCastKit` or `RemoteCore` with Swift Testing tests, so it can be checked
+New logic goes in `PeeringKit` or `RemoteCore` with Swift Testing tests, so it can be checked
 without a phone.
 
 ## Running the relay locally

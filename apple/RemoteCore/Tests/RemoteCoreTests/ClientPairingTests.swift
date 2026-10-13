@@ -21,7 +21,7 @@ struct TestSetupError: Error, CustomStringConvertible {
 
 /// The probe key carries its own tag and is destroyed at once, so it neither reads nor mints the app identity.
 let keychainIsUsable: Bool = {
-    let tag = Data("pl.dmq.maccast.tests.keychain-probe.\(UUID().uuidString)".utf8)
+    let tag = Data("pl.dmq.peering.tests.keychain-probe.\(UUID().uuidString)".utf8)
     defer { try? SelfSignedIdentity.destroy(role: .client, keyTag: tag) }
     let identity = try? SelfSignedIdentity.loadOrCreate(
         role: .client,
@@ -40,7 +40,7 @@ func withIdentity<T>(
     commonName: String,
     _ body: (SelfSignedIdentity) async throws -> T
 ) async throws -> T {
-    let tag = Data("pl.dmq.maccast.tests.identity.\(UUID().uuidString)".utf8)
+    let tag = Data("pl.dmq.peering.tests.identity.\(UUID().uuidString)".utf8)
     let identity = try SelfSignedIdentity.loadOrCreate(role: role, commonName: commonName, keyTag: tag)
     defer { try? SelfSignedIdentity.destroy(role: role, keyTag: tag) }
     return try await body(identity)
@@ -59,7 +59,7 @@ func withTestEnds<T>(
 /// Fresh account per test so parallel tests cannot see each other's pins; teardown deletes the item rather than leaving the empty one `removeAll()` writes.
 struct TestPins {
     let store: ClientPinStore
-    private let service = "pl.dmq.maccast.tests.clientpins"
+    private let service = "pl.dmq.peering.tests.clientpins"
     private let account: String
 
     init() {

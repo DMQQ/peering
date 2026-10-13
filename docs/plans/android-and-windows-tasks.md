@@ -83,7 +83,7 @@ Done: both message sets with JSON examples, proof payload strings, token handsha
 Commit: Write protocol spec part four: relay signalling and token handshake.
 
 SPEC-005 | done | foundation | S : key maps
-Port: `InputEncoding.swift`, `MediaKey` in `RemoteCommand.swift`, `apple/MacCastHost/Input/InputInjector+Events.swift`.
+Port: `InputEncoding.swift`, `MediaKey` in `RemoteCommand.swift`, `apple/PeeringHost/Input/InputInjector+Events.swift`.
 Owns: `docs/protocol/vectors/keymap.json`, `docs/protocol/keymap.md`. Deps: none.
 Done: macOS keycode to Windows scancode and VK table, Android `KeyEvent` code to macOS keycode table, modifier mapping rules; JSON parses (`python3 -m json.tool`).
 Commit: Add the keycode map between macOS, Windows and Android.
@@ -234,13 +234,13 @@ AND-031 | done | S : terminal and file wire models. Port `TerminalWire.swift`. O
 
 ## Android: pure session logic (core:session), Deps AND-002 and the wire tasks named
 
-AND-032 | done | S : agent transcript reducer. Port `MacCastKit AgentTranscript.swift`, `AgentTranscriptBuffer.swift`. Owns `core/session/.../agent/TranscriptReducer.kt`. Deps AND-030. Done: events fold into rows (user, streamed text, tool call with result, plan, subagent child), replay merge, gaps; tests per event type. Commit: Reduce agent stream events into transcript rows.
+AND-032 | done | S : agent transcript reducer. Port `PeeringKit AgentTranscript.swift`, `AgentTranscriptBuffer.swift`. Owns `core/session/.../agent/TranscriptReducer.kt`. Deps AND-030. Done: events fold into rows (user, streamed text, tool call with result, plan, subagent child), replay merge, gaps; tests per event type. Commit: Reduce agent stream events into transcript rows.
 
 AND-033 | done | S : approval logic. Port `AgentApprovalBody.swift`, `AgentApprovalNotification.swift`. Owns `core/session/.../agent/Approvals.kt`. Deps AND-030. Done: pending approval derivation, choose/allow/deny request building, resolved-elsewhere handling. Commit: Track agent approvals and build their answers.
 
 AND-034 | done | S : prompt queue and drafts. Port `AgentPromptQueue.swift`, `AgentDraft.swift`. Owns `core/session/.../agent/PromptQueue.kt`. Deps AND-030. Done: queue while working, send on idle, interrupt clears per rules. Commit: Queue prompts while an agent is working.
 
-AND-035 | done | S : directory listing model. Port `MacCast/Terminal/RemoteDirectory.swift`, `RemoteFileName.swift`. Owns `core/session/.../files/DirectoryModel.kt`. Deps AND-031. Done: breadcrumb from POSIX path including `/C:/` form, sort, hidden filter, executable bit from `permissions`, name validation. Commit: Model remote directory listings and breadcrumbs.
+AND-035 | done | S : directory listing model. Port `Peering/Terminal/RemoteDirectory.swift`, `RemoteFileName.swift`. Owns `core/session/.../files/DirectoryModel.kt`. Deps AND-031. Done: breadcrumb from POSIX path including `/C:/` form, sort, hidden filter, executable bit from `permissions`, name validation. Commit: Model remote directory listings and breadcrumbs.
 
 AND-036 | done | S : file transfer logic. Port `FileDownloadLimits.swift`, `FileReplacement.swift`, `MacSession+FileDownload.swift`. Owns `core/session/.../files/Transfers.kt`. Deps AND-031. Done: ranged read assembly, progress, size limits, write chunk planner, failure events. Commit: Plan file downloads and uploads over the control channel.
 
@@ -337,7 +337,7 @@ AND-110 skip: joystick (`JoystickView.swift`). Reason: not useful on a touch cli
 AND-111 later: macros and shortcut sets (`Macro*.swift`, `MacroBar.swift`, `QuickCommands.swift`).
 AND-112 later: Wake on LAN (`WakeOnLAN.swift`). Reason: UDP magic packet from hello MACs.
 AND-113 later: FCM registration and push display (needs REL-005); Firebase config comes from a gitignored `google-services.json`, with a documented `google-services.example.json` that holds no real keys, and the app runs with push disabled when the file is absent; AND-114 later: approval actions from a notification; AND-115 later: ongoing session notification (the Android answer to Live Activity).
-AND-116 skip: widgets, Siri intents, Live Activity (`MacCastWidget`, `PeeringIntents.swift`). Reason: Apple surfaces.
+AND-116 skip: widgets, Siri intents, Live Activity (`PeeringWidget`, `PeeringIntents.swift`). Reason: Apple surfaces.
 AND-117 skip: SSH servers and SSH terminal (`SSH/*`, `SSHCore`). Reason: separate product, not a Peering host feature.
 AND-118 later: agent changes list and file diff (`Agent/Changes/*`); AND-119 later: commit and push sheet; AND-120 later: review inbox and rejection (`Agent/Review/*`); AND-121 later: web preview (`Agent/Preview/*`); AND-122 later: usage sheet; AND-123 later: resumable session import; AND-124 later: slash and mention hints.
 AND-125 later: files download to Storage Access Framework, upload picker, edit, rename, delete, folder archive (`Files/*`, `MacSession+FolderUpload.swift`).
@@ -395,7 +395,7 @@ WIN-052 | done | S : file browse service on a fake filesystem with POSIX style v
 
 ## Windows: agent (peering-agent), no Windows API in the logic
 
-WIN-053 | done | S : Claude stream-json parser. Port `MacCastKit AgentClaudeStream.swift`. Owns `peering-agent/src/claude_stream.rs`, fixtures in `peering-agent/tests/fixtures/claude/`. Deps WIN-028. Done: recorded transcripts produce the events the Swift parser produces (fixtures taken from MacCastKit tests). Commit: Parse Claude Code stream output into agent events.
+WIN-053 | done | S : Claude stream-json parser. Port `PeeringKit AgentClaudeStream.swift`. Owns `peering-agent/src/claude_stream.rs`, fixtures in `peering-agent/tests/fixtures/claude/`. Deps WIN-028. Done: recorded transcripts produce the events the Swift parser produces (fixtures taken from PeeringKit tests). Commit: Parse Claude Code stream output into agent events.
 WIN-054 | done | S : Claude adapter (spawn args, stdin protocol, approvals over stdio, interrupt). Port `ClaudeCodeAdapter.swift`. Owns `peering-agent/src/claude_adapter.rs`. Deps WIN-053. Done: against a fake child process script; approval round trip. Commit: Drive Claude Code as a child process.
 WIN-055 | done | S : session manager (list, start, history, replay, close, limits). Port `AgentSessionManager*.swift`, `AgentSession.swift`. Owns `peering-agent/src/manager.rs`. Deps WIN-054. Done: fake adapters; snapshot, replay with isLast, three chat limit not enforced. Commit: Manage agent sessions and replay.
 WIN-056 | done | S : agent directory browse. Port `AgentDirectoryBrowser.swift`. Owns `peering-agent/src/browse.rs`. Deps WIN-052. Done: tests. Commit: Browse folders for starting an agent.

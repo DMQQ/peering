@@ -1,6 +1,6 @@
 # Android Connect parity checklist
 
-Source: `apple/MacCast/Connection/HostPickerView+HomeTab.swift`, `+HomeHeader`, `+HomeCards`, `+HomeRows`, `ManualConnectionSheet`, `RemotePairingSheet`, and `marketing/appstore/raw/en/01-connect.png`.
+Source: `apple/Peering/Connection/HostPickerView+HomeTab.swift`, `+HomeHeader`, `+HomeCards`, `+HomeRows`, `ManualConnectionSheet`, `RemotePairingSheet`, and `marketing/appstore/raw/en/01-connect.png`.
 
 Screen column: 18 pt side inset, 20 pt between blocks, 36 pt at the bottom.
 

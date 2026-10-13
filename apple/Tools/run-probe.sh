@@ -12,7 +12,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROBE_DIR="$HERE/MacCastProbe"
+PROBE_DIR="$HERE/PeeringProbe"
 
 # Pick the signing identity **deterministically**, and pin it.
 #
@@ -36,7 +36,7 @@ IDENTITY="$PINNED_IDENTITY"
 cd "$PROBE_DIR"
 swift build 2>&1 | grep -E "error:|warning: " || true
 
-BIN="$(swift build --show-bin-path)/MacCastProbe"
+BIN="$(swift build --show-bin-path)/PeeringProbe"
 
 if [ -n "$IDENTITY" ]; then
     codesign --force --sign "$IDENTITY" --identifier pl.dmq.maccast.probe "$BIN" 2>&1 \

@@ -1,6 +1,6 @@
 # Android Files: gaps against the iPhone app
 
-Source of truth for the iPhone behaviour: `apple/MacCast/Files/*`, `apple/MacCast/Terminal/MacSession+File*.swift`,
+Source of truth for the iPhone behaviour: `apple/Peering/Files/*`, `apple/Peering/Terminal/MacSession+File*.swift`,
 `apple/RemoteCore` (`RemoteFileKind`, `RemoteFileName`, `FileDownloadLimits`), and the file cases of `TerminalWire.swift`.
 
 Capability: the host declares one flag, `supportsFileBrowser`. It gates the scope, listing, preview, range reads, archives,

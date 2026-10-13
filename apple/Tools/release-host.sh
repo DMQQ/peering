@@ -72,7 +72,7 @@ archive() {
     rm -rf "$WORK"
     mkdir -p "$WORK"
     cd "$APPLE_DIR"
-    xcodebuild -project MacCast.xcodeproj -scheme MacCastHost -configuration Release \
+    xcodebuild -project Peering.xcodeproj -scheme PeeringHost -configuration Release \
         MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION" \
         -destination 'generic/platform=macOS' -allowProvisioningUpdates \
         -archivePath "$WORK/Peering.xcarchive" archive >"$WORK/archive.log" 2>&1 \
@@ -108,7 +108,7 @@ verify_bundle() {
     built="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")"
     [ "$built" = "$VERSION" ] || fail "CFBundleVersion is $built, expected $VERSION"
     for binary in "$APP/Contents/MacOS/Peering" \
-        "$APP/Contents/PlugIns/MacCastHostWidgetExtension.appex/Contents/MacOS/MacCastHostWidgetExtension"; do
+        "$APP/Contents/PlugIns/PeeringHostWidgetExtension.appex/Contents/MacOS/PeeringHostWidgetExtension"; do
         case "$(lipo -archs "$binary")" in
             *arm64*x86_64*|*x86_64*arm64*) ;;
             *) fail "$binary is not universal" ;;

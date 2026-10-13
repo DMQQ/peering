@@ -1,5 +1,5 @@
 //! Routes a ready session's frames: commands to the input sink or the source control, pings to pongs.
-//! Mirrors `apple/MacCastHost/Network/HostSession+Commands.swift` for the commands this core supports.
+//! Mirrors `apple/PeeringHost/Network/HostSession+Commands.swift` for the commands this core supports.
 
 use peering_wire::command::RemoteCommand;
 use peering_wire::framing::{Frame, MessageKind};

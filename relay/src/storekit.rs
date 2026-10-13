@@ -109,7 +109,7 @@ pub const APPLE_ROOT_CA_G3_SHA256: [u8; 32] = [
 
 /// This app's bundle identifier, which the receipt must name.
 ///
-/// **The same string as `PRODUCT_BUNDLE_IDENTIFIER`** in `MacCast.xcodeproj`, and the same string
+/// **The same string as `PRODUCT_BUNDLE_IDENTIFIER`** in `Peering.xcodeproj`, and the same string
 /// the receipt's `bundleId` carries. A receipt for another app is a real receipt that proves
 /// nothing about this one, so it is refused; a fork of this repository that renames the app must
 /// change this line, and there is nowhere else it appears.
@@ -118,7 +118,7 @@ pub const APP_BUNDLE_ID: &str = "pl.dmq.peering";
 /// The products this app sells, and the plan each one buys.
 ///
 /// **The product identifiers are the app's, repeated here.** `StoreManager.Tier.productID(for:)` in
-/// `MacCast/Store/StoreManager.swift` holds the authority, and `Tier.plan` maps the same products to the
+/// `Peering/Store/StoreManager.swift` holds the authority, and `Tier.plan` maps the same products to the
 /// same names. Edit one without the others and a paying subscriber is metered as free, which is the direction this table is allowed to fail in, and the reason an unknown
 /// product is the free allowance rather than a refusal.
 const PRODUCTS: &[(&str, Plan)] = &[

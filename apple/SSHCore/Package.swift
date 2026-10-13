@@ -12,7 +12,7 @@ let package = Package(
     dependencies: [
         // RemoteCore holds the shared wire vocabulary and knows nothing about SSH; the dependency points one way.
         .package(path: "../RemoteCore"),
-        // Citadel requires swift-crypto below 4.0, so the app and widgets resolve 3.15.1 while RemoteCore and MacCastKit tests resolve 4.5.2. Widening the bound below changes nothing and narrowing it makes SwiftPM complain; the way out is upstream.
+        // Citadel requires swift-crypto below 4.0, so the app and widgets resolve 3.15.1 while RemoteCore and PeeringKit tests resolve 4.5.2. Widening the bound below changes nothing and narrowing it makes SwiftPM complain; the way out is upstream.
         .package(url: "https://github.com/orlandos-nl/Citadel.git", from: "0.12.1"),
         // Declared directly because `SSHFingerprint` and `SSHPasscodeStore` use `SHA256`.
         .package(url: "https://github.com/apple/swift-crypto.git", "3.12.3"..<"4.0.0"),

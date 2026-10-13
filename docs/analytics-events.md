@@ -2,7 +2,7 @@
 
 Android and Windows send no analytics. Everything below is from the iPhone app or the Mac host.
 
-Sent to PostHog by `apple/MacCast/App/Analytics.swift` and `Analytics+Connection.swift`, off with the one switch in Settings. Every value is a member of a closed set, a bucket, a boolean or a number. Never sent: a Mac's name, a device name, an address, a port, an id, a file name, an error sentence or anything typed. The closed sets are built in `MacCastKit` (`ConnectionTelemetry`, `ConnectionBuckets`, `RouteAttemptLog`, `SessionEndReason`, `NetworkContext`) and in `RemoteCore` (`ConnectStage`, `TransportErrorDetail`, `FailureDiagnosis`), each with tests.
+Sent to PostHog by `apple/Peering/App/Analytics.swift` and `Analytics+Connection.swift`, off with the one switch in Settings. Every value is a member of a closed set, a bucket, a boolean or a number. Never sent: a Mac's name, a device name, an address, a port, an id, a file name, an error sentence or anything typed. The closed sets are built in `PeeringKit` (`ConnectionTelemetry`, `ConnectionBuckets`, `RouteAttemptLog`, `SessionEndReason`, `NetworkContext`) and in `RemoteCore` (`ConnectStage`, `TransportErrorDetail`, `FailureDiagnosis`), each with tests.
 
 ## On every event
 

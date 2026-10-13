@@ -4,8 +4,8 @@ Written 2026-10-13. Everything below is code that is merged on `monorepo` and pu
 builds here, but none of it has run on a real iPhone, Mac host, Android phone, Windows PC or the live relay. Only you can
 check these. Work top to bottom.
 
-What was verified on this Mac (so you can skip re-running it): `apple/Tools/check.sh` passes end to end (catalogs, MacCastKit,
-RemoteCore, SSHCore tests, iPhone app and Mac host builds, MacCastProbe and CaptureProbe builds); relay 509 tests; Android
+What was verified on this Mac (so you can skip re-running it): `apple/Tools/check.sh` passes end to end (catalogs, PeeringKit,
+RemoteCore, SSHCore tests, iPhone app and Mac host builds, PeeringProbe and CaptureProbe builds); relay 509 tests; Android
 1,989 tests with debug and release builds; Windows 1,221 tests (222 more with the `terminal-hooks` feature) and workspace
 clippy clean, and the Windows target compile of the platform and host crates. A full Release archive of the iPhone app does
 not build here (the PostHog dSYM step needs `POSTHOG_CLI_API_KEY`), so do that in Xcode.
@@ -161,7 +161,7 @@ Install the release APK (`android/tools/README.md`), then:
 - Windows: terminal and agent snapshot sizes are not capped.
 - Receipts bound to the device (`appAccountToken`), see section 6.
 - An older branch `worktree-agent-a88300f4d9d3cd81e` (two plans with Lifetime, 4 Oct) is unmerged and not part of this work.
-- The `appStoreReceiptURL` deprecation warning in `apple/MacCast/App/Analytics.swift` remains (it detects TestFlight; moving to
+- The `appStoreReceiptURL` deprecation warning in `apple/Peering/App/Analytics.swift` remains (it detects TestFlight; moving to
   `AppTransaction` is async).
 - Disk: agent worktrees under `.claude/worktrees` use space; `git worktree remove` the ones you no longer need (the merged
   ones are already removed except three locked ones and the unmerged branch above).

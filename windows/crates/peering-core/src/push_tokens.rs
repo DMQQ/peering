@@ -1,4 +1,4 @@
-//! The push tokens phones register with this Mac, kept across a restart of it. Mirrors `apple/MacCastHost/Terminal/PushTokenStore.swift`.
+//! The push tokens phones register with this Mac, kept across a restart of it. Mirrors `apple/PeeringHost/Terminal/PushTokenStore.swift`.
 
 use std::collections::BTreeMap;
 use std::sync::{Mutex, MutexGuard, PoisonError};

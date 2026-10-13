@@ -10,7 +10,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC="$HERE/Activity/Activity.swift"
-BIN="$HERE/Activity/.build/maccast-activity"
+BIN="$HERE/Activity/.build/peering-activity"
 
 mkdir -p "$(dirname "$BIN")"
 if [ ! -x "$BIN" ] || [ "$SRC" -nt "$BIN" ]; then

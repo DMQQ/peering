@@ -1,0 +1,178 @@
+import Foundation
+import PeeringKit
+import RemoteCore
+import SwiftUI
+
+struct AgentPickerState {
+    var path: String?
+    var startPath: String?
+    var entries: [RemoteDirectoryEntry] = []
+    var isLoading = false
+    var failure: String?
+    /// Why the Mac is slow to answer, while the request is still outstanding.
+    var waitingNote: String?
+}
+
+/// Agent chats mirror ``MacSession+Terminal``: reattached from a listing, replayed, owner-scoped on the Mac, forgotten when the session is gone. A listing carries no conversation, so history is asked lazily and each session remembers how far it has read.
+extension MacSession {
+    // MARK: - Requests
+
+    func refreshAgentSessions() {
+        guard hostSupportsAgentChat else { return }
+        wire?.sendAgent(.list)
+    }
+
+    /// `since` is the highest index applied, so a reattach fetches only what was missed; a never-read session asks from zero.
+    func loadAgentHistory(_ id: UUID, since: UInt64) {
+        wire?.sendAgent(.history(sessionID: id, since: since))
+    }
+
+    /// A chat the Mac already had when this phone connected is listed but empty: nothing else asks for its conversation.
+    func ensureAgentHistory(_ id: UUID) {
+        guard let session = agentSessions.first(where: { $0.id == id }),
+              agentHistoryRequests.claim(id, isLoaded: session.isLoaded, wireIsUp: wire != nil)
+        else { return }
+        loadAgentHistory(id, since: 0)
+    }
+
+    /// The chats' cards show the last reply, which lives in the conversation: ask for every one that has not been read, not only the one that gets opened.
+    func ensureAgentPreviews() {
+        for session in agentSessions where !session.isLoaded { ensureAgentHistory(session.id) }
+    }
+
+    func refreshResumableSessions() {
+        guard hostSupportsAgentChat, hostSupportsAgentSessionImport else { return }
+        wire?.sendAgent(.listResumable)
+    }
+
+    func resumeAgentSession(_ session: AgentResumableSession) {
+        guard hostSupportsAgentSessionImport else { return }
+        AgentFolderHistory.record(directory: session.directory, agentID: session.agentID, macName: model.hostName)
+        wire?.sendAgent(.resume(agentID: session.agentID, cliSessionID: session.cliSessionID))
+    }
+
+    func startAgentChat(agentID: String, directory: String?) {
+        AgentFolderHistory.record(directory: directory, agentID: agentID, macName: model.hostName)
+        #if DEBUG
+        if AgentSeed.wantsFakeMac { return startSeededChat(directory: directory) }
+        #endif
+        wire?.sendAgent(.start(agentID: agentID, directory: directory))
+    }
+
+    /// The transcript's copy arrives from the Mac, so only the working state is shown ahead of it.
+    func sendAgentPrompt(_ text: String, to id: UUID) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard ControlTextPolicy.verdict(forClipboardOrPrompt: trimmed) == .fits else {
+            if let index = agentSessions.firstIndex(where: { $0.id == id }) {
+                agentSessions[index].failure = String(localized: "That message is too long to send. Shorten it and try again.")
+            }
+            return
+        }
+        var state: AgentSessionState?
+        if let index = agentSessions.firstIndex(where: { $0.id == id }) {
+            agentSessions[index].failure = nil
+            state = agentSessions[index].transcript.state
+        }
+        var queue = agentQueues[id] ?? AgentPromptQueue()
+        let submission = queue.submit(trimmed, sessionState: state)
+        agentQueues[id] = queue.prompts.isEmpty ? nil : queue
+        if submission == .send {
+            if let index = agentSessions.firstIndex(where: { $0.id == id }) {
+                agentSessions[index].transcript.markPromptSent()
+            }
+            wire?.sendAgent(.prompt(sessionID: id, text: trimmed))
+        }
+    }
+
+    func refreshAgentCards() {
+        #if DEBUG
+        if AgentSeed.isRequested, !agentSessions.contains(where: { AgentSeed.owns($0.id) }) {
+            agentSessions = AgentSeed.sessions() + agentSessions
+        }
+        #endif
+        agentCardsTask?.cancel()
+        agentCardsTask = nil
+        for session in agentSessions {
+            agentPauses.observe(session.id, isPaused: AgentPause.isPaused(session.transcript), at: Date())
+        }
+        let cards = agentSessions.map { AgentCardDigest($0, pauses: agentPauses) }
+        if cards != agentCards { agentCards = cards }
+    }
+
+    /// Trailing, not leading: a burst of tokens becomes one rebuild after it settles a little, and the card still reads current within a blink.
+    func scheduleAgentCards() {
+        guard agentCardsTask == nil else { return }
+        agentCardsTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            self?.refreshAgentCards()
+        }
+    }
+
+    func removeQueuedAgentPrompt(at offset: Int, in id: UUID) {
+        guard var queue = agentQueues[id] else { return }
+        queue.remove(at: offset)
+        agentQueues[id] = queue.prompts.isEmpty ? nil : queue
+    }
+
+    func flushAgentQueue(_ id: UUID, state: AgentSessionState) {
+        guard var queue = agentQueues[id] else { return }
+        let release = queue.release(state: state)
+        agentQueues[id] = queue.prompts.isEmpty ? nil : queue
+        if case .send(let text) = release {
+            wire?.sendAgent(.prompt(sessionID: id, text: text))
+        }
+    }
+
+    /// - Returns: whether the answer went onto a ready connection; the Mac confirming it is a separate fact (``resolvedApprovalIDs``).
+    @discardableResult
+    func respondToAgentApproval(_ approvalID: String, decision: AgentApprovalDecision, in id: UUID) -> Bool {
+        #if DEBUG
+        if AgentSeed.wantsFakeMac {
+            answerSeededApproval(approvalID, decision: decision, in: id)
+            return true
+        }
+        #endif
+        return wire?.sendAgent(.approval(sessionID: id, approvalID: approvalID, decision: decision)) ?? false
+    }
+
+    func interruptAgent(_ id: UUID) {
+        wire?.sendAgent(.interrupt(sessionID: id))
+    }
+
+    func setAgentModel(_ model: String?, in id: UUID) {
+        wire?.sendAgent(.setModel(sessionID: id, model: model))
+    }
+
+    /// How freely the session may act from now on. The mode shown changes when the Mac confirms it.
+    func setAgentPermissionMode(_ mode: AgentPermissionMode, in id: UUID) {
+        guard hostSupportsAgentPermissionModes else { return }
+        wire?.sendAgent(.setPermissionMode(sessionID: id, mode: mode))
+    }
+
+    /// Stops the chat's process and keeps the conversation, which then moves to History until a message picks it up again.
+    func pauseAgentSession(_ id: UUID) {
+        guard hostSupportsAgentPause else { return }
+        wire?.sendAgent(.pause(sessionID: id))
+    }
+
+    func closeAgentSession(_ id: UUID) {
+        wire?.sendAgent(.close(sessionID: id))
+    }
+
+    /// A chat left before anything was said is closed rather than listed: nothing happened in it.
+    func closeAgentSessionIfUnused(_ id: UUID) {
+        guard let session = agentSessions.first(where: { $0.id == id }),
+              session.isLoaded, session.transcript.isEmpty, agentQueues[id] == nil
+        else { return }
+        closeAgentSession(id)
+    }
+
+    func browseAgentFolder(_ path: String?) {
+        agentPicker.isLoading = true
+        agentPicker.waitingNote = nil
+        agentPicker.failure = nil
+        wire?.sendAgent(.browse(path: path))
+    }
+}

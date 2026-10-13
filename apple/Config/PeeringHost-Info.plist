@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PostHogHost</key>
+	<string>https://eu.i.posthog.com</string>
+	<key>PostHogProjectToken</key>
+	<string>phc_rHyoJfChRvDwVG6jizmJkvpGjQ2yLrKMxAY9GUpWf4QW</string>
+	<key>CFBundleDisplayName</key>
+	<string>Peering</string>
+	<key>CFBundleName</key>
+	<string>Peering</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>pl.dmq.peering.host</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>peering-host</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_remotedesktop._tcp</string>
+	</array>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>Peering shows this folder on your iPhone or iPad. It only opens folders you open yourself, and shows them only to your paired devices. Nothing is uploaded anywhere else.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Peering accepts screen-sharing connections from devices you have paired with it.</string>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://getpeering.app/updates/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>upn2nq1RFvoZVaug6TqhKto+H7XwH5vJ9fCfT/DBtzM=</string>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>3600</integer>
+	<!--
+	  The same declaration the iOS app makes, and here it is about exporting rather than about
+	  App Store Connect: this Mac ships by download, and putting software on a web server is an
+	  export whether or not a store is involved. The reasoning is the app's own and is written
+	  out in full in Config/Peering-Info.plist: standard algorithms, implemented by the
+	  operating system, and no third-party crypto in the bundle.
+	-->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

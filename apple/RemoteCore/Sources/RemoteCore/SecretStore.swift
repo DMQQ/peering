@@ -12,7 +12,7 @@ public enum SecretStore {
         return scoped as CFDictionary
     }
 
-    /// Whether this process may claim a data protection item. The entitlement needs a provisioning profile; without it every query fails with `errSecMissingEntitlement`, so such a process (`Tools/MacCastProbe`) uses the login keychain.
+    /// Whether this process may claim a data protection item. The entitlement needs a provisioning profile; without it every query fails with `errSecMissingEntitlement`, so such a process (`Tools/PeeringProbe`) uses the login keychain.
     private static let canClaimAnItem: Bool = {
         #if os(macOS)
         guard let task = SecTaskCreateFromSelf(nil) else { return false }
