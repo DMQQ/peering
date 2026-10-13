@@ -39,3 +39,25 @@ public enum DictationText {
         return " " + trimmed
     }
 }
+
+/// Notices the end of what someone meant to say: a stretch of quiet after they have spoken.
+public struct DictationPause: Sendable {
+    /// The level (see ``DictationLevels``) above which sound counts as speech and not room noise.
+    public static let speechLevel: Float = 0.12
+    public static let silenceSeconds: TimeInterval = 2
+
+    private var lastSpeech: TimeInterval?
+
+    public init() {}
+
+    /// True once, when quiet has lasted long enough after speech. `time` is any steady clock in seconds.
+    public mutating func observe(level: Float, at time: TimeInterval) -> Bool {
+        if level >= Self.speechLevel {
+            lastSpeech = time
+            return false
+        }
+        guard let last = lastSpeech, time - last >= Self.silenceSeconds else { return false }
+        lastSpeech = nil
+        return true
+    }
+}

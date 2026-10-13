@@ -371,8 +371,10 @@ struct RemoteScreen: View {
     var keyboardInputBar: some View {
         VStack(spacing: 8) {
             keyboardInputRow
-            keyboardKeyRow
-            if !deviceIsLandscape { arrowStrip(withReturn: false) }
+            if !dictation.isListeningUI {
+                keyboardKeyRow
+                if !deviceIsLandscape { arrowStrip(withReturn: false) }
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, deviceIsLandscape ? 8 : 12)
@@ -391,7 +393,7 @@ struct RemoteScreen: View {
             .opacity(dictation.isActive ? 0 : 1)
             .allowsHitTesting(!dictation.isActive)
             switch dictation.state {
-            case .listening, .finishing:
+            case .listening, .finishing, .stopped:
                 DictationOverlay(dictation: dictation, finish: { dictation.finish() }, cancel: { dictation.cancel() })
             case .denied, .unavailable:
                 DictationNotice(denied: dictation.state == .denied) { dictation.dismissMessage() }

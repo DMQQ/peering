@@ -10,25 +10,19 @@ struct DictationOverlay: View {
     var body: some View {
         HStack(spacing: 10) {
             roundButton(symbol: "xmark", filled: false, label: String(localized: "Cancel", table: "Dictation"), action: cancel)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 DictationWaveform(levels: dictation.levels.bars, isLive: dictation.state == .listening)
-                    .frame(height: 26)
-                Text(caption)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(dictation.transcript.isEmpty ? .white.opacity(0.5) : .white)
-                    .lineLimit(2)
-                    .truncationMode(.head)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .animation(nil, value: dictation.transcript)
+                    .frame(height: 46)
+                DictationWords(text: dictation.transcript, placeholder: placeholder)
+                    .frame(height: 24)
             }
             roundButton(symbol: "checkmark", filled: true, label: String(localized: "Done", table: "Dictation"), action: finish)
         }
         .transition(.opacity.combined(with: .scale(scale: 0.98)))
     }
 
-    private var caption: String {
-        if !dictation.transcript.isEmpty { return dictation.transcript }
-        return dictation.state == .finishing ? "" : String(localized: "Listening…", table: "Dictation")
+    private var placeholder: String {
+        dictation.state == .listening ? String(localized: "Listening…", table: "Dictation") : ""
     }
 
     private func roundButton(symbol: String, filled: Bool, label: String, action: @escaping () -> Void) -> some View {
@@ -42,6 +36,45 @@ struct DictationOverlay: View {
         }
         .buttonStyle(RailButtonStyle(scale: 0.9, haptic: true))
         .accessibilityLabel(label)
+    }
+}
+
+/// The words as they are recognised: each new one rises in out of a blur, the newest in full white and the older ones fading toward the left edge, so the line reads like a ticker.
+private struct DictationWords: View {
+    let text: String
+    let placeholder: String
+
+    private var words: [String] { text.split(whereSeparator: \.isWhitespace).map(String.init) }
+
+    var body: some View {
+        let words = words
+        ZStack(alignment: .trailing) {
+            if words.isEmpty {
+                Text(placeholder)
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .transition(.opacity)
+            } else {
+                HStack(spacing: 6) {
+                    ForEach(Array(words.enumerated()), id: \.offset) { index, word in
+                        Text(word)
+                            .font(.system(size: 17, weight: index == words.count - 1 ? .semibold : .medium))
+                            .foregroundStyle(.white.opacity(index == words.count - 1 ? 1 : 0.72))
+                            .lineLimit(1)
+                            .fixedSize()
+                            .transition(.blurReplace.combined(with: .offset(y: 8)))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+        .clipped()
+        .mask(
+            LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.18), .init(color: .black, location: 1)], startPoint: .leading, endPoint: .trailing)
+        )
+        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: words.count)
+        .accessibilityLabel(text)
     }
 }
 

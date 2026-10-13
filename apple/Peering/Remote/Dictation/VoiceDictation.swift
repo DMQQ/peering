@@ -13,8 +13,10 @@ final class VoiceDictation {
     enum State: Equatable {
         case idle
         case listening
-        /// Stopped listening and waiting for the recogniser's last word.
+        /// Stopped listening and waiting for the recogniser's last word, to deliver it.
         case finishing
+        /// Quiet followed speech, so listening stopped on its own: the words wait for Done.
+        case stopped
         case denied
         case unavailable
     }
@@ -25,10 +27,14 @@ final class VoiceDictation {
 
     var isActive: Bool { state != .idle }
 
+    /// Listening, or holding words for Done: the keyboard's shortcut keys are out of the way for both.
+    var isListeningUI: Bool { state == .listening || state == .finishing || state == .stopped }
+
     @ObservationIgnored private var engine: AVAudioEngine?
     @ObservationIgnored private var task: SFSpeechRecognitionTask?
     @ObservationIgnored private var request: SFSpeechAudioBufferRecognitionRequest?
     @ObservationIgnored private var finishTimeout: Task<Void, Never>?
+    @ObservationIgnored private var pause = DictationPause()
     @ObservationIgnored private var onFinish: ((String) -> Void)?
 
     /// `onFinish` gets what was heard, once, when listening ends by `finish()` or by the recogniser's own end.
@@ -37,11 +43,16 @@ final class VoiceDictation {
         self.onFinish = onFinish
         transcript = ""
         levels.clear()
+        pause = DictationPause()
         Task { await begin() }
     }
 
     /// Delivers what was heard so far, after giving the recogniser a moment to settle its last word.
     func finish() {
+        if state == .stopped {
+            deliver()
+            return
+        }
         guard state == .listening else { return }
         state = .finishing
         stopAudio()
@@ -107,7 +118,7 @@ final class VoiceDictation {
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format, block: Self.tap(feeding: request, levels: { [weak self] decibels in
-            Task { @MainActor in self?.levels.add(decibels: decibels) }
+            Task { @MainActor in self?.heardLevel(decibels) }
         }))
         engine.prepare()
         try engine.start()
@@ -147,9 +158,20 @@ final class VoiceDictation {
 
     // MARK: - Hearing
 
+    private func heardLevel(_ decibels: Float) {
+        guard state == .listening else { return }
+        levels.add(decibels: decibels)
+        let level = DictationLevels.level(forDecibels: decibels)
+        guard pause.observe(level: level, at: ProcessInfo.processInfo.systemUptime) else { return }
+        state = .stopped
+        stopAudio()
+        request?.endAudio()
+    }
+
     private func heard(_ text: String?, isFinal: Bool, failed: Bool) {
-        guard state == .listening || state == .finishing else { return }
+        guard state == .listening || state == .finishing || state == .stopped else { return }
         if let text, !text.isEmpty { transcript = text }
+        if state == .stopped { return }
         if isFinal || (failed && state == .finishing) { deliver() }
         if failed, state == .listening, transcript.isEmpty {
             teardown()
