@@ -34,9 +34,12 @@ class SshjTransport(private val newConfig: () -> Config = { DefaultConfig() }) :
         val verifier = GateVerifier(request.endpoint, gate)
         client.addHostKeyVerifier(verifier)
         client.connectTimeout = request.connectTimeoutMillis
+        // Reads time out only while connecting, so a port that accepts and never speaks ends; an idle shell must not.
+        client.timeout = request.connectTimeoutMillis
         try {
             client.connect(request.endpoint.hostname, request.endpoint.port)
             authenticate(client, request)
+            client.timeout = 0
         } catch (failure: Exception) {
             client.runCatching { disconnect() }
             throw verifier.failure ?: translate(failure, request.credential)
@@ -61,14 +64,16 @@ class SshjTransport(private val newConfig: () -> Config = { DefaultConfig() }) :
 
     private fun oneOff(secret: String): PasswordFinder = PasswordUtils.createOneOff(secret.toCharArray())
 
-    private fun translate(failure: Exception, credential: SshCredential): SshFailure = when (failure) {
-        is SshFailure -> failure
-        is UserAuthException -> SshFailure.AuthenticationFailed(credential.method.name.lowercase())
-        is SocketTimeoutException -> SshFailure.TimedOut()
-        is UnknownHostException -> SshFailure.Transport("That host name could not be found.")
-        is ConnectException -> SshFailure.Transport("The server refused the connection. Check the host and the port.")
-        is NoRouteToHostException -> SshFailure.Transport("There is no route to that host.")
-        else -> SshFailure.Transport(failure.message ?: "The connection failed.")
+    private fun translate(failure: Exception, credential: SshCredential): SshFailure {
+        if (failure is SshFailure) return failure
+        if (failure is UserAuthException) return SshFailure.AuthenticationFailed(credential.method.name.lowercase())
+        if (generateSequence<Throwable>(failure) { it.cause }.any { it is SocketTimeoutException }) return SshFailure.TimedOut()
+        return when (failure) {
+            is UnknownHostException -> SshFailure.Transport("That host name could not be found.")
+            is ConnectException -> SshFailure.Transport("The server refused the connection. Check the host and the port.")
+            is NoRouteToHostException -> SshFailure.Transport("There is no route to that host.")
+            else -> SshFailure.Transport(failure.message ?: "The connection failed.")
+        }
     }
 
     private companion object {

@@ -116,6 +116,16 @@ class SshjTransportTest {
     }
 
     @Test
+    fun aPortThatAcceptsAndNeverSpeaksTimesOutInsteadOfHanging() {
+        ServerSocket(0).use { silent ->
+            val failure = failureOf {
+                SshjTransport().connect(SshConnectRequest(SshEndpoint("127.0.0.1", silent.localPort), "me", SshCredential.Password("pw"), 1_500), gate())
+            }
+            assertTrue(failure is SshFailure.TimedOut)
+        }
+    }
+
+    @Test
     fun aShellRunsCommandsAndReportsItsExitStatus() {
         val connection = connect(server())
         val output = StringBuffer()
