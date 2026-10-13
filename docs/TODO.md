@@ -203,3 +203,7 @@ Install the release APK (`android/tools/README.md`), then:
 - Watch screenshots for App Store Connect are in `marketing/appstore/watch/`.
 - Voice input: tap the microphone beside the keyboard field in a session. First use asks for Microphone and Speech Recognition. The bar shows a live waveform and the words as you speak, Done types them into the field and on the Mac, Cancel throws them away. Check it with the Mac's audio playing, and that the Mac's sound comes back after.
 - Pressing Disconnect makes the Mac forget the phone's push token, so no notification follows (needs the new host build). Connecting again registers it again.
+- Keyboard bar: the small chevron at the right of the field folds the shortcut keys away and makes the field larger. It remembers the choice. While folded, a Hide keyboard button sits left of the field.
+- The picture can no longer be pinched smaller than the screen fit.
+- Casting a single app window shows the red, yellow and green buttons just above its top left corner (inside it when it reaches the top of the screen). Check close, minimise and zoom act on the Mac, and that they are hidden in a mosaic, a whole display and observe mode.
+- Leftover agent Live Activity cards are ended 25 seconds after launch when no Mac has told the app about chats.

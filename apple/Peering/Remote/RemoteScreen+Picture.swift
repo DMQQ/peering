@@ -43,6 +43,7 @@ extension RemoteScreen {
                 guard !Task.isCancelled else { return }
                 streamLooksPaused = true
             }
+            .overlay { windowControls }
             .overlay {
                 // The last decoded frame stays on screen when the capture stream has stopped (source
                 // closed, app quit), and a touch then lands on whatever the Mac shows at that
