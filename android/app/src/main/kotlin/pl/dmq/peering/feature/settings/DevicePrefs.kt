@@ -14,6 +14,10 @@ data class DevicePrefs(
     val allowsRelay: Boolean = true,
     /** Whether what the computer plays comes out of this phone. The computer sends it either way. */
     val playsComputerSound: Boolean = true,
+    /** Keeps a session alive in the background behind an ongoing notification. */
+    val keepsSessionInBackground: Boolean = true,
+    /** Local notifications while connected in the background. */
+    val notifies: Boolean = true,
 )
 
 interface DevicePreferences {

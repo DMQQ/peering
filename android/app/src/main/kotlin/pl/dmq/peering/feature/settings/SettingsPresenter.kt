@@ -80,6 +80,9 @@ class SettingsPresenter(
     fun setAllowsRelay(allows: Boolean) = change { it.copy(allowsRelay = allows) }
 
     fun setPlaysComputerSound(plays: Boolean) = change { it.copy(playsComputerSound = plays) }
+    fun setKeepsSessionInBackground(keeps: Boolean) = change { it.copy(keepsSessionInBackground = keeps) }
+
+    fun setNotifies(notifies: Boolean) = change { it.copy(notifies = notifies) }
 
     private fun change(edit: (DevicePrefs) -> DevicePrefs) {
         message.value = if (devicePrefs.update(edit)) null else SettingsMessage.PreferenceSaveFailed

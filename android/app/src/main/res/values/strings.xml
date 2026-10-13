@@ -544,4 +544,42 @@
     <string name="settings_computer_sound">Sound from the computer</string>
     <string name="panel_sound_on_note">Whatever the computer plays comes out of this phone, including the sounds it makes in answer to what you send it. The volume keys set the level.</string>
     <string name="panel_sound_off_note">The computer\'s sound is still sent, and dropped here without being played.</string>
+
+    <string name="bg_channel_session">Active session</string>
+    <string name="bg_channel_session_description">Shows while Peering holds a connection to your computer.</string>
+    <string name="bg_channel_approvals">Approval requests</string>
+    <string name="bg_channel_approvals_description">An agent on your computer needs a yes or no.</string>
+    <string name="bg_channel_terminals">Terminal prompts</string>
+    <string name="bg_channel_terminals_description">A terminal is waiting for a password or confirmation.</string>
+    <string name="bg_channel_agents">Agent finished</string>
+    <string name="bg_channel_agents_description">An agent finished its turn.</string>
+
+    <string name="bg_session_connected">Connected to %1$s</string>
+    <string name="bg_session_connecting">Connecting to %1$s</string>
+    <string name="bg_session_reconnecting">Reconnecting to %1$s</string>
+    <string name="bg_session_this_computer">your computer</string>
+    <string name="bg_session_detail">Tap to return to the session.</string>
+    <string name="bg_disconnect">Disconnect</string>
+
+    <string name="bg_approval_needed_fallback">Needs your approval.</string>
+    <string name="bg_question_asked_fallback">Asks a question.</string>
+    <string name="bg_allow">Allow</string>
+    <string name="bg_deny">Deny</string>
+    <string name="bg_terminal_needs_you">Terminal needs you</string>
+    <string name="bg_terminal_password">%1$s is waiting for a password.</string>
+    <string name="bg_terminal_confirmation">%1$s is waiting for confirmation.</string>
+    <string name="bg_with_computer">%1$s: %2$s</string>
+    <string name="bg_agent_finished">Finished.</string>
+    <string name="bg_answer_failed">Your answer did not arrive. Open Peering to answer.</string>
+
+    <string name="bg_rationale_title">Get notified while you are away</string>
+    <string name="bg_rationale_message">Peering can tell you when an agent needs your approval, a terminal waits for you, or an agent finishes. Allow notifications to see these while the app is in the background.</string>
+    <string name="bg_rationale_allow">Allow</string>
+    <string name="bg_rationale_later">Not now</string>
+
+    <string name="settings_background_heading">Background</string>
+    <string name="settings_background_footer">While a session is open, Peering stays connected behind an ongoing notification and asks the computer to pause the picture. Notifications need permission.</string>
+    <string name="settings_background_sessions">Keep sessions in the background</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_keywords_background">background notifications notify alerts approvals agent terminal service battery connected</string>
 </resources>

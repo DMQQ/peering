@@ -9,6 +9,7 @@ enum class SettingsSection(@StringRes val keywordsRes: Int) {
     Controls(R.string.settings_keywords_controls),
     Quality(R.string.settings_keywords_quality),
     RemoteAccess(R.string.settings_keywords_remote),
+    Background(R.string.settings_keywords_background),
     Invite(R.string.settings_keywords_invite),
     Security(R.string.settings_keywords_security),
     Trusted(R.string.settings_keywords_trusted),

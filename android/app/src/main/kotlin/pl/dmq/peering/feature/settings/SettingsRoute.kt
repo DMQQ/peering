@@ -33,6 +33,8 @@ class SettingsActions(
     val onOpenWebPage: (String) -> Unit,
     val onCopyDiagnostics: (SettingsUiState) -> Unit,
     val onShareInvite: (String) -> Unit,
+    /** The user turned notifications on: ask for the permission if it is missing. */
+    val onNotificationsTurnedOn: () -> Unit,
     val protection: AppProtection,
 )
 
@@ -90,6 +92,7 @@ private fun SectionCard(
         SettingsSection.Controls -> SessionControlsCard(state.prefs, presenter)
         SettingsSection.Quality -> StreamQualityCard(state.streamQuality, presenter::chooseStreamQuality)
         SettingsSection.RemoteAccess -> RemoteAccessCard(state, presenter::setAllowsRelay, actions.onSeePlans)
+        SettingsSection.Background -> BackgroundCard(state.prefs, presenter, actions.onNotificationsTurnedOn)
         SettingsSection.Invite -> InviteCard(invite.state, invite.nowSeconds(), invite.presenter::refresh, invite.presenter::redeem, actions.onShareInvite)
         SettingsSection.Security -> SecurityCard(actions.protection)
         SettingsSection.Trusted -> TrustedHostsCard(state.trustedHosts, presenter::requestForget)

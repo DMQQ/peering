@@ -28,6 +28,8 @@ internal class PreferencesDevicePreferences(
             .putBoolean(HIDES_PANEL, next.hidesPanelAfterSelect)
             .putBoolean(ALLOWS_RELAY, next.allowsRelay)
             .putBoolean(PLAYS_SOUND, next.playsComputerSound)
+            .putBoolean(KEEPS_SESSION, next.keepsSessionInBackground)
+            .putBoolean(NOTIFIES, next.notifies)
             .commit()
         if (saved) state.value = next
         return saved
@@ -41,6 +43,8 @@ internal class PreferencesDevicePreferences(
         hidesPanelAfterSelect = preferences.getBoolean(HIDES_PANEL, true),
         allowsRelay = preferences.getBoolean(ALLOWS_RELAY, true),
         playsComputerSound = preferences.getBoolean(PLAYS_SOUND, true),
+        keepsSessionInBackground = preferences.getBoolean(KEEPS_SESSION, true),
+        notifies = preferences.getBoolean(NOTIFIES, true),
     )
 
     private inline fun <reified T : Enum<T>> enumOf(key: String, default: T): T =
@@ -54,5 +58,7 @@ internal class PreferencesDevicePreferences(
         const val HIDES_PANEL = "hides_panel_after_select"
         const val ALLOWS_RELAY = "allows_relay"
         const val PLAYS_SOUND = "plays_computer_sound"
+        const val KEEPS_SESSION = "keeps_session_in_background"
+        const val NOTIFIES = "notifies"
     }
 }

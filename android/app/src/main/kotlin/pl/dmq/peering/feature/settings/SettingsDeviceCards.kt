@@ -115,6 +115,28 @@ internal fun StreamQualityCard(current: StreamQuality, onChoose: (StreamQuality)
 }
 
 @Composable
+internal fun BackgroundCard(prefs: DevicePrefs, presenter: SettingsPresenter, onNotificationsTurnedOn: () -> Unit) {
+    ControlsCard(stringResource(R.string.settings_background_heading), footer = stringResource(R.string.settings_background_footer)) {
+        ControlToggle(
+            stringResource(R.string.settings_background_sessions),
+            AppIcons.reconnect,
+            prefs.keepsSessionInBackground,
+            presenter::setKeepsSessionInBackground,
+        )
+        ControlsDivider()
+        ControlToggle(
+            stringResource(R.string.settings_notifications),
+            AppIcons.notification,
+            prefs.notifies,
+            onCheckedChange = { on ->
+                presenter.setNotifies(on)
+                if (on) onNotificationsTurnedOn()
+            },
+        )
+    }
+}
+
+@Composable
 internal fun RemoteAccessCard(state: SettingsUiState, onAllowRelay: (Boolean) -> Unit, onSeePlans: () -> Unit) {
     ControlsCard(stringResource(R.string.settings_remote_heading), footer = stringResource(R.string.settings_remote_footer)) {
         ControlToggle(stringResource(R.string.settings_allow_relay), AppIcons.network, state.prefs.allowsRelay, onAllowRelay)
