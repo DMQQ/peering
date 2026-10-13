@@ -60,7 +60,7 @@
     "@type": "Offer",
     "price": "0",
     "priceCurrency": "USD",
-    "description": "自分のネットワークでは無料でご利用いただけます。別のネットワークからMacにつなぐためのRelayプランは、月額または年額です。"
+    "description": "自分のネットワークでは無料で、リレーは1日30分まで使えます。Proは月額で、買い切りを一度購入すればリレーは無制限になります。"
   }
 }
 </script>
@@ -154,7 +154,7 @@
       "name": "1台のMacに複数のiPhoneからつなげますか？",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "はい、どのプランでも可能です。プランで制限されるのは、1台のiPhoneがペアリングできるMacの数であり、Macが信頼するiPhoneの数ではありません。"
+        "text": "はい、どのプランでも。Macが信頼するiPhoneの台数に上限はありません。"
       }
     },
     {
@@ -319,17 +319,14 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="12.4" height="9.2" rx="1.8"/><path d="M6.4 17.4h6"/><path d="M9.4 14.6v2.8"/><path d="M19.2 7.6v5"/><path d="M16.7 10.1h5"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>お持ちのすべてのMacを</h3>
-          <p>無料では1台のMacとペアリングできます。Relayなら、お持ちのすべてのMacとペアリングでき、すべて同じ一覧に並びます。</p>
+          <p>どのプランでも、お持ちのすべてのMacとペアリングでき、すべて同じ一覧に並びます。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.8" y="6.8" width="8" height="6.2" rx="1.4"/><rect x="13.2" y="6.8" width="8" height="6.2" rx="1.4"/><path d="M10.8 9.9h2.4"/><path d="M5.6 17.6h12.8"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>複数を同時に</h3>
-          <p>一度に1台のMacは、どのプランでも無料です。2台目のセッションを始めると、1台目は終了します。</p>
-          <p>Proなら複数を同時に開いたままにできるので、2台のマシンの行き来は、つなぎ直しではなくタップだけで済みます。</p>
+          <p>複数を同時に開いたままにできるので、2台のマシンの行き来は、つなぎ直しではなくタップだけで済みます。</p>
         </div>
 
         <div class="card feature">
@@ -398,7 +395,6 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5" width="17.2" height="11.4" rx="2.2"/><path d="M8.6 12.4l3.4-4 3.4 4"/><path d="M12 17v3"/><path d="M8.6 20.4h6.8"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>リレー経由で最も鮮明な映像</h3>
           <p>自分のネットワークでは、映像の上限はどのプランでもなく、どのプランもネットワークに合わせて調整します。</p>
           <p>Proで変わるのは、リレー経由のセッションの上限です。データが運ばれている間に、レートをどこまで上げられるかが変わります。</p>
@@ -406,7 +402,6 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.4 9.6h3.4l4-3.2v11.2l-4-3.2H4.4z"/><path d="M15.4 9.4a3.6 3.6 0 010 5.2"/><path d="M17.8 7.2a7 7 0 010 9.6"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>Macの音声</h3>
           <p>Macで再生されている音がiPhoneから聞こえるので、マシンの動作を黙って見るのではなく、音でも把握できます。</p>
           <p>スイッチはセッションパネルに1つ。オフにしても、ストリームには影響しません。</p>
@@ -426,7 +421,6 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.6"/><rect x="12.4" y="12.4" width="6" height="4.6" rx="1.2"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>離れても続く</h3>
           <p>ほかのアプリの上にピクチャインピクチャで表示されるので、アプリの外でもMacの画面がそばに残ります。ロック画面のライブアクティビティとホーム画面のウィジェットは、どのプランでも使えます。</p>
         </div>
@@ -435,31 +429,27 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="17.2" height="6" rx="1.8"/><rect x="3.4" y="13.6" width="17.2" height="6" rx="1.8"/><path d="M7 7.4h.01M7 16.6h.01"/></svg>
           <h3>サーバにも対応</h3>
           <p>SSHでホストを追加すると、Macと並んで一覧に表示されます。鍵は最初に確認され、専用のロックをかけることもできます。</p>
-          <p>どのプランでも無料です。プランで上限があるのは同時に開くシェルの数で、マシンの数ではありません。</p>
+          <p>どのプランでも無料です。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4.4" width="17.6" height="15.2" rx="2.4"/><path d="M7.4 9.8l2.6 2.6-2.6 2.6"/><path d="M12.6 15h4.2"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>本物のシェル</h3>
           <p>iPhone向けに作られたキー行を備えた、全画面のターミナルセッション。escape、コントロールキー、矢印、単語単位の移動が使えます。</p>
-          <p>一度に1つのシェルは、どのプランでも無料です。複数を同時に開いておくための名前付きタブは、Proです。</p>
+          <p>名前付きタブで、複数を同時に開いておけます。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 16.8v-5.4a5.2 5.2 0 0110.4 0v5.4"/><path d="M4.8 16.8h14.4"/><path d="M10.4 19.2a1.8 1.8 0 003.2 0"/><circle cx="17.6" cy="6.6" r="2"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>シェルが待っているときに通知</h3>
           <p>パスワードの入力待ちから、ビルドの完了まで、答えを待って止まったシェルは、自分で確認しに行かなくても、iPhoneにバナーで知らせます。アプリを閉じていても届き、Macがリレー経由で送ります。</p>
-          <p>ターミナルとタブのマークは、どのプランでも使えます。呼び出してもらえるのは、Relayからです。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 6.8a2 2 0 012-2h3.2l2 2.4h7.6a2 2 0 012 2v8a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M8.4 13.2h7.2"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>どちらのマシンのファイルも</h3>
           <p>Macや、追加したサーバのフォルダをたどり、設定ファイルやスクリプトを開き、変更して保存し、新規作成や、一覧にあるものの名前変更と削除ができます。</p>
-          <p>これらはすべて無料です。iPhoneとマシンの間でファイルを移動するのは、Relayです。</p>
+          <p>iPhoneとマシンの間でファイルを移動することも、どのプランでもできます。</p>
         </div>
 
         <div class="card feature">
@@ -491,36 +481,31 @@
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5.4" y="4.2" width="13.2" height="16" rx="2.4"/><path d="M9.4 4.2v1.6a1.6 1.6 0 001.6 1.6h2a1.6 1.6 0 001.6-1.6V4.2"/></svg>
           <h3>ひとつのクリップボード</h3>
-          <p>iPhoneでコピーしてMacでペースト、またはその逆が、どのプランでもできます。Relayでは直近の12件が保存されるので、少し前にコピーしたものもまだ残っています。</p>
+          <p>iPhoneでコピーしてMacでペースト、またはその逆ができます。直近の12件が保存されるので、少し前にコピーしたものもまだ残っています。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="8" height="6.2" rx="1.6"/><rect x="12.6" y="4.4" width="8" height="6.2" rx="1.6"/><rect x="3.4" y="13" width="8" height="6.2" rx="1.6"/><rect x="12.6" y="13" width="8" height="6.2" rx="1.6"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>複数のウインドウを同時に</h3>
           <p>ウインドウ、アプリ、ディスプレイを選んで、iPhoneにまとめて表示し、好きなように並べられます。どのタイルもスクリーンショットではなくライブの映像で、タップするとそのタイルに入り、全体の配置は戻るボタンの後ろで待っています。</p>
-          <p>一度に1つの共有元は、どのプランでも使えます。これはMacの負荷が高くなります。タイルごとに別々にキャプチャされるため、映像がライブのままになります。</p>
+          <p>これはMacの負荷が高くなります。タイルごとに別々にキャプチャされるため、映像がライブのままになります。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5" width="13.6" height="10" rx="2"/><path d="M7 19h6"/><path d="M10 15v4"/><circle cx="19.4" cy="8" r="3.4"/><path d="M19.4 6.4v3.2M17.8 8h3.2"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>仮想ディスプレイ</h3>
           <p>仮想ディスプレイとは、Macが物理的には持っていない画面のことです。アプリがMacに作成を依頼すると、iPhoneはそれをほかの画面と同じように表示します。Macにすでにあるウインドウの置き場所として使え、同じ一覧から名前を付けたり、取り除いたりできます。</p>
-          <p>どれもアプリから作られるので、Proから始まります。勝手に作られることはありません。作成したセッションが終わると、一緒になくなります。</p>
+          <p>どれもアプリから作られ、勝手に作られることはありません。作成したセッションが終わると、一緒になくなります。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="7.6" height="4.4" rx="2.2"/><rect x="12.6" y="4.6" width="8" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 15.6h10"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>毎回打つコマンドを</h3>
           <p>キーボードの上に並ぶチップの列に、よく使うコマンドとスニペットを入れておけます。どのターミナルでも使えます。タップするまで、何も実行されません。</p>
-          <p>すでにあるものの実行は、どのプランでも無料です。作成や編集は、Proです。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 18.4l2.4-2.4-2.4-2.4"/><path d="M12.2 18.4h4"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>マクロ</h3>
           <p>一連の操作を一度記録すれば、ワンタップで実行できます。そのMacの前に座るたびに打つものに向いています。</p>
           <p>iPhoneに保存され、編集もでき、実行するまでどこにも送信されません。</p>
@@ -631,11 +616,9 @@
     <div class="wrap">
       <h2>料金</h2>
       <p class="section-lede">
-        自分のネットワークでは、無料で無制限、ずっと変わりません。リレーは別の場所からMacに届くための
-        ものです。月額または年額です。
+        自分のネットワークでは、無料で無制限、ずっと変わりません。リレーは別の場所からMacに届くためのものです。無料では1日30分、Proと買い切りでは無制限です。
       </p>
 
-      <!-- Keep this comparison in sync with the plans offered in the app. -->
       <p class="plans-scroll-hint" aria-hidden="true">横にスクロールしてすべてのプランを見る &rarr;</p>
       <div class="plans-wrap">
         <table class="plans">
@@ -649,99 +632,33 @@
               <span class="plan-note">自分のネットワークで、好きなだけ</span>
             </th>
             <th scope="col" class="plan-col">
-              <span class="plan-name">Relay</span>
-              <span class="plan-price">$1.99<span>/月</span></span>
-              <span class="plan-note">または年額$14.99(月あたり$1.25)</span>
+              <span class="plan-name">Pro</span>
+              <span class="plan-price">$4.99<span>/月</span></span>
+              <span class="plan-note">外出先で無制限、リレーで最もシャープな映像</span>
             </th>
             <th scope="col" class="plan-col col-pro">
               <span class="plan-badge">いちばんお得</span>
-              <span class="plan-name">Pro</span>
-              <span class="plan-price">$4.99<span>/月</span></span>
-              <span class="plan-note">または年額$34.99(月あたり$2.92)</span>
+              <span class="plan-name">買い切り</span>
+              <span class="plan-price">$39.99<span>一度だけ</span></span>
+              <span class="plan-note">Proのすべてを買い切りで</span>
             </th>
             </tr>
           </thead>
           <tbody>
             <tr class="group-row">
-              <th scope="rowgroup" colspan="3">プランで得られるもの</th>
+              <th scope="rowgroup" colspan="3">プランによって違うところ</th>
               <td class="col-pro"></td>
             </tr>
             <tr>
               <th scope="row">毎日のリレー時間</th>
-              <td class="val">1時間</td>
+              <td class="val">30分</td>
               <td class="val">無制限</td>
               <td class="val col-pro">無制限</td>
             </tr>
             <tr>
-              <th scope="row">ペアリングできるMac</th>
-              <td class="val">1台</td>
-              <td class="val">お持ちのすべてのMac</td>
-              <td class="val col-pro">お持ちのすべてのMac</td>
-            </tr>
-            <tr>
-              <th scope="row">Macの音声</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="yes"><span class="vh">含まれます</span></td>
-              <td class="yes col-pro"><span class="vh">含まれます</span></td>
-            </tr>
-            <tr>
-              <th scope="row">ピクチャインピクチャ</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="yes"><span class="vh">含まれます</span></td>
-              <td class="yes col-pro"><span class="vh">含まれます</span></td>
-            </tr>
-            <tr>
-              <th scope="row">双方向のファイル転送</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="yes"><span class="vh">含まれます</span></td>
-              <td class="yes col-pro"><span class="vh">含まれます</span></td>
-            </tr>
-            <tr>
-              <th scope="row">クリップボード履歴</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="yes"><span class="vh">含まれます</span></td>
-              <td class="yes col-pro"><span class="vh">含まれます</span></td>
-            </tr>
-            <tr>
-              <th scope="row">ターミナルが必要なときに通知</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="yes"><span class="vh">含まれます</span></td>
-              <td class="yes col-pro"><span class="vh">含まれます</span></td>
-            </tr>
-            <tr>
-              <th scope="row">複数のシェルをタブで同時に</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="yes col-pro"><span class="vh">含まれます</span></td>
-            </tr>
-            <tr>
-              <th scope="row">複数のMacを同時に</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="yes col-pro"><span class="vh">含まれます</span></td>
-            </tr>
-            <tr>
-              <th scope="row">複数のウインドウを1つの映像に</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="yes col-pro"><span class="vh">含まれます</span></td>
-            </tr>
-            <tr>
-              <th scope="row">iPhone上の仮想ディスプレイ</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="yes col-pro"><span class="vh">含まれます</span></td>
-            </tr>
-            <tr>
-              <th scope="row">マクロ、スニペット、クイックコマンド</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="yes col-pro"><span class="vh">含まれます</span></td>
-            </tr>
-            <tr>
               <th scope="row">リレー経由で最も鮮明な映像</th>
               <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
             </tr>
             <tr class="group-row">
@@ -749,8 +666,73 @@
               <td class="col-pro"></td>
             </tr>
             <tr class="quiet">
-              <th scope="row">すべてのディスプレイ、アプリ、ウインドウ</th>
+              <th scope="row">ペアリングできるMac</th>
+              <td class="val">お持ちのすべてのMac</td>
+              <td class="val">お持ちのすべてのMac</td>
+              <td class="val col-pro">お持ちのすべてのMac</td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Macの音声</th>
               <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">ピクチャインピクチャ</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">双方向のファイル転送</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">クリップボード履歴</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">ターミナルが必要なときに通知</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">複数のシェルをタブで同時に</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">複数のMacを同時に</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">複数のウインドウを1つの映像に</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">iPhone上の仮想ディスプレイ</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">マクロ、スニペット、クイックコマンド</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">すべてのディスプレイ、アプリ、ウインドウ</th>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
@@ -759,12 +741,10 @@
               <th scope="row">一度に1つのシェル</th>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
-              <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">SSHサーバ、鍵の保存付き</th>
-              <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
@@ -773,12 +753,10 @@
               <th scope="row">SSHポートフォワード</th>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
-              <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">ファイルブラウザ、編集と実行付き</th>
-              <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
@@ -787,12 +765,10 @@
               <th scope="row">クリップボード、双方向</th>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
-              <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">キーボード、ポインタ、トラックパッド、スクロールホイール</th>
-              <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
@@ -801,12 +777,10 @@
               <th scope="row">閲覧のみモード</th>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
-              <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">プライバシーモード</th>
-              <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
@@ -815,19 +789,16 @@
               <th scope="row">スクリーンショット、ウィジェット、ライブアクティビティ、Siri</th>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
-              <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">Wake on LAN、Spaces、セッション履歴</th>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
-              <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">Macがあなたを待っているときの通知</th>
-              <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes"><span class="vh">含まれます</span></td>
               <td class="yes col-pro"><span class="vh">含まれます</span></td>
@@ -837,9 +808,7 @@
       </div>
 
       <p class="fine">
-        料金は国ごとにApp Storeで設定され、購入前にアプリ内に表示されます。
-        サブスクリプションは、解約しない限り自動的に更新されます。解約はいつでも、App Storeの
-        設定から行えます。
+        表示している料金は米国での料金です。料金は国ごとにApp Storeで設定され、購入前にアプリ内に表示されます。Proは、解約しない限り自動的に更新されます。解約はいつでも、App Storeの設定から行えます。買い切りは一度だけのお支払いで、更新はありません。
       </p>
     </div>
   </section>
@@ -946,8 +915,7 @@
         <details>
           <summary>1台のMacに複数のiPhoneからつなげますか？</summary>
           <p>
-            はい、どのプランでも可能です。プランで制限されるのは、1台のiPhoneがペアリングできるMacの数
-            であり、Macが信頼するiPhoneの数ではありません。
+            はい、どのプランでも。Macが信頼するiPhoneの台数に上限はありません。
           </p>
         </details>
         <details>

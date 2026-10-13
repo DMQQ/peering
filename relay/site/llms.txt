@@ -29,14 +29,14 @@
 
 ## Pricing
 
-- Free: your own network, unmetered, forever. One Mac, 30 minutes of relay time a day if you leave
-  your network. No sound, Picture in Picture, two-way file transfer, or clipboard history.
-- Relay ($1.99/month or $14.99/year): unlimited relay time, every Mac you own, sound, Picture in
-  Picture, two-way files, clipboard history.
-- Pro ($4.99/month or $34.99/year): the same relay allowance and features as Relay, with more of
-  the app's other capabilities (several shells, virtual displays, macros, several Macs at once). See
-  the pricing table on the home page for the full, current comparison; it is the source of truth,
-  not this file.
+- Free: your own network, unmetered, forever. 30 minutes of relay time a day if you leave your
+  network.
+- Pro ($4.99/month, US price): unlimited relay time and the sharpest relay picture.
+- Lifetime ($39.99 once, US price): everything in Pro, paid once.
+- Every feature works on every plan. The only limit is relay time, which is how long you can reach
+  a Mac from outside its own network. The App Store sets prices per country and the app shows them
+  before you buy. See the pricing table on the home page for the current comparison; it is the
+  source of truth, not this file.
 
 ## Notes for automated agents
 

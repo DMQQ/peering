@@ -60,7 +60,7 @@
     "@type": "Offer",
     "price": "0",
     "priceCurrency": "USD",
-    "description": "在你自己的网络中可免费使用。Relay 套餐用于从其他网络连接 Mac，按月或按年订阅。"
+    "description": "在你自己的网络中免费使用，每天含 30 分钟中继时间。Pro 按月订阅，也可以一次性购买终身版，获得不限时的中继。"
   }
 }
 </script>
@@ -154,7 +154,7 @@
       "name": "多台 iPhone 可以连接同一台 Mac 吗？",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "可以，所有套餐都支持。套餐限制的是一台 iPhone 能与多少台 Mac 配对，而不是一台 Mac 能信任多少台 iPhone。"
+        "text": "可以，所有套餐都一样。Mac 不限制它信任的 iPhone 数量。"
       }
     },
     {
@@ -315,17 +315,14 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="12.4" height="9.2" rx="1.8"/><path d="M6.4 17.4h6"/><path d="M9.4 14.6v2.8"/><path d="M19.2 7.6v5"/><path d="M16.7 10.1h5"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>你的每一台 Mac</h3>
-          <p>免费套餐可与一台 Mac 配对。Relay 可与你拥有的每一台 Mac 配对，它们都在同一份列表里。</p>
+          <p>在任何套餐里，你都可以与你拥有的每一台 Mac 配对，它们都在同一份列表里。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.8" y="6.8" width="8" height="6.2" rx="1.4"/><rect x="13.2" y="6.8" width="8" height="6.2" rx="1.4"/><path d="M10.8 9.9h2.4"/><path d="M5.6 17.6h12.8"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>同时连接多台</h3>
-          <p>所有套餐都可免费一次连接一台 Mac：与第二台开始会话时，第一台的会话会结束。</p>
-          <p>Pro 可以同时保持多个会话，在两台机器之间切换只需轻点一下，不必重新连接。</p>
+          <p>可以同时保持多个会话，在两台机器之间切换只需轻点一下，不必重新连接。</p>
         </div>
 
         <div class="card feature">
@@ -394,7 +391,6 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5" width="17.2" height="11.4" rx="2.2"/><path d="M8.6 12.4l3.4-4 3.4 4"/><path d="M12 17v3"/><path d="M8.6 20.4h6.8"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>经中继的最清晰画面</h3>
           <p>在你自己的网络中，所有套餐的画面都没有上限，所有套餐也都会根据网络自动调整。</p>
           <p>Pro 改变的是经中继会话的上限：数据经中继传输时，码率最高能升到多少。</p>
@@ -402,7 +398,6 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.4 9.6h3.4l4-3.2v11.2l-4-3.2H4.4z"/><path d="M15.4 9.4a3.6 3.6 0 010 5.2"/><path d="M17.8 7.2a7 7 0 010 9.6"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>来自 Mac 的声音</h3>
           <p>Mac 正在播放的任何声音都会从手机里传出来，你能听到这台机器正在做什么，而不是只看着它默默运行。</p>
           <p>会话面板里有一个开关，关掉它不会影响画面传输。</p>
@@ -422,7 +417,6 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.6"/><rect x="12.4" y="12.4" width="6" height="4.6" rx="1.2"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>你离开应用，它也继续</h3>
           <p>画中画悬浮在其他应用之上，让 Mac 的屏幕在你离开应用后依然跟着你。锁定屏幕上的实时活动和主屏幕上的小组件，所有套餐都有。</p>
         </div>
@@ -431,31 +425,27 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="17.2" height="6" rx="1.8"/><rect x="3.4" y="13.6" width="17.2" height="6" rx="1.8"/><path d="M7 7.4h.01M7 16.6h.01"/></svg>
           <h3>你的服务器也一样</h3>
           <p>通过 SSH 添加一台主机，它就和你的 Mac 并排出现在列表里。它的密钥会在第一次连接时校验，也可以有自己的锁。</p>
-          <p>所有套餐都免费：套餐限制的是同时打开的 shell 数量，而不是机器数量。</p>
+          <p>所有套餐都免费。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4.4" width="17.6" height="15.2" rx="2.4"/><path d="M7.4 9.8l2.6 2.6-2.6 2.6"/><path d="M12.6 15h4.2"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>真正的 shell</h3>
           <p>全屏终端会话，配有专为手机设计的按键行：escape、控制键、方向键，以及按词移动光标。</p>
-          <p>所有套餐都可免费一次使用一个 shell。要同时打开多个并给标签命名，则需要 Pro。</p>
+          <p>给标签命名，就能同时打开多个。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 16.8v-5.4a5.2 5.2 0 0110.4 0v5.4"/><path d="M4.8 16.8h14.4"/><path d="M10.4 19.2a1.8 1.8 0 003.2 0"/><circle cx="17.6" cy="6.6" r="2"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>shell 在等你时会通知你</h3>
           <p>shell 停下来等你回应时，无论是密码提示还是构建完成，都会在你的手机上弹出横幅，而不是等你自己去看。即使应用已关闭，通知也会送达，由 Mac 通过中继发出。</p>
-          <p>终端和标签上的标记，所有套餐都有。主动通知你，则属于 Relay。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 6.8a2 2 0 012-2h3.2l2 2.4h7.6a2 2 0 012 2v8a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M8.4 13.2h7.2"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>两台机器上的文件</h3>
           <p>浏览你的 Mac 或任何已添加服务器的文件夹，打开配置文件或脚本，修改并保存，新建文件，也可以重命名或删除列表中的项目。</p>
-          <p>这一切都是免费的。在手机和机器之间传输文件，则属于 Relay。</p>
+          <p>在手机和机器之间传输文件，所有套餐同样支持。</p>
         </div>
 
         <div class="card feature">
@@ -487,36 +477,31 @@
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5.4" y="4.2" width="13.2" height="16" rx="2.4"/><path d="M9.4 4.2v1.6a1.6 1.6 0 001.6 1.6h2a1.6 1.6 0 001.6-1.6V4.2"/></svg>
           <h3>共用一个剪贴板</h3>
-          <p>在 iPhone 上复制、在 Mac 上粘贴，或者反过来，所有套餐都支持。Relay 会保留最近十二条，所以你之前复制过的内容依然在。</p>
+          <p>在 iPhone 上复制、在 Mac 上粘贴，或者反过来。最近十二条会被保留，所以你之前复制过的内容依然在。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="8" height="6.2" rx="1.6"/><rect x="12.6" y="4.4" width="8" height="6.2" rx="1.6"/><rect x="3.4" y="13" width="8" height="6.2" rx="1.6"/><rect x="12.6" y="13" width="8" height="6.2" rx="1.6"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>同时查看多个窗口</h3>
           <p>挑选窗口、应用或显示器，在手机上按你想要的方式排列，一起查看。每个图块都是实时画面，而不是截图；点一下就能进入其中，整个布局则留在返回控件之后等你。</p>
-          <p>所有套餐都支持一次一个来源。这项功能会让 Mac 更吃力：每个图块都是单独捕获的，所以画面才能保持实时。</p>
+          <p>这项功能会让 Mac 更吃力：每个图块都是单独捕获的，所以画面才能保持实时。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5" width="13.6" height="10" rx="2"/><path d="M7 19h6"/><path d="M10 15v4"/><circle cx="19.4" cy="8" r="3.4"/><path d="M19.4 6.4v3.2M17.8 8h3.2"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>虚拟显示器</h3>
           <p>虚拟显示器是 Mac 实际上并不存在的一块屏幕。应用请 Mac 创建一块，这部手机随后会像显示其他屏幕一样显示它：Mac 已有的窗口多了一个可去的地方，它同样在同一份列表里命名和移除。</p>
-          <p>每一块都是从应用里创建的，所以从 Pro 开始提供，而且绝不会自行创建。创建它的会话结束时，它也随之消失。</p>
+          <p>每一块都是从应用里创建的，而且绝不会自行创建。创建它的会话结束时，它也随之消失。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="7.6" height="4.4" rx="2.2"/><rect x="12.6" y="4.6" width="8" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 15.6h10"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>每次都要输入的命令</h3>
           <p>键盘上方有一排标签，放着你常用的命令和片段，在每个终端里都能用。不点按，什么都不会执行。</p>
-          <p>运行你已有的命令，所有套餐都免费。新建或编辑则需要 Pro。</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 18.4l2.4-2.4-2.4-2.4"/><path d="M12.2 18.4h4"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>宏</h3>
           <p>把一串操作录制一次，之后一键执行：就是你每次坐到那台 Mac 前都要输入的那些内容。</p>
           <p>保存在手机上，可以编辑，在你运行之前绝不会发送到任何地方。</p>
@@ -621,10 +606,9 @@
     <div class="wrap">
       <h2>价格</h2>
       <p class="section-lede">
-        你自己的网络永远免费，不限用量。中继用于从其他地方连接你的 Mac，按月或按年订阅。
+        在你自己的网络中，免费且不限时，永远如此。中继用来从别处连到你的 Mac：免费套餐每天包含 30 分钟，Pro 和终身版没有限制。
       </p>
 
-      <!-- Keep this comparison in sync with the plans offered in the app. -->
       <p class="plans-scroll-hint" aria-hidden="true">左右滑动查看所有套餐 &rarr;</p>
       <div class="plans-wrap">
         <table class="plans">
@@ -638,99 +622,33 @@
               <span class="plan-note">在你自己的网络中，想用多久都行</span>
             </th>
             <th scope="col" class="plan-col">
-              <span class="plan-name">Relay</span>
-              <span class="plan-price">$1.99<span>/月</span></span>
-              <span class="plan-note">或每年 $14.99，相当于每月 $1.25</span>
+              <span class="plan-name">Pro</span>
+              <span class="plan-price">$4.99<span>/月</span></span>
+              <span class="plan-note">外出无限时长,中继下最清晰的画面</span>
             </th>
             <th scope="col" class="plan-col col-pro">
               <span class="plan-badge">最超值</span>
-              <span class="plan-name">Pro</span>
-              <span class="plan-price">$4.99<span>/月</span></span>
-              <span class="plan-note">或每年 $34.99，相当于每月 $2.92</span>
+              <span class="plan-name">终身</span>
+              <span class="plan-price">$39.99<span>一次性</span></span>
+              <span class="plan-note">Pro 的全部功能,一次付清</span>
             </th>
             </tr>
           </thead>
           <tbody>
             <tr class="group-row">
-              <th scope="rowgroup" colspan="3">套餐包含的功能</th>
+              <th scope="rowgroup" colspan="3">各套餐的不同之处</th>
               <td class="col-pro"></td>
             </tr>
             <tr>
               <th scope="row">每天的中继时间</th>
-              <td class="val">1 小时</td>
+              <td class="val">30 分钟</td>
               <td class="val">不限</td>
               <td class="val col-pro">不限</td>
             </tr>
             <tr>
-              <th scope="row">可配对的 Mac</th>
-              <td class="val">一台</td>
-              <td class="val">你拥有的每一台 Mac</td>
-              <td class="val col-pro">你拥有的每一台 Mac</td>
-            </tr>
-            <tr>
-              <th scope="row">来自 Mac 的声音</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="yes"><span class="vh">包含</span></td>
-              <td class="yes col-pro"><span class="vh">包含</span></td>
-            </tr>
-            <tr>
-              <th scope="row">画中画</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="yes"><span class="vh">包含</span></td>
-              <td class="yes col-pro"><span class="vh">包含</span></td>
-            </tr>
-            <tr>
-              <th scope="row">双向传输的文件</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="yes"><span class="vh">包含</span></td>
-              <td class="yes col-pro"><span class="vh">包含</span></td>
-            </tr>
-            <tr>
-              <th scope="row">剪贴板历史记录</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="yes"><span class="vh">包含</span></td>
-              <td class="yes col-pro"><span class="vh">包含</span></td>
-            </tr>
-            <tr>
-              <th scope="row">终端需要你时通知</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="yes"><span class="vh">包含</span></td>
-              <td class="yes col-pro"><span class="vh">包含</span></td>
-            </tr>
-            <tr>
-              <th scope="row">以标签页同时打开多个 shell</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="yes col-pro"><span class="vh">包含</span></td>
-            </tr>
-            <tr>
-              <th scope="row">同时打开多台 Mac</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="yes col-pro"><span class="vh">包含</span></td>
-            </tr>
-            <tr>
-              <th scope="row">一个画面里显示多个窗口</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="yes col-pro"><span class="vh">包含</span></td>
-            </tr>
-            <tr>
-              <th scope="row">手机上的虚拟显示器</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="yes col-pro"><span class="vh">包含</span></td>
-            </tr>
-            <tr>
-              <th scope="row">宏、片段和快捷命令</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="yes col-pro"><span class="vh">包含</span></td>
-            </tr>
-            <tr>
               <th scope="row">经中继的最清晰画面</th>
               <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">不包含</span></td>
+              <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
             </tr>
             <tr class="group-row">
@@ -738,8 +656,73 @@
               <td class="col-pro"></td>
             </tr>
             <tr class="quiet">
-              <th scope="row">所有显示器、应用和窗口</th>
+              <th scope="row">可配对的 Mac</th>
+              <td class="val">你拥有的每一台 Mac</td>
+              <td class="val">你拥有的每一台 Mac</td>
+              <td class="val col-pro">你拥有的每一台 Mac</td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">来自 Mac 的声音</th>
               <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes col-pro"><span class="vh">包含</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">画中画</th>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes col-pro"><span class="vh">包含</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">双向传输的文件</th>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes col-pro"><span class="vh">包含</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">剪贴板历史记录</th>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes col-pro"><span class="vh">包含</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">终端需要你时通知</th>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes col-pro"><span class="vh">包含</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">以标签页同时打开多个 shell</th>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes col-pro"><span class="vh">包含</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">同时打开多台 Mac</th>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes col-pro"><span class="vh">包含</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">一个画面里显示多个窗口</th>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes col-pro"><span class="vh">包含</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">手机上的虚拟显示器</th>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes col-pro"><span class="vh">包含</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">宏、片段和快捷命令</th>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes"><span class="vh">包含</span></td>
+              <td class="yes col-pro"><span class="vh">包含</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">所有显示器、应用和窗口</th>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
@@ -748,12 +731,10 @@
               <th scope="row">一次一个 shell</th>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
-              <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">SSH 服务器，可保存密钥</th>
-              <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
@@ -762,12 +743,10 @@
               <th scope="row">SSH 端口转发</th>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
-              <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">文件浏览器，可编辑和运行</th>
-              <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
@@ -776,12 +755,10 @@
               <th scope="row">双向剪贴板</th>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
-              <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">键盘、指针、触控板和滚轮</th>
-              <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
@@ -790,12 +767,10 @@
               <th scope="row">观看模式</th>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
-              <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">隐私模式</th>
-              <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
@@ -804,19 +779,16 @@
               <th scope="row">截屏、小组件、实时活动和 Siri</th>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
-              <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">Wake on LAN、空间和会话历史记录</th>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
-              <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">Mac 在等你时发出的通知</th>
-              <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes"><span class="vh">包含</span></td>
               <td class="yes col-pro"><span class="vh">包含</span></td>
@@ -826,7 +798,7 @@
       </div>
 
       <p class="fine">
-        价格由 App Store 按国家或地区设定，并在购买前显示在应用中。订阅会自动续订，直到取消为止，你可以随时在 App Store 的设置中取消。
+        所示价格为美国地区价格。App Store 按国家或地区定价，并在购买前于应用中显示。Pro 会自动续订，直到你取消，你可以随时在 App Store 设置中取消。终身版只需付费一次，不会续订。
       </p>
     </div>
   </section>
@@ -912,7 +884,7 @@
         <details>
           <summary>多台 iPhone 可以连接同一台 Mac 吗？</summary>
           <p>
-            可以，所有套餐都支持。套餐限制的是一台 iPhone 能与多少台 Mac 配对，而不是一台 Mac 能信任多少台 iPhone。
+            可以，所有套餐都一样。Mac 不限制它信任的 iPhone 数量。
           </p>
         </details>
         <details>

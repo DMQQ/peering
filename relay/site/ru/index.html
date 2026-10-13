@@ -60,7 +60,7 @@
     "@type": "Offer",
     "price": "0",
     "priceCurrency": "USD",
-    "description": "Бесплатно в вашей собственной сети. Тарифы Relay, для подключения к Mac из другой сети, оплачиваются помесячно или за год."
+    "description": "Бесплатно в вашей собственной сети, плюс 30 минут релея в день. Pro оплачивается помесячно, а «Навсегда» покупается один раз и снимает ограничение времени релея."
   }
 }
 </script>
@@ -154,7 +154,7 @@
       "name": "Могут ли несколько iPhone подключаться к одному Mac?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Да, на любом тарифе. Тариф ограничивает не число iPhone, которым доверяет Mac, а число Mac, с которыми может быть связан один iPhone."
+        "text": "Да, на любом тарифе. Mac не ограничивает число iPhone, которым он доверяет."
       }
     },
     {
@@ -319,17 +319,14 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="12.4" height="9.2" rx="1.8"/><path d="M6.4 17.4h6"/><path d="M9.4 14.6v2.8"/><path d="M19.2 7.6v5"/><path d="M16.7 10.1h5"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>Каждый ваш Mac</h3>
-          <p>Бесплатный тариф связывается с одним Mac. Relay связывается со всеми вашими Mac, и все они в одном списке.</p>
+          <p>Связывайте все ваши Mac на любом тарифе, и все они в одном списке.</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.8" y="6.8" width="8" height="6.2" rx="1.4"/><rect x="13.2" y="6.8" width="8" height="6.2" rx="1.4"/><path d="M10.8 9.9h2.4"/><path d="M5.6 17.6h12.8"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>Несколько сразу</h3>
-          <p>Один Mac за раз бесплатно на любом тарифе: начало сеанса со вторым завершает первый.</p>
-          <p>Pro держит несколько открытыми одновременно, так что переключение между двумя машинами это одно касание, а не новое подключение.</p>
+          <p>Можно держать несколько открытыми одновременно, так что переключение между двумя машинами это одно касание, а не новое подключение.</p>
         </div>
 
         <div class="card feature">
@@ -398,7 +395,6 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5" width="17.2" height="11.4" rx="2.2"/><path d="M8.6 12.4l3.4-4 3.4 4"/><path d="M12 17v3"/><path d="M8.6 20.4h6.8"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>Самая чёткая картинка через релей</h3>
           <p>В вашей собственной сети картинка не ограничена на любом тарифе, и на любом тарифе она подстраивается под сеть.</p>
           <p>Pro меняет потолок для сеанса через релей: насколько может расти скорость, пока данные передаются.</p>
@@ -406,7 +402,6 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.4 9.6h3.4l4-3.2v11.2l-4-3.2H4.4z"/><path d="M15.4 9.4a3.6 3.6 0 010 5.2"/><path d="M17.8 7.2a7 7 0 010 9.6"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>Звук с Mac</h3>
           <p>Всё, что играет на Mac, звучит из телефона, так что вы слышите, что делает машина, а не смотрите на это молча.</p>
           <p>Один переключатель на панели сеанса, и его выключение не затрагивает поток.</p>
@@ -426,7 +421,6 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.6"/><rect x="12.4" y="12.4" width="6" height="4.6" rx="1.2"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>Продолжает работать, когда вы уходите</h3>
           <p>«Картинка в картинке» поверх других приложений, чтобы экран Mac оставался с вами за пределами приложения. Live Activity на экране блокировки и виджет на экране «Домой» доступны на любом тарифе.</p>
         </div>
@@ -435,31 +429,27 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="17.2" height="6" rx="1.8"/><rect x="3.4" y="13.6" width="17.2" height="6" rx="1.8"/><path d="M7 7.4h.01M7 16.6h.01"/></svg>
           <h3>И ваши серверы тоже</h3>
           <p>Добавьте хост по SSH, и он окажется рядом с вашими Mac. Его ключи проверяются в первый раз, и он может иметь собственную блокировку.</p>
-          <p>Бесплатно на любом тарифе: тариф ограничивает число одновременно открытых shell, а не число машин.</p>
+          <p>Бесплатно на любом тарифе.</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4.4" width="17.6" height="15.2" rx="2.4"/><path d="M7.4 9.8l2.6 2.6-2.6 2.6"/><path d="M12.6 15h4.2"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>Настоящий shell</h3>
           <p>Полноэкранные терминальные сеансы с рядом клавиш, созданным для телефона: escape, управляющие клавиши, стрелки и перемещение по слову.</p>
-          <p>Один shell за раз бесплатно на любом тарифе. Именованные вкладки, чтобы держать несколько открытыми сразу, это Pro.</p>
+          <p>Именованные вкладки позволяют держать несколько открытыми сразу.</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 16.8v-5.4a5.2 5.2 0 0110.4 0v5.4"/><path d="M4.8 16.8h14.4"/><path d="M10.4 19.2a1.8 1.8 0 003.2 0"/><circle cx="17.6" cy="6.6" r="2"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>Сообщает, когда shell ждёт</h3>
           <p>Shell, который остановился в ожидании ответа, от запроса пароля до завершённой сборки, показывает баннер на телефоне, а не ждёт, пока вы посмотрите сами. Баннер приходит при закрытом приложении, его отправляет Mac через релей.</p>
-          <p>Терминал и отметка на его вкладке доступны на любом тарифе. Оповещение, которое находит вас само, это Relay.</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 6.8a2 2 0 012-2h3.2l2 2.4h7.6a2 2 0 012 2v8a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M8.4 13.2h7.2"/></svg>
-          <span class="feature-tag">Relay</span>
           <h3>Файлы на любой из машин</h3>
           <p>Просматривайте папки вашего Mac или любого добавленного сервера, открывайте конфигурацию или скрипт, изменяйте и сохраняйте, создавайте новые файлы, переименовывайте и удаляйте то, что в списке.</p>
-          <p>Всё это бесплатно. Перенос файла между телефоном и машиной это Relay.</p>
+          <p>Перенос файла между телефоном и машиной тоже работает на любом тарифе.</p>
         </div>
 
         <div class="card feature">
@@ -491,36 +481,31 @@
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5.4" y="4.2" width="13.2" height="16" rx="2.4"/><path d="M9.4 4.2v1.6a1.6 1.6 0 001.6 1.6h2a1.6 1.6 0 001.6-1.6V4.2"/></svg>
           <h3>Один буфер обмена</h3>
-          <p>Скопируйте на iPhone и вставьте на Mac, или наоборот, на любом тарифе. Relay хранит последние двенадцать записей, так что то, что вы скопировали давно, всё ещё ждёт вас.</p>
+          <p>Скопируйте на iPhone и вставьте на Mac, или наоборот. Последние двенадцать записей хранятся, так что то, что вы скопировали давно, всё ещё ждёт вас.</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="8" height="6.2" rx="1.6"/><rect x="12.6" y="4.4" width="8" height="6.2" rx="1.6"/><rect x="3.4" y="13" width="8" height="6.2" rx="1.6"/><rect x="12.6" y="13" width="8" height="6.2" rx="1.6"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>Несколько окон сразу</h3>
           <p>Выберите окна, приложения или дисплеи и смотрите их вместе на телефоне, расположив так, как вам нужно. Каждая плитка это живая картинка, а не снимок экрана, и касание плитки открывает её, пока вся раскладка ждёт за кнопкой «Назад».</p>
-          <p>Один источник за раз доступен на любом тарифе. Mac работает для этого усерднее: каждая плитка захватывается отдельно, чтобы картинка оставалась живой.</p>
+          <p>Mac работает для этого усерднее: каждая плитка захватывается отдельно, чтобы картинка оставалась живой.</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5" width="13.6" height="10" rx="2"/><path d="M7 19h6"/><path d="M10 15v4"/><circle cx="19.4" cy="8" r="3.4"/><path d="M19.4 6.4v3.2M17.8 8h3.2"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>Виртуальные дисплеи</h3>
           <p>Виртуальный дисплей это экран, которого у Mac физически нет. Приложение просит Mac создать его, и этот телефон показывает его как любой другой экран: как ещё одно место для окон, которые уже есть на Mac, с названием и удалением из того же списка.</p>
-          <p>Каждый из них создаётся из приложения, поэтому начинаются они с Pro, и ни один не создаётся сам по себе. Каждый исчезает вместе с сеансом, в котором он был создан.</p>
+          <p>Каждый из них создаётся из приложения, и ни один не создаётся сам по себе. Каждый исчезает вместе с сеансом, в котором он был создан.</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="7.6" height="4.4" rx="2.2"/><rect x="12.6" y="4.6" width="8" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 15.6h10"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>Команды, которые вы набираете каждый раз</h3>
           <p>Ряд чипов над клавиатурой с командами и сниппетами, к которым вы обращаетесь, в каждом терминале. Ничего не запускается, пока вы не коснётесь.</p>
-          <p>Запуск уже имеющихся бесплатен на любом тарифе. Создание и изменение это Pro.</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 18.4l2.4-2.4-2.4-2.4"/><path d="M12.2 18.4h4"/></svg>
-          <span class="feature-tag">Pro</span>
           <h3>Макросы</h3>
           <p>Запишите последовательность один раз и запускайте одним касанием: то, что вы набираете каждый раз, когда садитесь за этот Mac.</p>
           <p>Хранятся на телефоне, редактируются и никуда не отправляются, пока вы их не запустите.</p>
@@ -634,11 +619,9 @@
     <div class="wrap">
       <h2>Тарифы</h2>
       <p class="section-lede">
-        Ваша собственная сеть бесплатна и без лимитов, навсегда. Релей нужен, чтобы подключаться
-        к Mac из другого места, и оплачивается помесячно или за год.
+        Ваша собственная сеть бесплатна и без счётчика, навсегда. Релей нужен, чтобы достучаться до Mac из другого места: бесплатный тариф даёт 30 минут в день, а у Pro и «Навсегда» ограничений нет.
       </p>
 
-      <!-- Keep this comparison in sync with the plans offered in the app. -->
       <p class="plans-scroll-hint" aria-hidden="true">Прокрутите вбок, чтобы увидеть все тарифы &rarr;</p>
       <div class="plans-wrap">
         <table class="plans">
@@ -652,99 +635,33 @@
               <span class="plan-note">в вашей собственной сети, сколько угодно</span>
             </th>
             <th scope="col" class="plan-col">
-              <span class="plan-name">Relay</span>
-              <span class="plan-price">$1.99<span>/мес.</span></span>
-              <span class="plan-note">или $14.99 в год, то есть $1.25 в месяц</span>
+              <span class="plan-name">Pro</span>
+              <span class="plan-price">$4.99<span>/мес.</span></span>
+              <span class="plan-note">Без ограничений вне дома, самая чёткая картинка через релей</span>
             </th>
             <th scope="col" class="plan-col col-pro">
               <span class="plan-badge">Лучшее предложение</span>
-              <span class="plan-name">Pro</span>
-              <span class="plan-price">$4.99<span>/мес.</span></span>
-              <span class="plan-note">или $34.99 в год, то есть $2.92 в месяц</span>
+              <span class="plan-name">Навсегда</span>
+              <span class="plan-price">$39.99<span>разово</span></span>
+              <span class="plan-note">Всё из Pro, оплата один раз</span>
             </th>
             </tr>
           </thead>
           <tbody>
             <tr class="group-row">
-              <th scope="rowgroup" colspan="3">Что даёт тариф</th>
+              <th scope="rowgroup" colspan="3">Чем отличаются тарифы</th>
               <td class="col-pro"></td>
             </tr>
             <tr>
               <th scope="row">Время релея каждый день</th>
-              <td class="val">1 час</td>
+              <td class="val">30 минут</td>
               <td class="val">без лимита</td>
               <td class="val col-pro">без лимита</td>
             </tr>
             <tr>
-              <th scope="row">Mac, с которыми можно связаться</th>
-              <td class="val">один</td>
-              <td class="val">каждый ваш Mac</td>
-              <td class="val col-pro">каждый ваш Mac</td>
-            </tr>
-            <tr>
-              <th scope="row">Звук с Mac</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Картинка в картинке</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Файлы, которые идут в обе стороны</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">История буфера обмена</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Оповещение, когда терминалу нужен ответ</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Несколько shell сразу, во вкладках</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Несколько Mac открыты одновременно</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Несколько окон в одной картинке</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Виртуальные дисплеи на телефоне</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Макросы, сниппеты и быстрые команды</th>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
               <th scope="row">Самая чёткая картинка через релей</th>
               <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
-              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
             </tr>
             <tr class="group-row">
@@ -752,8 +669,73 @@
               <td class="col-pro"></td>
             </tr>
             <tr class="quiet">
-              <th scope="row">Каждый дисплей, приложение и окно</th>
+              <th scope="row">Mac, с которыми можно связаться</th>
+              <td class="val">каждый ваш Mac</td>
+              <td class="val">каждый ваш Mac</td>
+              <td class="val col-pro">каждый ваш Mac</td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Звук с Mac</th>
               <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Картинка в картинке</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Файлы, которые идут в обе стороны</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">История буфера обмена</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Оповещение, когда терминалу нужен ответ</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Несколько shell сразу, во вкладках</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Несколько Mac открыты одновременно</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Несколько окон в одной картинке</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Виртуальные дисплеи на телефоне</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Макросы, сниппеты и быстрые команды</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Каждый дисплей, приложение и окно</th>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
@@ -762,12 +744,10 @@
               <th scope="row">Один shell за раз</th>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">SSH-серверы с сохранёнными ключами</th>
-              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
@@ -776,12 +756,10 @@
               <th scope="row">Проброс портов по SSH</th>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">Файловый браузер с редактированием и запуском</th>
-              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
@@ -790,12 +768,10 @@
               <th scope="row">Буфер обмена в обе стороны</th>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">Клавиатура, указатель, трекпад и колесо прокрутки</th>
-              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
@@ -804,12 +780,10 @@
               <th scope="row">Режим наблюдения</th>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">Режим конфиденциальности</th>
-              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
@@ -818,19 +792,16 @@
               <th scope="row">Снимки экрана, виджеты, Live Activity и Siri</th>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">Wake on LAN, Spaces и история сеансов</th>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
             </tr>
             <tr class="quiet">
               <th scope="row">Уведомления, когда Mac ждёт вас</th>
-              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
@@ -840,9 +811,7 @@
       </div>
 
       <p class="fine">
-        Цены устанавливаются App Store отдельно для каждой страны и показываются в приложении до
-        покупки. Подписки продлеваются автоматически, пока вы их не отмените, и отменить можно в
-        любой момент в настройках App Store.
+        Показаны цены для США. App Store задаёт их для каждой страны и показывает в приложении до покупки. Pro продлевается автоматически, пока вы не отмените подписку, и отменить её можно в любой момент в настройках App Store. «Навсегда» оплачивается один раз и не продлевается.
       </p>
     </div>
   </section>
@@ -954,8 +923,7 @@
         <details>
           <summary>Могут ли несколько iPhone подключаться к одному Mac?</summary>
           <p>
-            Да, на любом тарифе. Тариф ограничивает не число iPhone, которым доверяет Mac, а
-            число Mac, с которыми может быть связан один iPhone.
+            Да, на любом тарифе. Mac не ограничивает число iPhone, которым он доверяет.
           </p>
         </details>
         <details>
