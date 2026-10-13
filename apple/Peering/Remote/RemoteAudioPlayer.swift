@@ -31,8 +31,12 @@ final class RemoteAudioPlayer: @unchecked Sendable {
         engine.mainMixerNode.outputVolume = 1.0
 
         do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: .mixWithOthers)
-            try AVAudioSession.sharedInstance().setActive(true)
+            // Same category, mode and options as ``SessionAudio``, and not set again when they already hold: a second, different configuration is a route change to every other app playing, and YouTube Music paused for it.
+            let session = AVAudioSession.sharedInstance()
+            if session.category != .playback || session.mode != .moviePlayback || !session.categoryOptions.contains(.mixWithOthers) {
+                try session.setCategory(.playback, mode: .moviePlayback, options: .mixWithOthers)
+            }
+            try session.setActive(true)
             try engine.start()
             playerNode.play()
             // Taking the microphone for dictation reroutes the session, which stops an engine without telling anyone: the sound stayed gone until the next connection.

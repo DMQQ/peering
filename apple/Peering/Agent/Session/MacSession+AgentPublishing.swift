@@ -81,6 +81,8 @@ extension MacSession {
     /// The chats as the widget draws them. Called after every agent event; the publisher drops what changed nothing.
     func publishAgentWidget() {
         let chats = agentSessions.compactMap { session -> AgentChatSnapshot? in
+            // A stopped chat is in History, not on the Lock Screen.
+            guard !AgentPause.isPaused(session.transcript) else { return nil }
             let state: AgentChatSnapshot.State
             switch session.state {
             case .working:

@@ -65,10 +65,6 @@ extension TerminalHubScreen {
             .menuInk()
             Button("Rename", systemImage: "character.cursor.ibeam") { beginRename(session) }
                 .menuInk()
-            if model.hostSupportsAgentPause, session.state == .idle, !session.isPaused {
-                Button("Stop and move to history", systemImage: "archivebox", role: .destructive) { model.pauseAgentSession(session.id) }
-                    .menuDanger()
-            }
             Button("Close", systemImage: "xmark", role: .destructive) { pendingEnd = .chat(session.id) }
                 .menuDanger()
         } preview: {
