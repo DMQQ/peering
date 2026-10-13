@@ -85,7 +85,7 @@ extension View {
         lineLimit(1)
             .minimumScaleFactor(0.6)
             .frame(maxWidth: .infinity, minHeight: 44)
-            .background(ColorPalette.ink.opacity(0.1), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
             .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
 }
@@ -198,7 +198,7 @@ extension RemoteScreen {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .semibold))
                 .frame(width: width, height: 40)
-                .background(ColorPalette.ink.opacity(0.1), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
                 .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
         .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))

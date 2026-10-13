@@ -80,6 +80,10 @@ extension HostStatusView {
                     Label("Report an issue", systemImage: "envelope")
                 }
 
+                Link(destination: URL(string: "https://github.com/DMQQ/peering") ?? Self.reportURL) {
+                    Label(String(localized: "Source code on GitHub", table: "Links"), systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+
                 HostDiagnosticsRow(model: model)
             }
             .controlSize(.large)
