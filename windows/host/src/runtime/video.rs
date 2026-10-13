@@ -148,7 +148,14 @@ impl HostState {
             return Vec::new();
         }
         self.notice_checked_at = Some(now);
-        let desired = self.system.session_notice().or_else(|| capture_notice(self.video.capture_condition()));
+        if self.refusal.as_ref().is_some_and(|refusal| !refusal.in_force(now)) {
+            self.refusal = None;
+        }
+        let desired = self
+            .system
+            .session_notice()
+            .or_else(|| capture_notice(self.video.capture_condition()))
+            .or_else(|| self.refusal.as_ref().map(|refusal| refusal.notice.clone()));
         let Some(payload) = self.notices.update(desired) else {
             return Vec::new();
         };

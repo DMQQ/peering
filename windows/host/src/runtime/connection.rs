@@ -8,6 +8,7 @@ use peering_core::pairing::ApprovalDecision;
 use peering_core::session::deps::{HostDeps, Random};
 use peering_core::session::handshake::{HostConfig, HostSession};
 use peering_core::session::liveness::{counts_as_life, LivenessTracker};
+use peering_wire::chunks::Reassembler;
 use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
 use peering_wire::handshake::{ClientCapabilities, ClientHello};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -46,6 +47,9 @@ pub(super) struct Connection {
     pub(super) client_flags: ClientCapabilities,
     pub(super) video_for_session: Option<u64>,
     pub(super) registered: bool,
+    /// Clipboard commands too large for one frame arrive in chunks, which this puts back together.
+    pub(super) clipboard_chunks: Reassembler,
+    pub(super) clipboard_frame_id: u32,
     /// Held until the connection is authorised or turns out to be a video connection.
     pub(super) pre_auth: Option<PreAuthPermit>,
 }
@@ -93,6 +97,8 @@ where
         client_flags: ClientCapabilities::default(),
         video_for_session: None,
         registered: false,
+        clipboard_chunks: super::clipboard::new_reassembler(),
+        clipboard_frame_id: 0,
         pre_auth,
     };
     connection.run(&mut reader).await;

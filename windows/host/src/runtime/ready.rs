@@ -1,6 +1,6 @@
 //! Frames the session forwards once the client is authorised: commands, pings, file requests and agent requests.
 
-use peering_core::session::dispatch::{on_ready_frame, DispatchContext, ReadyOutcome};
+use peering_core::session::dispatch::{on_ready_frame, DispatchContext, DispatchOutcome, IgnoreReason, ReadyOutcome};
 use peering_core::video::intent::VideoIntent;
 use peering_wire::agent::AgentRequest;
 use peering_wire::command::RemoteCommand;
@@ -8,6 +8,7 @@ use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::handshake::ClientStatePayload;
 
 use super::agent_browse;
+use super::refusal::{notice_for, preview_refusal, source_unavailable, Refusal};
 use super::connection::{Connection, Flow};
 use super::video::CoordinatorControl;
 
@@ -15,10 +16,18 @@ impl Connection {
     pub(super) fn on_ready(&mut self, frame: &Frame) -> Flow {
         let (outcome, failure) = self.dispatch(|context| on_ready_frame(frame, context));
         if let Some(failure) = failure {
-            self.send(error_frame("sourceUnavailable", &failure));
+            self.report_source_failure(&failure);
         }
         match outcome {
-            ReadyOutcome::Dispatched(_) => Flow::Open,
+            ReadyOutcome::Dispatched(DispatchOutcome::Applied) => Flow::Open,
+            ReadyOutcome::Dispatched(DispatchOutcome::Ignored(reason)) => {
+                self.refuse(reason);
+                Flow::Open
+            }
+            ReadyOutcome::Dispatched(DispatchOutcome::ForHost(command)) => {
+                self.host_command(command);
+                Flow::Open
+            }
             ReadyOutcome::Reply(reply) => {
                 self.send(reply);
                 Flow::Open
@@ -29,6 +38,14 @@ impl Connection {
             ReadyOutcome::Unhandled(MessageKind::VideoKeyRequest) => self.answer_video_key(),
             ReadyOutcome::Unhandled(MessageKind::VideoTransport) => self.answer_video_transport(frame),
             ReadyOutcome::Unhandled(MessageKind::ClientState) => self.client_state(frame),
+            ReadyOutcome::Unhandled(MessageKind::VideoChunk) => self.clipboard_chunk(frame),
+            ReadyOutcome::Unhandled(MessageKind::PreviewRequest) => {
+                if let Some(refusal) = preview_refusal(&frame.payload) {
+                    self.send(refusal);
+                }
+                Flow::Open
+            }
+            // Read and set aside: the host never declares supportsLiveActivityPush, and a stray token is not an error.
             ReadyOutcome::Unhandled(_) => Flow::Open,
         }
     }
@@ -39,13 +56,27 @@ impl Connection {
             peering_core::session::dispatch::dispatch(command, context);
         });
         if let Some(failure) = failure {
-            self.send(error_frame("sourceUnavailable", &failure));
+            self.report_source_failure(&failure);
+        }
+    }
+
+    /// A capture source that could not be used. A notice that lapses, because an `error` frame would end an iPhone session.
+    pub(super) fn report_source_failure(&self, failure: &str) {
+        let now = self.now();
+        self.shared.lock().refusal = Some(Refusal::until(source_unavailable(failure), now));
+    }
+
+    /// Tells the phone that a command it sent is one this host does not carry out.
+    fn refuse(&self, reason: IgnoreReason) {
+        if let Some(notice) = notice_for(reason) {
+            let now = self.now();
+            self.shared.lock().refusal = Some(Refusal::until(notice, now));
         }
     }
 
     /// Runs `dispatch` in the locked state. Returns the outcome and the capture failure, if any, so the caller sends
     /// after the lock is released.
-    fn dispatch<T>(&self, run: impl FnOnce(&mut DispatchContext<'_>) -> T) -> (T, Option<String>) {
+    pub(super) fn dispatch<T>(&self, run: impl FnOnce(&mut DispatchContext<'_>) -> T) -> (T, Option<String>) {
         let now = self.now();
         let mut guard = self.shared.lock();
         let state = &mut *guard;
@@ -95,10 +126,4 @@ impl Connection {
         }
         Flow::Open
     }
-}
-
-pub(super) fn error_frame(code: &str, message: &str) -> Frame {
-    let payload = serde_json::json!({ "code": code, "message": message });
-    // A json! object of two strings.
-    Frame::new(MessageKind::Error, serde_json::to_vec(&payload).expect("an error payload always serialises"))
 }

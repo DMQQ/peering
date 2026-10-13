@@ -11,6 +11,7 @@ use ring::rand::{SecureRandom, SystemRandom};
 use peering_platform::keyboard::KeyboardInjector;
 use peering_platform::mouse::MouseInjector;
 use peering_platform::services::PlatformServices;
+use peering_platform::clipboard::WindowsClipboard;
 use peering_platform::system::WindowsSystem;
 use peering_platform::terminal::environment::{installed_shells, start_directory};
 use peering_platform::terminal::ConPtySpawner;
@@ -37,6 +38,7 @@ pub fn build() -> Result<Adapters, RuntimeError> {
             let PlatformServices { capture, encoder } = PlatformServices::new();
             (capture, encoder)
         }),
+        clipboard: Arc::new(WindowsClipboard),
     })
 }
 
@@ -64,5 +66,17 @@ impl InputSink for WindowsInput {
     fn release_all(&mut self) {
         self.mouse.release_all();
         self.keyboard.release_all();
+    }
+
+    fn pointer_position(&self) -> Option<(f64, f64)> {
+        self.mouse.pointer_position()
+    }
+
+    fn last_injected_position(&self) -> Option<(f64, f64)> {
+        self.mouse.last_injected_position()
+    }
+
+    fn joystick_nudges(&self) -> u64 {
+        self.mouse.joystick_nudges()
     }
 }

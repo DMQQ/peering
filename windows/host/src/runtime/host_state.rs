@@ -10,6 +10,8 @@ use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
 use peering_core::notice::NoticeTracker;
 use peering_core::pairing::PairingService;
+use peering_core::pointer::PointerTracker;
+use peering_core::ports::clipboard::Clipboard;
 use peering_core::ports::encoder::Encoder;
 use peering_core::ports::input::InputSink;
 use peering_core::ports::system::SystemActions;
@@ -44,12 +46,13 @@ struct Opened {
     files: Arc<dyn FileSystem + Send + Sync>,
     home_directory: String,
     agent_binaries: Box<dyn BinaryLocator>,
+    clipboard: Arc<dyn Clipboard>,
 }
 
 impl HostState {
     /// Builds the state from the adapters. A paired list that could not be read starts empty and is shown as a problem.
     pub(super) fn new(profile: &HostProfile, services: HostServices) -> Result<Self, RuntimeError> {
-        let HostServices { capture, encoder, input, system, secrets, files, terminal, rebuild_video, home_directory, agent_binaries } = services;
+        let HostServices { capture, encoder, input, system, secrets, files, terminal, rebuild_video, home_directory, agent_binaries, clipboard } = services;
         let terminals = terminal::manager(terminal, secrets.clone(), profile.clock.clone())?;
         let secret_pins = Arc::new(SecretPins::open(secrets)?);
         let pins_problem = secret_pins.load_problem();
@@ -66,6 +69,7 @@ impl HostState {
             files,
             home_directory,
             agent_binaries,
+            clipboard,
         };
         let mut state = Self::assemble(opened);
         if let Some(problem) = pins_problem {
@@ -75,7 +79,7 @@ impl HostState {
     }
 
     fn assemble(opened: Opened) -> Self {
-        let Opened { host_id, now, secret_pins, terminals, capture, encoder, rebuild_video, input, system, files, home_directory, agent_binaries } = opened;
+        let Opened { host_id, now, secret_pins, terminals, capture, encoder, rebuild_video, input, system, files, home_directory, agent_binaries, clipboard } = opened;
         let pins: Arc<dyn PinStore> = secret_pins.clone();
         Self {
             pairing: PairingService::new(&host_id, pins.clone()),
@@ -98,6 +102,10 @@ impl HostState {
             catalog_checked_at: None,
             notices: NoticeTracker::default(),
             notice_checked_at: None,
+            refusal: None,
+            clipboard,
+            keeping_awake: false,
+            pointer: PointerTracker::default(),
             hosting: true,
             relay: RelayStatus::Off,
             problems: BTreeMap::new(),

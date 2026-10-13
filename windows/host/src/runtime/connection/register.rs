@@ -9,7 +9,6 @@ use peering_wire::sealing::TOKEN_SIZE;
 use tokio::task::spawn_local;
 
 use super::super::outbound::{outbound, Outbound};
-use super::super::ready::error_frame;
 use super::super::relay_lane;
 use super::super::shared::SessionSlot;
 use super::super::VideoEndpoint;
@@ -35,7 +34,7 @@ impl Connection {
             ));
         }
         if let Some(failure) = capture_failure {
-            self.send(error_frame("sourceUnavailable", &failure));
+            self.report_source_failure(&failure);
         }
         for frame in frames {
             self.send(frame);
@@ -66,6 +65,7 @@ impl Connection {
                 client_flags: self.client_flags.clone(),
             },
         );
+        state.refresh_keep_awake();
         state.video.request(VideoIntent::Attach(client_id.to_owned()));
         let capture_failure = state.video.apply(VideoIntent::EnsureCapturing, now).err().map(|error| error.to_string());
         let mut frames = state.catalogue_frames_for(self.session_id);

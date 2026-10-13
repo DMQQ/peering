@@ -12,7 +12,7 @@ pub struct HostProfile {
     pub host_name: String,
     /// The 65 byte point of the identity key, as the certificate carries it.
     pub identity_public_key: Vec<u8>,
-    /// Wake-on-LAN addresses for paired clients. Not collected yet, so the hello carries none.
+    /// Wake-on-LAN addresses for paired clients. `HostRuntime::new` fills them from the adapters when none are given.
     pub mac_addresses: Vec<String>,
     pub clock: Arc<dyn Clock>,
 }

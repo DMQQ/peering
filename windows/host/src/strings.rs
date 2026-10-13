@@ -39,6 +39,14 @@ pub const FIREWALL_APPLIED: &str = "The firewall rule is in place.";
 pub const FRAME_RATE_HEADING: &str = "Frame rate";
 pub const FRAME_RATE_NOTE: &str = "A phone can still ask for its own frame rate.";
 
+pub const PRIVACY_MODE_UNAVAILABLE: &str = "Privacy mode is not available on this PC.";
+pub const DESKTOPS_UNAVAILABLE: &str = "This PC cannot switch desktops from the phone.";
+pub const WINDOW_ACTIONS_UNAVAILABLE: &str = "This PC cannot close or move windows from the phone yet.";
+pub const LAUNCH_UNAVAILABLE: &str = "This PC cannot open apps from the phone yet.";
+pub const MOSAIC_UNAVAILABLE: &str = "This PC cannot show several screens at once.";
+
+pub const CLIPBOARD_WRITE_FAILED: &str = "This PC could not put that on its clipboard.";
+
 pub fn approval_prompt(client_name: &str) -> String {
     format!("{client_name} wants to pair without scanning the code")
 }

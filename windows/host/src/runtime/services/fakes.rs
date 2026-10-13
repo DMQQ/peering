@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use peering_core::fakes::clipboard::MemoryClipboard;
 use peering_core::fakes::encoder::FakeEncoder;
 use peering_core::fakes::input::RecordingInput;
 use peering_core::fakes::secret_store::InMemorySecretStore;
@@ -29,5 +30,6 @@ pub fn build() -> Result<Adapters, RuntimeError> {
             environment: Vec::new(),
         },
         rebuild_video: Arc::new(|| (Box::new(FakeCapture::new(Vec::new())), Box::new(FakeEncoder::default()))),
+        clipboard: Arc::new(MemoryClipboard::default()),
     })
 }

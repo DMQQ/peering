@@ -165,6 +165,7 @@ impl HostState {
         self.refresh_bitrate_ceiling();
         self.input.release_all();
         self.terminals.disconnect(client_id);
+        self.refresh_keep_awake();
     }
 
     /// Starts a new paired list after the old one could not be read. The problem stays, with the reason, when it did not work.
@@ -185,6 +186,7 @@ impl HostState {
         self.video.request(VideoIntent::StopWhenIdle);
         self.refresh_bitrate_ceiling();
         self.input.release_all();
+        self.refresh_keep_awake();
     }
 }
 

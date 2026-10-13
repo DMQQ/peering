@@ -12,7 +12,10 @@ use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
 use peering_core::notice::NoticeTracker;
 use peering_core::pairing::PairingService;
+use peering_core::pointer::PointerTracker;
+use peering_core::ports::clipboard::Clipboard;
 use peering_core::ports::input::InputSink;
+use peering_core::ports::system::SystemActions;
 use peering_core::session::deps::PinStore;
 use peering_core::session::held_input::HoldGuard;
 use peering_core::terminal::manager::TerminalSessionManager;
@@ -31,6 +34,7 @@ use super::outbound::{FrameSender, Outbound};
 use super::peer_address::PeerAddressRouter;
 use super::pins::SecretPins;
 use super::problem_source::ProblemSource;
+use super::refusal::Refusal;
 use super::services::{BoxedInput, BoxedSystem, SharedFileSystem};
 use super::video_handle::VideoHandle;
 
@@ -79,6 +83,12 @@ pub struct HostState {
     pub next_session: u64,
     pub catalog_checked_at: Option<f64>,
     pub notices: NoticeTracker,
+    /// The last thing a phone asked for that this host would not do, shown until it lapses.
+    pub refusal: Option<Refusal>,
+    pub clipboard: Arc<dyn Clipboard>,
+    /// Whether the PC is being kept awake for the phones connected now.
+    pub keeping_awake: bool,
+    pub pointer: PointerTracker,
     pub notice_checked_at: Option<f64>,
     pub hosting: bool,
     pub relay: RelayStatus,
@@ -142,6 +152,16 @@ impl HostState {
         self.notice_checked_at = None;
         self.catalogues = SessionCatalogue::new();
         self.video.request(VideoIntent::ResetAfterPanic);
+    }
+
+    /// Keeps the PC awake while a phone is connected and lets it sleep again when the last one leaves. Called whenever the set of
+    /// sessions or the hosting switch changes, and always on the runtime thread, which the awake request belongs to.
+    pub fn refresh_keep_awake(&mut self) {
+        let wanted = self.hosting && !self.sessions.is_empty();
+        if wanted != self.keeping_awake {
+            self.keeping_awake = wanted;
+            self.system.set_keep_awake(wanted);
+        }
     }
 
     pub fn allocate_session(&mut self) -> u64 {

@@ -70,6 +70,7 @@ impl Connection {
                 state.video.request(VideoIntent::StopWhenIdle);
             }
             state.release_input_if_idle();
+            state.refresh_keep_awake();
             if last_of_client {
                 state.terminals.disconnect(&slot.client_id);
             }

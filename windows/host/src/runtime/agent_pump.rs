@@ -37,13 +37,14 @@ impl HostState {
 
 /// One supervised pass: a panic in `poll` is caught and shown as a problem, and the loop is held off, instead of ending the
 /// host.
-fn supervised_pass(
+pub(super) fn supervised_pass(
     supervised: &mut Supervised,
     shared: &Shared,
+    source: ProblemSource,
     now: f64,
     pass: impl FnOnce(&mut HostState) -> Vec<Outgoing>,
 ) -> Vec<Outgoing> {
-    let result = supervised.run(now, || pass(&mut shared.lock()), |text| record_problem(shared, ProblemSource::Agents, text));
+    let result = supervised.run(now, || pass(&mut shared.lock()), |text| record_problem(shared, source, text));
     match result {
         Pass::Done(outgoing) => outgoing,
         Pass::Skipped | Pass::Panicked => Vec::new(),
@@ -56,7 +57,7 @@ async fn run(shared: Shared, profile: Arc<HostProfile>) {
     loop {
         ticks.tick().await;
         let now = profile.clock.now_seconds();
-        deliver(supervised_pass(&mut supervised, &shared, now, HostState::pump_agents));
+        deliver(supervised_pass(&mut supervised, &shared, ProblemSource::Agents, now, HostState::pump_agents));
     }
 }
 
@@ -77,14 +78,14 @@ mod tests {
     fn a_panic_in_the_agent_pass_is_a_problem_and_the_next_pass_clears_it() {
         let shared = shared();
         let mut supervised = Supervised::new("agents");
-        let none = supervised_pass(&mut supervised, &shared, 1.0, |_| panic!("the adapter broke"));
+        let none = supervised_pass(&mut supervised, &shared, ProblemSource::Agents, 1.0, |_| panic!("the adapter broke"));
         assert!(none.is_empty());
         assert!(shared.lock().problems.get(&ProblemSource::Agents).is_some_and(|text| text.contains("the adapter broke")));
 
-        let held_off = supervised_pass(&mut supervised, &shared, 1.1, |_| panic!("must not run inside the backoff"));
+        let held_off = supervised_pass(&mut supervised, &shared, ProblemSource::Agents, 1.1, |_| panic!("must not run inside the backoff"));
         assert!(held_off.is_empty());
 
-        let _ = supervised_pass(&mut supervised, &shared, 2.0, |_| Vec::new());
+        let _ = supervised_pass(&mut supervised, &shared, ProblemSource::Agents, 2.0, |_| Vec::new());
         assert!(!shared.lock().problems.contains_key(&ProblemSource::Agents));
     }
 }

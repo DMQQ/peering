@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use peering_agent::availability::BinaryLocator;
 use peering_core::fakes::capture::FakeCapture;
+use peering_core::fakes::clipboard::MemoryClipboard;
 use peering_core::fakes::clock::FakeClock;
 use peering_core::fakes::encoder::FakeEncoder;
 use peering_core::fakes::input::RecordingInput;
@@ -81,6 +82,18 @@ impl InputSink for SharedInput {
     fn release_all(&mut self) {
         locked(&self.0).release_all();
     }
+
+    fn pointer_position(&self) -> Option<(f64, f64)> {
+        locked(&self.0).pointer_position()
+    }
+
+    fn last_injected_position(&self) -> Option<(f64, f64)> {
+        locked(&self.0).last_injected_position()
+    }
+
+    fn joystick_nudges(&self) -> u64 {
+        locked(&self.0).joystick_nudges()
+    }
 }
 
 /// The encoder the test inspects after the runtime has driven it.
@@ -115,6 +128,14 @@ impl SystemActions for SharedSystem {
     fn session_notice(&self) -> Option<peering_wire::handshake::NoticePayload> {
         locked(&self.0).session_notice()
     }
+
+    fn set_keep_awake(&mut self, awake: bool) {
+        locked(&self.0).set_keep_awake(awake);
+    }
+
+    fn hardware_addresses(&self) -> Vec<String> {
+        locked(&self.0).hardware_addresses()
+    }
 }
 
 pub struct Harness {
@@ -126,6 +147,7 @@ pub struct Harness {
     pub secrets: Arc<InMemorySecretStore>,
     pub clock: Arc<FakeClock>,
     pub shells: FakeSpawner,
+    pub clipboard: Arc<MemoryClipboard>,
 }
 
 pub fn display() -> DisplayInfo {
@@ -214,6 +236,7 @@ fn harness_with(
     files.add_file("C:\\Users\\me\\notes.txt", b"hello", 0.0);
     let clock = Arc::new(FakeClock::new(100.0, UNIX_NOW));
     let shells = FakeSpawner::default();
+    let clipboard = Arc::new(MemoryClipboard::default());
     let services = HostServices {
         capture: Box::new(SharedCapture(capture.clone())),
         encoder: encoder_port,
@@ -234,6 +257,7 @@ fn harness_with(
         },
         home_directory: "C:\\Users\\me".to_owned(),
         agent_binaries,
+        clipboard: clipboard.clone(),
     };
     let profile = HostProfile {
         host_id: HOST_ID.to_owned(),
@@ -243,7 +267,7 @@ fn harness_with(
         clock: clock.clone(),
     };
     let runtime = HostRuntime::new(profile, services).expect("the runtime builds over fakes");
-    Harness { runtime, capture, encoder, input, system, secrets, clock, shells }
+    Harness { runtime, capture, encoder, input, system, secrets, clock, shells, clipboard }
 }
 
 pub fn direct_peer() -> PeerInfo {
@@ -323,6 +347,16 @@ impl Phone {
         }
     }
 
+    /// The next frame whose kind is one of `kinds`; frames of other kinds before it are skipped.
+    pub async fn next_of_either(&mut self, kinds: &[MessageKind]) -> Frame {
+        loop {
+            let frame = self.next().await;
+            if kinds.contains(&frame.kind) {
+                return frame;
+            }
+        }
+    }
+
     pub async fn send_json<T: Serialize>(&mut self, kind: MessageKind, value: &T) {
         self.send(encode_json(kind, value)).await;
     }
@@ -344,12 +378,17 @@ pub fn hello() -> Frame {
 
 /// The hello of the phone named `client_id`.
 pub fn hello_from(client_id: &str) -> Frame {
+    hello_declaring(client_id, ClientCapabilities { supports_agent_chat: Some(true), ..Default::default() })
+}
+
+/// The hello of the phone named `client_id`, declaring exactly `capabilities`.
+pub fn hello_declaring(client_id: &str, capabilities: ClientCapabilities) -> Frame {
     let hello = ClientHello {
         client_id: client_id.to_owned(),
         client_name: CLIENT_NAME.to_owned(),
         protocol_version: PROTOCOL_VERSION,
         wants_pairing: true,
-        capabilities: ClientCapabilities { supports_agent_chat: Some(true), ..Default::default() },
+        capabilities,
         resume_source: None,
         lost_pairing: None,
         client_platform: Some("android".to_owned()),
@@ -413,6 +452,23 @@ pub async fn reconnected_phone(runtime: &HostRuntime) -> Phone {
     phone.send(hello()).await;
     phone.next_of(MessageKind::Catalog).await;
     phone
+}
+
+/// A second connection of the already paired phone that declares `capabilities`, authorised once the catalogue arrives.
+pub async fn reconnected_phone_declaring(runtime: &HostRuntime, capabilities: ClientCapabilities) -> Phone {
+    let mut phone = Phone::connect(runtime, direct_peer());
+    phone.send(role_frame(CONTROL_ROLE)).await;
+    phone.send(hello_declaring(CLIENT_ID, capabilities)).await;
+    phone.next_of(MessageKind::Catalog).await;
+    phone
+}
+
+/// The hello a paired phone is answered with on a second connection.
+pub async fn paired_server_hello(runtime: &HostRuntime) -> ServerHello {
+    let mut phone = Phone::connect(runtime, direct_peer());
+    phone.send(role_frame(CONTROL_ROLE)).await;
+    phone.send(hello()).await;
+    server_hello(&phone.next_of(MessageKind::ServerHello).await)
 }
 
 /// Pairs over a direct connection with the proof computed from the QR secret, and returns the phone authorised.

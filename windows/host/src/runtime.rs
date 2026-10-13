@@ -12,6 +12,7 @@ mod agent;
 mod agent_gate;
 mod agent_browse;
 mod agent_pump;
+mod clipboard;
 mod clock;
 mod config;
 mod connection;
@@ -26,11 +27,13 @@ mod peer_address;
 mod notifications;
 mod outbound;
 mod pins;
+mod pointer_pump;
 mod pre_auth;
 mod problem_source;
 mod profile;
 mod random;
 mod ready;
+mod refusal;
 mod relay;
 mod relay_lane;
 mod serve;
@@ -77,6 +80,10 @@ pub struct HostRuntime {
 impl HostRuntime {
     /// Builds the shared state from the adapters. Must be called on the thread that runs the `LocalSet` from `run`.
     pub fn new(profile: HostProfile, services: HostServices) -> Result<Self, RuntimeError> {
+        let profile = HostProfile {
+            mac_addresses: if profile.mac_addresses.is_empty() { services.system.hardware_addresses() } else { profile.mac_addresses },
+            ..profile
+        };
         let state = HostState::new(&profile, services)?;
         let (approvals, _unused_receiver) = broadcast::channel::<ApprovalDecision>(APPROVAL_CHANNEL_DEPTH);
         let (commands, command_inbox) = mpsc::channel();
@@ -124,6 +131,12 @@ impl HostRuntime {
     /// One pass of the terminal pump: reads the shells and delivers what they printed. The pump task calls this every tick.
     pub fn pump_terminals(&self) {
         let outgoing = self.shared.lock().pump_terminals();
+        video::deliver(outgoing);
+    }
+
+    /// One look at the PC's pointer at `now`, delivered to the phones that asked to be told. The pointer task calls this.
+    pub fn pump_pointer(&self, now: f64) {
+        let outgoing = self.shared.lock().pump_pointer(now);
         video::deliver(outgoing);
     }
 

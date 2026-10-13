@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use peering_agent::availability::BinaryLocator;
 use peering_core::files::vfs::{FileSystem, FsError, RawEntry};
+use peering_core::ports::clipboard::Clipboard;
 use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame};
 use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
 use peering_core::ports::input::{InputSink, TransformSnapshot};
@@ -30,6 +31,7 @@ mod adapters {
         pub files: std::sync::Arc<dyn peering_core::files::vfs::FileSystem + Send + Sync>,
         pub terminal: super::TerminalServices,
         pub rebuild_video: super::RebuildVideo,
+        pub clipboard: std::sync::Arc<dyn peering_core::ports::clipboard::Clipboard>,
     }
 }
 
@@ -67,6 +69,7 @@ pub struct HostServices {
     pub home_directory: String,
     /// Answers whether the agent CLI is installed, which decides if the hello advertises chat.
     pub agent_binaries: Box<dyn BinaryLocator>,
+    pub clipboard: Arc<dyn Clipboard>,
 }
 
 /// The capture behind a lock, so the coordinator and the runtime both reach the same device.
@@ -143,6 +146,14 @@ impl SystemActions for BoxedSystem {
     fn session_notice(&self) -> Option<peering_wire::handshake::NoticePayload> {
         self.0.session_notice()
     }
+
+    fn set_keep_awake(&mut self, awake: bool) {
+        self.0.set_keep_awake(awake);
+    }
+
+    fn hardware_addresses(&self) -> Vec<String> {
+        self.0.hardware_addresses()
+    }
 }
 
 pub struct BoxedInput(pub Box<dyn InputSink + Send>);
@@ -154,6 +165,18 @@ impl InputSink for BoxedInput {
 
     fn release_all(&mut self) {
         self.0.release_all();
+    }
+
+    fn pointer_position(&self) -> Option<(f64, f64)> {
+        self.0.pointer_position()
+    }
+
+    fn last_injected_position(&self) -> Option<(f64, f64)> {
+        self.0.last_injected_position()
+    }
+
+    fn joystick_nudges(&self) -> u64 {
+        self.0.joystick_nudges()
     }
 }
 
@@ -180,7 +203,7 @@ impl FileSystem for SharedFileSystem {
 
 /// The platform adapters for this machine. `home_directory` is where a file listing starts when the client names none.
 pub fn platform_services(home_directory: String) -> Result<HostServices, RuntimeError> {
-    let adapters::Adapters { capture, encoder, input, system, secrets, files, terminal, rebuild_video } = adapters::build()?;
+    let adapters::Adapters { capture, encoder, input, system, secrets, files, terminal, rebuild_video, clipboard } = adapters::build()?;
     Ok(HostServices {
         capture,
         encoder,
@@ -192,5 +215,6 @@ pub fn platform_services(home_directory: String) -> Result<HostServices, Runtime
         rebuild_video,
         home_directory,
         agent_binaries: Box::new(super::agent::DiskBinaries),
+        clipboard,
     })
 }
