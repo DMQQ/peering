@@ -16,4 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "peering-android"
 
-include(":core:wire", ":core:session", ":core:platform", ":app")
+include(":core:wire", ":core:session", ":core:platform", ":core:ssh", ":core:sshj", ":app")
