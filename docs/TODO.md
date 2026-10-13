@@ -151,6 +151,32 @@ Install the release APK (`android/tools/README.md`), then:
 - [ ] Filter your own devices with `internal_build`.
 - [ ] Android and Windows send no analytics (decided: later).
 
+## 8. Changes from 2026-10-13 to verify on devices
+
+- [ ] Apple Watch app: install the iPhone app with `apple/Tools/install-iphone.sh` (the watch app is embedded and installs on the paired watch).
+      Trigger an agent approval: it appears in the watch app's list within a second, Allow and Deny answer it, the Mac resolves it, and the row
+      disappears. With the iPhone out of reach the watch shows the notification's question and says the iPhone is not reachable. Nothing has run
+      on a watch yet; only the simulator build was checked.
+- [ ] One device at a time: connect a second phone to a Mac that already has one connected. It is refused with "Another device is already
+      connected to this Mac. Disconnect it first." A first phone that went quiet for 20 seconds is replaced. Needs the Mac host rebuilt and installed.
+- [ ] Time to first picture on a LAN is shorter: the Mac now waits at most 0.3 seconds for the phone to name a source (was 1 second). Needs the Mac
+      host rebuilt and installed. Check that reconnecting to a mosaic does not flash a plain desktop first.
+- [ ] The iPhone stays awake while a session is open and sleeps normally after it ends.
+- [ ] Killing the iPhone app from the app switcher removes the Live Activities (the system calls the app only when it was in the foreground; if
+      not, the Mac ends the card when the connection closes, and the next launch ends leftovers).
+- [ ] iPhone Session log (Activity tab, open a session): timestamped lines for connecting, handshake, reconnect attempts, drops, foreground and
+      background, low power, memory warnings and a latency line a minute.
+- [ ] Session history keeps at most 25 sessions on iPhone and Android.
+- [ ] Android: Connect tab no longer flashes the first-run screen on launch; Files bar is one compact row; a picture that never arrives is
+      nudged, reopened after 30 seconds and the connection replaced after 60 (try with a host that sends no video).
+- [ ] Mac host re-registers with the relay when a VPN reconnects or the network returns on the same interfaces.
+- [ ] Windows CI (`windows.yml`) is green on a real Windows runner for the first time: build, clippy and tests. Still nothing has been run by hand.
+- [ ] Site: the new header and the Pro 2.99 / Lifetime 24.99 prices are committed; deploy the site (`relay/tools/deploy-site.sh --yes`) once App
+      Store Connect shows the same prices. StoreKit test prices already match.
+- [ ] Relay deploys need `PEERINGD_HEALTH_PORTS="127.0.0.1:8443 127.0.0.1:20190"` on this box: the script's default control port 9443 is not the
+      box's, and the health check rolls back a good binary otherwise.
+- [ ] A pushed question with several answers still shows only Open: lock screen buttons for it need a notification service extension.
+
 ## Open items I could not or did not do
 
 - Android: the session core still parses on the Main thread (needs a threading redesign); a micro benchmark guards the
