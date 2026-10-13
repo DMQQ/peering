@@ -199,11 +199,22 @@ enum KeycodeMap {
 
 /// Held by a field because autocorrection, prediction and dictation belong to the text system, which needs a document to offer them to. What the Mac is told is what the field just did, including the system's own replacements. Also the only place on this side a caret can be anywhere but the end.
 final class KeyboardTypingView: UITextView, UITextViewDelegate {
-    static let font = UIFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+    static func font(large: Bool) -> UIFont {
+        UIFont.monospacedSystemFont(ofSize: large ? 17 : 13, weight: .regular)
+    }
+
+    /// Larger while the shortcut keys are folded away, since the room they took goes to the text.
+    var isLarge = false {
+        didSet {
+            guard isLarge != oldValue else { return }
+            font = Self.font(large: isLarge)
+            hint.font = font
+        }
+    }
 
     /// One line, growing to a cap past which the text view scrolls and keeps the caret in view.
-    static var oneLineHeight: CGFloat { (font.lineHeight + 8).rounded() }
-    static var maximumHeight: CGFloat { (font.lineHeight * 4 + 10).rounded() }
+    var oneLineHeight: CGFloat { ((font ?? Self.font(large: false)).lineHeight + 8).rounded() }
+    var maximumHeight: CGFloat { ((font ?? Self.font(large: false)).lineHeight * (isLarge ? 5 : 4) + 10).rounded() }
 
     var onType: ((String) -> Void)?
     var onDelete: ((Int) -> Void)?
@@ -229,13 +240,13 @@ final class KeyboardTypingView: UITextView, UITextViewDelegate {
         keyboardType = .default
         returnKeyType = .send
 
-        font = Self.font
+        font = Self.font(large: false)
         textColor = .white
         tintColor = .white
         backgroundColor = .clear
 
         hint.text = String(localized: "Typing…")
-        hint.font = Self.font
+        hint.font = Self.font(large: false)
         hint.textColor = .placeholderText
         hint.translatesAutoresizingMaskIntoConstraints = false
         addSubview(hint)
@@ -325,6 +336,7 @@ final class KeyboardTypingView: UITextView, UITextViewDelegate {
 
 struct KeyboardTypingCapture: UIViewRepresentable {
     let model: SessionModel
+    var isLarge = false
     @Binding var isFocused: Bool
 
     func makeUIView(context: Context) -> KeyboardTypingView {
@@ -361,14 +373,15 @@ struct KeyboardTypingCapture: UIViewRepresentable {
         return CGSize(
             width: width,
             height: min(
-                max(needed, KeyboardTypingView.oneLineHeight),
-                KeyboardTypingView.maximumHeight
+                max(needed, uiView.oneLineHeight),
+                uiView.maximumHeight
             )
         )
     }
 
     func updateUIView(_ view: KeyboardTypingView, context: Context) {
         // Read here, not at construction, because the mode is switchable while the keyboard is up: in keycode mode a correction would arrive as keys for a word nobody typed.
+        view.isLarge = isLarge
         let autocorrects = model.keyboardMode == .unicode
         view.autocorrectionType = autocorrects ? .yes : .no
         if view.appliedFieldSerial != model.fieldSerial {

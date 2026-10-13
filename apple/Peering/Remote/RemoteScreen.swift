@@ -12,6 +12,7 @@ struct RemoteScreen: View {
 
     @State var streamLooksPaused = false
     @State var dictation = VoiceDictation()
+    @AppStorage(PreferenceKeys.keyboardShortcutsCollapsed) var shortcutsCollapsed = false
 
     @AppStorage(PreferenceKeys.interactionMode) var interactionMode: InteractionMode = .control
 
@@ -371,7 +372,7 @@ struct RemoteScreen: View {
     var keyboardInputBar: some View {
         VStack(spacing: 8) {
             keyboardInputRow
-            if !dictation.isListeningUI {
+            if !dictation.isListeningUI, !shortcutsCollapsed {
                 keyboardKeyRow
                 if !deviceIsLandscape { arrowStrip(withReturn: false) }
             }
@@ -387,8 +388,13 @@ struct RemoteScreen: View {
     private var keyboardInputRow: some View {
         ZStack {
             HStack(spacing: 8) {
+                if shortcutsCollapsed {
+                    compactCapButton(icon: "keyboard.chevron.compact.down", filled: true) { model.showKeyboard = false }
+                        .accessibilityLabel("Hide keyboard")
+                }
                 keyboardField
                 dictationButton
+                shortcutsToggle
             }
             .opacity(dictation.isActive ? 0 : 1)
             .allowsHitTesting(!dictation.isActive)
@@ -402,6 +408,20 @@ struct RemoteScreen: View {
             }
         }
         .animation(Motion.settle, value: dictation.state)
+    }
+
+    private var shortcutsToggle: some View {
+        Button {
+            withAnimation(Motion.settle) { shortcutsCollapsed.toggle() }
+        } label: {
+            Image(systemName: shortcutsCollapsed ? "chevron.up" : "chevron.down")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white.opacity(0.7))
+                .frame(width: 28, height: 36)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.9))
+        .accessibilityLabel(shortcutsCollapsed ? String(localized: "Show shortcut keys", table: "Dictation") : String(localized: "Hide shortcut keys", table: "Dictation"))
     }
 
     private var dictationButton: some View {
@@ -428,6 +448,7 @@ struct RemoteScreen: View {
         // needs, so the field grows a line at a time and this bar rises with it.
         KeyboardTypingCapture(
             model: model,
+            isLarge: shortcutsCollapsed,
             isFocused: Binding(
                 get: { model.showKeyboard },
                 set: { model.showKeyboard = $0 }

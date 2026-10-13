@@ -32,6 +32,8 @@ public enum PreferenceKeys {
     /// Persisted so observe mode's no-input promise survives a relaunch.
     public static let interactionMode = "Peering.interactionMode"
     public static let scalesToFill = "Peering.scalesToFill"
+    /// The keyboard bar without its shortcut keys, and with a larger field.
+    public static let keyboardShortcutsCollapsed = "Peering.keyboardShortcutsCollapsed"
     public static let pointerSpeed = "Peering.pointerSpeed"
     /// The terminal commands sent from this phone, newest first.
     public static let terminalHistory = "Peering.terminalHistory"
