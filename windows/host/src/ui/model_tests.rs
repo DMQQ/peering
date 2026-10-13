@@ -263,4 +263,33 @@ mod settings {
         assert_eq!(settings_command(&SettingsChoice::StartAtLogin(true)), None);
         assert_eq!(settings_command(&SettingsChoice::FixFirewall), None);
     }
+
+    #[test]
+    fn the_relay_and_hooks_switches_become_host_commands() {
+        assert_eq!(settings_command(&SettingsChoice::RelayEnabled(false)), Some(RuntimeCommand::SetRelayEnabled(false)));
+        assert_eq!(settings_command(&SettingsChoice::TerminalHooks(true)), Some(RuntimeCommand::SetTerminalHooks(true)));
+    }
+
+    #[test]
+    fn the_switches_show_what_the_host_has_set() {
+        let model = UiModel::new(HostSnapshot { relay_enabled: true, terminal_hooks: true, ..HostSnapshot::default() });
+        let panel = model.settings(&SettingsState::new(false));
+        assert!(panel.relay_enabled && panel.terminal_hooks);
+    }
+
+    #[test]
+    fn a_start_at_login_change_that_worked_is_noted_in_the_saved_settings() {
+        use crate::ui::settings::SettingsJob;
+        assert_eq!(
+            job_command(&SettingsJob::AutostartWritten { wanted: true, result: Ok(()) }),
+            Some(RuntimeCommand::NoteStartAtLogin(true))
+        );
+        assert_eq!(job_command(&SettingsJob::AutostartRead(false)), Some(RuntimeCommand::NoteStartAtLogin(false)));
+    }
+
+    #[test]
+    fn a_start_at_login_change_that_failed_is_not_noted() {
+        use crate::ui::settings::SettingsJob;
+        assert_eq!(job_command(&SettingsJob::AutostartWritten { wanted: true, result: Err("no".to_owned()) }), None);
+    }
 }

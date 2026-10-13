@@ -7,6 +7,8 @@ pub enum ProblemSource {
     Terminals,
     Agents,
     Pointer,
+    Hooks,
+    Settings,
     Relay,
     /// The relay refused the registration because this PC's clock is off.
     RelayClock,

@@ -79,6 +79,7 @@ impl Connection {
             hello.capabilities.supports_agent_pause = Some(true);
         }
         hello.capabilities.supports_file_browser = Some(true);
+        hello.capabilities.supports_clipboard_images = Some(true);
         // The hello was decoded from our own derived type a moment ago, so writing it back cannot fail.
         Frame::new(MessageKind::ServerHello, serde_json::to_vec(&hello).expect("a hello always serialises"))
     }

@@ -91,6 +91,11 @@ impl TerminalSessionManager {
         }
     }
 
+    /// The push token of every phone that registered one.
+    pub fn push_tokens(&self) -> Vec<String> {
+        self.deps.tokens.all_tokens()
+    }
+
     /// Forgets that the client is listening. Its shells keep running and keep their history.
     pub fn disconnect(&mut self, client_id: &str) {
         self.attached.remove(client_id);

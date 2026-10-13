@@ -59,7 +59,6 @@ jobs:
           workspaces: windows
       - run: cargo clippy --locked --workspace --all-targets
       - run: cargo test --locked --workspace
-      - run: cargo test --locked -p peering-host --features terminal-hooks
       - run: cargo build --locked --release -p peering-host
       - name: Install Inno Setup when the runner image lacks it
         shell: pwsh

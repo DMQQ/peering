@@ -27,6 +27,7 @@ impl From<UnexpectedShape> for InstallError {
 }
 
 /// Where the script lives and which settings file it is registered in.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HookFiles {
     pub settings: PathBuf,
     pub script: PathBuf,

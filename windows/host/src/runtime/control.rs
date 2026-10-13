@@ -63,6 +63,12 @@ pub struct HostSnapshot {
     pub devices: Vec<DeviceView>,
     /// The frame rate the encoder runs at, as the window's choice shows it.
     pub frame_rate: u32,
+    /// Whether the PC is reachable through the relay, as the person set it.
+    pub relay_enabled: bool,
+    /// The port the host listens on, which the firewall rule must name.
+    pub port: u16,
+    /// Whether Claude Code hooks are on, as the person set it.
+    pub terminal_hooks: bool,
     /// Why the runtime ended, once it has. The tray shows it instead of a healthy-looking status.
     pub stopped: Option<String>,
     /// What is wrong while the host keeps running (capture recovering, a paired list that could not be read, a clock
@@ -79,6 +85,10 @@ pub enum RuntimeCommand {
     Decline(u64),
     Forget(String),
     SetFrameRate(u32),
+    SetRelayEnabled(bool),
+    SetTerminalHooks(bool),
+    /// What the Run entry says now, kept in the saved settings so they match.
+    NoteStartAtLogin(bool),
     /// Move the unreadable paired list aside and start an empty one.
     ResetPairedDevices,
 }
@@ -147,6 +157,9 @@ impl HostState {
                 .map(|device| DeviceView { id: device.id, name: device.name, last_seen_unix: device.last_seen_unix })
                 .collect(),
             frame_rate: self.video.frame_rate(),
+            relay_enabled: self.settings.relay_enabled,
+            port: self.settings.port,
+            terminal_hooks: self.settings.terminal_hooks,
             stopped: self.stopped.clone(),
             problems: self.problems.values().cloned().collect(),
             paired_list_unreadable: self.problems.contains_key(&ProblemSource::PairedDevices),
@@ -213,7 +226,17 @@ impl HostState {
                     self.pairing.revoke(&client_id);
                     self.end_client_sessions(&client_id);
                 }
-                RuntimeCommand::SetFrameRate(fps) => self.video.request(VideoIntent::SetFrameRate(fps)),
+                RuntimeCommand::SetFrameRate(fps) => {
+                    self.video.request(VideoIntent::SetFrameRate(fps));
+                    self.set_settings(|settings| settings.frame_rate = fps);
+                }
+                RuntimeCommand::SetRelayEnabled(enabled) => self.set_settings(|settings| settings.relay_enabled = enabled),
+                RuntimeCommand::SetTerminalHooks(enabled) => self.set_settings(|settings| settings.terminal_hooks = enabled),
+                RuntimeCommand::NoteStartAtLogin(enabled) => {
+                    if self.settings.start_at_login != enabled {
+                        self.set_settings(|settings| settings.start_at_login = enabled);
+                    }
+                }
                 RuntimeCommand::ResetPairedDevices => self.reset_paired_list(),
             }
         }

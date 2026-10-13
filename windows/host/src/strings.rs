@@ -32,6 +32,9 @@ pub const DEVICES_HEADING: &str = "Paired phones";
 pub const NO_DEVICES: &str = "No paired phones yet.";
 
 pub const START_AT_LOGIN: &str = "Start at login";
+pub const RELAY_ENABLED: &str = "Reach this PC away from home through the relay";
+pub const TERMINAL_HOOKS: &str = "Send Claude Code approvals to my phone";
+pub const TERMINAL_HOOKS_HINT: &str = "Adds hooks to the Claude Code settings file. Turning this off takes them out again.";
 pub const FIX_FIREWALL: &str = "Fix firewall";
 pub const FIREWALL_HINT: &str = "Windows asks once for permission to let phones reach this PC. This works on networks Windows calls Private: if this one is Public, switch it to Private in Windows settings.";
 pub const FIREWALL_REQUESTED: &str = "Approve the Windows prompt to add the firewall rule.";
@@ -46,6 +49,24 @@ pub const LAUNCH_UNAVAILABLE: &str = "This PC cannot open apps from the phone ye
 pub const MOSAIC_UNAVAILABLE: &str = "This PC cannot show several screens at once.";
 
 pub const CLIPBOARD_WRITE_FAILED: &str = "This PC could not put that on its clipboard.";
+
+pub const HOOKS_NO_RANDOM: &str = "Claude Code hooks could not start: this PC gave no random number for their access token.";
+
+pub fn hooks_could_not_listen(reason: &str) -> String {
+    format!("Claude Code hooks could not start: Peering could not listen for them ({reason}).")
+}
+
+pub fn hooks_could_not_install(reason: &str) -> String {
+    format!("Claude Code hooks were not set up: {reason}.")
+}
+
+pub fn hooks_could_not_remove(reason: &str) -> String {
+    format!("Claude Code hooks were turned off, but Peering could not take them out of Claude Code's settings: {reason}.")
+}
+
+pub fn settings_not_saved(reason: &str) -> String {
+    format!("Settings could not be saved ({reason}), so they are lost when Peering Host closes.")
+}
 
 pub fn approval_prompt(client_name: &str) -> String {
     format!("{client_name} wants to pair without scanning the code")

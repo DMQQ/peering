@@ -2,7 +2,7 @@
 
 use peering_core::settings::ALLOWED_FRAME_RATES;
 
-use super::settings::{firewall_note, SettingsChoice, SettingsState};
+use super::settings::{firewall_note, SettingsChoice, SettingsJob, SettingsState};
 use crate::runtime::{HostSnapshot, OfferView, RelayStatus, RuntimeCommand};
 use crate::strings;
 
@@ -169,6 +169,11 @@ impl UiModel {
         &self.snapshot.problems
     }
 
+    /// The port the host listens on, which the firewall rule must name.
+    pub fn port(&self) -> u16 {
+        self.snapshot.port
+    }
+
     pub fn relay_line(&self) -> &'static str {
         relay_text(self.snapshot.relay)
     }
@@ -177,6 +182,8 @@ impl UiModel {
     pub fn settings(&self, state: &SettingsState) -> SettingsPanel {
         SettingsPanel {
             start_at_login: state.start_at_login(),
+            relay_enabled: self.snapshot.relay_enabled,
+            terminal_hooks: self.snapshot.terminal_hooks,
             autostart_note: state.autostart_note().map(str::to_owned),
             frame_rates: frame_rate_choices(self.snapshot.frame_rate),
             firewall_note: firewall_note(state.firewall()),
@@ -188,6 +195,8 @@ impl UiModel {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SettingsPanel {
     pub start_at_login: bool,
+    pub relay_enabled: bool,
+    pub terminal_hooks: bool,
     pub autostart_note: Option<String>,
     pub frame_rates: Vec<FrameRateChoice>,
     pub firewall_note: Option<String>,
@@ -211,7 +220,19 @@ fn frame_rate_choices(current: u32) -> Vec<FrameRateChoice> {
 pub fn settings_command(choice: &SettingsChoice) -> Option<RuntimeCommand> {
     match choice {
         SettingsChoice::FrameRate(fps) => Some(RuntimeCommand::SetFrameRate(*fps)),
+        SettingsChoice::RelayEnabled(enabled) => Some(RuntimeCommand::SetRelayEnabled(*enabled)),
+        SettingsChoice::TerminalHooks(enabled) => Some(RuntimeCommand::SetTerminalHooks(*enabled)),
         SettingsChoice::StartAtLogin(_) | SettingsChoice::FixFirewall => None,
+    }
+}
+
+/// What a finished settings job tells the host: the Run entry's state, so the saved settings agree with it.
+pub fn job_command(job: &SettingsJob) -> Option<RuntimeCommand> {
+    match job {
+        SettingsJob::AutostartRead(enabled) | SettingsJob::AutostartWritten { wanted: enabled, result: Ok(()) } => {
+            Some(RuntimeCommand::NoteStartAtLogin(*enabled))
+        }
+        SettingsJob::AutostartWritten { result: Err(_), .. } | SettingsJob::Firewall(_) => None,
     }
 }
 

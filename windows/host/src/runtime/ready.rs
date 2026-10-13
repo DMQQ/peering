@@ -8,6 +8,7 @@ use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::handshake::ClientStatePayload;
 
 use super::agent_browse;
+use super::hooks;
 use super::refusal::{notice_for, preview_refusal, source_unavailable, Refusal};
 use super::connection::{Connection, Flow};
 use super::video::CoordinatorControl;
@@ -107,13 +108,23 @@ impl Connection {
         Flow::Open
     }
 
+    /// An approval for a Claude Code hook in a terminal belongs to the hook broker, not to a chat. The broker is asked first, as
+    /// the Mac host asks its external approvals, because a hook has no chat to belong to.
+    fn answered_by_a_hook(&self, request: &AgentRequest) -> bool {
+        let AgentRequest::Approval { approval_id, decision, .. } = request else {
+            return false;
+        };
+        let broker = self.shared.lock().hook_broker.clone();
+        broker.is_some_and(|broker| broker.resolve(approval_id, hooks::answer_of(decision)))
+    }
+
     fn agent_request(&mut self, frame: &Frame) -> Flow {
-        if self.client_flags.supports_agent_chat != Some(true) {
-            return Flow::Open;
-        }
         let Ok(request) = serde_json::from_slice::<AgentRequest>(&frame.payload) else {
             return Flow::Closed;
         };
+        if self.answered_by_a_hook(&request) || self.client_flags.supports_agent_chat != Some(true) {
+            return Flow::Open;
+        }
         if let AgentRequest::Browse { path } = request {
             let browser = self.shared.lock().agent_browser.clone();
             agent_browse::answer(browser, path, self.outbound.clone());

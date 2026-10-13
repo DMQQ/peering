@@ -256,6 +256,14 @@ fn a_live_activity_token_is_ignored_and_the_connection_stays_open() {
 }
 
 #[test]
+fn the_hello_says_the_host_can_carry_a_clipboard_picture() {
+    run(async {
+        let harness = harness();
+        assert_eq!(paired_server_hello(&harness.runtime).await.capabilities.supports_clipboard_images, Some(true));
+    });
+}
+
+#[test]
 fn the_pc_is_kept_awake_while_a_phone_is_connected_and_released_when_it_leaves() {
     run(async {
         let harness = harness();

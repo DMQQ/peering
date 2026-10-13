@@ -10,6 +10,7 @@ use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
 use peering_core::notice::NoticeTracker;
 use peering_core::pairing::PairingService;
+use peering_core::settings::HostSettings;
 use peering_core::pointer::PointerTracker;
 use peering_core::ports::clipboard::Clipboard;
 use peering_core::ports::encoder::Encoder;
@@ -35,6 +36,7 @@ use super::{HostProfile, RuntimeError};
 /// The adapters, with the stores that could fail to open already opened.
 struct Opened {
     host_id: String,
+    host_name: String,
     now: f64,
     secret_pins: Arc<SecretPins>,
     terminals: TerminalSessionManager,
@@ -58,6 +60,7 @@ impl HostState {
         let pins_problem = secret_pins.load_problem();
         let opened = Opened {
             host_id: profile.host_id.clone(),
+            host_name: profile.host_name.clone(),
             now: profile.clock.now_seconds(),
             secret_pins,
             terminals,
@@ -79,7 +82,7 @@ impl HostState {
     }
 
     fn assemble(opened: Opened) -> Self {
-        let Opened { host_id, now, secret_pins, terminals, capture, encoder, rebuild_video, input, system, files, home_directory, agent_binaries, clipboard } = opened;
+        let Opened { host_id, host_name, now, secret_pins, terminals, capture, encoder, rebuild_video, input, system, files, home_directory, agent_binaries, clipboard } = opened;
         let pins: Arc<dyn PinStore> = secret_pins.clone();
         Self {
             pairing: PairingService::new(&host_id, pins.clone()),
@@ -106,6 +109,9 @@ impl HostState {
             clipboard,
             keeping_awake: false,
             pointer: PointerTracker::default(),
+            settings: HostSettings::default_for(host_name),
+            settings_saver: Arc::new(|_| Ok(())),
+            hook_broker: None,
             hosting: true,
             relay: RelayStatus::Off,
             problems: BTreeMap::new(),

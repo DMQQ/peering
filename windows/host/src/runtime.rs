@@ -21,6 +21,7 @@ mod diagnostics;
 mod error;
 mod files;
 mod host_state;
+mod hooks;
 mod listener;
 mod lock;
 mod peer_address;
@@ -36,6 +37,7 @@ mod ready;
 mod refusal;
 mod relay;
 mod relay_lane;
+mod relay_switch;
 mod serve;
 mod services;
 mod shared;
@@ -52,6 +54,8 @@ use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 
 use peering_core::pairing::{ApprovalDecision, PairingOffer};
+use peering_core::settings::HostSettings;
+use peering_core::video::intent::VideoIntent;
 use peering_wire::relay_messages::RelayClientMessage;
 use tokio::sync::broadcast;
 
@@ -66,6 +70,7 @@ pub use services::{platform_services, HostServices, RebuildVideo, TerminalServic
 use control::ControlChannel;
 use peer_address::PeerAddressRouter;
 use shared::{HostState, Shared};
+pub use shared::SettingsSaver;
 
 pub const DEFAULT_PORT: u16 = peering_core::settings::DEFAULT_PORT;
 const APPROVAL_CHANNEL_DEPTH: usize = 16;
@@ -106,6 +111,32 @@ impl HostRuntime {
             profile: Arc::new(profile),
             commands,
         })
+    }
+
+    /// Uses `settings` as the person left them and `saver` to write the next change. The frame rate is applied now; the relay and
+    /// the hooks follow the setting while the host runs.
+    pub fn with_settings(self, settings: HostSettings, saver: SettingsSaver, problem: Option<String>) -> Self {
+        {
+            let mut state = self.shared.lock();
+            state.video.request(VideoIntent::SetFrameRate(settings.frame_rate));
+            state.settings = settings;
+            state.settings_saver = saver;
+            if let Some(problem) = problem {
+                state.set_problem(problem_source::ProblemSource::Settings, problem);
+            }
+        }
+        self
+    }
+
+    /// Starts the task that follows the Claude Code hooks setting: it puts the hooks into Claude Code when the setting is on and
+    /// takes them out when it is off. `run` does this; tests call it directly.
+    pub fn start_hooks(&self, files: crate::hooks::installer::HookFiles) {
+        hooks::spawn_manager(self.shared.clone(), files);
+    }
+
+    /// The push notification at the head of the queue for the relay, if one is waiting.
+    pub fn waiting_notification(&self) -> Option<RelayClientMessage> {
+        self.shared.lock().notifications.next()
     }
 
     /// The UI's end of the host: the snapshot it reads and the commands it sends. Clone it freely.

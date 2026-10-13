@@ -12,6 +12,8 @@ use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
 use peering_core::notice::NoticeTracker;
 use peering_core::pairing::PairingService;
+use peering_core::settings::HostSettings;
+use peering_core::terminal::hooks::broker::HookBroker;
 use peering_core::pointer::PointerTracker;
 use peering_core::ports::clipboard::Clipboard;
 use peering_core::ports::input::InputSink;
@@ -37,6 +39,9 @@ use super::problem_source::ProblemSource;
 use super::refusal::Refusal;
 use super::services::{BoxedInput, BoxedSystem, SharedFileSystem};
 use super::video_handle::VideoHandle;
+
+/// Writes the settings where they are kept. An error is the reason, as a sentence fragment.
+pub type SettingsSaver = Arc<dyn Fn(&HostSettings) -> Result<(), String> + Send + Sync>;
 
 /// One authorised control connection. `video_outbound` is set while a direct video connection for the same client is open.
 /// `datagram_outbound` feeds the session's relayed UDP lane; it is set only for a session that has one.
@@ -89,6 +94,10 @@ pub struct HostState {
     /// Whether the PC is being kept awake for the phones connected now.
     pub keeping_awake: bool,
     pub pointer: PointerTracker,
+    pub settings: HostSettings,
+    pub settings_saver: SettingsSaver,
+    /// The hook broker while Claude Code hooks are on, which a phone's Allow or Deny is offered to first.
+    pub hook_broker: Option<Arc<HookBroker>>,
     pub notice_checked_at: Option<f64>,
     pub hosting: bool,
     pub relay: RelayStatus,
@@ -152,6 +161,16 @@ impl HostState {
         self.notice_checked_at = None;
         self.catalogues = SessionCatalogue::new();
         self.video.request(VideoIntent::ResetAfterPanic);
+    }
+
+    /// Changes the settings and saves them. A save that fails is a problem in the window and the change still stands for this
+    /// run, so a setting the person just turned on does not silently turn itself off.
+    pub fn set_settings(&mut self, edit: impl FnOnce(&mut HostSettings)) {
+        edit(&mut self.settings);
+        match (self.settings_saver)(&self.settings) {
+            Ok(()) => self.clear_problem(ProblemSource::Settings),
+            Err(reason) => self.set_problem(ProblemSource::Settings, crate::strings::settings_not_saved(&reason)),
+        }
     }
 
     /// Keeps the PC awake while a phone is connected and lets it sleep again when the last one leaves. Called whenever the set of

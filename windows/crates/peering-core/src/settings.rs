@@ -11,6 +11,8 @@ pub struct HostSettings {
     pub start_at_login: bool,
     pub relay_enabled: bool,
     pub device_name: String,
+    /// Whether Peering is hooked into Claude Code to bring its approvals to the phone. Off until the person turns it on.
+    pub terminal_hooks: bool,
 }
 
 impl HostSettings {
@@ -21,6 +23,7 @@ impl HostSettings {
             start_at_login: true,
             relay_enabled: true,
             device_name: device_name.into(),
+            terminal_hooks: false,
         }
     }
 
@@ -38,8 +41,8 @@ impl HostSettings {
     pub fn to_text(&self) -> String {
         let device_name = self.device_name.replace(['\r', '\n'], " ");
         format!(
-            "port={}\nframeRate={}\nstartAtLogin={}\nrelayEnabled={}\ndeviceName={}\n",
-            self.port, self.frame_rate, self.start_at_login, self.relay_enabled, device_name
+            "port={}\nframeRate={}\nstartAtLogin={}\nrelayEnabled={}\ndeviceName={}\nterminalHooks={}\n",
+            self.port, self.frame_rate, self.start_at_login, self.relay_enabled, device_name, self.terminal_hooks
         )
     }
 
@@ -64,6 +67,7 @@ fn apply_entry(settings: &mut HostSettings, key: &str, value: &str) {
         "frameRate" => settings.frame_rate = parse_frame_rate(value).unwrap_or(defaults.frame_rate),
         "startAtLogin" => settings.start_at_login = parse_bool(value).unwrap_or(defaults.start_at_login),
         "relayEnabled" => settings.relay_enabled = parse_bool(value).unwrap_or(defaults.relay_enabled),
+        "terminalHooks" => settings.terminal_hooks = parse_bool(value).unwrap_or(defaults.terminal_hooks),
         "deviceName" if !value.trim().is_empty() => settings.device_name = value.to_owned(),
         _ => {}
     }
@@ -109,6 +113,14 @@ mod tests {
         assert!(settings.start_at_login);
         assert!(settings.relay_enabled);
         assert_eq!(settings.device_name, "Office PC");
+        assert!(!settings.terminal_hooks, "hooks edit another program's settings, so they start off");
+    }
+
+    #[test]
+    fn a_file_written_before_hooks_existed_reads_with_hooks_off() {
+        let parsed = HostSettings::from_text("port=2000\nrelayEnabled=false\n", "PC");
+        assert!(!parsed.terminal_hooks);
+        assert!(!parsed.relay_enabled);
     }
 
     #[test]
@@ -151,6 +163,7 @@ mod tests {
             start_at_login: false,
             relay_enabled: false,
             device_name: "Den = main, PC".to_owned(),
+            terminal_hooks: true,
         };
         assert_eq!(HostSettings::from_text(&settings.to_text(), "fallback"), settings);
     }

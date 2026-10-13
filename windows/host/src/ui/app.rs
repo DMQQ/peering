@@ -9,14 +9,14 @@ use eframe::egui;
 use std::path::PathBuf;
 
 use super::jobs::Jobs;
-use super::model::{settings_command, MenuAction, MenuModel, UiModel};
+use super::model::{job_command, settings_command, MenuAction, MenuModel, UiModel};
 use super::pairing;
 use super::settings::{SettingsChoice, SettingsJob, SettingsState};
 use super::settings_view;
 use super::tray::Tray;
 use crate::autostart;
 use crate::firewall;
-use crate::runtime::{HostHandle, RuntimeCommand, DEFAULT_PORT};
+use crate::runtime::{HostHandle, RuntimeCommand};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 
@@ -55,10 +55,13 @@ impl eframe::App for HostApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.hide_window(ctx);
         }
+        let snapshot = self.handle.snapshot();
         for finished in self.jobs.collect() {
+            if let Some(command) = job_command(&finished) {
+                self.send(ctx, command);
+            }
             self.settings.apply(finished);
         }
-        let snapshot = self.handle.snapshot();
         let menu = MenuModel::new(snapshot.clone());
         self.tray.update(&menu.entries(), &menu.status_line());
         while let Some(action) = self.tray.poll() {
@@ -104,6 +107,7 @@ impl HostApp {
         let mut choices = Vec::new();
         let now_unix = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_secs());
         let panel = model.settings(&self.settings);
+        let port = model.port();
         egui::CentralPanel::default().show(ctx, |ui| {
             for problem in model.problems() {
                 ui.colored_label(egui::Color32::from_rgb(200, 60, 40), problem);
@@ -116,17 +120,17 @@ impl HostApp {
             self.send(ctx, command);
         }
         for choice in choices {
-            self.apply_choice(ctx, choice);
+            self.apply_choice(ctx, choice, port);
         }
     }
 
     /// Carries out a settings choice. Start at login and the firewall shell out and can take seconds, so they run on a worker
     /// and the result is applied by a later frame; the frame rate goes to the host.
-    fn apply_choice(&mut self, ctx: &egui::Context, choice: SettingsChoice) {
+    fn apply_choice(&mut self, ctx: &egui::Context, choice: SettingsChoice, port: u16) {
         match &choice {
             SettingsChoice::StartAtLogin(wanted) => self.change_autostart(*wanted),
-            SettingsChoice::FixFirewall => self.fix_firewall(),
-            SettingsChoice::FrameRate(_) => {
+            SettingsChoice::FixFirewall => self.fix_firewall(port),
+            SettingsChoice::FrameRate(_) | SettingsChoice::RelayEnabled(_) | SettingsChoice::TerminalHooks(_) => {
                 if let Some(command) = settings_command(&choice) {
                     self.send(ctx, command);
                 }
@@ -153,12 +157,12 @@ impl HostApp {
         }
     }
 
-    fn fix_firewall(&mut self) {
+    fn fix_firewall(&mut self, port: u16) {
         if !self.settings.begin_firewall() {
             return;
         }
         let started = self.jobs.spawn("firewall", || match program_path() {
-            Ok(path) => SettingsJob::Firewall(firewall::request_rule_elevated(&path, DEFAULT_PORT)),
+            Ok(path) => SettingsJob::Firewall(firewall::request_rule_elevated(&path, port)),
             Err(error) => SettingsJob::Firewall(firewall::HelperResult::CouldNotStart(error.to_string())),
         });
         if let Err(error) = started {

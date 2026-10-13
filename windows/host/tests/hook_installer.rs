@@ -1,4 +1,3 @@
-#![cfg(feature = "terminal-hooks")]
 
 //! The installer against a real folder.
 

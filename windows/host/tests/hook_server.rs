@@ -1,4 +1,3 @@
-#![cfg(feature = "terminal-hooks")]
 
 //! The hook server over a real loopback socket, with the broker behind it.
 

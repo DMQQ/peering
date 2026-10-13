@@ -40,6 +40,8 @@ pub enum SettingsChoice {
     StartAtLogin(bool),
     FixFirewall,
     FrameRate(u32),
+    RelayEnabled(bool),
+    TerminalHooks(bool),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

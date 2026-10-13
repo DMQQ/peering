@@ -2,9 +2,9 @@
 
 pub mod autostart;
 pub mod firewall;
-#[cfg(feature = "terminal-hooks")]
 pub mod hooks;
 pub mod runtime;
+pub mod settings_store;
 pub mod strings;
 pub mod tools;
 pub mod ui;

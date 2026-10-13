@@ -1,5 +1,6 @@
 //! Running the host: binding the port, announcing the host, and keeping the pumps and the relay alive.
 
+use std::rc::Rc;
 use std::sync::Arc;
 
 use peering_net::identity::HostIdentity;
@@ -7,12 +8,9 @@ use peering_net::tls::HostTls;
 use tokio::net::TcpListener;
 use tokio::task::{JoinHandle, LocalSet};
 
-use super::control::RelayStatus;
 use super::lock::lock_ignoring_poison;
-use super::problem_source::ProblemSource;
-use super::shared::Shared;
 use super::{
-    advertise, agent_pump, listener, pointer_pump, relay, supervise, video_pass, HostRuntime, RuntimeConfig, RuntimeError,
+    advertise, agent_pump, listener, pointer_pump, relay_switch, supervise, video_pass, HostRuntime, RuntimeConfig, RuntimeError,
 };
 
 struct PumpTasks {
@@ -56,14 +54,10 @@ impl HostRuntime {
         let _advertisement = advertise::start(identity.device_id(), &self.profile.host_name, config.port)?;
         let pumps = self.spawn_pumps();
         if let Some(relay_config) = config.relay {
-            let relay_task = tokio::task::spawn_local(relay::run(
-                self.shared.clone(),
-                self.profile.clone(),
-                tls.clone(),
-                relay_config,
-                Box::new(identity),
-            ));
-            watch_relay(self.shared.clone(), relay_task);
+            relay_switch::spawn(self.shared.clone(), self.profile.clone(), tls.clone(), relay_config, Rc::new(identity));
+        }
+        if let Some(files) = config.hook_files {
+            self.start_hooks(files);
         }
         let serving = listener::serve_listener(self.shared.clone(), self.profile, tls, listener);
         tokio::select! {
@@ -83,17 +77,7 @@ async fn watch_pumps(pumps: PumpTasks) -> RuntimeError {
     }
 }
 
-/// A relay that ended only costs remote access, so it is shown as a problem and the host keeps serving the local network.
-fn watch_relay(shared: Shared, task: JoinHandle<()>) {
-    tokio::task::spawn_local(async move {
-        let outcome = task.await;
-        let mut state = shared.lock();
-        state.relay = RelayStatus::Off;
-        state.set_problem(ProblemSource::Relay, crate::strings::relay_task_stopped(&task_end_text(&outcome)));
-    });
-}
-
-fn task_end_text(outcome: &Result<(), tokio::task::JoinError>) -> String {
+pub(super) fn task_end_text(outcome: &Result<(), tokio::task::JoinError>) -> String {
     match outcome {
         Ok(()) => "it returned".to_owned(),
         Err(error) if error.is_panic() => "it panicked".to_owned(),

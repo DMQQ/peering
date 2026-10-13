@@ -16,6 +16,15 @@ pub fn show(ui: &mut egui::Ui, panel: &SettingsPanel, choices: &mut Vec<Settings
     if let Some(note) = &panel.autostart_note {
         ui.label(note.as_str());
     }
+    let mut relay_enabled = panel.relay_enabled;
+    if ui.checkbox(&mut relay_enabled, strings::RELAY_ENABLED).changed() {
+        choices.push(SettingsChoice::RelayEnabled(relay_enabled));
+    }
+    let mut terminal_hooks = panel.terminal_hooks;
+    if ui.checkbox(&mut terminal_hooks, strings::TERMINAL_HOOKS).changed() {
+        choices.push(SettingsChoice::TerminalHooks(terminal_hooks));
+    }
+    ui.label(strings::TERMINAL_HOOKS_HINT);
     if ui.button(strings::FIX_FIREWALL).clicked() {
         choices.push(SettingsChoice::FixFirewall);
     }
