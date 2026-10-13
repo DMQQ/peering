@@ -365,14 +365,17 @@ extension View {
 
     /// The app's only iOS 26 API, called in one place so moving the floor is one edit. Glass samples what is behind it and Material does not, so the fallback adds ``ColorPalette/glassTint``. `interactive` is not reproducible below 26.
     @ViewBuilder
-    func glassSurface<S: InsettableShape>(in shape: S, interactive: Bool = false) -> some View {
+    /// `tint` colours the glass itself, so the surface still refracts what is behind it: a white tint is the primary action.
+    func glassSurface<S: InsettableShape>(in shape: S, interactive: Bool = false, tint: Color? = nil) -> some View {
         if #available(iOS 26.0, *) {
-            glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
+            let glass: Glass = tint.map { Glass.regular.tint($0) } ?? .regular
+            glassEffect(interactive ? glass.interactive() : glass, in: shape)
         } else {
             background {
                 shape
                     .fill(.ultraThinMaterial)
                     .overlay(shape.fill(ColorPalette.glassTint))
+                    .overlay(shape.fill(tint?.opacity(0.55) ?? .clear))
                     .overlay {
                         shape.strokeBorder(
                             LinearGradient(

@@ -398,8 +398,8 @@ struct RemoteScreen: View {
                     compactCapButton(icon: "keyboard.chevron.compact.down") { model.showKeyboard = false }
                         .accessibilityLabel("Hide keyboard")
                 }
-                keyboardField
                 dictationButton
+                keyboardField
                 if shortcutsCollapsed {
                     compactCapButton(icon: "return", filled: true) { model.pressReturn() }
                         .accessibilityLabel("Enter")
