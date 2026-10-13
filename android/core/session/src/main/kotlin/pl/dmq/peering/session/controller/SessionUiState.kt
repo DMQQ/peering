@@ -22,6 +22,10 @@ data class SessionUiState(
     val hostClipboard: ClipboardContent? = null,
     /** The computer's own report of its pointer, or null before one arrived. */
     val hostPointer: HostPointer? = null,
+    /** The computer's focus: a text field or not. Null before it said. */
+    val hostTextFocus: HostTextFocus? = null,
+    /** What the focused field holds, or null before the computer said or after the focus moved. */
+    val hostField: HostField? = null,
     val qualityCeiling: QualityTier = QualityTier.HIGH,
     /** How the attempt at a direct path stands, or null when this link makes none (a session on the local network). */
     val directPath: DirectPathState? = null,

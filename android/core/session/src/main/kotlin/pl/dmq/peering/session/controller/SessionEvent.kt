@@ -3,9 +3,11 @@ package pl.dmq.peering.session.controller
 import pl.dmq.peering.session.clipboard.ClipboardContent
 import pl.dmq.peering.session.ports.PeerAddress
 import pl.dmq.peering.session.video.LaneOutput
+import pl.dmq.peering.wire.FieldStatePayload
 import pl.dmq.peering.wire.Frame
 import pl.dmq.peering.wire.NormalizedPoint
 import pl.dmq.peering.wire.RemoteCommand
+import pl.dmq.peering.wire.TextFocusPayload
 
 /** What routing a frame asks the live link to do. The link applies them in order. */
 sealed interface SessionEvent {
@@ -26,6 +28,12 @@ sealed interface SessionEvent {
 
     /** The computer reported where its pointer is, after something other than this client moved it. */
     data class HostPointerMoved(val point: NormalizedPoint) : SessionEvent
+
+    /** The computer's keyboard focus moved to or from a text field. */
+    data class HostTextFocus(val focus: TextFocusPayload) : SessionEvent
+
+    /** What the focused text field holds and where its caret is. */
+    data class HostFieldState(val state: FieldStatePayload) : SessionEvent
 
     /** The link must end with [end]. */
     data class Finish(val end: LinkEnd) : SessionEvent

@@ -99,6 +99,7 @@ private fun SettingsPanelContent(context: PanelContext, ui: QualitySheetUi, macr
             onSetPlaysSound = { value -> context.model.prefs.update { it.copy(playsComputerSound = value) } },
             onToggleDark = context.actions::toggleDark,
             onKeyboardMode = { mode -> context.model.prefs.update { it.copy(keyboardMode = mode) } },
+            onSetOpensKeyboard = { value -> context.model.prefs.update { it.copy(opensKeyboardForTextFields = value) } },
             onLock = context.actions::lock,
             onRename = { name -> if (name.isNotBlank()) context.model.prefs.update { it.copy(deviceName = name.trim()) } },
             onRunMacro = context.actions::runMacro,

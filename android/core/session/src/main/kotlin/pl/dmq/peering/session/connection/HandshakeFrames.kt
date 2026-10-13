@@ -21,6 +21,8 @@ internal object HandshakeFrames {
             protocolVersion = PROTOCOL_VERSION,
             wantsPairing = !knowsHost,
             supportsClipboardImages = true,
+            supportsTextFocus = true,
+            supportsFieldState = true,
             supportsPointerReport = true,
             supportsAgentChat = true,
             supportsAgentPermissionModes = true,

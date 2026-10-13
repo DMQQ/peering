@@ -21,6 +21,8 @@ import pl.dmq.peering.wire.MessageKind
 import pl.dmq.peering.wire.NormalizedPoint
 import pl.dmq.peering.wire.NoticePayload
 import pl.dmq.peering.wire.PreviewProxyEvent
+import pl.dmq.peering.wire.FieldStatePayload
+import pl.dmq.peering.wire.TextFocusPayload
 import pl.dmq.peering.wire.TerminalEvent
 
 /** Sends each frame of a live control connection to the part that owns it, and says what the link must do about it. */
@@ -64,6 +66,8 @@ internal class FrameRouter(
         MessageKind.Notice -> onNotice(frame)
         MessageKind.ClipboardContent -> onClipboard(frame)
         MessageKind.PointerReport -> onPointerReport(frame)
+        MessageKind.TextFocus -> HandshakeFrames.decode(frame, TextFocusPayload.serializer())?.let { listOf(SessionEvent.HostTextFocus(it)) }.orEmpty()
+        MessageKind.FieldState -> HandshakeFrames.decode(frame, FieldStatePayload.serializer())?.let { listOf(SessionEvent.HostFieldState(it)) }.orEmpty()
         else -> emptyList()
     }
 

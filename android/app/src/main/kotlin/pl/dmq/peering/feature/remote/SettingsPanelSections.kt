@@ -245,6 +245,8 @@ internal fun KeyboardSection(model: SessionSettingsModel, actions: SessionSettin
             style = PeeringText.caption2,
             color = PeeringColors.muted,
         )
+        SwitchRow(stringResource(R.string.panel_open_for_text_fields), model.prefs.opensKeyboardForTextFields, actions.onSetOpensKeyboard)
+        Note(stringResource(R.string.panel_open_for_text_fields_note))
     }
 }
 

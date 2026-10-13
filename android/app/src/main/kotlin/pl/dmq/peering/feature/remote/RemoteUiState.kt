@@ -1,7 +1,9 @@
 package pl.dmq.peering.feature.remote
 
 import pl.dmq.peering.session.clipboard.ClipboardContent
+import pl.dmq.peering.session.controller.HostField
 import pl.dmq.peering.session.controller.HostPointer
+import pl.dmq.peering.session.controller.HostTextFocus
 import pl.dmq.peering.session.history.SessionRecord
 import pl.dmq.peering.session.relay.DirectPathState
 import pl.dmq.peering.wire.CaptureCatalog
@@ -41,6 +43,10 @@ data class RemoteUiState(
     val mosaic: MosaicLayout? = null,
     /** The last mosaic asked for, which the panel offers a way back to. */
     val rememberedMosaic: MosaicLayout? = null,
+    /** Whether the computer's focus is on a text field, or null before it said. */
+    val hostTextFocus: HostTextFocus? = null,
+    /** What the focused text field holds, or null before the computer said or after the focus moved. */
+    val hostField: HostField? = null,
     /** The computer's own report of where its pointer is, which the cursor glyph follows. */
     val hostPointer: HostPointer? = null,
     /** How the attempt at a direct path stands, or null when this session makes none. */

@@ -18,6 +18,8 @@ data class DevicePrefs(
     val keepsSessionInBackground: Boolean = true,
     /** Local notifications while connected in the background. */
     val notifies: Boolean = true,
+    /** Raises the phone keyboard when the computer focuses a text field. */
+    val opensKeyboardForTextFields: Boolean = true,
 )
 
 interface DevicePreferences {

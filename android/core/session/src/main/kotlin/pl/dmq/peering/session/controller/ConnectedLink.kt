@@ -112,6 +112,14 @@ internal class ConnectedLink(
     var hostPointer: HostPointer? = null
         private set
 
+    /** Whether the computer's focus is on a text field, or null before it said. */
+    var hostTextFocus: HostTextFocus? = null
+        private set
+
+    /** What the focused field last held, or null before the computer said. */
+    var hostField: HostField? = null
+        private set
+
     private var clipboardFrameId = 0L
 
     /** Sends a picture to the computer's clipboard and keeps it in the history when it went. */
@@ -244,6 +252,12 @@ internal class ConnectedLink(
             }
             is SessionEvent.HostPointerMoved ->
                 hostPointer = HostPointer(event.point, (hostPointer?.serial ?: 0) + 1)
+            is SessionEvent.HostTextFocus -> {
+                hostTextFocus = HostTextFocus(event.focus.isEditable, (hostTextFocus?.serial ?: 0) + 1)
+                hostField = null
+            }
+            is SessionEvent.HostFieldState ->
+                hostField = HostField(event.state.clamped(), (hostField?.serial ?: 0) + 1)
             is SessionEvent.Finish -> ended.complete(event.end)
         }
     }

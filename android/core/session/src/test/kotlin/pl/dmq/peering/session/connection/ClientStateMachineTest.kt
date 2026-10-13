@@ -109,12 +109,12 @@ class ClientStateMachineTest {
     }
 
     @Test
-    fun theHelloDoesNotDeclareTheTextFocusAndFieldStateFramesItDropsButDeclaresThePointerReport() {
+    fun theHelloDeclaresTheTextFocusFieldStateAndPointerReportFramesItReads() {
         val actions = machine().start()
 
         val hello = WireJson.decodeFromString(ClientHello.serializer(), actions[1].sentFrame().payload.decodeToString())
-        assertNull(hello.supportsTextFocus)
-        assertNull(hello.supportsFieldState)
+        assertEquals(true, hello.supportsTextFocus)
+        assertEquals(true, hello.supportsFieldState)
         assertEquals(true, hello.supportsPointerReport)
     }
 

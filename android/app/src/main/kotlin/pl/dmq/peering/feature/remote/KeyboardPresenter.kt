@@ -17,8 +17,10 @@ import pl.dmq.peering.wire.routeKey
  */
 class KeyboardPresenter(
     private val sink: CommandSink,
+    private val nowMillis: () -> Long = System::currentTimeMillis,
     private val mode: () -> KeyboardMode = { KeyboardMode.UNICODE },
 ) {
+    private val mirror = FieldMirror()
     private val sticky = StickyModifiers()
     private val latchStates = MutableStateFlow(sticky.latches())
     val latches: StateFlow<Map<StickyModifier, ModifierLatch>> = latchStates.asStateFlow()
@@ -26,6 +28,28 @@ class KeyboardPresenter(
 
     /** What has been typed since the last Enter, for the "Typing" line: the phone holds no text, the computer does. */
     val typedPreview: StateFlow<String> = preview.asStateFlow()
+
+    /** The computer's field now holds [text]; the typing line shows it once the person has stopped typing. */
+    fun onHostField(text: String?) {
+        mirror.onReport(text, nowMillis())?.let(::showHostText)
+    }
+
+    /** Milliseconds until a held report may be shown, or null when none is held. */
+    fun hostFieldWait(): Long? = mirror.waitMillis(nowMillis())
+
+    fun releaseHostField() {
+        mirror.release(nowMillis())?.let(::showHostText)
+    }
+
+    /** The computer's focus moved, so the line and anything held described another field. */
+    fun onHostFocusMoved() {
+        mirror.reset()
+        preview.value = ""
+    }
+
+    private fun showHostText(text: String) {
+        preview.value = text.takeLast(PREVIEW_LIMIT)
+    }
 
     fun onModifierTap(modifier: StickyModifier, timeMs: Long) {
         send(sticky.tap(modifier, timeMs))
@@ -47,6 +71,7 @@ class KeyboardPresenter(
 
     /** A delete from the soft keyboard, which is the Backspace key. */
     fun onSoftKeyboardDelete() {
+        mirror.onLocalEdit(nowMillis())
         preview.value = preview.value.dropLast(1)
         pressKey(BACKSPACE_KEY)
     }
@@ -58,6 +83,7 @@ class KeyboardPresenter(
     }
 
     fun pressEnter() {
+        mirror.onLocalEdit(nowMillis())
         preview.value = ""
         pressKey(RETURN_KEY)
     }
@@ -87,6 +113,7 @@ class KeyboardPresenter(
     }
 
     private fun typeText(text: String) {
+        mirror.onLocalEdit(nowMillis())
         preview.value = (preview.value + text).takeLast(PREVIEW_LIMIT)
         if (!sticky.hasActive() && mode() == KeyboardMode.UNICODE) {
             sink.send(TextInput(text))

@@ -43,6 +43,7 @@ class SessionSettingsActions(
     val onSetPlaysSound: (Boolean) -> Unit,
     val onToggleDark: () -> Unit,
     val onKeyboardMode: (KeyboardMode) -> Unit,
+    val onSetOpensKeyboard: (Boolean) -> Unit,
     val onLock: () -> Unit,
     val onRename: (String) -> Unit,
     val onRunMacro: (Macro) -> Unit,

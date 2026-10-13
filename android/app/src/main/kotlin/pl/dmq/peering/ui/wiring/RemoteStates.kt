@@ -46,6 +46,8 @@ internal fun remoteUiState(
         mosaic = mosaic,
         rememberedMosaic = session.rememberedMosaic,
         hostPointer = session.hostPointer,
+        hostTextFocus = session.hostTextFocus,
+        hostField = session.hostField,
         directPath = session.directPath,
         videoStream = session.videoStream,
         clipboardImages = ready?.capabilities?.contains(HostCapability.ClipboardImages) == true,

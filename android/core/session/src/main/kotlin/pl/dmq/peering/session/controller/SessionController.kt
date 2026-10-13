@@ -223,6 +223,8 @@ class SessionController(
                 notice = live.notice,
                 hostClipboard = live.hostClipboard,
                 hostPointer = live.hostPointer,
+                hostTextFocus = live.hostTextFocus,
+                hostField = live.hostField,
                 phase = it.phase.withPath(live.path),
                 qualityCeiling = QualityCeiling.of(live.path, ports.quality.unlimitedRelay()),
                 directPath = live.directPathState,

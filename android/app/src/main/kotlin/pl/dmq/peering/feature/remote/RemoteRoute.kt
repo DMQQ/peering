@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import kotlin.math.ln
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import pl.dmq.peering.feature.settings.DevicePrefs
 import pl.dmq.peering.testing.RemoteBridge
 import pl.dmq.peering.ui.kit.LocalBorderless
@@ -49,12 +50,12 @@ fun RemoteRoute(model: RemoteModel) {
     var lastHostName by rememberSaveable { mutableStateOf<String?>(null) }
     state.hostName?.let { lastHostName = it }
     val overlay = sessionOverlay(state, lastHostName)
-    SessionEffects(state, prefs, screen, canvas, presenters.tracker)
+    SessionEffects(state, prefs, screen, canvas, presenters.tracker, presenters.keyboard, presenters.follower)
     val pill = rememberStatusPill(model, scope, ready = state.hostName != null)
     SessionWindow()
     RemoteBridge(screen, pill, actions, model.clipboard)
     RemoteBackHandler(screen)
-    val handlers = chromeHandlers(model, screen, pill, actions, canvas, keyboard, typed, latches)
+    val handlers = chromeHandlers(model, screen, pill, actions, canvas, keyboard, typed, latches, presenters.follower)
     val chrome = chromeState(state, prefs, screen, overlay, pill, canvasState.viewport.zoom)
     val panelContext = PanelContext(model, state, prefs, screen, actions, keyboard, presenters.sources, presenters.quality, customMacros, overlay)
 
@@ -80,6 +81,7 @@ private class SessionPresenters(
     val sources: SourcesPresenter,
     val quality: QualitySheetPresenter,
     val actions: RemoteActions,
+    val follower: TextFieldFollower,
 )
 
 @Composable
@@ -104,6 +106,7 @@ private fun rememberSessionPresenters(
             sources = SourcesPresenter(input),
             quality = QualitySheetPresenter(model.quality, scope, onNeedsUpgrade = model::onRelayUpgradeRequested),
             actions = RemoteActions(model, input, screen, canvas, keyboard, { prefsNow.value }, { pointerSize(stateNow.value) }, scope),
+            follower = TextFieldFollower(),
         )
     }
 }
@@ -125,6 +128,8 @@ private fun SessionEffects(
     screen: SessionScreenState,
     canvas: RemoteCanvasPresenter,
     tracker: PointerTracker,
+    keyboard: KeyboardPresenter,
+    follower: TextFieldFollower,
 ) {
     LaunchedEffect(prefs.interaction) {
         canvas.setMode(prefs.interaction)
@@ -132,6 +137,31 @@ private fun SessionEffects(
     }
     LaunchedEffect(state.hostPointer) { state.hostPointer?.let { tracker.report(it.point) } }
     LaunchedEffect(state.mosaic) { canvas.setMosaic(state.mosaic) }
+    LaunchedEffect(state.hostTextFocus?.serial) {
+        val focus = state.hostTextFocus ?: return@LaunchedEffect
+        keyboard.onHostFocusMoved()
+        val move = follower.onFocus(
+            editable = focus.isEditable,
+            enabled = prefs.opensKeyboardForTextFields,
+            observing = prefs.interaction == InputMode.OBSERVE,
+            mosaic = state.showsMosaic,
+            panelOpen = screen.openPanel != null,
+            keyboardShown = screen.keyboardShown,
+        )
+        when (move) {
+            KeyboardMove.OPEN -> screen.toggleKeyboard()
+            KeyboardMove.CLOSE -> screen.hideKeyboard()
+            KeyboardMove.NONE -> Unit
+        }
+    }
+    LaunchedEffect(state.hostField?.serial) {
+        val field = state.hostField ?: return@LaunchedEffect
+        keyboard.onHostField(field.state.text)
+        while (true) {
+            delay(keyboard.hostFieldWait() ?: break)
+            keyboard.releaseHostField()
+        }
+    }
     LaunchedEffect(state.picturePixels, prefs.fillsScreen) {
         canvas.onPictureChanged(state.picturePixels)
         if (prefs.fillsScreen) canvas.fillCanvas() else canvas.fitToCanvas()
@@ -197,6 +227,7 @@ private fun chromeHandlers(
     keyboard: KeyboardPresenter,
     typed: String,
     latches: Map<StickyModifier, ModifierLatch>,
+    follower: TextFieldFollower,
 ): ChromeHandlers = ChromeHandlers(
     status = StatusActions(
         onLock = { pill.onInteraction(); actions.lock() },
@@ -215,7 +246,10 @@ private fun chromeHandlers(
     onReveal = screen::leaveImmersive,
     onRetry = model::onRetryPicture,
     onPanel = screen::togglePanel,
-    onKeyboard = screen::toggleKeyboard,
+    onKeyboard = {
+        follower.keyboardToggledByHand()
+        screen.toggleKeyboard()
+    },
     onDockExpanded = { screen.dockExpanded = it },
     onKey = actions::sendKey,
     onDelete = keyboard::onSoftKeyboardDelete,
@@ -226,7 +260,10 @@ private fun chromeHandlers(
     keyboardKeys = KeyboardKeys(
         latches = latches,
         typed = typed,
-        onHide = screen::hideKeyboard,
+        onHide = {
+            follower.keyboardToggledByHand()
+            screen.hideKeyboard()
+        },
         onModifier = { keyboard.onModifierTap(it, SystemClock.uptimeMillis()) },
         onKey = actions::sendKey,
         onEnter = keyboard::pressEnter,

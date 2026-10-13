@@ -30,6 +30,7 @@ internal class PreferencesDevicePreferences(
             .putBoolean(PLAYS_SOUND, next.playsComputerSound)
             .putBoolean(KEEPS_SESSION, next.keepsSessionInBackground)
             .putBoolean(NOTIFIES, next.notifies)
+            .putBoolean(OPENS_KEYBOARD, next.opensKeyboardForTextFields)
             .commit()
         if (saved) state.value = next
         return saved
@@ -45,6 +46,7 @@ internal class PreferencesDevicePreferences(
         playsComputerSound = preferences.getBoolean(PLAYS_SOUND, true),
         keepsSessionInBackground = preferences.getBoolean(KEEPS_SESSION, true),
         notifies = preferences.getBoolean(NOTIFIES, true),
+        opensKeyboardForTextFields = preferences.getBoolean(OPENS_KEYBOARD, true),
     )
 
     private inline fun <reified T : Enum<T>> enumOf(key: String, default: T): T =
@@ -60,5 +62,6 @@ internal class PreferencesDevicePreferences(
         const val PLAYS_SOUND = "plays_computer_sound"
         const val KEEPS_SESSION = "keeps_session_in_background"
         const val NOTIFIES = "notifies"
+        const val OPENS_KEYBOARD = "opens_keyboard_for_text_fields"
     }
 }
