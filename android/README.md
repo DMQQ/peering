@@ -6,7 +6,8 @@ Kotlin, Jetpack Compose, Material 3. Plan: `docs/plans/android-and-windows.md`. 
 
 ```
 cd android
-./gradlew :core:wire:test :core:session:test            # pure Kotlin logic, runs on a laptop
+./gradlew :core:wire:test :core:session:test :core:ssh:test   # pure Kotlin logic, runs on a laptop
+./gradlew :core:sshj:test                                    # the SSH library glue, against an embedded SSH server on loopback
 ./gradlew :core:platform:testDebugUnitTest :app:testDebugUnitTest
 ```
 
@@ -65,3 +66,13 @@ See `docs/plans/interop-android-mac.md` for the on-device checklist (pairing, vi
 * Firebase push (not required): put your `google-services.json` in `android/app/` (it is gitignored); `google-services.example.json`
   shows the shape and holds no real keys. Without the file the app runs with push disabled.
 * Google Play Billing needs products set up in Play Console; without them the paywall explains that billing is unavailable.
+
+## SSH servers
+
+The Servers tab (after Connect, as on the iPhone) opens shells on machines added by hand. The pieces:
+
+* `core:ssh` holds everything that is not the library: the saved servers, credentials, known hosts and passcodes (all kept in the Keystore-sealed store), the trust-on-first-use rules, the connection state machine, and the bridge that answers the terminal and file screens' own requests from an SSH shell and SFTP. A fake transport tests all of it.
+* `core:sshj` is the one place that touches sshj (Apache 2.0) and BouncyCastle (MIT). Its tests run a real Apache MINA SSHD on loopback, so password and key sign-in, host key checks, shells, SFTP and tunnels are exercised against the protocol.
+* The terminal renderer, key deck, quick commands and file browser in `feature/terminal` and `feature/files` are reused as they are; `feature/ssh` is the list, the editor, the key and lock sheets, the host key prompts and the port forwards.
+
+A changed host key stops the connection with a warning and no way to continue; the only route past it is Forget its key in the server's menu.

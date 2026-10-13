@@ -4,6 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import pl.dmq.peering.session.ports.SecretStore
+import pl.dmq.peering.session.ports.StoredRead
 import pl.dmq.peering.session.testing.FakeSecretStore
 import pl.dmq.peering.session.testing.FixedRandom
 import pl.dmq.peering.ssh.model.SshCredential
@@ -122,5 +124,47 @@ class StoresTest {
         assertTrue(store.remove("a"))
         assertFalse(store.hasPasscode("a"))
         assertTrue(store.verify("222222", "b"))
+    }
+
+    @Test
+    fun aReadThatFailsForNowIsNotRememberedAsAnEmptyList() {
+        val inner = FakeSecretStore()
+        SshHostStore(inner).save(listOf(SshHost("a", hostname = "h", username = "u")))
+        var failing = true
+        val flaky = object : SecretStore by inner {
+            override fun read(key: String) = if (failing) StoredRead.Unreadable(permanent = false) else inner.read(key)
+        }
+        val store = SshHostStore(flaky)
+        assertTrue(store.load().isEmpty())
+        failing = false
+        assertEquals(1, store.load().size)
+    }
+
+    @Test
+    fun theValueIsReadFromStorageOnceAndThenKept() {
+        val inner = FakeSecretStore()
+        var reads = 0
+        val counting = object : SecretStore by inner {
+            override fun read(key: String): StoredRead {
+                reads++
+                return inner.read(key)
+            }
+        }
+        val store = SshHostStore(counting)
+        store.load()
+        store.load()
+        store.save(listOf(SshHost("a", hostname = "h", username = "u")))
+        assertEquals(1, store.load().size)
+        assertEquals(1, reads)
+    }
+
+    @Test
+    fun aWriteThatDoesNotPersistLeavesTheOldValueInForce() {
+        val store = SshHostStore(secrets)
+        val first = SshHost("a", hostname = "h", username = "u")
+        store.save(listOf(first))
+        secrets.writesSucceed = false
+        assertFalse(store.save(emptyList()))
+        assertEquals(listOf(first), store.load())
     }
 }

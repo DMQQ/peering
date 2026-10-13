@@ -68,9 +68,7 @@
     <string name="ssh_signin_key">Key</string>
     <string name="ssh_signin_password_footer">You are asked for the password when you open a shell. Choose Remember it in that prompt to keep it in this phone\'s secure storage.</string>
     <string name="ssh_signin_key_footer">A key replaces the password for this server, it does not sit beside one. The private half is kept in this phone\'s secure storage; the public half is the line you put in ~/.ssh/authorized_keys on the server.</string>
-    <string name="ssh_signin_key_saved">%1$s key</string>
     <string name="ssh_signin_key_missing">Choose a key</string>
-    <string name="ssh_signin_key_forget_note">Switching to a password forgets the saved key when you save. Nothing on the server changes.</string>
 
     <string name="ssh_key_title">Key</string>
     <string name="ssh_key_public">Public key</string>
@@ -82,7 +80,6 @@
     <string name="ssh_key_import_file">Import a key file</string>
     <string name="ssh_key_paste">Paste a key</string>
     <string name="ssh_key_from_generate">For a server you have not set up a key for yet. It is an ed25519 key, the kind OpenSSH makes by default.</string>
-    <string name="ssh_key_from_file">.ssh/id_ed25519 on the machine you made the key on. Move it across with a cable or a cloud drive.</string>
     <string name="ssh_key_from_paste">The private half, not the public one. If what you have starts with ssh-ed25519, that is the half the server wants.</string>
     <string name="ssh_key_name">Name</string>
     <string name="ssh_key_name_footer">Only a label. It is what the server shows beside the key, and it tells your key apart from the one your laptop uses.</string>
@@ -91,7 +88,6 @@
     <string name="ssh_key_passphrase">Passphrase</string>
     <string name="ssh_key_passphrase_footer">Only if the key has one. It is kept in this phone\'s secure storage beside the key, because a phone has no ssh-agent to ask.</string>
     <string name="ssh_key_use">Use this key</string>
-    <string name="ssh_key_type">Type</string>
     <string name="ssh_key_err_not_private">That is not a private key. A private key starts with -----BEGIN OPENSSH PRIVATE KEY-----. If you pasted a line starting with ssh-ed25519, that is the public half, which goes on the server rather than here.</string>
     <string name="ssh_key_err_malformed">This key could not be read: %1$s</string>
     <string name="ssh_key_err_needs_passphrase">This key has a passphrase. Type it so the app can unlock the key when it connects.</string>
@@ -149,7 +145,6 @@
     <string name="ssh_forward_enabled">Start it with the connection</string>
     <string name="ssh_forward_running">Running</string>
     <string name="ssh_forward_stopped">Stopped</string>
-    <string name="ssh_forward_failed">%1$s</string>
     <string name="ssh_forward_delete">Delete forward</string>
     <string name="ssh_forward_err_local_nan">The local port has to be a number.</string>
     <string name="ssh_forward_err_local_range">The local port has to be between 1 and 65535.</string>
