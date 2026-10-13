@@ -353,7 +353,7 @@ struct RemoteScreen: View {
     /// one; Tab is how a Mac moves focus and completes. See ``ModifierBar``.
     private var keyboardKeyRow: some View {
         HStack(spacing: 8) {
-            compactCapButton(icon: "keyboard.chevron.compact.down", filled: true, large: true) { model.showKeyboard = false }
+            compactCapButton(icon: "keyboard.chevron.compact.down", large: true) { model.showKeyboard = false }
                 .accessibilityLabel("Hide keyboard")
             ModifierBar()
             HStack(spacing: 6) {
@@ -365,7 +365,7 @@ struct RemoteScreen: View {
             Spacer(minLength: 8)
             // Landscape leaves about 90pt between the system keyboard and the top of the screen, which a third row does not fit in.
             if deviceIsLandscape { arrowStrip(withReturn: false) }
-            compactKeyButton(icon: "return", keyCode: 36, large: true) { model.pressReturn() }
+            compactCapButton(icon: "return", filled: true, large: true) { model.pressReturn() }
                 .accessibilityLabel("Enter")
         }
     }
@@ -395,11 +395,15 @@ struct RemoteScreen: View {
         ZStack {
             HStack(spacing: 8) {
                 if shortcutsCollapsed {
-                    compactCapButton(icon: "keyboard.chevron.compact.down", filled: true) { model.showKeyboard = false }
+                    compactCapButton(icon: "keyboard.chevron.compact.down") { model.showKeyboard = false }
                         .accessibilityLabel("Hide keyboard")
                 }
                 keyboardField
                 dictationButton
+                if shortcutsCollapsed {
+                    compactCapButton(icon: "return", filled: true) { model.pressReturn() }
+                        .accessibilityLabel("Enter")
+                }
             }
             .opacity(dictation.isActive ? 0 : 1)
             .allowsHitTesting(!dictation.isActive)
@@ -449,7 +453,7 @@ struct RemoteScreen: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
-                .background(Circle().fill(Color.white.opacity(0.14)))
+                .glassSurface(in: Circle(), interactive: true)
                 .contentShape(Circle())
         }
         .buttonStyle(RailButtonStyle(scale: 0.9, haptic: true))

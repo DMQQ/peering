@@ -35,6 +35,10 @@ final class RemoteAudioPlayer: @unchecked Sendable {
             try AVAudioSession.sharedInstance().setActive(true)
             try engine.start()
             playerNode.play()
+            // Taking the microphone for dictation reroutes the session, which stops an engine without telling anyone: the sound stayed gone until the next connection.
+            configurationObserver = NotificationCenter.default.addObserver(
+                forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+            ) { [weak self] _ in self?.resumeAfterRouteChange() }
         } catch {
             Analytics.failed(error, in: .audio)
             audioLog.error("could not start the audio engine: \(error.localizedDescription, privacy: .public)")
@@ -42,7 +46,22 @@ final class RemoteAudioPlayer: @unchecked Sendable {
         }
     }
 
+    nonisolated(unsafe) private var configurationObserver: NSObjectProtocol?
+
+    private func resumeAfterRouteChange() {
+        guard !engine.isRunning else { return }
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+            try engine.start()
+            playerNode.play()
+        } catch {
+            Analytics.failed(error, in: .audio)
+            audioLog.error("could not restart the audio engine: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     deinit {
+        if let configurationObserver { NotificationCenter.default.removeObserver(configurationObserver) }
         playerNode.stop()
         engine.stop()
     }
