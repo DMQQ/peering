@@ -250,15 +250,28 @@ extension HostMenuBarContent {
     var resourcesRow: some View {
         let rates = model.resources.rates
         let memory = model.resources.memoryBytes
-        return HStack(spacing: 8) {
+        return HStack(spacing: 0) {
             reading("CPU", rates.map(HostResourceSampler.cpuPercent) ?? "…")
+            readingDivider
             reading(String(localized: "Memory"), memory > 0 ? HostResourceSampler.memoryText(memory) : "…")
+            readingDivider
             reading(String(localized: "Sent"), rates.map { HostResourceSampler.networkText($0.bytesPerSecond) } ?? "…")
         }
+        .padding(.vertical, 9)
+        .overlay(
+            RoundedRectangle(cornerRadius: HostPalette.controlRadius + 2, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.12))
+        )
+    }
+
+    private var readingDivider: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.1))
+            .frame(width: 1, height: 26)
     }
 
     private func reading(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(spacing: 2) {
             Text(value)
                 .font(.system(size: 13, weight: .semibold, design: .monospaced))
                 .foregroundStyle(Color.primary)
@@ -267,14 +280,8 @@ extension HostMenuBarContent {
                 .contentTransition(.numericText())
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(Color.secondary.opacity(0.75))
+                .foregroundStyle(Color.secondary.opacity(0.8))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .overlay(
-            RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.12))
-        )
+        .frame(maxWidth: .infinity)
     }
 }

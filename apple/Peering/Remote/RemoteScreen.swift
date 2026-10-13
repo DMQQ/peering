@@ -12,10 +12,17 @@ struct RemoteScreen: View {
 
     @State var streamLooksPaused = false
     @State var dictation = VoiceDictation()
-    @State var barDrag: CGFloat = 0
+    @State var shortcutsDrag: CGFloat = 0
+    @State var keyRowsHeight: CGFloat = 0
     @State var panelDrag: CGFloat = 0
     @AppStorage(PreferenceKeys.keyboardShortcutsExpanded) var shortcutsExpanded = false
-    var shortcutsCollapsed: Bool { !shortcutsExpanded }
+    /// 0 with the shortcut keys folded away and 1 with them shown, following the finger while the handle is dragged.
+    var shortcutsProgress: CGFloat {
+        let settled: CGFloat = shortcutsExpanded ? 1 : 0
+        guard keyRowsHeight > 0 else { return settled }
+        return min(1, max(0, settled - shortcutsDrag / keyRowsHeight))
+    }
+    var shortcutsCollapsed: Bool { shortcutsProgress < 0.5 }
 
     @AppStorage(PreferenceKeys.interactionMode) var interactionMode: InteractionMode = .control
 
@@ -376,22 +383,28 @@ struct RemoteScreen: View {
         VStack(spacing: 8) {
             if !dictation.isListeningUI { shortcutsHandle.padding(.top, -10).padding(.bottom, -6) }
             keyboardInputRow
-            if !dictation.isListeningUI, !shortcutsCollapsed {
+            if !dictation.isListeningUI {
+                // Sized by the drag, so the bar grows and shrinks under the finger; the rows keep their natural height and are clipped.
                 VStack(spacing: 8) {
                     keyboardKeyRow
                     if !deviceIsLandscape { arrowStrip(withReturn: false) }
                 }
-                .transition(.blurReplace)
+                .fixedSize(horizontal: false, vertical: true)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { if $0 > 0 { keyRowsHeight = $0 } }
+                .frame(height: keyRowsHeight > 0 ? keyRowsHeight * shortcutsProgress : (shortcutsProgress == 0 ? 0 : nil), alignment: .top)
+                .clipped()
+                .opacity(shortcutsProgress)
+                .blur(radius: (1 - shortcutsProgress) * 6)
+                .allowsHitTesting(shortcutsProgress > 0.9)
+                .padding(.top, -8 * (1 - shortcutsProgress))
             }
         }
-        .animation(Motion.settle, value: shortcutsExpanded)
         .padding(.horizontal, 14)
         .padding(.vertical, deviceIsLandscape ? 8 : 12)
         .glassSurface(in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous))
         .padding(.horizontal, ChromeMetrics.edgeInset)
         .padding(.top, deviceIsLandscape ? 4 : ChromeMetrics.edgeInset)
-        .offset(y: barDrag)
-        .transaction(value: barDrag) { $0.animation = nil }
+        .offset(y: shortcutsExpanded ? 0 : max(0, shortcutsDrag * 0.5))
     }
 
     private var keyboardInputRow: some View {
@@ -434,18 +447,19 @@ struct RemoteScreen: View {
             .gesture(
                 DragGesture(minimumDistance: 4, coordinateSpace: .global)
                     .onChanged { drag in
-                        // The bar follows the finger with some give, so it reads as something to drag, and settles on release.
-                        barDrag = max(-36, min(48, drag.translation.height * 0.6))
+                        // No animation: the layout must be exactly where the finger is.
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) { shortcutsDrag = drag.translation.height }
                     }
                     .onEnded { drag in
-                        let travel = drag.predictedEndTranslation.height
+                        let wasExpanded = shortcutsExpanded
+                        // Settles toward where the throw was heading, past a third of the way or a quick flick.
+                        let projected = shortcutsProgress - (drag.predictedEndTranslation.height - drag.translation.height) / max(keyRowsHeight, 1) * 0.4
                         withAnimation(Motion.settle) {
-                            barDrag = 0
-                            if travel < -30, !shortcutsExpanded {
-                                shortcutsExpanded = true
-                            } else if travel > 30 {
-                                if shortcutsExpanded { shortcutsExpanded = false } else { model.showKeyboard = false }
-                            }
+                            shortcutsExpanded = projected > 0.5
+                            shortcutsDrag = 0
+                            if !wasExpanded, !shortcutsExpanded, drag.translation.height > 70 { model.showKeyboard = false }
                         }
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     }

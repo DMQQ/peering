@@ -65,7 +65,19 @@ extension HostStatusView {
 #endif
             }
             .hostPanel()
+
+            Text(Self.versionText)
+                .font(.caption)
+                .foregroundStyle(HostPalette.muted)
+                .textSelection(.enabled)
+                .padding(.leading, 4)
         }
+    }
+
+    /// The build running now, as Sparkle compares it, so it can be checked against the update feed.
+    static var versionText: String {
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return String(localized: "Version \(build)")
     }
 
 #if DEBUG

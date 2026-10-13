@@ -11,11 +11,11 @@ extension HostMenuBarContent {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.primary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 30)
-                    .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous))
+                    .frame(height: 32)
+                    .background(Color.primary.opacity(0.14), in: RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.12))
+                            .strokeBorder(Color.primary.opacity(0.2))
                     )
                     .contentShape(Rectangle())
             }
@@ -77,9 +77,9 @@ extension HostMenuBarContent {
     func rowIcon(_ symbol: String, lit: Bool = false) -> some View {
         Image(systemName: symbol)
             .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(lit ? Color.white : Color.secondary)
+            .foregroundStyle(lit ? Color.primary : Color.secondary)
             .frame(width: 26, height: 26)
-            .background(lit ? AnyShapeStyle(Color.accentColor.opacity(0.85)) : AnyShapeStyle(Color.primary.opacity(0.08)), in: Circle())
+            .background(Color.primary.opacity(lit ? 0.14 : 0.07), in: Circle())
             .animation(HostMotion.state, value: lit)
     }
 

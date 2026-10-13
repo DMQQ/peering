@@ -64,6 +64,7 @@ extension HostStatusView {
             }
 
             VStack(alignment: .leading, spacing: 8) {
+                Text(Self.versionText)
                 LabeledContent("Protocol", value: "v\(ProtocolInfo.version)")
                 LabeledContent("Port", value: "\(model.boundPort)")
                 LabeledContent("Device ID", value: model.deviceID)
