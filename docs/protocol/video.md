@@ -33,7 +33,7 @@ because the client has the config).
 
 Audio: `audioConfig` (0x13) `{codec:"pcmFloat32", sampleRate:Double, channelCount:Int}`. `audioFrame` (0x14) payload:
 `u32 sampleCount, u32 channelCount, i64 ptsValue, i32 ptsTimescale` (20 bytes) then `sampleCount * channelCount` samples of native `Float` bytes, interleaved. UNVERIFIED: byte order is not stated in
-the source; every Apple Mac is little endian, so treat them as IEEE 754 little endian. `channelCount` MUST be 1 to 32 and the length MUST match.
+the source; every Apple Mac is little endian, so treat them as IEEE 754 little endian. The Windows host writes little endian too, and sends 48000 Hz, 2 channels, 960 samples (20 ms) a frame. `channelCount` MUST be 1 to 32 and the length MUST match.
 
 Video is droppable and keyframes are not: when a frame is waiting and a newer one arrives, a keyframe always wins, and
 an undelivered keyframe is never replaced by a delta (`VideoDropPolicy`, `VideoWire.swift:299-313`).

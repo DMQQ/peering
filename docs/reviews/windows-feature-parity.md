@@ -16,6 +16,8 @@ Line format: `[CLASS] item. Win: file:line. Mac: reference.`
 
 ## Summary
 
+The counts are as audited on the first day. The lines carry the statuses of both passes, and the last two sections list what changed.
+
 Area sections 1 to 13 and 16 to 20 (129 items): PRESENT 71, PARTIAL 19, MISSING 31, N/A 8.
 
 Protocol facing sections 14 and 15 (38 items, flags, commands and frame kinds; they restate features that also appear above, so they are counted apart): PRESENT 22, PARTIAL 9, MISSING 6, N/A 1.
@@ -111,14 +113,14 @@ Headlines (as audited; the counts and the item lines above carry the fixes of 20
 * [PARTIAL] Frame rate. Win: snaps to 15, 30 or 60 (`crates/peering-core/src/settings.rs:5,93`), so the protocol's 15 to 120 range is quantised and 120 is capped at 60; the window choice is not saved (`windows/README.md`). Mac: `frameRateRow`, `Capture/StreamPacer.swift`. STATUS 2026-10-13: The window choice is now saved and applied at the next start.
 * [PARTIAL] Capture recovery and supervision. Win: retry delays 0.5 s to 15 s, stall probe at 30 s, device rebuild after two encoder rebuilds, a pass abandoned after 10 s (`crates/peering-core/src/video/recovery.rs:10,12,16`, `crates/peering-core/src/supervision.rs:7`, `host/src/runtime/video_handle.rs:93`). Missing: the wedged driver thread leaks until exit (`windows/README.md`). Mac: `Capture/CaptureRecovery.swift`.
 * [PARTIAL] Secure desktop and lock screen. Win: a notice "This PC is locked" and recapture after access loss (`crates/peering-platform/src/session_state.rs:43`, `dda.rs:28`). The host runs `asInvoker` (`host/app.manifest`), so input into an elevated window or a UAC prompt is dropped by UIPI; there is no UI access path. Mac: `OffDesktopInputGate.swift` is the nearest analogue.
-* [MISSING] Window sources. Win: `set_source` accepts display ids only and errors with `UnsupportedSource` (`crates/peering-core/src/video/coordinator/source.rs:53`); the phone gets `sourceUnavailable`. Buildable with Windows.Graphics.Capture. Mac: `Capture/CaptureSourceResolver.swift`. STATUS 2026-10-13: Not done: Windows.Graphics.Capture is not a dependency, and a second capture path (capture item, frame pool, window and application catalogue with icons) cannot be exercised without a Windows machine. The phone is told in a notice (`displayDisconnected`), not an `error`, which ends an iPhone session.
-* [MISSING] Application sources (all windows of a process composited). Same site as above. Mac: `ScreenCaptureSourceResolver+Filters.swift`. STATUS 2026-10-13: Not done, with window sources.
-* [MISSING] Catalogue of windows, running applications and installed applications with icons. Win: `catalogue.rs:61` fills `displays` only. Mac: `ScreenCaptureSourceResolver+Catalogue.swift`, `+Descriptors.swift`. STATUS 2026-10-13: Not done, with window sources: entries that cannot be captured would not be honest.
+* [PARTIAL] Window sources. Win: `set_source` accepts display ids only and errors with `UnsupportedSource` (`crates/peering-core/src/video/coordinator/source.rs:53`); the phone gets `sourceUnavailable`. Buildable with Windows.Graphics.Capture. Mac: `Capture/CaptureSourceResolver.swift`. STATUS 2026-10-13: Not done: Windows.Graphics.Capture is not a dependency, and a second capture path (capture item, frame pool, window and application catalogue with icons) cannot be exercised without a Windows machine. The phone is told in a notice (`displayDisconnected`), not an `error`, which ends an iPhone session. STATUS 2026-10-13 (second pass): Fixed for windows: `set_source` takes a window id, the capture is Windows.Graphics.Capture (`crates/peering-platform/src/wgc/sys.rs`, `window_list/sys.rs`), input is mapped into the window, and a closed window returns the picture to the primary display (`video/coordinator/recover.rs`). Type checked for the Windows target, not run. Application sources are not built.
+* [MISSING] Application sources (all windows of a process composited). Same site as above. Mac: `ScreenCaptureSourceResolver+Filters.swift`. STATUS 2026-10-13: Not done, with window sources. STATUS 2026-10-13 (second pass): Not done, and not buildable the way the Mac does it: Windows.Graphics.Capture captures one window or one screen, not the windows of a program together. A catalogue entry for an application would not be capturable, so none is listed.
+* [PARTIAL] Catalogue of windows, running applications and installed applications with icons. Win: `catalogue.rs:61` fills `displays` only. Mac: `ScreenCaptureSourceResolver+Catalogue.swift`, `+Descriptors.swift`. STATUS 2026-10-13: Not done, with window sources: entries that cannot be captured would not be honest. STATUS 2026-10-13 (second pass): The catalogue lists windows (`catalogue.rs`, `window_list.rs`), each only if the system accepts it for capture when it is listed. Applications, installed applications and icons are not listed.
 * [PARTIAL] Mosaic source. Win: dropped before dispatch with `IgnoreReason::MosaicSource`, no reply (`crates/peering-core/src/session/dispatch.rs:101`); `supportsMosaic` correctly not set. Mac: `Capture/MosaicCompositor.swift`, `MosaicPlan.swift`. STATUS 2026-10-13: Now answered with a notice that lapses after 6 s (`refusal.rs`); `supportsMosaic` stays unset.
-* [MISSING] Source thumbnails and refresh or watch commands. Win: `refreshSourceThumbnails` and `watchSourceThumbnails` fall to `NotSupportedHere` (`dispatch.rs:114`); `supportsSourceThumbnails` correctly not set. Mac: `Capture/SourceThumbnailCache.swift`.
+* [MISSING] Source thumbnails and refresh or watch commands. Win: `refreshSourceThumbnails` and `watchSourceThumbnails` fall to `NotSupportedHere` (`dispatch.rs:114`); `supportsSourceThumbnails` correctly not set. Mac: `Capture/SourceThumbnailCache.swift`. STATUS 2026-10-13 (second pass): Not done: a thumbnail per window needs a captured frame encoded to PNG for every listed window; `supportsSourceThumbnails` stays unset.
 * [MISSING] HEVC. Win: H.264 only, `ClientHello.videoCodecs` is stored but never read (`crates/peering-core/src/session/handshake.rs:56,168`, `mft/config.rs:11`). Mac: `Capture/VideoCodec.swift`, codec row. Clients fall back to H.264, so this costs bandwidth only.
 * [MISSING] Capture resolution setting (scale down for a slow link). Win: always the display's native size (`coordinator/source.rs:65`). Mac: `HostModel+Capture.swift:6`.
-* [MISSING] Cursor in the picture. Win: Desktop Duplication frames carry no cursor and nothing composites one (`dda/sys.rs:144` only releases pointer-only frames); `supportsPointerReport` is never answered. Mac: `Capture/CursorOverlay.swift`. UNVERIFIED on a device.
+* [PRESENT] Cursor in the picture. Win: Desktop Duplication frames carry no cursor and nothing composites one (`dda/sys.rs:144` only releases pointer-only frames); `supportsPointerReport` is never answered. Mac: `Capture/CursorOverlay.swift`. UNVERIFIED on a device. STATUS 2026-10-13 (second pass): Fixed: the duplication delivers the pointer shape and position, and `dda/sys/cursor.rs` blends it into a GPU copy of the frame (pure shapes, clipping and blending in `crates/peering-platform/src/cursor.rs`); a pointer-only change makes a frame. Setting `cursorInPicture`. Not run on Windows; an HDR display leaves the pointer out.
 * [N/A] Virtual displays (`addVirtualDisplay`, `removeVirtualDisplay`, `renameVirtualDisplay`, `reportDeviceOrientation`). Win: dropped silently (`dispatch.rs:93`); flags not set. Mac: `Display/VirtualDisplay.swift` (private CGVirtualDisplay). Windows equivalent: an indirect display driver, which needs a signed kernel-adjacent driver; treat as a separate project.
 * [N/A] Spaces (`switchSpace`, `switchToSpace`, `refreshSpacePreviews`, `spaceInfo`). Win: dropped silently (`dispatch.rs:92`). Mac: `SpaceReader.swift`, `Capture/SpacePreviewCache.swift`. Windows equivalent: virtual desktops via the undocumented `IVirtualDesktopManager`, or Win+Ctrl+Left and Right chords through `SendInput`. STATUS 2026-10-13: Now answered with a notice (`IgnoreReason::SpaceSwitch`).
 * [PARTIAL] Privacy mode (dim the display, hide the picture on the PC). Win: `setPrivacyMode` dropped silently (`dispatch.rs:96`). Mac: `DisplayPrivacyController.swift`, `DisplayPrivacyCurtain.swift`. Buildable as a topmost black window per monitor (cannot dim brightness the same way); capture still sees the screen under it only if the curtain is excluded with `SetWindowDisplayAffinity`. STATUS 2026-10-13: Now answered: turning it on gets a `privacyModeFailed` notice the iPhone words, turning it off says nothing. The curtain itself is not built.
@@ -127,7 +129,7 @@ Headlines (as audited; the counts and the item lines above carry the fixes of 20
 
 ## 7. Audio
 
-* [MISSING] System audio capture and `audioConfig` and `audioFrame` (Float32 PCM). Win: `MessageKind::AudioConfig` and `AudioFrame` exist (`crates/peering-wire/src/framing.rs:30`) and `AudioCodec` is declared (`crates/peering-wire/src/video/mod.rs:185`), but no host code produces them. Mac: `Video/VideoStreamer+Audio.swift`. Buildable with WASAPI loopback.
+* [PRESENT] System audio capture and `audioConfig` and `audioFrame` (Float32 PCM). Win: `MessageKind::AudioConfig` and `AudioFrame` exist (`crates/peering-wire/src/framing.rs:30`) and `AudioCodec` is declared (`crates/peering-wire/src/video/mod.rs:185`), but no host code produces them. Mac: `Video/VideoStreamer+Audio.swift`. Buildable with WASAPI loopback. STATUS 2026-10-13 (second pass): Fixed: WASAPI loopback (`crates/peering-platform/src/audio/sys.rs`), converted to 48 kHz stereo Float32 in 960 sample frames (`crates/peering-core/src/audio`), sent as `audioConfig` and `audioFrame` on the lane the picture takes, listening only while a phone is in the foreground, one waiting frame replaced by a newer as on the Mac. Not run on Windows.
 
 ## 8. Input
 
@@ -146,7 +148,7 @@ Headlines (as audited; the counts and the item lines above carry the fixes of 20
 ## 9. Pointer, text focus and field state reports to the phone
 
 * [PRESENT] `pointerReport` (0x22) when a hand on the PC moves the pointer. Win: `ClientCapabilities.supports_pointer_report` is parsed (`crates/peering-wire/src/handshake.rs:25`) and the frame kind exists, but nothing sends it. Mac: `Input/PointerWatcher.swift`. Cheap with `GetCursorPos` polling. STATUS 2026-10-13: Fixed: `PointerTracker` (`crates/peering-core/src/pointer.rs`) and `host/src/runtime/pointer_pump.rs` send it for a hand on the mouse and 0.3 s after the last joystick nudge, to clients that declared `supportsPointerReport`. Not run on Windows.
-* [MISSING] `textFocus` (0x1C) and `fieldState` (0x1D). Win: kinds exist (`framing.rs:38`), no producer. Mac: `Input/TextFocusWatcher.swift` (Accessibility). Buildable with UI Automation focus events.
+* [PRESENT] `textFocus` (0x1C) and `fieldState` (0x1D). Win: kinds exist (`framing.rs:38`), no producer. Mac: `Input/TextFocusWatcher.swift` (Accessibility). Buildable with UI Automation focus events. STATUS 2026-10-13 (second pass): Fixed: `crates/peering-core/src/focus.rs` carries the Mac watcher rules, `crates/peering-platform/src/focus/sys.rs` reads UI Automation on its own thread, `host/src/runtime/focus_pump.rs` sends the frames to phones that declared the flags. Not run on Windows.
 
 ## 10. Clipboard
 
@@ -160,7 +162,7 @@ Headlines (as audited; the counts and the item lines above carry the fixes of 20
 * [PRESENT] Listing cap 2000 entries, truncation flag, 10 s deadline per request. Win: `files/browse.rs:13`, `host/src/runtime/terminal.rs:28,126`. Mac: `Terminal/FileWork.swift`.
 * [PRESENT] Browse scopes per client (`startBrowser`, four per client). Win: `crates/peering-core/src/terminal/manager/browse.rs:9`. Mac: `TerminalSessionManager+FileBrowsing.swift`.
 * [PRESENT] Upload (`beginWrite`, `writeChunk`). Win: answered `writeFailure "This PC cannot receive files yet."` (`files/browse.rs:16,49`). Mac: `TerminalSessionManager+FileTransfer.swift`, `+UploadHousekeeping.swift`, `+PendingWrite.swift`. STATUS 2026-10-13: Fixed: `crates/peering-core/src/files/transfer.rs`, run on a writer thread (`host/src/runtime/file_writer.rs`): scratch file beside the destination, moved over it when every byte has arrived, 2 GB cap, 32 KiB pieces, 8 transfers, 16 MiB queue, 90 s idle drop, orphan sweep at start. Not run on Windows.
-* [MISSING] Download of a folder as an archive (`archiveFolder`). Win: `transferFailure` (`files/browse.rs:15,43`). Mac: `TerminalSessionManager+Download.swift`.
+* [PRESENT] Download of a folder as an archive (`archiveFolder`). Win: `transferFailure` (`files/browse.rs:15,43`). Mac: `TerminalSessionManager+Download.swift`. STATUS 2026-10-13 (second pass): Fixed: `crates/peering-core/src/files/archive.rs` and `zip.rs` write a streaming deflate zip with the 512 MB cap, `host/src/runtime/archive.rs` keeps it under the data folder and deletes it after the last piece. Files that cannot be opened are left out.
 * [PRESENT] New file or folder, rename, delete (`changeFile`). Win: `fileOperationFailure` (`files/browse.rs:17,56`). Mac: `TerminalSessionManager+FileChanges.swift`, `RemoteFileName.swift`. STATUS 2026-10-13: Fixed: `crates/peering-core/src/files/changes.rs`. Name rules are the path rules, create and rename never replace, delete goes to the Recycle Bin (`crates/peering-platform/src/recycle.rs`) and refuses the profile, Windows and Program Files folders and anything that holds them. Not run on Windows.
 * [PRESENT] Size limits and replacement rules for transfers. Win: none, since nothing is written. Mac: `FileDownloadLimits.swift`, `FileReplacement.swift`. STATUS 2026-10-13: Fixed, see upload.
 * [N/A] Protected folder prompt watch. Mac: `Terminal/FolderAccessWatch.swift` (TCC). Windows has no per folder consent prompt.
@@ -188,7 +190,7 @@ Headlines (as audited; the counts and the item lines above carry the fixes of 20
 * [MISSING] Resumable conversations (`listResumable`, `resume`) and `supportsAgentSessionImport`. Win: `manager.rs:70`. Mac: `Agent/Sessions/ClaudeSessionLibrary.swift`, `AgentSessionManager+Import.swift`, `AgentResumableSession.swift`. Reads `%USERPROFILE%\.claude\projects`.
 * [MISSING] Web preview proxy (`previewRequest`, `previewEvent`). Win: the frame kind is routed to `ReadyOutcome::Unhandled(_)` and dropped with no reply (`host/src/runtime/ready.rs:32`), so a phone request waits for its own timeout. Mac: `Agent/Preview/PreviewProxyService.swift`, `PreviewTransfer.swift`.
 * [MISSING] Back pressure hold of agent events while the phone is backgrounded. Win: events go to the newest session of the client at once (`host/src/runtime/agent_pump.rs:26`). Mac: `Network/ClientOutputGate.swift`, `AgentSessionManager+BackPressure.swift`.
-* [MISSING] Agent approval and turn finished pushes through the relay. Win: only terminal alerts are queued (`host/src/runtime/terminal.rs:166`; `approval_id` and `session_id` are always `None`). Mac: `Agent/Sessions/AgentNotificationWords+Localized.swift`, `Terminal/PushTokenStore.swift`. STATUS 2026-10-13: Claude Code hook approvals now push through the relay (see section 12); chat approvals and turn finished do not.
+* [PRESENT] Agent approval and turn finished pushes through the relay. Win: only terminal alerts are queued (`host/src/runtime/terminal.rs:166`; `approval_id` and `session_id` are always `None`). Mac: `Agent/Sessions/AgentNotificationWords+Localized.swift`, `Terminal/PushTokenStore.swift`. STATUS 2026-10-13: Claude Code hook approvals now push through the relay (see section 12); chat approvals and turn finished do not. STATUS 2026-10-13 (second pass): Fixed: `crates/peering-agent/src/push.rs` plans the pushes with the Mac rules and `host/src/runtime/agent_pump.rs` queues them for the relay. Words are English only. `notifyActivity` is still not sent.
 * [MISSING] Agent analytics events. Win: none. Mac: `Agent/Analytics/*`.
 * [PRESENT] One agent manager per client, kept for the life of the host, so a reconnecting phone finds its chats; they do not survive a host restart. Win: `crates/peering-agent/src/manager/clients.rs:10`. Mac: same, plus resume from disk (below).
 
@@ -256,7 +258,7 @@ Frame kinds a phone can send:
 * [MISSING] Keep awake schedule, wake schedule, lid-close sleep control. Mac: `KeepAwakeScheduleRow.swift`, `WakeScheduleRow.swift` (pmset), `LidCloseSleepControl.swift`. Windows equivalents: `powercfg`, scheduled task with wake timer.
 * [PRESENT] Lock screen detection and a phone side notice. Win: `crates/peering-platform/src/session_state.rs:43`, `session_state/sys.rs:54`. Mac: lock notice.
 * [PRESENT] Start at login through the HKCU Run key. Win: `host/src/autostart.rs:56,101`, `host/src/ui/settings.rs`, installer task `peering-host.iss`. Mac: `LaunchAtLogin.swift`. Default in `HostSettings` is true but the installer task is unchecked.
-* [MISSING] Auto update. Win: nothing checks for or installs a newer build. Mac: `Updater.swift` (Sparkle against the relay appcast). Windows equivalents: a check against the relay appcast with a download link, or MSIX with App Installer, or `winget`.
+* [PARTIAL] Auto update. Win: nothing checks for or installs a newer build. Mac: `Updater.swift` (Sparkle against the relay appcast). Windows equivalents: a check against the relay appcast with a download link, or MSIX with App Installer, or `winget`. STATUS 2026-10-13 (second pass): A notice, not an updater: `crates/peering-core/src/update.rs` and `host/src/runtime/update.rs` read the repository's GitHub releases once a day and the window offers the release page. Nothing is downloaded or installed, and the installer is still unsigned.
 * [MISSING] Code signing. Win: unsigned installer, SmartScreen warning (`windows/README.md`). Mac: notarised DMG.
 * [PRESENT] Installer. Win: `windows/installer/peering-host.iss`, `installer/build.ps1`, `.github/workflows/windows-release.yml`. Per user, no elevation. Not yet run (`windows/README.md`).
 * [N/A] Permission onboarding (Accessibility, Screen Recording). Mac: `PermissionOnboardingView.swift`, `Permissions.swift`. Windows needs none for these; the equivalent is the firewall step.
@@ -266,7 +268,7 @@ Frame kinds a phone can send:
 * [PRESENT] Tray icon with status and menu: start or stop hosting, pairing code, devices, settings, quit. Win: `host/src/ui/tray.rs`, `ui/model.rs:224`. Mac: `MenuBar/MenuBarController.swift`, `HostMenuBarContent*.swift`.
 * [PRESENT] Window with the pairing QR and code, approvals, paired phones, problems list. Win: `host/src/ui/app.rs:102`, `ui/pairing.rs`. Mac: `HostStatusView+Connect.swift`, `+Devices.swift`.
 * [PARTIAL] Settings. Win: start at login, fix firewall, frame rate (not saved) (`host/src/ui/settings_view.rs`, `settings.rs`). `HostSettings` in `crates/peering-core/src/settings.rs:7` (port, relay, device name, start at login) is written but never loaded or saved by the host. Mac: launch at login, keep awake rows, preview, hooks, analytics, pointer, resolution, frame rate, codec, port. STATUS 2026-10-13: Port, relay, device name, frame rate, start at login and hooks are loaded from and saved to `settings.txt`; the window shows start at login, relay, hooks, firewall and frame rate. The port and device name have no control in the window.
-* [MISSING] Activity log and session history. Win: `diagnostics::log` writes to stderr, which a windowed build does not have (`host/src/runtime/diagnostics.rs:7`); only a problems list shows. Mac: `HostLogEntry.swift`, `HostSessionRecord.swift`, `HostStatusView+Devices.swift:230,328`.
+* [PARTIAL] Activity log and session history. Win: `diagnostics::log` writes to stderr, which a windowed build does not have (`host/src/runtime/diagnostics.rs:7`); only a problems list shows. Mac: `HostLogEntry.swift`, `HostSessionRecord.swift`, `HostStatusView+Devices.swift:230,328`. STATUS 2026-10-13 (second pass): A rotating file log now exists (`host/src/logfile.rs`, `%LOCALAPPDATA%\Peering Host\logs`, with an Open log folder button). There is still no activity list or session history in the window.
 * [MISSING] Live preview of the PC screen in the window. Mac: `previewRow`, `HostStatusView+Session.swift`.
 * [MISSING] Resource figures (CPU, memory, network) in the window. Mac: `HostResourceSampler.swift`.
 * [MISSING] About, version and first-connection onboarding. Mac: `HostStatusView+About.swift`, `FirstConnectionOnboardingView.swift`, `AwaySwitchesOnboardingView.swift`.
@@ -347,5 +349,33 @@ written by hand against the APIs and unchecked.
 14 (update check, signing) not done.
 15 (rolling log file) not done.
 
-Still open from this audit: the `hostPresence` and `notifyActivity` relay messages, HEVC, a capture resolution setting, a cursor in the picture,
-folder archives, F-key actions, network change and wake observers, the activity log, analytics, localisation.
+Still open from this audit: the `hostPresence` and `notifyActivity` relay messages, HEVC, a capture resolution setting, F-key actions,
+network change and wake observers, the activity list, analytics, localisation.
+
+## Status after the second pass (2026-10-13)
+
+Written from the code and its tests (`cargo test --locked --workspace` and `cargo clippy --locked --workspace --all-targets` on macOS, and
+`cargo check` and `cargo clippy` of `peering-platform` and `peering-host` for `x86_64-pc-windows-msvc` with the stub C compiler and archiver of
+`windows/README.md`). Every Windows-only call below compiles and none has run on Windows.
+
+"Worth building next", by number:
+
+* 6 (the pointer): done both ways. `pointerReport` as before, and the pointer is drawn into the picture.
+* 8 (folder download): done; the folder is zipped and read in pieces, with the Mac's 512 MB cap.
+* 10 (audio): done, see section 7.
+* 11 (window and application sources): windows done with a catalogue that lists only what the system accepts for capture; applications, icons,
+  thumbnails and a mosaic are not done (Windows.Graphics.Capture has no several-window source).
+* 12 (`textFocus`, `fieldState`): done.
+* 13 (agent changes, commit, push, resumable conversations): not done.
+* 14 (update check): a notice with a link, no installer and no signing.
+* 15 (rolling log): done; no activity list in the window.
+* Chat approvals and finished turns through the relay: done. Live Activity (`activityToken` in, `notifyActivity` out, `hostPresence`): not done.
+  It is iPhone only, needs the card state builders and a presence registry, and cannot be tried without an iPhone.
+
+Capability flags: nothing new is advertised, because audio, text focus, field state and the pointer have no host side flag (the client declares
+what it wants), `supportsMosaic` and `supportsSourceThumbnails` stay unset because neither works, and `supportsLiveActivityPush` stays unset.
+
+Not done, with the reason: privacy curtain (a topmost window per monitor that the capture does not see needs `SetWindowDisplayAffinity`
+and a design for input that the audit did not settle), Spaces (virtual desktops have no documented API), virtual displays (an indirect display
+driver), application sources and thumbnails (above), code signing (a certificate), HEVC (bandwidth only), keep awake and wake schedules
+(`powercfg` and scheduled tasks need elevation).

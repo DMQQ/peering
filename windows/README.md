@@ -77,11 +77,12 @@ tests of `windows.yml` and attaches the installer to a release. The installer's 
 ## Settings
 
 `%LOCALAPPDATA%\Peering Host\settings.txt` holds `key=value` lines: `port`, `frameRate` (15, 30 or 60), `startAtLogin`,
-`relayEnabled`, `deviceName` and `terminalHooks`. It is read at start and rewritten whole (through a file beside it that is
+`relayEnabled`, `deviceName`, `terminalHooks`, `cursorInPicture` (the pointer is drawn into the picture, on by default) and
+`checkForUpdates` (on by default). It is read at start and rewritten whole (through a file beside it that is
 renamed over it) whenever the window changes a setting. A key that is missing or out of range takes its default, and a file
 that cannot be read starts the host on the defaults and says so in the window. The window has controls for start at login,
-the relay, the hooks, the firewall rule and the frame rate. The port and the device name are changed in the file, and take
-effect at the next start. The relay switch takes effect at once. `startAtLogin` follows the Run entry, which stays the truth.
+the relay, the hooks, the update notice, the firewall rule and the frame rate, and a button that opens the log folder. The port, the
+device name and `cursorInPicture` are changed in the file, and take effect at the next start. The relay switch takes effect at once. `startAtLogin` follows the Run entry, which stays the truth.
 
 ## What a phone gets besides the picture
 
@@ -95,13 +96,35 @@ effect at the next start. The relay switch takes effect at once. `startAtLogin` 
   moved over it when every byte has arrived (2 GB at most, 32 KiB pieces, 8 transfers at once, a transfer silent for 90 s is
   dropped). Names follow the same rules as paths from the phone, so a name cannot leave its folder or open a device. Create and
   rename never replace a name that is taken. Delete goes to the Recycle Bin, only from the PC's own drives, and refuses the user
-  profile, the Windows folder, Program Files, ProgramData and anything that holds them. A folder archive is not built.
+  profile, the Windows folder, Program Files, ProgramData and anything that holds them. A folder is zipped to
+  `%LOCALAPPDATA%\Peering Host\archives\<id>\<Folder>.zip` (deflate, 512 MB at most, 65535 entries at most, links not followed, files
+  that cannot be opened left out), announced with `archiveReady`, read by the phone in 32 KiB pieces and deleted after the last. Two
+  at a time; a zip nobody finished reading goes after an hour, and the folder is emptied at start.
+- Sound: what the PC plays (WASAPI loopback on the default playback device, which is followed when it changes) is sent as
+  `audioConfig` and `audioFrame`, 48 kHz stereo Float32, while a phone in the foreground is connected. Silence sends nothing.
+- The pointer is drawn into the picture (the duplication's shape and position, composited on the GPU copy of the frame; a pointer-only
+  change makes a new frame). A window capture has the system draw it. `pointerReport` still goes to the phones that declared it.
+- `textFocus` and `fieldState` go to phones that declared `supportsTextFocus` and `supportsFieldState`, read with UI Automation on a
+  thread of its own every 300 ms while such a phone is connected, and again 150 ms after a phone's click.
+- Windows: the picker lists the top-level windows the system will capture (Windows.Graphics.Capture), each checked when listed.
+  Choosing one streams that window and maps the phone's pointer into it; closing it returns the picture to the primary display.
+  Applications (several windows of one program), icons and thumbnails are not offered.
+- Pushes through the relay: an agent chat's approval request, and a finished turn when the phone is not in the foreground, in
+  addition to the Claude Code hooks. They need a push token the phone registered and a relay connection.
+- A log: `%LOCALAPPDATA%\Peering Host\logs\peering-host.log`, 1 MiB each, three older files kept, panics included.
+- A newer build: once a day (the first look a minute after start) the host reads the repository's releases from `api.github.com`,
+  takes the newest `windows-v*` that is not a draft or pre-release, and the window shows "Version x is available" with a button
+  to its release page. Nothing is downloaded or installed. The running version is the crate's, or the release tag's when the
+  build is made with `PEERING_RELEASE_TAG` (the `windows.yml` release build sets it), so a tagged build knows its own number.
 - What the host will not do is answered with a notice that lapses after 6 s (desktops, launching apps, window actions, privacy
   mode, a mosaic, a source it cannot capture) and a web preview request gets a `failure` event. An `error` frame is never used
   for this, because it ends an iPhone session.
 
-Not built: audio, window and application capture (Windows.Graphics.Capture is not a dependency and a second capture path cannot
-be tried without a Windows machine), `textFocus` and `fieldState`, a folder archive, the web preview proxy, Live Activity pushes.
+Not built: application capture (WGC captures one window or one screen, not the windows of a program together), source icons and
+thumbnails, the web preview proxy, Live Activity pushes (`notifyActivity`), a real privacy curtain, Spaces, a mosaic, HEVC, the keep
+awake and wake schedules, and signing. The Windows-only code behind this section (WASAPI, UI Automation, Windows.Graphics.Capture, the
+duplication's pointer, the HTTPS request) is written against the `windows` crate 0.58 and type-checked for the Windows target;
+none of it has run on a Windows machine.
 
 ## Claude Code terminal hooks
 
@@ -129,6 +152,9 @@ Checked on macOS, with the commands in this file:
   duplication back-off), the host's runtime over fakes and loopback UDP sockets (the relayed video lane, the pings and
   pongs, the fallback to the control connection and back, the direct probe), the lock and frame rate requests, and the
   settings model that the window draws.
+- The pure parts of the second pass (the audio conversion and its routing and drop rule, the pointer shapes and blending, the focus
+  rules, window selection, the catalogue with windows, falling back from a closed window, the zip writer and folder walk, the push
+  planner, the log rotation, the release list and the HTTP answer) run under `cargo test --workspace`.
 - `cargo check -p peering-platform --target x86_64-pc-windows-msvc` and `cargo clippy -p peering-platform --target
   x86_64-pc-windows-msvc --all-targets` are clean. They compile the Windows adapters (desktop duplication, the D3D11
   device, the NV12 video processor, the Media Foundation encoder, SendInput, DPAPI, LockWorkStation) against the
@@ -176,6 +202,11 @@ Recovery and supervision, what is decided where:
 
 Not verified, and not run on any machine yet:
 
+- Loopback capture on devices that mix in an unusual format, or while the default device changes; the pointer on a hybrid GPU laptop
+  and on an HDR display (the pointer is then left out); the focus rules on Chromium, Electron and UWP apps; window capture of
+  windows that are elevated, protected or on another GPU; the border Windows may draw around a captured window; the folder zip on
+  network drives; the update request against GitHub; the log folder button.
+
 - The host binary and its Windows-only code: the `ui` window and tray (eframe, tray-icon), `ui/settings_view.rs`, the
   Windows adapters in `host/src/runtime/services/windows.rs`, the firewall and autostart executors, and the elevated
   firewall helper. They compile for the Windows target (see above) but have not run. The host depends on `ring`, which does not
@@ -185,5 +216,5 @@ Not verified, and not run on any machine yet:
   on a live encoder, input injection, the lock screen, the Run key and the firewall rule.
 - The relayed UDP lane against a real relay and a real phone, and Windows UDP behaviour for it (the ICMP error on an
   unconnected socket is treated as a dropped datagram but has not been seen on Windows).
-- Settings persistence: the frame rate choice applies to the running host and is not saved, so the host starts again at
-  60 fps after a restart. The start at login box reads the Run key when the window opens.
+- Settings persistence: `settings.txt` is written and read by tested code, but the window's switches have not been used on a Windows
+  machine. The start at login box reads the Run key when the window opens.

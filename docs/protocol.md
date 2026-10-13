@@ -301,16 +301,38 @@ bit 8 asks for the F-key's printed action (`Modifiers.topRowAction`). See [keyma
   once the answer is 10 s old when missing and 5 minutes old when found). It sends `permissionModeChanged` and `usageChanged` only to a
   client that declared `supportsAgentPermissionModes` or `supportsAgentUsage` as well as `supportsAgentChat`. It sets
   `supportsFileBrowser` and `supportsClipboardImages` always. Listing, reading, upload (`beginWrite`, `writeChunk`), new file or folder,
-  rename and delete (`changeFile`) work; a folder archive is answered with `transferFailure`. An upload is limited to 2 GB and 32 KiB
+  rename and delete (`changeFile`) work. `archiveFolder` zips the folder (deflate, the folder's own name as the top folder, links not
+  followed, files that cannot be opened left out) into the host's data folder and answers `archiveReady`; the phone then reads the zip
+  with `readRange` in 32 KiB pieces, and the host deletes it after the last piece. A zip over 512 MB, or with more than 65535 entries,
+  is answered with `transferFailure`, as is a second zip while two are being made. An upload is limited to 2 GB and 32 KiB
   pieces, replaces its destination in one step when the last byte arrives, and a delete moves to the Recycle Bin.
   The hello of a paired client carries the hardware addresses of the Ethernet and Wi-Fi adapters in `macAddresses`. The host sends
-  `pointerReport` to a client that declared `supportsPointerReport`. It reads `activityToken` and ignores it, and never sets
-  `supportsLiveActivityPush`. A `videoChunk` on the control lane is reassembled (12 MiB at most) and run as a command, which is how a
+  `pointerReport` to a client that declared `supportsPointerReport`, and draws the pointer into the picture as well (Desktop
+  Duplication delivers the shape and position beside the image; a window capture has the pointer drawn by the capture itself), so a
+  phone sees one pointer in the picture and may also draw its own. It sends `textFocus` to a client that declared
+  `supportsTextFocus` and `fieldState` to one that declared `supportsFieldState`, from UI Automation, with the Mac's rules: where
+  focus is when watching starts is recorded and not announced, a password field sends no text and no caret, a terminal sends no
+  text, and a field of more than 8000 UTF-16 units sends none; the selection counts UTF-16 units. It reads `activityToken` and
+  ignores it, and never sets `supportsLiveActivityPush`. A `videoChunk` on the control lane is reassembled (12 MiB at most) and run as a command, which is how a
   clipboard text or picture too large for one frame arrives.
   A command the host recognises and will not carry out is answered with a `notice` (message, `symbol`, and a `code` where the iPhone has
   words for it, such as `privacyModeFailed` and `displayDisconnected`) that the host clears after 6 s, and never with an `error`
   frame, which ends an iPhone session. `requestClipboard` is always answered. A `previewRequest` `fetch` is answered with a
   `previewEvent` `failure` of reason `notAllowed` carrying the request id.
   The host does not set `pushesTerminalAlertsWhileConnected`: it pushes an alert only while the client is not connected.
+* Windows sound: while a client in the foreground is connected the host captures what the PC plays (WASAPI loopback on the default
+  playback device) and sends `audioConfig` once (`pcmFloat32`, 48000, 2 channels) and then `audioFrame`s of 960 samples (20 ms) on
+  the lane the picture takes, converted to 48 kHz stereo whatever the device mixes in (mono is doubled, wider layouts keep their first
+  two channels). The config is sent again only when the route to that client changes (its video connection opens or closes), because
+  the clients restart their player on every config. Nothing is sent while the PC is silent. A frame still waiting to be written when
+  the next one is ready is replaced by it, as on the Mac. There is no capability flag for sound on either side.
+* Windows sources: the catalogue lists `displays` and `windows` (title, the program's name as `subtitle`, size in pixels). A window is
+  listed only if it is visible, not minimised or cloaked, titled, a top-level or taskbar window, not the host's own, and the system
+  accepts it for Windows.Graphics.Capture. `setCaptureSource` with a window starts it, input is mapped into the window's frame, and a
+  window that closes returns the picture to the primary display. `applications` and `installedApplications` are empty, `iconPNGData`
+  and `thumbnail` are absent, and `supportsMosaic` and `supportsSourceThumbnails` are not set.
+* Windows pushes: a chat approval (`approvalRequested`) is pushed through the relay to a phone that registered a token, even while
+  it is connected, and a finished turn only when the phone is not in the foreground, with the Mac's words in English and the
+  categories `peering.agent.approval.tool|open|yesno` and `peering.agent.finished`. `notifyActivity` is not sent.
 * Push registration: `terminalRequest` `registerPushToken` carries opaque bytes. The host hex-encodes them verbatim
   and forwards them to the relay for `notifyDevice`. Android registers the UTF-8 bytes `fcm:` followed by the FCM token.
