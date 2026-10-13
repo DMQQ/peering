@@ -41,3 +41,16 @@ Terminology decisions to confirm:
 Long or technical texts worth a read: `legal_privacy_body`, `legal_terms_body`, `faq_*_answer`, `panel_*_note`, `ssh_signin_key_footer`, `ssh_key_*`, `ssh_changed_help`, `ssh_forward_*_footer`, `settings_invite_message`.
 
 Shorter ones that may read oddly: `agents_jump_to_latest`, `agents_turn_tokens` ("输入 %1$d / 输出 %2$d"), `agents_turn_cost` ("%1$s 美元"), `panel_direct_probing` ("正在试探"), `panel_lock`, `settings_keywords_*` and `panel_keywords_*` (search keywords), `remote_joystick`, `terminal_group_pages`, `terminal_key_*`, `tour_notifications_title` ("shell 在等你时会通知你"), `tour_notification_date` ("9月24日 星期三").
+
+## Russian (ru)
+
+All 1,441 translatable entries of the English files exist in `values-ru/` (715 taken from the iPhone catalog where the English text matches exactly, 726 written fresh, mostly strings with placeholders or Android-only features). Terms follow the iPhone: компьютер for Mac/computer, связать/связанный for pair, доверенные, релей, сеанс, Наблюдение, Space left untranslated, Pro. Plurals use one, few, many, other.
+
+For a native speaker to review:
+
+- Long texts: `legal_privacy_body`, `legal_terms_body`, `faq_*_answer`, `panel_*_note`, `paywall_renewal_note`, `allowance_detail_*`, `ssh_*_footer`, `ssh_key_err_not_private`, `ssh_changed_help`.
+- `faq_awake_answer` and `faq_gaps_answer` translate English text that is stale (wake packets and sound now exist); retranslate when the English is corrected.
+- Word choices that may read oddly: `agents_turn_tokens` ("вход / выход"), `agents_turn_cost` ("US$ %1$s"), `panel_direct_probing` ("Стучимся на"), `panel_lock`, `settings_invite_message` (invite wording sent to friends), `terminal_group_pages` ("Страницы и концы"), `terminal_key_back_tab`, `ssh_tab_forwards` ("Переадресации"), `agents_state_idle` ("Простой"), `permission_detail_reviewer` ("Модель-проверяющий").
+- The agent prompt texts `review_prompt_intro` and `review_prompt_removed` are sent to the agent and use the informal "ты" form of the iPhone prompts for agent suggestions.
+- Search keyword lists (`panel_keywords_*`, `settings_keywords_*`) hold Russian words followed by the English ones, so searching in either language works.
+- Kept as English on purpose: key names (Enter, Escape, Home, End), Unicode, Keycode, git, diff, push, HEVC, SSH terms, Keystore.
