@@ -139,6 +139,14 @@ Recovery and supervision, what is decided where:
   memory until the process exits, and a driver that wedges every device keeps the host in this loop (every 10 s plus the
   backoff) rather than recovering. A monitor thread still reports a pass past 10 s to the window.
 
+- Secrets are sealed with DPAPI and a random entropy that belongs to the install (32 bytes, minted on first start, kept in
+  its own sealed file `install-entropy` beside the secrets). A process of the same user that only knows how the host
+  seals, from the source, cannot open a copy of a secret file. It does not stop a process of the same user that reads the
+  entropy file and unseals it too: DPAPI cannot do that, and the directory is limited to the owner already. Secrets
+  sealed by an earlier build (with the fixed value in the source, or with none) are sealed again with the install's
+  entropy when the host starts. An entropy file that exists and cannot be read stops the host from starting rather than
+  minting a new one over secrets it protects. The DPAPI calls themselves compile for Windows and have not run.
+
 Not verified, and not run on any machine yet:
 
 - The host binary and its Windows-only code: the `ui` window and tray (eframe, tray-icon), `ui/settings_view.rs`, the

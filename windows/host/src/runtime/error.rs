@@ -10,6 +10,8 @@ pub enum RuntimeError {
     NoDataDirectory,
     #[error(transparent)]
     Store(#[from] StoreError),
+    #[error(transparent)]
+    Entropy(#[from] peering_core::install_entropy::EntropyError),
     #[error("the host identity could not be loaded: {0}")]
     Identity(String),
     #[error("the transport certificate could not be built: {0}")]

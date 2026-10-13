@@ -6,6 +6,7 @@ pub mod settings;
 pub mod admission;
 pub mod catalogue;
 pub mod files;
+pub mod install_entropy;
 pub mod notice;
 pub mod outbound;
 pub mod paired_list;

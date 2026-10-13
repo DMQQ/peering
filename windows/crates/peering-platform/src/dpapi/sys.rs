@@ -12,27 +12,21 @@ use windows::Win32::Security::Cryptography::{
     CryptProtectData, CryptUnprotectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
 };
 
-use crate::dpapi::{acl, Opened, Protector};
+use crate::dpapi::entropy::Sealer;
+use crate::dpapi::acl;
 
-/// Mixed into every seal, so a process of the same user that calls `CryptUnprotectData` on a copy of a secret file
-/// without this value gets nothing. It is not a secret from code that reads this source.
-const ENTROPY: &[u8] = b"pl.dmq.peering.host secret store v1";
-
-/// Seals for the logged-on user only. The UI flag stops DPAPI from ever opening a prompt on the secure desktop.
+/// Seals for the logged-on user only. The UI flag stops DPAPI from ever opening a prompt on the secure desktop. The entropy
+/// is chosen by the caller (`entropy::open_store`): it is what a different process of the same user would also need.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct DpapiProtector;
+pub struct DpapiSealer;
 
-impl Protector for DpapiProtector {
-    fn protect(&self, plain: &[u8]) -> Option<Vec<u8>> {
-        transform(plain, Direction::Protect, Some(ENTROPY)).map(|sealed| sealed.to_vec())
+impl Sealer for DpapiSealer {
+    fn seal(&self, plain: &[u8], entropy: Option<&[u8]>) -> Option<Vec<u8>> {
+        transform(plain, Direction::Protect, entropy).map(|sealed| sealed.to_vec())
     }
 
-    fn unprotect(&self, sealed: &[u8]) -> Option<Opened> {
-        if let Some(plain) = transform(sealed, Direction::Unprotect, Some(ENTROPY)) {
-            return Some(Opened { plain, current: true });
-        }
-        // A file sealed before the entropy was added still opens; the store seals it again with the entropy.
-        transform(sealed, Direction::Unprotect, None).map(|plain| Opened { plain, current: false })
+    fn open(&self, sealed: &[u8], entropy: Option<&[u8]>) -> Option<Zeroizing<Vec<u8>>> {
+        transform(sealed, Direction::Unprotect, entropy)
     }
 
     fn prepare_directory(&self, directory: &Path) -> io::Result<()> {

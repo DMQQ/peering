@@ -5,7 +5,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use peering_core::ports::input::{InputSink, TransformSnapshot};
-use peering_platform::dpapi::{default_directory, DpapiProtector, DpapiStore};
+use peering_platform::dpapi::entropy::open_store;
+use peering_platform::dpapi::{default_directory, DpapiSealer};
+use ring::rand::{SecureRandom, SystemRandom};
 use peering_platform::keyboard::KeyboardInjector;
 use peering_platform::mouse::MouseInjector;
 use peering_platform::services::PlatformServices;
@@ -22,12 +24,13 @@ use crate::runtime::{RuntimeError, TerminalServices};
 pub fn build() -> Result<Adapters, RuntimeError> {
     let directory: PathBuf = default_directory().ok_or(RuntimeError::NoDataDirectory)?;
     let PlatformServices { capture, encoder } = PlatformServices::new();
+    let secrets = open_store(directory, DpapiSealer, |bytes| SystemRandom::new().fill(bytes).is_ok())?;
     Ok(Adapters {
         capture,
         encoder,
         input: Box::new(WindowsInput { mouse: MouseInjector::default(), keyboard: KeyboardInjector::default() }),
         system: Box::new(WindowsSystem),
-        secrets: Arc::new(DpapiStore::new(directory, DpapiProtector)),
+        secrets: Arc::new(secrets),
         files: Arc::new(DiskFileSystem),
         terminal: terminal_services(),
         rebuild_video: Arc::new(|| {

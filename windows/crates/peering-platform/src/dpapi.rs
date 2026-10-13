@@ -11,11 +11,12 @@ use zeroize::Zeroizing;
 
 #[cfg(windows)]
 mod acl;
+pub mod entropy;
 #[cfg(windows)]
 mod sys;
 
 #[cfg(windows)]
-pub use sys::DpapiProtector;
+pub use sys::DpapiSealer;
 
 const DIRECTORY_NAME: &str = "Peering Host";
 
@@ -49,14 +50,55 @@ pub struct SecretFiles<P: Protector> {
     directory: PathBuf,
     protector: P,
     directory_prepared: AtomicBool,
+    /// A name that belongs to something else in the same directory, which this store neither reads, writes nor removes.
+    reserved: Option<&'static str>,
 }
 
 #[cfg(windows)]
-pub type DpapiStore = SecretFiles<DpapiProtector>;
+pub type DpapiStore = SecretFiles<entropy::EntropyProtector<DpapiSealer>>;
 
 impl<P: Protector> SecretFiles<P> {
     pub fn new(directory: PathBuf, protector: P) -> Self {
-        Self { directory, protector, directory_prepared: AtomicBool::new(false) }
+        Self { directory, protector, directory_prepared: AtomicBool::new(false), reserved: None }
+    }
+
+    pub fn reserving(mut self, name: &'static str) -> Self {
+        self.reserved = Some(name);
+        self
+    }
+
+    fn refuses(&self, name: &str) -> bool {
+        self.reserved == Some(name)
+    }
+
+    /// Seals again, the current way, every secret that was sealed an earlier way, and says how many there were. A file that
+    /// does not open is left as it is.
+    pub fn migrate(&self) -> usize {
+        let Ok(entries) = fs::read_dir(&self.directory) else {
+            return 0;
+        };
+        let names: Vec<String> = entries.flatten().filter_map(|entry| entry.file_name().into_string().ok()).collect();
+        names.iter().filter(|name| self.reseal(name)).count()
+    }
+
+    fn reseal(&self, name: &str) -> bool {
+        let Ok(Some(opened)) = self.open(name) else {
+            return false;
+        };
+        !opened.current && self.write(name, &opened.plain)
+    }
+
+    fn open(&self, name: &str) -> Result<Option<Opened>, StoreError> {
+        if self.refuses(name) {
+            return Err(StoreError);
+        }
+        let path = secret_path(&self.directory, name).ok_or(StoreError)?;
+        let sealed = match fs::read(path) {
+            Ok(sealed) => sealed,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err(StoreError),
+        };
+        self.protector.unprotect(&sealed).map(Some).ok_or(StoreError)
     }
 
     /// A directory that could not be restricted holds no secrets: the sealing alone should not be the only protection.
@@ -96,13 +138,9 @@ pub fn secret_path(directory: &Path, name: &str) -> Option<PathBuf> {
 
 impl<P: Protector> SecretStore for SecretFiles<P> {
     fn read(&self, name: &str) -> Result<Option<Vec<u8>>, StoreError> {
-        let path = secret_path(&self.directory, name).ok_or(StoreError)?;
-        let sealed = match fs::read(path) {
-            Ok(sealed) => sealed,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
-            Err(_) => return Err(StoreError),
+        let Some(mut opened) = self.open(name)? else {
+            return Ok(None);
         };
-        let mut opened = self.protector.unprotect(&sealed).ok_or(StoreError)?;
         if !opened.current {
             // A failed re-seal leaves the old file readable, so it is tried again on the next read.
             let _resealed = self.write(name, &opened.plain);
@@ -111,7 +149,7 @@ impl<P: Protector> SecretStore for SecretFiles<P> {
     }
 
     fn write(&self, name: &str, value: &[u8]) -> bool {
-        let Some(path) = secret_path(&self.directory, name) else {
+        let Some(path) = secret_path(&self.directory, name).filter(|_| !self.refuses(name)) else {
             return false;
         };
         let Some(sealed) = self.protector.protect(value) else {
@@ -121,6 +159,9 @@ impl<P: Protector> SecretStore for SecretFiles<P> {
     }
 
     fn remove(&self, name: &str) -> bool {
+        if self.refuses(name) {
+            return false;
+        }
         let Some(path) = secret_path(&self.directory, name) else {
             return true;
         };
