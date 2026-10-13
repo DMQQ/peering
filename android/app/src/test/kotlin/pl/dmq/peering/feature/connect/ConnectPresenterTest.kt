@@ -4,7 +4,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import pl.dmq.peering.feature.pairing.FakeQrSource
 
@@ -37,6 +39,15 @@ class ConnectPresenterTest {
 
         assertEquals(listOf("B", "C", "A"), presenter.state.value.listing.paired.map { it.id })
         assertEquals(HostStatus.Connected, presenter.state.value.listing.paired.first().status)
+    }
+
+    @Test
+    fun theListCountsAsLoadedOnlyOnceTheStoredHostsWereRead() = runTest(UnconfinedTestDispatcher()) {
+        assertFalse(ConnectUiState().loaded)
+
+        val presenter = presenterFor(FakeHostSource(), FakePresenceSource(), scope = backgroundScope)
+
+        assertTrue(presenter.state.value.loaded)
     }
 
     @Test

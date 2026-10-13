@@ -34,7 +34,7 @@ internal fun ConnectTab(wiring: FeatureWiring) {
     val connectState by connect.state.collectAsState()
     SideEffect { wiring.lastConnectState = connectState }
     connectState.listing.nearby.forEach { row -> row.name?.let { flow.hostNames[row.id] = it } }
-    val firstConnection = !flow.firstConnectionDismissed && connectState.listing.paired.isEmpty()
+    val firstConnection = connectState.loaded && !flow.firstConnectionDismissed && connectState.listing.paired.isEmpty()
     val session = active
     val presenting = flow.pairing
     val stage = flow.stage(firstConnection, session)

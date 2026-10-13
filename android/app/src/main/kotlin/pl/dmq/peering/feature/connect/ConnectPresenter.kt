@@ -55,6 +55,7 @@ class ConnectPresenter(
             forgetTarget = current.paired.firstOrNull { it.id == pending },
             message = failure,
             entry = entryState,
+            loaded = true,
         )
     }.stateIn(scope, SharingStarted.Eagerly, initial?.copy(entry = entry.state.value) ?: ConnectUiState(entry = entry.state.value))
 

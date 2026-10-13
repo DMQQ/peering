@@ -40,6 +40,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
@@ -56,8 +57,10 @@ import pl.dmq.peering.wire.RemoteEntryKind
 
 private val BAR_HEIGHT = 48.dp
 
-/** Under this the two round buttons leave the search field too little room to type in, so it takes a row of its own. */
-private val NARROW_BAR = 480.dp
+private val COMPACT_BAR_HEIGHT = 42.dp
+
+/** Under this the full size round buttons leave the search field too little room to type in, so the whole row shrinks. */
+private val NARROW_BAR = 400.dp
 
 /**
  * The one bottom row of the folder browser, as on the iPhone: where you are above it, then new, a search field with the
@@ -71,20 +74,11 @@ fun FilesBottomBar(ui: FileListUi, presenter: FileListPresenter, onUpload: () ->
     ) {
         ui.path?.let { LocationLine(it) }
         BoxWithConstraints {
-            if (maxWidth < NARROW_BAR) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SearchCapsule(ui, presenter, Modifier.fillMaxWidth())
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        NewButton(ui.canChange, presenter)
-                        CircleButton(Icons.Outlined.FileUpload, stringResource(R.string.files_upload), ui.canChange, onUpload)
-                    }
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    NewButton(ui.canChange, presenter)
-                    SearchCapsule(ui, presenter, Modifier.weight(1f))
-                    CircleButton(Icons.Outlined.FileUpload, stringResource(R.string.files_upload), ui.canChange, onUpload)
-                }
+            val height = if (maxWidth < NARROW_BAR) COMPACT_BAR_HEIGHT else BAR_HEIGHT
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                NewButton(ui.canChange, presenter, height)
+                SearchCapsule(ui, presenter, height, Modifier.weight(1f))
+                CircleButton(Icons.Outlined.FileUpload, stringResource(R.string.files_upload), ui.canChange, height, onUpload)
             }
         }
     }
@@ -110,9 +104,9 @@ private fun LocationLine(path: String) {
 }
 
 @Composable
-private fun CircleButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) {
+private fun CircleButton(icon: ImageVector, description: String, enabled: Boolean, size: Dp, onClick: () -> Unit) {
     Box(
-        Modifier.size(BAR_HEIGHT).railPress(onClick, enabled = enabled).sessionSurface(CircleShape),
+        Modifier.size(size).railPress(onClick, enabled = enabled).sessionSurface(CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = description, tint = PeeringColors.ink, modifier = Modifier.size(18.dp))
@@ -120,10 +114,10 @@ private fun CircleButton(icon: ImageVector, description: String, enabled: Boolea
 }
 
 @Composable
-private fun NewButton(enabled: Boolean, presenter: FileListPresenter) {
+private fun NewButton(enabled: Boolean, presenter: FileListPresenter, size: Dp) {
     var open by remember { mutableStateOf(false) }
     Box {
-        CircleButton(Icons.Outlined.Add, stringResource(R.string.files_new), enabled) { open = true }
+        CircleButton(Icons.Outlined.Add, stringResource(R.string.files_new), enabled, size) { open = true }
         PeeringMenu(expanded = open, onDismiss = { open = false }) {
             PeeringMenuItem(
                 title = stringResource(R.string.files_new_folder),
@@ -146,9 +140,9 @@ private fun NewButton(enabled: Boolean, presenter: FileListPresenter) {
 }
 
 @Composable
-private fun SearchCapsule(ui: FileListUi, presenter: FileListPresenter, modifier: Modifier) {
+private fun SearchCapsule(ui: FileListUi, presenter: FileListPresenter, height: Dp, modifier: Modifier) {
     Row(
-        modifier.height(BAR_HEIGHT).sessionSurface(PillShape).padding(start = 14.dp, end = 6.dp),
+        modifier.height(height).sessionSurface(PillShape).padding(start = 14.dp, end = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -175,16 +169,16 @@ private fun SearchCapsule(ui: FileListUi, presenter: FileListPresenter, modifier
                 modifier = Modifier.size(20.dp).railPress({ presenter.setQuery("") }, scale = 0.9f),
             )
         }
-        HiddenSwitch(ui, presenter)
+        HiddenSwitch(ui, presenter, height)
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun HiddenSwitch(ui: FileListUi, presenter: FileListPresenter) {
+private fun HiddenSwitch(ui: FileListUi, presenter: FileListPresenter, barHeight: Dp) {
     var orderOpen by remember { mutableStateOf(false) }
     Box(
-        Modifier.width(36.dp).height(BAR_HEIGHT - 12.dp).combinedClickable(
+        Modifier.width(36.dp).height(barHeight - 12.dp).combinedClickable(
             role = Role.Switch,
             onLongClick = { orderOpen = true },
             onLongClickLabel = stringResource(R.string.files_sort),

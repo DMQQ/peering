@@ -9,6 +9,8 @@ data class ConnectUiState(
     val forgetTarget: HostRow? = null,
     val message: ConnectMessage? = null,
     val entry: HostIdEntryState = HostIdEntryState(),
+    /** False until the stored hosts have been read: an empty list before that is not a first run. */
+    val loaded: Boolean = false,
 )
 
 /** A note under the Connect header. [isFailure] says whether it reports something that went wrong or something that was done. */
