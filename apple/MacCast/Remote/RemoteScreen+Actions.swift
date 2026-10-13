@@ -56,24 +56,10 @@ extension RemoteScreen {
         advanceClientCursor(by: scaled)
     }
 
-    /// A report is one round trip old, so mid-drag it would pull the drawn cursor back to where the Mac was. It is applied once the joystick has been quiet, and the latest report is read then.
+    /// The Mac's watcher reports any pointer move it did not post itself, and while the joystick drives it a few of its own steps look like a hand. Applied, one pulls the drawn cursor to a position from mid-drag. The estimate stays, because only a hand on the Mac can be trusted to move it elsewhere.
     func adoptHostPointer() {
-        pointerSyncTask?.cancel()
-        let quietPeriod = 0.35
-        guard let last = lastJoystickInput, last.isWithin(seconds: quietPeriod) else {
-            remoteCursor = model.hostPointer.point
-            return
-        }
-        let remaining = quietPeriod - last.elapsedSeconds()
-        pointerSyncTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(max(remaining, 0.05)))
-            guard !Task.isCancelled else { return }
-            if let last = lastJoystickInput, last.isWithin(seconds: quietPeriod) {
-                adoptHostPointer()
-            } else {
-                remoteCursor = model.hostPointer.point
-            }
-        }
+        if let last = lastJoystickInput, last.isWithin(seconds: 1) { return }
+        remoteCursor = model.hostPointer.point
     }
 
     func advanceClientCursor(by travel: CGSize) {

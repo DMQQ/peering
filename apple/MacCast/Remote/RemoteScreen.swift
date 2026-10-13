@@ -21,7 +21,6 @@ struct RemoteScreen: View {
     @State var canvasSize: CGSize = .zero
     @State var remoteCursor = NormalizedPoint(x: 0.5, y: 0.5)
     @State var lastJoystickInput: MonotonicStamp?
-    @State var pointerSyncTask: Task<Void, Never>?
     @AppStorage(PreferenceKeys.hidesPanelAfterSelect) var hidesPanelAfterSelect = true
 
     @State var showsLandscapeHint = false
