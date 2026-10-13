@@ -115,12 +115,8 @@
     <string name="mosaic_limit">up to %d</string>
     <string name="mosaic_back_to_sources">Sources</string>
     <string name="mosaic_start">Show mosaic</string>
-    <string name="mosaic_tile_unknown">Window no longer open</string>
-    <string name="mosaic_tile_earlier">Move %1$s earlier</string>
-    <string name="mosaic_tile_later">Move %1$s later</string>
-    <string name="mosaic_tile_smaller">Make %1$s smaller</string>
-    <string name="mosaic_tile_larger">Make %1$s larger</string>
     <string name="mosaic_tile_remove">Remove %1$s</string>
+    <string name="mosaic_tile_window">Window</string>
 
     <string name="remote_quit_title">Quit the active app?</string>
     <string name="remote_quit_message">The computer may ask you to save open documents first.</string>

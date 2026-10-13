@@ -55,6 +55,7 @@ val TILE_HEIGHT: Dp = 98.dp
 /** A picture of a screen or window with its name and owner under it, outlined in the blue while it is the one on screen. */
 @Composable
 internal fun PreviewTile(tile: SourceTile, onClick: () -> Unit, modifier: Modifier = Modifier, badge: Int? = null) {
+    val live = tile.selected && badge == null
     val shape = (tile.thumbnail?.let { it.width.toFloat() / it.height } ?: pixelShape(tile)).coerceIn(MIN_SHAPE, MAX_SHAPE)
     val width = TILE_HEIGHT * shape
     Column(
@@ -71,7 +72,10 @@ internal fun PreviewTile(tile: SourceTile, onClick: () -> Unit, modifier: Modifi
                 .size(width, TILE_HEIGHT)
                 .clip(peeringShapes.extraSmall)
                 .background(PeeringColors.surface)
-                .let { if (tile.selected) it.border(BorderStroke(2.dp, PeeringColors.accent), peeringShapes.extraSmall) else it },
+                .border(
+                    if (tile.selected) BorderStroke(2.dp, PeeringColors.accent) else BorderStroke(1.dp, PeeringColors.ink.copy(alpha = 0.18f)),
+                    peeringShapes.extraSmall,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             TilePicture(tile)
@@ -79,8 +83,8 @@ internal fun PreviewTile(tile: SourceTile, onClick: () -> Unit, modifier: Modifi
         }
         Text(
             tile.title,
-            style = PeeringText.caption2.copy(fontSize = 10.sp, fontWeight = if (tile.selected) FontWeight.SemiBold else FontWeight.Normal),
-            color = if (tile.selected) PeeringColors.accent else PeeringColors.ink,
+            style = PeeringText.caption2.copy(fontSize = 10.sp, fontWeight = if (live) FontWeight.SemiBold else FontWeight.Normal),
+            color = if (live) PeeringColors.accent else PeeringColors.ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -92,7 +96,7 @@ internal fun PreviewTile(tile: SourceTile, onClick: () -> Unit, modifier: Modifi
 
 /** The place a picked tile will take in a mosaic. */
 @Composable
-private fun PlaceBadge(place: Int, modifier: Modifier = Modifier) {
+internal fun PlaceBadge(place: Int, modifier: Modifier = Modifier) {
     Box(modifier.size(18.dp).background(PeeringColors.accent, CircleShape), contentAlignment = Alignment.Center) {
         Text(place.toString(), style = PeeringText.caption2.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = PeeringColors.ink)
     }

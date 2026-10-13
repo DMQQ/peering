@@ -84,10 +84,10 @@ private fun ActionRow(title: String, detail: String?, onClick: () -> Unit) {
     }
 }
 
-/** The bar over the picker: how many are picked, a way back to the list, and Start once there are two or more. */
+/** The bar pinned under the picker: how many are picked, a way back to the list, and Start once there are two or more. */
 @Composable
 internal fun MosaicPickerBar(picks: MosaicPicks, onBack: () -> Unit, onStart: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 10.dp).rowSurface().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             val count = picks.sources.size
             Text(

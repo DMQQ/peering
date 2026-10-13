@@ -11,4 +11,16 @@ object MosaicHit {
         if (x < shown.left || y < shown.top || x >= shown.left + shown.width || y >= shown.top + shown.height) return null
         return layout.tileIndexAt(NormalizedPoint((x - shown.left) / shown.width, (y - shown.top) / shown.height))
     }
+
+    /** Where tile [index] is drawn on the canvas, in canvas pixels, or null for an index the layout does not have. */
+    fun tileRect(layout: MosaicLayout, viewport: CanvasViewport, fit: CanvasRect, index: Int): CanvasRect? {
+        val tile = layout.tiles.getOrNull(index) ?: return null
+        val shown = viewport.displayed(fit)
+        return CanvasRect(
+            left = shown.left + tile.rect.x * shown.width,
+            top = shown.top + tile.rect.y * shown.height,
+            width = tile.rect.width * shown.width,
+            height = tile.rect.height * shown.height,
+        )
+    }
 }

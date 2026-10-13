@@ -63,6 +63,7 @@ fun RemoteRoute(model: RemoteModel) {
             Box(modifier = Modifier.fillMaxSize().imePadding()) {
                 RemoteCanvas(presenter = canvas, surface = model.surface, modifier = Modifier.fillMaxSize().displayCutoutPadding())
                 val shown = ChromePolicy.cursorShown(prefs.interaction, state.pictureState, state.showsMosaic)
+                MosaicChrome(state, canvasState, canvas, presenters.sources, Modifier.fillMaxSize().displayCutoutPadding())
                 canvasState.picture?.takeIf { shown }?.let { CursorGlyph(cursor, it, Modifier.displayCutoutPadding()) }
                 RemoteChrome(chrome, handlers, panel = { RemotePanel(it, panelContext) })
             }

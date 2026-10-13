@@ -29,9 +29,13 @@ class RemoteCanvasPresenter(
     private var mode = mode
     private var mosaic: MosaicLayout? = null
     private val taps = MosaicTapDetector()
+    private val lift = MosaicLift()
 
     /** Called with the source of the tile a tap landed on while a mosaic is up. */
     var onTileTapped: ((CaptureSource) -> Unit)? = null
+
+    /** Called when a lifted tile is dropped on another place, with the place it came from and the one it went to. */
+    var onTileMoved: ((from: Int, to: Int) -> Unit)? = null
     private var canvas: CanvasSize? = null
     private var trackpad: TrackpadModel? = null
     private var picture: PixelSize? = null
@@ -55,6 +59,18 @@ class RemoteCanvasPresenter(
         if (next == mosaic) return
         releaseDirect(lastDirectPoint)
         mosaic = next
+        lift.cancel()
+        publish()
+    }
+
+    /** Milliseconds until a press on a tile counts as held, or null when none is waiting. */
+    fun holdRemaining(nowMs: Long): Long? = if (mosaic != null) lift.remaining(nowMs) else null
+
+    /** The waiting press has been held long enough: lifts the tile under it. True when one was lifted. */
+    fun onHoldElapsed(): Boolean {
+        val at = lift.waitingPoint() ?: return false
+        val index = tileAt(at.x, at.y) ?: return false
+        return lift.lift(index).also { if (it) publish() }
     }
 
     private val effectiveMode: InputMode get() = if (mosaic != null) InputMode.OBSERVE else mode
@@ -67,6 +83,7 @@ class RemoteCanvasPresenter(
         canvas = size
         trackpad = TrackpadModel(width, height)
         pointers.clear()
+        lift.cancel()
         pinching = false
         viewport = viewport.pannedBy(0.0, 0.0, size)
         publish()
@@ -102,7 +119,14 @@ class RemoteCanvasPresenter(
     fun onPointerDown(id: Int, x: Double, y: Double, timeMs: Long) {
         val model = trackpad ?: return
         pointers[id] = CanvasPoint(x, y)
-        if (mosaic != null) taps.down(id, x, y, timeMs, pointers.size)
+        if (mosaic != null) {
+            taps.down(id, x, y, timeMs, pointers.size)
+            if (pointers.size > 1 && lift.drag != null) {
+                lift.cancel()
+                publish()
+            }
+            lift.down(id, x, y, timeMs, pointers.size)
+        }
         when {
             effectiveMode == InputMode.TRACKPAD -> {
                 if (pointers.size == 1) cursor().let { model.syncCursor(it.x, it.y) }
@@ -118,7 +142,15 @@ class RemoteCanvasPresenter(
         val model = trackpad ?: return
         val previous = pointers[id] ?: return
         pointers[id] = CanvasPoint(x, y)
-        if (mosaic != null) taps.move(id, x, y)
+        if (mosaic != null) {
+            taps.move(id, x, y)
+            lift.moved(id, x, y)
+        }
+        if (lift.holds(id)) {
+            lift.follow(x, y, tileAt(x, y))
+            publish()
+            return
+        }
         if (pointers.size >= 2) multiTouchFrame()?.let(::applyMultiTouch)
         when {
             effectiveMode == InputMode.OBSERVE -> if (pointers.size == 1) panBy(x - previous.x, y - previous.y)
@@ -133,6 +165,12 @@ class RemoteCanvasPresenter(
     fun onPointerUp(id: Int, x: Double, y: Double, timeMs: Long) {
         val model = trackpad ?: return
         if (pointers.remove(id) == null) return
+        if (lift.holds(id)) {
+            drop(id)
+            rebaseline()
+            return
+        }
+        if (mosaic != null) lift.release(id)
         if (mosaic != null && taps.up(id, x, y, timeMs, pointers.size)) openTileAt(x, y)
         when {
             effectiveMode == InputMode.TRACKPAD -> emit(model.onUp(id, x, y, timeMs))
@@ -141,10 +179,22 @@ class RemoteCanvasPresenter(
         rebaseline()
     }
 
+    private fun tileAt(x: Double, y: Double): Int? {
+        val layout = mosaic ?: return null
+        val fit = fittedPicture() ?: return null
+        return MosaicHit.tileAt(layout, viewport, fit, x, y)
+    }
+
+    /** One ask when the finger lifts, not one per seam it crossed: the order only settles when it is let go. */
+    private fun drop(id: Int) {
+        val carried = lift.release(id)
+        publish()
+        if (carried != null && carried.held != carried.target) onTileMoved?.invoke(carried.held, carried.target)
+    }
+
     private fun openTileAt(x: Double, y: Double) {
+        val index = tileAt(x, y) ?: return
         val layout = mosaic ?: return
-        val fit = fittedPicture() ?: return
-        val index = MosaicHit.tileAt(layout, viewport, fit, x, y) ?: return
         onTileTapped?.invoke(layout.tiles[index].source)
     }
 
@@ -245,7 +295,7 @@ class RemoteCanvasPresenter(
     private fun publish() {
         val shown = fittedPicture()?.let(viewport::displayed)
         if (shown != null) trackpad?.sweep(shown.width, shown.height)
-        uiState.value = CanvasUiState(viewport, shown)
+        uiState.value = CanvasUiState(viewport, shown, lift.drag)
     }
 
     private fun emit(actions: List<PointerAction>) {

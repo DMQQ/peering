@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.remote
 
+import android.os.SystemClock
 import android.view.SurfaceView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,11 +17,14 @@ import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlin.math.roundToInt
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The picture, hosted in a SurfaceView, under pinch zoom and pan. Pointers are forwarded in untransformed canvas
@@ -33,11 +37,12 @@ fun RemoteCanvas(
     modifier: Modifier = Modifier,
 ) {
     val state by presenter.state.collectAsState()
+    val haptics = LocalHapticFeedback.current
     Box(
         modifier = modifier
             .clipToBounds()
             .onSizeChanged { presenter.onCanvasSized(it.width.toDouble(), it.height.toDouble()) }
-            .pointerInput(presenter) { forwardPointers(presenter) },
+            .pointerInput(presenter) { forwardPointers(presenter) { haptics.performHapticFeedback(HapticFeedbackType.LongPress) } },
     ) {
         Box(
             modifier = Modifier
@@ -72,10 +77,16 @@ private fun Modifier.placedAt(rect: CanvasRect): Modifier = layout { measurable,
     }
 }
 
-private suspend fun PointerInputScope.forwardPointers(presenter: RemoteCanvasPresenter) {
+private suspend fun PointerInputScope.forwardPointers(presenter: RemoteCanvasPresenter, onLifted: () -> Unit) {
     awaitPointerEventScope {
         while (true) {
-            awaitPointerEvent().changes.forEach { change ->
+            val waiting = presenter.holdRemaining(SystemClock.uptimeMillis())
+            val event = if (waiting == null) awaitPointerEvent() else withTimeoutOrNull(waiting) { awaitPointerEvent() }
+            if (event == null) {
+                if (presenter.onHoldElapsed()) onLifted()
+                continue
+            }
+            event.changes.forEach { change ->
                 forwardChange(presenter, change)
                 change.consume()
             }

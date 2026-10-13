@@ -64,33 +64,25 @@ fun SourcesPanel(
         presenter.watchThumbnails(true)
         onDispose { presenter.watchThumbnails(false) }
     }
-    LazyColumn(modifier.fillMaxWidth(), contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item(key = "search") { SearchField(query, { query = it }, stringResource(R.string.sources_search), filled = true, height = 34.dp) }
-        if (mosaic != null && building == null) item(key = "mosaic-entry") { MosaicEntry(mosaic, building, presenter, onBuild = { building = it }, onPicked) }
-        val showing = mosaic?.active
-        if (showing != null && building == null) {
-            item(key = "mosaic-editor") {
-                MosaicTileEditor(
-                    editorTiles(presenter.arrangementOf(showing), catalog),
-                    onEdit = { edit -> presenter.edit(showing, edit, PixelSize(metrics.widthPixels.toDouble(), metrics.heightPixels.toDouble()), catalog) },
-                )
-            }
+    Column(modifier.fillMaxWidth()) {
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item(key = "search") { SearchField(query, { query = it }, stringResource(R.string.sources_search), filled = true, height = 34.dp) }
+            if (mosaic != null && building == null) item(key = "mosaic-entry") { MosaicEntry(mosaic, building, presenter, onBuild = { building = it }, onPicked) }
+            sourceLists(catalog, chosen, building, query, presenter, onBuilding = { building = it }, onPicked)
         }
         building?.let { picks ->
-            item(key = "mosaic-picker") {
-                MosaicPickerBar(
-                    picks,
-                    onBack = { building = null },
-                    onStart = {
-                        if (presenter.showMosaic(picks, PixelSize(metrics.widthPixels.toDouble(), metrics.heightPixels.toDouble()), catalog)) {
-                            building = null
-                            onPicked()
-                        }
-                    },
-                )
-            }
+            MosaicPickerBar(
+                picks,
+                onBack = { building = null },
+                onStart = {
+                    val viewport = PixelSize(metrics.widthPixels.toDouble(), metrics.heightPixels.toDouble())
+                    if (presenter.showMosaic(picks, viewport, catalog)) {
+                        building = null
+                        onPicked()
+                    }
+                },
+            )
         }
-        sourceLists(catalog, chosen, building, query, presenter, onBuilding = { building = it }, onPicked)
     }
 }
 
@@ -164,6 +156,7 @@ private fun ApplicationSection(
         ) {
             ApplicationIcon(group.iconData, 22.dp, AppIcons.window)
             val marked = application?.selected == true
+            val place = marking.place(application?.source)
             Text(
                 group.title,
                 style = PeeringText.subheadlineMedium,
@@ -171,7 +164,7 @@ private fun ApplicationSection(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (marked) Icon(AppIcons.checkCircle, contentDescription = null, tint = PeeringColors.accent, modifier = Modifier.size(14.dp))
+            if (place != null) PlaceBadge(place, Modifier.size(16.dp)) else if (marked) Icon(AppIcons.checkCircle, contentDescription = null, tint = PeeringColors.accent, modifier = Modifier.size(14.dp))
             Text(
                 pluralStringResource(R.plurals.sources_windows, group.windows.size, group.windows.size),
                 style = PeeringText.caption2,
@@ -224,7 +217,7 @@ private const val ICON_COLUMNS = 5
 private class Marking(private val chosen: CaptureSource?, private val picks: MosaicPicks?) {
     val picking: Boolean get() = picks != null
 
-    fun place(source: CaptureSource): Int? = picks?.place(source)
+    fun place(source: CaptureSource?): Int? = source?.let { picks?.place(it) }
 
     fun tile(presenter: SourcesPresenter, descriptor: CaptureSourceDescriptor): SourceTile =
         presenter.tile(descriptor, if (picks != null) picks.place(descriptor.source) != null else descriptor.source == chosen)
