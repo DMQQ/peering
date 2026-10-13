@@ -16,22 +16,33 @@ import pl.dmq.peering.wire.RemoteCommand
  */
 class PointerTracker(
     private val target: CommandSink,
+    private val nowNanos: () -> Long = System::nanoTime,
     private val pointSize: () -> Pair<Double, Double>,
 ) : CommandSink {
+    private var lastNudgeAt: Long? = null
     private val mutablePosition = MutableStateFlow(NormalizedPoint(0.5, 0.5))
     val position: StateFlow<NormalizedPoint> = mutablePosition.asStateFlow()
 
     override fun send(command: RemoteCommand) {
         when (command) {
             is MouseMove -> mutablePosition.value = command.to.clamped()
-            is JoystickMove -> advance(command.dx, command.dy)
+            is JoystickMove -> {
+                lastNudgeAt = nowNanos()
+                advance(command.dx, command.dy)
+            }
             else -> Unit
         }
         target.send(command)
     }
 
-    /** The computer said where its pointer is, which beats the copy kept here. */
+    /**
+     * The computer said where its pointer is, which beats the copy kept here. Not while the joystick is driving: the
+     * computer's watcher mistakes a few of its own steps for a hand, and a report is a round trip old, so applying one
+     * pulls the drawn cursor back to mid-drag. The position it sends once the joystick has been still arrives after the window.
+     */
     fun report(point: NormalizedPoint) {
+        val last = lastNudgeAt
+        if (last != null && nowNanos() - last < QUIET_AFTER_NUDGE_NANOS) return
         mutablePosition.value = point.clamped()
     }
 
@@ -40,5 +51,9 @@ class PointerTracker(
         if (width <= 0 || height <= 0) return
         val current = mutablePosition.value
         mutablePosition.value = NormalizedPoint(current.x + dx / width, current.y + dy / height).clamped()
+    }
+
+    private companion object {
+        const val QUIET_AFTER_NUDGE_NANOS = 250_000_000L
     }
 }

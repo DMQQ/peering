@@ -40,4 +40,24 @@ class PointerTrackerTest {
         tracker.send(JoystickMove(1.0, 1.0))
         assertEquals(2, sink.sent.size)
     }
+
+    @Test
+    fun aReportDuringAJoystickDragIsIgnored() {
+        var now = 0L
+        val timed = PointerTracker(sink, { now }) { 1000.0 to 500.0 }
+        timed.send(JoystickMove(100.0, 0.0))
+        now = 100_000_000L
+        timed.report(NormalizedPoint(0.1, 0.1))
+        assertEquals(0.6, timed.position.value.x, 1e-9)
+    }
+
+    @Test
+    fun aReportAfterTheJoystickWentStillCorrectsTheCopy() {
+        var now = 0L
+        val timed = PointerTracker(sink, { now }) { 1000.0 to 500.0 }
+        timed.send(JoystickMove(100.0, 0.0))
+        now = 400_000_000L
+        timed.report(NormalizedPoint(0.1, 0.1))
+        assertEquals(NormalizedPoint(0.1, 0.1), timed.position.value)
+    }
 }

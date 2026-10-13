@@ -153,3 +153,56 @@ fn key_commands_produce_no_mouse_events() {
     let command = RemoteCommand::KeyDown { key_code: 0, modifiers: Modifiers::NONE };
     assert!(injector.plan(&command, &source(0, 0, 1920, 1080), desktop()).is_empty());
 }
+
+fn absolute(fraction: f64, width: i32, height: i32) -> (i32, i32) {
+    to_absolute_mouse(fraction * f64::from(width), fraction * f64::from(height), 0, 0, width, height)
+}
+
+#[test]
+fn a_joystick_nudge_moves_the_pointer_by_the_same_fraction_of_the_picture() {
+    let mut injector = MouseInjector::default();
+    let transform = source(0, 0, 1920, 1080);
+    let first = injector.plan_joystick(192.0, 0.0, &transform, desktop(), (960.0, 540.0));
+    // Half way plus a tenth of the width.
+    assert_eq!(first[0].dx, absolute(0.6, 1920, 1080).0);
+    let second = injector.plan_joystick(0.0, 108.0, &transform, desktop(), (1152.0, 540.0));
+    assert_eq!((second[0].dx, second[0].dy), (first[0].dx, absolute(0.6, 1080, 1080).0));
+}
+
+#[test]
+fn a_nudge_under_one_pixel_is_carried_not_dropped() {
+    let mut injector = MouseInjector::default();
+    let transform = source(0, 0, 1920, 1080);
+    let mut real = (960.0, 540.0);
+    for _ in 0..4 {
+        injector.plan_joystick(0.5, 0.0, &transform, desktop(), real);
+        real = (real.0.round(), real.1);
+    }
+    let last = injector.plan_joystick(0.0, 0.0, &transform, desktop(), real);
+    assert!(last[0].dx > absolute(0.5, 1920, 1080).0);
+}
+
+#[test]
+fn a_hand_moving_the_pointer_restarts_the_joystick_from_there() {
+    let mut injector = MouseInjector::default();
+    let transform = source(0, 0, 1920, 1080);
+    injector.plan_joystick(0.0, 0.0, &transform, desktop(), (960.0, 540.0));
+    let after = injector.plan_joystick(0.0, 0.0, &transform, desktop(), (192.0, 540.0));
+    assert_eq!(after[0].dx, absolute(0.1, 1920, 1080).0);
+}
+
+#[test]
+fn a_joystick_stops_at_the_edge_of_the_source() {
+    let mut injector = MouseInjector::default();
+    let transform = source(0, 0, 1920, 1080);
+    let spec = injector.plan_joystick(5000.0, -5000.0, &transform, desktop(), (960.0, 540.0));
+    assert_eq!((spec[0].dx, spec[0].dy), (65535, 0));
+}
+
+#[test]
+fn a_picture_wider_than_the_phone_measures_in_points_moves_half_as_much() {
+    let mut injector = MouseInjector::default();
+    let transform = source(0, 0, 3840, 2160);
+    let spec = injector.plan_joystick(192.0, 0.0, &transform, VirtualDesktop { left: 0, top: 0, width: 3840, height: 2160 }, (1920.0, 1080.0));
+    assert_eq!(spec[0].dx, absolute(0.6, 3840, 2160).0);
+}

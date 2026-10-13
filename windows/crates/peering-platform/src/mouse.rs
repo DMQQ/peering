@@ -137,7 +137,20 @@ fn take_whole_notches(pending: &mut f64, notches: f64) -> i32 {
 pub struct MouseInjector {
     held: Vec<MouseButton>,
     wheel: WheelAccumulator,
+    joystick: Option<JoystickPointer>,
 }
+
+/// Where the joystick has put the pointer, kept as fractions so a nudge under one pixel is not lost to rounding.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct JoystickPointer {
+    normalized: (f64, f64),
+    global: (f64, f64),
+}
+
+/// A pointer this far from where the joystick left it was moved by a hand, and the joystick continues from there.
+const HAND_MOVED_PIXELS: f64 = 3.0;
+/// The widest picture the phone treats as already measured in points; it halves anything wider (`PointerTravel` in the iPhone app).
+const WIDEST_POINT_WIDTH: f64 = 2560.0;
 
 impl MouseInjector {
     pub fn plan(&mut self, command: &RemoteCommand, transform: &TransformSnapshot, desktop: VirtualDesktop) -> Vec<MouseEventSpec> {
@@ -154,6 +167,45 @@ impl MouseInjector {
             RemoteCommand::Scroll { dx, dy } => wheel_events(*dx, *dy, &mut self.wheel),
             _ => Vec::new(),
         }
+    }
+
+    /// A joystick nudge arrives in the units of the picture the phone is showing, so the pointer moves by the same
+    /// fraction of the picture that the phone's drawn cursor does. `real_cursor` is the pointer's actual position.
+    pub fn plan_joystick(
+        &mut self,
+        dx: f64,
+        dy: f64,
+        transform: &TransformSnapshot,
+        desktop: VirtualDesktop,
+        real_cursor: (f64, f64),
+    ) -> Vec<MouseEventSpec> {
+        if !dx.is_finite() || !dy.is_finite() || transform.pixel_width == 0 || transform.pixel_height == 0 {
+            return Vec::new();
+        }
+        let source = InputTransform {
+            origin_x: f64::from(transform.origin_x),
+            origin_y: f64::from(transform.origin_y),
+            pixel_width: f64::from(transform.pixel_width),
+            pixel_height: f64::from(transform.pixel_height),
+            scale: transform.scale,
+        };
+        let moved_by_hand = self.joystick.is_none_or(|last| {
+            (real_cursor.0 - last.global.0).hypot(real_cursor.1 - last.global.1) > HAND_MOVED_PIXELS
+        });
+        let (x, y) = match self.joystick {
+            Some(last) if !moved_by_hand => last.normalized,
+            _ => source.normalized_point(real_cursor.0, real_cursor.1),
+        };
+        let phone_width = Self::phone_measure(source.pixel_width);
+        let phone_height = Self::phone_measure(source.pixel_height);
+        let normalized = ((x + dx / phone_width).clamp(0.0, 1.0), (y + dy / phone_height).clamp(0.0, 1.0));
+        let global = source.global_point(normalized.0, normalized.1);
+        self.joystick = Some(JoystickPointer { normalized, global });
+        vec![move_event(NormalizedPoint { x: normalized.0, y: normalized.1 }, transform, desktop)]
+    }
+
+    fn phone_measure(pixels: f64) -> f64 {
+        if pixels > WIDEST_POINT_WIDTH { pixels / 2.0 } else { pixels }
     }
 
     /// Up events for every button still down, and the wheel remainder cleared.
@@ -176,7 +228,13 @@ impl MouseInjector {
 #[cfg(windows)]
 impl InputSink for MouseInjector {
     fn apply(&mut self, command: &RemoteCommand, transform: &TransformSnapshot) {
-        let events = self.plan(command, transform, sys::virtual_desktop());
+        let desktop = sys::virtual_desktop();
+        let events = match command {
+            RemoteCommand::JoystickMove { dx, dy } => {
+                self.plan_joystick(*dx, *dy, transform, desktop, sys::cursor_position())
+            }
+            _ => self.plan(command, transform, desktop),
+        };
         sys::send(&events);
     }
 

@@ -5,7 +5,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_MOUSE, MOUSEINPUT, MOUSE_EVENT_FLAGS,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+    GetCursorPos, GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
 };
 
 pub(super) fn virtual_desktop() -> VirtualDesktop {
@@ -18,6 +18,14 @@ pub(super) fn virtual_desktop() -> VirtualDesktop {
             height: GetSystemMetrics(SM_CYVIRTUALSCREEN),
         }
     }
+}
+
+pub(super) fn cursor_position() -> (f64, f64) {
+    let mut point = windows::Win32::Foundation::POINT::default();
+    // SAFETY: GetCursorPos writes one POINT through the reference, which is valid for the call.
+    // Failing (a locked desktop) leaves the origin, and the joystick then continues from where it last was.
+    let _ = unsafe { GetCursorPos(&mut point) };
+    (f64::from(point.x), f64::from(point.y))
 }
 
 pub(super) fn send(events: &[MouseEventSpec]) {
