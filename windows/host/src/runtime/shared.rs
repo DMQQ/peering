@@ -29,7 +29,7 @@ use super::notifications::WaitingNotifications;
 use super::outbound::{FrameSender, Outbound};
 use super::peer_address::PeerAddressRouter;
 use super::problem_source::ProblemSource;
-use super::services::{BoxedInput, BoxedSystem, SharedCapture, SharedFileSystem};
+use super::services::{BoxedInput, BoxedSystem, SharedFileSystem};
 use super::video_handle::VideoHandle;
 
 /// One authorised control connection. `video_outbound` is set while a direct video connection for the same client is open.
@@ -55,7 +55,6 @@ impl SessionSlot {
 pub struct HostState {
     pub pins: Arc<dyn PinStore>,
     pub pairing: PairingService,
-    pub capture: SharedCapture,
     pub catalogue: CatalogueService,
     pub catalogues: SessionCatalogue<u64>,
     pub video: VideoHandle,

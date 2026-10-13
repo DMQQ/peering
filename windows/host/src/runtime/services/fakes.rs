@@ -28,5 +28,6 @@ pub fn build() -> Result<Adapters, RuntimeError> {
             directory: String::new(),
             environment: Vec::new(),
         },
+        rebuild_video: Arc::new(|| (Box::new(FakeCapture::new(Vec::new())), Box::new(FakeEncoder::default()))),
     })
 }

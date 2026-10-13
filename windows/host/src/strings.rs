@@ -86,6 +86,10 @@ pub fn pass_hung(seconds: f64) -> String {
     format!("{PASS_HUNG_PREFIX} for {seconds:.0} s, usually a stuck video encoder or graphics driver. Quit and start it again if it does not recover.")
 }
 
+pub fn video_abandoned(seconds: f64) -> String {
+    format!("The video encoder did not answer for {seconds:.0} s, so the host dropped it and is starting the screen capture again. If this repeats, update the graphics driver.")
+}
+
 pub fn capture_recovering(reason: &str) -> String {
     format!("Screen capture failed ({reason}). The host is trying again.")
 }

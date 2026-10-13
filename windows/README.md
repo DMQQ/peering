@@ -108,9 +108,12 @@ Checked on macOS, with the commands in this file:
   `windows` crate 0.58. Compiling is not running: none of those calls has been executed.
 
 The host crate (tray, window, firewall and autostart executors) can also be type checked from a Mac. `ring`'s build script
-needs a C compiler for the MSVC target, which only has to produce files for `cargo check`, so two stub scripts that create empty
-objects and archives are enough: point `CC_x86_64_pc_windows_msvc` and `AR_x86_64_pc_windows_msvc` at them and run
-`cargo check -p peering-host --target x86_64-pc-windows-msvc`. That compiles the Windows-only code and runs none of it.
+needs a C compiler for the MSVC target, which only has to produce files for `cargo check`, so two stub scripts are enough.
+The compiler stub creates an empty file at the path after `-Fo` (or `-o`) and exits 0. The archiver stub is called like
+`lib.exe`, so it must create an empty file at the path in its `-out:PATH` argument (`/out:PATH` also occurs) and exit 0; one
+that ignores `-out:` leaves the linker of the build script looking for an archive that is not there. Point
+`CC_x86_64_pc_windows_msvc` and `AR_x86_64_pc_windows_msvc` at them and run
+`cargo check --locked -p peering-host --target x86_64-pc-windows-msvc`. That compiles the Windows-only code and runs none of it.
 
 Recovery and supervision, what is decided where:
 
@@ -126,9 +129,15 @@ Recovery and supervision, what is decided where:
   intent and applied when the pass gives the coordinator back (`peering_core::video::intent`); nothing waits for the
   encode. A failure of an intent that waited (for instance a display that cannot be started) is logged and left to the
   coordinator's recovery, because there is no caller left to tell. The capture and encode always run together on that one
-  thread, so the D3D11 immediate context is never used from two threads at once; that has not been run on Windows. A pass
-  that never returns cannot be interrupted: a monitor thread reports one that has run for more than 10 s to the window,
-  and the encode is not abandoned.
+  thread, so the D3D11 immediate context is never used from two threads at once; that has not been run on Windows.
+- A video pass that has run for 10 s (`peering_core::supervision::PassLedger`, judged by the host clock on the pump's own
+  tick) is abandoned: the handle builds a new capture and encoder, which means a new D3D11 device with a new generation,
+  gives them the clients, settings and display it was asked for, the window shows "did not answer", the phones get the
+  standing capture-recovering notice, and the picture resumes at a keyframe after the first backoff. The thread still
+  inside the old encoder is not killed, because Windows offers no safe way to do that. If its call ever returns it finds
+  it was abandoned and drops what it holds. A truly wedged driver call therefore leaks one thread and the old device's
+  memory until the process exits, and a driver that wedges every device keeps the host in this loop (every 10 s plus the
+  backoff) rather than recovering. A monitor thread still reports a pass past 10 s to the window.
 
 Not verified, and not run on any machine yet:
 

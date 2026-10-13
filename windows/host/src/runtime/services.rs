@@ -29,6 +29,7 @@ mod adapters {
         pub secrets: std::sync::Arc<dyn peering_core::ports::secret_store::SecretStore + Send + Sync>,
         pub files: std::sync::Arc<dyn peering_core::files::vfs::FileSystem + Send + Sync>,
         pub terminal: super::TerminalServices,
+        pub rebuild_video: super::RebuildVideo,
     }
 }
 
@@ -49,6 +50,9 @@ pub struct TerminalServices {
     pub environment: Vec<(String, String)>,
 }
 
+/// A new capture and encoder on a new device, for when the pair in use is lost with a pass that never returned.
+pub type RebuildVideo = Arc<dyn Fn() -> (Box<dyn Capture + Send>, Box<dyn Encoder + Send>) + Send + Sync>;
+
 /// The adapters the runtime owns. `capture` is shared with the runtime, which lists displays through it.
 pub struct HostServices {
     pub capture: Box<dyn Capture + Send>,
@@ -58,6 +62,8 @@ pub struct HostServices {
     pub secrets: Arc<dyn SecretStore + Send + Sync>,
     pub files: Arc<dyn FileSystem + Send + Sync>,
     pub terminal: TerminalServices,
+    /// Builds a replacement for `capture` and `encoder` when a pass that held them never comes back.
+    pub rebuild_video: RebuildVideo,
     pub home_directory: String,
     /// Answers whether the agent CLI is installed, which decides if the hello advertises chat.
     pub agent_binaries: Box<dyn BinaryLocator>,
@@ -174,7 +180,7 @@ impl FileSystem for SharedFileSystem {
 
 /// The platform adapters for this machine. `home_directory` is where a file listing starts when the client names none.
 pub fn platform_services(home_directory: String) -> Result<HostServices, RuntimeError> {
-    let adapters::Adapters { capture, encoder, input, system, secrets, files, terminal } = adapters::build()?;
+    let adapters::Adapters { capture, encoder, input, system, secrets, files, terminal, rebuild_video } = adapters::build()?;
     Ok(HostServices {
         capture,
         encoder,
@@ -183,6 +189,7 @@ pub fn platform_services(home_directory: String) -> Result<HostServices, Runtime
         secrets,
         files,
         terminal,
+        rebuild_video,
         home_directory,
         agent_binaries: Box::new(super::agent::DiskBinaries),
     })

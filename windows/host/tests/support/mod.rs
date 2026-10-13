@@ -218,6 +218,11 @@ fn harness_with(
             directory: "C:\\Users\\me".to_owned(),
             environment: Vec::new(),
         },
+        rebuild_video: {
+            let capture = capture.clone();
+            let encoder = encoder.clone();
+            Arc::new(move || (Box::new(SharedCapture(capture.clone())), Box::new(SharedEncoder(encoder.clone()))))
+        },
         home_directory: "C:\\Users\\me".to_owned(),
         agent_binaries,
     };

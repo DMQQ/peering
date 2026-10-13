@@ -8,6 +8,7 @@ use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame}
 use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
 
 use super::*;
+use crate::runtime::RebuildVideo;
 
 fn display(id: u32, is_primary: bool) -> DisplayInfo {
     DisplayInfo { id, name: format!("Display {id}"), pixel_width: 1920, pixel_height: 1080, origin_x: 0, origin_y: 0, scale: 1.0, is_primary }
@@ -73,8 +74,13 @@ fn rig() -> Rig {
     let (release, release_receiver) = channel();
     let capture = Arc::new(Mutex::new(FakeCapture::new(vec![display(1, true), display(2, false)])));
     let gated = Gated { inner: FakeEncoder::default(), entered: entered_sender, release: release_receiver };
-    let coordinator = VideoCoordinator::new(SharedCapture::new(Box::new(SharedFake(capture.clone()))), BoxedEncoder(Box::new(gated)));
-    Rig { handle: VideoHandle::new(coordinator), capture, entered, release }
+    let shared = SharedCapture::new(Box::new(SharedFake(capture.clone())));
+    let coordinator = VideoCoordinator::new(shared.clone(), BoxedEncoder(Box::new(gated)));
+    let rebuild: RebuildVideo = {
+        let capture = capture.clone();
+        Arc::new(move || (Box::new(SharedFake(capture.clone())), Box::new(FakeEncoder::default())))
+    };
+    Rig { handle: VideoHandle::new(coordinator, shared, rebuild), capture, entered, release }
 }
 
 fn registered(rig: &Rig) {
@@ -124,4 +130,36 @@ fn an_idle_handle_applies_a_request_at_once() {
     registered(&rig);
     rig.handle.apply(VideoIntent::SetSource(source(2)), 3.0).expect("the display exists");
     assert_eq!(rig.handle.running_source(), Some(source(2)));
+}
+
+#[test]
+fn a_pass_past_its_deadline_is_replaced_with_the_clients_and_settings_it_held() {
+    let rig = rig();
+    registered(&rig);
+    rig.handle.request(VideoIntent::SetFrameRate(30));
+    let pumping = rig.handle.clone();
+    let stuck = thread::spawn(move || pumping.pump(2.0));
+    rig.entered.recv().expect("the encode started");
+    rig.handle.request(VideoIntent::Attach("second".to_owned()));
+    assert!(!rig.handle.pass_overdue(11.9));
+    assert!(rig.handle.pass_overdue(12.0));
+
+    rig.handle.abandon_pass(12.0).expect("the display starts on the new device");
+
+    assert_eq!(rig.handle.running_source(), Some(source(1)));
+    assert_eq!(rig.handle.frame_rate(), 30);
+    assert_eq!(rig.handle.capture_condition(), Some(CaptureCondition::Recovering));
+    assert!(!rig.handle.pass_overdue(1_000.0), "the abandoned pass is no longer watched");
+    rig.release.send(()).expect("the stuck encode is waiting");
+    stuck.join().expect("the stuck thread ends").expect("it does not panic").expect("its encode finishes");
+    assert_eq!(rig.handle.frame_rate(), 30, "the late return did not put the old coordinator back");
+    assert_eq!(rig.handle.capture_condition(), Some(CaptureCondition::Recovering));
+}
+
+#[test]
+fn abandoning_when_no_pass_is_running_changes_nothing() {
+    let rig = rig();
+    registered(&rig);
+    rig.handle.abandon_pass(50.0).expect("nothing to replace");
+    assert_eq!(rig.handle.capture_condition(), None);
 }

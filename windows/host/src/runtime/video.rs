@@ -109,7 +109,7 @@ pub fn catalogue_frame(catalog: &CaptureCatalog) -> Frame {
 impl HostState {
     /// Refreshes the catalogue from the displays now attached and returns the frames due for `session`.
     pub fn catalogue_frames_for(&mut self, session: u64) -> Vec<Frame> {
-        let displays = self.capture.displays();
+        let displays = self.video.capture().displays();
         self.catalogue.update(&displays);
         let Some(catalog) = self.catalogue.current().cloned() else {
             return Vec::new();
@@ -136,7 +136,7 @@ impl HostState {
     }
 
     pub fn active_transform(&self) -> TransformSnapshot {
-        let displays = self.capture.displays();
+        let displays = self.video.capture().displays();
         transform_for(&displays, self.video.running_source().as_ref())
     }
 

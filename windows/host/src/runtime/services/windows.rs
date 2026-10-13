@@ -30,6 +30,10 @@ pub fn build() -> Result<Adapters, RuntimeError> {
         secrets: Arc::new(DpapiStore::new(directory, DpapiProtector)),
         files: Arc::new(DiskFileSystem),
         terminal: terminal_services(),
+        rebuild_video: Arc::new(|| {
+            let PlatformServices { capture, encoder } = PlatformServices::new();
+            (capture, encoder)
+        }),
     })
 }
 

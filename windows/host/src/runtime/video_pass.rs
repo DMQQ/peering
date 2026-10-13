@@ -7,12 +7,14 @@ use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::sync::Arc;
 use std::time::Duration;
 
+use peering_core::catalogue::SessionCatalogue;
 use peering_core::pairing::ApprovalDecision;
+use peering_core::supervision::ABANDON_PASS_SECONDS;
 use peering_core::video::coordinator::{CoordinatorError, VideoOutput};
 use peering_core::video::lane::LaneSend;
 use peering_core::video::recovery::LogGate;
 use tokio::task::{spawn_blocking, spawn_local, JoinError, JoinHandle};
-use tokio::time::{interval, MissedTickBehavior};
+use tokio::time::{interval, timeout, MissedTickBehavior};
 
 use super::control::{publish, take_commands};
 use super::diagnostics;
@@ -130,11 +132,51 @@ async fn run_video_pass(shared: &Shared, profile: &HostProfile, now: f64) -> std
         }
         (decisions, prepared)
     }))?;
-    let video = prepared.video.clone();
-    let pumped: PumpOutcome = spawn_blocking(move || video.pump(now)).await.map_err(worker_payload)?;
-    let outputs = pumped?;
+    let outputs = match await_worker(&prepared.video, profile, now).await? {
+        Worker::Returned(pumped) => pumped?,
+        Worker::Overdue => {
+            let outgoing = catch_unwind(AssertUnwindSafe(|| shared.lock().abandon_video_pass(prepared, now)))?;
+            return Ok(VideoPass { decisions, outgoing, failure: None });
+        }
+    };
     let (outgoing, failure) = catch_unwind(AssertUnwindSafe(|| shared.lock().finish_video_pass(prepared, outputs, now)))?;
     Ok(VideoPass { decisions, outgoing, failure })
+}
+
+/// What became of the encoding thread.
+enum Worker {
+    Returned(PumpOutcome),
+    Overdue,
+}
+
+/// Waits for the pass on the encoding thread, and gives up on it once it is past its deadline by the host's clock. The
+/// thread is left to finish by itself; the handle has already moved on without what it holds.
+async fn await_worker(video: &VideoHandle, profile: &HostProfile, now: f64) -> std::thread::Result<Worker> {
+    let pumping = video.clone();
+    let mut worker = spawn_blocking(move || pumping.pump(now));
+    loop {
+        match timeout(PUMP_INTERVAL, &mut worker).await {
+            Ok(joined) => return joined.map(Worker::Returned).map_err(worker_payload),
+            Err(_) if video.pass_overdue(profile.clock.now_seconds()) => return Ok(Worker::Overdue),
+            Err(_) => {}
+        }
+    }
+}
+
+impl HostState {
+    /// The pass never came back: its coordinator, capture and encoder are dropped for new ones, every phone is sent the
+    /// catalogue again, and the window shows why the picture stopped. What was ready before the capture is still sent.
+    fn abandon_video_pass(&mut self, prepared: Prepared, now: f64) -> Vec<Outgoing> {
+        self.catalog_checked_at = None;
+        self.notice_checked_at = None;
+        self.catalogues = SessionCatalogue::new();
+        if let Err(error) = self.video.abandon_pass(now) {
+            diagnostics::log(&format!("the replacement capture could not start: {error}"));
+        }
+        self.set_problem(ProblemSource::Video, crate::strings::video_abandoned(ABANDON_PASS_SECONDS));
+        diagnostics::log("a video pass did not return in time and was abandoned; its capture and encoder were replaced");
+        prepared.outgoing
+    }
 }
 
 fn worker_payload(error: JoinError) -> Box<dyn Any + Send> {

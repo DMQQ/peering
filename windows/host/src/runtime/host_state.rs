@@ -24,7 +24,7 @@ use super::control::RelayStatus;
 use super::notifications::WaitingNotifications;
 use super::pins::SecretPins;
 use super::problem_source::ProblemSource;
-use super::services::{BoxedEncoder, BoxedInput, BoxedSystem, HostServices, SharedCapture, SharedFileSystem};
+use super::services::{BoxedEncoder, BoxedInput, BoxedSystem, HostServices, RebuildVideo, SharedCapture, SharedFileSystem};
 use super::shared::HostState;
 use super::terminal;
 use super::video_handle::VideoHandle;
@@ -38,6 +38,7 @@ struct Opened {
     terminals: TerminalSessionManager,
     capture: SharedCapture,
     encoder: Box<dyn Encoder + Send>,
+    rebuild_video: RebuildVideo,
     input: Box<dyn InputSink + Send>,
     system: Box<dyn SystemActions + Send>,
     files: Arc<dyn FileSystem + Send + Sync>,
@@ -48,7 +49,7 @@ struct Opened {
 impl HostState {
     /// Builds the state from the adapters. A paired list that could not be read starts empty and is shown as a problem.
     pub(super) fn new(profile: &HostProfile, services: HostServices) -> Result<Self, RuntimeError> {
-        let HostServices { capture, encoder, input, system, secrets, files, terminal, home_directory, agent_binaries } = services;
+        let HostServices { capture, encoder, input, system, secrets, files, terminal, rebuild_video, home_directory, agent_binaries } = services;
         let terminals = terminal::manager(terminal, secrets.clone(), profile.clock.clone())?;
         let secret_pins = Arc::new(SecretPins::open(secrets)?);
         let pins_problem = secret_pins.load_problem();
@@ -59,6 +60,7 @@ impl HostState {
             terminals,
             capture: SharedCapture::new(capture),
             encoder,
+            rebuild_video,
             input,
             system,
             files,
@@ -73,14 +75,13 @@ impl HostState {
     }
 
     fn assemble(opened: Opened) -> Self {
-        let Opened { host_id, now, pins, terminals, capture, encoder, input, system, files, home_directory, agent_binaries } = opened;
+        let Opened { host_id, now, pins, terminals, capture, encoder, rebuild_video, input, system, files, home_directory, agent_binaries } = opened;
         Self {
             pairing: PairingService::new(&host_id, pins.clone()),
             pins,
-            capture: capture.clone(),
             catalogue: CatalogueService::new(),
             catalogues: SessionCatalogue::new(),
-            video: VideoHandle::new(VideoCoordinator::new(capture, BoxedEncoder(encoder))),
+            video: VideoHandle::new(VideoCoordinator::new(capture.clone(), BoxedEncoder(encoder)), capture, rebuild_video),
             input: BoxedInput(input),
             hold: Default::default(),
             system: BoxedSystem(system),
