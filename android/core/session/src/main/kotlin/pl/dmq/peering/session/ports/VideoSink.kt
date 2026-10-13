@@ -1,5 +1,7 @@
 package pl.dmq.peering.session.ports
 
+import pl.dmq.peering.wire.AudioStreamConfig
+import pl.dmq.peering.wire.EncodedAudioFrame
 import pl.dmq.peering.wire.EncodedVideoFrame
 import pl.dmq.peering.wire.VideoStreamConfig
 
@@ -10,6 +12,12 @@ interface VideoSink {
 
     /** One encoded frame, in decode order. */
     fun onFrame(frame: EncodedVideoFrame)
+
+    /** The computer's sound, announced before its first frame and again when it changes. A sink with no speaker ignores it. */
+    fun onAudioConfig(config: AudioStreamConfig) = Unit
+
+    /** One block of the computer's sound. */
+    fun onAudioFrame(frame: EncodedAudioFrame) = Unit
 
     /** The stream has ended, so the decoder can be released. */
     fun onStop()

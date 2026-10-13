@@ -1,6 +1,8 @@
 package pl.dmq.peering.session.controller
 
 import pl.dmq.peering.session.ports.VideoSink
+import pl.dmq.peering.wire.AudioStreamConfig
+import pl.dmq.peering.wire.EncodedAudioFrame
 import pl.dmq.peering.wire.EncodedVideoFrame
 import pl.dmq.peering.wire.VideoStreamConfig
 
@@ -16,6 +18,10 @@ internal class StreamRecord(private val inner: VideoSink) : VideoSink {
     }
 
     override fun onFrame(frame: EncodedVideoFrame) = inner.onFrame(frame)
+
+    override fun onAudioConfig(config: AudioStreamConfig) = inner.onAudioConfig(config)
+
+    override fun onAudioFrame(frame: EncodedAudioFrame) = inner.onAudioFrame(frame)
 
     override val decoderFailed: Boolean get() = inner.decoderFailed
 

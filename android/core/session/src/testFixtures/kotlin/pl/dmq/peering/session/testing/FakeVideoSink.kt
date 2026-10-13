@@ -1,6 +1,8 @@
 package pl.dmq.peering.session.testing
 
 import pl.dmq.peering.session.ports.VideoSink
+import pl.dmq.peering.wire.AudioStreamConfig
+import pl.dmq.peering.wire.EncodedAudioFrame
 import pl.dmq.peering.wire.EncodedVideoFrame
 import pl.dmq.peering.wire.VideoStreamConfig
 
@@ -8,6 +10,17 @@ import pl.dmq.peering.wire.VideoStreamConfig
 class FakeVideoSink : VideoSink {
     val configs = mutableListOf<VideoStreamConfig>()
     val frames = mutableListOf<EncodedVideoFrame>()
+
+    val audioConfigs = mutableListOf<AudioStreamConfig>()
+    val audioFrames = mutableListOf<EncodedAudioFrame>()
+
+    override fun onAudioConfig(config: AudioStreamConfig) {
+        audioConfigs += config
+    }
+
+    override fun onAudioFrame(frame: EncodedAudioFrame) {
+        audioFrames += frame
+    }
 
     var stops = 0
         private set

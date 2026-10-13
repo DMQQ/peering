@@ -1,6 +1,8 @@
 package pl.dmq.peering.session.controller
 
 import pl.dmq.peering.session.ports.VideoSink
+import pl.dmq.peering.wire.AudioStreamConfig
+import pl.dmq.peering.wire.EncodedAudioFrame
 import pl.dmq.peering.wire.EncodedVideoFrame
 import pl.dmq.peering.wire.VideoStreamConfig
 
@@ -22,6 +24,10 @@ internal class PictureSink(
         inner.onFrame(frame)
         onPicture()
     }
+
+    override fun onAudioConfig(config: AudioStreamConfig) = inner.onAudioConfig(config)
+
+    override fun onAudioFrame(frame: EncodedAudioFrame) = inner.onAudioFrame(frame)
 
     override fun onStop() {
         inner.onStop()

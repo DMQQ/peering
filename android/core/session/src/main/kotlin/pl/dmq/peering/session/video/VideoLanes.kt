@@ -107,7 +107,7 @@ class VideoLanes(
             reassembleControl(frame)?.let { deliverPicture(it, VideoTransportKind.CONTROL) }
             emptyList()
         }
-        MessageKind.VideoConfig, MessageKind.VideoFrame -> {
+        MessageKind.VideoConfig, MessageKind.VideoFrame, MessageKind.AudioConfig, MessageKind.AudioFrame -> {
             deliverPicture(frame, VideoTransportKind.CONTROL)
             emptyList()
         }

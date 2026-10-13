@@ -47,7 +47,7 @@ internal class FrameRouter(
             laneEvents(frame)
         }
         MessageKind.VideoChunk -> if (isClipboardChunk(frame)) onClipboardChunk(frame) else laneEvents(frame)
-        MessageKind.VideoFrame, MessageKind.VideoKey -> laneEvents(frame)
+        MessageKind.VideoFrame, MessageKind.VideoKey, MessageKind.AudioConfig, MessageKind.AudioFrame -> laneEvents(frame)
         MessageKind.AgentEvent -> {
             routeAgent(frame)
             emptyList()
