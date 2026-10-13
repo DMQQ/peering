@@ -7,7 +7,7 @@ final class NetworkChangeObserver: @unchecked Sendable {
     private let monitorQueue = DispatchQueue(label: "pl.dmq.peering.host.path-monitor")
     private var wakeToken: (any NSObjectProtocol)?
     private let lock = NSLock()
-    private var lastSignature: String?
+    private var change = NetworkPathChange()
 
     init(onChange: @escaping @Sendable () -> Void) {
         wakeToken = NSWorkspace.shared.notificationCenter.addObserver(
@@ -15,12 +15,9 @@ final class NetworkChangeObserver: @unchecked Sendable {
         ) { _ in onChange() }
 
         monitor.pathUpdateHandler = { [weak self] path in
-            guard let self, path.status == .satisfied else { return }
-            let signature = path.availableInterfaces.map(\.name).sorted().joined(separator: ",")
-            let changed = lock.withLock { () -> Bool in
-                defer { lastSignature = signature }
-                // The first update only reports where things already are.
-                return lastSignature != nil && lastSignature != signature
+            guard let self else { return }
+            let changed = lock.withLock {
+                change.update(isSatisfied: path.status == .satisfied, interfaceNames: path.availableInterfaces.map(\.name))
             }
             if changed { onChange() }
         }
