@@ -39,6 +39,17 @@ internal fun HostMenu(row: HostRow, actions: ConnectActions, onRename: () -> Uni
                 onClick = { choose { actions.onConnectVia(row.id, ConnectVia.Relay) } },
                 icon = AppIcons.network,
             )
+            PeeringMenuItem(
+                title = stringResource(R.string.connect_wake),
+                onClick = { choose { actions.onWake(row.id) } },
+                icon = AppIcons.power,
+                enabled = row.wake == WakeState.Available,
+                supporting = when (row.wake) {
+                    WakeState.NoAddress -> stringResource(R.string.connect_wake_refusal_no_address)
+                    WakeState.Awake -> stringResource(R.string.connect_wake_refusal_awake)
+                    WakeState.Available -> null
+                },
+            )
             PeeringMenuItem(title = stringResource(R.string.connect_rename), onClick = { choose(onRename) }, icon = AppIcons.edit)
             PeeringMenuItem(
                 title = stringResource(R.string.connect_forget),

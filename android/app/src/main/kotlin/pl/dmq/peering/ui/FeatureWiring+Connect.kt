@@ -4,6 +4,7 @@ import pl.dmq.peering.feature.connect.ConnectVia
 import pl.dmq.peering.session.controller.ConnectTarget
 import pl.dmq.peering.session.controller.SessionPhase
 import pl.dmq.peering.session.ports.PeerAddress
+import pl.dmq.peering.ui.wiring.WakeBroadcast
 import pl.dmq.peering.ui.wiring.pairedTarget
 import pl.dmq.peering.widget.WidgetLink
 
@@ -38,6 +39,12 @@ internal fun FeatureWiring.connectPairedVia(hostId: String, via: ConnectVia) {
         ConnectVia.Relay -> ConnectTarget.Paired(hostId, null, null, relayAllowed = true)
     }
     holder.connect(target)
+}
+
+/** Broadcasts the wake packet to each hardware address kept for [hostId]; null when none is kept, else how many were readable. */
+internal fun FeatureWiring.wakeHost(hostId: String): Int? {
+    val addresses = hostMacs.of(hostId).takeIf { it.isNotEmpty() } ?: return null
+    return WakeBroadcast.send(addresses)
 }
 
 internal fun FeatureWiring.startPairing(hostId: String) = holder.connect(ConnectTarget.Pairing(hostId))

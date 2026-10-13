@@ -79,6 +79,7 @@ private fun rememberConnectPresenter(wiring: FeatureWiring, scope: CoroutineScop
                 flow.beginPairing(wiring, scope, wiring.startPairing(hostId), flow.hostNames[hostId])
                 flow.scanning = null
             },
+            onWake = { hostId -> wiring.wakeHost(hostId) },
             onConnectAddress = { address ->
                 flow.beginPairing(wiring, scope, wiring.startPairingByAddress(PeerAddress(address.host, address.port)), null)
             },

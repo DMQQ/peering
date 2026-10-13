@@ -16,6 +16,8 @@ sealed interface SessionPhase {
         val hostName: String,
         val capabilities: Set<HostCapability>,
         val path: SessionRecord.Path,
+        /** The computer's hardware addresses from its hello, for waking it later. */
+        val macAddresses: List<String> = emptyList(),
     ) : SessionPhase
 
     data class Reconnecting(val attempt: Int) : SessionPhase

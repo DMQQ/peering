@@ -209,6 +209,7 @@ internal class LinkRunner(
                     hostName = hello.hostName,
                     capabilities = HostCapability.entries.filterTo(mutableSetOf()) { capability -> capability.declaredBy(hello) },
                     path = route.path,
+                    macAddresses = hello.macAddresses.orEmpty(),
                 ),
             )
         }

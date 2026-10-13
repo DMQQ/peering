@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connect_wake">Wake computer on LAN</string>
+    <string name="connect_wake_refusal_no_address">No hardware address on file yet. Connect once first.</string>
+    <string name="connect_wake_refusal_awake">That computer is already awake.</string>
+    <string name="connect_wake_no_address">No hardware address is on file for that computer, so there is nothing to send a wake packet to.</string>
+    <string name="connect_wake_unreadable">That computer’s stored hardware address could not be read, so no wake packet was sent.</string>
+    <plurals name="connect_wake_sent">
+        <item quantity="one">Wake packet sent to %d hardware address. It can only reach a computer on this network.</item>
+        <item quantity="other">Wake packet sent to %d hardware addresses. It can only reach a computer on this network.</item>
+    </plurals>
+</resources>

@@ -11,4 +11,18 @@ data class ConnectUiState(
     val entry: HostIdEntryState = HostIdEntryState(),
 )
 
-enum class ConnectMessage { ForgetFailed }
+/** A note under the Connect header. [isFailure] says whether it reports something that went wrong or something that was done. */
+sealed interface ConnectMessage {
+    val isFailure: Boolean get() = true
+
+    data object ForgetFailed : ConnectMessage
+
+    data object WakeNoAddress : ConnectMessage
+
+    /** Addresses were on file but none could be read, so no packet went out. */
+    data object WakeUnreadable : ConnectMessage
+
+    data class WakeSent(val count: Int) : ConnectMessage {
+        override val isFailure: Boolean get() = false
+    }
+}

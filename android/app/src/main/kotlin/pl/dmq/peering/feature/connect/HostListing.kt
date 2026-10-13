@@ -28,7 +28,13 @@ data class HostListing(val paired: List<HostRow>, val nearby: List<HostRow>) {
             }
 
             val pairedRows = paired.map { host ->
-                HostRow(host.id, host.name ?: nearbyById[host.id]?.name, statusOf(host.id), routeOf(host.id))
+                val status = statusOf(host.id)
+                val wake = when {
+                    !host.canWake -> WakeState.NoAddress
+                    status != HostStatus.Unknown -> WakeState.Awake
+                    else -> WakeState.Available
+                }
+                HostRow(host.id, host.name ?: nearbyById[host.id]?.name, status, routeOf(host.id), wake)
             }
             val nearbyRows = nearbyById.values
                 .map { HostRow(it.id, it.name, statusOf(it.id), HostRoute.Local) }

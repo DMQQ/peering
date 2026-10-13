@@ -52,6 +52,7 @@ internal fun rememberConnectActions(presenter: ConnectPresenter, onScanRequested
             onRename = presenter::rename,
             onDismissMessage = presenter::dismissMessage,
             onForget = presenter::requestForget,
+            onWake = presenter::wake,
             onConnectAddress = presenter::connectToAddress,
             onSearchAgain = presenter::searchAgain,
             onOpenWifiSettings = {

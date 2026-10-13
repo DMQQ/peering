@@ -20,6 +20,8 @@ class ConnectPresenter(
     private val onConnectVia: (String, ConnectVia) -> Unit = { hostId, _ -> onConnect(hostId) },
     private val onPair: (String) -> Unit,
     private val onConnectAddress: (ManualAddress) -> Unit,
+    /** Sends the wake packet for a computer and says how many hardware addresses it went to, or null when none is on file. */
+    private val onWake: (String) -> Int? = { null },
     private val scope: CoroutineScope,
     network: NetworkSource = NetworkSource.Always,
     private val searchWindowMillis: Long = SEARCH_WINDOW_MILLIS,
@@ -84,6 +86,15 @@ class ConnectPresenter(
     /** Dials a computer by the typed address. Fields that are not an address are ignored: the sheet keeps its button off for them. */
     fun connectToAddress(host: String, port: String) {
         ManualAddress.parse(host, port)?.let(onConnectAddress)
+    }
+
+    /** Broadcasts a wake packet. It reaches only a computer on this network, and nothing acknowledges it, so the outcome is said. */
+    fun wake(hostId: String) {
+        message.value = when (val sent = onWake(hostId)) {
+            null -> ConnectMessage.WakeNoAddress
+            0 -> ConnectMessage.WakeUnreadable
+            else -> ConnectMessage.WakeSent(sent)
+        }
     }
 
     fun requestForget(hostId: String) {

@@ -143,6 +143,7 @@ private fun previewConnect() = ConnectActions(
     onRename = { id, _ -> Log.i(TAG, "rename $id") },
     onDismissMessage = note("dismiss message"),
     onForget = { id -> Log.i(TAG, "forget $id") },
+    onWake = { id -> Log.i(TAG, "wake $id") },
     onConnectAddress = { _, _ -> Log.i(TAG, "address entered") },
     onSearchAgain = note("search again"),
     onOpenWifiSettings = note("wifi settings"),

@@ -47,6 +47,7 @@ import pl.dmq.peering.ui.wiring.SessionPortsFactory
 import pl.dmq.peering.ui.wiring.SessionPresence
 import pl.dmq.peering.ui.wiring.SurfacePicture
 import pl.dmq.peering.session.clipboard.ClipboardHistory
+import pl.dmq.peering.session.hosts.HostMacAddresses
 import pl.dmq.peering.session.hosts.PersistedHostDirectory
 import pl.dmq.peering.session.hosts.RememberedLanAddresses
 import pl.dmq.peering.session.relay.PresenceWatch
@@ -77,9 +78,10 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val deviceId: String = graph.sessions.identity.clientId
     val hostNames = PersistedHostDirectory(PreferencesKeyValueStore(preferences, writes))
     val trusted = PinTrustedHosts(graph.sessions.pins, hostNames)
+    val hostMacs = HostMacAddresses(PreferencesKeyValueStore(preferences, writes))
     val lanAddresses = RememberedLanAddresses(PreferencesKeyValueStore(preferences, writes))
     val aliases = HostAliases(PreferencesKeyValueStore(preferences, writes)) { graph.sessions.pins.hostIds().toSet() }
-    val discovery = DiscoveryHostSource(graph.sessions.discovery, graph.sessions.pins, hostNames, lanAddresses, aliases, scope)
+    val discovery = DiscoveryHostSource(graph.sessions.discovery, graph.sessions.pins, hostNames, lanAddresses, aliases, scope, hostMacs)
     val billing = PlayBilling(graph.applicationContext, scope) { graph.sessions.identity.publicKey }.also { it.connect() }
     val sessionRecords = PersistedSessionRecords.load(preferences, writes)
     val relayAllowance = RelayAllowanceTracker(
@@ -103,6 +105,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
         ) { devicePrefs.prefs.value.deviceName },
         hostNames,
         scope,
+        hostMacs,
     )
     val background = BackgroundWiring(graph.applicationContext, scope, preferences, holder.active, devicePrefs)
 

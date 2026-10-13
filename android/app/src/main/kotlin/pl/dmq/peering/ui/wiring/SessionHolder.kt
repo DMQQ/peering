@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import pl.dmq.peering.session.controller.ConnectTarget
 import pl.dmq.peering.session.controller.SessionPhase
 import pl.dmq.peering.session.hosts.HostDirectory
+import pl.dmq.peering.session.hosts.HostMacAddresses
 
 /**
  * The one session the app shows. Starting another ends the current one first. Each Mac is remembered under the name it
@@ -22,6 +23,7 @@ internal class SessionHolder(
     private val factory: SessionOpener,
     private val directory: HostDirectory,
     private val scope: CoroutineScope,
+    private val macAddresses: HostMacAddresses? = null,
 ) {
     private val current = MutableStateFlow<ActiveSession?>(null)
     private var naming: Job? = null
@@ -42,7 +44,10 @@ internal class SessionHolder(
                 .distinctUntilChanged()
                 .collect { ready ->
                     DebugLog.d(TAG) { "session ready on ${ready.path}" }
-                    target.hostId?.let { directory.remember(it, ready.hostName, ready.path) }
+                    target.hostId?.let {
+                        directory.remember(it, ready.hostName, ready.path)
+                        macAddresses?.remember(it, ready.macAddresses)
+                    }
                 }
         }
         failures = scope.launch {

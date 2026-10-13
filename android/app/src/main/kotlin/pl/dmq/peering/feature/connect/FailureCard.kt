@@ -24,10 +24,10 @@ import pl.dmq.peering.ui.theme.PeeringText
 @Composable
 internal fun FailureCard(message: ConnectMessage, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth().cardBackground().padding(16.dp), verticalAlignment = Alignment.Top) {
-        IconTile(AppIcons.warning, tint = PeeringColors.caution)
+        if (message.isFailure) IconTile(AppIcons.warning, tint = PeeringColors.caution) else IconTile(AppIcons.checkCircle)
         Spacer(Modifier.width(12.dp))
         Text(
-            stringResource(message.messageRes()),
+            message.text(),
             style = PeeringText.caption,
             color = PeeringColors.muted,
             modifier = Modifier.weight(1f).padding(top = 2.dp),

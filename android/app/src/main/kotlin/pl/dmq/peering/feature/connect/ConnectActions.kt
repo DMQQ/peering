@@ -8,6 +8,7 @@ data class ConnectActions(
     val onRename: (String, String) -> Unit,
     val onDismissMessage: () -> Unit,
     val onForget: (String) -> Unit,
+    val onWake: (String) -> Unit,
     val onConnectAddress: (host: String, port: String) -> Unit,
     val onSearchAgain: () -> Unit,
     val onOpenWifiSettings: () -> Unit,

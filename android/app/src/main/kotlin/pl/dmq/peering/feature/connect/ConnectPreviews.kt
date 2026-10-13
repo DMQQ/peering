@@ -22,6 +22,7 @@ private val previewActions = ConnectActions(
     onRename = ::ignore,
     onDismissMessage = ::ignore,
     onForget = ::ignore,
+    onWake = ::ignore,
     onConnectAddress = ::ignore,
     onSearchAgain = ::ignore,
     onOpenWifiSettings = ::ignore,
