@@ -18,15 +18,18 @@ public struct ClaudeHookEvent: Equatable, Sendable {
     /// The command or path the tool wants to act on, as a lock screen can show it.
     public let detail: String?
     public let message: String?
+    /// What kind of notification a `Notification` hook is, such as `idle_prompt`, when Claude Code says.
+    public let notificationType: String?
 
     /// The folder's name, which is what tells two terminals apart.
-    public init(kind: Kind, sessionID: String, directory: String?, toolName: String?, detail: String?, message: String?) {
+    public init(kind: Kind, sessionID: String, directory: String?, toolName: String?, detail: String?, message: String?, notificationType: String? = nil) {
         self.kind = kind
         self.sessionID = sessionID
         self.directory = directory
         self.toolName = toolName
         self.detail = detail
         self.message = message
+        self.notificationType = notificationType
     }
 
     public var projectName: String? {
@@ -53,7 +56,8 @@ public struct ClaudeHookEvent: Equatable, Sendable {
             directory: object["cwd"] as? String,
             toolName: toolName,
             detail: detail(of: input),
-            message: object["message"] as? String
+            message: object["message"] as? String,
+            notificationType: object["notification_type"] as? String
         )
     }
 
