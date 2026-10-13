@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connect_wake">Computer per LAN aufwecken</string>
+    <string name="connect_wake_refusal_no_address">Noch keine Hardware-Adresse gespeichert. Verbinde dich zuerst einmal.</string>
+    <string name="connect_wake_refusal_awake">Dieser Computer ist bereits wach.</string>
+    <string name="connect_wake_no_address">Für diesen Computer ist keine Hardware-Adresse gespeichert, daher gibt es kein Ziel für ein Wecksignal.</string>
+    <string name="connect_wake_unreadable">Die gespeicherte Hardware-Adresse dieses Computers konnte nicht gelesen werden, daher wurde kein Wecksignal gesendet.</string>
+    <plurals name="connect_wake_sent">
+        <item quantity="one">Wecksignal an %d Hardware-Adresse gesendet. Es erreicht nur einen Computer in diesem Netzwerk.</item>
+        <item quantity="other">Wecksignal an %d Hardware-Adressen gesendet. Es erreicht nur einen Computer in diesem Netzwerk.</item>
+    </plurals>
+    <string name="session_failed_key_changed">Der Schlüssel dieses Computers hat sich seit der Kopplung geändert. Wenn du das nicht erwartet hast, verbinde dich nicht. Um dem neuen Schlüssel zu vertrauen, entferne den Computer hier und koppele ihn erneut.</string>
+    <string name="session_failed_wrong_computer">Der Computer, der geantwortet hat, ist nicht der, den du angefragt hast. Entferne ihn hier und koppele ihn erneut, falls er umgezogen ist.</string>
+    <string name="session_failed_no_pin">Dieses Smartphone vertraut diesem Computer nicht mehr. Koppele ihn erneut, um dich zu verbinden.</string>
+    <string name="link_end_title">Diese Sitzung beenden?</string>
+    <string name="link_end_message">Ein Link außerhalb von Peering hat darum gebeten, die Verbindung zu deinem Computer zu trennen.</string>
+    <string name="link_end_confirm">Sitzung beenden</string>
+</resources>

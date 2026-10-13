@@ -1,0 +1,143 @@
+{
+  "identifier" : "7F2C41A9",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "24.99",
+      "familyShareable" : false,
+      "internalID" : "6741000020",
+      "localizations" : [
+        {
+          "description" : "Everything in Pro for one payment, with no renewal. Yours for as long as Peering is available.",
+          "displayName" : "Peering Pro (Once)",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "pl.dmq.peering.iap.pro.lifetime1",
+      "referenceName" : "Peering Pro Lifetime",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA"
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21840001",
+      "localizations" : [
+
+      ],
+      "name" : "Peering",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "1.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6741000001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited relay every day.",
+              "displayName" : "Relay",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "pl.dmq.peering.iap.relay.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Relay Monthly",
+          "subscriptionGroupID" : "21840001",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "14.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6741000002",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited relay every day, billed yearly.",
+              "displayName" : "Relay (Yearly)",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "pl.dmq.peering.iap.relay.year",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Relay Yearly",
+          "subscriptionGroupID" : "21840001",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "2.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6741000005",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Everything in Relay, several shells at once, virtual displays, several Macs at once, macros, and the sharpest relayed picture.",
+              "displayName" : "Peering Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "pl.dmq.peering.iap.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Peering Pro Monthly",
+          "subscriptionGroupID" : "21840001",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "34.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6741000006",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Everything in Relay, several shells at once, virtual displays, several Macs at once, macros, and the sharpest relayed picture, billed yearly.",
+              "displayName" : "Peering Pro (Yearly)",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "pl.dmq.peering.iap.pro.year",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Peering Pro Yearly",
+          "subscriptionGroupID" : "21840001",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

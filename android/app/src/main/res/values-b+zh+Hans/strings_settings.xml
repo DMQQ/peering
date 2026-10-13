@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_clear">清除搜索</string>
+    <string name="settings_search">搜索设置</string>
+    <string name="settings_no_match">没有与“%1$s”匹配的设置</string>
+    <string name="settings_preference_save_failed">无法存储该设置。请重试。</string>
+
+    <string name="settings_keywords_device">此设备 名称 手机</string>
+    <string name="settings_keywords_controls">会话控制 交互 观看 控制 触控 画面 适合 填满 键盘 unicode keycode 选择后关闭 面板</string>
+    <string name="settings_keywords_quality">串流质量 码率 分辨率 视频 自动</string>
+    <string name="settings_keywords_remote">远程访问 中继 互联网 在外 升级 pro</string>
+    <string name="settings_keywords_invite">邀请 朋友 邀请码 分享 兑换 推荐 赠送 额外时间</string>
+    <string name="settings_keywords_security">安全 指纹 面容 生物识别 解锁 锁定 密码 隐私</string>
+    <string name="settings_keywords_trusted">受信任的电脑 已配对 移除</string>
+    <string name="settings_keywords_identity">设备身份 id 私钥 已配对的电脑</string>
+    <string name="settings_keywords_more">更多 peering 电脑 下载 介绍 报告问题 支持 帮助</string>
+    <string name="settings_keywords_legal">法律 隐私政策 使用条款 声明 开源</string>
+
+    <string name="settings_device_heading">此设备</string>
+    <string name="settings_device_footer">你连接时电脑上显示的名称。轻点名称即可编辑。</string>
+    <string name="settings_device_name">设备名称</string>
+
+    <string name="settings_controls_heading">会话控制</string>
+    <string name="settings_interaction">交互</string>
+    <string name="settings_interaction_control">控制</string>
+    <string name="settings_interaction_touch">触控</string>
+    <string name="settings_interaction_observe">观看</string>
+    <string name="settings_picture">画面</string>
+    <string name="settings_picture_fit">适合屏幕</string>
+    <string name="settings_picture_fill">填满屏幕</string>
+    <string name="settings_keyboard">键盘</string>
+    <string name="settings_keyboard_unicode">Unicode</string>
+    <string name="settings_keyboard_keycode">Keycode</string>
+    <string name="settings_keyboard_unicode_explanation">发送文本。表情符号和非拉丁文字可用；Cmd+S 等电脑快捷键不可用。</string>
+    <string name="settings_keyboard_keycode_explanation">发送带修饰键的真实按键。快捷键可用；电脑键盘布局之外的字符会作为文本发送。</string>
+    <string name="settings_close_panels">选择后关闭面板</string>
+
+    <string name="settings_quality_row">画质</string>
+    <string name="settings_quality_footer">会话开始时的档位。在会话中更改它，这里也会随之更改，所以下一次会从你上次停留的地方开始。</string>
+    <string name="settings_quality_auto_menu">自动</string>
+    <string name="settings_quality_low_menu">低，2 Mbps</string>
+    <string name="settings_quality_medium_menu">中，8 Mbps</string>
+    <string name="settings_quality_high_menu">高，20 Mbps</string>
+
+    <string name="settings_remote_heading">远程访问</string>
+    <string name="settings_remote_footer">中继可跨网络连接。</string>
+    <string name="settings_allow_relay">允许中继连接</string>
+    <string name="settings_upgrade">升级到 Pro</string>
+
+    <string name="settings_invite_heading">邀请朋友</string>
+    <string name="settings_invite_code">你的邀请码</string>
+    <string name="settings_invite_share">分享你的邀请码</string>
+    <string name="settings_invite_enter">输入朋友的邀请码</string>
+    <string name="settings_invite_hint">ABCD-EFGH</string>
+    <string name="settings_invite_redeem">兑换</string>
+    <string name="settings_invite_bonus">你们双方在 %2$d 天内每天都可多得 %1$d 分钟。</string>
+    <string name="settings_invite_footer">把你的邀请码发给朋友。他们会获得在你自己的网络之外使用的额外时间，你也一样。</string>
+    <string name="settings_invite_footer_running">每天 +%1$d 分钟，直到 %2$s。已使用 %3$d / %4$d 个邀请。</string>
+    <string name="settings_invite_footer_idle">已使用 %1$d / %2$d 个邀请。你的朋友会获得额外时间，你在使用免费方案期间也一样。</string>
+    <string name="settings_invite_message">Peering 让我可以用手机使用我的电脑。打开“设置”，进入“邀请朋友”，输入我的邀请码 %1$s，即可在你自己的网络之外获得额外时间：https://getpeering.app</string>
+    <string name="settings_invite_unknown">该邀请码与任何人都不匹配。请检查后重试。</string>
+    <string name="settings_invite_own">这是你自己的邀请码。请把它发给朋友。</string>
+    <string name="settings_invite_already">你已在这台设备上使用过一个邀请码。</string>
+    <string name="settings_invite_proof">这台设备无法证明自己的身份。请检查时钟是否正确，然后重试。</string>
+    <string name="settings_invite_busy">现在有太多人在进行此操作。请稍后再试。</string>
+    <string name="settings_invite_network_limit">此网络尝试的邀请码过多。请稍后再试，或明天再试。</string>
+    <string name="settings_invite_unavailable">无法连接到中继。请稍后再试。</string>
+
+    <string name="settings_security_heading">安全与隐私</string>
+    <string name="settings_security_footer">Peering 不收集使用统计信息，也绝不收集你的屏幕、文件、按键或电脑。</string>
+    <string name="settings_require_unlock">打开时要求解锁</string>
+
+    <string name="settings_identity_footer">电脑识别这台设备的方式。首次启动时创建一次。</string>
+    <string name="settings_identity_id">设备 ID</string>
+    <string name="settings_identity_key">私钥</string>
+    <string name="settings_identity_key_value">P-256，位于 Keystore 中</string>
+    <string name="settings_identity_paired">已配对的电脑</string>
+
+    <string name="settings_more_heading">更多</string>
+    <string name="settings_more_host_app">电脑版 Peering</string>
+    <string name="settings_more_introduction">再次显示介绍</string>
+    <string name="settings_more_copy_diagnostics">拷贝诊断信息</string>
+    <string name="settings_more_copied">已拷贝</string>
+    <string name="settings_more_report">报告问题</string>
+    <string name="settings_report_subject">Peering 问题</string>
+    <string name="settings_report_body">发生了什么：\n\n\n我期望的是：\n\n\nPeering %1$s\nAndroid %2$s</string>
+    <string name="settings_no_mail_app">未安装邮件 App。请写信至 support@getpeering.app。</string>
+</resources>

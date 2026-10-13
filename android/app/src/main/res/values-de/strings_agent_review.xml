@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="review_title">Zu prüfen</string>
+    <plurals name="review_files">
+        <item quantity="one">%d Datei</item>
+        <item quantity="other">%d Dateien</item>
+    </plurals>
+    <plurals name="review_in_chats">
+        <item quantity="one">in %d Chat</item>
+        <item quantity="other">in %d Chats</item>
+    </plurals>
+    <plurals name="review_more_files">
+        <item quantity="one">%d weitere Datei</item>
+        <item quantity="other">%d weitere Dateien</item>
+    </plurals>
+    <string name="review_mark_all">Alle als geprüft markieren</string>
+    <string name="review_unmark_all">Alle als nicht geprüft markieren</string>
+    <string name="review_mark_reviewed">Geprüft</string>
+    <string name="review_empty_title">Nichts zu prüfen</string>
+    <string name="review_empty_body">Dateien, die deine Agenten ändern, erscheinen hier, bis du sie angesehen hast.</string>
+    <string name="review_not_repository">In diesem Ordner gibt es nichts, was git vergleichen kann.</string>
+    <string name="review_checking">Änderungen dieses Chats werden geprüft …</string>
+</resources>

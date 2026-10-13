@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_agents_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minWidth="@dimen/widget_min_size"
+    android:minHeight="@dimen/widget_min_size"
+    android:minResizeWidth="@dimen/widget_min_resize"
+    android:minResizeHeight="@dimen/widget_min_resize"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical"
+    android:previewImage="@drawable/widget_preview_agents"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />

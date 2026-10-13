@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sessions_detail">최근 세션과 릴레이 사용량.</string>
+    <string name="sessions_relay">Relay</string>
+    <string name="sessions_relay_free">무료 릴레이 시간</string>
+    <string name="sessions_relay_left">%1$s 남음</string>
+    <string name="sessions_relay_period">최근 24시간</string>
+    <string name="sessions_relay_note">사용량은 고정된 세션 수가 아니라 릴레이 시간으로 측정됩니다. 여기 표시되는 값은 이 기기에 기록된 세션을 바탕으로 한 추정치입니다.</string>
+    <string name="sessions_upgrade">Pro로 업그레이드</string>
+    <string name="sessions_recent">최근 연결</string>
+    <string name="sessions_recent_empty">아직 없습니다. 컴퓨터와 페어링하면 연결한 기록이 여기에 표시됩니다.</string>
+    <string name="sessions_summary_sessions">세션</string>
+    <string name="sessions_summary_connected">연결됨</string>
+    <string name="sessions_summary_received">수신</string>
+    <string name="sessions_row_detail">%1$s · %2$s · %3$s</string>
+    <string name="sessions_detail_back">세션으로 돌아가기</string>
+    <string name="sessions_detail_connection">연결</string>
+    <string name="sessions_detail_computer">컴퓨터</string>
+    <string name="sessions_detail_path">경로</string>
+    <string name="sessions_detail_started">시작</string>
+    <string name="sessions_detail_duration">지속 시간</string>
+    <string name="sessions_detail_ended">종료됨</string>
+    <string name="sessions_detail_received">수신</string>
+    <string name="sessions_detail_sent">송신</string>
+    <string name="sessions_detail_copy">세션 로그 복사</string>
+    <string name="sessions_detail_copied">복사됨</string>
+    <string name="sessions_detail_log">세션 로그</string>
+    <string name="sessions_detail_log_empty">이 세션에는 기록된 진단 이벤트가 없습니다.</string>
+    <string name="sessions_ended_user">직접 종료함</string>
+    <string name="sessions_ended_host">컴퓨터가 중단함</string>
+    <string name="sessions_ended_lost">연결이 끊어짐</string>
+    <string name="sessions_ended_failed">실패함</string>
+</resources>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_menu">Webプレビュー</string>
+    <string name="preview_title">Webプレビュー</string>
+    <string name="preview_done">完了</string>
+    <string name="preview_address_hint">localhost:3000</string>
+    <string name="preview_back">戻る</string>
+    <string name="preview_reload">再読み込み</string>
+    <string name="preview_start_title">コンピュータで動作中のサーバを開く</string>
+    <string name="preview_start_detail">ポートを入力するか、現在応答しているものを選んでください。開けるのは、コンピュータのlocalhostと127.0.0.1だけです。</string>
+    <string name="preview_found_none">よく使われるポートでは何も見つかりませんでした</string>
+    <string name="preview_found_some">コンピュータで稼働中</string>
+    <string name="preview_look_again">もう一度確認</string>
+    <string name="preview_port_label">:%1$d</string>
+    <string name="preview_note_live_reload">WebSocketによるライブリロードには対応していません。変更を見るには再読み込みしてください。データを送信するフォームやリクエストにも対応していません。</string>
+    <string name="preview_notice_only_loopback">ここで開けるのは、ポート付きのlocalhostと127.0.0.1だけです。</string>
+    <string name="preview_notice_links_outside">localhost以外のリンクはここでは開きません。</string>
+    <string name="preview_try_again">再試行</string>
+    <string name="preview_fail_not_listening">そこで待ち受けているものはありません</string>
+    <string name="preview_fail_not_listening_detail">エージェントにサーバを起動してもらうか、ポートを確認してから、もう一度お試しください。</string>
+    <string name="preview_fail_disconnected">コンピュータに接続されていません</string>
+    <string name="preview_fail_disconnected_detail">コンピュータに再接続して、もう一度お試しください。</string>
+    <string name="preview_fail_timed_out">サーバから応答がありませんでした</string>
+    <string name="preview_fail_timed_out_detail">接続は受け付けられましたが、何も返ってきませんでした。</string>
+    <string name="preview_fail_other">ページを開けませんでした</string>
+    <string name="preview_fail_too_large_detail">そのリクエストは大きすぎて、プレビュー経由では送信できませんでした。</string>
+    <string name="preview_fail_not_allowed_detail">プレビューで開けるのは、localhost上の通常のページだけです。</string>
+    <string name="preview_fail_busy_detail">待機中のリクエストが多すぎます。しばらくしてからもう一度お試しください。</string>
+    <string name="preview_fail_failed_detail">コンピュータが取得できませんでした。</string>
+    <string name="preview_reply_not_carried">データを送信するリクエストは、プレビューでは扱えません。</string>
+</resources>

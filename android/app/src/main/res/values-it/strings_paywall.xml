@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="plan_pro">Pro</string>
+    <string name="plan_pro_yearly">Pro, annuale</string>
+    <string name="plan_pro_note">Tempo illimitato fuori casa, l\'immagine più nitida via relay</string>
+    <string name="plan_lifetime_note">Tutto di Pro, pagato una volta</string>
+    <string name="plan_button_monthly">Continua con Pro · %1$s/mese</string>
+    <string name="plan_button_yearly">Continua con Pro · %1$s/anno</string>
+    <string name="plan_button_lifetime">Ottieni A vita · %1$s</string>
+    <string name="paywall_unavailable_body">Se ti eri già abbonato, il ripristino dovrebbe riportarlo. Altrimenti di solito è temporaneo.</string>
+</resources>

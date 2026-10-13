@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy Policy · Peering</title>
+<meta name="description" content="What Peering keeps, what the relay handles, and what neither of them can see.">
+<link rel="canonical" href="https://getpeering.app/privacy">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/privacy">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/privacy">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/privacy">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/privacy">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/privacy">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/privacy">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/privacy">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/privacy">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/privacy">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/privacy">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/privacy">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="en_GB">
+<meta property="og:url" content="https://getpeering.app/privacy">
+<meta property="og:title" content="Privacy Policy · Peering">
+<meta property="og:description" content="What Peering keeps, what the relay handles, and what neither of them can see.">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Privacy Policy · Peering">
+<meta name="twitter:description" content="What Peering keeps, what the relay handles, and what neither of them can see.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/" aria-label="Peering, home">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Pages">
+      <a href="/">Home</a>
+      <a href="/terms">Terms</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated 6 October 2026</p>
+
+    <div class="card callout">
+      <strong>The short version.</strong> Peering has no accounts, advertising or
+      third-party tracking SDKs. It sends anonymous usage counts, which you can switch off in
+      Settings. Your screen, audio,
+      keystrokes, pointer input and clipboard travel between your own two devices inside one
+      encrypted connection, and the relay that carries it when you are away from home is built so
+      that it cannot read any of it.
+    </div>
+
+    <h2>1. Who this is from</h2>
+    <p>
+      Peering is an app for iPhone that connects to a companion app on your own Mac. This policy
+      covers both apps, and the relay server that lets them reach each other across the internet.
+      For anything in here, including any request about your data, write to
+      <a href="mailto:support@getpeering.app">support@getpeering.app</a>.
+    </p>
+
+    <h2>2. What stays on your devices</h2>
+    <p>
+      The app works without an account, so there is no profile of you anywhere except on the
+      hardware you are holding. This is the complete list of what the apps keep, and all of it
+      lives on your iPhone or your Mac:
+    </p>
+    <ul>
+      <li>
+        <strong>Your device identity.</strong> Each device generates its own key when you first
+        open the app and keeps the private key in that device's Keychain. The private key never
+        leaves the device.
+      </li>
+      <li>
+        <strong>Paired Macs.</strong> The name, pairing information and last-connected time of Macs
+        you have paired with, so they can be listed and reconnected to.
+      </li>
+      <li>
+        <strong>Push tokens for terminal alerts.</strong> On a plan that includes being told when a
+        shell has stopped and is waiting for you, your Mac keeps your iPhone's Apple push token so
+        it can send that alert later. Dropped automatically if the plan no longer includes it, if
+        the Mac forgets that iPhone, or if you remove the app from the Mac.
+      </li>
+      <li>
+        <strong>Session history.</strong> The last 30 sessions: when they started, how long they
+        lasted, which connection path they used, and the duration. Used to show your own usage,
+        including how much relay time is left in the current 24-hour period.
+      </li>
+      <li>
+        <strong>Clipboard items.</strong> The 12 most recent pieces of text you pulled from your
+        Mac are kept on the iPhone until you clear them.
+      </li>
+      <li>
+        <strong>Crash and diagnostic reports.</strong> If either app crashes, or the system
+        reports a hang, watchdog kill or resource exception through Apple's MetricKit, the last 10
+        of each are kept on that device until you clear them or delete the app. None of it is sent
+        anywhere on its own: you see the exact text before deciding whether to attach it to a
+        message to us.
+      </li>
+      <li>
+        <strong>Your settings.</strong> Preferences such as whether relay connections are
+        allowed, whether Face ID is required to open the app, and your Mac's name.
+      </li>
+    </ul>
+    <p>
+      Deleting the app removes all of this, with one exception worth stating rather than leaving
+      to be discovered: iOS keeps an app's Keychain items when the app itself is deleted. Yours
+      held your device identity and any SSH password you asked to be remembered. They go when you
+      remove them in the app, or when you erase the device.
+    </p>
+    <p>
+      The app does not upload the content listed above to us. There is no Peering account. The
+      limited technical information handled by the relay is described next.
+    </p>
+
+    <h2>3. What the relay handles</h2>
+    <p>
+      When your two devices are on different networks they both connect outwards to a relay server,
+      which introduces them and copies bytes between them. The picture also often takes a path the
+      two devices open for themselves, which the relay is not part of, but it is what tells each
+      of them where the other is, and it carries the rest of the session either way. To do that job
+      it handles:
+    </p>
+    <ul>
+      <li>your Mac's device ID and its name;</li>
+      <li>your iPhone's device ID;</li>
+      <li>the protocol version your apps are speaking;</li>
+      <li>proof of an active App Store purchase when you use a paid plan. It is used to validate
+        the plan for that connection and is not retained afterwards;</li>
+      <li>pseudonymous authentication information used to recognise a device and apply its relay
+        allowance;</li>
+      <li>the plan being used for the connection;</li>
+      <li>how many seconds of relay time each device has used in the current 24-hour period;</li>
+      <li>a random identifier used to recognise paid relay access;</li>
+      <li>the IP address of each device, which any server necessarily sees, and which it hands to
+        the other device so they can try to reach each other without it;</li>
+      <li>your iPhone's Apple push token, only when a Mac asks the relay to wake a phone it cannot
+        reach directly. It is used for that one request, passed straight to Apple, and not
+        stored.</li>
+    </ul>
+    <p>
+      <strong>The relay cannot read what it carries.</strong> Your devices encrypt the connection
+      end to end and do not give the relay the keys. This covers video, audio, keystrokes, pointer
+      input and clipboard text.
+    </p>
+    <p>
+      <strong>What the relay retains.</strong> There is no user account or profile. The relay keeps
+      only the technical records needed to provide and protect the service:
+    </p>
+    <ul>
+      <li>
+        relay usage associated with a device identifier, so it can apply the current allowance;
+      </li>
+      <li>
+        device authentication records needed to recognise Macs on later connections; and
+      </li>
+      <li>
+        limited connection logs used for security and troubleshooting, including device IDs, the
+        Mac name and the plan applied.
+      </li>
+    </ul>
+    <p>
+      These records do not contain your screen, audio, input, clipboard or other session content.
+    </p>
+
+    <h2>Anonymous usage statistics</h2>
+    <p>
+      The iPhone app counts how it is used, so we can tell whether anyone is using it and which
+      versions and connection paths matter. It is on by default and you can turn it off in
+      Settings under "Security and privacy", after which nothing is sent.
+    </p>
+    <ul>
+      <li>What is sent: the event name (app opened, session started), the connection path
+        (local network, direct or relay), your plan, the app version, the major iOS version, and a
+        random identifier made on first launch.</li>
+      <li>The identifier is not your Apple Account, not an advertising or vendor identifier, and
+        not the identifier used for the relay. It cannot be joined to any of them.</li>
+      <li>What is never sent: your screen, audio, keystrokes, clipboard, files, commands, the
+        name or address of any Mac, or purchase details.</li>
+      <li>Events go to PostHog's servers in the EU, with no person profile built and the
+        sender's IP address discarded.</li>
+    </ul>
+
+    <h2>4. What we never do</h2>
+    <ul>
+      <li>We do not sell, rent or share your data with anyone.</li>
+      <li>We do not run advertising or attribution SDKs in the app, and no crash log
+        leaves your device unless you choose to attach it to a message to us.</li>
+      <li>We do not build a profile of you, and there is no account to attach one to.</li>
+      <li>We do not read, store or inspect what passes through the relay.</li>
+      <li>We do not send your Mac's screen, sound or input anywhere other than your own iPhone.</li>
+    </ul>
+
+    <h2>5. Purchases</h2>
+    <p>
+      Pro is a subscription and Lifetime is a one-time purchase, and both are handled entirely by Apple through the
+      App Store.
+      Apple processes the payment and tells the app whether an entitlement is active; we never see
+      your name, your card or your billing address. Apple's handling of that information is
+      covered by <a href="https://www.apple.com/legal/privacy/">Apple's Privacy Policy</a>.
+    </p>
+    <p>
+      When a paid plan is active, the app sends proof of the App Store purchase so the relay can
+      apply that plan. The proof is used for that connection and is not retained afterwards. If
+      it cannot be validated, the free allowance applies instead.
+    </p>
+    <p>
+      The app also sends a random relay access identifier for paid access. It is not tied to your
+      Apple Account or personal identity.
+    </p>
+
+    <h2>6. This website</h2>
+    <p>
+      This site is a handful of static files. It sets no cookies of its own and has no sign-up, comments or contact form. It is served through Cloudflare, which handles connection data such as your IP address in order to deliver the page and protect the site from abuse. Cloudflare Web Analytics counts page views and referrers without cookies, without fingerprinting and without tracking you across sites.
+    </p>
+
+    <h2>7. Your rights</h2>
+    <p>
+      Privacy law in the European Union and the United Kingdom gives you the right to see, correct,
+      export or delete the personal data held about you, to object to its processing, and to
+      complain to your national data protection authority. Because Peering has no account and no
+      database of users, in practice there is little for us to act on: the data described
+      in section 2 is on your devices, under your control, and deleting the app removes it apart
+      from the Keychain items named there. What the relay retains is described in section 3. None
+      of it names you directly. Write to
+      <a href="mailto:support@getpeering.app">support@getpeering.app</a> and we will answer within 30 days.
+    </p>
+
+    <h2>8. Children</h2>
+    <p>
+      Peering is not directed at children and is not intended for anyone under 13, or under the
+      minimum age at which a person may consent to online services in their country.
+    </p>
+
+    <h2>9. Changes</h2>
+    <p>
+      If this policy changes in a way that matters, the date at the top changes and the new version
+      appears here before it takes effect. Continuing to use the app after that means you accept
+      it.
+    </p>
+
+    <h2>10. Contact</h2>
+    <p>
+      Questions, requests and anything else about privacy:
+      <a href="mailto:support@getpeering.app">support@getpeering.app</a>.
+    </p>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Guides, legal and support">
+      <a href="/how-to-pair-iphone-mac">Pairing guide</a>
+      <a href="/remote-desktop-for-mac">Remote desktop</a>
+      <a href="/access-your-mac-from-anywhere">From anywhere</a>
+      <a href="/keep-mac-awake-for-remote-access">Mac at home</a>
+      <a href="/coding-agent-notifications">Coding agents</a>
+      <a href="/remote-desktop-apps-compared">Compare apps</a>
+      <a href="/screens-alternative">Screens alternative</a>
+      <a href="/download">Download</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="mailto:support@getpeering.app">Support</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/privacy" hreflang="en" lang="en">English</a>
+      <a href="/de/privacy" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/privacy" hreflang="es" lang="es">Español</a>
+      <a href="/fr/privacy" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/privacy" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/privacy" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/privacy" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/privacy" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/privacy" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/privacy" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone and Mac are trademarks of Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

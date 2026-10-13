@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Peering: Remote Desktop für den Mac, vom iPhone aus</title>
+<meta name="description" content="Steuere deinen Mac von überall mit dem iPhone. Einmal koppeln, ohne Konto, Ende-zu-Ende-verschlüsselt und kostenlos im eigenen Netzwerk.">
+<link rel="canonical" href="https://getpeering.app/de/">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/">
+<meta name="apple-itunes-app" content="app-id=6812658408">
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+
+<!-- What a link to this page looks like when it is pasted into a message, and what a crawler
+     reads. og.png is a 1200x630 card rather than the app icon: every scraper crops to that shape,
+     and a square icon in it is a logo with a lot of nothing around it. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="de_DE">
+<meta property="og:url" content="https://getpeering.app/de/">
+<meta property="og:title" content="Peering: Remote Desktop für den Mac, vom iPhone aus">
+<meta property="og:description" content="Der Bildschirm deines Mac, auf deinem iPhone. Koppele die beiden einmal, dann erreichst du deinen Mac von überall, Ende-zu-Ende-verschlüsselt.">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Peering Remote Desktop auf einem Mac und iPhone neben der Botschaft: Dein Mac. Auf deinem iPhone. Überall.">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Peering: Remote Desktop für den Mac, vom iPhone aus">
+<meta name="twitter:description" content="Der Bildschirm deines Mac, auf deinem iPhone. Koppele die beiden einmal, dann erreichst du deinen Mac von überall, Ende-zu-Ende-verschlüsselt.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="twitter:image:alt" content="Peering Remote Desktop auf einem Mac und iPhone neben der Botschaft: Dein Mac. Auf deinem iPhone. Überall.">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "inLanguage": "de",
+  "name": "Peering",
+  "url": "https://getpeering.app/de/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "iOS, macOS",
+  "description": "Der Bildschirm deines Mac, auf deinem iPhone. Koppele sie einmal in deinem eigenen Netzwerk, dann erreichst du deinen Mac von überall, Ende-zu-Ende-verschlüsselt und direkt zwischen den beiden.",
+  "downloadUrl": "https://getpeering.app/download",
+  "installUrl": "https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408",
+  "screenshot": "https://getpeering.app/assets/og.png",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "description": "Kostenlos im eigenen Netzwerk, mit 30 Minuten Relay-Zeit am Tag. Pro gibt es monatlich, oder du kaufst Lebenslang einmal für unbegrenzte Relay-Zeit."
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "de",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Kann das Relay meinen Bildschirm oder meine Eingaben sehen?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Nein. Es leitet die verschlüsselte Verbindung zwischen deinen gekoppelten Geräten weiter und kann darin weder Video, Audio, Text aus der Zwischenablage, Tastenanschläge noch Zeigereingaben lesen."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Was weiß das Relay über mich?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Gerätekennungen, den Namen deines Mac, technische Kompatibilitätsinformationen, den verwendeten Tarif und die Relay-Nutzung, die für die Verbindung nötig sind. Eine kostenpflichtige Verbindung sendet außerdem den Nachweis des App-Store-Kaufs. Es ist kein Konto beteiligt. Es sieht außerdem, wie jeder Server, die Adresse, von der aus sich jedes Gerät verbindet, und gibt sie jeweils an das andere weiter, damit die beiden versuchen können, sich direkt zu erreichen. Und wenn ein Mac dein Telefon nicht direkt erreichen kann, bittet er das Relay, es per Push-Mitteilung zu wecken, mit dem Apple-Push-Token, das dein Telefon ihm für genau diese eine Anfrage gegeben hat."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Brauche ich ein Konto?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Nein. Peering erstellt auf jedem Gerät eine Identität und speichert sie im Schlüsselbund dieses Geräts. Es gibt nichts zu registrieren und kein Passwort."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Warum zeigen beide Bildschirme einen Code?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Jedes Gerät erzeugt seinen eigenen Schlüssel. Mit den sechs Ziffern bestätigst du, dass das Gerät, mit dem du koppelst, das ist, das vor dir liegt. Sobald du bestätigst, merken sich beide Geräte den öffentlichen Schlüssel des anderen."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Kann ich Dateien übertragen?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ja, auf deinem Mac und auf jedem Server, den du über SSH hinzufügst. Navigiere durch die Ordner, öffne eine Datei, ändere sie und speichere sie, lade eine von deinem Telefon hoch und sichere eine Kopie in Dateien. Du kannst auch eine Datei oder einen Ordner anlegen, umbenennen und löschen: Auf deinem eigenen Mac landet er dabei im Papierkorb, auf einem Server ist er weg, und die Rückfrage sagt das auch."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Was passiert, wenn mein Telefon das Netzwerk wechselt?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Die Sitzung kann das nicht überstehen: Die Adresse, an die der Mac gesendet hat, gibt es nicht mehr. Die Verbindung schlägt nicht fehl und wird nicht geschlossen, sie wird still, und eine App, die auf einen Fehler wartet, bleibt ewig beim letzten Bild stehen. Peering zählt die Stille und beendet die Sitzung nach zehn Sekunden, damit du es erfährst. Verbinde dich mit dem neuen Netzwerk, tippe auf den Mac, und du bist zurück."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Läuft mein Bildschirm über eure Server?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Nur, wenn es sein muss. Deine beiden Geräte versuchen zuerst einen Weg direkt zwischen sich. Das Relay stellt sie einander vor und trägt die Sitzung, wenn sich dieser Weg nicht öffnen lässt. Beide sind gleich verschlüsselt, und das Relay liest keinen von beiden."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Funktioniert es in einem Netzwerk, das ich nicht kontrolliere?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ja. Nach dem Koppeln finden sich deine beiden Geräte über das Internet, es funktioniert also im Hotel, im Zug oder im WLAN eines anderen. Sie versuchen zuerst einen Weg direkt zwischen sich und weichen auf das Relay aus, wenn das Netzwerk keinen zulässt. Das lokale Netzwerk muss nur für die erste Kopplung gemeinsam genutzt werden."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Auf welchen Macs und iPhones läuft es?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Auf jedem Mac mit macOS 15 (Sequoia) oder neuer, mit Apple Silicon oder Intel. Auf jedem iPhone oder iPad mit iOS 18 oder neuer, auch auf älteren Geräten, die nicht auf iOS 26 aktualisiert werden können."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Kann ich einen Mac erreichen, der eingeschlafen ist?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Weck ihn über das Netzwerk auf, kurz bevor du dich verbindest. Für einen Mac, der am liebsten gar nicht erst einschlafen soll, hat die Host-App dafür ebenfalls Schalter: von selbst wach, nach Zeitplan oder auch bei geschlossenem Deckel wach."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Können mehrere iPhones mit demselben Mac verbunden sein?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ja, in jedem Tarif. Ein Mac begrenzt nicht, wie vielen iPhones er vertraut."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Wie sorge ich dafür, dass ein Mac nicht mehr erreichbar ist, oder entferne ein Gerät?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Drücke auf dem Mac auf Stopp, und er hört auf zu lauschen, im eigenen Netzwerk und über das Relay. Um ein einzelnes iPhone zu entfernen, ohne den Mac für alle anderen zu stoppen, entferne es in der Host-App aus der Geräteliste. Es dort zu entfernen und die Kopplung am iPhone zu lösen sind zwei getrennte Schritte, denn jedes der beiden Geräte kann eine Kopplung beenden."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<a class="skip" href="#main">Zum Inhalt springen</a>
+
+<header class="bar" id="bar">
+  <div class="wrap bar-inner">
+    <a class="brand" href="#top" aria-label="Peering, Startseite">
+      <img src="/assets/pears-128.webp" alt="Peering" width="28" height="28">
+      <span aria-hidden="true">Peering</span>
+    </a>
+
+    <nav class="nav" id="nav" aria-label="Abschnitte">
+      <a href="#how">So funktioniert es</a>
+      <a href="#features">Funktionen</a>
+      <a href="#privacy">Datenschutz</a>
+      <a href="#pricing">Preise</a>
+      <a href="#faq">FAQ</a>
+      <a href="/de/download">Download</a>
+    </nav>
+
+    <a class="btn btn-small btn-primary bar-cta" href="/de/download">Peering holen</a>
+
+    <button class="menu" id="menu" aria-label="Menü" aria-expanded="false" aria-controls="nav">
+      <span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- Hero -->
+  <section class="hero" id="top">
+    <div class="glow" aria-hidden="true"></div>
+    <div class="wrap hero-inner">
+      <div class="hero-copy">
+        <img class="hero-mark" src="/assets/pears-512.webp" alt="Peering App-Symbol" width="96" height="96">
+        <h1>Peering <span>Dein Mac, von überall.</span></h1>
+        <p class="body">
+          Koppele die beiden einmal in deinem eigenen Netzwerk. Danach finden sie sich überall,
+          über eine Verbindung, deren Schlüssel nur sie beide besitzen.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="/de/download">Für den Mac laden</a>
+          <a class="btn btn-primary" href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">Die iPhone-App holen</a>
+          <a class="btn btn-quiet" href="#how">So funktioniert es</a>
+        </div>
+      </div>
+
+      <!-- Two real screenshots, in drawn frames rather than rendered ones: the two ends of one
+           product, the Mac it reaches and the phone it reaches from.
+
+           app-mac.webp is the whole of this Mac's display at 1512 by 982, which is the proportion
+           the frame draws. A screen-shaped picture of a screen is what a screenshot is; the frame
+           supplies the machine around it, including the notch, which no screenshot can contain
+           because it is not something the display draws but something it is missing. -->
+      <div class="hero-stage">
+      <div class="stage">
+        <div class="mac" aria-label="Die Peering-Host-App auf einem Mac">
+          <div class="mac-lid">
+            <div class="mac-screen">
+              <img src="/assets/app-mac.webp" alt="Peering auf dem Mac: die Host-App mit verbundenem Telefon, die den Bildschirm des Mac live überträgt." width="1512" height="982">
+              <div class="mac-notch" aria-hidden="true"></div>
+            </div>
+          </div>
+          <div class="mac-base" aria-hidden="true"></div>
+        </div>
+
+        <div class="phone" aria-label="Die Peering-App auf dem iPhone mit dem Bildschirm Verbinden">
+          <div class="phone-screen">
+            <img src="/assets/app-connect.webp" alt="Peering auf dem iPhone: der Bildschirm Verbinden, mit Macs in der Nähe und vertrauenswürdigen Macs." width="603" height="1311">
+          </div>
+          <div class="phone-island" aria-hidden="true"></div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="section" id="how">
+    <div class="wrap">
+      <h2>Einmal koppeln. Danach ist es einfach da.</h2>
+      <p class="section-lede">
+        Drei Schritte beim ersten Mal und ein Schritt jedes weitere Mal.
+      </p>
+
+      <ol class="steps">
+        <li class="card step">
+          <span class="step-n">1</span>
+          <h3>Im eigenen Netzwerk koppeln</h3>
+          <p>
+            Öffne Peering auf dem Mac und wähle ihn auf dem iPhone unter „In der Nähe“. Beide Bildschirme zeigen
+            dieselben sechs Ziffern.
+          </p>
+          <p>Bestätige sie, und die beiden Geräte merken sich gegenseitig ihre Schlüssel.</p>
+          <p><a href="/de/how-to-pair-iphone-mac">Zur vollständigen Kopplungsanleitung</a></p>
+        </li>
+        <li class="card step">
+          <span class="step-n">2</span>
+          <h3>Wähle, was du teilst</h3>
+          <p>
+            Einen ganzen Bildschirm, eine laufende App oder ein einzelnes Fenster. Die Liste ist live, auch mit
+            Apps, die du noch nicht geöffnet hast.
+          </p>
+          <p>Wechsle jederzeit zwischen ihnen, ohne die Verbindung zu trennen.</p>
+        </li>
+        <li class="card step">
+          <span class="step-n">3</span>
+          <h3>Verlass das Haus</h3>
+          <p>
+            Nach dem Koppeln finden sich die beiden Geräte von überall, und das Bild geht direkt
+            zwischen ihnen, wenn das Netzwerk es erlaubt.
+          </p>
+          <p>Sperre dein Telefon, und die Sitzung bleibt bestehen.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section" id="features">
+    <div class="wrap">
+      <h2>Was es kann</h2>
+      <p class="section-lede">
+        Alles, aufgelistet statt zusammengefasst. Keine Seite braucht ein Konto.
+      </p>
+
+      <div class="grid">
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3.2v5.4c0 4.3-2.9 7.9-7 9.4-4.1-1.5-7-5.1-7-9.4V6.2z"/><path d="M12 10.4v3.2"/><circle cx="12" cy="8.9" r="1.1"/></svg>
+          <h3>Verschlüsselt, von Gerät zu Gerät</h3>
+          <p>Jedes Gerät erzeugt seinen eigenen Schlüssel und bewahrt ihn in seinem eigenen Schlüsselbund auf. Es gibt kein Konto und nichts, das auf einem Server gespeichert wird.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.4 8.4V6.6a2.2 2.2 0 012.2-2.2h1.8"/><path d="M15.6 4.4h1.8a2.2 2.2 0 012.2 2.2v1.8"/><path d="M19.6 15.6v1.8a2.2 2.2 0 01-2.2 2.2h-1.8"/><path d="M8.4 19.6H6.6a2.2 2.2 0 01-2.2-2.2v-1.8"/><path d="M9.4 10.2v1.6M14.6 10.2v1.6"/><path d="M9.8 14.8a3.6 3.6 0 004.4 0"/></svg>
+          <h3>Hinter deinem Gesicht gesperrt</h3>
+          <p>Verlange Face ID bei jeder Rückkehr in die App, und ein gesperrtes Telefon ist das Einzige, was den Mac entsperrt.</p>
+          <p>Auch ein SSH-Server kann eine eigene Sperre bekommen, mit einem Code deiner Wahl.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="5.4" width="12.4" height="9.2" rx="1.8"/><path d="M6.4 17.4h6"/><path d="M9.4 14.6v2.8"/><path d="M16.2 17.6l4.2-4.2a1.3 1.3 0 00-1.8-1.8l-4.2 4.2-.5 2.3z"/></svg>
+          <h3>Deine Macs, so benannt, wie du willst</h3>
+          <p>Benenne einen Mac um, damit du ihn erkennst, oder entferne einen, den du nicht mehr brauchst, direkt in seiner Zeile.</p>
+          <p>Die Liste ist die Kopplung. Ein Mac darin ist einer, den das Telefon erreichen kann; einer, den du entfernst, nicht mehr.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="12.4" height="9.2" rx="1.8"/><path d="M6.4 17.4h6"/><path d="M9.4 14.6v2.8"/><path d="M19.2 7.6v5"/><path d="M16.7 10.1h5"/></svg>
+          <h3>Jeder Mac, den du besitzt</h3>
+          <p>Koppele jeden Mac, den du besitzt, in jedem Tarif, und alle stehen in derselben Liste.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.8" y="6.8" width="8" height="6.2" rx="1.4"/><rect x="13.2" y="6.8" width="8" height="6.2" rx="1.4"/><path d="M10.8 9.9h2.4"/><path d="M5.6 17.6h12.8"/></svg>
+          <h3>Mehr als einer gleichzeitig</h3>
+          <p>Halte mehrere gleichzeitig offen, sodass der Wechsel zwischen zwei Rechnern ein Tippen statt eines neuen Verbindens ist.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M12 3.8c2.4 2.4 3.6 5.2 3.6 8.2s-1.2 5.8-3.6 8.2c-2.4-2.4-3.6-5.2-3.6-8.2s1.2-5.8 3.6-8.2z"/><path d="M4.2 9.4h15.6M4.2 14.6h15.6"/></svg>
+          <h3>Von überall zurückkommen</h3>
+          <p>Nach dem Koppeln finden sich deine beiden Geräte, auch wenn eines in einem anderen Netzwerk ist.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="5.4" width="6" height="13.2" rx="1.8"/><rect x="14.8" y="5.4" width="6" height="13.2" rx="1.8"/><path d="M9.4 12h5.2"/><path d="M12.4 9.6L14.8 12l-2.4 2.4"/></svg>
+          <h3>Direkt zwischen den beiden</h3>
+          <p>Wenn deine Netzwerke es erlauben, nimmt das Bild einen Weg, den die beiden Geräte selbst finden.</p>
+          <p>Nur die Steuerverbindung läuft über das Relay.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="7.4" width="5.4" height="9.2" rx="1.6"/><rect x="15.2" y="7.4" width="5.4" height="9.2" rx="1.6"/><path d="M8.8 12h6.4"/><path d="M11.2 9.8L8.8 12l2.4 2.2"/><path d="M12.8 14.2L15.2 12l-2.4-2.2"/></svg>
+          <h3>Sieh, welchen Weg es genommen hat</h3>
+          <p>Kein Raten, welchen Weg du bekommen hast: Der Sitzungsbildschirm zeigt LAN, RELAY oder DIRECT·P2P.</p>
+          <p>Das Infofeld zeigt die Umlaufzeit der Strecke, auf der das Bild liegt, getrennt von der Steuerverbindung gezählt.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 8.8a12 12 0 0116.4 0"/><path d="M6.8 12.1a7.6 7.6 0 0110.4 0"/><path d="M9.9 15.4a3.2 3.2 0 014.2 0"/><path d="M4.4 4l15.2 16"/></svg>
+          <h3>Sagt Bescheid, wenn das Netzwerk weg ist</h3>
+          <p>Wechselst du mitten in der Sitzung das Netzwerk, schlägt die Verbindung nicht fehl, sie wird still: ein Bildschirm, der lebendig aussieht, während sich nichts bewegt.</p>
+          <p>Peering zählt diese Stille und beendet die Sitzung nach zehn Sekunden, damit du es erfährst, statt zu raten.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.6l12.2 8.1-5.2 1.1-2.3 5z"/><path d="M4.5 19.5h6"/></svg>
+          <h3>Du steuerst wirklich selbst</h3>
+          <p>Zeiger, Tastatur, Joystick, Scrollrad und Makros. Steuern &amp; zoomen legt deine Finger auf den Mac.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="17.2" height="15.2" rx="2.6"/><path d="M8.2 9.6h7.6M8.2 13h4.4"/><path d="M15.4 16.6l1.8-1.8-1.8-1.8"/></svg>
+          <h3>Beobachten oder übernehmen</h3>
+          <p>Im Steuern-Modus gehen deine Berührungen an den Mac. Der Beobachten-Modus zeigt den Bildschirm und sendet gar nichts, für den Fall, dass du nur zusehen willst, wie etwas läuft.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 9.4V6.6a2 2 0 012-2h11.4a2 2 0 012 2v2.8"/><path d="M4.6 14.6v2.8a2 2 0 002 2h11.4a2 2 0 002-2v-2.8"/><path d="M9.4 12h5.2M12 9.4L14.6 12 12 14.6"/></svg>
+          <h3>Zoomen, einpassen oder füllen</h3>
+          <p>Zoome mit zwei Fingern in eine Symbolleiste hinein, oder lass den Bildschirm des Mac den des Telefons füllen und behalte die Ränder im Blick, die dir wichtig sind.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.6"/><path d="M3.4 8.6h17.2"/><path d="M12 8.6v10.8"/></svg>
+          <h3>Ein Bildschirm, eine App oder ein Fenster</h3>
+          <p>Jedes Display, an das der Mac angeschlossen ist, eine laufende App oder ein einzelnes Fenster. Teile eines davon und wechsle zwischen ihnen, ohne neu zu verbinden.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="14.2" height="10.6" rx="2"/><path d="M6.6 13.4l3-3 2.4 2.4 2.2-1.8 2.8 2.6"/><path d="M17.8 19.6h-6.4"/><path d="M14.8 17.4l2.4 2.2 3.4-3.6"/></svg>
+          <h3>Öffne eine App, die du nicht gestartet hast</h3>
+          <p>Die Liste ist live und enthält Anwendungen, die installiert sind, aber nicht laufen. Tippe auf eine, der Mac öffnet sie, und dann ist sie eine Quelle wie jede andere.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 17.4a9.6 9.6 0 1115.6 0"/><path d="M12 13.4l4.2-3.8"/><circle cx="12" cy="15.4" r="1.6"/></svg>
+          <h3>Ein Bild, das nachgibt, statt zu stocken</h3>
+          <p>Die Bitrate folgt dem, was die Verbindung tatsächlich tragen kann: Sie sinkt, wenn die Latenz steigt, und geht wieder hoch, wenn sie sich beruhigt.</p>
+          <p>Leg sie selbst auf Niedrig, Mittel oder Hoch fest, wenn du lieber selbst entscheidest.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5" width="17.2" height="11.4" rx="2.2"/><path d="M8.6 12.4l3.4-4 3.4 4"/><path d="M12 17v3"/><path d="M8.6 20.4h6.8"/></svg>
+          <h3>Das schärfste Bild über das Relay</h3>
+          <p>Im eigenen Netzwerk ist das Bild in jedem Tarif unbegrenzt, und jeder Tarif passt sich dem Netzwerk an.</p>
+          <p>Was Pro ändert, ist die Obergrenze bei einer Relay-Sitzung: wie weit die Rate steigen darf, während die Bytes getragen werden.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.4 9.6h3.4l4-3.2v11.2l-4-3.2H4.4z"/><path d="M15.4 9.4a3.6 3.6 0 010 5.2"/><path d="M17.8 7.2a7 7 0 010 9.6"/></svg>
+          <h3>Ton vom Mac</h3>
+          <p>Alles, was der Mac abspielt, kommt aus dem Telefon, sodass du hörst, was die Maschine tut, statt ihr lautlos beim Arbeiten zuzusehen.</p>
+          <p>Ein Schalter im Sitzungsfeld, und wenn du ihn ausschaltest, bleibt der Stream davon unberührt.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 8.6a2.2 2.2 0 012.2-2.2h1.6l1.4-2h6.4l1.4 2h1.6a2.2 2.2 0 012.2 2.2v8.2a2.2 2.2 0 01-2.2 2.2H5.8a2.2 2.2 0 01-2.2-2.2z"/><circle cx="12" cy="12.6" r="3.4"/></svg>
+          <h3>Speichere, was du gerade siehst</h3>
+          <p>Mach einen Screenshot der Sitzung und gib ihn direkt an das Teilen-Menü weiter, ohne vorher einen Umweg über die Fotos-App.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="6.4" width="14" height="11.2" rx="2.4"/><path d="M7.4 4.2h11.2a2.4 2.4 0 012.4 2.4v9"/></svg>
+          <h3>Jeder Desktop, den du hast</h3>
+          <p>Alle deine Spaces, jeder als Bild dargestellt statt als Liste von Namen.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.6"/><rect x="12.4" y="12.4" width="6" height="4.6" rx="1.2"/></svg>
+          <h3>Läuft weiter, wenn du gehst</h3>
+          <p>Bild-in-Bild über deinen anderen Apps, damit der Bildschirm des Mac auch außerhalb der App bei dir bleibt. Die Live-Aktivität auf dem Sperrbildschirm und das Widget auf dem Home-Bildschirm gibt es in jedem Tarif.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="17.2" height="6" rx="1.8"/><rect x="3.4" y="13.6" width="17.2" height="6" rx="1.8"/><path d="M7 7.4h.01M7 16.6h.01"/></svg>
+          <h3>Auch deine Server</h3>
+          <p>Füge einen Host über SSH hinzu, und er steht neben deinen Macs. Seine Schlüssel werden beim ersten Mal geprüft, und er kann eine eigene Sperre bekommen.</p>
+          <p>In jedem Tarif kostenlos.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4.4" width="17.6" height="15.2" rx="2.4"/><path d="M7.4 9.8l2.6 2.6-2.6 2.6"/><path d="M12.6 15h4.2"/></svg>
+          <h3>Eine echte Shell</h3>
+          <p>Terminal-Sitzungen im Vollbild mit einer Tastenreihe für das Telefon: Escape, Steuertasten, Pfeile und Bewegung wortweise.</p>
+          <p>Benannte Tabs halten mehrere gleichzeitig offen.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 16.8v-5.4a5.2 5.2 0 0110.4 0v5.4"/><path d="M4.8 16.8h14.4"/><path d="M10.4 19.2a1.8 1.8 0 003.2 0"/><circle cx="17.6" cy="6.6" r="2"/></svg>
+          <h3>Sagt Bescheid, wenn eine Shell wartet</h3>
+          <p>Eine Shell, die auf eine Antwort stehen bleibt, von einer Passwortabfrage bis zu einem fertigen Build, blendet ein Banner auf deinem Telefon ein, statt darauf zu warten, dass du nachsiehst. Es kommt auch bei geschlossener App an, vom Mac über das Relay gesendet.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 6.8a2 2 0 012-2h3.2l2 2.4h7.6a2 2 0 012 2v8a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M8.4 13.2h7.2"/></svg>
+          <h3>Dateien, auf jedem Rechner</h3>
+          <p>Navigiere durch die Ordner deines Mac oder eines beliebigen Servers, den du hinzugefügt hast, öffne eine Konfiguration oder ein Skript, ändere und speichere es, lege neue an und benenne Aufgelistetes um oder lösche es.</p>
+          <p>Eine Datei zwischen Telefon und Rechner zu verschieben geht ebenfalls in jedem Tarif.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="17.2" height="13.2" rx="2.2"/><path d="M6.6 15.4l3.4-3.4 2.6 2.6 2.2-1.8 2.8 2.6"/><circle cx="8.2" cy="9.4" r="1.2"/></svg>
+          <h3>Ein Bild öffnet sich als Bild</h3>
+          <p>Was eine Datei ist, ergibt sich aus ihren eigenen Bytes und nicht aus ihrem Namen: Ein Bild wird als Bild gezeichnet, und eine SVG wird mit ausgeschalteten Skripten dargestellt.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 7.4a2 2 0 012-2h3.4l2 2.4h7.4a2 2 0 012 2v7.4a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M12 11.6v4.4M9.8 13.8h4.4"/></svg>
+          <h3>Anlegen, umbenennen, löschen</h3>
+          <p>Eine neue Datei oder ein neuer Ordner, ein Umbenennen in jeder Zeile und ein Löschen, das sagt, was es mitnimmt.</p>
+          <p>Auf deinem eigenen Mac landet es im Papierkorb; auf einem Server ist es weg, und die Rückfrage sagt das auch.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M10.2 8.6l5.4 3.4-5.4 3.4z"/></svg>
+          <h3>Führe aus, was du ansiehst</h3>
+          <p>Eine ausführbare Zeile hat eine Schaltfläche Ausführen, bestätigt mit ihrem Namen und Pfad.</p>
+          <p>Gesendet wird eine Zeile, die in eine Shell getippt wird, die du schon hast, sodass ein Skript, das etwas ausgibt, es dort ausgibt, wo du es lesen kannst.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.6V12l3 1.8"/></svg>
+          <h3>Jede Sitzung, gemerkt</h3>
+          <p>Jede Verbindung wird abgelegt, mit ihrer Dauer, dem Weg, auf dem sie erreicht wurde, wie viel durch die Leitung kam und was der Mac unterwegs gesagt hat.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5.4" y="4.2" width="13.2" height="16" rx="2.4"/><path d="M9.4 4.2v1.6a1.6 1.6 0 001.6 1.6h2a1.6 1.6 0 001.6-1.6V4.2"/></svg>
+          <h3>Eine Zwischenablage</h3>
+          <p>Kopiere auf dem iPhone und füge auf dem Mac ein, oder umgekehrt. Die letzten zwölf bleiben erhalten, sodass das, was du vor einer Weile kopiert hast, noch wartet.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="8" height="6.2" rx="1.6"/><rect x="12.6" y="4.4" width="8" height="6.2" rx="1.6"/><rect x="3.4" y="13" width="8" height="6.2" rx="1.6"/><rect x="12.6" y="13" width="8" height="6.2" rx="1.6"/></svg>
+          <h3>Mehrere Fenster gleichzeitig</h3>
+          <p>Wähle Fenster, Apps oder Displays und sieh sie zusammen auf dem Telefon, angeordnet, wie du es willst. Jede Kachel ist ein Livebild und kein Screenshot, und ein Tipp darauf bringt dich hinein, während die ganze Anordnung hinter einer Zurück-Taste wartet.</p>
+          <p>Der Mac arbeitet dafür härter: Jede Kachel wird einzeln aufgenommen, damit das Bild live bleibt.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5" width="13.6" height="10" rx="2"/><path d="M7 19h6"/><path d="M10 15v4"/><circle cx="19.4" cy="8" r="3.4"/><path d="M19.4 6.4v3.2M17.8 8h3.2"/></svg>
+          <h3>Virtuelle Displays</h3>
+          <p>Ein virtuelles Display ist ein Bildschirm, den der Mac physisch nicht hat. Die App bittet den Mac, einen zu erzeugen, und dieses Telefon zeigt ihn dann wie jeden anderen Bildschirm: ein anderer Ort für die Fenster, die der Mac schon hat, benannt und aus derselben Liste wieder entfernt.</p>
+          <p>Jedes davon wird aus der App heraus erzeugt, und keines entsteht je von selbst. Jedes verschwindet, wenn die Sitzung endet, in der es erzeugt wurde.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="7.6" height="4.4" rx="2.2"/><rect x="12.6" y="4.6" width="8" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 15.6h10"/></svg>
+          <h3>Die Befehle, die du jedes Mal tippst</h3>
+          <p>Eine Reihe von Chips über der Tastatur mit den Befehlen und Snippets, nach denen du greifst, in jedem Terminal. Nichts wird ausgelöst, bis du darauf tippst.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 18.4l2.4-2.4-2.4-2.4"/><path d="M12.2 18.4h4"/></svg>
+          <h3>Makros</h3>
+          <p>Zeichne eine Abfolge einmal auf und löse sie mit einem Tipp aus: die Dinge, die du jedes Mal tippst, wenn du dich an diesen Mac setzt.</p>
+          <p>Auf dem Telefon gespeichert, bearbeitbar und nirgendwohin gesendet, bis du sie ausführst.</p>
+        </div>
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.2a5.6 5.6 0 015.6 5.6c0 4 1.4 5.4 1.4 5.4H5s1.4-1.4 1.4-5.4A5.6 5.6 0 0112 4.2z"/><path d="M10.2 18.6a2 2 0 003.6 0"/></svg>
+          <h3>Sagt Bescheid, wenn du gebraucht wirst</h3>
+          <p>Eine Mitteilung, wenn ein Mac auf einen Kopplungscode wartet, ein SSH-Server nach einem Passwort fragt oder eine Shell auf eine Antwort wartet, die du noch nicht gegeben hast.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9.2" y="3.6" width="5.6" height="10.4" rx="2.8"/><path d="M5.8 11.6a6.2 6.2 0 0012.4 0"/><path d="M12 17.8v2.6"/><path d="M9.4 20.4h5.2"/></svg>
+          <h3>Siri und Kurzbefehle</h3>
+          <p>Bitte Siri, dich mit einem Mac zu verbinden, eine Shell auf einem deiner Server zu öffnen oder zu beenden, was noch offen ist, ohne das Telefon zu entsperren und erst die App zu suchen.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="17.2" height="11.6" rx="2.2"/><path d="M8.6 20.2h6.8"/><path d="M12 17v3.2"/><path d="M7.2 9.6h4.4"/></svg>
+          <h3>Auch das Mac-Ende ist eine App</h3>
+          <p>Sie sitzt in der Menüleiste und kann beim Anmelden öffnen, damit ein Neustart deinen Fernzugriff nicht stillschweigend beendet.</p>
+          <p>Sie zeigt die zwei Berechtigungen, die sie braucht, jeweils mit einer Schaltfläche zum richtigen Bereich der Systemeinstellungen.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="8.6" width="5.4" height="6.8" rx="1.6"/><rect x="15.2" y="8.6" width="5.4" height="6.8" rx="1.6"/><path d="M8.8 12h6.4"/><path d="M12.4 9.8l2.8 2.2-2.8 2.2"/></svg>
+          <h3>Tunnel einen Port auf dein Telefon</h3>
+          <p>Leite jeden Port deines Mac oder eines hinzugefügten Servers weiter. Ein Dev-Server auf :3000, ein lokales Dashboard, eine private API: Öffne sie in Safari auf deinem Telefon, als wären beide im selben Netzwerk.</p>
+          <p>In jedem Tarif, zusammen mit den SSH-Verbindungen, die die Tunnel tragen.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.4"/><path d="M15.4 15.4l4.8 4.8"/><path d="M8.4 10.8h4.8"/><path d="M10.8 8.4v4.8"/></svg>
+          <h3>Hineinzoomen, weiter in Kontrolle</h3>
+          <p>Zoome mit zwei Fingern in jeden Teil des Mac-Bildschirms, und deine Berührungen landen weiterhin an der richtigen Stelle darauf. Eine Symbolleiste, die in der Gesamtansicht zu klein zum Tippen ist, ist gezoomt problemlos erreichbar.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.4v7.2"/><path d="M8.1 6.6a6 6 0 108 0"/></svg>
+          <h3>Aufwecken oder verbergen</h3>
+          <p>Weck einen schlafenden Mac über das Netzwerk auf, bevor du dich verbindest, und blende seinen Bildschirm aus, wenn du nicht willst, dass jemand im Vorbeigehen ihn sieht.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.4 13.4a7.4 7.4 0 01-9.8-9.8 7.6 7.6 0 106.6 12.6 7 7 0 013.2-2.8z"/></svg>
+          <h3>Bleib erreichbar, wenn du unterwegs bist</h3>
+          <p>Vier Schalter, anfangs alle aus: diesen Mac von selbst wach halten, nur zu gewählten Zeiten, einmal am Tag aufwecken oder bei geschlossenem Deckel laufen lassen.</p>
+          <p>In jedem Tarif kostenlos, Schritt für Schritt in der <a href="/de/how-to-pair-iphone-mac">Kopplungsanleitung</a> beschrieben.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Privacy -->
+  <section class="section" id="privacy">
+    <div class="wrap">
+      <h2>Ende-zu-Ende-verschlüsselt. Das Relay ist nicht beteiligt.</h2>
+      <p class="section-lede">
+        Deine beiden Geräte halten die Schlüssel. Das Relay bekommt sie nie.
+      </p>
+
+      <div class="card privacy-card">
+        <div class="diagram" aria-hidden="true">
+          <span class="node">iPhone</span>
+          <span class="link"><i></i></span>
+          <span class="node node-relay">Relay</span>
+          <span class="link"><i></i></span>
+          <span class="node">Mac</span>
+        </div>
+
+        <div class="privacy-notes">
+          <div>
+            <h3>Was das Relay verarbeitet</h3>
+            <p>
+              Gerätekennungen, den Namen deines Mac, technische Kompatibilitätsinformationen, den
+              verwendeten Tarif und die Relay-Nutzung, die für die Verbindung nötig sind.
+            </p>
+            <p>
+              Wenn ein Mac dein Telefon nicht direkt erreichen kann, bittet er das Relay außerdem, es zu wecken, mit
+              dem Apple-Push-Token, das dein Telefon ihm für genau diese eine Anfrage gegeben hat. Nicht gespeichert.
+            </p>
+            <p>
+              Es sieht die Adresse, von der aus sich jedes Gerät verbindet, wie jeder Server, und gibt jeweils
+              dem anderen die des einen. Was es <em>lesen</em> kann, ist nichts, auf beiden Wegen.
+            </p>
+          </div>
+          <div>
+            <h3>Was es nicht lesen kann</h3>
+            <p>
+              Video, Audio, Tastenanschläge, Zeigereingaben und Text aus der Zwischenablage sind Ende-zu-Ende
+              mit Schlüsseln verschlüsselt, die das Relay nie erhält.
+            </p>
+          </div>
+          <div>
+            <h3>Was die App erhebt</h3>
+            <p>
+              Nie Bildschirm, Dateien oder Tastenanschläge. Die App sendet anonyme Nutzungszahlen (App-
+              Starts und Sitzungen, nie an ein Konto gebunden), die du in den Einstellungen ausschalten kannst.
+              Keine Werbung, keine Tracking-SDKs, kein Konto, dem sich etwas davon zuordnen ließe.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="section" id="pricing">
+    <div class="wrap">
+      <h2>Preise</h2>
+      <p class="section-lede">
+        Dein eigenes Netzwerk ist kostenlos und unbegrenzt, für immer. Das Relay erreicht deinen Mac von woanders aus: Kostenlos bringt 30 Minuten am Tag mit, Pro und Lebenslang haben keine Grenze.
+      </p>
+
+      <p class="plans-scroll-hint" aria-hidden="true">Seitlich scrollen, um alle Tarife zu sehen &rarr;</p>
+      <div class="plans-wrap">
+        <table class="plans">
+          <caption class="vh">Was jeder Tarif enthält</caption>
+          <thead>
+            <tr>
+              <td class="corner"><span class="vh">Funktion</span></td>
+            <th scope="col" class="plan-col">
+              <span class="plan-name">Kostenlos</span>
+              <span class="plan-price">$0</span>
+              <span class="plan-note">im eigenen Netzwerk, so lange du willst</span>
+            </th>
+            <th scope="col" class="plan-col">
+              <span class="plan-name">Pro</span>
+              <span class="plan-price">$2.99<span>/Monat</span></span>
+              <span class="plan-note">Unbegrenzt unterwegs, schärfstes Bild über das Relay</span>
+            </th>
+            <th scope="col" class="plan-col col-pro">
+              <span class="plan-badge">Bestes Angebot</span>
+              <span class="plan-name">Lebenslang</span>
+              <span class="plan-price">$24.99<span>einmalig</span></span>
+              <span class="plan-note">Alles aus Pro, einmal bezahlt</span>
+            </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="group-row">
+              <th scope="rowgroup" colspan="3">Wo sich die Tarife unterscheiden</th>
+              <td class="col-pro"></td>
+            </tr>
+            <tr>
+              <th scope="row">Relay-Zeit pro Tag</th>
+              <td class="val">30 Minuten</td>
+              <td class="val">unbegrenzt</td>
+              <td class="val col-pro">unbegrenzt</td>
+            </tr>
+            <tr>
+              <th scope="row">Das schärfste Bild über das Relay</th>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Nicht enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="group-row">
+              <th scope="rowgroup" colspan="3">Enthalten in jedem Tarif</th>
+              <td class="col-pro"></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Macs, mit denen du koppeln kannst</th>
+              <td class="val">jeden Mac, den du besitzt</td>
+              <td class="val">jeden Mac, den du besitzt</td>
+              <td class="val col-pro">jeden Mac, den du besitzt</td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Ton vom Mac</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Bild-in-Bild</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Dateien, die in beide Richtungen wandern</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Verlauf der Zwischenablage</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Benachrichtigt, wenn ein Terminal dich braucht</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Mehrere Shells gleichzeitig, als Tabs</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Mehrere Macs gleichzeitig offen</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Mehrere Fenster in einem Bild</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Virtuelle Displays auf dem Telefon</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Makros, Snippets und Schnellbefehle</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Jedes Display, jede App und jedes Fenster</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Eine Shell nach der anderen</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">SSH-Server, mit gespeicherten Schlüsseln</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">SSH-Portweiterleitung</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Der Dateibrowser, mit Bearbeiten und Ausführen</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Zwischenablage, in beide Richtungen</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Tastatur, Zeiger, Trackpad und Scrollrad</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Beobachten-Modus</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Privatmodus</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Screenshots, Widgets, Live-Aktivität und Siri</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Wake on LAN, Spaces und Sitzungsverlauf</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Mitteilungen, wenn der Mac auf dich wartet</th>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes"><span class="vh">Enthalten</span></td>
+              <td class="yes col-pro"><span class="vh">Enthalten</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="fine">
+        Die gezeigten Preise sind US-Preise. Der App Store legt sie je Land fest und zeigt sie vor dem Kauf in der App an. Pro verlängert sich automatisch bis zur Kündigung, und du kannst jederzeit in deinen App-Store-Einstellungen kündigen. Lebenslang wird einmal bezahlt und verlängert sich nicht.
+      </p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq">
+    <div class="wrap">
+      <h2>Fragen</h2>
+
+      <div class="faq">
+        <details>
+          <summary>Kann das Relay meinen Bildschirm oder meine Eingaben sehen?</summary>
+          <p>
+            Nein. Es leitet die verschlüsselte Verbindung zwischen deinen gekoppelten Geräten weiter und kann darin
+            weder Video, Audio, Text aus der Zwischenablage, Tastenanschläge noch Zeigereingaben lesen.
+          </p>
+        </details>
+        <details>
+          <summary>Was weiß das Relay über mich?</summary>
+          <p>
+            Gerätekennungen, den Namen deines Mac, technische Kompatibilitätsinformationen, den verwendeten Tarif
+            und die Relay-Nutzung, die für die Verbindung nötig sind. Eine kostenpflichtige Verbindung sendet außerdem
+            den Nachweis des App-Store-Kaufs. Es ist kein Konto beteiligt.
+          </p>
+          <p>
+            Es sieht außerdem, wie jeder Server, die Adresse, von der aus sich jedes Gerät verbindet, und gibt sie
+            jeweils an das andere weiter, damit die beiden versuchen können, sich direkt zu erreichen. Und wenn ein
+            Mac dein Telefon nicht direkt erreichen kann, bittet er das Relay, es per Push-Mitteilung zu wecken,
+            mit dem Apple-Push-Token, das dein Telefon ihm für genau diese eine Anfrage gegeben hat.
+          </p>
+        </details>
+        <details>
+          <summary>Brauche ich ein Konto?</summary>
+          <p>
+            Nein. Peering erstellt auf jedem Gerät eine Identität und speichert sie im Schlüsselbund dieses Geräts.
+            Es gibt nichts zu registrieren und kein Passwort.
+          </p>
+        </details>
+        <details>
+          <summary>Warum zeigen beide Bildschirme einen Code?</summary>
+          <p>
+            Jedes Gerät erzeugt seinen eigenen Schlüssel. Mit den sechs Ziffern bestätigst du, dass das Gerät, mit dem
+            du koppelst, das ist, das vor dir liegt. Sobald du bestätigst, merken sich beide Geräte den öffentlichen
+            Schlüssel des anderen.
+          </p>
+        </details>
+        <details>
+          <summary>Kann ich Dateien übertragen?</summary>
+          <p>
+            Ja, auf deinem Mac und auf jedem Server, den du über SSH hinzufügst. Navigiere durch die Ordner, öffne eine
+            Datei, ändere sie und speichere sie, lade eine von deinem Telefon hoch und sichere eine Kopie in Dateien.
+          </p>
+          <p>
+            Du kannst auch eine Datei oder einen Ordner anlegen, umbenennen und löschen: Auf deinem eigenen Mac
+            landet er dabei im Papierkorb, auf einem Server ist er weg, und die Rückfrage sagt das auch.
+          </p>
+        </details>
+        <details>
+          <summary>Was passiert, wenn mein Telefon das Netzwerk wechselt?</summary>
+          <p>
+            Die Sitzung kann das nicht überstehen: Die Adresse, an die der Mac gesendet hat, gibt es nicht mehr. Die
+            Verbindung schlägt nicht fehl und wird nicht geschlossen, sie wird still, und eine App, die auf einen Fehler
+            wartet, bleibt ewig beim letzten Bild stehen.
+          </p>
+          <p>
+            Peering zählt die Stille und beendet die Sitzung nach zehn Sekunden, damit du es erfährst.
+            Verbinde dich mit dem neuen Netzwerk, tippe auf den Mac, und du bist zurück.
+          </p>
+        </details>
+        <details>
+          <summary>Läuft mein Bildschirm über eure Server?</summary>
+          <p>
+            Nur, wenn es sein muss. Deine beiden Geräte versuchen zuerst einen Weg direkt zwischen sich.
+            Das Relay stellt sie einander vor und trägt die Sitzung, wenn sich dieser Weg nicht öffnen lässt.
+            Beide sind gleich verschlüsselt, und das Relay liest keinen von beiden.
+          </p>
+        </details>
+        <details>
+          <summary>Funktioniert es in einem Netzwerk, das ich nicht kontrolliere?</summary>
+          <p>
+            Ja. Nach dem Koppeln finden sich deine beiden Geräte über das Internet, es funktioniert also im Hotel,
+            im Zug oder im WLAN eines anderen.
+          </p>
+          <p>
+            Sie versuchen zuerst einen Weg direkt zwischen sich und weichen auf das Relay aus, wenn das Netzwerk
+            keinen zulässt. Das lokale Netzwerk muss nur für die erste Kopplung gemeinsam genutzt werden.
+            pairing.
+          </p>
+        </details>
+        <details>
+          <summary>Auf welchen Macs und iPhones läuft es?</summary>
+          <p>
+            Auf jedem Mac mit macOS 15 (Sequoia) oder neuer, mit Apple Silicon oder Intel. Auf jedem iPhone oder
+            iPad mit iOS 18 oder neuer, auch auf älteren Geräten, die nicht auf iOS 26 aktualisiert werden können.
+          </p>
+        </details>
+        <details>
+          <summary>Kann ich einen Mac erreichen, der eingeschlafen ist?</summary>
+          <p>
+            Weck ihn über das Netzwerk auf, kurz bevor du dich verbindest. Für einen Mac, der am liebsten gar nicht
+            erst einschlafen soll, hat die Host-App dafür ebenfalls Schalter: von selbst wach, nach Zeitplan oder
+            auch bei geschlossenem Deckel wach.
+          </p>
+        </details>
+        <details>
+          <summary>Können mehrere iPhones mit demselben Mac verbunden sein?</summary>
+          <p>
+            Ja, in jedem Tarif. Ein Mac begrenzt nicht, wie vielen iPhones er vertraut.
+          </p>
+        </details>
+        <details>
+          <summary>Wie sorge ich dafür, dass ein Mac nicht mehr erreichbar ist, oder entferne ein Gerät?</summary>
+          <p>
+            Drücke auf dem Mac auf Stopp, und er hört auf zu lauschen, im eigenen Netzwerk und über das Relay.
+            Um ein einzelnes iPhone zu entfernen, ohne den Mac für alle anderen zu stoppen, entferne es in der
+            Host-App aus der Geräteliste. Es dort zu entfernen und die Kopplung am iPhone zu lösen sind zwei
+            getrennte Schritte, denn jedes der beiden Geräte kann eine Kopplung beenden.
+          </p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="Peering" width="24" height="24">
+      <span aria-hidden="true">Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Anleitungen, Rechtliches und Support">
+      <a href="/de/how-to-pair-iphone-mac">Kopplungsanleitung</a>
+      <a href="/de/remote-desktop-for-mac">Remote Desktop</a>
+      <a href="/de/access-your-mac-from-anywhere">Von überall</a>
+      <a href="/de/keep-mac-awake-for-remote-access">Mac zu Hause</a>
+      <a href="/de/coding-agent-notifications">Coding-Agenten</a>
+      <a href="/de/remote-desktop-apps-compared">Apps im Vergleich</a>
+      <a href="/de/screens-alternative">Screens-Alternative</a>
+      <a href="/de/download">Download</a>
+      <a href="/de/privacy">Datenschutz</a>
+      <a href="/de/terms">Nutzungsbedingungen</a>
+      <a href="mailto:support@getpeering.app">Support</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/" hreflang="en" lang="en">English</a>
+      <a href="/de/" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/" hreflang="es" lang="es">Español</a>
+      <a href="/fr/" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone und Mac sind Marken von Apple Inc.</p>
+  </div>
+</footer>
+
+<script src="/app.js" defer></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

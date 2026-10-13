@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_menu">Webvorschau</string>
+    <string name="preview_title">Webvorschau</string>
+    <string name="preview_done">Fertig</string>
+    <string name="preview_address_hint">localhost:3000</string>
+    <string name="preview_back">Zurück</string>
+    <string name="preview_reload">Neu laden</string>
+    <string name="preview_start_title">Einen auf deinem Computer laufenden Server öffnen</string>
+    <string name="preview_start_detail">Tippe einen Port ein oder wähle einen, der gerade antwortet. Nur localhost und 127.0.0.1 auf dem Computer lassen sich öffnen.</string>
+    <string name="preview_found_none">Auf den üblichen Ports wurde nichts gefunden</string>
+    <string name="preview_found_some">Gerade auf dem Computer</string>
+    <string name="preview_look_again">Nochmal prüfen</string>
+    <string name="preview_port_label">:%1$d</string>
+    <string name="preview_note_live_reload">Live Reload über WebSocket wird hier nicht übertragen. Lade neu, um Änderungen zu sehen. Formulare und Anfragen, die Daten senden, werden ebenfalls nicht übertragen.</string>
+    <string name="preview_notice_only_loopback">Hier lassen sich nur localhost und 127.0.0.1 mit einem Port öffnen.</string>
+    <string name="preview_notice_links_outside">Links außerhalb von localhost werden hier nicht geöffnet.</string>
+    <string name="preview_try_again">Erneut versuchen</string>
+    <string name="preview_fail_not_listening">Dort lauscht nichts</string>
+    <string name="preview_fail_not_listening_detail">Bitte den Agenten, den Server zu starten, oder prüfe den Port, und versuche es dann erneut.</string>
+    <string name="preview_fail_disconnected">Nicht mit dem Computer verbunden</string>
+    <string name="preview_fail_disconnected_detail">Verbinde dich erneut mit dem Computer und versuche es noch einmal.</string>
+    <string name="preview_fail_timed_out">Der Server hat nicht geantwortet</string>
+    <string name="preview_fail_timed_out_detail">Die Verbindung wurde angenommen, aber es kam nichts zurück.</string>
+    <string name="preview_fail_other">Die Seite konnte nicht geöffnet werden</string>
+    <string name="preview_fail_too_large_detail">Diese Anfrage war zu groß, um sie über die Vorschau zu senden.</string>
+    <string name="preview_fail_not_allowed_detail">Die Vorschau kann nur einfache Seiten auf localhost öffnen.</string>
+    <string name="preview_fail_busy_detail">Zu viele Anfragen warten. Versuche es gleich noch einmal.</string>
+    <string name="preview_fail_failed_detail">Der Computer konnte es nicht abrufen.</string>
+    <string name="preview_reply_not_carried">Anfragen, die Daten senden, werden von der Vorschau nicht übertragen.</string>
+</resources>

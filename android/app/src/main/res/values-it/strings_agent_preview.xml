@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_menu">Anteprima web</string>
+    <string name="preview_title">Anteprima web</string>
+    <string name="preview_done">Fine</string>
+    <string name="preview_address_hint">localhost:3000</string>
+    <string name="preview_back">Indietro</string>
+    <string name="preview_reload">Ricarica</string>
+    <string name="preview_start_title">Apri un server in esecuzione sul tuo computer</string>
+    <string name="preview_start_detail">Digita una porta, o scegline una che risponde ora. Si possono aprire solo localhost e 127.0.0.1 del computer.</string>
+    <string name="preview_found_none">Non è stato trovato nulla sulle porte abituali</string>
+    <string name="preview_found_some">Sul computer ora</string>
+    <string name="preview_look_again">Ricontrolla</string>
+    <string name="preview_port_label">:%1$d</string>
+    <string name="preview_note_live_reload">Il live reload via WebSocket non è supportato qui. Ricarica per vedere le modifiche. Nemmeno i moduli e le richieste che inviano dati sono supportati.</string>
+    <string name="preview_notice_only_loopback">Qui si possono aprire solo localhost e 127.0.0.1, con una porta.</string>
+    <string name="preview_notice_links_outside">I link esterni a localhost non vengono aperti qui.</string>
+    <string name="preview_try_again">Riprova</string>
+    <string name="preview_fail_not_listening">Non c\'è nulla in ascolto lì</string>
+    <string name="preview_fail_not_listening_detail">Chiedi all\'agente di avviare il server, o controlla la porta, poi riprova.</string>
+    <string name="preview_fail_disconnected">Non connesso al computer</string>
+    <string name="preview_fail_disconnected_detail">Riconnettiti al computer e riprova.</string>
+    <string name="preview_fail_timed_out">Il server non ha risposto</string>
+    <string name="preview_fail_timed_out_detail">Ha accettato la connessione ma non ha risposto nulla.</string>
+    <string name="preview_fail_other">Impossibile aprire la pagina</string>
+    <string name="preview_fail_too_large_detail">Quella richiesta era troppo grande per essere inviata tramite l\'anteprima.</string>
+    <string name="preview_fail_not_allowed_detail">L\'anteprima può aprire solo pagine semplici su localhost.</string>
+    <string name="preview_fail_busy_detail">Ci sono troppe richieste in attesa. Riprova tra poco.</string>
+    <string name="preview_fail_failed_detail">Il computer non è riuscito a recuperarlo.</string>
+    <string name="preview_reply_not_carried">L\'anteprima non supporta le richieste che inviano dati.</string>
+</resources>

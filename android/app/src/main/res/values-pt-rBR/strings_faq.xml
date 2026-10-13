@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="faq_detail">Pareamento, privacidade e o que circula entre seus dispositivos.</string>
+
+    <string name="faq_section_start">Primeiros passos</string>
+    <string name="faq_account_question">Preciso de uma conta?</string>
+    <string name="faq_account_answer">Não. Cada dispositivo cria a própria identidade e guarda a chave no próprio armazenamento seguro. Não há cadastro, nem e-mail, nem nada sobre você guardado em um servidor.</string>
+    <string name="faq_pair_question">Como pareio um computador?</string>
+    <string name="faq_pair_answer">Os dois dispositivos precisam conseguir se alcançar uma vez, e alguém precisa estar no computador. Na mesma rede, escolha o computador em Por perto. Se ele estiver em outro lugar, abra Dispositivos no Peering do computador, copie o ID do dispositivo e use Parear de outra rede no telefone. Em qualquer caso, o computador mostra seis dígitos: digite-os no telefone e continue só se coincidirem. Você pareia uma vez; depois disso os dispositivos se reconhecem e reconectam sozinhos.</string>
+    <string name="faq_mac_needs_question">O que o computador precisa ter?</string>
+    <string name="faq_mac_needs_answer">O app Peering para computador, em execução, com duas permissões concedidas: Gravação de Tela, que permite capturar a tela, e Acessibilidade, que permite mover o ponteiro e digitar. O app do computador mostra o estado delas com um botão para abrir o painel certo.</string>
+    <string name="faq_away_question">Posso me conectar fora de casa?</string>
+    <string name="faq_away_answer">Sim, e ele tenta dois caminhos em ordem. Primeiro os dois dispositivos procuram um caminho direto entre si; se as redes não permitirem, o relay do Peering transporta a sessão. A tela da sessão mostra qual está em uso: LAN, RELAY ou DIRECT. Você pode desativar o relay por completo em Configurações, Acesso remoto, o que deixa as conexões apenas na sua própria rede.</string>
+    <string name="faq_awake_question">Meu computador precisa estar ligado?</string>
+    <string name="faq_awake_answer">Ele precisa estar ligado para manter uma sessão. Um computador em repouso na sua rede pode ser despertado pelo menu dele na lista de computadores, se permitir Wake on LAN.</string>
+    <string name="faq_many_question">Quantos computadores posso usar?</string>
+    <string name="faq_many_answer">Quantos você parear. Todos aparecem na aba Conectar com o próprio menu, e uma sessão roda por vez. Iniciar outra encerra a primeira.</string>
+    <string name="faq_phones_question">Dois telefones podem usar o mesmo computador?</string>
+    <string name="faq_phones_answer">Sim. O computador aceita mais de um dispositivo conectado. A imagem em si é enviada a um dispositivo por vez, então um segundo telefone vendo o mesmo computador não recebe um segundo fluxo.</string>
+
+    <string name="faq_section_privacy">Privacidade</string>
+    <string name="faq_relay_sees_question">O relay pode ver minha tela ou meus controles?</string>
+    <string name="faq_relay_sees_answer">Não. Ele encaminha uma conexão criptografada para a qual não tem chave. O vídeo, o texto da área de transferência, as teclas digitadas e a entrada do ponteiro estão todos dentro dessa conexão, e o relay não consegue ler nenhum deles.</string>
+    <string name="faq_relay_knows_question">O que o relay sabe?</string>
+    <string name="faq_relay_knows_answer">O ID e o nome do dispositivo do computador, o ID do dispositivo deste telefone, a versão do protocolo, qual plano o app diz que você tem e quanto você o usou. Ele não vê o que há dentro da sessão e não guarda registro do que estava na sua tela.</string>
+    <string name="faq_video_servers_question">O vídeo passa pelos seus servidores?</string>
+    <string name="faq_video_servers_answer">Só quando precisa. Quando os dois dispositivos conseguem se alcançar diretamente, a imagem segue esse caminho e só a conexão de controle fica no relay. Quando não conseguem, o que é comum em redes restritivas, o relay transporta a imagem também. O app tenta o caminho direto e recorre ao relay sozinho.</string>
+    <string name="faq_darken_question">Posso impedir que alguém no computador assista?</string>
+    <string name="faq_darken_answer">Sim. Ative Escurecer durante uma sessão e as telas do próprio computador ficam escuras enquanto a captura continua, para você trabalhar sem ninguém espiando por cima do seu ombro. Elas voltam quando você desativa ou encerra a sessão.</string>
+    <string name="faq_lock_question">Posso bloquear o app?</string>
+    <string name="faq_lock_answer">Sim. O bloqueio fica em Configurações, Segurança e privacidade, e pede a cada vez que o app volta. A senha do dispositivo é aceita além da digital ou do rosto, então um telefone que deixa de reconhecer você não pode trancar você fora do app.</string>
+    <string name="faq_collect_question">O que o Peering coleta?</string>
+    <string name="faq_collect_answer">Nada. Não há análise de uso, nem publicidade, nem rastreamento de terceiros no app.</string>
+
+    <string name="faq_section_moves">O que circula entre dispositivos</string>
+    <string name="faq_clipboard_question">Como funciona o compartilhamento da área de transferência?</string>
+    <string name="faq_clipboard_answer">O texto só se move quando você pede: envie a área de transferência deste telefone ao computador ou cole-a lá com um toque. Nada é copiado em segundo plano.</string>
+    <string name="faq_files_question">Posso transferir arquivos?</string>
+    <string name="faq_files_answer">Sim, pelo navegador de arquivos. Você pode ler um arquivo, baixá-lo para o telefone, editar um arquivo de texto e salvá-lo de volta, criar um arquivo ou pasta novos, renomear ou excluir o que está listado e enviar um arquivo do telefone para a pasta que você está vendo. Excluir move o arquivo para a Lixeira do computador. O que um arquivo é se decide pelo próprio arquivo, e não pelo nome, então uma imagem abre como imagem e tudo que não é texto nem imagem é oferecido para download.</string>
+    <string name="faq_terminal_question">Posso abrir um terminal?</string>
+    <string name="faq_terminal_answer">Sim. Um shell no computador abre dentro da sessão, com abas que você pode renomear e uma fileira de teclas para as teclas de controle que o teclado de um telefone não consegue enviar.</string>
+    <string name="faq_macros_question">O que são atalhos e macros?</string>
+    <string name="faq_macros_answer">Combinações de teclas salvas que você aciona com um toque em vez de digitá-las no vidro. O painel Atalhos tem os mais comuns, um conjunto para o aplicativo na tela e F1 a F12. Adicione os seus com o botão de editar no fim do conjunto Atalhos.</string>
+
+    <string name="faq_section_plans">Planos</string>
+    <string name="faq_free_question">O que é grátis?</string>
+    <string name="faq_free_answer">Conectar pela sua própria rede, sem limite e sem tempo contado. O relay é a parte que alcança um computador em outra rede, e o plano grátis inclui 30 minutos dele por dia.</string>
+    <string name="faq_run_out_question">O que acontece quando meu tempo de relay acaba?</string>
+    <string name="faq_run_out_answer">O relay para de transportar sessões até o dia virar, e a aba Sessões mostra o medidor. As conexões na sua própria rede continuam funcionando o tempo todo. Qualquer plano pago remove o limite por completo.</string>
+    <string name="faq_subscribe_question">Por que o app me pede para assinar?</string>
+    <string name="faq_subscribe_answer">Ele pergunta depois da sua primeira sessão e de novo se o seu tempo de relay estiver quase acabando. Ambos são um único aviso com uma forma de dispensá-lo; nada é cobrado sem você confirmar pela loja.</string>
+
+    <string name="faq_section_trouble">Segurança e solução de problemas</string>
+    <string name="faq_verified_question">Como os dispositivos pareados são verificados?</string>
+    <string name="faq_verified_answer">Cada dispositivo cria a própria chave e a guarda em armazenamento seguro. Quando você confirma o código de seis dígitos, os dois dispositivos registram a chave pública um do outro e se recusam a conectar a qualquer outro que reivindique essa identidade. O relay não pode se passar por nenhuma das pontas.</string>
+    <string name="faq_black_question">Por que a tela do computador está preta?</string>
+    <string name="faq_black_answer">Quase sempre é a Gravação de Tela. Confira em Ajustes do Sistema, Privacidade e Segurança, Gravação de Tela no computador, depois feche o Peering por completo lá e abra de novo. A permissão só é reconhecida na abertura.</string>
+    <string name="faq_soft_question">A imagem parece suave. Posso mudar isso?</string>
+    <string name="faq_soft_answer">Sim. Configurações, Qualidade da transmissão, define Automático, Baixa, Média ou Alta, e o painel Configurações dentro de uma sessão também. O Automático acompanha o que a conexão aguenta, baixando quando a latência sobe e voltando a subir quando se estabiliza, então um link fraco fica suave em vez de travar.</string>
+    <string name="faq_background_question">O que acontece quando eu saio do app?</string>
+    <string name="faq_background_answer">Uma sessão dura enquanto o Peering está na tela. O Android pausa apps em segundo plano, então a conexão pode terminar depois de um tempo curto fora. O Peering espera um pouco mais antes de desistir quando você troca de app, e se a sessão foi perdida enquanto você estava fora, ele tenta mais uma vez quando você volta. Se não funcionar, toque no computador de novo.</string>
+    <string name="faq_network_question">O que acontece se meu telefone mudar de rede?</string>
+    <string name="faq_network_answer">A conexão fica em silêncio, porque o endereço para o qual o computador enviava deixou de existir. O Peering tenta restabelecer a sessão e avisa se ela terminou. Entre na nova rede, toque no computador e pronto.</string>
+
+    <string name="faq_section_gaps">Lacunas conhecidas</string>
+    <string name="faq_gaps_question">O que o Peering ainda não faz?</string>
+    <string name="faq_gaps_answer">Uma lista, não uma promessa. Não há botão de ditado. A visualização de vídeo e o envio de pastas inteiras em Arquivos ainda não existem, nem o envio pela fototeca. Um computador em repouso fora da sua rede não pode ser despertado.</string>
+    <string name="faq_coming_question">Alguma dessas coisas vem aí?</string>
+    <string name="faq_coming_answer">Algumas. Nada nessa lista é uma decisão de design que defendemos; cada item simplesmente não foi construído. O FAQ dirá quando mudar, porque uma lista assim só vale a pena ser lida se for mantida.</string>
+</resources>

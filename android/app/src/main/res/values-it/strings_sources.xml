@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sources_section_virtual">Display virtuali</string>
+    <string name="sources_add_display">Aggiungi un display</string>
+    <string name="sources_virtual_empty">Nessun display virtuale. Aggiungine uno per dare al tuo telefono uno schermo tutto suo sul computer, con la forma di questo telefono.</string>
+    <string name="sources_desktop">Desktop %d</string>
+    <string name="sources_desktop_here">Desktop %d · qui</string>
+    <string name="sources_action_close">Chiudi finestra</string>
+    <string name="sources_action_minimise">Riduci finestra</string>
+    <string name="sources_action_zoom">Zoom finestra</string>
+    <string name="sources_action_remove_display">Rimuovi display</string>
+    <string name="sources_action_rename_display">Rinomina display</string>
+    <string name="sources_rename_display">Rinomina display</string>
+    <string name="sources_rename_hint">Nome</string>
+    <string name="sources_rename_save">Salva</string>
+    <string name="sources_rename_cancel">Annulla</string>
+</resources>

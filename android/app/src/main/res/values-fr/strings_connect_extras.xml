@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connect_wake">Réveiller l\'ordinateur sur le réseau local</string>
+    <string name="connect_wake_refusal_no_address">Aucune adresse matérielle enregistrée pour l\'instant. Connectez-vous d\'abord une fois.</string>
+    <string name="connect_wake_refusal_awake">Cet ordinateur est déjà éveillé.</string>
+    <string name="connect_wake_no_address">Aucune adresse matérielle n\'est enregistrée pour cet ordinateur, il n\'y a donc nulle part où envoyer un paquet de réveil.</string>
+    <string name="connect_wake_unreadable">L\'adresse matérielle enregistrée de cet ordinateur n\'a pas pu être lue, aucun paquet de réveil n\'a donc été envoyé.</string>
+    <plurals name="connect_wake_sent">
+        <item quantity="one">Paquet de réveil envoyé à %d adresse matérielle. Il ne peut atteindre qu\'un ordinateur sur ce réseau.</item>
+        <item quantity="other">Paquet de réveil envoyé à %d adresses matérielles. Il ne peut atteindre qu\'un ordinateur sur ce réseau.</item>
+    </plurals>
+    <string name="session_failed_key_changed">La clé de cet ordinateur a changé depuis son association. Si ce n\'est pas attendu, ne vous connectez pas. Pour faire confiance à la nouvelle clé, oubliez l\'ordinateur ici et associez-le à nouveau.</string>
+    <string name="session_failed_wrong_computer">L\'ordinateur qui a répondu n\'est pas celui que vous avez demandé. Oubliez-le ici et associez-le à nouveau s\'il a changé d\'adresse.</string>
+    <string name="session_failed_no_pin">Ce téléphone ne fait plus confiance à cet ordinateur. Associez-le à nouveau pour vous connecter.</string>
+    <string name="link_end_title">Terminer cette session ?</string>
+    <string name="link_end_message">Un lien extérieur à Peering a demandé de vous déconnecter de votre ordinateur.</string>
+    <string name="link_end_confirm">Terminer la session</string>
+</resources>

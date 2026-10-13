@@ -1,0 +1,95 @@
+//! DPAPI sealing for the current user, through CryptProtectData and CryptUnprotectData.
+
+use std::ffi::c_void;
+use std::io;
+use std::path::Path;
+use std::ptr::null_mut;
+
+use windows::core::PCWSTR;
+use zeroize::{Zeroize, Zeroizing};
+use windows::Win32::Foundation::{LocalFree, HLOCAL};
+use windows::Win32::Security::Cryptography::{
+    CryptProtectData, CryptUnprotectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
+};
+
+use crate::dpapi::entropy::Sealer;
+use crate::dpapi::acl;
+
+/// Seals for the logged-on user only. The UI flag stops DPAPI from ever opening a prompt on the secure desktop. The entropy
+/// is chosen by the caller (`entropy::open_store`): it is what a different process of the same user would also need.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DpapiSealer;
+
+impl Sealer for DpapiSealer {
+    fn seal(&self, plain: &[u8], entropy: Option<&[u8]>) -> Option<Vec<u8>> {
+        transform(plain, Direction::Protect, entropy).map(|sealed| sealed.to_vec())
+    }
+
+    fn open(&self, sealed: &[u8], entropy: Option<&[u8]>) -> Option<Zeroizing<Vec<u8>>> {
+        transform(sealed, Direction::Unprotect, entropy)
+    }
+
+    fn prepare_directory(&self, directory: &Path) -> io::Result<()> {
+        acl::restrict_directory_to_owner(directory)
+    }
+
+    fn prepare_file(&self, file: &Path) -> io::Result<()> {
+        acl::restrict_file_to_owner(file)
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Direction {
+    Protect,
+    Unprotect,
+}
+
+fn transform(input: &[u8], direction: Direction, entropy: Option<&[u8]>) -> Option<Zeroizing<Vec<u8>>> {
+    let length = u32::try_from(input.len()).ok()?;
+    let in_blob = CRYPT_INTEGER_BLOB { cbData: length, pbData: input.as_ptr() as *mut u8 };
+    let entropy_blob = entropy.map(|bytes| CRYPT_INTEGER_BLOB { cbData: bytes.len() as u32, pbData: bytes.as_ptr() as *mut u8 });
+    let entropy_pointer = entropy_blob.as_ref().map(std::ptr::from_ref);
+    let mut out_blob = CRYPT_INTEGER_BLOB { cbData: 0, pbData: null_mut() };
+    // SAFETY: `in_blob` points at `input`, which lives across the call; `out_blob` is a live out parameter. The OS
+    // allocates the output, which is copied and freed below.
+    let ok = unsafe {
+        match direction {
+            Direction::Protect => CryptProtectData(
+                &in_blob,
+                PCWSTR::null(),
+                entropy_pointer,
+                None,
+                None,
+                CRYPTPROTECT_UI_FORBIDDEN,
+                &mut out_blob,
+            ),
+            Direction::Unprotect => CryptUnprotectData(
+                &in_blob,
+                None,
+                entropy_pointer,
+                None,
+                None,
+                CRYPTPROTECT_UI_FORBIDDEN,
+                &mut out_blob,
+            ),
+        }
+    };
+    if ok.is_err() {
+        return None;
+    }
+    Some(copy_and_free(out_blob))
+}
+
+/// Copies an OS-allocated blob into a Vec that wipes itself on drop, wipes the original and frees it.
+fn copy_and_free(blob: CRYPT_INTEGER_BLOB) -> Zeroizing<Vec<u8>> {
+    if blob.pbData.is_null() {
+        return Zeroizing::new(Vec::new());
+    }
+    // SAFETY: on success the OS set pbData to cbData readable bytes, which stay valid until LocalFree below.
+    let bytes = Zeroizing::new(unsafe { std::slice::from_raw_parts(blob.pbData, blob.cbData as usize) }.to_vec());
+    // SAFETY: the same bytes, still owned by the OS allocation. After an unprotect they are the plain secret.
+    unsafe { std::slice::from_raw_parts_mut(blob.pbData, blob.cbData as usize) }.zeroize();
+    // SAFETY: pbData came from LocalAlloc inside CryptProtectData or CryptUnprotectData, so LocalFree owns it.
+    unsafe { LocalFree(HLOCAL(blob.pbData as *mut c_void)) };
+    bytes
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="whatsnew_title">Novidades</string>
+    <string name="whatsnew_done">Entendi</string>
+    <string name="whatsnew_desktops_title">Áreas de trabalho e telas virtuais</string>
+    <string name="whatsnew_desktops_detail">Salte entre as áreas de trabalho do seu computador pelo painel Apps, adicione uma tela no formato do telefone e feche ou minimize uma janela com um toque longo.</string>
+    <string name="whatsnew_composer_title">Comandos e arquivos no compositor</string>
+    <string name="whatsnew_composer_detail">Digite uma barra para comandos e skills, ou um arroba para mencionar um arquivo. Revise todos os arquivos alterados em seus chats em um só lugar.</string>
+    <string name="whatsnew_review_title">Para revisar e próximos passos</string>
+    <string name="whatsnew_review_detail">Os arquivos alterados esperam na página Agentes até você olhá-los, e um turno concluído oferece o próximo passo como um botão.</string>
+    <string name="whatsnew_wake_title">Acorde seu computador</string>
+    <string name="whatsnew_wake_detail">Envie um pacote de despertar a um computador em repouso na sua rede pelo menu dele na página Conectar.</string>
+</resources>

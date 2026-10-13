@@ -1,0 +1,103 @@
+package pl.dmq.peering.platform.store
+
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.GeneralSecurityException
+import java.security.KeyStore
+import java.security.UnrecoverableKeyException
+import javax.crypto.AEADBadTagException
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
+import pl.dmq.peering.session.ports.StoredRead
+
+private const val ANDROID_KEY_STORE = "AndroidKeyStore"
+private const val KEY_ALIAS = "pl.dmq.peering.blobs"
+private const val TRANSFORMATION = "AES/GCM/NoPadding"
+private const val IV_SIZE = 12
+private const val TAG_BITS = 128
+
+/**
+ * Stores each blob as AES-GCM ciphertext under a key that never leaves the Keystore, in a file under [directory].
+ * The file is replaced whole, through a temporary file, so a crash leaves the previous blob intact.
+ */
+class KeystoreBlobStore internal constructor(
+    private val directory: File,
+    private val seal: (ByteArray) -> ByteArray,
+) : BlobStore {
+    constructor(directory: File) : this(directory, ::sealWithKeystore)
+
+    override fun get(name: String): ByteArray? = (read(name) as? StoredRead.Found)?.bytes
+
+    override fun read(name: String): StoredRead {
+        val file = fileFor(name)
+        if (!file.isFile) return StoredRead.Absent
+        return try {
+            val bytes = file.readBytes()
+            if (bytes.size <= IV_SIZE) return StoredRead.Unreadable(permanent = true)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(TAG_BITS, bytes.copyOf(IV_SIZE)))
+            StoredRead.Found(cipher.doFinal(bytes, IV_SIZE, bytes.size - IV_SIZE))
+        } catch (_: AEADBadTagException) {
+            StoredRead.Unreadable(permanent = true)
+        } catch (_: UnrecoverableKeyException) {
+            StoredRead.Unreadable(permanent = true)
+        } catch (_: IOException) {
+            StoredRead.Unreadable(permanent = false)
+        } catch (_: GeneralSecurityException) {
+            StoredRead.Unreadable(permanent = false)
+        } catch (_: RuntimeException) {
+            StoredRead.Unreadable(permanent = false)
+        }
+    }
+
+    @Synchronized
+    override fun put(name: String, value: ByteArray): Boolean {
+        val target = fileFor(name)
+        var temporary: File? = null
+        return try {
+            val sealed = seal(value)
+            val written = File.createTempFile("$name.", ".tmp", directory)
+            temporary = written
+            written.writeBytes(sealed)
+            Files.move(written.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            true
+        } catch (_: IOException) {
+            false
+        } catch (_: GeneralSecurityException) {
+            false
+        } catch (_: RuntimeException) {
+            false
+        } finally {
+            temporary?.delete()
+        }
+    }
+
+    private fun fileFor(name: String): File = File(directory, name)
+}
+
+private val keyLock = Any()
+
+private fun sealWithKeystore(value: ByteArray): ByteArray {
+    val cipher = Cipher.getInstance(TRANSFORMATION)
+    cipher.init(Cipher.ENCRYPT_MODE, secretKey())
+    return cipher.iv + cipher.doFinal(value)
+}
+
+private fun secretKey(): SecretKey = synchronized(keyLock) {
+    val store = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
+    (store.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+    val spec = KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+        .setKeySize(256)
+        .build()
+    return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEY_STORE)
+        .apply { init(spec) }
+        .generateKey()
+}

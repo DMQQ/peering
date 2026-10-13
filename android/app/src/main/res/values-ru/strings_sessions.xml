@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sessions_detail">Недавние сеансы и использование релея.</string>
+    <string name="sessions_relay">Relay</string>
+    <string name="sessions_relay_free">Бесплатное время релея</string>
+    <string name="sessions_relay_left">Осталось %1$s</string>
+    <string name="sessions_relay_period">за последние 24 часа</string>
+    <string name="sessions_relay_note">Ваш лимит измеряется во времени релея, а не в фиксированном числе сеансов. Показанное здесь оценивается по сеансам, записанным на этом устройстве.</string>
+    <string name="sessions_upgrade">Перейти на Pro</string>
+    <string name="sessions_recent">Недавние подключения</string>
+    <string name="sessions_recent_empty">Пока ничего. Свяжитесь с компьютером, и то, к чему вы подключаетесь, появится здесь.</string>
+    <string name="sessions_summary_sessions">Сеансы</string>
+    <string name="sessions_summary_connected">Подключено</string>
+    <string name="sessions_summary_received">Получено</string>
+    <string name="sessions_row_detail">%1$s · %2$s · %3$s</string>
+    <string name="sessions_detail_back">Назад к сеансам</string>
+    <string name="sessions_detail_connection">Подключение</string>
+    <string name="sessions_detail_computer">Компьютер</string>
+    <string name="sessions_detail_path">Путь</string>
+    <string name="sessions_detail_started">Начало</string>
+    <string name="sessions_detail_duration">Длительность</string>
+    <string name="sessions_detail_ended">Окончание</string>
+    <string name="sessions_detail_received">Получено</string>
+    <string name="sessions_detail_sent">Отправлено</string>
+    <string name="sessions_detail_copy">Скопировать журнал сеанса</string>
+    <string name="sessions_detail_copied">Скопировано</string>
+    <string name="sessions_detail_log">Журнал сеанса</string>
+    <string name="sessions_detail_log_empty">Для этого сеанса не записано ни одного диагностического события.</string>
+    <string name="sessions_ended_user">Вы завершили его</string>
+    <string name="sessions_ended_host">Компьютер остановил его</string>
+    <string name="sessions_ended_lost">Соединение потеряно</string>
+    <string name="sessions_ended_failed">Не удалось</string>
+</resources>

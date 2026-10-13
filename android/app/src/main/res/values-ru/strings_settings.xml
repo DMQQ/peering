@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_clear">Очистить поиск</string>
+    <string name="settings_search">Поиск по настройкам</string>
+    <string name="settings_no_match">Нет настроек, подходящих под «%1$s»</string>
+    <string name="settings_preference_save_failed">Не удалось сохранить эту настройку. Повторите попытку.</string>
+
+    <string name="settings_keywords_device">это устройство имя телефон this device name phone</string>
+    <string name="settings_keywords_controls">элементы управления сеанса взаимодействие наблюдение управление касание картинка вписать заполнить клавиатура юникод кейкод закрывать панели после выбора session controls interaction observe control touch picture fit fill keyboard unicode keycode close panels after selecting</string>
+    <string name="settings_keywords_quality">качество потока битрейт разрешение видео авто автоматически stream quality bitrate resolution video auto automatic</string>
+    <string name="settings_keywords_remote">удалённый доступ релей интернет вдали перейти pro remote access relay internet away upgrade pro</string>
+    <string name="settings_keywords_invite">пригласить друг код поделиться активировать реферал подарок дополнительное время invite friend code share redeem referral gift extra time</string>
+    <string name="settings_keywords_security">безопасность отпечаток лицо биометрия разблокировка блокировка код-пароль конфиденциальность security fingerprint face biometric unlock lock passcode privacy</string>
+    <string name="settings_keywords_trusted">доверенные компьютеры связанные забыть удалить trusted computers paired forget remove</string>
+    <string name="settings_keywords_identity">идентичность устройства id закрытый ключ связанные компьютеры device identity id private key paired computers</string>
+    <string name="settings_keywords_more">ещё peering компьютер скачать знакомство сообщить проблема поддержка помощь more peering computer download introduction report issue support help</string>
+    <string name="settings_keywords_legal">правовая информация политика конфиденциальности условия уведомления открытый код legal privacy policy terms notices open source</string>
+
+    <string name="settings_device_heading">Это устройство</string>
+    <string name="settings_device_footer">Имя, которое видят компьютеры при подключении. Коснитесь имени, чтобы изменить его.</string>
+    <string name="settings_device_name">Имя устройства</string>
+
+    <string name="settings_controls_heading">Управление сеансом</string>
+    <string name="settings_interaction">Взаимодействие</string>
+    <string name="settings_interaction_control">Управление</string>
+    <string name="settings_interaction_touch">Касание</string>
+    <string name="settings_interaction_observe">Наблюдение</string>
+    <string name="settings_picture">Картинка</string>
+    <string name="settings_picture_fit">Вписать в экран</string>
+    <string name="settings_picture_fill">Заполнить экран</string>
+    <string name="settings_keyboard">Клавиатура</string>
+    <string name="settings_keyboard_unicode">Unicode</string>
+    <string name="settings_keyboard_keycode">Keycode</string>
+    <string name="settings_keyboard_unicode_explanation">Отправляет текст. Эмодзи и нелатинские письменности работают; быстрые клавиши компьютера вроде Cmd+S не работают.</string>
+    <string name="settings_keyboard_keycode_explanation">Отправляет настоящие нажатия клавиш с модификаторами. Быстрые клавиши работают; символы вне раскладки компьютера отправляются как текст.</string>
+    <string name="settings_close_panels">Закрывать панели после выбора</string>
+
+    <string name="settings_quality_row">Качество</string>
+    <string name="settings_quality_footer">Уровень, с которого начинается сеанс. Его изменение во время сеанса меняет и этот, так что следующий начнётся с того места, где вы остановились.</string>
+    <string name="settings_quality_auto_menu">Автоматически</string>
+    <string name="settings_quality_low_menu">Низкое, 2 Мбит/с</string>
+    <string name="settings_quality_medium_menu">Среднее, 8 Мбит/с</string>
+    <string name="settings_quality_high_menu">Высокое, 20 Мбит/с</string>
+
+    <string name="settings_remote_heading">Удалённый доступ</string>
+    <string name="settings_remote_footer">Релей соединяет между сетями.</string>
+    <string name="settings_allow_relay">Разрешить подключения через релей</string>
+    <string name="settings_upgrade">Перейти на Pro</string>
+
+    <string name="settings_invite_heading">Пригласить друга</string>
+    <string name="settings_invite_code">Ваш код</string>
+    <string name="settings_invite_share">Поделиться кодом</string>
+    <string name="settings_invite_enter">Введите код друга</string>
+    <string name="settings_invite_hint">ABCD-EFGH</string>
+    <string name="settings_invite_redeem">Активировать</string>
+    <string name="settings_invite_bonus">Вы оба получаете дополнительно %1$d мин в день на %2$d дн.</string>
+    <string name="settings_invite_footer">Отправьте другу свой код. Он получит дополнительное время вне своей сети, и вы тоже.</string>
+    <string name="settings_invite_footer_running">+%1$d мин в день до %2$s. Использовано приглашений: %3$d из %4$d.</string>
+    <string name="settings_invite_footer_idle">Использовано приглашений: %1$d из %2$d. Друг получает дополнительное время, и вы тоже, пока у вас бесплатный тариф.</string>
+    <string name="settings_invite_message">Peering позволяет мне пользоваться компьютером с телефона. Откройте «Настройки», затем «Пригласить друга» и введите мой код %1$s, чтобы получить дополнительное время вне вашей сети: https://getpeering.app</string>
+    <string name="settings_invite_unknown">Такой код никому не принадлежит. Проверьте его и повторите попытку.</string>
+    <string name="settings_invite_own">Это ваш собственный код. Отправьте его другу.</string>
+    <string name="settings_invite_already">На этом устройстве вы уже использовали код.</string>
+    <string name="settings_invite_proof">Устройство не смогло подтвердить свою подлинность. Проверьте, что время установлено верно, и повторите попытку.</string>
+    <string name="settings_invite_busy">Сейчас это делают слишком многие. Повторите попытку через некоторое время.</string>
+    <string name="settings_invite_network_limit">Из этой сети пробовали слишком много кодов. Повторите позже или завтра.</string>
+    <string name="settings_invite_unavailable">Не удалось связаться с релеем. Повторите попытку через минуту.</string>
+
+    <string name="settings_security_heading">Безопасность и конфиденциальность</string>
+    <string name="settings_security_footer">Peering не собирает статистику использования. Никогда не собирает ни ваш экран, ни файлы, ни нажатия клавиш, ни компьютеры.</string>
+    <string name="settings_require_unlock">Требовать разблокировку при открытии</string>
+
+    <string name="settings_identity_footer">Как компьютеры узнают это устройство. Создаётся один раз, при первом запуске.</string>
+    <string name="settings_identity_id">ID устройства</string>
+    <string name="settings_identity_key">Закрытый ключ</string>
+    <string name="settings_identity_key_value">P-256, в Keystore</string>
+    <string name="settings_identity_paired">Связанные компьютеры</string>
+
+    <string name="settings_more_heading">Ещё</string>
+    <string name="settings_more_host_app">Peering для компьютера</string>
+    <string name="settings_more_introduction">Показать введение снова</string>
+    <string name="settings_more_copy_diagnostics">Скопировать диагностику</string>
+    <string name="settings_more_copied">Скопировано</string>
+    <string name="settings_more_report">Сообщить о проблеме</string>
+    <string name="settings_report_subject">Проблема в Peering</string>
+    <string name="settings_report_body">Что произошло:\n\n\nЧто я ожидал:\n\n\nPeering %1$s\nAndroid %2$s</string>
+    <string name="settings_no_mail_app">Почтовое приложение не установлено. Напишите на support@getpeering.app.</string>
+</resources>

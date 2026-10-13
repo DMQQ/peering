@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_clear">Limpar busca</string>
+    <string name="settings_search">Buscar nas configurações</string>
+    <string name="settings_no_match">Nenhuma configuração corresponde a \"%1$s\"</string>
+    <string name="settings_preference_save_failed">Não foi possível salvar essa configuração. Tente de novo.</string>
+
+    <string name="settings_keywords_device">este dispositivo nome telefone</string>
+    <string name="settings_keywords_controls">controles da sessão interação observar controlar toque imagem ajustar preencher teclado unicode código de tecla fechar painéis após selecionar</string>
+    <string name="settings_keywords_quality">qualidade da transmissão taxa de bits resolução vídeo auto automático</string>
+    <string name="settings_keywords_remote">acesso remoto relay internet fora upgrade pro</string>
+    <string name="settings_keywords_invite">convidar amigo código compartilhar resgatar indicação presente tempo extra</string>
+    <string name="settings_keywords_security">segurança digital rosto biometria desbloquear bloquear senha privacidade</string>
+    <string name="settings_keywords_trusted">computadores confiáveis pareados esquecer remover</string>
+    <string name="settings_keywords_identity">identidade do dispositivo id chave privada computadores pareados</string>
+    <string name="settings_keywords_more">mais peering computador baixar introdução relatar problema suporte ajuda</string>
+    <string name="settings_keywords_legal">jurídico política de privacidade termos avisos código aberto</string>
+
+    <string name="settings_device_heading">Este dispositivo</string>
+    <string name="settings_device_footer">O nome mostrado aos computadores quando você se conecta. Toque no nome para editá-lo.</string>
+    <string name="settings_device_name">Nome do dispositivo</string>
+
+    <string name="settings_controls_heading">Controles da sessão</string>
+    <string name="settings_interaction">Interação</string>
+    <string name="settings_interaction_control">Controlar</string>
+    <string name="settings_interaction_touch">Toque</string>
+    <string name="settings_interaction_observe">Observar</string>
+    <string name="settings_picture">Imagem</string>
+    <string name="settings_picture_fit">Ajustar à tela</string>
+    <string name="settings_picture_fill">Preencher a tela</string>
+    <string name="settings_keyboard">Teclado</string>
+    <string name="settings_keyboard_unicode">Unicode</string>
+    <string name="settings_keyboard_keycode">Código de tecla</string>
+    <string name="settings_keyboard_unicode_explanation">Envia texto. Emoji e escritas não latinas funcionam; atalhos do computador como Cmd+S não funcionam.</string>
+    <string name="settings_keyboard_keycode_explanation">Envia toques de tecla reais com modificadores. Os atalhos funcionam; caracteres fora do layout do computador são enviados como texto.</string>
+    <string name="settings_close_panels">Fechar painéis após selecionar</string>
+
+    <string name="settings_quality_row">Qualidade</string>
+    <string name="settings_quality_footer">O nível com que uma sessão começa. Mudá-lo durante uma sessão muda este também, então a próxima começa de onde você parou.</string>
+    <string name="settings_quality_auto_menu">Automático</string>
+    <string name="settings_quality_low_menu">Baixa, 2 Mbps</string>
+    <string name="settings_quality_medium_menu">Média, 8 Mbps</string>
+    <string name="settings_quality_high_menu">Alta, 20 Mbps</string>
+
+    <string name="settings_remote_heading">Acesso remoto</string>
+    <string name="settings_remote_footer">O relay conecta entre redes.</string>
+    <string name="settings_allow_relay">Permitir conexões por relay</string>
+    <string name="settings_upgrade">Fazer upgrade para o Pro</string>
+
+    <string name="settings_invite_heading">Convide um amigo</string>
+    <string name="settings_invite_code">Seu código</string>
+    <string name="settings_invite_share">Compartilhe seu código</string>
+    <string name="settings_invite_enter">Digite o código de um amigo</string>
+    <string name="settings_invite_hint">ABCD-EFGH</string>
+    <string name="settings_invite_redeem">Resgatar</string>
+    <string name="settings_invite_bonus">Vocês dois ganham %1$d minutos extras por dia durante %2$d dias.</string>
+    <string name="settings_invite_footer">Envie seu código a um amigo. Ele ganha tempo extra fora da própria rede, e você também.</string>
+    <string name="settings_invite_footer_running">+%1$d minutos por dia até %2$s. %3$d de %4$d convites usados.</string>
+    <string name="settings_invite_footer_idle">%1$d de %2$d convites usados. Seu amigo ganha tempo extra, e você também enquanto estiver no plano grátis.</string>
+    <string name="settings_invite_message">O Peering me deixa usar meu computador pelo telefone. Abra Configurações, depois Convide um amigo, e digite meu código %1$s para ganhar tempo extra fora da sua própria rede: https://getpeering.app</string>
+    <string name="settings_invite_unknown">Esse código não corresponde a ninguém. Confira e tente de novo.</string>
+    <string name="settings_invite_own">Esse é o seu próprio código. Envie-o a um amigo.</string>
+    <string name="settings_invite_already">Você já usou um código neste dispositivo.</string>
+    <string name="settings_invite_proof">Este dispositivo não conseguiu provar quem é. Confira se o relógio está certo e tente de novo.</string>
+    <string name="settings_invite_busy">Muita gente está fazendo isso agora. Tente de novo daqui a pouco.</string>
+    <string name="settings_invite_network_limit">Códigos demais foram tentados nesta rede. Tente de novo mais tarde ou amanhã.</string>
+    <string name="settings_invite_unavailable">Não foi possível alcançar o relay. Tente de novo em instantes.</string>
+
+    <string name="settings_security_heading">Segurança e privacidade</string>
+    <string name="settings_security_footer">O Peering não coleta estatísticas de uso. Nunca sua tela, seus arquivos, suas teclas digitadas ou seus computadores.</string>
+    <string name="settings_require_unlock">Exigir desbloqueio ao abrir</string>
+
+    <string name="settings_identity_footer">Como os computadores reconhecem este dispositivo. Criada uma vez, na primeira abertura.</string>
+    <string name="settings_identity_id">ID do dispositivo</string>
+    <string name="settings_identity_key">Chave privada</string>
+    <string name="settings_identity_key_value">P-256, no Keystore</string>
+    <string name="settings_identity_paired">Computadores pareados</string>
+
+    <string name="settings_more_heading">Mais</string>
+    <string name="settings_more_host_app">Peering para computador</string>
+    <string name="settings_more_introduction">Mostrar a introdução de novo</string>
+    <string name="settings_more_copy_diagnostics">Copiar diagnóstico</string>
+    <string name="settings_more_copied">Copiado</string>
+    <string name="settings_more_report">Relatar um problema</string>
+    <string name="settings_report_subject">Problema no Peering</string>
+    <string name="settings_report_body">O que aconteceu:\n\n\nO que eu esperava:\n\n\nPeering %1$s\nAndroid %2$s</string>
+    <string name="settings_no_mail_app">Nenhum app de e-mail instalado. Escreva para support@getpeering.app.</string>
+</resources>

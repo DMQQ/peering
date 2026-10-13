@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="review_title">待审阅</string>
+    <plurals name="review_files">
+        <item quantity="other">%d 个文件</item>
+    </plurals>
+    <plurals name="review_in_chats">
+        <item quantity="other">来自 %d 个聊天</item>
+    </plurals>
+    <plurals name="review_more_files">
+        <item quantity="other">另有 %d 个文件</item>
+    </plurals>
+    <string name="review_mark_all">全部标记为已审阅</string>
+    <string name="review_unmark_all">全部标记为未审阅</string>
+    <string name="review_mark_reviewed">已审阅</string>
+    <string name="review_empty_title">没有待审阅的内容</string>
+    <string name="review_empty_body">你的智能体更改过的文件会显示在这里，直到你看过为止。</string>
+    <string name="review_not_repository">此文件夹中没有 git 可比较的内容。</string>
+    <string name="review_checking">正在检查此聊天的更改…</string>
+</resources>

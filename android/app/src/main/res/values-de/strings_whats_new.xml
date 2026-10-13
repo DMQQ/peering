@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="whatsnew_title">Neu in dieser Version</string>
+    <string name="whatsnew_done">Verstanden</string>
+    <string name="whatsnew_desktops_title">Schreibtische und virtuelle Displays</string>
+    <string name="whatsnew_desktops_detail">Springe im Apps-Panel zwischen den Schreibtischen deines Computers, füge ein Display in der Form des Smartphones hinzu und schließe oder minimiere ein Fenster mit langem Drücken.</string>
+    <string name="whatsnew_composer_title">Befehle und Dateien im Eingabefeld</string>
+    <string name="whatsnew_composer_detail">Tippe einen Schrägstrich für Befehle und Skills oder ein At-Zeichen, um eine Datei zu erwähnen. Prüfe jede geänderte Datei aus all deinen Chats an einem Ort.</string>
+    <string name="whatsnew_review_title">Zu prüfen und Folgeschritte</string>
+    <string name="whatsnew_review_detail">Geänderte Dateien warten auf der Agenten-Seite, bis du sie angesehen hast, und ein beendeter Durchlauf bietet seinen nächsten Schritt als Taste an.</string>
+    <string name="whatsnew_wake_title">Computer aufwecken</string>
+    <string name="whatsnew_wake_detail">Sende aus seinem Menü auf der Seite „Verbinden“ ein Wecksignal an einen schlafenden Computer in deinem Netzwerk.</string>
+</resources>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hints_nothing_matches">Nothing matches</string>
+    <string name="hints_in_project">In this project</string>
+    <string name="hints_looking">Looking…</string>
+    <string name="hints_nothing_starts">Nothing here starts with “%1$s”.</string>
+    <plurals name="hints_more">
+        <item quantity="one">%d more, keep typing to narrow it</item>
+        <item quantity="other">%d more, keep typing to narrow it</item>
+    </plurals>
+    <string name="hints_tag_app">In Peering</string>
+    <string name="hints_tag_builtin">Built in</string>
+    <string name="hints_tag_command">Command</string>
+    <string name="hints_tag_skill">Skill</string>
+    <string name="hints_usage">Open usage and limits</string>
+    <string name="hints_model">Choose the model</string>
+    <string name="hints_rename">Rename this chat</string>
+    <string name="hints_compact">Summarise the conversation to free up context</string>
+    <string name="hints_clear">Start over with an empty context</string>
+    <string name="hints_this_project">This project</string>
+    <string name="hints_yours">Yours</string>
+    <string name="followup_review">Review changes</string>
+    <string name="followup_tests">Run the tests</string>
+    <string name="followup_summarize">Summarize changes</string>
+    <string name="agents_pane_empty_title">Pick a chat</string>
+    <string name="agents_pane_empty_body">Choose one from the list, or start a new one.</string>
+</resources>

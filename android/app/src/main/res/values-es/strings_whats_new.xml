@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="whatsnew_title">Novedades</string>
+    <string name="whatsnew_done">Entendido</string>
+    <string name="whatsnew_desktops_title">Escritorios y pantallas virtuales</string>
+    <string name="whatsnew_desktops_detail">Salta entre los escritorios de tu ordenador desde el panel Apps, añade una pantalla con la forma del teléfono y cierra o minimiza una ventana con una pulsación larga.</string>
+    <string name="whatsnew_composer_title">Comandos y archivos en el editor</string>
+    <string name="whatsnew_composer_detail">Escribe una barra para comandos y skills, o una arroba para mencionar un archivo. Revisa en un solo lugar todos los archivos modificados de tus chats.</string>
+    <string name="whatsnew_review_title">Por revisar y siguientes pasos</string>
+    <string name="whatsnew_review_detail">Los archivos modificados esperan en la página Agentes hasta que los hayas mirado, y un turno terminado ofrece su siguiente paso como botón.</string>
+    <string name="whatsnew_wake_title">Activa tu ordenador</string>
+    <string name="whatsnew_wake_detail">Envía un paquete de activación a un ordenador en reposo de tu red desde su menú en la página Conectar.</string>
+</resources>

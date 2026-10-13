@@ -1,0 +1,532 @@
+//! The host runtime over fakes, and a scripted phone that talks to it over in-memory streams.
+#![allow(dead_code)]
+
+pub mod pairing;
+pub use pairing::PairingClient;
+
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::time::Duration;
+
+use peering_agent::availability::BinaryLocator;
+use peering_core::fakes::capture::FakeCapture;
+use peering_core::fakes::clipboard::MemoryClipboard;
+use peering_core::fakes::clock::FakeClock;
+use peering_core::files::fake_disk::SharedFakeDisk;
+use peering_core::fakes::encoder::FakeEncoder;
+use peering_core::fakes::input::RecordingInput;
+use peering_core::fakes::secret_store::InMemorySecretStore;
+use peering_core::fakes::system::RecordingSystem;
+use peering_core::files::fake::InMemoryFileSystem;
+use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame, WindowInfo};
+use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
+use peering_core::ports::input::{InputSink, TransformSnapshot};
+use peering_core::ports::system::{SystemActions, SystemError};
+use peering_core::terminal::fake::FakeSpawner;
+use peering_core::terminal::shell::{Shell, ShellKind};
+use peering_core::session::handshake::PROTOCOL_VERSION;
+use peering_core::pairing::PairingOffer;
+use peering_host::runtime::{HostProfile, HostRuntime, HostServices, PeerInfo, TerminalServices};
+use peering_wire::command::RemoteCommand;
+use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
+use peering_wire::handshake::{ClientCapabilities, ClientHello, PairConfirm, PairResult, ServerHello};
+use peering_wire::source::{CaptureSource, NormalizedPoint};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream, ReadHalf, WriteHalf};
+use tokio::task::{spawn_local, yield_now};
+
+pub const CLIENT_ID: &str = "11111111-2222-3333-4444-555555555555";
+pub const CLIENT_NAME: &str = "Pixel 9";
+pub const HOST_ID: &str = "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE";
+pub const HOST_NAME: &str = "Studio PC";
+pub const CLIENT_KEY: [u8; 65] = [0xC7; 65];
+pub const HOST_KEY: [u8; 65] = [0xE5; 65];
+const UNIX_NOW: u64 = 1_800_000_000;
+const WAIT: Duration = Duration::from_secs(5);
+pub const CONTROL_ROLE: u8 = 1;
+pub const VIDEO_ROLE: u8 = 2;
+
+fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// The capture the test controls. The runtime and the video coordinator both reach it through the wrapper.
+pub struct SharedCapture(pub Arc<Mutex<FakeCapture>>);
+
+impl Capture for SharedCapture {
+    fn list_displays(&self) -> Vec<DisplayInfo> {
+        locked(&self.0).list_displays()
+    }
+
+    fn start(&mut self, display_id: u32) -> Result<(), CaptureError> {
+        locked(&self.0).start(display_id)
+    }
+
+    fn list_windows(&self) -> Vec<WindowInfo> {
+        locked(&self.0).list_windows()
+    }
+
+    fn window(&self, window_id: u32) -> Option<WindowInfo> {
+        locked(&self.0).window(window_id)
+    }
+
+    fn start_window(&mut self, window_id: u32) -> Result<(), CaptureError> {
+        locked(&self.0).start_window(window_id)
+    }
+
+    fn stop(&mut self) {
+        locked(&self.0).stop();
+    }
+
+    fn poll_frame(&mut self) -> Option<RawFrame> {
+        locked(&self.0).poll_frame()
+    }
+}
+
+/// The input the test inspects after the runtime has applied it.
+pub struct SharedInput(pub Arc<Mutex<RecordingInput>>);
+
+impl InputSink for SharedInput {
+    fn apply(&mut self, command: &RemoteCommand, transform: &TransformSnapshot) {
+        locked(&self.0).apply(command, transform);
+    }
+
+    fn release_all(&mut self) {
+        locked(&self.0).release_all();
+    }
+
+    fn pointer_position(&self) -> Option<(f64, f64)> {
+        locked(&self.0).pointer_position()
+    }
+
+    fn last_injected_position(&self) -> Option<(f64, f64)> {
+        locked(&self.0).last_injected_position()
+    }
+
+    fn joystick_nudges(&self) -> u64 {
+        locked(&self.0).joystick_nudges()
+    }
+
+    fn button_presses(&self) -> u64 {
+        locked(&self.0).button_presses()
+    }
+}
+
+/// The encoder the test inspects after the runtime has driven it.
+pub struct SharedEncoder(pub Arc<Mutex<FakeEncoder>>);
+
+impl Encoder for SharedEncoder {
+    fn configure(&mut self, width: u32, height: u32, fps: u32, bitrate_bps: u32) -> Result<(), EncodeError> {
+        locked(&self.0).configure(width, height, fps, bitrate_bps)
+    }
+
+    fn encode(&mut self, frame: &RawFrame, force_keyframe: bool) -> Result<Vec<EncodedOutput>, EncodeError> {
+        locked(&self.0).encode(frame, force_keyframe)
+    }
+
+    fn set_bitrate(&mut self, bitrate_bps: u32) {
+        locked(&self.0).set_bitrate(bitrate_bps);
+    }
+}
+
+/// The workstation the test inspects after a lock request.
+pub struct SharedSystem(pub Arc<Mutex<RecordingSystem>>);
+
+impl SystemActions for SharedSystem {
+    fn can_lock_workstation(&self) -> bool {
+        locked(&self.0).can_lock_workstation()
+    }
+
+    fn lock_workstation(&mut self) -> Result<(), SystemError> {
+        locked(&self.0).lock_workstation()
+    }
+
+    fn session_notice(&self) -> Option<peering_wire::handshake::NoticePayload> {
+        locked(&self.0).session_notice()
+    }
+
+    fn set_keep_awake(&mut self, awake: bool) {
+        locked(&self.0).set_keep_awake(awake);
+    }
+
+    fn hardware_addresses(&self) -> Vec<String> {
+        locked(&self.0).hardware_addresses()
+    }
+}
+
+pub struct Harness {
+    pub runtime: HostRuntime,
+    pub capture: Arc<Mutex<FakeCapture>>,
+    pub encoder: Arc<Mutex<FakeEncoder>>,
+    pub input: Arc<Mutex<RecordingInput>>,
+    pub system: Arc<Mutex<RecordingSystem>>,
+    pub secrets: Arc<InMemorySecretStore>,
+    pub clock: Arc<FakeClock>,
+    pub shells: FakeSpawner,
+    pub clipboard: Arc<MemoryClipboard>,
+    pub disk: SharedFakeDisk,
+}
+
+pub fn display() -> DisplayInfo {
+    DisplayInfo {
+        id: 1,
+        name: "Built-in".to_owned(),
+        pixel_width: 3840,
+        pixel_height: 2160,
+        origin_x: 0,
+        origin_y: 0,
+        scale: 1.5,
+        is_primary: true,
+    }
+}
+
+pub fn harness() -> Harness {
+    harness_with_system(RecordingSystem::new(true, None))
+}
+
+/// A host whose workstation is `system`, for tests of the lock request and of the hello that advertises it.
+pub fn harness_with_system(system: RecordingSystem) -> Harness {
+    let encoder = Arc::new(Mutex::new(FakeEncoder::default()));
+    harness_with(vec![display()], system, Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: true }), Arc::new(InMemorySecretStore::default()))
+}
+
+/// The answer to "is the agent CLI installed", fixed by the test.
+pub struct AgentCli {
+    pub installed: bool,
+}
+
+impl BinaryLocator for AgentCli {
+    fn is_installed(&self, _program: &str) -> bool {
+        self.installed
+    }
+}
+
+/// A host on a PC without the agent CLI.
+pub fn harness_without_agent_cli() -> Harness {
+    let encoder = Arc::new(Mutex::new(FakeEncoder::default()));
+    harness_with(vec![display()], RecordingSystem::new(true, None), Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: false }), Arc::new(InMemorySecretStore::default()))
+}
+
+/// A host whose encoder is `encoder`. `unused` stands in for the inspectable encoder the other tests read.
+pub fn harness_with_encoder(encoder: Box<dyn Encoder + Send>) -> Harness {
+    harness_with(vec![display()], RecordingSystem::new(true, None), encoder, Arc::new(Mutex::new(FakeEncoder::default())), Box::new(AgentCli { installed: true }), Arc::new(InMemorySecretStore::default()))
+}
+
+/// A host whose secret store already holds `value` under `name`, as left by an earlier run.
+pub fn harness_with_stored_secret(name: &str, value: &[u8]) -> Harness {
+    let secrets = Arc::new(InMemorySecretStore::default());
+    assert!(peering_core::ports::secret_store::SecretStore::write(secrets.as_ref(), name, value));
+    let encoder = Arc::new(Mutex::new(FakeEncoder::default()));
+    harness_with(vec![display()], RecordingSystem::new(true, None), Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: true }), secrets)
+}
+
+/// A second, non-primary display, for tests of switching the captured screen.
+pub fn second_display() -> DisplayInfo {
+    DisplayInfo { id: 2, name: "External".to_owned(), is_primary: false, ..display() }
+}
+
+/// A host with two displays whose encoder is `encoder`.
+pub fn harness_with_two_displays(encoder: Box<dyn Encoder + Send>) -> Harness {
+    harness_with(
+        vec![display(), second_display()],
+        RecordingSystem::new(true, None),
+        encoder,
+        Arc::new(Mutex::new(FakeEncoder::default())),
+        Box::new(AgentCli { installed: true }),
+        Arc::new(InMemorySecretStore::default()),
+    )
+}
+
+fn harness_with(
+    displays: Vec<DisplayInfo>,
+    system: RecordingSystem,
+    encoder_port: Box<dyn Encoder + Send>,
+    encoder: Arc<Mutex<FakeEncoder>>,
+    agent_binaries: Box<dyn BinaryLocator>,
+    secrets: Arc<InMemorySecretStore>,
+) -> Harness {
+    let capture = Arc::new(Mutex::new(FakeCapture::new(displays)));
+    let system = Arc::new(Mutex::new(system));
+    let input = Arc::new(Mutex::new(RecordingInput::default()));
+    let mut files = InMemoryFileSystem::default();
+    files.add_folder("C:\\Users\\me", 0.0);
+    files.add_file("C:\\Users\\me\\notes.txt", b"hello", 0.0);
+    let clock = Arc::new(FakeClock::new(100.0, UNIX_NOW));
+    let shells = FakeSpawner::default();
+    let clipboard = Arc::new(MemoryClipboard::default());
+    let disk = SharedFakeDisk::default();
+    disk.with(|disk| {
+        disk.add_folder("C:\\Users\\me");
+        disk.protect("C:\\Users\\me");
+    });
+    let services = HostServices {
+        capture: Box::new(SharedCapture(capture.clone())),
+        encoder: encoder_port,
+        input: Box::new(SharedInput(input.clone())),
+        system: Box::new(SharedSystem(system.clone())),
+        secrets: secrets.clone(),
+        files: Arc::new(files),
+        terminal: TerminalServices {
+            spawner: Box::new(shells.clone()),
+            shells: vec![Shell { kind: ShellKind::Cmd, program: "cmd.exe".to_owned(), arguments: Vec::new() }],
+            directory: "C:\\Users\\me".to_owned(),
+            environment: Vec::new(),
+        },
+        rebuild_video: {
+            let capture = capture.clone();
+            let encoder = encoder.clone();
+            Arc::new(move || (Box::new(SharedCapture(capture.clone())), Box::new(SharedEncoder(encoder.clone()))))
+        },
+        home_directory: "C:\\Users\\me".to_owned(),
+        agent_binaries,
+        clipboard: clipboard.clone(),
+        file_disk: Box::new(disk.clone()),
+        extras: Default::default(),
+    };
+    let profile = HostProfile {
+        host_id: HOST_ID.to_owned(),
+        host_name: HOST_NAME.to_owned(),
+        identity_public_key: HOST_KEY.to_vec(),
+        mac_addresses: Vec::new(),
+        clock: clock.clone(),
+    };
+    let runtime = HostRuntime::new(profile, services).expect("the runtime builds over fakes");
+    Harness { runtime, capture, encoder, input, system, secrets, clock, shells, clipboard, disk }
+}
+
+pub fn direct_peer() -> PeerInfo {
+    PeerInfo { public_key: Some(CLIENT_KEY.to_vec()), address: None, via_relay: false, video_token: None, video_endpoint: None }
+}
+
+/// A direct peer that connected from `address`.
+pub fn direct_peer_at(address: &str) -> PeerInfo {
+    PeerInfo { address: Some(address.parse().expect("a test address parses")), ..direct_peer() }
+}
+
+pub fn encode_json<T: Serialize>(kind: MessageKind, value: &T) -> Frame {
+    Frame::new(kind, serde_json::to_vec(value).expect("test messages serialise"))
+}
+
+pub fn decode_json<T: DeserializeOwned>(frame: &Frame) -> T {
+    serde_json::from_slice(&frame.payload).expect("the frame decodes")
+}
+
+pub fn role_frame(role: u8) -> Frame {
+    Frame::new(MessageKind::ConnectionRole, vec![role])
+}
+
+/// One client end of a connection. The host serves the other end on the local task set.
+pub struct Phone {
+    reader: ReadHalf<DuplexStream>,
+    writer: WriteHalf<DuplexStream>,
+    decoder: FrameDecoder,
+    queued: VecDeque<Frame>,
+}
+
+impl Phone {
+    pub fn connect(runtime: &HostRuntime, peer: PeerInfo) -> Phone {
+        let (client, host) = tokio::io::duplex(256 * 1024);
+        let runtime = runtime.clone();
+        spawn_local(async move { runtime.serve_stream(host, peer).await });
+        let (reader, writer) = tokio::io::split(client);
+        Phone { reader, writer, decoder: FrameDecoder::new(), queued: VecDeque::new() }
+    }
+
+    pub async fn send(&mut self, frame: Frame) {
+        self.writer.write_all(&frame.encode()).await.expect("the host reads what the phone writes");
+    }
+
+    /// The next frame, or None once the host has closed the connection.
+    pub async fn try_next(&mut self) -> Option<Frame> {
+        let read_frames = async {
+            loop {
+                if let Some(frame) = self.queued.pop_front() {
+                    return Some(frame);
+                }
+                let mut chunk = [0u8; 8192];
+                let count = match self.reader.read(&mut chunk).await {
+                    Ok(0) | Err(_) => return None,
+                    Ok(count) => count,
+                };
+                self.decoder.push(&chunk[..count]);
+                while let Some(frame) = self.decoder.next_frame().expect("the host writes valid frames") {
+                    self.queued.push_back(frame);
+                }
+            }
+        };
+        tokio::time::timeout(WAIT, read_frames).await.expect("the host answers within five seconds")
+    }
+
+    pub async fn next(&mut self) -> Frame {
+        self.try_next().await.expect("the host keeps the connection open")
+    }
+
+    /// The next frame of `kind`; frames of other kinds before it are skipped.
+    pub async fn next_of(&mut self, kind: MessageKind) -> Frame {
+        loop {
+            let frame = self.next().await;
+            if frame.kind == kind {
+                return frame;
+            }
+        }
+    }
+
+    /// The next frame whose kind is one of `kinds`; frames of other kinds before it are skipped.
+    pub async fn next_of_either(&mut self, kinds: &[MessageKind]) -> Frame {
+        loop {
+            let frame = self.next().await;
+            if kinds.contains(&frame.kind) {
+                return frame;
+            }
+        }
+    }
+
+    pub async fn send_json<T: Serialize>(&mut self, kind: MessageKind, value: &T) {
+        self.send(encode_json(kind, value)).await;
+    }
+
+    pub async fn send_command(&mut self, command: &RemoteCommand) {
+        self.send_json(MessageKind::Command, command).await;
+    }
+
+    /// Waits until the host has handled everything sent so far: a ping is answered after the frames before it.
+    pub async fn sync(&mut self) {
+        self.send(Frame::empty(MessageKind::Ping)).await;
+        self.next_of(MessageKind::Pong).await;
+    }
+}
+
+pub fn hello() -> Frame {
+    hello_from(CLIENT_ID)
+}
+
+/// The hello of the phone named `client_id`.
+pub fn hello_from(client_id: &str) -> Frame {
+    hello_declaring(client_id, ClientCapabilities { supports_agent_chat: Some(true), ..Default::default() })
+}
+
+/// The hello of the phone named `client_id`, declaring exactly `capabilities`.
+pub fn hello_declaring(client_id: &str, capabilities: ClientCapabilities) -> Frame {
+    let hello = ClientHello {
+        client_id: client_id.to_owned(),
+        client_name: CLIENT_NAME.to_owned(),
+        protocol_version: PROTOCOL_VERSION,
+        wants_pairing: true,
+        capabilities,
+        resume_source: None,
+        lost_pairing: None,
+        client_platform: Some("android".to_owned()),
+        video_codecs: None,
+    };
+    encode_json(MessageKind::ClientHello, &hello)
+}
+
+/// Polls `check` until it yields a value. Used where the host acts on its own task, so the test yields to let it run.
+pub async fn until<T>(mut check: impl FnMut() -> Option<T>) -> T {
+    for _ in 0..10_000 {
+        if let Some(value) = check() {
+            return value;
+        }
+        yield_now().await;
+    }
+    panic!("the host reached the expected state");
+}
+
+/// Lets the host process the reveal, then returns the pairing offer it shows.
+pub async fn wait_for_offer(runtime: &HostRuntime) -> peering_core::pairing::PairingOffer {
+    for _ in 0..10_000 {
+        if let Some(offer) = runtime.pairing_offer() {
+            return offer;
+        }
+        yield_now().await;
+    }
+    panic!("the host shows a pairing code");
+}
+
+/// Runs the handshake and the code exchange over `peer`, then confirms with the proof `proof_for` computes from the
+/// offer. Returns the phone, the PairResult the host sent and the offer the host showed.
+pub async fn pair_with_peer(
+    runtime: &HostRuntime,
+    peer: PeerInfo,
+    proof_for: impl FnOnce(&PairingClient, &[u8]) -> Vec<u8>,
+) -> (Phone, PairResult, PairingOffer) {
+    let mut phone = Phone::connect(runtime, peer);
+    let mut client = PairingClient::new();
+    phone.send(role_frame(CONTROL_ROLE)).await;
+    phone.send(hello()).await;
+    phone.next_of(MessageKind::ServerHello).await;
+    client.take_host_commit(&phone.next_of(MessageKind::PairCommit).await);
+    phone.send(client.commit()).await;
+    let reveal = phone.next_of(MessageKind::PairReveal).await;
+    assert!(client.take_host_reveal(&reveal), "the host reveal matches its commitment");
+    phone.send(client.reveal()).await;
+    let offer = wait_for_offer(runtime).await;
+    assert_eq!(client.code(), offer.code, "both ends compute the same six digits");
+    let secret = hex::decode(&offer.secret_hex).expect("the offer carries hex");
+    let proof = proof_for(&client, &secret);
+    phone.send_json(MessageKind::PairConfirm, &PairConfirm { accepted: true, proof: Some(proof) }).await;
+    let result: PairResult = decode_json(&phone.next_of(MessageKind::PairResult).await);
+    (phone, result, offer)
+}
+
+/// A second connection of the already paired phone, authorised once the catalogue arrives.
+pub async fn reconnected_phone(runtime: &HostRuntime) -> Phone {
+    let mut phone = Phone::connect(runtime, direct_peer());
+    phone.send(role_frame(CONTROL_ROLE)).await;
+    phone.send(hello()).await;
+    phone.next_of(MessageKind::Catalog).await;
+    phone
+}
+
+/// A second connection of the already paired phone that declares `capabilities`, authorised once the catalogue arrives.
+pub async fn reconnected_phone_declaring(runtime: &HostRuntime, capabilities: ClientCapabilities) -> Phone {
+    let mut phone = Phone::connect(runtime, direct_peer());
+    phone.send(role_frame(CONTROL_ROLE)).await;
+    phone.send(hello_declaring(CLIENT_ID, capabilities)).await;
+    phone.next_of(MessageKind::Catalog).await;
+    phone
+}
+
+/// The hello a paired phone is answered with on a second connection.
+pub async fn paired_server_hello(runtime: &HostRuntime) -> ServerHello {
+    let mut phone = Phone::connect(runtime, direct_peer());
+    phone.send(role_frame(CONTROL_ROLE)).await;
+    phone.send(hello()).await;
+    server_hello(&phone.next_of(MessageKind::ServerHello).await)
+}
+
+/// Pairs over a direct connection with the proof computed from the QR secret, and returns the phone authorised.
+pub async fn paired_phone(runtime: &HostRuntime) -> Phone {
+    let (phone, result, _offer) = pair_with_peer(runtime, direct_peer(), |client, secret| client.proof(secret)).await;
+    assert!(result.accepted, "the pairing is accepted");
+    phone
+}
+
+pub fn server_hello(frame: &Frame) -> ServerHello {
+    decode_json(frame)
+}
+
+pub fn select_display_command() -> RemoteCommand {
+    RemoteCommand::SetCaptureSource { source: CaptureSource::Display { id: 1 } }
+}
+
+pub fn mouse_move(x: f64, y: f64) -> RemoteCommand {
+    RemoteCommand::MouseMove { to: NormalizedPoint { x, y } }
+}
+
+/// Runs a test body on a current-thread runtime with a local task set, as the host does.
+pub fn run<F: std::future::Future<Output = ()>>(body: F) {
+    let executor = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("an executor starts");
+    tokio::task::LocalSet::new().block_on(&executor, body);
+}
+
+/// Like `run`, with tokio's clock paused: a wait for the host's one-second tick completes at once.
+pub fn run_paused<F: std::future::Future<Output = ()>>(body: F) {
+    let executor = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .start_paused(true)
+        .build()
+        .expect("an executor starts");
+    tokio::task::LocalSet::new().block_on(&executor, body);
+}

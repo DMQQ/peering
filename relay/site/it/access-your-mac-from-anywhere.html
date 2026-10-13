@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Accedi al tuo Mac da ovunque · Peering</title>
+<meta name="description" content="Associa una volta sulla tua rete, poi raggiungi il tuo Mac da ovunque: un hotel, un treno, il Wi-Fi di qualcun altro, direttamente tra i due dispositivi quando possibile.">
+<link rel="canonical" href="https://getpeering.app/it/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/access-your-mac-from-anywhere">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="it_IT">
+<meta property="og:url" content="https://getpeering.app/it/access-your-mac-from-anywhere">
+<meta property="og:title" content="Accedi al tuo Mac da ovunque · Peering">
+<meta property="og:description" content="Associa una volta a casa, poi raggiungi il tuo Mac da ovunque. Direttamente tra i due dispositivi quando la rete lo consente.">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Accedi al tuo Mac da ovunque · Peering">
+<meta name="twitter:description" content="Associa una volta a casa, poi raggiungi il tuo Mac da ovunque. Direttamente tra i due dispositivi quando la rete lo consente.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Accedi al tuo Mac da ovunque",
+  "description": "Associa una volta sulla tua rete, poi raggiungi il tuo Mac da ovunque: un hotel, un treno, il Wi-Fi di qualcun altro, direttamente tra i due dispositivi quando possibile.",
+  "url": "https://getpeering.app/it/access-your-mac-from-anywhere",
+  "mainEntityOfPage": "https://getpeering.app/it/access-your-mac-from-anywhere",
+  "dateModified": "2026-09-27",
+  "image": "https://getpeering.app/assets/og.png",
+  "inLanguage": "it",
+  "author": {
+    "@type": "Person",
+    "name": "Damian Derlecki"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/pears.png"
+    }
+  },
+  "about": {
+    "@type": "SoftwareApplication",
+    "name": "Peering",
+    "url": "https://getpeering.app/",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "iOS, macOS"
+  }
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/it/" aria-label="Peering, pagina iniziale">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Pagine">
+      <a href="/it/">Home</a>
+      <a href="/it/how-to-pair-iphone-mac">Guida all'associazione</a>
+      <a href="/it/remote-desktop-for-mac">Desktop remoto</a>
+      <a href="/it/download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>Accedi al tuo Mac da ovunque</h1>
+    <p class="updated">Associa una volta, sulla tua rete. Dopo, il tuo iPhone e il tuo Mac si trovano a vicenda ovunque tu sia.</p>
+
+    <div class="card callout">
+      <strong>In breve.</strong> La prima associazione richiede che i due dispositivi siano sulla stessa
+      rete, oppure la scansione del codice QR con l'ID dispositivo del Mac. Ogni connessione successiva funziona da
+      un hotel, da un treno o dal Wi-Fi di qualcun altro: i due dispositivi provano prima un percorso diretto
+      tra loro e ricorrono a un relay solo quando la rete non ne consente uno.
+    </div>
+
+    <h2>Come si trovano i due dispositivi</h2>
+    <p>
+      Entrambe le estremità stanno dietro reti che non accettano traffico non richiesto, quindi entrambe si
+      connettono in uscita a un relay che le presenta. Una volta presentate, provano un percorso diretto
+      tra loro; se non è possibile, il relay continua a trasportare la sessione. La schermata della sessione
+      indica quale hai ottenuto: LAN, RELAY o DIRECT&middot;P2P, così non devi mai indovinare.
+    </p>
+    <p>
+      Oggi il relay funziona da un'unica sede in Finlandia, quindi una sessione via relay aggiunge
+      più ritardo quanto più sei lontano da essa, in modo più evidente da altri continenti. È un
+      punto di partenza, non un punto fermo: vengono aggiunte altre sedi man mano che l'uso supera ciò che
+      una sola può sostenere bene.
+    </p>
+
+    <h2>Cosa può e non può vedere il relay</h2>
+    <p>
+      I tuoi dispositivi cifrano la connessione da un capo all'altro e non danno mai le chiavi al relay. Questo
+      protegge video, audio, tasti premuti, input del puntatore e testo degli appunti, sia che i dispositivi
+      si connettano direttamente sia che passino dal relay.
+    </p>
+    <p>
+      Cosa gestisce invece: identificatori dei dispositivi, il nome del tuo Mac, informazioni tecniche di
+      compatibilità, il piano in uso e l'uso del relay necessario a fornire la connessione. Vede
+      l'indirizzo da cui si connette ciascun dispositivo, come fa qualsiasi server, e consegna a ciascuno quello dell'altro in modo che
+      possano provare quel percorso diretto. Tutti i dettagli sono nell'<a href="/it/privacy">Informativa
+      sulla privacy</a>.
+    </p>
+
+    <h2>Mantenere un Mac raggiungibile mentre sei fuori</h2>
+    <p>
+      Un Mac andato in stop non può essere raggiunto finché qualcosa non lo riattiva, ed è a questo che servono
+      gli interruttori per quando sei fuori casa: tenerlo attivo da solo, secondo un programma, riattivarlo una volta al
+      giorno oppure tenerlo in funzione a coperchio chiuso. Tutti e quattro sono facoltativi e disattivati per impostazione predefinita,
+      descritti nel <a href="/it/how-to-pair-iphone-mac">secondo passaggio della guida all'associazione</a>. Anche Wake on LAN
+      è integrato, per riattivare un Mac in stop attraverso la rete subito prima di connetterti.
+    </p>
+
+    <h2>Quanto costa</h2>
+    <p>
+      Raggiungere il tuo Mac attraverso la tua rete è gratuito e senza limiti, per tutto il tempo che vuoi. Il relay, per raggiungerlo da qualsiasi altro posto, è gratuito per 30 minuti al giorno e illimitato con Pro ($2.99 al mese) o A vita ($24.99, pagato una volta). Ogni funzione è disponibile con ogni piano. Il confronto completo è nella <a href="/it/#pricing">tabella dei prezzi</a>.
+    </p>
+
+    <h2>Configuralo</h2>
+    <p>
+      Il percorso via relay non richiede nulla di extra da configurare: associa il tuo iPhone e il tuo Mac una volta, sulla stessa
+      rete, e ogni connessione successiva prova già il relay quando serve. La
+      <a href="/it/how-to-pair-iphone-mac">guida all'associazione</a> spiega la prima associazione stessa,
+      compreso un modo per associare senza condividere affatto una rete.
+    </p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/it/download">Scarica Peering per Mac</a>
+      <a class="btn btn-quiet" href="/it/how-to-pair-iphone-mac">Leggi la guida all'associazione</a>
+    </div>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Guide, note legali e supporto">
+      <a href="/it/how-to-pair-iphone-mac">Guida all'associazione</a>
+      <a href="/it/remote-desktop-for-mac">Desktop remoto</a>
+      <a href="/it/access-your-mac-from-anywhere">Da ovunque</a>
+      <a href="/it/keep-mac-awake-for-remote-access">Mac a casa</a>
+      <a href="/it/coding-agent-notifications">Agenti di coding</a>
+      <a href="/it/remote-desktop-apps-compared">Confronto tra app</a>
+      <a href="/it/screens-alternative">Alternativa a Screens</a>
+      <a href="/it/download">Download</a>
+      <a href="/it/privacy">Privacy</a>
+      <a href="/it/terms">Condizioni</a>
+      <a href="mailto:support@getpeering.app">Supporto</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/access-your-mac-from-anywhere" hreflang="en" lang="en">English</a>
+      <a href="/de/access-your-mac-from-anywhere" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/access-your-mac-from-anywhere" hreflang="es" lang="es">Español</a>
+      <a href="/fr/access-your-mac-from-anywhere" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/access-your-mac-from-anywhere" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/access-your-mac-from-anywhere" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/access-your-mac-from-anywhere" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/access-your-mac-from-anywhere" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/access-your-mac-from-anywhere" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/access-your-mac-from-anywhere" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone e Mac sono marchi di Apple Inc.</p>
+  </div>
+</footer>
+
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "cfb4c63dbb064db0be97352055d02cd6"}'></script>
+</body>
+</html>

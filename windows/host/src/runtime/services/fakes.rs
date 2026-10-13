@@ -1,0 +1,39 @@
+//! Stand-ins for the Windows adapters, used off Windows. Nothing is captured and nothing persists, so the host answers
+//! clients and runs its logic, but has no picture to send.
+
+use std::sync::Arc;
+
+use peering_core::fakes::clipboard::MemoryClipboard;
+use peering_core::fakes::encoder::FakeEncoder;
+use peering_core::fakes::input::RecordingInput;
+use peering_core::fakes::secret_store::InMemorySecretStore;
+use peering_core::fakes::capture::FakeCapture;
+use peering_core::fakes::system::RecordingSystem;
+use peering_core::terminal::fake::FakeSpawner;
+
+use super::adapters::Adapters;
+use crate::runtime::disk::StdDisk;
+use crate::runtime::files::DiskFileSystem;
+use peering_core::ports::recycle::NoRecycleBin;
+use crate::runtime::{HostExtras, RuntimeError, TerminalServices};
+
+pub fn build() -> Result<Adapters, RuntimeError> {
+    Ok(Adapters {
+        capture: Box::new(FakeCapture::new(Vec::new())),
+        encoder: Box::new(FakeEncoder::default()),
+        input: Box::new(RecordingInput::default()),
+        system: Box::new(RecordingSystem::new(false, None)),
+        secrets: Arc::new(InMemorySecretStore::default()),
+        files: Arc::new(DiskFileSystem),
+        terminal: TerminalServices {
+            spawner: Box::new(FakeSpawner::default()),
+            shells: Vec::new(),
+            directory: String::new(),
+            environment: Vec::new(),
+        },
+        rebuild_video: Arc::new(|| (Box::new(FakeCapture::new(Vec::new())), Box::new(FakeEncoder::default()))),
+        clipboard: Arc::new(MemoryClipboard::default()),
+        file_disk: Box::new(StdDisk::new(Box::new(NoRecycleBin), Vec::new(), None)),
+        extras: HostExtras::default(),
+    })
+}

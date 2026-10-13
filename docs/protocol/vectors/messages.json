@@ -1,0 +1,200 @@
+{
+ "cases": [
+  {
+   "name": "clientHello",
+   "kind": 2,
+   "json": "{\"clientID\":\"c-1\",\"clientName\":\"iPhone\",\"protocolVersion\":20,\"wantsPairing\":false}",
+   "frame": "00000053027b22636c69656e744944223a22632d31222c22636c69656e744e616d65223a226950686f6e65222c2270726f746f636f6c56657273696f6e223a32302c2277616e747350616972696e67223a66616c73657d",
+   "source": "swift-test HandshakeTests.swift:179"
+  },
+  {
+   "name": "clientHello flags",
+   "kind": 2,
+   "json": "{\"clientID\":\"c-1\",\"clientName\":\"Pixel\",\"lostPairing\":true,\"protocolVersion\":20,\"supportsAgentChat\":true,\"wantsPairing\":true}",
+   "frame": "0000007d027b22636c69656e744944223a22632d31222c22636c69656e744e616d65223a22506978656c222c226c6f737450616972696e67223a747275652c2270726f746f636f6c56657273696f6e223a32302c22737570706f7274734167656e7443686174223a747275652c2277616e747350616972696e67223a747275657d",
+   "source": "computed"
+  },
+  {
+   "name": "serverHello minimal",
+   "kind": 3,
+   "json": "{\"alreadyPaired\":true,\"hostName\":\"Mac\",\"protocolVersion\":20,\"serverID\":\"server-1\"}",
+   "frame": "00000053037b22616c7265616479506169726564223a747275652c22686f73744e616d65223a224d6163222c2270726f746f636f6c56657273696f6e223a32302c227365727665724944223a227365727665722d31227d",
+   "source": "swift-test HandshakeTests.swift:100"
+  },
+  {
+   "name": "serverHello flags",
+   "kind": 3,
+   "json": "{\"agentChatAgents\":[\"claude\"],\"alreadyPaired\":false,\"hostName\":\"PC\",\"protocolVersion\":20,\"serverID\":\"server-1\",\"supportsVideoPause\":true}",
+   "frame": "0000008a037b226167656e74436861744167656e7473223a5b22636c61756465225d2c22616c7265616479506169726564223a66616c73652c22686f73744e616d65223a225043222c2270726f746f636f6c56657273696f6e223a32302c227365727665724944223a227365727665722d31222c22737570706f727473566964656f5061757365223a747275657d",
+   "source": "computed"
+  },
+  {
+   "name": "pairCommit",
+   "kind": 14,
+   "json": "{\"commitment\":\"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=\"}",
+   "frame": "0000003e0e7b22636f6d6d69746d656e74223a22415145424151454241514542415145424151454241514542415145424151454241514542415145424151453d227d",
+   "source": "computed"
+  },
+  {
+   "name": "pairReveal",
+   "kind": 15,
+   "json": "{\"ephemeralPublicKey\":\"BAICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=\",\"nonce\":\"AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=\"}",
+   "frame": "000000a90f7b22657068656d6572616c5075626c69634b6579223a224241494341674943416749434167494341674943416749434167494341674943416749434167494341674943416749434167494341674943416749434167494341674943416749434167494341674943416749434167493d222c226e6f6e6365223a2241774d4441774d4441774d4441774d4441774d4441774d4441774d4441774d4441774d4441774d4441774d3d227d",
+   "source": "computed"
+  },
+  {
+   "name": "pairConfirm proof",
+   "kind": 4,
+   "json": "{\"accepted\":true,\"proof\":\"CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=\"}",
+   "frame": "00000049047b226163636570746564223a747275652c2270726f6f66223a2243516b4a43516b4a43516b4a43516b4a43516b4a43516b4a43516b4a43516b4a43516b4a43516b4a43516b3d227d",
+   "source": "computed"
+  },
+  {
+   "name": "pairResult refused",
+   "kind": 5,
+   "json": "{\"accepted\":false,\"reason\":\"The codes did not match.\"}",
+   "frame": "00000037057b226163636570746564223a66616c73652c22726561736f6e223a2254686520636f64657320646964206e6f74206d617463682e227d",
+   "source": "computed"
+  },
+  {
+   "name": "error hostStopped",
+   "kind": 13,
+   "json": "{\"code\":\"hostStopped\",\"message\":\"stopped\"}",
+   "frame": "0000002b0d7b22636f6465223a22686f737453746f70706564222c226d657373616765223a2273746f70706564227d",
+   "source": "computed"
+  },
+  {
+   "name": "notice",
+   "kind": 16,
+   "json": "{\"message\":\"The screen is asleep\",\"symbol\":\"moon\"}",
+   "frame": "00000033107b226d657373616765223a225468652073637265656e2069732061736c656570222c2273796d626f6c223a226d6f6f6e227d",
+   "source": "computed"
+  },
+  {
+   "name": "command mouseMove",
+   "kind": 6,
+   "json": "{\"mouseMove\":{\"to\":{\"x\":0.5,\"y\":0.25}}}",
+   "frame": "00000028067b226d6f7573654d6f7665223a7b22746f223a7b2278223a302e352c2279223a302e32357d7d7d",
+   "source": "computed"
+  },
+  {
+   "name": "command mouseDown",
+   "kind": 6,
+   "json": "{\"mouseDown\":{\"button\":0}}",
+   "frame": "0000001b067b226d6f757365446f776e223a7b22627574746f6e223a307d7d",
+   "source": "computed"
+  },
+  {
+   "name": "command scroll",
+   "kind": 6,
+   "json": "{\"scroll\":{\"dx\":0,\"dy\":-12.5}}",
+   "frame": "0000001f067b227363726f6c6c223a7b226478223a302c226479223a2d31322e357d7d",
+   "source": "computed"
+  },
+  {
+   "name": "command keyDown",
+   "kind": 6,
+   "json": "{\"keyDown\":{\"keyCode\":36,\"modifiers\":1048576}}",
+   "frame": "0000002f067b226b6579446f776e223a7b226b6579436f6465223a33362c226d6f64696669657273223a313034383537367d7d",
+   "source": "computed"
+  },
+  {
+   "name": "command textInput",
+   "kind": 6,
+   "json": "{\"textInput\":{\"_0\":\"hello\"}}",
+   "frame": "0000001d067b2274657874496e707574223a7b225f30223a2268656c6c6f227d7d",
+   "source": "computed"
+  },
+  {
+   "name": "command setVideoEnabled",
+   "kind": 6,
+   "json": "{\"setVideoEnabled\":{\"_0\":false}}",
+   "frame": "00000021067b22736574566964656f456e61626c6564223a7b225f30223a66616c73657d7d",
+   "source": "swift-test ProtocolModelTests.swift:341"
+  },
+  {
+   "name": "command setStreamQuality",
+   "kind": 6,
+   "json": "{\"setStreamQuality\":{\"bitrateKbps\":8000,\"fps\":0}}",
+   "frame": "00000032067b2273657453747265616d5175616c697479223a7b22626974726174654b627073223a383030302c22667073223a307d7d",
+   "source": "computed"
+  },
+  {
+   "name": "command setCaptureSource display",
+   "kind": 6,
+   "json": "{\"setCaptureSource\":{\"_0\":{\"display\":{\"_0\":1}}}}",
+   "frame": "00000031067b2273657443617074757265536f75726365223a7b225f30223a7b22646973706c6179223a7b225f30223a317d7d7d7d",
+   "source": "computed"
+  },
+  {
+   "name": "command lockScreen",
+   "kind": 6,
+   "json": "{\"lockScreen\":{}}",
+   "frame": "00000012067b226c6f636b53637265656e223a7b7d7d",
+   "source": "computed, UNVERIFIED empty payload shape"
+  },
+  {
+   "name": "videoConfig h264",
+   "kind": 9,
+   "json": "{\"codec\":\"h264\",\"parameterSets\":[\"Z0I=\",\"aM4=\"],\"pixelHeight\":1080,\"pixelWidth\":1920,\"sourceID\":\"display:1\"}",
+   "frame": "0000006d097b22636f646563223a2268323634222c22706172616d6574657253657473223a5b225a30493d222c22614d343d225d2c22706978656c486569676874223a313038302c22706978656c5769647468223a313932302c22736f757263654944223a22646973706c61793a31227d",
+   "source": "computed"
+  },
+  {
+   "name": "catalog displays only",
+   "kind": 7,
+   "json": "{\"displays\":[{\"id\":\"display:1\",\"isManagedVirtualDisplay\":false,\"isVirtualDisplay\":false,\"kind\":\"display\",\"pixelSize\":[1920,1080],\"source\":{\"display\":{\"_0\":1}},\"title\":\"Built-in\"}]}",
+   "frame": "000000b5077b22646973706c617973223a5b7b226964223a22646973706c61793a31222c2269734d616e616765645669727475616c446973706c6179223a66616c73652c2269735669727475616c446973706c6179223a66616c73652c226b696e64223a22646973706c6179222c22706978656c53697a65223a5b313932302c313038305d2c22736f75726365223a7b22646973706c6179223a7b225f30223a317d7d2c227469746c65223a224275696c742d696e227d5d7d",
+   "source": "computed, UNVERIFIED CGSize array"
+  },
+  {
+   "name": "ping",
+   "kind": 11,
+   "json": "{\"sequence\":7}",
+   "frame": "0000000f0b7b2273657175656e6365223a377d",
+   "source": "computed"
+  },
+  {
+   "name": "videoKey",
+   "kind": 26,
+   "json": "{\"secret\":\"ByZFZIOiweD/Hj1ce5q52PcWNVRzkrHQ7w4tTGuKqcg=\"}",
+   "frame": "0000003a1a7b22736563726574223a2242795a465a494f697765442f486a316365357135325063574e56527a6b724851377734745447754b7163673d227d",
+   "source": "computed"
+  },
+  {
+   "name": "videoTransport",
+   "kind": 24,
+   "json": "{\"reason\":\"no picture for 3 s\",\"transport\":\"control\"}",
+   "frame": "00000036187b22726561736f6e223a226e6f207069637475726520666f7220332073222c227472616e73706f7274223a22636f6e74726f6c227d",
+   "source": "computed"
+  },
+  {
+   "name": "clientState background",
+   "kind": 35,
+   "json": "{\"background\":true}",
+   "frame": "00000014237b226261636b67726f756e64223a747275657d",
+   "source": "swift-test ClientStateTests.swift"
+  },
+  {
+   "name": "clientState foreground",
+   "kind": 35,
+   "json": "{\"background\":false}",
+   "frame": "00000015237b226261636b67726f756e64223a66616c73657d",
+   "source": "swift-test ClientStateTests.swift"
+  },
+  {
+   "name": "activityToken session",
+   "kind": 36,
+   "json": "{\"activity\":\"session\",\"environment\":\"production\",\"pushToStartToken\":null,\"pushToken\":\"0a1b2c\"}",
+   "frame": "0000005f247b226163746976697479223a2273657373696f6e222c22656e7669726f6e6d656e74223a2270726f64756374696f6e222c2270757368546f5374617274546f6b656e223a6e756c6c2c2270757368546f6b656e223a22306131623263227d",
+   "source": "computed, decoded in LiveActivityPushTests.swift"
+  },
+  {
+   "name": "activityToken ended",
+   "kind": 36,
+   "json": "{\"activity\":\"agentChat\",\"environment\":\"sandbox\",\"pushToStartToken\":null,\"pushToken\":null}",
+   "frame": "0000005a247b226163746976697479223a226167656e7443686174222c22656e7669726f6e6d656e74223a2273616e64626f78222c2270757368546f5374617274546f6b656e223a6e756c6c2c2270757368546f6b656e223a6e756c6c7d",
+   "source": "computed, decoded in LiveActivityPushTests.swift"
+  }
+ ]
+}

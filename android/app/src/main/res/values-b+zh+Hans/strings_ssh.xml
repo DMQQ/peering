@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_servers">服务器</string>
+
+    <string name="ssh_title">服务器</string>
+    <string name="ssh_detail">在你手动添加的机器上打开 shell。</string>
+    <string name="ssh_section_open">已打开</string>
+    <string name="ssh_section_servers">服务器</string>
+    <string name="ssh_add">添加服务器</string>
+    <string name="ssh_empty_title">还没有服务器</string>
+    <string name="ssh_empty_body">添加一台可通过 SSH 访问的机器，即可从这里在其上打开 shell。</string>
+    <string name="ssh_this_server">这台服务器</string>
+
+    <string name="ssh_row_locked">%1$s · 已锁定</string>
+    <string name="ssh_row_connecting">%1$s · 正在连接</string>
+    <string name="ssh_row_live">%1$s · 在线</string>
+    <string name="ssh_row_ended">%1$s · 已结束</string>
+    <string name="ssh_row_more">%1$s 的更多选项</string>
+    <string name="ssh_menu_edit">编辑</string>
+    <string name="ssh_menu_public_key">公钥</string>
+    <string name="ssh_menu_forget_signin">忘记登录方式</string>
+    <string name="ssh_menu_forget_key">忘记其密钥</string>
+    <string name="ssh_menu_delete">删除</string>
+    <string name="ssh_menu_end">结束连接</string>
+
+    <string name="ssh_forget_title">忘记登录方式？</string>
+    <string name="ssh_forget_body">下次打开 shell 时，%1$s 会要求输入密码。服务器本身不会有任何改动，已在 authorized_keys 中的密钥也会保留。</string>
+    <string name="ssh_forget_confirm">忘记</string>
+    <string name="ssh_forget_keep">保留</string>
+
+    <string name="ssh_editor_add_title">新服务器</string>
+    <string name="ssh_editor_edit_title">编辑服务器</string>
+    <string name="ssh_save">存储</string>
+    <string name="ssh_cancel">取消</string>
+    <string name="ssh_server_card">服务器</string>
+    <string name="ssh_server_footer">“名称”是这一行的显示名称；留空则使用主机。除非你的服务器另有说明，端口为 22。</string>
+    <string name="ssh_field_name">名称（可选）</string>
+    <string name="ssh_field_host">主机</string>
+    <string name="ssh_field_port">端口</string>
+    <string name="ssh_field_user">用户</string>
+    <string name="ssh_error_host_empty">请输入主机名或地址。</string>
+    <string name="ssh_error_host_invalid">这不是主机名。请去掉用户名和 ssh:// 前缀。</string>
+    <string name="ssh_error_port">端口必须是 1 到 65535 之间的数字。</string>
+    <string name="ssh_error_user">请输入要登录的用户。</string>
+
+    <string name="ssh_lock_card">锁定</string>
+    <string name="ssh_lock_ask">要求</string>
+    <string name="ssh_lock_nothing">无</string>
+    <string name="ssh_lock_passcode">密码</string>
+    <string name="ssh_lock_device">设备解锁</string>
+    <string name="ssh_lock_footer_off">轻点此服务器会立即打开 shell。</string>
+    <string name="ssh_lock_footer_passcode">六位数字，保存在这部手机的安全存储中。把锁定改回“无”会将其忘记。</string>
+    <string name="ssh_lock_footer_device">打开 shell 之前，会要求验证你的指纹、面容或屏幕锁。</string>
+    <string name="ssh_lock_choose">设置密码</string>
+    <string name="ssh_lock_again">请再输入一次以确认。</string>
+    <string name="ssh_lock_mismatch">两次输入不一致。请重新开始。</string>
+    <string name="ssh_lock_enter">打开此服务器之前会要求输入它。</string>
+    <string name="ssh_lock_wrong">密码不正确。</string>
+    <string name="ssh_lock_change">更改密码</string>
+    <string name="ssh_unlock_title">解锁 %1$s</string>
+    <string name="ssh_unlock_device">使用设备解锁</string>
+    <string name="ssh_unlock_reason">在 %1$s 上打开 shell。</string>
+    <string name="ssh_unlock_delete">删除数字</string>
+
+    <string name="ssh_signin_card">登录方式</string>
+    <string name="ssh_signin_using">使用</string>
+    <string name="ssh_signin_password">密码</string>
+    <string name="ssh_signin_key">密钥</string>
+    <string name="ssh_signin_password_footer">打开 shell 时会要求输入密码。在该提示中选择“记住密码”，可将其保存在这部手机的安全存储中。</string>
+    <string name="ssh_signin_key_footer">密钥会取代此服务器的密码，而不是与密码并存。私钥部分保存在这部手机的安全存储中；公钥部分则是你要写入服务器 ~/.ssh/authorized_keys 的那一行。</string>
+    <string name="ssh_signin_key_missing">选择密钥</string>
+
+    <string name="ssh_key_title">密钥</string>
+    <string name="ssh_key_public">公钥</string>
+    <string name="ssh_key_public_footer">请把这一行追加到服务器的 ~/.ssh/authorized_keys 中。私钥部分保留在这部手机的安全存储中，除作为签名外，绝不会发送到任何地方。</string>
+    <string name="ssh_key_copy">拷贝公钥</string>
+    <string name="ssh_key_copied">公钥已拷贝</string>
+    <string name="ssh_key_where">来源</string>
+    <string name="ssh_key_generate">生成新密钥</string>
+    <string name="ssh_key_import_file">导入密钥文件</string>
+    <string name="ssh_key_paste">粘贴密钥</string>
+    <string name="ssh_key_from_generate">适用于尚未设置密钥的服务器。这是 ed25519 密钥，也是 OpenSSH 默认生成的类型。</string>
+    <string name="ssh_key_from_paste">需要的是私钥部分，而不是公钥。如果你手上的内容以 ssh-ed25519 开头，那是服务器需要的那一半。</string>
+    <string name="ssh_key_name">名称</string>
+    <string name="ssh_key_name_footer">仅作标签。服务器会把它显示在密钥旁，让你区分这把密钥和你笔记本电脑所用的密钥。</string>
+    <string name="ssh_key_text">私钥</string>
+    <string name="ssh_key_has_passphrase">它有口令</string>
+    <string name="ssh_key_passphrase">口令</string>
+    <string name="ssh_key_passphrase_footer">仅当密钥设有口令时才需要。它会与密钥一同保存在这部手机的安全存储中，因为手机上没有可询问的 ssh-agent。</string>
+    <string name="ssh_key_use">使用此密钥</string>
+    <string name="ssh_key_err_not_private">这不是私钥。私钥以 -----BEGIN OPENSSH PRIVATE KEY----- 开头。如果你粘贴的是以 ssh-ed25519 开头的一行，那是公钥，应放在服务器上，而不是这里。</string>
+    <string name="ssh_key_err_malformed">无法读取此密钥：%1$s</string>
+    <string name="ssh_key_err_needs_passphrase">此密钥设有口令。请输入口令，以便 App 在连接时解锁密钥。</string>
+    <string name="ssh_key_err_wrong_passphrase">该口令无法解锁此密钥。</string>
+    <string name="ssh_key_err_file">无法读取该文件。</string>
+
+    <string name="ssh_hostkey_title">这是正确的机器吗？</string>
+    <string name="ssh_hostkey_body">这是你第一次连接 %1$s。请将其指纹与服务器本身核对。大多数服务商会在其控制台中显示指纹，也可以在机器上用 ssh-keygen -lf 打印。</string>
+    <string name="ssh_hostkey_trust">信任</string>
+    <string name="ssh_changed_title">服务器的密钥已更改</string>
+    <string name="ssh_changed_body">自你上次连接以来，服务器的密钥已更改。如果不是你所为，请不要继续。</string>
+    <string name="ssh_changed_known">已存储：%1$s %2$s</string>
+    <string name="ssh_changed_offered">当前提供：%1$s %2$s</string>
+    <string name="ssh_changed_help">如果你重装了服务器，或知道密钥为何更改，请使用服务器菜单中的“忘记其密钥”，然后重新连接。如果不知道原因，可能有人正位于你与服务器之间。</string>
+
+    <string name="ssh_fail_rejected">你没有接受此服务器的密钥。</string>
+    <string name="ssh_fail_auth_password">服务器拒绝了该密码。</string>
+    <string name="ssh_fail_auth_key">服务器不接受此密钥。请检查其公钥部分是否已在 authorized_keys 中。</string>
+    <string name="ssh_fail_timeout">服务器未能及时应答。</string>
+    <string name="ssh_fail_ended">连接已结束。</string>
+
+    <string name="ssh_password_title">%1$s 的密码</string>
+    <string name="ssh_password_field">密码</string>
+    <string name="ssh_password_remember">记住密码</string>
+    <string name="ssh_password_connect">连接</string>
+
+    <string name="ssh_tab_terminal">终端</string>
+    <string name="ssh_tab_files">文件</string>
+    <string name="ssh_tab_forwards">转发</string>
+    <string name="ssh_connecting">正在连接到 %1$s</string>
+    <string name="ssh_cancel_connecting">取消</string>
+    <string name="ssh_reconnect">重新连接</string>
+    <string name="ssh_close">关闭</string>
+    <string name="ssh_end_title">结束连接？</string>
+    <string name="ssh_end_body">服务器上的 shell 以及其中运行的所有内容都会停止。</string>
+    <string name="ssh_end_confirm">结束</string>
+    <string name="ssh_back">返回服务器</string>
+    <string name="ssh_files_ended">此连接已结束。请重新打开服务器以浏览其文件。</string>
+
+    <string name="ssh_forwards_title">端口转发</string>
+    <string name="ssh_forwards_footer_idle">要建立的隧道列表。每条隧道只在这部手机上监听，因此手机上的其他 App 可以访问服务器能看到的服务。</string>
+    <string name="ssh_forwards_footer_live">转发只在此连接存续期间运行。关闭连接，或离开 App 足够长的时间，转发就会结束，这里没有任何机制能让它在后台保持运行。</string>
+    <string name="ssh_forward_add">添加转发</string>
+    <string name="ssh_forward_title">端口转发</string>
+    <string name="ssh_forward_name">名称（可选）</string>
+    <string name="ssh_forward_local_card">这部手机</string>
+    <string name="ssh_forward_local_footer">手机上其他 App 将要连接的端口。把它指向 localhost:%1$s 即可。</string>
+    <string name="ssh_forward_local">本地端口</string>
+    <string name="ssh_forward_remote_card">服务器一侧</string>
+    <string name="ssh_forward_remote_footer">服务器要连接的目标，以服务器的视角来看。对于只在服务器本机监听的服务，可以是 127.0.0.1；也可以是只有服务器才能解析的名称。</string>
+    <string name="ssh_forward_remote_host">主机</string>
+    <string name="ssh_forward_remote_port">端口</string>
+    <string name="ssh_forward_when_card">打开 shell 时</string>
+    <string name="ssh_forward_when_footer">转发只在与此服务器的连接存续期间运行。无法让它在后台保持运行。</string>
+    <string name="ssh_forward_enabled">随连接一起启动</string>
+    <string name="ssh_forward_running">运行中</string>
+    <string name="ssh_forward_stopped">已停止</string>
+    <string name="ssh_forward_delete">删除转发</string>
+    <string name="ssh_forward_err_local_nan">本地端口必须是数字。</string>
+    <string name="ssh_forward_err_local_range">本地端口必须在 1 到 65535 之间。</string>
+    <string name="ssh_forward_err_remote_nan">服务器上的端口必须是数字。</string>
+    <string name="ssh_forward_err_remote_range">服务器上的端口必须在 1 到 65535 之间。</string>
+    <string name="ssh_forward_err_host_empty">请指明服务器应连接到哪台机器。它是隧道另一端的机器，由服务器负责发起连接。</string>
+    <string name="ssh_forward_err_host_invalid">这不是主机名或地址。只能包含字母、数字、点、冒号、下划线和连字符。</string>
+    <string name="ssh_forward_err_used">此服务器已经在转发 %1$d。两个转发不能监听同一个端口，因此其中一个永远无法启动。</string>
+</resources>

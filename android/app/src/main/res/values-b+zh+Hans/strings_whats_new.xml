@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="whatsnew_title">新功能</string>
+    <string name="whatsnew_done">知道了</string>
+    <string name="whatsnew_desktops_title">桌面与虚拟显示器</string>
+    <string name="whatsnew_desktops_detail">在“App”面板中切换电脑的各个桌面，添加与手机形状一致的显示器，并可长按来关闭或最小化窗口。</string>
+    <string name="whatsnew_composer_title">在输入框中使用命令和文件</string>
+    <string name="whatsnew_composer_detail">输入斜杠可调用命令和技能，输入 @ 可提及文件。所有聊天中更改过的文件，都可以在一处统一审阅。</string>
+    <string name="whatsnew_review_title">待审阅与后续操作</string>
+    <string name="whatsnew_review_detail">更改过的文件会在“智能体”页面等你查看，一轮结束后，下一步操作会以按钮形式给出。</string>
+    <string name="whatsnew_wake_title">唤醒你的电脑</string>
+    <string name="whatsnew_wake_detail">在“连接”页面中，通过电脑的菜单向你网络上休眠的电脑发送唤醒包。</string>
+</resources>

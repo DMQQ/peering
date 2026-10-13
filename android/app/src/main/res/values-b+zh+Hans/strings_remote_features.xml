@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="panel_open_for_text_fields">在文本框中打开</string>
+    <string name="panel_open_for_text_fields_note">电脑的光标进入文本框时升起键盘，并显示文本框中的内容。</string>
+    <string name="remote_chip_screenshot">截屏</string>
+    <string name="remote_screenshot_share">分享截屏</string>
+    <string name="remote_screenshot_failed">无法截取画面。</string>
+</resources>

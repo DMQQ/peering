@@ -1,0 +1,298 @@
+package pl.dmq.peering.session.controller
+
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.delay
+import pl.dmq.peering.session.agent.AgentChat
+import pl.dmq.peering.session.clipboard.ClipboardContent
+import pl.dmq.peering.session.clipboard.ClipboardDirection
+import pl.dmq.peering.session.clipboard.ClipboardHistory
+import pl.dmq.peering.session.clipboard.ClipboardImageFrames
+import pl.dmq.peering.session.clipboard.ClipboardPush
+import pl.dmq.peering.session.connection.HostCapability
+import pl.dmq.peering.session.connection.LivenessMonitor
+import pl.dmq.peering.session.connection.SessionCommands
+import pl.dmq.peering.session.files.FileBrowser
+import pl.dmq.peering.session.preview.PreviewProxyClient
+import pl.dmq.peering.session.terminal.TerminalSessions
+import pl.dmq.peering.session.history.ByteTally
+import pl.dmq.peering.session.history.SessionRecord
+import pl.dmq.peering.session.ports.Clock
+import pl.dmq.peering.session.ports.VideoSink
+import pl.dmq.peering.session.relay.DirectPathState
+import pl.dmq.peering.session.relay.RelayConnect
+import pl.dmq.peering.session.video.LanVideoLane
+import pl.dmq.peering.session.video.SourceSelection
+import pl.dmq.peering.session.video.VideoLanes
+import pl.dmq.peering.wire.AutoQualityPolicy
+import pl.dmq.peering.wire.ClientStatePayload
+import pl.dmq.peering.wire.Frame
+import pl.dmq.peering.wire.MessageKind
+import pl.dmq.peering.wire.WireJson
+import pl.dmq.peering.wire.ServerHello
+import pl.dmq.peering.wire.QualityTier
+import pl.dmq.peering.wire.SetStreamQuality
+import pl.dmq.peering.wire.SetVideoEnabled
+import pl.dmq.peering.wire.VideoStreamConfig
+import pl.dmq.peering.wire.VideoTransportKind
+import kotlin.math.roundToInt
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+
+/**
+ * A control connection whose handshake completed, and the session parts that run on it: pings and the watchdog, the
+ * coalesced command writer, the video lanes and the frame router. [serve] runs them until the link ends.
+ */
+internal class ConnectedLink(
+    val hello: ServerHello,
+    val route: OpenedRoute,
+    private val clock: Clock,
+    private val writer: WriterLoop,
+    private val frames: ReceiveChannel<Frame>,
+    sink: VideoSink,
+    onPicture: () -> Unit,
+    videoConnector: ControlConnector,
+    selection: SourceSelection,
+    agent: AgentChat?,
+    files: FileBrowser?,
+    terminals: TerminalSessions?,
+    preview: PreviewProxyClient?,
+    relay: RelayConnect?,
+    private val quality: QualityChoice,
+    private val ceiling: QualityTier,
+    private val powerSaving: Boolean,
+    private val clipboard: ClipboardHistory,
+    private val tally: ByteTally,
+    private val note: (String) -> Unit,
+    lanPeerKey: ByteArray?,
+) {
+    private val liveness = LivenessMonitor(clock)
+    val commands = SessionCommands(hello)
+    private val seen: () -> Unit = {
+        noteSeen()
+        onPicture()
+    }
+    private val streamRecord = StreamRecord(sink)
+    private val lanes = VideoLanes(PictureSink(streamRecord, onPicture = seen), clock, route.videoPeer, route.videoToken)
+    private val router = FrameRouter(liveness, commands, lanes, selection, agent, files, terminals, preview)
+    private val picture: PictureWatch = PictureWatch(
+        clock,
+        lane = route.path.takeIf { it == SessionRecord.Path.LAN }?.let {
+            LanVideoLane(videoConnector, route.videoPeer, lanPeerKey, PictureSink(streamRecord, selection::onVideoConfig, seen), tally)
+        },
+    )
+    private var automatic: AutoQualityPolicy? = null
+    private var fpsCapped = false
+    private var backgrounded = false
+    private val direct: DirectPathRunner? = route.datagrams?.let { datagrams ->
+        relay?.let { DirectPathRunner(lanes, datagrams, it, route.videoToken) }
+    }
+
+    private fun noteSeen() = picture.noteSeen()
+
+    /** The route the picture is on: [SessionRecord.Path.DIRECT] once the Mac's own address has authenticated. */
+    val path: SessionRecord.Path
+        get() = if (direct?.prober?.state is DirectPathState.Open) SessionRecord.Path.DIRECT else route.path
+
+    /** How the direct path attempt stands, or null when this link makes none. */
+    val directPathState: DirectPathState? get() = direct?.prober?.state
+
+    /** The stream the computer last configured, or null before it did. */
+    val videoStream: VideoStreamConfig? get() = streamRecord.config
+
+    /** The notice the host last set, or null when none stands. */
+    var notice: String? = null
+        private set
+
+    /** What the host last sent for a clipboard request, or null before one answered. */
+    var hostClipboard: ClipboardContent? = null
+        private set
+
+    /** Where the computer last said its pointer is, or null before it said. The serial counts reports, so a repeat still registers. */
+    var hostPointer: HostPointer? = null
+        private set
+
+    /** Whether the computer's focus is on a text field, or null before it said. */
+    var hostTextFocus: HostTextFocus? = null
+        private set
+
+    /** What the focused field last held, or null before the computer said. */
+    var hostField: HostField? = null
+        private set
+
+    private var clipboardFrameId = 0L
+
+    /** Sends a picture to the computer's clipboard and keeps it in the history when it went. */
+    fun sendClipboardImage(png: ByteArray): ClipboardPush {
+        clipboardFrameId += 1
+        return when (val built = ClipboardImageFrames.build(hello, png, clipboardFrameId)) {
+            is ClipboardImageFrames.Refused -> built.reason
+            is ClipboardImageFrames.Ready -> {
+                built.frames.forEach(writer::enqueue)
+                clipboard.record(ClipboardContent.Image(png), ClipboardDirection.TO_COMPUTER)
+                ClipboardPush.Sent
+            }
+        }
+    }
+
+    val latencyMillis: Int? get() = liveness.smoothedLatencyMillis()?.roundToInt()
+
+    fun pictureState(paused: Boolean): PictureState = when {
+        !paused && streamRecord.decoderFailed -> PictureState.Failed(PictureFailure.DecoderFailed)
+        else -> picture.state(paused, viaControlChannel = lanes.delivery.transport == VideoTransportKind.CONTROL)
+    }
+
+    /** Pausing and resuming the video makes the host send a keyframe, which starts a stream that is open but showing nothing. */
+    private fun requestKeyframe() {
+        commands.send(SetVideoEnabled(false))?.let(writer::enqueue)
+        commands.send(SetVideoEnabled(true))?.let(writer::enqueue)
+    }
+
+    /** Reopens the picture. A relayed session has no lane of its own, so pausing and resuming makes the host send a keyframe. */
+    fun retryPicture() = reopenPicture(automatic = false)
+
+    private fun reopenPicture(automatic: Boolean) {
+        if (route.path == SessionRecord.Path.RELAY) {
+            commands.send(SetVideoEnabled(false))?.let(writer::enqueue)
+            commands.send(SetVideoEnabled(true))?.let(writer::enqueue)
+        }
+        picture.restart(automatic)
+    }
+
+    /**
+     * Tells the host the phone left or returned to the foreground. [probeNow] pings the host at once (see [ReturnProbe]); the
+     * silence counted from the return then ends the link after the foreground limit. False when the host did not declare that it understands. */
+    fun reportBackground(background: Boolean, probeNow: Boolean = false): Boolean {
+        if (backgrounded && !background) liveness.resetSilence()
+        if (probeNow) writer.enqueue(liveness.nextPing())
+        backgrounded = background
+        if (!HostCapability.ClientState.declaredBy(hello)) return false
+        val payload = WireJson.encodeToString(ClientStatePayload.serializer(), ClientStatePayload(background))
+        writer.enqueue(Frame(MessageKind.ClientState, payload.toByteArray(Charsets.UTF_8)))
+        return true
+    }
+
+    fun enqueue(frame: Frame) = writer.enqueue(frame)
+
+    /** Starts the link's loops in this scope. [ended] completes with the reason the link stopped. */
+    fun CoroutineScope.serve(ended: CompletableDeferred<LinkEnd>, onTick: () -> Unit) {
+        applyQuality(quality, ceiling, powerSaving)
+        picture.start(this)
+        launchLinkTask(ended, note) {
+            if (route.path == SessionRecord.Path.RELAY) {
+                for (event in lanes.start().asEvents()) applyEvent(event, ended)
+            }
+            for (frame in frames) {
+                for (event in router.route(frame)) applyEvent(event, ended)
+            }
+        }
+        route.datagrams?.let { datagrams ->
+            launchLinkTask(ended, note) {
+                datagrams.received.collect { datagram ->
+                    tally.addReceived(datagram.bytes.size)
+                    if (datagram.source == route.videoPeer) {
+                        val outcome = lanes.onDatagram(datagram.bytes)
+                        for (event in outcome.outputs.asEvents()) applyEvent(event, ended)
+                    } else {
+                        direct?.onForeignDatagram(datagram.source, datagram.bytes)
+                    }
+                }
+            }
+        }
+        direct?.let { runner ->
+            launchLinkTask(ended, note) { every(PROBE_INTERVAL) { runner.tick(clock.monotonicSeconds()) } }
+        }
+        launchLinkTask(ended, note) { every(COMMAND_INTERVAL) { commands.drain().forEach(writer::enqueue) } }
+        launchLinkTask(ended, note) { every(PING_INTERVAL) { writer.enqueue(liveness.nextPing()) } }
+        launchLinkTask(ended, note) {
+            every(LANE_INTERVAL) {
+                for (event in lanes.tick(clock.monotonicSeconds()).asEvents()) applyEvent(event, ended)
+                steerAutomatic()
+                when (picture.takeEscalation()) {
+                    PictureEscalation.NONE -> Unit
+                    PictureEscalation.KEYFRAME -> requestKeyframe()
+                    PictureEscalation.REOPEN -> reopenPicture(automatic = true)
+                    PictureEscalation.RECONNECT -> ended.complete(LinkEnd.Lost)
+                }
+                if (liveness.isSilent(clock.monotonicSeconds(), SilencePolicy.limitSeconds(backgrounded))) ended.complete(LinkEnd.Lost)
+                onTick()
+            }
+        }
+    }
+
+    /**
+     * Holds the rate the user chose, or starts the policy that moves it, capped at [ceiling]. While [powerSaving] the
+     * frame rate is capped as well, and once it ends the cap is lifted, since the computer keeps the last one it was given.
+     */
+    fun applyQuality(choice: QualityChoice, ceiling: QualityTier, powerSaving: Boolean) {
+        val fps = PowerSaving.framesPerSecond(powerSaving, wasCapped = fpsCapped)
+        fpsCapped = powerSaving
+        when (choice) {
+            QualityChoice.Automatic -> {
+                val policy = AutoQualityPolicy(route.path.qualityPath(), ceiling)
+                automatic = policy
+                commands.offer(SetStreamQuality(fps = fps, bitrateKbps = policy.tier.kbps))
+            }
+            is QualityChoice.Fixed -> {
+                automatic = null
+                commands.offer(SetStreamQuality(fps = fps, bitrateKbps = minOf(choice.tier, ceiling).kbps))
+            }
+        }
+    }
+
+    /** The policy reads latency only: the decoder's dropped-frame count is not carried to this layer. */
+    private fun steerAutomatic() {
+        val policy = automatic ?: return
+        if (lanes.delivery.transport == VideoTransportKind.CONTROL) return
+        val latency = liveness.smoothedLatencyMillis() ?: return
+        val tier = policy.observe(latency, newDroppedFrames = 0) ?: return
+        commands.offer(SetStreamQuality(fps = 0, bitrateKbps = tier.kbps))
+    }
+
+    private suspend fun applyEvent(event: SessionEvent, ended: CompletableDeferred<LinkEnd>) {
+        when (event) {
+            is SessionEvent.Send -> writer.enqueue(event.frame)
+            is SessionEvent.Offer -> commands.offer(event.command)
+            is SessionEvent.Datagram -> route.datagrams?.let {
+                it.send(event.bytes, event.destination)
+                tally.addSent(event.bytes.size)
+            }
+            is SessionEvent.Notice -> notice = event.message
+            is SessionEvent.HostClipboard -> {
+                hostClipboard = event.content
+                clipboard.record(event.content, ClipboardDirection.FROM_COMPUTER)
+            }
+            is SessionEvent.HostPointerMoved ->
+                hostPointer = HostPointer(event.point, (hostPointer?.serial ?: 0) + 1)
+            is SessionEvent.HostTextFocus -> {
+                hostTextFocus = HostTextFocus(event.focus.isEditable, (hostTextFocus?.serial ?: 0) + 1)
+                hostField = null
+            }
+            is SessionEvent.HostFieldState ->
+                hostField = HostField(event.state.clamped(), (hostField?.serial ?: 0) + 1)
+            is SessionEvent.Finish -> ended.complete(event.end)
+        }
+    }
+
+    private suspend fun every(interval: Duration, step: suspend () -> Unit) {
+        while (true) {
+            delay(interval)
+            step()
+        }
+    }
+
+    private companion object {
+        fun SessionRecord.Path.qualityPath(): AutoQualityPolicy.Path = when (this) {
+            SessionRecord.Path.LAN -> AutoQualityPolicy.Path.LAN
+            SessionRecord.Path.RELAY -> AutoQualityPolicy.Path.RELAY
+            SessionRecord.Path.DIRECT -> AutoQualityPolicy.Path.DIRECT
+        }
+
+        val COMMAND_INTERVAL = 16.milliseconds
+        val PROBE_INTERVAL = 250.milliseconds
+        val LANE_INTERVAL = 250.milliseconds
+        val PING_INTERVAL = LivenessMonitor.PING_INTERVAL_SECONDS.seconds
+    }
+}

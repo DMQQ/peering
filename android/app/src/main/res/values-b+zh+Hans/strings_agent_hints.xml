@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hints_nothing_matches">没有匹配项</string>
+    <string name="hints_in_project">在此项目中</string>
+    <string name="hints_looking">正在查找…</string>
+    <string name="hints_nothing_starts">这里没有以“%1$s”开头的内容。</string>
+    <plurals name="hints_more">
+        <item quantity="other">还有 %d 项，继续输入以缩小范围</item>
+    </plurals>
+    <string name="hints_tag_app">Peering 内</string>
+    <string name="hints_tag_builtin">内置</string>
+    <string name="hints_tag_command">命令</string>
+    <string name="hints_tag_skill">技能</string>
+    <string name="hints_usage">打开用量与限额</string>
+    <string name="hints_model">选择模型</string>
+    <string name="hints_rename">重命名此聊天</string>
+    <string name="hints_compact">概括对话内容以腾出上下文空间</string>
+    <string name="hints_clear">以空白上下文重新开始</string>
+    <string name="hints_this_project">此项目</string>
+    <string name="hints_yours">你的</string>
+    <string name="followup_review">查看更改</string>
+    <string name="followup_tests">运行测试</string>
+    <string name="followup_summarize">总结更改</string>
+    <string name="agents_pane_empty_title">选择一个聊天</string>
+    <string name="agents_pane_empty_body">从列表中选择一个，或开始新的聊天。</string>
+</resources>

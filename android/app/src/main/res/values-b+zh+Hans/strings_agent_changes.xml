@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="changes_menu">更改</string>
+    <string name="changes_title">更改</string>
+    <string name="changes_close">关闭</string>
+    <string name="changes_back">返回文件列表</string>
+    <string name="changes_refresh">刷新</string>
+    <string name="changes_none">没有更改</string>
+    <plurals name="changes_count">
+        <item quantity="other">%d 个已更改的文件</item>
+    </plurals>
+    <string name="changes_truncated">此项目较大，因此只列出了一部分。</string>
+    <string name="changes_waiting">正在询问你的电脑</string>
+    <string name="changes_empty">此文件夹中还没有任何更改。</string>
+    <string name="changes_kind_modified">已修改</string>
+    <string name="changes_kind_added">已添加</string>
+    <string name="changes_kind_deleted">已删除</string>
+    <string name="changes_kind_untracked">新文件，git 尚未跟踪</string>
+    <string name="changes_no_diff">此文件没有可显示的文本差异。</string>
+    <string name="changes_comment_file">评论此文件</string>
+    <string name="changes_comment_hint">评论</string>
+    <string name="changes_comment_add">添加</string>
+    <string name="changes_comment_cancel">取消</string>
+    <string name="changes_comment_remove">移除评论</string>
+    <plurals name="changes_send_comments">
+        <item quantity="other">向智能体发送 %d 条评论</item>
+    </plurals>
+    <string name="changes_commented">此文件有 %d 条评论</string>
+
+    <string name="review_prompt_intro">请处理针对你所做更改的这些审阅评论。</string>
+    <string name="review_prompt_removed">（该行已被此次更改移除）</string>
+    <plurals name="review_prompt_left_out">
+        <item quantity="other">另有 %d 条评论放不下，未包含在内。</item>
+    </plurals>
+
+    <string name="commit_title">提交</string>
+    <string name="commit_files">要包含的文件</string>
+    <string name="commit_none">此文件夹中没有任何更改。</string>
+    <string name="commit_message">提交信息</string>
+    <plurals name="commit_button">
+        <item quantity="other">提交 %d 个文件</item>
+    </plurals>
+    <string name="commit_busy">正在提交</string>
+    <string name="commit_this_folder">此文件夹</string>
+    <plurals name="commit_confirm_title">
+        <item quantity="other">要将 %1$d 个文件提交到 %2$s 吗？</item>
+    </plurals>
+    <string name="commit_confirm">提交</string>
+    <string name="commit_done">已提交</string>
+    <string name="commit_failed">提交未能完成</string>
+    <string name="push_done">已推送</string>
+    <string name="push_failed">推送未能完成</string>
+    <string name="push_title">推送</string>
+    <plurals name="push_ready">
+        <item quantity="other">%2$s 上有 %1$d 个提交尚未进入 %3$s。</item>
+    </plurals>
+    <string name="push_nothing">此分支上的所有内容都已推送。</string>
+    <string name="push_unreadable">无法读取此文件夹的分支。</string>
+    <string name="push_detached">此文件夹不在任何分支上（分离的 HEAD），因此没有可推送的内容。</string>
+    <string name="push_no_upstream">此分支没有上游。请先在电脑上设置，再从这里推送。</string>
+    <string name="push_button">推送</string>
+    <string name="push_busy">正在推送</string>
+    <string name="push_confirm_title">要将 %1$s 推送到 %2$s 吗？</string>
+</resources>

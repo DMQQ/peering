@@ -1,0 +1,86 @@
+# Tests the Windows host and builds the unsigned installer. The release workflow (windows-release.yml) calls this one on a
+# windows-v* tag and publishes what it builds.
+#
+# The logic crates have no Windows API dependency, so they are tested on Linux where runs are cheap. The Windows job builds
+# everything, including the host binary and the Windows API adapters, which cannot be compiled on another OS.
+# The protocol vectors in docs/protocol/vectors are inputs to the tests, so a change to them triggers this workflow too.
+
+name: windows
+
+on:
+  push:
+    branches: [main, monorepo]
+    paths:
+      - "windows/**"
+      - "docs/protocol/**"
+      - ".github/workflows/windows.yml"
+  pull_request:
+    paths:
+      - "windows/**"
+      - "docs/protocol/**"
+      - ".github/workflows/windows.yml"
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "The windows-v* tag being released. Its version is passed to the installer build."
+        type: string
+        default: ""
+
+jobs:
+  logic:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows
+      - run: cargo clippy --locked -p peering-wire -p peering-core -p peering-agent -p peering-net --all-targets
+      - run: cargo test --locked -p peering-wire -p peering-core -p peering-agent -p peering-net
+
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows
+      - run: cargo clippy --locked --workspace --all-targets
+      - run: cargo test --locked --workspace --no-fail-fast
+      - run: cargo build --locked --release -p peering-host
+        env:
+          PEERING_RELEASE_TAG: ${{ inputs.release_tag }}
+      - name: Install Inno Setup when the runner image lacks it
+        shell: pwsh
+        run: |
+          $found = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ }
+          if (-not $found) { choco install innosetup --no-progress -y }
+      - name: Build the unsigned installer
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if ($env:RELEASE_TAG) {
+            ./installer/build.ps1 -Version ($env:RELEASE_TAG -replace '^windows-v', '')
+          } else {
+            ./installer/build.ps1
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: peering-host-windows
+          path: |
+            windows/target/release/peering-host.exe
+            windows/dist/PeeringHostSetup.exe
+          if-no-files-found: error

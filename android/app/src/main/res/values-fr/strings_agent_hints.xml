@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hints_nothing_matches">Aucun résultat</string>
+    <string name="hints_in_project">Dans ce projet</string>
+    <string name="hints_looking">Recherche…</string>
+    <string name="hints_nothing_starts">Rien ici ne commence par « %1$s ».</string>
+    <plurals name="hints_more">
+        <item quantity="one">%d de plus, continuez à écrire pour affiner</item>
+        <item quantity="other">%d de plus, continuez à écrire pour affiner</item>
+    </plurals>
+    <string name="hints_tag_app">Dans Peering</string>
+    <string name="hints_tag_builtin">Intégré</string>
+    <string name="hints_tag_command">Commande</string>
+    <string name="hints_tag_skill">Skill</string>
+    <string name="hints_usage">Ouvrir l\'utilisation et les limites</string>
+    <string name="hints_model">Choisir le modèle</string>
+    <string name="hints_rename">Renommer ce chat</string>
+    <string name="hints_compact">Résumer la conversation pour libérer du contexte</string>
+    <string name="hints_clear">Repartir avec un contexte vide</string>
+    <string name="hints_this_project">Ce projet</string>
+    <string name="hints_yours">Les vôtres</string>
+    <string name="followup_review">Examiner les modifications</string>
+    <string name="followup_tests">Lancer les tests</string>
+    <string name="followup_summarize">Résumer les modifications</string>
+    <string name="agents_pane_empty_title">Choisissez une discussion</string>
+    <string name="agents_pane_empty_body">Choisissez-en une dans la liste, ou lancez-en une nouvelle.</string>
+</resources>

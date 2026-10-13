@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="review_title">Por revisar</string>
+    <plurals name="review_files">
+        <item quantity="one">%d archivo</item>
+        <item quantity="other">%d archivos</item>
+    </plurals>
+    <plurals name="review_in_chats">
+        <item quantity="one">en %d chat</item>
+        <item quantity="other">en %d chats</item>
+    </plurals>
+    <plurals name="review_more_files">
+        <item quantity="one">%d archivo más</item>
+        <item quantity="other">%d archivos más</item>
+    </plurals>
+    <string name="review_mark_all">Marcar todo como revisado</string>
+    <string name="review_unmark_all">Marcar todo como no revisado</string>
+    <string name="review_mark_reviewed">Revisado</string>
+    <string name="review_empty_title">Nada por revisar</string>
+    <string name="review_empty_body">Los archivos que cambien tus agentes aparecerán aquí hasta que los hayas mirado.</string>
+    <string name="review_not_repository">Git no tiene nada que comparar en esta carpeta.</string>
+    <string name="review_checking">Comprobando los cambios de este chat…</string>
+</resources>

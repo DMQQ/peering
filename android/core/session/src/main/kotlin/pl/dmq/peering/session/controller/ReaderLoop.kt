@@ -1,0 +1,49 @@
+package pl.dmq.peering.session.controller
+
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.flow.Flow
+import pl.dmq.peering.session.history.ByteTally
+import pl.dmq.peering.wire.Frame
+import pl.dmq.peering.wire.FrameDecoder
+import pl.dmq.peering.wire.FramingException
+import pl.dmq.peering.wire.exceedsControlLimit
+
+/**
+ * Cuts the control byte stream into frames and passes them on in order. The frame channel is closed when the stream ends
+ * or fails, so whoever reads frames sees the connection end as a closed channel. While [controlLimitApplies] a control payload over 64 KiB is
+ * dropped, not fatal; once the handshake is done hosts legitimately send larger catalogues and terminal output, as they do to the iPhone.
+ * A malformed frame is reported to [onMalformed] before the channel closes, so the end is known by the time a reader sees the closed channel.
+ */
+internal class ReaderLoop(
+    private val bytes: Flow<ByteArray>,
+    private val frames: SendChannel<Frame>,
+    private val tally: ByteTally,
+    private val controlLimitApplies: () -> Boolean = { true },
+    private val onMalformed: () -> Unit,
+) {
+    suspend fun run() {
+        val decoder = FrameDecoder()
+        try {
+            bytes.collect { chunk ->
+                tally.addReceived(chunk.size)
+                decoder.push(chunk)
+                while (true) {
+                    val frame = decoder.next() ?: break
+                    if (!controlLimitApplies() || !exceedsControlLimit(frame)) frames.send(frame)
+                }
+            }
+        } catch (malformed: FramingException) {
+            onMalformed()
+        } finally {
+            frames.close()
+        }
+    }
+
+    companion object {
+        /** Frames waiting for the session. A reader that gets ahead stops reading, which holds the host back, instead of buffering without limit. */
+        const val INBOUND_CAPACITY = 256
+
+        fun inbound(): Channel<Frame> = Channel(INBOUND_CAPACITY)
+    }
+}

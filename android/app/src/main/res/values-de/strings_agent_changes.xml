@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="changes_menu">Änderungen</string>
+    <string name="changes_title">Änderungen</string>
+    <string name="changes_close">Schließen</string>
+    <string name="changes_back">Zurück zu den Dateien</string>
+    <string name="changes_refresh">Aktualisieren</string>
+    <string name="changes_none">Keine Änderungen</string>
+    <plurals name="changes_count">
+        <item quantity="one">%d geänderte Datei</item>
+        <item quantity="other">%d geänderte Dateien</item>
+    </plurals>
+    <string name="changes_truncated">Dieses Projekt ist groß, daher wird nur ein Teil aufgelistet.</string>
+    <string name="changes_waiting">Frage deinen Computer</string>
+    <string name="changes_empty">In diesem Ordner hat sich noch nichts geändert.</string>
+    <string name="changes_kind_modified">Geändert</string>
+    <string name="changes_kind_added">Hinzugefügt</string>
+    <string name="changes_kind_deleted">Gelöscht</string>
+    <string name="changes_kind_untracked">Neu, von git noch nicht erfasst</string>
+    <string name="changes_no_diff">Für diese Datei gibt es keinen Text-Diff.</string>
+    <string name="changes_comment_file">Diese Datei kommentieren</string>
+    <string name="changes_comment_hint">Kommentar</string>
+    <string name="changes_comment_add">Hinzufügen</string>
+    <string name="changes_comment_cancel">Abbrechen</string>
+    <string name="changes_comment_remove">Kommentar entfernen</string>
+    <plurals name="changes_send_comments">
+        <item quantity="one">%d Kommentar an den Agenten senden</item>
+        <item quantity="other">%d Kommentare an den Agenten senden</item>
+    </plurals>
+    <string name="changes_commented">%d Kommentare zu dieser Datei</string>
+    <string name="review_prompt_intro">Bitte geh auf diese Review-Kommentare zu deinen Änderungen ein.</string>
+    <string name="review_prompt_removed">(Zeile durch die Änderung entfernt)</string>
+    <plurals name="review_prompt_left_out">
+        <item quantity="one">%d weiterer Kommentar hat nicht mehr gepasst und ist nicht enthalten.</item>
+        <item quantity="other">%d weitere Kommentare haben nicht mehr gepasst und sind nicht enthalten.</item>
+    </plurals>
+    <string name="commit_title">Committen</string>
+    <string name="commit_files">Einzuschließende Dateien</string>
+    <string name="commit_none">In diesem Ordner hat sich nichts geändert.</string>
+    <string name="commit_message">Commit-Nachricht</string>
+    <plurals name="commit_button">
+        <item quantity="one">%d Datei committen</item>
+        <item quantity="other">%d Dateien committen</item>
+    </plurals>
+    <string name="commit_busy">Commit läuft</string>
+    <string name="commit_this_folder">diesem Ordner</string>
+    <plurals name="commit_confirm_title">
+        <item quantity="one">%1$d Datei in %2$s committen?</item>
+        <item quantity="other">%1$d Dateien in %2$s committen?</item>
+    </plurals>
+    <string name="commit_confirm">Committen</string>
+    <string name="commit_done">Committet</string>
+    <string name="commit_failed">Der Commit wurde nicht ausgeführt</string>
+    <string name="push_done">Gepusht</string>
+    <string name="push_failed">Der Push hat nicht stattgefunden</string>
+    <string name="push_title">Push</string>
+    <plurals name="push_ready">
+        <item quantity="one">%1$d Commit auf %2$s ist noch nicht auf %3$s.</item>
+        <item quantity="other">%1$d Commits auf %2$s sind noch nicht auf %3$s.</item>
+    </plurals>
+    <string name="push_nothing">Alles in diesem Branch ist bereits gepusht.</string>
+    <string name="push_unreadable">Der Branch dieses Ordners konnte nicht gelesen werden.</string>
+    <string name="push_detached">Dieser Ordner befindet sich auf keinem Branch (detached HEAD), daher gibt es nichts zu pushen.</string>
+    <string name="push_no_upstream">Dieser Branch hat keinen Upstream. Lege auf deinem Computer einen fest und pushe dann von hier.</string>
+    <string name="push_button">Push</string>
+    <string name="push_busy">Wird gepusht</string>
+    <string name="push_confirm_title">%1$s nach %2$s pushen?</string>
+</resources>

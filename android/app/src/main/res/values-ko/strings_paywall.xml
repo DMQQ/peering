@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="plan_pro">Pro</string>
+    <string name="plan_pro_yearly">Pro, 연간</string>
+    <string name="plan_pro_note">외부에서 무제한, 릴레이에서 가장 선명한 화면</string>
+    <string name="plan_lifetime_note">Pro의 모든 기능, 한 번만 결제</string>
+    <string name="plan_button_monthly">Pro로 계속 · 월 %1$s</string>
+    <string name="plan_button_yearly">Pro로 계속 · 연 %1$s</string>
+    <string name="plan_button_lifetime">평생 이용 구매 · %1$s</string>
+    <string name="paywall_unavailable_body">이전에 구독한 적이 있다면 복원하면 되돌아옵니다. 그렇지 않다면 대개 일시적인 문제입니다.</string>
+</resources>

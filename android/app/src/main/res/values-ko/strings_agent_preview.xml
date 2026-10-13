@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_menu">웹 미리보기</string>
+    <string name="preview_title">웹 미리보기</string>
+    <string name="preview_done">완료</string>
+    <string name="preview_address_hint">localhost:3000</string>
+    <string name="preview_back">뒤로</string>
+    <string name="preview_reload">새로고침</string>
+    <string name="preview_start_title">컴퓨터에서 실행 중인 서버 열기</string>
+    <string name="preview_start_detail">포트를 입력하거나 지금 응답하는 포트를 선택하세요. 컴퓨터의 localhost와 127.0.0.1만 열 수 있습니다.</string>
+    <string name="preview_found_none">일반적인 포트에서 아무것도 찾지 못했습니다</string>
+    <string name="preview_found_some">지금 컴퓨터에서</string>
+    <string name="preview_look_again">다시 확인</string>
+    <string name="preview_port_label">:%1$d</string>
+    <string name="preview_note_live_reload">WebSocket 기반 실시간 새로고침은 지원되지 않습니다. 변경 사항을 보려면 새로고침하세요. 데이터를 보내는 폼과 요청도 지원되지 않습니다.</string>
+    <string name="preview_notice_only_loopback">여기서는 포트가 있는 localhost와 127.0.0.1만 열 수 있습니다.</string>
+    <string name="preview_notice_links_outside">localhost 이외의 링크는 여기서 열리지 않습니다.</string>
+    <string name="preview_try_again">다시 시도</string>
+    <string name="preview_fail_not_listening">그곳에서 수신 대기 중인 것이 없습니다</string>
+    <string name="preview_fail_not_listening_detail">에이전트에게 서버를 시작하도록 요청하거나 포트를 확인한 뒤 다시 시도하세요.</string>
+    <string name="preview_fail_disconnected">컴퓨터에 연결되어 있지 않음</string>
+    <string name="preview_fail_disconnected_detail">컴퓨터에 다시 연결한 뒤 다시 시도하세요.</string>
+    <string name="preview_fail_timed_out">서버가 응답하지 않았습니다</string>
+    <string name="preview_fail_timed_out_detail">연결은 수락했지만 아무 응답도 보내지 않았습니다.</string>
+    <string name="preview_fail_other">페이지를 열 수 없습니다</string>
+    <string name="preview_fail_too_large_detail">이 요청은 너무 커서 미리보기를 통해 보낼 수 없습니다.</string>
+    <string name="preview_fail_not_allowed_detail">미리보기에서는 localhost의 일반 페이지만 열 수 있습니다.</string>
+    <string name="preview_fail_busy_detail">대기 중인 요청이 너무 많습니다. 잠시 후 다시 시도하세요.</string>
+    <string name="preview_fail_failed_detail">컴퓨터가 가져오지 못했습니다.</string>
+    <string name="preview_reply_not_carried">데이터를 보내는 요청은 미리보기에서 지원되지 않습니다.</string>
+</resources>

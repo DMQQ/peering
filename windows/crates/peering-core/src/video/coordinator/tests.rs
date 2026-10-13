@@ -1,0 +1,682 @@
+use super::*;
+use crate::fakes::capture::FakeCapture;
+use crate::fakes::clock::FakeClock;
+use crate::fakes::encoder::FakeEncoder;
+use crate::ports::capture::{DisplayInfo, RawFrame};
+use crate::ports::clock::Clock;
+use super::CaptureCondition;
+
+fn display(id: u32, is_primary: bool) -> DisplayInfo {
+    DisplayInfo {
+        id,
+        name: format!("Display {id}"),
+        pixel_width: 1920,
+        pixel_height: 1080,
+        origin_x: 0,
+        origin_y: 0,
+        scale: 1.0,
+        is_primary,
+    }
+}
+
+fn coordinator() -> VideoCoordinator<FakeCapture, FakeEncoder> {
+    let capture = FakeCapture::new(vec![display(1, true), display(2, false)]);
+    VideoCoordinator::new(capture, FakeEncoder::default())
+}
+
+fn display_source(id: u32) -> CaptureSource {
+    CaptureSource::Display { id }
+}
+
+fn raw(sequence: u64) -> RawFrame {
+    RawFrame { width: 1920, height: 1080, sequence }
+}
+
+fn push(coordinator: &mut VideoCoordinator<FakeCapture, FakeEncoder>, sequences: &[u64]) {
+    for sequence in sequences {
+        coordinator.capture.push_frame(raw(*sequence));
+    }
+}
+
+fn frames(outputs: &[VideoOutput]) -> Vec<&EncodedVideoFrame> {
+    outputs
+        .iter()
+        .filter_map(|output| match output {
+            VideoOutput::Frame(frame) => Some(frame),
+            VideoOutput::Config(_) => None,
+        })
+        .collect()
+}
+
+fn configs(outputs: &[VideoOutput]) -> Vec<&VideoStreamConfig> {
+    outputs
+        .iter()
+        .filter_map(|output| match output {
+            VideoOutput::Config(config) => Some(config),
+            VideoOutput::Frame(_) => None,
+        })
+        .collect()
+}
+
+fn sequence_of(frame: &EncodedVideoFrame) -> u64 {
+    u64::from_be_bytes(frame.data.clone().try_into().unwrap())
+}
+
+#[test]
+fn a_client_attached_to_a_running_capture_gets_a_config_and_a_keyframe() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1]);
+    let outputs = coordinator.pump(0.1).unwrap();
+    assert_eq!(configs(&outputs).len(), 1);
+    assert_eq!(configs(&outputs)[0].source_id, "display:1");
+    assert!(frames(&outputs)[0].is_keyframe);
+}
+
+#[test]
+fn nothing_is_encoded_while_no_client_is_attached() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    push(&mut coordinator, &[1, 2]);
+    assert!(coordinator.pump(0.1).unwrap().is_empty());
+    assert!(coordinator.encoder.encode_calls().is_empty());
+}
+
+#[test]
+fn a_second_client_forces_a_keyframe_and_repeats_the_config() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("first");
+    push(&mut coordinator, &[1, 2]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.attach("second");
+    push(&mut coordinator, &[3]);
+    let outputs = coordinator.pump(0.2).unwrap();
+    assert_eq!(configs(&outputs).len(), 1);
+    assert!(frames(&outputs)[0].is_keyframe);
+    assert_eq!(coordinator.encoder.encode_calls().last(), Some(&(3, true)));
+}
+
+#[test]
+fn switching_source_emits_exactly_one_config_with_the_new_source_id() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+
+    coordinator.set_source(display_source(2), 0.2).unwrap();
+    push(&mut coordinator, &[2, 3]);
+    let switched = coordinator.pump(0.3).unwrap();
+    assert_eq!(configs(&switched).len(), 1);
+    assert_eq!(configs(&switched)[0].source_id, "display:2");
+
+    push(&mut coordinator, &[4]);
+    assert!(configs(&coordinator.pump(0.4).unwrap()).is_empty());
+}
+
+#[test]
+fn selecting_the_running_source_again_changes_nothing() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.set_source(display_source(1), 1.0).unwrap();
+    assert_eq!(coordinator.encoder.configure_calls().len(), 1);
+    assert_eq!(coordinator.running_source(), Some(&display_source(1)));
+}
+
+#[test]
+fn an_unknown_display_is_refused_and_leaves_nothing_running() {
+    let mut coordinator = coordinator();
+    let error = coordinator.set_source(display_source(9), 0.0).unwrap_err();
+    assert!(matches!(error, CoordinatorError::Capture(CaptureError::DisplayNotFound(9))));
+    assert_eq!(coordinator.running_source(), None);
+    assert_eq!(coordinator.chosen_source(), None);
+}
+
+#[test]
+fn an_application_source_is_refused_because_only_displays_and_windows_are_captured() {
+    let mut coordinator = coordinator();
+    let error = coordinator.set_source(CaptureSource::Application { pid: 7 }, 0.0).unwrap_err();
+    assert!(matches!(error, CoordinatorError::UnsupportedSource(ref text) if text == "application:7"));
+}
+
+#[test]
+fn the_requested_bitrate_is_clamped_and_applied_to_the_encoder() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.set_quality(250_000);
+    assert_eq!(coordinator.encoder.bitrate_calls().last(), Some(&100_000_000));
+}
+
+#[test]
+fn a_non_positive_bitrate_request_is_ignored() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    let before = coordinator.encoder.bitrate_calls().len();
+    coordinator.set_quality(0);
+    assert_eq!(coordinator.encoder.bitrate_calls().len(), before);
+}
+
+#[test]
+fn the_bitrate_ceiling_caps_a_larger_request() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.set_quality(8_000);
+    coordinator.set_bitrate_ceiling(Some(2_000));
+    assert_eq!(coordinator.encoder.bitrate_bps(), 2_000_000);
+    coordinator.set_bitrate_ceiling(None);
+    assert_eq!(coordinator.encoder.bitrate_bps(), 8_000_000);
+}
+
+#[test]
+fn pausing_drops_frames_without_encoding_them() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    coordinator.set_video_enabled(false);
+    push(&mut coordinator, &[1, 2]);
+    assert!(coordinator.pump(0.1).unwrap().is_empty());
+    assert!(coordinator.encoder.encode_calls().is_empty());
+}
+
+#[test]
+fn the_first_frame_after_resuming_is_a_keyframe_with_its_config() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1, 2]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.set_video_enabled(false);
+    push(&mut coordinator, &[3]);
+    coordinator.pump(0.2).unwrap();
+    coordinator.set_video_enabled(true);
+    push(&mut coordinator, &[4]);
+    let outputs = coordinator.pump(0.3).unwrap();
+    assert_eq!(configs(&outputs).len(), 1);
+    assert!(frames(&outputs)[0].is_keyframe);
+    assert_eq!(coordinator.encoder.encode_calls().last(), Some(&(4, true)));
+}
+
+#[test]
+fn an_unwatched_stream_drops_frames_without_encoding_them() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    coordinator.set_watched(false);
+    push(&mut coordinator, &[1, 2]);
+    assert!(coordinator.pump(0.1).unwrap().is_empty());
+    assert!(coordinator.encoder.encode_calls().is_empty());
+}
+
+#[test]
+fn the_first_frame_after_being_watched_again_is_a_keyframe_with_its_config() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1, 2]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.set_watched(false);
+    push(&mut coordinator, &[3]);
+    coordinator.pump(0.2).unwrap();
+    coordinator.set_watched(true);
+    push(&mut coordinator, &[4]);
+    let outputs = coordinator.pump(0.3).unwrap();
+    assert_eq!(configs(&outputs).len(), 1);
+    assert!(frames(&outputs)[0].is_keyframe);
+}
+
+#[test]
+fn a_burst_keeps_only_the_newest_delta() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    push(&mut coordinator, &[2, 3, 4]);
+    let outputs = coordinator.pump(0.2).unwrap();
+    let delivered = frames(&outputs);
+    assert_eq!(delivered.len(), 1);
+    assert_eq!(sequence_of(delivered[0]), 4);
+    assert_eq!(coordinator.dropped_frames(), 2);
+}
+
+#[test]
+fn a_waiting_keyframe_survives_a_burst_of_deltas() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1, 2, 3]);
+    let outputs = coordinator.pump(0.1).unwrap();
+    let delivered = frames(&outputs);
+    assert_eq!(delivered.len(), 1);
+    assert!(delivered[0].is_keyframe);
+    assert_eq!(sequence_of(delivered[0]), 1);
+}
+
+#[test]
+fn the_watchdog_fires_only_when_no_frame_has_ever_arrived() {
+    let clock = FakeClock::new(0.0, 0);
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), clock.now_seconds()).unwrap();
+    clock.advance(4.9);
+    assert!(!coordinator.watchdog_expired(clock.now_seconds()));
+    clock.advance(0.1);
+    assert!(coordinator.watchdog_expired(clock.now_seconds()));
+}
+
+#[test]
+fn a_still_screen_after_a_first_frame_does_not_trip_the_watchdog() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.5).unwrap();
+    assert!(!coordinator.watchdog_expired(60.0));
+}
+
+#[test]
+fn leaving_with_no_clients_forgets_the_chosen_source_but_keeps_capturing() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(2), 0.0).unwrap();
+    coordinator.detach("phone");
+    coordinator.forget_chosen_source_if_idle();
+    assert_eq!(coordinator.chosen_source(), None);
+    assert_eq!(coordinator.running_source(), Some(&display_source(2)));
+}
+
+#[test]
+fn the_chosen_source_is_kept_while_a_client_is_still_attached() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.attach("tablet");
+    coordinator.set_source(display_source(2), 0.0).unwrap();
+    coordinator.detach("phone");
+    coordinator.forget_chosen_source_if_idle();
+    assert_eq!(coordinator.chosen_source(), Some(&display_source(2)));
+}
+
+fn encoded_passes(coordinator: &mut VideoCoordinator<FakeCapture, FakeEncoder>, times: &[f64]) -> usize {
+    let mut encoded = 0;
+    for (sequence, now) in times.iter().enumerate() {
+        push(coordinator, &[sequence as u64 + 1]);
+        encoded += frames(&coordinator.pump(*now).expect("the pump runs")).len();
+    }
+    encoded
+}
+
+#[test]
+fn at_the_default_rate_every_pass_that_captures_a_frame_encodes_it() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(1), 0.0).expect("the source starts");
+    assert_eq!(encoded_passes(&mut coordinator, &[0.0, 0.0166, 0.0333, 0.05, 0.0666]), 5);
+}
+
+#[test]
+fn a_lower_frame_rate_encodes_only_the_passes_that_fall_due() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(1), 0.0).expect("the source starts");
+    coordinator.set_frame_rate(15);
+    assert_eq!(encoded_passes(&mut coordinator, &[0.0, 0.0166, 0.0333, 0.05, 0.0666]), 2);
+}
+
+#[test]
+fn a_frame_rate_change_reconfigures_the_encoder_and_asks_for_a_keyframe() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(1), 0.0).expect("the source starts");
+    coordinator.pump(0.0).expect("the pump runs");
+    coordinator.set_frame_rate(30);
+    push(&mut coordinator, &[2]);
+    let outputs = coordinator.pump(0.1).expect("the pump runs");
+    let last_configure = coordinator.encoder.configure_calls().last().copied().expect("configured again");
+    assert_eq!(last_configure.2, 30);
+    assert!(frames(&outputs).first().is_some_and(|frame| frame.is_keyframe));
+}
+
+#[test]
+fn a_requested_frame_rate_is_snapped_to_an_allowed_one() {
+    let mut coordinator = coordinator();
+    coordinator.set_frame_rate(24);
+    assert_eq!(coordinator.frame_rate(), 30);
+    coordinator.set_frame_rate(120);
+    assert_eq!(coordinator.frame_rate(), 60);
+}
+
+#[test]
+fn the_time_of_the_last_encoded_frame_is_recorded() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1]);
+    coordinator.pump(3.5).unwrap();
+    assert_eq!(coordinator.last_frame_produced_at(), Some(3.5));
+}
+
+#[test]
+fn a_late_resync_request_repeats_the_config_and_forces_a_keyframe() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1, 2]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.request_resync();
+    push(&mut coordinator, &[3]);
+    let outputs = coordinator.pump(0.2).unwrap();
+    assert_eq!(configs(&outputs).len(), 1);
+    assert!(frames(&outputs)[0].is_keyframe);
+}
+
+#[test]
+fn a_client_with_no_running_source_starts_the_primary_display() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.ensure_capturing(0.0).unwrap();
+    assert_eq!(coordinator.running_source(), Some(&display_source(1)));
+    assert_eq!(coordinator.chosen_source(), None);
+}
+
+#[test]
+fn the_default_display_is_the_first_one_when_none_is_primary() {
+    let capture = FakeCapture::new(vec![display(4, false), display(5, false)]);
+    let mut coordinator = VideoCoordinator::new(capture, FakeEncoder::default());
+    coordinator.ensure_capturing(0.0).unwrap();
+    assert_eq!(coordinator.running_source(), Some(&display_source(4)));
+}
+
+#[test]
+fn ensure_capturing_leaves_a_running_source_alone() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(2), 0.0).unwrap();
+    coordinator.ensure_capturing(1.0).unwrap();
+    assert_eq!(coordinator.running_source(), Some(&display_source(2)));
+    assert_eq!(coordinator.chosen_source(), Some(&display_source(2)));
+}
+
+#[test]
+fn a_host_with_no_display_reports_a_capture_failure() {
+    let mut coordinator = VideoCoordinator::new(FakeCapture::new(Vec::new()), FakeEncoder::default());
+    assert!(matches!(coordinator.ensure_capturing(0.0), Err(CoordinatorError::Capture(_))));
+}
+
+#[test]
+fn the_last_client_leaving_stops_capture_and_forgets_the_choice() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(2), 0.0).unwrap();
+    coordinator.detach("phone");
+    coordinator.stop_when_idle();
+    assert_eq!(coordinator.running_source(), None);
+    assert_eq!(coordinator.chosen_source(), None);
+    assert_eq!(coordinator.capture.running_display(), None);
+}
+
+#[test]
+fn capture_keeps_running_while_another_client_remains() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.attach("tablet");
+    coordinator.set_source(display_source(2), 0.0).unwrap();
+    coordinator.detach("phone");
+    coordinator.stop_when_idle();
+    assert_eq!(coordinator.running_source(), Some(&display_source(2)));
+}
+
+#[test]
+fn a_restarted_capture_gets_a_fresh_first_frame_grace() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.detach("phone");
+    coordinator.stop_when_idle();
+    coordinator.attach("phone");
+    coordinator.ensure_capturing(100.0).unwrap();
+    assert!(!coordinator.watchdog_expired(101.0));
+    assert!(coordinator.watchdog_expired(106.0));
+}
+
+#[test]
+fn a_capture_that_never_delivers_stands_as_a_condition_until_a_new_start() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.pump(4.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), None);
+    coordinator.pump(5.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::NoFrames));
+    coordinator.pump(6.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::NoFrames), "it stands, it is not a one-off");
+    coordinator.set_source(display_source(2), 10.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), None);
+    coordinator.pump(15.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::NoFrames));
+}
+
+#[test]
+fn the_first_frame_clears_the_no_frames_condition() {
+    let mut coordinator = watched_coordinator();
+    coordinator.pump(5.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::NoFrames));
+    coordinator.pump(5.6).unwrap();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(5.7).unwrap();
+    assert_eq!(coordinator.capture_condition(), None);
+}
+
+#[test]
+fn a_capture_that_delivered_a_frame_is_never_reported() {
+    let mut coordinator = coordinator();
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator.attach("phone");
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.pump(60.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), None);
+}
+
+fn watched_coordinator() -> VideoCoordinator<FakeCapture, FakeEncoder> {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.set_source(display_source(1), 0.0).unwrap();
+    coordinator
+}
+
+fn has_frame(outputs: &[VideoOutput]) -> bool {
+    !frames(outputs).is_empty()
+}
+
+#[test]
+fn an_encoder_failure_goes_quiet_for_the_backoff_then_rebuilds_the_encoder() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.encoder.fail_encodes(1);
+    push(&mut coordinator, &[2]);
+    assert!(coordinator.pump(1.0).is_err());
+
+    push(&mut coordinator, &[3]);
+    assert!(coordinator.pump(1.2).unwrap().is_empty());
+    assert!(coordinator.pump(1.4).unwrap().is_empty());
+
+    let outputs = coordinator.pump(1.5).unwrap();
+    assert!(has_frame(&outputs));
+    assert!(frames(&outputs)[0].is_keyframe);
+    assert_eq!(configs(&outputs).len(), 1);
+    assert_eq!(coordinator.recovery_failures(), 0);
+}
+
+#[test]
+fn a_capture_that_reports_itself_failed_is_restarted_on_a_fresh_device() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    assert_eq!(coordinator.capture.starts(), 1);
+    coordinator.capture.fail();
+
+    assert!(coordinator.pump(1.0).unwrap().is_empty());
+    assert_eq!(coordinator.capture.starts(), 1);
+
+    assert!(coordinator.pump(1.5).unwrap().is_empty());
+    assert_eq!(coordinator.capture.starts(), 2);
+    push(&mut coordinator, &[2]);
+    assert!(frames(&coordinator.pump(1.6).unwrap())[0].is_keyframe);
+}
+
+#[test]
+fn a_restart_that_keeps_failing_backs_off_and_stands_as_a_condition() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.capture.fail();
+    coordinator.capture.fail_starts(10);
+
+    coordinator.pump(1.0).unwrap();
+    assert_eq!(coordinator.capture_condition(), None);
+    assert!(coordinator.pump(1.5).is_err());
+    assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::Recovering));
+    assert!(coordinator.pump(2.0).unwrap().is_empty());
+    assert!(coordinator.pump(2.5).is_err());
+    assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::Recovering));
+    assert!(coordinator.pump(4.0).unwrap().is_empty());
+    assert!(coordinator.pump(4.5).is_err());
+    assert_eq!(coordinator.capture.starts(), 4);
+}
+
+#[test]
+fn a_restart_that_fails_once_is_retried_and_the_picture_returns() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.1).unwrap();
+    coordinator.capture.fail();
+    coordinator.capture.fail_starts(1);
+    coordinator.pump(1.0).unwrap();
+    assert!(coordinator.pump(1.5).is_err());
+    assert!(coordinator.pump(3.0).unwrap().is_empty());
+    push(&mut coordinator, &[2]);
+    assert!(has_frame(&coordinator.pump(3.1).unwrap()));
+}
+
+#[test]
+fn a_capture_that_goes_quiet_and_fails_its_probe_is_restarted_after_the_stall_window() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.0).unwrap();
+    coordinator.capture.fail_probes();
+    for second in 1..30 {
+        coordinator.pump(f64::from(second)).unwrap();
+    }
+    assert_eq!(coordinator.capture.starts(), 1);
+    coordinator.pump(30.0).unwrap();
+    assert_eq!(coordinator.capture.starts(), 1);
+    coordinator.pump(30.5).unwrap();
+    assert_eq!(coordinator.capture.starts(), 2);
+    assert_eq!(coordinator.capture_condition(), None);
+}
+
+#[test]
+fn a_capture_that_keeps_failing_its_probe_is_probed_less_often_each_time() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.0).unwrap();
+    coordinator.capture.fail_probes();
+    coordinator.pump(30.0).unwrap();
+    coordinator.pump(30.5).unwrap();
+    push(&mut coordinator, &[2]);
+    coordinator.capture.fail_probes();
+    coordinator.pump(31.0).unwrap();
+    coordinator.pump(89.0).unwrap();
+    assert_eq!(coordinator.capture.starts(), 2);
+    coordinator.pump(91.0).unwrap();
+    coordinator.pump(91.5).unwrap();
+    assert_eq!(coordinator.capture.starts(), 3);
+}
+
+#[test]
+fn after_a_panic_the_capture_is_rebuilt_and_the_phones_get_a_description_and_a_keyframe() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.0).unwrap();
+    coordinator.reset_after_panic(1.0);
+    push(&mut coordinator, &[2]);
+    assert!(coordinator.pump(1.2).unwrap().is_empty(), "nothing is trusted until the backoff has run out");
+    assert_eq!(coordinator.capture.starts(), 1);
+    coordinator.pump(1.5).unwrap();
+    assert_eq!(coordinator.capture.starts(), 2, "the capture was stopped and started again");
+    push(&mut coordinator, &[3]);
+    let outputs = coordinator.pump(1.6).unwrap();
+    assert_eq!(configs(&outputs).len(), 1);
+    assert!(frames(&outputs)[0].is_keyframe);
+}
+
+#[test]
+fn a_reset_with_nothing_captured_only_owes_the_clients_a_keyframe() {
+    let mut coordinator = coordinator();
+    coordinator.attach("phone");
+    coordinator.reset_after_panic(1.0);
+    assert!(coordinator.pump(5.0).unwrap().is_empty());
+    assert_eq!(coordinator.capture.starts(), 0);
+}
+
+#[test]
+fn a_still_screen_is_never_restarted_while_its_probe_passes() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.0).unwrap();
+    for second in 1..=1200 {
+        coordinator.pump(f64::from(second)).unwrap();
+    }
+    assert_eq!(coordinator.capture.starts(), 1, "twenty minutes of a static desktop rebuilt nothing");
+    assert_eq!(coordinator.capture_condition(), None);
+}
+
+#[test]
+fn frames_that_were_waiting_when_the_pump_resumes_are_not_a_stall() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.0).unwrap();
+    push(&mut coordinator, &[2]);
+    let outputs = coordinator.pump(100.0).unwrap();
+    assert!(has_frame(&outputs));
+    coordinator.pump(101.0).unwrap();
+    assert_eq!(coordinator.capture.starts(), 1);
+}
+
+#[test]
+fn silence_while_nobody_watches_is_not_a_stall() {
+    let mut coordinator = watched_coordinator();
+    push(&mut coordinator, &[1]);
+    coordinator.pump(0.0).unwrap();
+    coordinator.set_watched(false);
+    coordinator.pump(100.0).unwrap();
+    coordinator.set_watched(true);
+    coordinator.pump(110.0).unwrap();
+    assert_eq!(coordinator.capture.starts(), 1);
+}
+
+#[test]
+fn a_capture_that_never_delivers_is_restarted_with_growing_waits() {
+    let mut coordinator = watched_coordinator();
+    coordinator.pump(5.0).unwrap();
+    coordinator.pump(5.4).unwrap();
+    assert_eq!(coordinator.capture.starts(), 1);
+    coordinator.pump(5.5).unwrap();
+    assert_eq!(coordinator.capture.starts(), 2);
+    coordinator.pump(10.5).unwrap();
+    assert!(coordinator.pump(11.4).unwrap().is_empty());
+    assert_eq!(coordinator.capture.starts(), 2);
+    coordinator.pump(11.5).unwrap();
+    assert_eq!(coordinator.capture.starts(), 3);
+}
+
+#[test]
+fn the_no_frames_condition_does_not_flicker_through_the_rebuilds_that_follow() {
+    let mut coordinator = watched_coordinator();
+    for step in 0..40 {
+        coordinator.pump(5.0 + f64::from(step) * 0.5).unwrap();
+        assert_eq!(coordinator.capture_condition(), Some(CaptureCondition::NoFrames));
+    }
+    assert!(coordinator.capture.starts() > 1, "the capture was rebuilt meanwhile");
+}

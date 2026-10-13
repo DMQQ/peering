@@ -1,0 +1,66 @@
+package pl.dmq.peering.feature.connect
+
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import pl.dmq.peering.R
+import pl.dmq.peering.ui.kit.PeeringAlert
+
+/** The Connect screen. Intents go to [presenter]; the wiring owns the presenter and what connecting and pairing do. */
+@Composable
+fun ConnectRoute(
+    presenter: ConnectPresenter,
+    modifier: Modifier = Modifier,
+    protection: AppProtection,
+    onScanRequested: (() -> Unit)?,
+) {
+    val state by presenter.state.collectAsState()
+    val actions = rememberConnectActions(presenter, onScanRequested)
+    ConnectScreen(state = state, actions = actions, protection = protection, modifier = modifier)
+    if (state.forgetTarget != null) {
+        ForgetDialog(onConfirm = presenter::confirmForget, onDismiss = presenter::cancelForget)
+    }
+}
+
+@Composable
+private fun ForgetDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    PeeringAlert(
+        title = stringResource(R.string.connect_forget_title),
+        message = stringResource(R.string.connect_forget_text),
+        confirm = stringResource(R.string.connect_forget_confirm),
+        onConfirm = onConfirm,
+        cancel = stringResource(R.string.connect_cancel),
+        onCancel = onDismiss,
+        destructive = true,
+    )
+}
+
+@Composable
+internal fun rememberConnectActions(presenter: ConnectPresenter, onScanRequested: (() -> Unit)?): ConnectActions {
+    val context = LocalContext.current
+    return remember(presenter, onScanRequested, context) {
+        ConnectActions(
+            onConnect = presenter::connect,
+            onConnectVia = presenter::connectVia,
+            onPair = presenter::pair,
+            onRename = presenter::rename,
+            onDismissMessage = presenter::dismissMessage,
+            onForget = presenter::requestForget,
+            onWake = presenter::wake,
+            onConnectAddress = presenter::connectToAddress,
+            onSearchAgain = presenter::searchAgain,
+            onOpenWifiSettings = {
+                context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            },
+            onEntryTextChanged = presenter.entry::onTextChanged,
+            onEntrySubmit = presenter.entry::submit,
+            onScan = onScanRequested,
+        )
+    }
+}

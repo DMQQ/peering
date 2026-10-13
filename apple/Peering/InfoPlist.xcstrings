@@ -1,0 +1,357 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "CFBundleDisplayName": {
+      "comment": "Bundle display name",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Peering"
+          }
+        }
+      },
+      "shouldTranslate": false
+    },
+    "CFBundleName": {
+      "comment": "Bundle name",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Peering"
+          }
+        }
+      },
+      "shouldTranslate": false
+    },
+    "NSCameraUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering verwendet die Kamera, um den einmaligen Kopplungscode zu scannen, der auf deinem Mac angezeigt wird."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering usa la cámara para escanear el código de emparejamiento de un solo uso que aparece en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering utilise l'appareil photo pour scanner le code d'association à usage unique affiché sur votre Mac."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering usa la fotocamera per scansionare il codice di associazione monouso mostrato sul tuo Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peeringは、Macに表示される1回限りのペアリングコードをスキャンするためにカメラを使用します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering은 Mac에 표시되는 일회용 페어링 코드를 스캔하기 위해 카메라를 사용합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Peering usa a câmera para escanear o código de pareamento de uso único mostrado no seu Mac."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering использует камеру, чтобы сканировать одноразовый код связывания, показанный на вашем Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering 使用相机扫描 Mac 上显示的一次性配对码。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering uses the camera to scan the one-time pairing code shown on your Mac."
+          }
+        }
+      }
+    },
+    "NSFaceIDUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering verwendet Face ID, um den Zugriff auf deine gekoppelten Macs zu schützen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering usa Face ID para proteger el acceso a tus Mac emparejados."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering utilise Face ID pour protéger l'accès à vos Mac associés."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering usa Face ID per proteggere l'accesso ai tuoi Mac associati."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peeringは、ペアリング済みのMacへのアクセスを保護するためにFace IDを使用します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering은 페어링된 Mac에 대한 접근을 보호하기 위해 Face ID를 사용합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Peering usa o Face ID para proteger o acesso aos seus Macs pareados."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering использует Face ID для защиты доступа к вашим связанным Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering 使用面容 ID 来保护对已配对 Mac 的访问。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering uses Face ID to protect access to your paired Macs."
+          }
+        }
+      }
+    },
+    "NSLocalNetworkUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering verbindet sich im lokalen Netzwerk mit deinem Mac, um dessen Bildschirm zu streamen und Eingaben zu senden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering se conecta a tu Mac en la red local para transmitir su pantalla y enviar entradas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering se connecte à votre Mac sur le réseau local pour diffuser son écran et envoyer des commandes."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering si connette al tuo Mac sulla rete locale per trasmetterne lo schermo e inviare comandi."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peeringは、Macの画面をストリーミングし入力を送信するために、ローカルネットワーク上のMacに接続します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering은 Mac의 화면을 스트리밍하고 입력을 보내기 위해 로컬 네트워크에서 Mac에 연결합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Peering se conecta ao seu Mac na rede local para transmitir a tela e enviar comandos."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering подключается к вашему Mac в локальной сети, чтобы передавать его экран и отправлять ввод."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering 在本地网络上连接你的 Mac，以串流其屏幕并发送输入。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering connects to your Mac on the local network to stream its screen and send input."
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering hört zu, während du diktierst, damit du sprechen statt auf dem Mac tippen kannst."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering listens while you dictate, so you can speak instead of typing on the Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering escucha mientras dictas, para que hables en lugar de escribir en el Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering écoute pendant la dictée, pour que vous parliez au lieu de taper sur le Mac."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering ascolta mentre detti, così puoi parlare invece di scrivere sul Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音声入力中にPeeringがマイクを使い、Macに話しかけて入力できます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "받아쓰기 중에 Peering이 마이크를 사용해 Mac에 말로 입력할 수 있게 합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Peering ouve enquanto você dita, para falar em vez de digitar no Mac."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering слушает, пока вы диктуете, чтобы вы говорили вместо набора текста на Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "听写时 Peering 会使用麦克风，让你直接说话而不是在 Mac 上打字。"
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering wandelt Gesprochenes in Text um, wenn möglich auf deinem iPhone, und tippt es auf deinem Mac."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering turns what you say into text, on your iPhone when the language allows it, and types it on your Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering convierte lo que dices en texto, en tu iPhone si el idioma lo permite, y lo escribe en tu Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering transforme ce que vous dites en texte, sur votre iPhone si la langue le permet, et le saisit sur votre Mac."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering trasforma ciò che dici in testo, sul tuo iPhone se la lingua lo permette, e lo scrive sul Mac."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peeringは話した内容をテキストに変換し、言語が対応していればiPhone上で処理して、Macに入力します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering은 말한 내용을 텍스트로 변환하고, 언어가 지원하면 iPhone에서 처리해 Mac에 입력합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Peering transforma o que você diz em texto, no iPhone quando o idioma permite, e digita no Mac."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering превращает вашу речь в текст (на iPhone, если язык поддерживается) и вводит его на Mac."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering 会把你说的话转成文字，语言支持时在 iPhone 上处理，并输入到你的 Mac。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

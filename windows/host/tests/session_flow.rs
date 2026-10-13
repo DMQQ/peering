@@ -1,0 +1,163 @@
+mod support;
+
+use peering_core::ports::capture::RawFrame;
+use peering_core::ports::clock::Clock;
+use peering_host::runtime::PeerInfo;
+use peering_wire::framing::MessageKind;
+use peering_wire::source::CaptureCatalog;
+use peering_wire::command::RemoteCommand;
+use peering_wire::handshake::{VideoTransportKind, VideoTransportRequest};
+use support::*;
+
+#[test]
+fn an_authorised_phone_gets_the_catalogue_then_a_video_config_and_a_frame() {
+    run(async {
+        let harness = harness();
+        let mut phone = paired_phone(&harness.runtime).await;
+        let catalogue: CaptureCatalog = decode_json(&phone.next_of(MessageKind::Catalog).await);
+        assert_eq!(catalogue.displays.len(), 1);
+
+        phone.send_command(&select_display_command()).await;
+        phone.sync().await;
+        harness
+            .capture
+            .lock()
+            .expect("the capture is not poisoned")
+            .push_frame(RawFrame { width: 1920, height: 1080, sequence: 1 });
+        harness.runtime.pump_video(harness.clock.now_seconds()).expect("the pump runs");
+
+        let config = phone.next_of(MessageKind::VideoConfig).await;
+        let picture = phone.next_of(MessageKind::VideoFrame).await;
+        assert!(!config.payload.is_empty());
+        assert!(!picture.payload.is_empty());
+    });
+}
+
+#[test]
+fn a_relayed_phone_gets_video_on_its_control_connection() {
+    run(async {
+        let harness = harness();
+        let peer = PeerInfo { via_relay: true, video_token: Some([9; 16]), ..direct_peer() };
+        let (mut phone, result, _offer) = pair_with_peer(&harness.runtime, peer, |client, secret| client.proof(secret)).await;
+        assert!(result.accepted);
+        phone.send_command(&select_display_command()).await;
+        phone.sync().await;
+        harness
+            .capture
+            .lock()
+            .expect("the capture is not poisoned")
+            .push_frame(RawFrame { width: 1280, height: 720, sequence: 1 });
+        harness.runtime.pump_video(harness.clock.now_seconds()).expect("the pump runs");
+        phone.next_of(MessageKind::VideoConfig).await;
+    });
+}
+
+#[test]
+fn a_mouse_move_from_the_phone_reaches_the_input() {
+    run(async {
+        let harness = harness();
+        let mut phone = paired_phone(&harness.runtime).await;
+        phone.send_command(&mouse_move(0.25, 0.75)).await;
+        phone.sync().await;
+        let input = harness.input.lock().expect("the input is not poisoned");
+        assert!(input
+            .applied()
+            .iter()
+            .any(|(command, _)| matches!(command, RemoteCommand::MouseMove { .. })));
+    });
+}
+
+#[test]
+fn a_folder_listing_request_is_answered_from_the_file_system() {
+    run(async {
+        let harness = harness();
+        let mut phone = paired_phone(&harness.runtime).await;
+        phone
+            .send_json(MessageKind::TerminalRequest, &peering_wire::terminal::TerminalRequest::StartBrowser { id: "browse-1".to_owned() })
+            .await;
+        let request = peering_wire::terminal::TerminalRequest::ListDirectory {
+            session_id: "browse-1".to_owned(),
+            path: Some("/C:/Users/me".to_owned()),
+        };
+        phone.send_json(MessageKind::TerminalRequest, &request).await;
+        let event = phone.next_of(MessageKind::TerminalEvent).await;
+        assert!(String::from_utf8_lossy(&event.payload).contains("notes.txt"));
+    });
+}
+
+#[test]
+fn a_video_connection_without_an_authorised_control_session_is_refused() {
+    run(async {
+        let harness = harness();
+        let mut phone = Phone::connect(&harness.runtime, direct_peer());
+        phone.send(role_frame(VIDEO_ROLE)).await;
+        assert!(phone.try_next().await.is_none());
+    });
+}
+
+#[test]
+fn keys_are_released_only_when_the_last_session_leaves() {
+    run(async {
+        let harness = harness();
+        let first = paired_phone(&harness.runtime).await;
+        let second = reconnected_phone(&harness.runtime).await;
+        let released = || harness.input.lock().expect("the input is not poisoned").release_all_count();
+
+        drop(first);
+        until(|| (harness.runtime.snapshot().connected_clients == 1).then_some(())).await;
+        assert_eq!(released(), 0, "the second session still holds its keys");
+
+        drop(second);
+        until(|| (released() == 1).then_some(())).await;
+    });
+}
+
+async fn request_transport(phone: &mut Phone, transport: VideoTransportKind) {
+    let request = VideoTransportRequest { transport, reason: "test".to_owned() };
+    phone.send_json(MessageKind::VideoTransport, &request).await;
+    phone.sync().await;
+}
+
+fn bitrate_bps(harness: &Harness) -> u32 {
+    harness.encoder.lock().expect("the encoder is not poisoned").bitrate_bps()
+}
+
+#[test]
+fn the_fallback_cap_follows_the_sessions_that_need_it_not_the_last_to_ask() {
+    run(async {
+        let harness = harness();
+        let mut falling_back = paired_phone(&harness.runtime).await;
+        let mut other = reconnected_phone(&harness.runtime).await;
+        falling_back.send_command(&select_display_command()).await;
+        falling_back.sync().await;
+        harness.capture.lock().expect("the capture is not poisoned").push_frame(RawFrame { width: 1920, height: 1080, sequence: 1 });
+        harness.runtime.pump_video(harness.clock.now_seconds()).expect("the pump runs");
+
+        request_transport(&mut falling_back, VideoTransportKind::Control).await;
+        assert_eq!(bitrate_bps(&harness), 2_000_000);
+
+        request_transport(&mut other, VideoTransportKind::Primary).await;
+        assert_eq!(bitrate_bps(&harness), 2_000_000, "another session on the primary lane does not lift the cap");
+
+        drop(other);
+        falling_back.sync().await;
+        assert_eq!(bitrate_bps(&harness), 2_000_000, "the other session leaving does not lift it either");
+    });
+}
+
+#[test]
+fn the_fallback_cap_ends_with_the_session_that_needed_it() {
+    run(async {
+        let harness = harness();
+        let mut phone = paired_phone(&harness.runtime).await;
+        phone.send_command(&select_display_command()).await;
+        phone.sync().await;
+        harness.capture.lock().expect("the capture is not poisoned").push_frame(RawFrame { width: 1920, height: 1080, sequence: 1 });
+        harness.runtime.pump_video(harness.clock.now_seconds()).expect("the pump runs");
+        request_transport(&mut phone, VideoTransportKind::Control).await;
+        assert_eq!(bitrate_bps(&harness), 2_000_000);
+
+        drop(phone);
+        until(|| (bitrate_bps(&harness) != 2_000_000).then_some(())).await;
+    });
+}

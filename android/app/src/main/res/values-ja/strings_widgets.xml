@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_connect_label">クイック接続</string>
+    <string name="widget_quick_connect_description">Peeringを開き、コンピュータのひとつに接続します。</string>
+    <string name="widget_quick_connect_tap">タップして接続</string>
+    <string name="widget_quick_connect_empty">コンピュータをペアリングすると、ここに表示されます。</string>
+    <string name="widget_agents_label">エージェント</string>
+    <string name="widget_agents_description">作業中のチャット、あなたの操作待ちのチャット、完了したチャットを確認できます。</string>
+    <string name="widget_agents_waiting">待機中%d件</string>
+    <string name="widget_agents_working">作業中%d件</string>
+    <string name="widget_agents_empty_title">チャットはありません</string>
+    <string name="widget_agents_empty_detail">コンピュータのターミナルから開始してください。</string>
+    <string name="widget_agent_waiting">あなたの対応待ち</string>
+    <string name="widget_agent_working">作業中</string>
+    <string name="widget_agent_finished">完了</string>
+    <string name="widget_agent_failed">エラーで停止しました</string>
+    <string name="widget_agent_stale">Peeringを開いて更新</string>
+</resources>

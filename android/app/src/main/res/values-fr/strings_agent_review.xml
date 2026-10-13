@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="review_title">À relire</string>
+    <plurals name="review_files">
+        <item quantity="one">%d fichier</item>
+        <item quantity="other">%d fichiers</item>
+    </plurals>
+    <plurals name="review_in_chats">
+        <item quantity="one">dans %d discussion</item>
+        <item quantity="other">dans %d discussions</item>
+    </plurals>
+    <plurals name="review_more_files">
+        <item quantity="one">%d fichier de plus</item>
+        <item quantity="other">%d fichiers de plus</item>
+    </plurals>
+    <string name="review_mark_all">Tout marquer comme relu</string>
+    <string name="review_unmark_all">Tout marquer comme non relu</string>
+    <string name="review_mark_reviewed">Relu</string>
+    <string name="review_empty_title">Rien à relire</string>
+    <string name="review_empty_body">Les fichiers modifiés par vos agents apparaîtront ici jusqu\'à ce que vous les ayez examinés.</string>
+    <string name="review_not_repository">Git n\'a rien à comparer dans ce dossier.</string>
+    <string name="review_checking">Vérification des modifications de cette discussion…</string>
+</resources>

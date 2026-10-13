@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_servers">Servers</string>
+
+    <string name="ssh_title">Servers</string>
+    <string name="ssh_detail">Shells on machines you added by hand.</string>
+    <string name="ssh_section_open">Open</string>
+    <string name="ssh_section_servers">Servers</string>
+    <string name="ssh_add">Add a server</string>
+    <string name="ssh_empty_title">No servers yet</string>
+    <string name="ssh_empty_body">Add a machine you can reach over SSH, and open a shell on it from here.</string>
+    <string name="ssh_this_server">This server</string>
+
+    <string name="ssh_row_locked">%1$s · Locked</string>
+    <string name="ssh_row_connecting">%1$s · Connecting</string>
+    <string name="ssh_row_live">%1$s · Live</string>
+    <string name="ssh_row_ended">%1$s · Ended</string>
+    <string name="ssh_row_more">More options for %1$s</string>
+    <string name="ssh_menu_edit">Edit</string>
+    <string name="ssh_menu_public_key">Public key</string>
+    <string name="ssh_menu_forget_signin">Forget how to sign in</string>
+    <string name="ssh_menu_forget_key">Forget its key</string>
+    <string name="ssh_menu_delete">Delete</string>
+    <string name="ssh_menu_end">End connection</string>
+
+    <string name="ssh_forget_title">Forget how to sign in?</string>
+    <string name="ssh_forget_body">%1$s will ask for a password the next time you open a shell. Nothing on the server itself is touched, and any key already in authorized_keys stays there.</string>
+    <string name="ssh_forget_confirm">Forget</string>
+    <string name="ssh_forget_keep">Keep it</string>
+
+    <string name="ssh_editor_add_title">New server</string>
+    <string name="ssh_editor_edit_title">Edit server</string>
+    <string name="ssh_save">Save</string>
+    <string name="ssh_cancel">Cancel</string>
+    <string name="ssh_server_card">Server</string>
+    <string name="ssh_server_footer">Name is what the row is called; leave it empty and the host is used. The port is 22 unless your server says otherwise.</string>
+    <string name="ssh_field_name">Name (optional)</string>
+    <string name="ssh_field_host">Host</string>
+    <string name="ssh_field_port">Port</string>
+    <string name="ssh_field_user">User</string>
+    <string name="ssh_error_host_empty">Enter the host name or address.</string>
+    <string name="ssh_error_host_invalid">That is not a host name. Leave out the user name and any ssh:// prefix.</string>
+    <string name="ssh_error_port">The port has to be a number from 1 to 65535.</string>
+    <string name="ssh_error_user">Enter the user to sign in as.</string>
+
+    <string name="ssh_lock_card">Lock</string>
+    <string name="ssh_lock_ask">Ask for</string>
+    <string name="ssh_lock_nothing">Nothing</string>
+    <string name="ssh_lock_passcode">Passcode</string>
+    <string name="ssh_lock_device">Device unlock</string>
+    <string name="ssh_lock_footer_off">A tap on this server opens a shell straight away.</string>
+    <string name="ssh_lock_footer_passcode">Six digits, kept in this phone\'s secure storage. Setting the lock back to Nothing forgets it.</string>
+    <string name="ssh_lock_footer_device">Your fingerprint, face or screen lock is asked for before the shell opens.</string>
+    <string name="ssh_lock_choose">Choose a passcode</string>
+    <string name="ssh_lock_again">Once more, to be sure of it.</string>
+    <string name="ssh_lock_mismatch">Those two did not match. Start again.</string>
+    <string name="ssh_lock_enter">You will be asked for this before this server opens.</string>
+    <string name="ssh_lock_wrong">That is not the passcode.</string>
+    <string name="ssh_lock_change">Change passcode</string>
+    <string name="ssh_unlock_title">Unlock %1$s</string>
+    <string name="ssh_unlock_device">Unlock with your device</string>
+    <string name="ssh_unlock_reason">Open a shell on %1$s.</string>
+    <string name="ssh_unlock_delete">Delete digit</string>
+
+    <string name="ssh_signin_card">Sign in with</string>
+    <string name="ssh_signin_using">Using</string>
+    <string name="ssh_signin_password">Password</string>
+    <string name="ssh_signin_key">Key</string>
+    <string name="ssh_signin_password_footer">You are asked for the password when you open a shell. Choose Remember it in that prompt to keep it in this phone\'s secure storage.</string>
+    <string name="ssh_signin_key_footer">A key replaces the password for this server, it does not sit beside one. The private half is kept in this phone\'s secure storage; the public half is the line you put in ~/.ssh/authorized_keys on the server.</string>
+    <string name="ssh_signin_key_missing">Choose a key</string>
+
+    <string name="ssh_key_title">Key</string>
+    <string name="ssh_key_public">Public key</string>
+    <string name="ssh_key_public_footer">Append this line to ~/.ssh/authorized_keys on the server. The private half stays in this phone\'s secure storage and is never sent anywhere except as a signature.</string>
+    <string name="ssh_key_copy">Copy the public key</string>
+    <string name="ssh_key_copied">Public key copied</string>
+    <string name="ssh_key_where">Where from</string>
+    <string name="ssh_key_generate">Make a new key</string>
+    <string name="ssh_key_import_file">Import a key file</string>
+    <string name="ssh_key_paste">Paste a key</string>
+    <string name="ssh_key_from_generate">For a server you have not set up a key for yet. It is an ed25519 key, the kind OpenSSH makes by default.</string>
+    <string name="ssh_key_from_paste">The private half, not the public one. If what you have starts with ssh-ed25519, that is the half the server wants.</string>
+    <string name="ssh_key_name">Name</string>
+    <string name="ssh_key_name_footer">Only a label. It is what the server shows beside the key, and it tells your key apart from the one your laptop uses.</string>
+    <string name="ssh_key_text">Private key</string>
+    <string name="ssh_key_has_passphrase">It has a passphrase</string>
+    <string name="ssh_key_passphrase">Passphrase</string>
+    <string name="ssh_key_passphrase_footer">Only if the key has one. It is kept in this phone\'s secure storage beside the key, because a phone has no ssh-agent to ask.</string>
+    <string name="ssh_key_use">Use this key</string>
+    <string name="ssh_key_err_not_private">That is not a private key. A private key starts with -----BEGIN OPENSSH PRIVATE KEY-----. If you pasted a line starting with ssh-ed25519, that is the public half, which goes on the server rather than here.</string>
+    <string name="ssh_key_err_malformed">This key could not be read: %1$s</string>
+    <string name="ssh_key_err_needs_passphrase">This key has a passphrase. Type it so the app can unlock the key when it connects.</string>
+    <string name="ssh_key_err_wrong_passphrase">That passphrase did not unlock this key.</string>
+    <string name="ssh_key_err_file">That file could not be read.</string>
+
+    <string name="ssh_hostkey_title">Is this the right machine?</string>
+    <string name="ssh_hostkey_body">This is the first time you have connected to %1$s. Check its fingerprint against the server itself. Most providers show it in their console, and ssh-keygen -lf prints it on the box.</string>
+    <string name="ssh_hostkey_trust">Trust</string>
+    <string name="ssh_changed_title">The server\'s key has changed</string>
+    <string name="ssh_changed_body">The server\'s key has changed since you last connected. If this was not you, do not continue.</string>
+    <string name="ssh_changed_known">Saved: %1$s %2$s</string>
+    <string name="ssh_changed_offered">Offered now: %1$s %2$s</string>
+    <string name="ssh_changed_help">If you reinstalled the server, or know why its key changed, use Forget its key in the server\'s menu and connect again. If you do not, someone may be sitting between you and the server.</string>
+
+    <string name="ssh_fail_rejected">You did not accept this server\'s key.</string>
+    <string name="ssh_fail_auth_password">The server refused that password.</string>
+    <string name="ssh_fail_auth_key">The server did not accept this key. Check that its public half is in authorized_keys.</string>
+    <string name="ssh_fail_timeout">The server did not answer in time.</string>
+    <string name="ssh_fail_ended">The connection ended.</string>
+
+    <string name="ssh_password_title">Password for %1$s</string>
+    <string name="ssh_password_field">Password</string>
+    <string name="ssh_password_remember">Remember it</string>
+    <string name="ssh_password_connect">Connect</string>
+
+    <string name="ssh_tab_terminal">Terminal</string>
+    <string name="ssh_tab_files">Files</string>
+    <string name="ssh_tab_forwards">Forwards</string>
+    <string name="ssh_connecting">Connecting to %1$s</string>
+    <string name="ssh_cancel_connecting">Cancel</string>
+    <string name="ssh_reconnect">Reconnect</string>
+    <string name="ssh_close">Close</string>
+    <string name="ssh_end_title">End the connection?</string>
+    <string name="ssh_end_body">The shells on the server stop, along with anything running in them.</string>
+    <string name="ssh_end_confirm">End</string>
+    <string name="ssh_back">Back to servers</string>
+    <string name="ssh_files_ended">This connection has ended. Open the server again to browse its files.</string>
+
+    <string name="ssh_forwards_title">Port forwards</string>
+    <string name="ssh_forwards_footer_idle">A list of tunnels to set up. Each one listens on this phone only, so another app on the phone can reach a service the server can see.</string>
+    <string name="ssh_forwards_footer_live">A forward runs for as long as this connection does. Closing it, or leaving the app for long enough, ends it, and nothing here keeps it alive in the background.</string>
+    <string name="ssh_forward_add">Add a forward</string>
+    <string name="ssh_forward_title">Port forward</string>
+    <string name="ssh_forward_name">Name (optional)</string>
+    <string name="ssh_forward_local_card">This phone</string>
+    <string name="ssh_forward_local_footer">The port another app on this phone will connect to. localhost:%1$s is what you point it at.</string>
+    <string name="ssh_forward_local">Local port</string>
+    <string name="ssh_forward_remote_card">The server\'s side</string>
+    <string name="ssh_forward_remote_footer">Where the server connects to, seen from the server. This can be 127.0.0.1 for a service that only listens on the server itself, or a name that resolves only from the server.</string>
+    <string name="ssh_forward_remote_host">Host</string>
+    <string name="ssh_forward_remote_port">Port</string>
+    <string name="ssh_forward_when_card">When a shell opens</string>
+    <string name="ssh_forward_when_footer">A forward runs for as long as the connection to this server does. There is no way to keep one running in the background.</string>
+    <string name="ssh_forward_enabled">Start it with the connection</string>
+    <string name="ssh_forward_running">Running</string>
+    <string name="ssh_forward_stopped">Stopped</string>
+    <string name="ssh_forward_delete">Delete forward</string>
+    <string name="ssh_forward_err_local_nan">The local port has to be a number.</string>
+    <string name="ssh_forward_err_local_range">The local port has to be between 1 and 65535.</string>
+    <string name="ssh_forward_err_remote_nan">The port on the server has to be a number.</string>
+    <string name="ssh_forward_err_remote_range">The port on the server has to be between 1 and 65535.</string>
+    <string name="ssh_forward_err_host_empty">Say which machine the server should connect to. It is the machine at the far end of the tunnel, and it is the server that does the connecting.</string>
+    <string name="ssh_forward_err_host_invalid">That is not a host name or an address. Letters, digits, dots, colons, underscores and hyphens only.</string>
+    <string name="ssh_forward_err_used">This server already forwards %1$d. Two forwards cannot listen on the same port, so one of them would never start.</string>
+</resources>

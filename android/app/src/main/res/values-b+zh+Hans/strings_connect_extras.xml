@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connect_wake">通过局域网唤醒电脑</string>
+    <string name="connect_wake_refusal_no_address">尚无硬件地址记录。请先连接一次。</string>
+    <string name="connect_wake_refusal_awake">该电脑已处于唤醒状态。</string>
+    <string name="connect_wake_no_address">没有该电脑的硬件地址记录，因此无处发送唤醒包。</string>
+    <string name="connect_wake_unreadable">无法读取该电脑已存储的硬件地址，因此未发送唤醒包。</string>
+    <plurals name="connect_wake_sent">
+        <item quantity="other">已向 %d 个硬件地址发送唤醒包。它只能唤醒此网络中的电脑。</item>
+    </plurals>
+    <string name="session_failed_key_changed">自你配对以来，这台电脑的密钥已更改。如果这不在你的预期之内，请不要连接。若要信任新密钥，请在此移除该电脑并重新配对。</string>
+    <string name="session_failed_wrong_computer">应答的电脑不是你所请求的那台。如果它已搬到别处，请在此移除并重新配对。</string>
+    <string name="session_failed_no_pin">这台手机不再信任该电脑。请重新配对后再连接。</string>
+    <string name="link_end_title">结束此会话？</string>
+    <string name="link_end_message">Peering 之外的一个链接请求断开你与电脑的连接。</string>
+    <string name="link_end_confirm">结束会话</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="plan_pro">Pro</string>
+    <string name="plan_pro_yearly">Pro, yearly</string>
+    <string name="plan_pro_note">Unlimited time away, the sharpest relay picture</string>
+    <string name="plan_lifetime_note">Everything in Pro, paid once</string>
+    <string name="plan_button_monthly">Continue with Pro · %1$s/mo</string>
+    <string name="plan_button_yearly">Continue with Pro · %1$s/yr</string>
+    <string name="plan_button_lifetime">Get Lifetime · %1$s</string>
+    <string name="paywall_unavailable_body">If you have subscribed before, restoring should bring it back. Otherwise it is usually temporary.</string>
+</resources>

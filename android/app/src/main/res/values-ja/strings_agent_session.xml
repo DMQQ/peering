@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="agents_rename">名前を変更</string>
+    <string name="agents_rename_field">名前</string>
+    <string name="agents_rename_save">保存</string>
+    <string name="agents_template_save_title">プロンプトを保存</string>
+    <string name="agents_template_field">エージェントに何をさせますか？</string>
+    <string name="agents_template_message">新しいチャットごとに候補と一緒に表示されます。</string>
+    <string name="agents_template_add">自分のプロンプトを保存</string>
+    <string name="agents_template_yours">あなたのプロンプト</string>
+    <string name="agents_template_remove">削除</string>
+    <string name="agents_attach">ファイルを添付</string>
+    <string name="agents_attach_photos">フォトライブラリ</string>
+    <string name="agents_attach_files">ファイル</string>
+    <string name="agents_attach_sending">コンピュータに送信中</string>
+    <string name="agents_attach_remove">削除</string>
+    <string name="agents_attach_too_large">そのファイルは大きすぎて、このデバイスから送信できません（上限は%1$d MB）。</string>
+    <string name="agents_attach_unreadable">このデバイスでそのファイルを読み取れませんでした。</string>
+    <string name="agents_attach_bad_name">そのファイル名は、コンピュータでは使えません。</string>
+</resources>

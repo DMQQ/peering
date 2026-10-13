@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sessions_detail">Sesiones recientes y uso del relay.</string>
+    <string name="sessions_relay">Relay</string>
+    <string name="sessions_relay_free">Tiempo de relay gratuito</string>
+    <string name="sessions_relay_left">Quedan %1$s</string>
+    <string name="sessions_relay_period">últimas 24 horas</string>
+    <string name="sessions_relay_note">Tu límite se mide en tiempo de relay, no en un número fijo de sesiones. Lo que se muestra aquí se estima a partir de las sesiones registradas en este dispositivo.</string>
+    <string name="sessions_upgrade">Pasar a Pro</string>
+    <string name="sessions_recent">Conexiones recientes</string>
+    <string name="sessions_recent_empty">Aún no hay nada. Empareja con un ordenador y aquí aparecerá aquello a lo que te conectes.</string>
+    <string name="sessions_summary_sessions">Sesiones</string>
+    <string name="sessions_summary_connected">Conectado</string>
+    <string name="sessions_summary_received">Recibido</string>
+    <string name="sessions_row_detail">%1$s · %2$s · %3$s</string>
+    <string name="sessions_detail_back">Volver a las sesiones</string>
+    <string name="sessions_detail_connection">Conexión</string>
+    <string name="sessions_detail_computer">Ordenador</string>
+    <string name="sessions_detail_path">Ruta</string>
+    <string name="sessions_detail_started">Inicio</string>
+    <string name="sessions_detail_duration">Duración</string>
+    <string name="sessions_detail_ended">Finalizado</string>
+    <string name="sessions_detail_received">Recibido</string>
+    <string name="sessions_detail_sent">Enviado</string>
+    <string name="sessions_detail_copy">Copiar el registro de la sesión</string>
+    <string name="sessions_detail_copied">Copiado</string>
+    <string name="sessions_detail_log">Registro de sesión</string>
+    <string name="sessions_detail_log_empty">No se registró ningún evento de diagnóstico en esta sesión.</string>
+    <string name="sessions_ended_user">La terminaste tú</string>
+    <string name="sessions_ended_host">La detuvo el ordenador</string>
+    <string name="sessions_ended_lost">Se perdió la conexión</string>
+    <string name="sessions_ended_failed">Falló</string>
+</resources>

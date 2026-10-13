@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sources_section_virtual">Telas virtuais</string>
+    <string name="sources_add_display">Adicionar uma tela</string>
+    <string name="sources_virtual_empty">Nenhuma tela virtual. Adicione uma para dar ao seu telefone uma tela própria no computador, no formato deste telefone.</string>
+    <string name="sources_desktop">Área de trabalho %d</string>
+    <string name="sources_desktop_here">Área de trabalho %d · aqui</string>
+    <string name="sources_action_close">Fechar janela</string>
+    <string name="sources_action_minimise">Minimizar janela</string>
+    <string name="sources_action_zoom">Dar zoom na janela</string>
+    <string name="sources_action_remove_display">Remover tela</string>
+    <string name="sources_action_rename_display">Renomear tela</string>
+    <string name="sources_rename_display">Renomear tela</string>
+    <string name="sources_rename_hint">Nome</string>
+    <string name="sources_rename_save">Salvar</string>
+    <string name="sources_rename_cancel">Cancelar</string>
+</resources>

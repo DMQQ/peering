@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="panel_open_for_text_fields">Ouvrir pour les champs de texte</string>
+    <string name="panel_open_for_text_fields_note">Fait apparaître le clavier quand le curseur de l\'ordinateur arrive dans un champ de texte, et montre ce que le champ contient.</string>
+    <string name="remote_chip_screenshot">Capture d\'écran</string>
+    <string name="remote_screenshot_share">Partager la capture d\'écran</string>
+    <string name="remote_screenshot_failed">Impossible de capturer l\'image.</string>
+</resources>

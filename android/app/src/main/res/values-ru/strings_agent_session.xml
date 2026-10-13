@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="agents_rename">Переименовать</string>
+    <string name="agents_rename_field">Имя</string>
+    <string name="agents_rename_save">Сохранить</string>
+    <string name="agents_template_save_title">Сохранить промпт</string>
+    <string name="agents_template_field">Что должен делать агент?</string>
+    <string name="agents_template_message">Он появляется среди подсказок в каждом новом чате.</string>
+    <string name="agents_template_add">Сохранить свой промпт</string>
+    <string name="agents_template_yours">Ваш промпт</string>
+    <string name="agents_template_remove">Удалить</string>
+    <string name="agents_attach">Прикрепить файл</string>
+    <string name="agents_attach_photos">Медиатека</string>
+    <string name="agents_attach_files">Файлы</string>
+    <string name="agents_attach_sending">Отправка на ваш компьютер</string>
+    <string name="agents_attach_remove">Удалить</string>
+    <string name="agents_attach_too_large">Этот файл слишком велик, чтобы отправить его с этого устройства (лимит: %1$d МБ).</string>
+    <string name="agents_attach_unreadable">Это устройство не смогло прочитать файл.</string>
+    <string name="agents_attach_bad_name">Имя этого файла нельзя использовать на компьютере.</string>
+</resources>

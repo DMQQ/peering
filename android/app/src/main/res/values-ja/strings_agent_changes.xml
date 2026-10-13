@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="changes_menu">変更</string>
+    <string name="changes_title">変更</string>
+    <string name="changes_close">閉じる</string>
+    <string name="changes_back">ファイルに戻る</string>
+    <string name="changes_refresh">更新</string>
+    <string name="changes_none">変更なし</string>
+    <plurals name="changes_count">
+        <item quantity="other">変更されたファイル%d件</item>
+    </plurals>
+    <string name="changes_truncated">このプロジェクトは大きいため、一部のみ表示しています。</string>
+    <string name="changes_waiting">コンピュータに問い合わせています</string>
+    <string name="changes_empty">このフォルダにはまだ変更がありません。</string>
+    <string name="changes_kind_modified">変更済み</string>
+    <string name="changes_kind_added">追加</string>
+    <string name="changes_kind_deleted">削除済み</string>
+    <string name="changes_kind_untracked">新規、gitではまだ追跡されていません</string>
+    <string name="changes_no_diff">このファイルには表示できるテキスト差分がありません。</string>
+    <string name="changes_comment_file">このファイルにコメント</string>
+    <string name="changes_comment_hint">コメント</string>
+    <string name="changes_comment_add">追加</string>
+    <string name="changes_comment_cancel">キャンセル</string>
+    <string name="changes_comment_remove">コメントを削除</string>
+    <plurals name="changes_send_comments">
+        <item quantity="other">%d件のコメントをエージェントに送信</item>
+    </plurals>
+    <string name="changes_commented">このファイルにコメント%d件</string>
+    <string name="review_prompt_intro">あなたの変更に対する、以下のレビューコメントに対応してください。</string>
+    <string name="review_prompt_removed">(この変更で削除された行)</string>
+    <plurals name="review_prompt_left_out">
+        <item quantity="other">さらに%d件のコメントは収まりきらず、含まれていません。</item>
+    </plurals>
+    <string name="commit_title">コミット</string>
+    <string name="commit_files">含めるファイル</string>
+    <string name="commit_none">このフォルダに変更はありません。</string>
+    <string name="commit_message">コミットメッセージ</string>
+    <plurals name="commit_button">
+        <item quantity="other">%d件のファイルをコミット</item>
+    </plurals>
+    <string name="commit_busy">コミット中</string>
+    <string name="commit_this_folder">このフォルダ</string>
+    <plurals name="commit_confirm_title">
+        <item quantity="other">%1$d個のファイルを%2$sにコミットしますか？</item>
+    </plurals>
+    <string name="commit_confirm">コミット</string>
+    <string name="commit_done">コミット済み</string>
+    <string name="commit_failed">コミットは行われませんでした</string>
+    <string name="push_done">プッシュ済み</string>
+    <string name="push_failed">プッシュは行われませんでした</string>
+    <string name="push_title">プッシュ</string>
+    <plurals name="push_ready">
+        <item quantity="other">%2$sの%1$d件のコミットが、まだ%3$sにありません。</item>
+    </plurals>
+    <string name="push_nothing">このブランチの内容はすべてプッシュ済みです。</string>
+    <string name="push_unreadable">このフォルダのブランチを読み取れませんでした。</string>
+    <string name="push_detached">このフォルダはブランチ上にありません（detached HEAD）。プッシュするものはありません。</string>
+    <string name="push_no_upstream">このブランチにはアップストリームがありません。コンピュータで設定してから、ここからプッシュしてください。</string>
+    <string name="push_button">プッシュ</string>
+    <string name="push_busy">プッシュ中</string>
+    <string name="push_confirm_title">%1$sを%2$sにプッシュしますか？</string>
+</resources>

@@ -1,0 +1,45 @@
+package pl.dmq.peering.feature.agents
+
+import pl.dmq.peering.session.agent.AgentChatSession
+import pl.dmq.peering.session.agent.isPaused
+import pl.dmq.peering.session.agent.TranscriptRow
+import pl.dmq.peering.session.agent.pendingApprovals
+import pl.dmq.peering.wire.AgentSessionState
+
+/** One chat as the hub shows it. [lastActivityUnix] is seconds since the Unix epoch. */
+data class SessionCard(
+    val id: String,
+    val agentID: String,
+    val title: String,
+    val directory: String,
+    val state: SessionCardState,
+    val lastActivityUnix: Long,
+    val pendingApprovals: Int,
+    val agentName: String,
+    val canPause: Boolean = false,
+    val preview: String? = null,
+)
+
+enum class SessionCardState {
+    WORKING,
+    NEEDS_YOU,
+    IDLE,
+    ENDED,
+    FAILED,
+    PAUSED,
+}
+
+internal fun AgentChatSession.cardState(pendingApprovals: Int): SessionCardState = when {
+    isPaused -> SessionCardState.PAUSED
+    pendingApprovals > 0 || state == AgentSessionState.AWAITING_APPROVAL -> SessionCardState.NEEDS_YOU
+    state == AgentSessionState.WORKING -> SessionCardState.WORKING
+    state == AgentSessionState.FAILED -> SessionCardState.FAILED
+    state == AgentSessionState.EXITED -> SessionCardState.ENDED
+    else -> SessionCardState.IDLE
+}
+
+internal fun AgentChatSession.pendingApprovalCount(): Int = pendingApprovals(transcript.rows).size
+
+internal fun AgentChatSession.lastReplyPreview(): String? =
+    transcript.rows.filterIsInstance<TranscriptRow.AssistantText>().lastOrNull()
+        ?.let { it.text.trim().takeIf(String::isNotEmpty) }

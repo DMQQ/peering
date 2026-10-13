@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PostHogHost</key>
+	<string>https://eu.i.posthog.com</string>
+	<key>PostHogProjectToken</key>
+	<string>phc_rHyoJfChRvDwVG6jizmJkvpGjQ2yLrKMxAY9GUpWf4QW</string>
+	<key>CFBundleDisplayName</key>
+	<string>Peering</string>
+	<key>CFBundleName</key>
+	<string>Peering</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>pl.dmq.peering</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>peering</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_remotedesktop._tcp</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Peering uses the camera to scan the one-time pairing code shown on your Mac.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Peering uses Face ID to protect access to your paired Macs.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Peering connects to your Mac on the local network to stream its screen and send input.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Peering listens while you dictate, so you can speak instead of typing on the Mac.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Peering turns what you say into text, on your iPhone when the language allows it, and types it on your Mac.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
+	<!--
+	  Export compliance, answered once and attached to every build from here on.
+
+	  Without this key App Store Connect asks the same encryption question on every single
+	  upload, and the answer does not change between them.
+
+	  `false` is the declaration that the app uses only encryption that is exempt from the
+	  documentation requirements, and that is the case here on both counts that matter. Every
+	  algorithm is a standard one: P-256 key agreement, HKDF-SHA256, ChaCha20-Poly1305,
+	  SHA-256, and TLS to the relay. That rules out the "proprietary or non-standard" limb.
+	  And none of it is implemented here: the app imports `Crypto`, which on an Apple platform
+	  compiles its own implementation away and re-exports CryptoKit, so the work is done by
+	  corecrypto in the operating system. There is no third-party crypto library in the bundle.
+	  See swift-crypto's own README, which says exactly that about Apple platforms.
+
+	  What this is not is a decision this file can make for you. It is a declaration to Apple
+	  and, through them, to the US government, and the app has to stay inside it: a proprietary
+	  cipher, or a vendored crypto library, would make it false and would need a classification
+	  instead. The Mac host carries the same reasoning in its own plist.
+	-->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!--
+	  What keeps a session alive once the app is not on screen. iOS suspends an app that has
+	  nothing to do, and a suspended app's sockets die, which is what ended every session the
+	  moment the phone was locked or another app was opened, and what made the Live Activity
+	  only ever live for the thirty seconds of grace.
+
+	  `audio` rather than the half-dozen modes a remote desktop would like to claim, and it is
+	  claimed for the two things the app really does with it. The Mac's sound is played here for
+	  as long as a session is up (see `RemoteAudioPlayer`) and Picture in Picture will not start
+	  without it, which is the mode Apple's own guidance names for PiP.
+
+	  This entry used to be a trick: the app played a second of generated silence on a loop to
+	  stay awake, and the comment beside it said so. That is gone. There is no manufactured audio
+	  anywhere in the bundle, so there is nothing for a reviewer to find except an audio feature.
+
+	  The cost is real and worth naming: with a session up and the app off screen, the radio and
+	  the CPU stay awake for as long as sound is playing, which is the price of hearing the Mac
+	  and of the picture floating over other apps.
+
+	  Note this lives here and not in an INFOPLIST_KEY_ build setting: that mechanism silently
+	  ignores array-valued keys, `UIBackgroundModes` among them. It compiles, it builds, and
+	  nothing appears in the plist.
+	-->
+	<!--
+	  A trackpad or mouse on iPad reaches the canvas as a pointer rather than as a simulated
+	  finger, which is what lets a right-click, hover and scrolling be told apart from a touch.
+	-->
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+</dict>
+</plist>

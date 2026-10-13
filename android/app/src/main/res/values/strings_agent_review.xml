@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="review_title">To review</string>
+    <plurals name="review_files">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
+    <plurals name="review_in_chats">
+        <item quantity="one">in %d chat</item>
+        <item quantity="other">in %d chats</item>
+    </plurals>
+    <plurals name="review_more_files">
+        <item quantity="one">%d more file</item>
+        <item quantity="other">%d more files</item>
+    </plurals>
+    <string name="review_mark_all">Mark all reviewed</string>
+    <string name="review_unmark_all">Mark all unreviewed</string>
+    <string name="review_mark_reviewed">Reviewed</string>
+    <string name="review_empty_title">Nothing to review</string>
+    <string name="review_empty_body">Files your agents change will show up here until you have looked at them.</string>
+    <string name="review_not_repository">There is nothing git can compare in this folder.</string>
+    <string name="review_checking">Checking this chat’s changes…</string>
+</resources>

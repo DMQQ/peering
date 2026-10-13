@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connect_wake">Разбудить компьютер по LAN</string>
+    <string name="connect_wake_refusal_no_address">Аппаратного адреса пока нет. Сначала подключитесь один раз.</string>
+    <string name="connect_wake_refusal_awake">Этот компьютер уже не спит.</string>
+    <string name="connect_wake_no_address">Для этого компьютера нет сохранённого аппаратного адреса, поэтому отправлять пакет пробуждения некуда.</string>
+    <string name="connect_wake_unreadable">Не удалось прочитать сохранённый аппаратный адрес этого компьютера, поэтому пакет пробуждения не отправлен.</string>
+    <plurals name="connect_wake_sent">
+        <item quantity="one">Пакет пробуждения отправлен на %d аппаратный адрес. Он может дойти только до компьютера в этой сети.</item>
+        <item quantity="few">Пакет пробуждения отправлен на %d аппаратных адреса. Он может дойти только до компьютера в этой сети.</item>
+        <item quantity="many">Пакет пробуждения отправлен на %d аппаратных адресов. Он может дойти только до компьютера в этой сети.</item>
+        <item quantity="other">Пакет пробуждения отправлен на %d аппаратного адреса. Он может дойти только до компьютера в этой сети.</item>
+    </plurals>
+    <string name="session_failed_key_changed">Ключ этого компьютера изменился с момента связывания. Если вы этого не ожидали, не подключайтесь. Чтобы доверять новому ключу, забудьте компьютер здесь и свяжите его заново.</string>
+    <string name="session_failed_wrong_computer">Ответил не тот компьютер, который вы запрашивали. Если он переехал, забудьте его здесь и свяжите заново.</string>
+    <string name="session_failed_no_pin">Этот телефон больше не доверяет этому компьютеру. Свяжите его заново, чтобы подключиться.</string>
+    <string name="link_end_title">Завершить этот сеанс?</string>
+    <string name="link_end_message">Ссылка вне Peering запросила отключение от вашего компьютера.</string>
+    <string name="link_end_confirm">Завершить сеанс</string>
+</resources>

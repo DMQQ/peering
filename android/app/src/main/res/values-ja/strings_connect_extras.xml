@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connect_wake">LANでコンピュータを起動</string>
+    <string name="connect_wake_refusal_no_address">ハードウェアアドレスがまだ保存されていません。先に一度接続してください。</string>
+    <string name="connect_wake_refusal_awake">そのコンピュータはすでに起動しています。</string>
+    <string name="connect_wake_no_address">そのコンピュータのハードウェアアドレスが保存されていないため、起動パケットの送信先がありません。</string>
+    <string name="connect_wake_unreadable">そのコンピュータの保存済みハードウェアアドレスを読み取れなかったため、起動パケットを送信しませんでした。</string>
+    <plurals name="connect_wake_sent">
+        <item quantity="other">%d件のハードウェアアドレスに起動パケットを送信しました。届くのはこのネットワーク上のコンピュータだけです。</item>
+    </plurals>
+    <string name="session_failed_key_changed">このコンピュータのキーが、ペアリング後に変わっています。心当たりがない場合は、接続しないでください。新しいキーを信頼するには、ここでコンピュータを削除してから、もう一度ペアリングしてください。</string>
+    <string name="session_failed_wrong_computer">応答したコンピュータは、指定したものと異なります。移動した場合は、ここで削除してもう一度ペアリングしてください。</string>
+    <string name="session_failed_no_pin">このスマートフォンは、そのコンピュータをもう信頼していません。接続するには、もう一度ペアリングしてください。</string>
+    <string name="link_end_title">このセッションを終了しますか？</string>
+    <string name="link_end_message">Peering外のリンクから、コンピュータとの接続を切断するよう求められました。</string>
+    <string name="link_end_confirm">セッションを終了</string>
+</resources>

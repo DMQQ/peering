@@ -1,0 +1,250 @@
+//! Capture and encode for the clients attached to the video channel. Driven by explicit calls: the caller pumps it
+//! with the time and sends what comes back.
+
+use std::collections::BTreeSet;
+
+use peering_wire::drop_policy::LatestFrameSlot;
+use peering_wire::quality::clamped_bitrate_kbps;
+use peering_wire::source::CaptureSource;
+use peering_wire::video::{EncodedVideoFrame, VideoStreamConfig, VideoWireError};
+use thiserror::Error;
+
+use crate::ports::capture::{Capture, CaptureError};
+use crate::ports::encoder::{EncodeError, Encoder};
+use crate::settings::{snap_frame_rate, DEFAULT_FRAME_RATE};
+use super::recovery::Recovery;
+
+mod encoding;
+mod pacing;
+mod recover;
+mod source;
+
+use pacing::FramePacer;
+
+/// How long a capture may run before the watchdog treats a frame-less start as a failure.
+pub const FIRST_FRAME_GRACE: f64 = 5.0;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum VideoOutput {
+    Config(VideoStreamConfig),
+    Frame(EncodedVideoFrame),
+}
+
+/// A standing problem with the picture, as opposed to an error from one call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CaptureCondition {
+    /// The capture started and produced no frame at all.
+    NoFrames,
+    /// The capture or encoder failed again after being rebuilt.
+    Recovering,
+}
+
+#[derive(Debug, Error)]
+pub enum CoordinatorError {
+    #[error("only display and window sources can be captured, not {0}")]
+    UnsupportedSource(String),
+    #[error(transparent)]
+    Capture(#[from] CaptureError),
+    #[error(transparent)]
+    Encode(#[from] EncodeError),
+    #[error(transparent)]
+    Wire(#[from] VideoWireError),
+}
+
+pub struct VideoCoordinator<C: Capture, E: Encoder> {
+    capture: C,
+    encoder: E,
+    clients: BTreeSet<String>,
+    video_enabled: bool,
+    watched: bool,
+    source: Option<CaptureSource>,
+    chosen_source: Option<CaptureSource>,
+    size: (u32, u32),
+    last_config: Option<VideoStreamConfig>,
+    config_pending: bool,
+    keyframe_pending: bool,
+    requested_kbps: Option<u32>,
+    ceiling_kbps: Option<u32>,
+    pacer: FramePacer,
+    reconfigure_pending: bool,
+    capture_started_at: Option<f64>,
+    frame_ever_seen: bool,
+    no_frames: bool,
+    last_frame_at: Option<f64>,
+    dropped_frames: u64,
+    recovery: Recovery,
+}
+
+impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
+    pub fn new(capture: C, encoder: E) -> Self {
+        Self {
+            capture,
+            encoder,
+            clients: BTreeSet::new(),
+            video_enabled: true,
+            watched: true,
+            source: None,
+            chosen_source: None,
+            size: (0, 0),
+            last_config: None,
+            config_pending: false,
+            keyframe_pending: false,
+            requested_kbps: None,
+            ceiling_kbps: None,
+            pacer: FramePacer::new(DEFAULT_FRAME_RATE),
+            reconfigure_pending: false,
+            capture_started_at: None,
+            frame_ever_seen: false,
+            no_frames: false,
+            last_frame_at: None,
+            dropped_frames: 0,
+            recovery: Recovery::default(),
+        }
+    }
+
+    /// A new client needs a description and a recovery point before any delta frame reaches it.
+    pub fn attach(&mut self, client_id: &str) {
+        self.clients.insert(client_id.to_owned());
+        self.request_resync();
+    }
+
+    /// The next encoded frame is a keyframe preceded by the stream description. A connection that opens after the
+    /// first frames went out (the client's video socket) needs this to have anything to decode.
+    pub fn request_resync(&mut self) {
+        self.keyframe_pending = true;
+        self.config_pending = true;
+    }
+
+    pub fn detach(&mut self, client_id: &str) {
+        self.clients.remove(client_id);
+    }
+
+    /// Clears the source a client chose once nobody is attached. Capture keeps running, so a client that
+    /// reconnects soon still gets a picture without a restart.
+    pub fn forget_chosen_source_if_idle(&mut self) {
+        if self.clients.is_empty() {
+            self.chosen_source = None;
+        }
+    }
+
+    /// Sets the frame rate the encoder runs at, snapped to an allowed rate. A running source is reconfigured on the next
+    /// pump, which asks for a keyframe, and the connections stay up.
+    pub fn set_frame_rate(&mut self, fps: u32) {
+        let fps = snap_frame_rate(fps);
+        if fps == self.pacer.rate() {
+            return;
+        }
+        self.pacer.set_rate(fps);
+        self.reconfigure_pending = self.source.is_some();
+    }
+
+    pub fn bitrate_ceiling_kbps(&self) -> Option<u32> {
+        self.ceiling_kbps
+    }
+
+    pub fn frame_rate(&self) -> u32 {
+        self.pacer.rate()
+    }
+
+    /// Applies a bitrate the client asked for. Values the wire bounds reject are ignored, not an error.
+    pub fn set_quality(&mut self, bitrate_kbps: i64) {
+        let Some(kbps) = clamped_bitrate_kbps(bitrate_kbps) else { return };
+        self.requested_kbps = Some(kbps);
+        self.apply_bitrate();
+    }
+
+    /// The most the encoder may run at, whatever the client asked for. The control channel uses this.
+    pub fn set_bitrate_ceiling(&mut self, ceiling_kbps: Option<u32>) {
+        self.ceiling_kbps = ceiling_kbps;
+        self.apply_bitrate();
+    }
+
+    /// Pausing drops what is captured and keeps the connections. Resuming starts again with a description and a keyframe.
+    pub fn set_video_enabled(&mut self, enabled: bool) {
+        if enabled && !self.video_enabled {
+            self.keyframe_pending = true;
+            self.config_pending = true;
+        }
+        self.video_enabled = enabled;
+    }
+
+    /// Whether any attached client is looking. Nobody looking stops encoding like a pause does, and looking again starts
+    /// with a description and a keyframe.
+    pub fn set_watched(&mut self, watched: bool) {
+        if watched && !self.watched {
+            self.request_resync();
+        }
+        self.watched = watched;
+    }
+
+    /// One pass of capture and encode, without the recovery around it.
+    pub(super) fn pump_pass(&mut self, now: f64) -> Result<Vec<VideoOutput>, CoordinatorError> {
+        let mut outputs = Vec::new();
+        let mut slot = LatestFrameSlot::new();
+        self.apply_pending_reconfigure()?;
+        let encode_this_pass = self.pacer.due(now);
+        let mut encoded = false;
+        while let Some(raw) = self.capture.poll_frame() {
+            self.frame_ever_seen = true;
+            self.no_frames = false;
+            self.recovery.frame_seen(now);
+            if encode_this_pass && self.sending() {
+                self.encode_into(&raw, now, &mut outputs, &mut slot)?;
+                encoded = true;
+            }
+        }
+        if encoded {
+            self.pacer.encoded_at(now);
+        }
+        if let Some(pending) = slot.take() {
+            outputs.push(VideoOutput::Frame(EncodedVideoFrame::decode(&pending.data)?));
+        }
+        Ok(outputs)
+    }
+
+    /// True when no frame has ever arrived and the grace period since the capture started has passed.
+    /// A capture that has delivered anything is never reported this way, so a still screen is not a failure.
+    pub fn watchdog_expired(&self, now: f64) -> bool {
+        !self.frame_ever_seen
+            && self.capture_started_at.is_some_and(|started| now - started >= FIRST_FRAME_GRACE)
+    }
+
+    /// What is wrong with the capture right now, for the client to show until it is gone. A capture that never delivered
+    /// stays reported through the rebuilds that follow, so the notice does not flicker, and ends with the first frame.
+    pub fn capture_condition(&self) -> Option<CaptureCondition> {
+        self.source.as_ref()?;
+        if self.no_frames {
+            Some(CaptureCondition::NoFrames)
+        } else if self.recovery.visibly_failing() {
+            Some(CaptureCondition::Recovering)
+        } else {
+            None
+        }
+    }
+
+    pub fn running_source(&self) -> Option<&CaptureSource> {
+        self.source.as_ref()
+    }
+
+    pub fn chosen_source(&self) -> Option<&CaptureSource> {
+        self.chosen_source.as_ref()
+    }
+
+    /// When the encoder last produced a frame, for deciding whether a missing picture is the network's fault.
+    pub fn last_frame_produced_at(&self) -> Option<f64> {
+        self.last_frame_at
+    }
+
+    pub fn dropped_frames(&self) -> u64 {
+        self.dropped_frames
+    }
+
+    fn sending(&self) -> bool {
+        self.video_enabled && self.watched && !self.clients.is_empty() && self.source.is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests;
+#[cfg(test)]
+mod window_tests;

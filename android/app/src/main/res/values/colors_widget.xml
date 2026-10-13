@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_container">#101012</color>
+    <color name="widget_row">#1B1B1E</color>
+    <color name="widget_tile">#242428</color>
+    <color name="widget_ink">#FFFFFF</color>
+    <color name="widget_ink_muted">#99EBEBF5</color>
+    <color name="widget_ink_faint">#4DEBEBF5</color>
+    <color name="widget_state_blue">#0A84FF</color>
+    <color name="widget_state_blue_dim">#590A84FF</color>
+    <color name="widget_failed">#FA7366</color>
+</resources>

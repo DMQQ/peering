@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="plan_pro">Pro</string>
+    <string name="plan_pro_yearly">Pro 年度版</string>
+    <string name="plan_pro_note">在外不限时，最清晰的中继画面</string>
+    <string name="plan_lifetime_note">包含 Pro 的全部内容，一次付款</string>
+    <string name="plan_button_monthly">继续订阅 Pro · %1$s/月</string>
+    <string name="plan_button_yearly">继续订阅 Pro · %1$s/年</string>
+    <string name="plan_button_lifetime">获取终身版 · %1$s</string>
+    <string name="paywall_unavailable_body">如果你之前订阅过，恢复购买应该能找回。否则通常只是暂时的问题。</string>
+</resources>
