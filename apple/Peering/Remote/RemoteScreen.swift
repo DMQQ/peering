@@ -12,6 +12,7 @@ struct RemoteScreen: View {
 
     @State var streamLooksPaused = false
     @State var dictation = VoiceDictation()
+    @State var barDrag: CGFloat = 0
     @AppStorage(PreferenceKeys.keyboardShortcutsExpanded) var shortcutsExpanded = false
     var shortcutsCollapsed: Bool { !shortcutsExpanded }
 
@@ -389,6 +390,7 @@ struct RemoteScreen: View {
         .glassSurface(in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous))
         .padding(.horizontal, ChromeMetrics.edgeInset)
         .padding(.top, deviceIsLandscape ? 4 : ChromeMetrics.edgeInset)
+        .offset(y: barDrag)
     }
 
     private var keyboardInputRow: some View {
@@ -429,10 +431,23 @@ struct RemoteScreen: View {
             .contentShape(Rectangle())
             .onTapGesture { toggleShortcuts() }
             .gesture(
-                DragGesture(minimumDistance: 10).onEnded { drag in
-                    let wantsExpanded = drag.translation.height < 0
-                    if wantsExpanded != shortcutsExpanded { toggleShortcuts() }
-                }
+                DragGesture(minimumDistance: 4)
+                    .onChanged { drag in
+                        // The bar follows the finger with some give, so it reads as something to drag, and settles on release.
+                        barDrag = max(-36, min(48, drag.translation.height * 0.6))
+                    }
+                    .onEnded { drag in
+                        let travel = drag.predictedEndTranslation.height
+                        withAnimation(Motion.settle) {
+                            barDrag = 0
+                            if travel < -30, !shortcutsExpanded {
+                                shortcutsExpanded = true
+                            } else if travel > 30 {
+                                if shortcutsExpanded { shortcutsExpanded = false } else { model.showKeyboard = false }
+                            }
+                        }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    }
             )
             .accessibilityElement()
             .accessibilityLabel(shortcutsCollapsed ? String(localized: "Show shortcut keys", table: "Dictation") : String(localized: "Hide shortcut keys", table: "Dictation"))
