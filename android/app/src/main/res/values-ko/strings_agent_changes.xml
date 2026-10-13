@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="changes_menu">변경 사항</string>
+    <string name="changes_title">변경 사항</string>
+    <string name="changes_close">닫기</string>
+    <string name="changes_back">파일 목록으로 돌아가기</string>
+    <string name="changes_refresh">새로고침</string>
+    <string name="changes_none">변경 사항 없음</string>
+    <plurals name="changes_count">
+        <item quantity="other">변경된 파일 %d개</item>
+    </plurals>
+    <string name="changes_truncated">이 프로젝트는 커서 일부만 표시됩니다.</string>
+    <string name="changes_waiting">컴퓨터에 요청하는 중</string>
+    <string name="changes_empty">이 폴더에는 아직 변경된 것이 없습니다.</string>
+    <string name="changes_kind_modified">수정됨</string>
+    <string name="changes_kind_added">추가됨</string>
+    <string name="changes_kind_deleted">삭제됨</string>
+    <string name="changes_kind_untracked">새 파일, 아직 git이 추적하지 않음</string>
+    <string name="changes_no_diff">이 파일에는 표시할 텍스트 diff가 없습니다.</string>
+    <string name="changes_comment_file">이 파일에 댓글 달기</string>
+    <string name="changes_comment_hint">댓글</string>
+    <string name="changes_comment_add">추가</string>
+    <string name="changes_comment_cancel">취소</string>
+    <string name="changes_comment_remove">댓글 삭제</string>
+    <plurals name="changes_send_comments">
+        <item quantity="other">댓글 %d개를 에이전트에 보내기</item>
+    </plurals>
+    <string name="changes_commented">이 파일에 댓글 %d개</string>
+    <string name="review_prompt_intro">변경 사항에 대한 다음 검토 의견을 반영해 주세요.</string>
+    <string name="review_prompt_removed">(변경으로 삭제된 줄)</string>
+    <plurals name="review_prompt_left_out">
+        <item quantity="other">댓글 %d개가 더 있지만 길이 제한으로 포함되지 않았습니다.</item>
+    </plurals>
+    <string name="commit_title">커밋</string>
+    <string name="commit_files">포함할 파일</string>
+    <string name="commit_none">이 폴더에는 변경된 내용이 없습니다.</string>
+    <string name="commit_message">커밋 메시지</string>
+    <plurals name="commit_button">
+        <item quantity="other">파일 %d개 커밋</item>
+    </plurals>
+    <string name="commit_busy">커밋 중</string>
+    <string name="commit_this_folder">이 폴더</string>
+    <plurals name="commit_confirm_title">
+        <item quantity="other">파일 %1$d개를 %2$s에 커밋할까요?</item>
+    </plurals>
+    <string name="commit_confirm">커밋</string>
+    <string name="commit_done">커밋됨</string>
+    <string name="commit_failed">커밋이 이루어지지 않았습니다</string>
+    <string name="push_done">푸시됨</string>
+    <string name="push_failed">푸시가 실행되지 않았습니다</string>
+    <string name="push_title">푸시</string>
+    <plurals name="push_ready">
+        <item quantity="other">%2$s의 커밋 %1$d개가 아직 %3$s에 없습니다.</item>
+    </plurals>
+    <string name="push_nothing">이 브랜치의 모든 내용이 이미 푸시되었습니다.</string>
+    <string name="push_unreadable">이 폴더의 브랜치를 읽을 수 없습니다.</string>
+    <string name="push_detached">이 폴더는 브랜치에 있지 않으므로(detached HEAD) 푸시할 것이 없습니다.</string>
+    <string name="push_no_upstream">이 브랜치에는 업스트림이 없습니다. 컴퓨터에서 설정한 뒤 여기서 푸시하세요.</string>
+    <string name="push_button">푸시</string>
+    <string name="push_busy">푸시 중</string>
+    <string name="push_confirm_title">%1$s을(를) %2$s에 푸시할까요?</string>
+</resources>

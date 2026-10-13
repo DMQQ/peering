@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="panel_open_for_text_fields">텍스트 필드에서 열기</string>
+    <string name="panel_open_for_text_fields_note">컴퓨터의 커서가 텍스트 필드에 놓이면 키보드를 올리고 필드의 내용을 보여 줍니다.</string>
+    <string name="remote_chip_screenshot">스크린샷</string>
+    <string name="remote_screenshot_share">스크린샷 공유</string>
+    <string name="remote_screenshot_failed">화면을 캡처하지 못했습니다.</string>
+</resources>
