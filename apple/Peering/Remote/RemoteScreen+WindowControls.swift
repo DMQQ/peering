@@ -5,13 +5,21 @@ import SwiftUI
 extension RemoteScreen {
     /// The window being cast, when the Mac is showing one window and nothing else.
     private var castWindowID: UInt32? {
-        guard model.phase == .ready, interactionMode == .control,
-              let source = model.activeSourceID, source.hasPrefix("window:")
+        // The picture's own source, not the one asked for: while an arrangement is up the ask can still name a window.
+        guard model.phase == .ready, interactionMode == .control, model.pictureMosaicLayout == nil,
+              let source = model.picture?.sourceID, source.hasPrefix("window:"), source == model.activeSourceID
         else { return nil }
         return UInt32(source.dropFirst("window:".count))
     }
 
-    /// Close, minimise and zoom as the Mac draws them, just above the window's top left corner. Only a window that already reaches the top of the screen has no room above, and gets them inside.
+    static let windowControlsHeight: CGFloat = 32
+
+    private static var safeAreaTop: CGFloat {
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+        return scene?.keyWindow?.safeAreaInsets.top ?? 0
+    }
+
+    /// Close, minimise and zoom as the Mac draws them, on the line just above the window's top left corner, held below the status bar.
     @ViewBuilder
     var windowControls: some View {
         if let windowID = castWindowID,
@@ -20,7 +28,7 @@ extension RemoteScreen {
                bounds: canvasSize, pixelSize: model.capturePixelSize, zoom: effectiveZoom, pan: pan
            ),
            rect.maxY > 60, rect.minY < canvasSize.height - 60 {
-            let above = rect.minY >= 40
+            let top = max(rect.minY - Self.windowControlsHeight - 2, Self.safeAreaTop + 2)
             let leading = min(max(rect.minX, 8), max(canvasSize.width - 120, 8))
             WindowControlDots(
                 appName: model.catalog?.descriptor(for: .window(windowID))?.subtitle,
@@ -32,7 +40,7 @@ extension RemoteScreen {
             .fixedSize()
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(.leading, leading)
-            .padding(.top, above ? rect.minY - 38 : max(rect.minY, 40) + 6)
+            .padding(.top, top)
             .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottomLeading)))
         }
     }
