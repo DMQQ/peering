@@ -87,11 +87,13 @@ pub struct HostServices {
 pub struct HostExtras {
     pub audio: Box<dyn AudioSource + Send>,
     pub focus: Box<dyn FocusProbe + Send>,
+    /// Where a folder zipped for a phone is kept until the phone has read it.
+    pub archive_directory: std::path::PathBuf,
 }
 
 impl Default for HostExtras {
     fn default() -> Self {
-        Self { audio: Box::new(SilentAudio), focus: Box::new(BlindFocus) }
+        Self { audio: Box::new(SilentAudio), focus: Box::new(BlindFocus), archive_directory: std::env::temp_dir().join("PeeringArchives") }
     }
 }
 

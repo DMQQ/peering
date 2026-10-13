@@ -105,6 +105,7 @@ impl HostState {
             system: BoxedSystem(system),
             agent_browser: Arc::new(AgentBrowser::new(DiskFolders(files.clone()), home_directory.clone())),
             files: Arc::new(FileBrowser::new(SharedFileSystem(files), home_directory)),
+            archive_directory: extras.archive_directory.clone(),
             agents: ClientAgents::new(StdLauncher::default),
             agent_availability: agent_availability(agent_binaries, now),
             agent_pushes: AgentPushPlanner::default(),

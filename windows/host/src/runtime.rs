@@ -12,6 +12,7 @@ mod agent;
 mod agent_gate;
 mod agent_browse;
 mod agent_pump;
+mod archive;
 mod audio;
 mod clipboard;
 mod clock;

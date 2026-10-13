@@ -3056,6 +3056,8 @@ name = "peering-core"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "crc32fast",
+ "flate2",
  "peering-core",
  "peering-wire",
  "regex",

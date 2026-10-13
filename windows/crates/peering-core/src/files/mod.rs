@@ -1,5 +1,6 @@
 //! File browsing over the control channel: a service over a `FileSystem` port, with POSIX shaped virtual paths.
 
+pub mod archive;
 pub mod browse;
 pub mod changes;
 pub mod disk;
@@ -10,6 +11,7 @@ mod pieces;
 mod preview;
 pub mod transfer;
 pub mod vfs;
+pub mod zip;
 
 #[cfg(test)]
 mod tests;

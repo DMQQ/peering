@@ -1,6 +1,8 @@
 //! Terminal sessions in the host: the manager built from the platform's pseudo console, terminal requests answered on a
 //! connection, and what the shells print delivered to the client that owns them.
 
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -18,6 +20,7 @@ use peering_wire::terminal::{TerminalEvent, TerminalRequest};
 use tokio::task::spawn_local;
 
 use super::agent::{search_env, DiskExists};
+use super::archive;
 use super::connection::{Connection, Flow};
 use super::file_writer::Reply;
 use super::outbound::FrameSender;
@@ -121,29 +124,48 @@ impl Connection {
             match state.terminals.handle(&client_id, &request) {
                 Outcome::Events(events) => (events, None),
                 Outcome::Browse if state.file_writer.submit(&request, &reply_to(&self.outbound)) => (Vec::new(), None),
-                Outcome::Browse => (Vec::new(), Some(state.files.clone())),
+                Outcome::Browse => (Vec::new(), Some((state.files.clone(), state.archive_directory.clone()))),
             }
         };
         for event in &events {
             self.send(event_frame(event));
         }
-        if let Some(browser) = browser {
-            answer_browse(browser, request, self.outbound.clone());
+        if let Some((browser, archives)) = browser {
+            answer_browse(browser, archives, request, self.outbound.clone());
         }
         Flow::Open
     }
 }
 
+/// A name for the folder one zip is made in: random, and numbered so two made in one moment cannot share it even when the
+/// random source fails.
+fn archive_id() -> String {
+    static NUMBER: AtomicU64 = AtomicU64::new(0);
+    let mut next = session_id_source();
+    format!("{}-{}", next(), NUMBER.fetch_add(1, Ordering::Relaxed))
+}
+
 /// Runs a disk request off the runtime thread. A drive that never answers costs the client one failure, not every
 /// session a frozen host.
-fn answer_browse(browser: Arc<FileBrowser<SharedFileSystem>>, request: TerminalRequest, outbound: FrameSender) {
+fn answer_browse(browser: Arc<FileBrowser<SharedFileSystem>>, archives: PathBuf, request: TerminalRequest, outbound: FrameSender) {
     spawn_local(async move {
         let asked = request.clone();
-        let work = tokio::task::spawn_blocking(move || browser.answer_in_frames(&request));
-        let events = match tokio::time::timeout(BROWSE_TIMEOUT, work).await {
-            Ok(Ok(events)) => events,
-            Ok(Err(_)) | Err(_) => FileBrowser::<SharedFileSystem>::failure(&asked, BROWSE_TIMED_OUT).into_iter().collect(),
+        let (timeout, timed_out) = match &request {
+            TerminalRequest::ArchiveFolder { .. } => (archive::ZIP_TIMEOUT, archive::TIMED_OUT),
+            _ => (BROWSE_TIMEOUT, BROWSE_TIMED_OUT),
         };
+        let reading = archives.clone();
+        let work = tokio::task::spawn_blocking(move || match &request {
+            TerminalRequest::ArchiveFolder { session_id, path } => {
+                vec![archive::archive_folder(browser.file_system(), &archives, session_id, path, &archive_id())]
+            }
+            _ => browser.answer_in_frames(&request),
+        });
+        let events = match tokio::time::timeout(timeout, work).await {
+            Ok(Ok(events)) => events,
+            Ok(Err(_)) | Err(_) => FileBrowser::<SharedFileSystem>::failure(&asked, timed_out).into_iter().collect(),
+        };
+        archive::forget_if_finished(&reading, &events);
         for event in events {
             // The connection may have closed meanwhile; there is then nobody to tell.
             let _queued = outbound.send(event_frame(&event));

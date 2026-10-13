@@ -22,6 +22,7 @@ use peering_core::terminal::shell::terminal_environment;
 use peering_wire::command::RemoteCommand;
 
 use super::adapters::Adapters;
+use crate::runtime::archive;
 use crate::runtime::disk::{protected_folders, StdDisk};
 use crate::runtime::files::DiskFileSystem;
 use crate::runtime::{HostExtras, RuntimeError, TerminalServices};
@@ -29,6 +30,8 @@ use crate::runtime::{HostExtras, RuntimeError, TerminalServices};
 pub fn build() -> Result<Adapters, RuntimeError> {
     let directory: PathBuf = default_directory().ok_or(RuntimeError::NoDataDirectory)?;
     let PlatformServices { capture, encoder } = PlatformServices::new();
+    let archive_directory = directory.join("archives");
+    archive::remove_all(&archive_directory);
     let secrets = open_store(directory, DpapiSealer, |bytes| SystemRandom::new().fill(bytes).is_ok())?;
     Ok(Adapters {
         capture,
@@ -48,7 +51,7 @@ pub fn build() -> Result<Adapters, RuntimeError> {
             protected_folders(&|name| std::env::var(name).ok()),
             default_directory().map(|directory| directory.join("upload-folders.txt")),
         )),
-        extras: HostExtras { audio: Box::new(LoopbackAudio::default()), focus: Box::new(UiaFocus::default()) },
+        extras: HostExtras { audio: Box::new(LoopbackAudio::default()), focus: Box::new(UiaFocus::default()), archive_directory },
     })
 }
 

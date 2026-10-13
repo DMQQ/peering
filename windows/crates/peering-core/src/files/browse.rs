@@ -12,7 +12,6 @@ use super::vfs::{FileSystem, RawEntry};
 
 pub const MAXIMUM_LISTING_ENTRIES: usize = 2_000;
 const NOT_A_PATH: &str = "That is not a path this PC can open.";
-const ARCHIVE_UNSUPPORTED: &str = "Folders cannot be downloaded from this PC yet.";
 
 pub struct FileBrowser<F: FileSystem> {
     fs: F,
@@ -28,7 +27,12 @@ impl<F: FileSystem> FileBrowser<F> {
         }
     }
 
-    /// The event that answers a request this service serves, or `None` for every other request.
+    /// The file system this browser reads, for the host to zip a folder from (`ArchiveFolder` writes a file, which is the host's).
+    pub fn file_system(&self) -> &F {
+        &self.fs
+    }
+
+    /// The event that answers a request this service serves, or `None` for every other request. `ArchiveFolder` is the host's.
     pub fn answer(&self, request: &TerminalRequest) -> Option<TerminalEvent> {
         match request {
             TerminalRequest::ListDirectory { session_id, path } => {
@@ -38,11 +42,6 @@ impl<F: FileSystem> FileBrowser<F> {
             TerminalRequest::ReadRange { session_id, path, offset } => {
                 Some(self.read_range(session_id, path, *offset))
             }
-            TerminalRequest::ArchiveFolder { session_id, path } => Some(TerminalEvent::TransferFailure {
-                session_id: session_id.clone(),
-                path: path.clone(),
-                message: ARCHIVE_UNSUPPORTED.to_owned(),
-            }),
             _ => None,
         }
     }

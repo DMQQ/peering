@@ -303,19 +303,10 @@ fn a_range_of_a_missing_file_is_a_transfer_failure_with_the_reason() {
 }
 
 #[test]
-fn archiving_a_folder_is_answered_as_not_supported_yet() {
-    let event = answer(
-        &browser(),
-        TerminalRequest::ArchiveFolder {
-            session_id: SESSION.to_owned(),
-            path: "/C:/Users/me/Projects".to_owned(),
-        },
-    );
-    let TerminalEvent::TransferFailure { path, message, .. } = event else {
-        panic!("expected a transfer failure");
-    };
-    assert_eq!(path, "/C:/Users/me/Projects");
-    assert!(message.contains("yet"));
+fn archiving_a_folder_is_left_to_the_host_which_writes_the_zip() {
+    let request = TerminalRequest::ArchiveFolder { session_id: SESSION.to_owned(), path: "/C:/Users/me/Projects".to_owned() };
+    assert!(browser().answer(&request).is_none());
+    assert!(matches!(FileBrowser::<InMemoryFileSystem>::failure(&request, "slow"), Some(TerminalEvent::TransferFailure { .. })));
 }
 
 #[test]

@@ -254,11 +254,7 @@ fn a_folder_that_fits_one_frame_is_not_marked_truncated() {
 }
 
 #[test]
-fn a_folder_download_is_refused_with_a_reason() {
-    let event = ask(
-        &browser(pc()),
-        TerminalRequest::ArchiveFolder { session_id: SESSION.to_owned(), path: "/C:/Users/me".to_owned() },
-    );
-    assert!(matches!(&event, TerminalEvent::TransferFailure { .. }));
-    assert_eq!(failure_message(&event), "Folders cannot be downloaded from this PC yet.");
+fn a_folder_download_is_not_answered_by_the_browser_because_the_host_writes_the_zip() {
+    let request = TerminalRequest::ArchiveFolder { session_id: SESSION.to_owned(), path: "/C:/Users/me".to_owned() };
+    assert!(browser(pc()).answer(&request).is_none());
 }

@@ -84,6 +84,8 @@ pub struct HostState {
     pub system: BoxedSystem,
     /// Shared so a request runs on the blocking pool with the state lock released.
     pub files: Arc<FileBrowser<SharedFileSystem>>,
+    /// Where folders zipped for a phone wait to be read.
+    pub archive_directory: std::path::PathBuf,
     pub agents: ClientAgents<StdLauncher>,
     pub agent_availability: AgentAvailability,
     pub agent_pushes: AgentPushPlanner,
