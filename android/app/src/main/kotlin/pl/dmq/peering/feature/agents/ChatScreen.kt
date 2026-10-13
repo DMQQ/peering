@@ -23,6 +23,8 @@ import pl.dmq.peering.R
 import pl.dmq.peering.feature.agents.changes.ChangesOverlay
 import pl.dmq.peering.feature.agents.preview.previewFetchOf
 import pl.dmq.peering.feature.agents.preview.PreviewScreen
+import pl.dmq.peering.session.agent.AgentFollowUps
+import pl.dmq.peering.session.agent.FollowUp
 import pl.dmq.peering.session.agent.pendingApprovals
 import pl.dmq.peering.ui.kit.PeeringAlert
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -45,6 +47,7 @@ fun ChatScreen(
 ) {
     val ui by chat.ui.collectAsState()
     val transcriptUi by transcript.ui.collectAsState()
+    val composerUi by composer.ui.collectAsState()
     val saved by templates.templates.collectAsState()
     var showingUsage by remember { mutableStateOf(false) }
     var showingChanges by remember { mutableStateOf(false) }
@@ -98,6 +101,18 @@ fun ChatScreen(
                     )
                 }
             }
+            val followUps = remember(transcriptUi.rows, transcriptUi.working, composerUi.text.isEmpty()) {
+                if (composerUi.text.isEmpty()) AgentFollowUps.suggestions(transcriptUi.rows, transcriptUi.working) else emptyList()
+            }
+            if (followUps.isNotEmpty()) {
+                FollowUpBar(followUps, onChoose = { choice ->
+                    when (choice) {
+                        FollowUp.REVIEW_CHANGES -> showingChanges = true
+                        FollowUp.RUN_TESTS -> followUp(transcript, chat, AgentFollowUps.RUN_TESTS_PROMPT)
+                        FollowUp.SUMMARIZE_CHANGES -> followUp(transcript, chat, AgentFollowUps.SUMMARIZE_PROMPT)
+                    }
+                })
+            }
             Composer(composer, ui.chip, hints, onShowUsage = { showingUsage = true }, onCustomModel = { typingModel = true }, modifier = Modifier.navigationBarsPadding().imePadding())
         }
         if (showingChanges) ui.sessionID?.let { ChangesOverlay(port, it, onClose = { showingChanges = false }) }
@@ -110,8 +125,7 @@ fun ChatScreen(
         }
     }
     if (typingModel) {
-        val current = composerModel(composer)
-        CustomModelDialog(current, onUse = { composer.setModel(it.ifBlank { null }) }, onDismiss = { typingModel = false })
+        CustomModelDialog(composerUi.model.orEmpty(), onUse = { composer.setModel(it.ifBlank { null }) }, onDismiss = { typingModel = false })
     }
     if (renaming) {
         RenameDialog(
@@ -149,8 +163,7 @@ private fun HistoryLoading() {
     }
 }
 
-@Composable
-private fun composerModel(composer: ComposerPresenter): String {
-    val ui by composer.ui.collectAsState()
-    return ui.model.orEmpty()
+private fun followUp(transcript: TranscriptPresenter, chat: ChatPresenter, prompt: String) {
+    transcript.followLatest()
+    chat.suggest(prompt)
 }

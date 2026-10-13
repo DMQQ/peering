@@ -19,4 +19,7 @@
     <string name="hints_clear">Start over with an empty context</string>
     <string name="hints_this_project">This project</string>
     <string name="hints_yours">Yours</string>
+    <string name="followup_review">Review changes</string>
+    <string name="followup_tests">Run the tests</string>
+    <string name="followup_summarize">Summarize changes</string>
 </resources>
