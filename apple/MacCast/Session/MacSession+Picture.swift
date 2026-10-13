@@ -67,10 +67,10 @@ extension MacSession {
         return nil
     }
 
-    /// Halves the pixel size, assuming a 2x backing store: the protocol carries pixels, not the point-to-pixel scale. It only scales a relative nudge, so a wrong factor changes cursor speed, not where it lands.
+    /// The protocol carries pixels, not the point-to-pixel scale; see ``PointerTravel``.
     var capturePointSize: CGSize {
         guard let pixels = capturePixelSize else { return CGSize(width: 1512, height: 982) }
-        return CGSize(width: pixels.width / 2, height: pixels.height / 2)
+        return PointerTravel.pointSize(forPicture: pixels)
     }
 
     /// The catalogue is the only thing that says what a source is, so it decides whether one can change size on its own; a source with no entry is unknown. See ``PictureIdentity/change(to:)``.
