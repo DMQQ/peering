@@ -63,6 +63,21 @@ fn an_approval_puts_its_category_and_ids_in_data() {
     assert_eq!(message["message"]["data"]["agentApprovalId"], "A-1");
 }
 
+#[test]
+fn a_question_with_options_carries_them_as_a_json_array_string() {
+    let options = ["Red".to_owned(), "Blue \"navy\"".to_owned()];
+    let action = PushAction { category: "peering.agent.approval.options.abc", options: &options, ..approval() };
+    let message = FcmMessage::build("tok", "T", "B", Some(route(None, Some(action))));
+    let answers = message["message"]["data"]["agentAnswers"].as_str().expect("a string value");
+    assert_eq!(serde_json::from_str::<Value>(answers).unwrap(), json!(["Red", "Blue \"navy\""]));
+}
+
+#[test]
+fn an_approval_without_options_has_no_answers_key() {
+    let message = FcmMessage::build("tok", "T", "B", Some(route(None, Some(approval()))));
+    assert!(message["message"]["data"].get("agentAnswers").is_none());
+}
+
 #[tokio::test]
 async fn a_send_posts_to_the_project_endpoint_with_the_bearer_token() {
     let (client, sent) = client_answering(200, "{}");
