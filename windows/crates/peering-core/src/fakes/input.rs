@@ -96,3 +96,19 @@ mod tests {
         assert_eq!(input.release_all_count(), 2);
     }
 }
+
+#[cfg(test)]
+mod press_tests {
+    use super::*;
+    use peering_wire::command::MouseButton;
+
+    #[test]
+    fn only_a_button_press_counts_as_one() {
+        let mut input = RecordingInput::default();
+        let transform = TransformSnapshot { origin_x: 0, origin_y: 0, pixel_width: 1, pixel_height: 1, scale: 1.0 };
+        input.apply(&RemoteCommand::MouseDown { button: MouseButton::Left }, &transform);
+        input.apply(&RemoteCommand::MouseUp { button: MouseButton::Left }, &transform);
+        input.apply(&RemoteCommand::Scroll { dx: 0.0, dy: 1.0 }, &transform);
+        assert_eq!(input.button_presses(), 1);
+    }
+}

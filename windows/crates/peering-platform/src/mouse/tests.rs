@@ -223,3 +223,13 @@ fn each_joystick_nudge_is_counted_and_remembered() {
     assert_eq!(injector.joystick_nudges(), 2);
     assert!(injector.last_injected().is_some());
 }
+
+#[test]
+fn button_presses_are_counted_for_the_text_focus_watcher() {
+    let mut injector = MouseInjector::default();
+    let transform = source(0, 0, 1920, 1080);
+    injector.plan(&RemoteCommand::MouseDown { button: MouseButton::Left }, &transform, desktop());
+    injector.plan(&RemoteCommand::MouseUp { button: MouseButton::Left }, &transform, desktop());
+    injector.plan(&RemoteCommand::MouseDown { button: MouseButton::Right }, &transform, desktop());
+    assert_eq!(injector.button_presses, 2);
+}

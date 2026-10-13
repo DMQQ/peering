@@ -6,6 +6,7 @@ use std::sync::Arc;
 use peering_agent::availability::{AgentAvailability, BinaryLocator};
 use peering_agent::browse::AgentBrowser;
 use peering_agent::manager::{ClientAgents, AGENT_ID};
+use peering_agent::push::AgentPushPlanner;
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
 use peering_core::notice::NoticeTracker;
@@ -106,6 +107,7 @@ impl HostState {
             files: Arc::new(FileBrowser::new(SharedFileSystem(files), home_directory)),
             agents: ClientAgents::new(StdLauncher::default),
             agent_availability: agent_availability(agent_binaries, now),
+            agent_pushes: AgentPushPlanner::default(),
             terminals,
             notifications: WaitingNotifications::default(),
             sessions: HashMap::new(),

@@ -96,6 +96,11 @@ impl TerminalSessionManager {
         self.deps.tokens.all_tokens()
     }
 
+    /// The push token this phone registered, if it did.
+    pub fn push_token_for(&self, client_id: &str) -> Option<String> {
+        self.deps.tokens.token_for(client_id)
+    }
+
     /// Forgets that the client is listening. Its shells keep running and keep their history.
     pub fn disconnect(&mut self, client_id: &str) {
         self.attached.remove(client_id);
