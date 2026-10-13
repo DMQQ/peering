@@ -7,6 +7,8 @@ struct AgentTranscriptRow: View {
     @Binding var expandedTools: Set<UUID>
     let canSend: Bool
     let resend: (String) -> Void
+    /// Nil where the transcript cannot be answered from: the peek and the sub-agent sheet.
+    var cite: ((String) -> Void)?
     /// Set while this tool call is the question the agent is waiting on.
     var approval: AgentApproval?
     var review: (AgentApproval) -> Void = { _ in }
@@ -47,6 +49,10 @@ struct AgentTranscriptRow: View {
                 .contextMenu {
                     Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
                         .menuInk()
+                    if let cite {
+                        Button("Cite", systemImage: "quote.opening") { cite(text) }
+                            .menuInk()
+                    }
                     if canSend {
                         Button("Ask again", systemImage: "arrow.clockwise") { resend(text) }
                             .menuInk()
@@ -66,6 +72,10 @@ struct AgentTranscriptRow: View {
             .contextMenu {
                 Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
                     .menuInk()
+                if let cite {
+                    Button("Cite", systemImage: "quote.opening") { cite(text) }
+                        .menuInk()
+                }
             }
             .id(id)
 

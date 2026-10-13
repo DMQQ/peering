@@ -54,6 +54,14 @@ extension SessionModel {
         return TerminalAgent.all.filter { installed.contains($0.command) }
     }
 
+    /// Whether anything the Agents page lays out is still on its way: the agent list, the chat listing, the conversations found on the Mac.
+    var isAwaitingAgentsPage: Bool {
+        guard let session = activeSession else { return false }
+        return isAwaitingAgentList
+            || !session.hasAgentListing
+            || (session.hostSupportsAgentSessionImport && session.resumableSessions == nil)
+    }
+
     var isAwaitingAgentList: Bool {
         guard let session = activeSession else { return false }
         return session.hostSupportsAgentList && session.knownInstalledAgents == nil

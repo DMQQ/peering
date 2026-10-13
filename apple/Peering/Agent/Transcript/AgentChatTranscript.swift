@@ -11,6 +11,7 @@ struct AgentChatTranscript: View {
     let queued: [String]
     let unqueue: (Int) -> Void
     let resend: (String) -> Void
+    var cite: ((String) -> Void)?
     let review: (AgentApproval) -> Void
     let openSubagent: (String) -> Void
 
@@ -66,6 +67,7 @@ struct AgentChatTranscript: View {
                             expandedTools: $expandedTools,
                             canSend: canSend,
                             resend: resend,
+                            cite: cite,
                             approval: approval(for: item),
                             review: review,
                             openSubagent: subagentOpener(for: item),

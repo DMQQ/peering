@@ -45,7 +45,7 @@ struct AgentChatScreen: View {
             if let session {
                 VStack(spacing: 0) {
                     // One chat has nothing to switch to; its close and rename are in More.
-                    if model.agentSessions.count > 1 { tabStrip }
+                    if tabbedSessions.count > 1 { tabStrip }
                     content(session)
                 }
             } else if model.phase != .ready {
@@ -216,6 +216,7 @@ struct AgentChatScreen: View {
                         stickToBottom = true
                         model.sendAgentPrompt(text, to: session.id)
                     },
+                    cite: { drafts[session.id] = AgentCitation.append($0, to: drafts[session.id] ?? "") },
                     review: { answering = $0 },
                     openSubagent: { openedSubagent = AgentSubagentSelection(id: $0) }
                 )

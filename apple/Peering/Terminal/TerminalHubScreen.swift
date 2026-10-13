@@ -24,6 +24,8 @@ struct TerminalHubScreen: View {
     @AppStorage("Peering.terminalsGuideSeen") var terminalsGuideSeen = false
     @State var renaming: Renaming?
     @State var renameText = ""
+    /// False until the Mac has answered and the answer has been given a beat to land, so the page lays out once and not as each part arrives.
+    @State var agentsSettled = false
 
     enum PendingEnd: Equatable {
         case terminal(UUID)
@@ -48,10 +50,14 @@ struct TerminalHubScreen: View {
                 )
                 guide(.agents)
                 AgentToReviewCard()
-                chatsSection
-                activeOnMacSection
-                agentsNotice
-                historySection
+                if agentsSettled {
+                    chatsSection
+                    activeOnMacSection
+                    agentsNotice
+                    historySection
+                } else {
+                    AgentsPagePlaceholder()
+                }
             }
             page(.terminals) {
                 pageHeading(
@@ -106,6 +112,7 @@ struct TerminalHubScreen: View {
             Button("Save") { commitRename() }
         }
         .task { await refreshOnceSettled() }
+        .task(id: model.isAwaitingAgentsPage) { await settleAgentsPage() }
         .task(id: tab) { await keepResumableSessionsFresh() }
         // The section draws nothing until the list arrives, so it cannot ask for it itself: an onAppear on an empty view never fires.
         .onChange(of: model.hostSupportsAgentSessionImport) { _, _ in model.refreshResumableSessions() }
@@ -119,6 +126,12 @@ struct TerminalHubScreen: View {
             do { try await Task.sleep(for: Self.resumableRefresh) } catch { return }
             model.refreshResumableSessions()
         }
+    }
+
+    private func settleAgentsPage() async {
+        guard !agentsSettled else { return }
+        do { try await Task.sleep(for: model.isAwaitingAgentsPage ? Self.settleTimeout : Self.settleHold) } catch { return }
+        withAnimation(Self.tabFade) { agentsSettled = true }
     }
 
     private func tabChanged(to tab: HubTab) {
@@ -154,6 +167,9 @@ struct TerminalHubScreen: View {
     // MARK: - Agents
 
     static let pushSettle = Duration.milliseconds(400)
+    static let settleHold = Duration.milliseconds(300)
+    /// An older Mac never sends some of the answers waited for: the page shows what it has rather than a placeholder for good.
+    static let settleTimeout = Duration.seconds(4)
     static let resumableRefresh = Duration.seconds(10)
 
     /// One fade for the pages, the docks and the Files bar, so a tab change moves everything together.

@@ -254,6 +254,8 @@ final class MacSession: Identifiable {
     // MARK: - Agent chats
 
     var agentSessions: [RemoteAgentSession] = []
+    /// False until the Mac has sent its first chat listing, so an empty list can be told from one not yet asked for.
+    var hasAgentListing = false
     /// Messages typed while a turn runs: the CLIs take one question at a time, so the rest wait here and go as each turn ends.
     var agentQueues: [UUID: AgentPromptQueue] = [:]
     /// Approvals the Mac has reported resolved on this connection; an answer is delivered only once its id is here. See ``ApprovalAnswerPolicy``.

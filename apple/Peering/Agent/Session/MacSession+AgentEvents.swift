@@ -14,6 +14,7 @@ extension MacSession {
         switch event {
         case .snapshot(let infos):
             // Transcripts already read are kept: the listing says which sessions exist and the conversation arrives in the replay after each top-up.
+            hasAgentListing = true
             let previous = agentSessions
             agentHistoryRequests.removeAll()
             agentSessions = infos.map { info in
