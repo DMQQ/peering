@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use peering_wire::pairing_payload;
 
+use crate::admission::AddressKey;
 use crate::session::actions::HostEvent;
 use crate::session::deps::PinStore;
 
@@ -20,6 +21,8 @@ pub struct PairingOffer {
     pub code_link: String,
     /// When the offer opened, in the caller's seconds.
     pub opened_at: f64,
+    /// Where the session that opened the offer connected from, when the transport knows.
+    pub holder: Option<AddressKey>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -71,15 +74,18 @@ impl PairingService {
     }
 
     /// Only the events that change what the user sees are read: a new code opens the offer, a finished
-    /// pairing closes it. One pairing is active at a time: while `session` is not the one that opened the offer, its
-    /// events change nothing, unless the offer has outlived `OFFER_LIFETIME_SECONDS`. A session that renews its own offer
-    /// keeps the time it first opened it.
-    pub fn apply_event(&mut self, session: u64, event: &HostEvent, now: f64) {
+    /// pairing closes it. One pairing is active at a time. A session may replace the offer when it opened it, or when it
+    /// connected from the same address as the session that did (a phone that reconnected), or when the offer has outlived
+    /// `OFFER_LIFETIME_SECONDS`; any other session's events change nothing. A replacement keeps the time the offer first
+    /// opened, so neither a session nor an address can hold the screen past the lifetime against everyone else. A session
+    /// whose address is not known (one that came through the relay) counts as nobody's neighbour.
+    pub fn apply_event(&mut self, session: u64, address: Option<AddressKey>, event: &HostEvent, now: f64) {
         match event {
             HostEvent::PairingCode { code, secret, client_name, via_relay } => {
-                if self.offer.as_ref().is_some_and(|offer| offer.session != session && now - offer.opened_at <= OFFER_LIFETIME_SECONDS) {
+                if !self.may_replace_offer(session, address, now) {
                     return;
                 }
+                let first_opened = self.offer.as_ref().filter(|offer| offer.session == session || same_address(offer.holder, address));
                 self.offer = Some(PairingOffer {
                     session,
                     code: code.clone(),
@@ -88,11 +94,19 @@ impl PairingService {
                     via_relay: *via_relay,
                     host_link: pairing_payload::host_link(&self.host_id),
                     code_link: pairing_payload::code_link(code, Some(secret.as_slice())),
-                    opened_at: self.offer.as_ref().filter(|offer| offer.session == session).map_or(now, |offer| offer.opened_at),
+                    opened_at: first_opened.map_or(now, |offer| offer.opened_at),
+                    holder: address,
                 });
             }
             HostEvent::PairingCompleted { .. } => self.close_offer_of(session),
             HostEvent::ClientConnected { .. } => {}
+        }
+    }
+
+    fn may_replace_offer(&self, session: u64, address: Option<AddressKey>, now: f64) -> bool {
+        match &self.offer {
+            None => true,
+            Some(offer) => offer.session == session || same_address(offer.holder, address) || now - offer.opened_at > OFFER_LIFETIME_SECONDS,
         }
     }
 
@@ -153,6 +167,10 @@ impl PairingService {
         let approval = self.approvals.remove(position);
         Some(ApprovalDecision { session: approval.session, approved })
     }
+}
+
+fn same_address(held: Option<AddressKey>, other: Option<AddressKey>) -> bool {
+    matches!((held, other), (Some(held), Some(other)) if held == other)
 }
 
 fn hex(bytes: &[u8]) -> String {

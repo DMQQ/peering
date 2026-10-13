@@ -242,6 +242,7 @@ async fn dial(shared: Shared, profile: Arc<HostProfile>, tls: Arc<HostTls>, sess
     };
     let peer = PeerInfo {
         public_key: Some(accepted.client_public_key),
+        address: None,
         via_relay: true,
         video_token: Some(session.video_token.0),
         video_endpoint: Some(VideoEndpoint { host: session.video_host.clone(), port: session.video_port }),

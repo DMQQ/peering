@@ -248,7 +248,12 @@ fn harness_with(
 }
 
 pub fn direct_peer() -> PeerInfo {
-    PeerInfo { public_key: Some(CLIENT_KEY.to_vec()), via_relay: false, video_token: None, video_endpoint: None }
+    PeerInfo { public_key: Some(CLIENT_KEY.to_vec()), address: None, via_relay: false, video_token: None, video_endpoint: None }
+}
+
+/// A direct peer that connected from `address`.
+pub fn direct_peer_at(address: &str) -> PeerInfo {
+    PeerInfo { address: Some(address.parse().expect("a test address parses")), ..direct_peer() }
 }
 
 pub fn encode_json<T: Serialize>(kind: MessageKind, value: &T) -> Frame {

@@ -1,5 +1,6 @@
 //! What the host says about itself, and what it knows about the peer on a connection.
 
+use std::net::IpAddr;
 use std::sync::Arc;
 
 use peering_core::ports::clock::Clock;
@@ -35,6 +36,8 @@ impl HostProfile {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PeerInfo {
     pub public_key: Option<Vec<u8>>,
+    /// The address a direct connection came from. A relayed session has none, because the relay is what the host sees.
+    pub address: Option<IpAddr>,
     pub via_relay: bool,
     /// The relay's video token for a relayed session; direct connections have none.
     pub video_token: Option<[u8; 16]>,

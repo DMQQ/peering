@@ -1,5 +1,6 @@
 //! Applying what the core's session asks for: sending a frame, telling the pairing service, registering, or closing.
 
+use peering_core::admission::AddressKey;
 use peering_core::session::actions::SessionAction;
 use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::handshake::ServerHello;
@@ -21,7 +22,8 @@ impl Connection {
             SessionAction::Send(frame) => self.send(self.decorate(frame)),
             SessionAction::Emit(event) => {
                 let now = self.now();
-                self.shared.lock().pairing.apply_event(self.session_id, &event, now);
+                let address = self.peer.address.map(AddressKey::of);
+                self.shared.lock().pairing.apply_event(self.session_id, address, &event, now);
             }
             SessionAction::Authorized => self.register(),
             SessionAction::ForwardFrame(frame) => return self.on_ready(&frame),

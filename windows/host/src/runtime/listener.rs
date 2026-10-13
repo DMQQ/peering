@@ -45,6 +45,7 @@ pub async fn serve_listener(shared: Shared, profile: Arc<HostProfile>, tls: Arc<
             };
             let peer = PeerInfo {
                 public_key: Some(accepted.client_public_key),
+                address: Some(address.ip()),
                 via_relay: false,
                 video_token: None,
                 video_endpoint: None,
