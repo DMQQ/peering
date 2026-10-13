@@ -134,6 +134,12 @@ internal class ConnectedLink(
         else -> picture.state(paused, viaControlChannel = lanes.delivery.transport == VideoTransportKind.CONTROL)
     }
 
+    /** Pausing and resuming the video makes the host send a keyframe, which starts a stream that is open but showing nothing. */
+    private fun requestKeyframe() {
+        commands.send(SetVideoEnabled(false))?.let(writer::enqueue)
+        commands.send(SetVideoEnabled(true))?.let(writer::enqueue)
+    }
+
     /** Reopens the picture. A relayed session has no lane of its own, so pausing and resuming makes the host send a keyframe. */
     fun retryPicture() {
         if (route.path == SessionRecord.Path.RELAY) {
@@ -192,7 +198,7 @@ internal class ConnectedLink(
             every(LANE_INTERVAL) {
                 for (event in lanes.tick(clock.monotonicSeconds()).asEvents()) applyEvent(event, ended)
                 steerAutomatic()
-                if (picture.takeAutomaticRetry()) retryPicture()
+                if (picture.takeAutomaticNudge()) requestKeyframe()
                 if (liveness.isSilent(clock.monotonicSeconds(), SilencePolicy.limitSeconds(backgrounded))) ended.complete(LinkEnd.Lost)
                 onTick()
             }

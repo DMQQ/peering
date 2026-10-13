@@ -10,29 +10,29 @@ class PictureWatchTest {
     private val watch = PictureWatch(clock, lane = null)
 
     @Test
-    fun aPictureStillWaitingAfterTheStallTimeIsAskedForAgainOnce() {
-        assertFalse(watch.takeAutomaticRetry())
+    fun aPictureStillWaitingAfterTheStallTimeIsNudgedOncePerInterval() {
+        assertFalse(watch.takeAutomaticNudge())
         clock.advance(6.0)
-        assertTrue(watch.takeAutomaticRetry())
-        watch.restart()
-        assertFalse(watch.takeAutomaticRetry())
+        assertTrue(watch.takeAutomaticNudge())
+        assertFalse(watch.takeAutomaticNudge())
+        clock.advance(6.0)
+        assertTrue(watch.takeAutomaticNudge())
     }
 
     @Test
-    fun itGivesUpAfterThreeTriesAndLeavesRetryToTheUser() {
+    fun itGivesUpAfterThreeNudgesAndLeavesRetryToTheUser() {
         repeat(3) {
             clock.advance(6.0)
-            assertTrue(watch.takeAutomaticRetry())
-            watch.restart()
+            assertTrue(watch.takeAutomaticNudge())
         }
-        clock.advance(6.0)
-        assertFalse(watch.takeAutomaticRetry())
+        clock.advance(60.0)
+        assertFalse(watch.takeAutomaticNudge())
     }
 
     @Test
     fun aPictureThatArrivedIsNeverRetried() {
         watch.noteSeen()
         clock.advance(60.0)
-        assertFalse(watch.takeAutomaticRetry())
+        assertFalse(watch.takeAutomaticNudge())
     }
 }

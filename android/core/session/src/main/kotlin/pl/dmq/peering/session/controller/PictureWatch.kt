@@ -14,22 +14,23 @@ internal class PictureWatch(private val clock: Clock, private val lane: LanVideo
     private var job: Job? = null
     private var scope: CoroutineScope? = null
     private var seen = false
-    private var automaticRetries = 0
+    private var automaticNudges = 0
     private var waitingSince = clock.monotonicSeconds()
 
     fun noteSeen() {
         seen = true
-        automaticRetries = 0
+        automaticNudges = 0
     }
 
     /**
-     * True once when a picture that never arrived has waited long enough to ask again by itself, up to [MAX_AUTOMATIC_RETRIES]
-     * times. After that the state reads as stalled and the Retry button is the user's.
+     * True when a picture that never arrived has waited another [STALL_SECONDS], up to [MAX_AUTOMATIC_NUDGES] times: the caller asks
+     * the computer for a fresh keyframe, which fixes a stream that is open but silent. The lane is left alone, since it runs its own
+     * retries and a refused key must not be tried again. The state still reads as stalled meanwhile, so Retry stays in reach.
      */
-    fun takeAutomaticRetry(): Boolean {
-        if (seen || lane?.failure != null || automaticRetries >= MAX_AUTOMATIC_RETRIES) return false
-        if (clock.monotonicSeconds() - waitingSince < STALL_SECONDS) return false
-        automaticRetries += 1
+    fun takeAutomaticNudge(): Boolean {
+        if (seen || automaticNudges >= MAX_AUTOMATIC_NUDGES) return false
+        if (clock.monotonicSeconds() - waitingSince < STALL_SECONDS * (automaticNudges + 1)) return false
+        automaticNudges += 1
         return true
     }
 
@@ -45,6 +46,7 @@ internal class PictureWatch(private val clock: Clock, private val lane: LanVideo
     /** Forgets the picture seen so far, so the area reads as waiting again, and reopens the lane from the first rung. */
     fun restart() {
         seen = false
+        automaticNudges = 0
         waitingSince = clock.monotonicSeconds()
         scope?.let(::start)
     }
@@ -60,8 +62,8 @@ internal class PictureWatch(private val clock: Clock, private val lane: LanVideo
         }
     }
 
-    internal companion object {
+    private companion object {
         const val STALL_SECONDS = 6.0
-        const val MAX_AUTOMATIC_RETRIES = 3
+        const val MAX_AUTOMATIC_NUDGES = 3
     }
 }
