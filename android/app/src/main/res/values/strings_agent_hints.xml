@@ -22,4 +22,6 @@
     <string name="followup_review">Review changes</string>
     <string name="followup_tests">Run the tests</string>
     <string name="followup_summarize">Summarize changes</string>
+    <string name="agents_pane_empty_title">Pick a chat</string>
+    <string name="agents_pane_empty_body">Choose one from the list, or start a new one.</string>
 </resources>

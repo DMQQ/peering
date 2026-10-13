@@ -1,5 +1,7 @@
 package pl.dmq.peering.feature.remote
 
+import pl.dmq.peering.ui.kit.WidthClass
+import pl.dmq.peering.ui.kit.rememberWidthClass
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -39,6 +41,7 @@ fun FloatingPanel(
     content: @Composable (SessionPanel) -> Unit,
 ) {
     val memory = remember { PanelMemory() }
+    val maxWidth = if (rememberWidthClass() == WidthClass.Compact) ChromeMetrics.panelMaxWidth else ChromeMetrics.panelMaxWidthWide
     val shown = memory.shown(panel)
     val rise = rememberMotionDistances().risePx
     AnimatedContent(
@@ -55,7 +58,7 @@ fun FloatingPanel(
             Box(
                 Modifier
                     .padding(horizontal = 10.dp)
-                    .widthIn(max = ChromeMetrics.panelMaxWidth)
+                    .widthIn(max = maxWidth)
                     .fillMaxWidth()
                     .heightIn(max = maxHeight)
                     .sessionSurface(PanelShape)

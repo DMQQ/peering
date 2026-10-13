@@ -22,6 +22,7 @@ object ChromeMetrics {
     val pillHeight = 56.dp
     val joystickRadius = 50.dp
     val panelMaxWidth = 520.dp
+    val panelMaxWidthWide = 720.dp
     const val DOCK_WIDTH_FRACTION = 0.9f
     val pillCollapsedRadius = 30.dp
     val pillExpandedRadius = 26.dp

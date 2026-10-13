@@ -24,7 +24,7 @@ import pl.dmq.peering.session.agent.DirectoryLister
 import pl.dmq.peering.session.agent.changes.ReviewMarkStore
 import pl.dmq.peering.session.agent.PromptTemplateStore
 import pl.dmq.peering.session.ports.Clock
-import pl.dmq.peering.ui.kit.DepthTransition
+import pl.dmq.peering.ui.kit.rememberWidthClass
 import pl.dmq.peering.session.ports.KeyValueStore
 
 /**
@@ -80,23 +80,16 @@ fun AgentsRoute(
         }
     }
 
+    val twoPane = rememberWidthClass().twoPane
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {
         val chatOpen = showingChat && chatState.selected != null
         ReportHubPage(HubTab.AGENTS, atRoot = !chatOpen && !reviewing && hubUi.newChat !is NewChatStep.ChoosingFolder)
-        BackHandler(enabled = chatOpen) { showingChat = false }
+        BackHandler(enabled = chatOpen && !twoPane) { showingChat = false }
         Box(Modifier.fillMaxSize()) {
-            DepthTransition(state = chatOpen, depth = { if (it) 1 else 0 }, label = "agentsChat") { openChat ->
-                if (openChat) {
-                    ChatScreen(
-                        chat = chat,
-                        transcript = transcript,
-                        composer = composer,
-                        hints = hints,
-                        templates = templates,
-                        port = port,
-                        onBackToList = { showingChat = false },
-                    )
-                } else {
+            AgentsPanes(
+                twoPane = twoPane,
+                chatOpen = chatOpen,
+                hub = {
                     HubScreen(
                         presenter = hub,
                         guide = guide,
@@ -106,8 +99,19 @@ fun AgentsRoute(
                         onSessionOpened = { showingChat = true },
                         onChatStarted = { sessionsBeforeStart = chatState.sessions.map { it.id }.toSet() },
                     )
-                }
-            }
+                },
+                chat = {
+                    ChatScreen(
+                        chat = chat,
+                        transcript = transcript,
+                        composer = composer,
+                        hints = hints,
+                        templates = templates,
+                        port = port,
+                        onBackToList = { showingChat = false },
+                    )
+                },
+            )
             if (reviewing) {
                 ReviewScreen(review, onOpenFile = { chat, path -> reviewedFile = chat to path }, onClose = { reviewing = false })
             }
