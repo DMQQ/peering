@@ -19,7 +19,7 @@ fun PairingCodeRoute(
 ) {
     val screen by presenter.state.collectAsState()
     LaunchedEffect(screen) {
-        if (screen == PairingCodeScreen.Cancelled) onFinished()
+        if (screen == PairingCodeScreen.Cancelled || screen == PairingCodeScreen.Done) onFinished()
     }
     val actions = remember(presenter, onFinished, onScanRequested) {
         PairingActions(

@@ -87,9 +87,13 @@ private fun SessionStage(wiring: FeatureWiring, flow: ConnectFlow, current: Acti
     )
 }
 
-/** Ends the session that was being paired unless the pairing asked to keep it, then drops the pairing screen. */
+/** Ends the session that was being paired unless the pairing asked to keep it, in which case it opens as the session. */
 private fun finishPairing(wiring: FeatureWiring, flow: ConnectFlow, finished: PairingCodePresenter?, active: ActiveSession?) {
-    if (finished?.state?.value?.keepsConnection != true && active === flow.pairingSession) wiring.holder.end()
+    if (finished?.state?.value?.keepsConnection == true) {
+        flow.showingSession = true
+    } else if (active === flow.pairingSession) {
+        wiring.holder.end()
+    }
     flow.pairing = null
 }
 

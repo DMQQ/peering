@@ -29,7 +29,7 @@ internal fun FirstConnectionRoute(
     }
     val screen by pairing.state.collectAsState()
     LaunchedEffect(screen) {
-        if (screen == PairingCodeScreen.Cancelled) onPairingFinished()
+        if (screen == PairingCodeScreen.Cancelled || screen == PairingCodeScreen.Done) onPairingFinished()
     }
     val pairingActions = remember(pairing, onPairingFinished, onScanCodeRequested) {
         PairingActions(
