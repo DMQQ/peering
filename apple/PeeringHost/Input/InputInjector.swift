@@ -40,6 +40,7 @@ final class InputInjector: @unchecked Sendable {
 
     /// Modifiers a chord pressed itself, so its key-up releases only those and not one the client toggled on.
     var chordEngaged: [UInt16: Modifiers] = [:]
+    var lastTextPostedAt: ContinuousClock.Instant?
 
     /// Buttons pressed and not yet released, in press order. A lost mouse-up leaves a button down so the user's next physical click completes the client's drag; an array so release is in reverse press order.
     private var heldButtons: [MouseButton] = []

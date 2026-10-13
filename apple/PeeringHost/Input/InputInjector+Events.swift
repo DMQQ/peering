@@ -71,6 +71,8 @@ extension InputInjector {
             return
         }
 
+        if down, Self.submitKeyCodes.contains(code) { separateSubmitFromTypedText() }
+
         if down {
             var pressed: Modifiers = []
             for (bit, modifierCode) in Self.modifierKeys where modifiers.contains(bit) {
@@ -187,7 +189,20 @@ extension InputInjector {
         CGEventFlags(rawValue: UInt64(modifiers.rawValue))
     }
 
+    /// Return and keypad Enter.
+    private static let submitKeyCodes: Set<UInt16> = [36, 76]
+    /// A terminal that reads typed text and Return in one gulp takes the Return for part of a paste: a line editor such as Claude Code's then inserts a newline and the sent text stays in the box.
+    private static let submitSeparation: Duration = .milliseconds(45)
+
+    private func separateSubmitFromTypedText() {
+        let typedAt = lock.withLock { lastTextPostedAt }
+        guard let typedAt else { return }
+        let wait = Self.submitSeparation - typedAt.duration(to: .now)
+        if wait > .zero { Thread.sleep(forTimeInterval: Double(wait.components.attoseconds) / 1e18 + Double(wait.components.seconds)) }
+    }
+
     func postText(_ text: String) {
+        lock.withLock { lastTextPostedAt = .now }
         for chunk in InputEncoding.unicodeChunks(text) {
             postUnicode(chunk, down: true)
             postUnicode(chunk, down: false)
