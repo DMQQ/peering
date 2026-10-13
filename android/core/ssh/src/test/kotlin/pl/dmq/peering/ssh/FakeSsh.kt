@@ -114,6 +114,7 @@ class FakeConnection : SshConnection {
 }
 
 class FakeTransport(private val connection: FakeConnection = FakeConnection()) : SshTransport {
+    val connectionClosed: Boolean get() = connection.closed
     var failure: SshFailure? = null
     var seen: SshConnectRequest? = null
 
