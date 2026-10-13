@@ -10,17 +10,9 @@ enum LiveActivityShutdown {
     nonisolated static func endEverything() {
         let finished = DispatchSemaphore(value: 0)
         Task.detached {
-            await withTaskGroup(of: Void.self) { group in
-                for card in Activity<SessionActivityAttributes>.activities {
-                    group.addTask { await card.end(nil, dismissalPolicy: .immediate) }
-                }
-                for card in Activity<TerminalActivityAttributes>.activities {
-                    group.addTask { await card.end(nil, dismissalPolicy: .immediate) }
-                }
-                for card in Activity<AgentChatActivityAttributes>.activities {
-                    group.addTask { await card.end(nil, dismissalPolicy: .immediate) }
-                }
-            }
+            for card in Activity<SessionActivityAttributes>.activities { await card.end(nil, dismissalPolicy: .immediate) }
+            for card in Activity<TerminalActivityAttributes>.activities { await card.end(nil, dismissalPolicy: .immediate) }
+            for card in Activity<AgentChatActivityAttributes>.activities { await card.end(nil, dismissalPolicy: .immediate) }
             finished.signal()
         }
         _ = finished.wait(timeout: .now() + waitSeconds)
