@@ -1,6 +1,8 @@
 package pl.dmq.peering.ui
 
 import pl.dmq.peering.feature.connect.ConnectUiState
+import pl.dmq.peering.feature.ssh.ServersTab
+import pl.dmq.peering.feature.ssh.SshHub
 import android.content.SharedPreferences
 import android.os.Build
 import pl.dmq.peering.ui.wiring.PreferencesDevicePreferences
@@ -57,6 +59,9 @@ import pl.dmq.peering.ui.wiring.RelayInviteService
 internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences: SharedPreferences) {
     private val writes = graph.preferenceWrites
     val picture = SurfacePicture()
+
+    /** Built when the Servers tab first opens: it reads sealed storage, which the first screen has no use for. */
+    val ssh by lazy { SshHub(graph, scope, preferences) }
 
     /** What the Connect tab showed last, so coming back to it starts from that and not from an empty list. */
     var lastConnectState: ConnectUiState? = null
@@ -134,6 +139,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
 
     fun install() {
         ScreenRegistry.connect = { ConnectTab(this) }
+        ScreenRegistry.servers = { ServersTab(ssh) }
         ScreenRegistry.sessions = { SessionTab(this) }
         ScreenRegistry.faq = { FaqScreen() }
         ScreenRegistry.settings = { SettingsTab(this) }
