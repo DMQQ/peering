@@ -40,6 +40,7 @@ class SessionSettingsActions(
     val onChooseQuality: (StreamQuality) -> Unit,
     val onSetHidesPanel: (Boolean) -> Unit,
     val onSetAllowsRelay: (Boolean) -> Unit,
+    val onSetPlaysSound: (Boolean) -> Unit,
     val onToggleDark: () -> Unit,
     val onKeyboardMode: (KeyboardMode) -> Unit,
     val onLock: () -> Unit,

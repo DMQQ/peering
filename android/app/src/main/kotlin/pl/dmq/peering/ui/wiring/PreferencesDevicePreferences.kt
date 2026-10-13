@@ -27,6 +27,7 @@ internal class PreferencesDevicePreferences(
             .putString(KEYBOARD, next.keyboardMode.name)
             .putBoolean(HIDES_PANEL, next.hidesPanelAfterSelect)
             .putBoolean(ALLOWS_RELAY, next.allowsRelay)
+            .putBoolean(PLAYS_SOUND, next.playsComputerSound)
             .commit()
         if (saved) state.value = next
         return saved
@@ -39,6 +40,7 @@ internal class PreferencesDevicePreferences(
         keyboardMode = enumOf(KEYBOARD, KeyboardMode.UNICODE),
         hidesPanelAfterSelect = preferences.getBoolean(HIDES_PANEL, true),
         allowsRelay = preferences.getBoolean(ALLOWS_RELAY, true),
+        playsComputerSound = preferences.getBoolean(PLAYS_SOUND, true),
     )
 
     private inline fun <reified T : Enum<T>> enumOf(key: String, default: T): T =
@@ -51,5 +53,6 @@ internal class PreferencesDevicePreferences(
         const val KEYBOARD = "keyboard_mode"
         const val HIDES_PANEL = "hides_panel_after_select"
         const val ALLOWS_RELAY = "allows_relay"
+        const val PLAYS_SOUND = "plays_computer_sound"
     }
 }

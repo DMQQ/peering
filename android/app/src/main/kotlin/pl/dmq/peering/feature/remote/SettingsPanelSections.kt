@@ -175,6 +175,8 @@ internal fun StreamSection(model: SessionSettingsModel, actions: SessionSettings
         Note(stringResource(if (quality.selected == StreamQuality.Auto) R.string.panel_quality_auto_note else R.string.panel_quality_manual_note))
         if (quality.ceiling < QualityTier.HIGH) Note(stringResource(R.string.quality_relay_cap))
         if (quality.saveFailed) Text(stringResource(R.string.quality_save_failed), style = PeeringText.caption2, color = PeeringColors.danger)
+        SwitchRow(stringResource(R.string.settings_computer_sound), model.prefs.playsComputerSound, actions.onSetPlaysSound)
+        Note(stringResource(if (model.prefs.playsComputerSound) R.string.panel_sound_on_note else R.string.panel_sound_off_note))
         CodecRow(hevc)
     }
 }

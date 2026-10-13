@@ -541,4 +541,7 @@
     <string name="first_enter_id">Enter device ID</string>
     <string name="first_enter_address">Enter address</string>
     <string name="first_later">I\'ll do this later</string>
+    <string name="settings_computer_sound">Sound from the computer</string>
+    <string name="panel_sound_on_note">Whatever the computer plays comes out of this phone, including the sounds it makes in answer to what you send it. The volume keys set the level.</string>
+    <string name="panel_sound_off_note">The computer\'s sound is still sent, and dropped here without being played.</string>
 </resources>

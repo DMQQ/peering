@@ -123,7 +123,7 @@
     <string name="remote_quit_confirm">Send Cmd+Q</string>
 
     <string name="panel_keywords_session">session computer state path direct video connection latency lock</string>
-    <string name="panel_keywords_stream">stream display app window source quality bitrate automatic manual codec hevc</string>
+    <string name="panel_keywords_stream">stream display app window source quality bitrate automatic manual codec hevc sound audio volume mute</string>
     <string name="panel_keywords_panels">panels close after selecting</string>
     <string name="panel_keywords_privacy">privacy relay allow darken displays brightness</string>
     <string name="panel_keywords_keyboard">keyboard unicode keycode</string>

@@ -75,6 +75,7 @@ object SessionIcons {
     val add: ImageVector get() = Icons.Outlined.Add
     val hand: ImageVector get() = Icons.Outlined.PanTool
     val speed: ImageVector get() = Icons.Outlined.Speed
+    val sound: ImageVector get() = Icons.Outlined.VolumeUp
     val key: ImageVector get() = Icons.Outlined.Key
     val mail: ImageVector get() = Icons.Outlined.Mail
     val privacy: ImageVector get() = Icons.Outlined.PrivacyTip

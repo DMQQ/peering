@@ -21,7 +21,11 @@ import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.feature.scan.CameraQrSource
 import pl.dmq.peering.feature.onboarding.FaqScreen
 import pl.dmq.peering.ui.nav.ScreenRegistry
+import pl.dmq.peering.platform.audio.ComputerSound
+import pl.dmq.peering.ui.wiring.ComputerSoundSink
 import pl.dmq.peering.ui.wiring.ConnectivityNetworkSource
+import pl.dmq.peering.ui.wiring.follow
+import pl.dmq.peering.ui.wiring.processForeground
 import pl.dmq.peering.ui.wiring.DiscoveryHostSource
 import pl.dmq.peering.ui.wiring.HostAliases
 import pl.dmq.peering.ui.wiring.PinTrustedHosts
@@ -79,10 +83,11 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
         billing.paidRelay,
         scope,
     )
+    private val sound = ComputerSound(graph.applicationContext).also { it.follow(scope, devicePrefs.prefs, processForeground()) }
     val holder = SessionHolder(
         SessionPortsFactory(
             graph.sessions,
-            picture,
+            ComputerSoundSink(picture, sound),
             sessionRecords.history,
             PeeringQualitySource(settings, billing),
             billing,

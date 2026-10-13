@@ -79,6 +79,8 @@ class SettingsPresenter(
 
     fun setAllowsRelay(allows: Boolean) = change { it.copy(allowsRelay = allows) }
 
+    fun setPlaysComputerSound(plays: Boolean) = change { it.copy(playsComputerSound = plays) }
+
     private fun change(edit: (DevicePrefs) -> DevicePrefs) {
         message.value = if (devicePrefs.update(edit)) null else SettingsMessage.PreferenceSaveFailed
     }

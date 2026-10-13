@@ -95,6 +95,7 @@ private fun SettingsPanelContent(context: PanelContext, ui: QualitySheetUi, macr
             onChooseQuality = context.quality::choose,
             onSetHidesPanel = { value -> context.model.prefs.update { it.copy(hidesPanelAfterSelect = value) } },
             onSetAllowsRelay = { value -> context.model.prefs.update { it.copy(allowsRelay = value) } },
+            onSetPlaysSound = { value -> context.model.prefs.update { it.copy(playsComputerSound = value) } },
             onToggleDark = context.actions::toggleDark,
             onKeyboardMode = { mode -> context.model.prefs.update { it.copy(keyboardMode = mode) } },
             onLock = context.actions::lock,

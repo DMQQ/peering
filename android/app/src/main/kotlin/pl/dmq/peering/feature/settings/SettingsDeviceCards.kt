@@ -90,6 +90,13 @@ internal fun SessionControlsCard(prefs: DevicePrefs, presenter: SettingsPresente
             prefs.hidesPanelAfterSelect,
             presenter::setHidesPanelAfterSelect,
         )
+        ControlsDivider()
+        ControlToggle(
+            stringResource(R.string.settings_computer_sound),
+            SessionIcons.sound,
+            prefs.playsComputerSound,
+            presenter::setPlaysComputerSound,
+        )
     }
 }
 

@@ -12,6 +12,8 @@ data class DevicePrefs(
     val keyboardMode: KeyboardMode = KeyboardMode.UNICODE,
     val hidesPanelAfterSelect: Boolean = true,
     val allowsRelay: Boolean = true,
+    /** Whether what the computer plays comes out of this phone. The computer sends it either way. */
+    val playsComputerSound: Boolean = true,
 )
 
 interface DevicePreferences {
