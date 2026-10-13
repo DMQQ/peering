@@ -16,6 +16,16 @@ object TranscriptReducer {
         else -> applyEvent(state, event)
     }
 
+    /** Drops the oldest whole turns until the conversation is small, keeping the newest; the computer can replay the rest. */
+    fun trimForMemoryPressure(state: TranscriptState): TranscriptState {
+        var current = state
+        while (true) {
+            val next = trimmed(current, PRESSURE_TRANSCRIPT_SIZE)
+            if (next === current) return current
+            current = next
+        }
+    }
+
     /**
      * Merges one history chunk. Events the state already holds are skipped by index, so a live event that raced
      * the request is not drawn twice. [isLast] clears [TranscriptState.needsHistory].
@@ -37,6 +47,7 @@ object TranscriptReducer {
 }
 
 private const val MAXIMUM_TRANSCRIPT_SIZE = 512 * 1024
+private const val PRESSURE_TRANSCRIPT_SIZE = 64 * 1024
 
 private fun applyEvent(state: TranscriptState, event: AgentStreamEvent): TranscriptState =
     trimmed(applyPayload(state, event.payload)).copy(lastIndex = event.index)
@@ -149,8 +160,8 @@ private fun child(state: TranscriptState, parentCallID: String, event: AgentStre
     return withSubagent.updateSubagent(parentCallID) { applyPayload(it, event).copy(sessionState = AgentSessionState.WORKING) }
 }
 
-private fun trimmed(state: TranscriptState): TranscriptState {
-    if (state.approximateSize <= MAXIMUM_TRANSCRIPT_SIZE) return state
+private fun trimmed(state: TranscriptState, limit: Int = MAXIMUM_TRANSCRIPT_SIZE): TranscriptState {
+    if (state.approximateSize <= limit) return state
     val turnStarts = state.rows.indices.filter { state.rows[it] is TranscriptRow.User }
     if (turnStarts.size < 2) return state
     val rows = state.rows.drop(turnStarts[1])

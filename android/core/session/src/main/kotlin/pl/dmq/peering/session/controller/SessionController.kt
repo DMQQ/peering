@@ -142,11 +142,23 @@ class SessionController(
         link?.reportBackground(background, probeNow = !background && returnProbe.onReturn())
     }
 
+    /** The system is short of memory: shells and conversations give up what they only keep as scrollback. */
+    fun trimMemory() {
+        services.terminals?.trimMemory()
+        services.agentChat?.trimMemory()
+    }
+
     /** Applies the stream quality to the live session. False when no session is running. */
     fun setQuality(choice: QualityChoice): Boolean {
         val live = link ?: return false
-        live.applyQuality(choice, QualityCeiling.of(live.path, ports.quality.unlimitedRelay()))
+        live.applyQuality(choice, QualityCeiling.of(live.path, ports.quality.unlimitedRelay(), ports.quality.powerSaving()), ports.quality.powerSaving())
+        link?.let(::publish)
         return true
+    }
+
+    /** Battery saver or the device's heat changed: the rate and frame rate are sent again under the ceiling as it now stands. */
+    fun powerSavingChanged() {
+        setQuality(ports.quality.choice())
     }
 
     /**
@@ -226,7 +238,7 @@ class SessionController(
                 hostTextFocus = live.hostTextFocus,
                 hostField = live.hostField,
                 phase = it.phase.withPath(live.path),
-                qualityCeiling = QualityCeiling.of(live.path, ports.quality.unlimitedRelay()),
+                qualityCeiling = QualityCeiling.of(live.path, ports.quality.unlimitedRelay(), ports.quality.powerSaving()),
                 directPath = live.directPathState,
                 videoStream = live.videoStream,
             )

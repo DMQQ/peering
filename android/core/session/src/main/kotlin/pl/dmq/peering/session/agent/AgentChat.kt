@@ -65,6 +65,13 @@ class AgentChat(
     fun start(agentID: String, directory: String?) =
         ifDeclared(capabilities.chat) { send(AgentRequest.Start(agentID, directory)) }
 
+    /** Drops the older turns of every conversation. The computer holds them, and a replay brings them back. */
+    fun trimMemory() {
+        val state = mutableState.value
+        val trimmed = state.sessions.map { it.copy(transcript = TranscriptReducer.trimForMemoryPressure(it.transcript)) }
+        if (trimmed != state.sessions) mutableState.value = state.copy(sessions = trimmed)
+    }
+
     fun select(sessionID: String) = ifDeclared(capabilities.chat) { commit(AgentChatIntents.select(mutableState.value, sessionID)) }
 
     fun prompt(text: String) = ifDeclared(capabilities.chat) { commit(AgentChatIntents.prompt(mutableState.value, text)) }

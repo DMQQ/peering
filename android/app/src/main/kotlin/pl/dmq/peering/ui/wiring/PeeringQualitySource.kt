@@ -11,10 +11,13 @@ import pl.dmq.peering.wire.QualityTier
 internal class PeeringQualitySource(
     private val settings: SettingsStore,
     private val billing: Billing,
+    private val power: DevicePower,
 ) : QualitySource {
     override fun choice(): QualityChoice = settings.currentStreamQuality().toChoice()
 
     override fun unlimitedRelay(): Boolean = billing.paidRelay.value
+
+    override fun powerSaving(): Boolean = power.saving.value
 
     private fun StreamQuality.toChoice(): QualityChoice = when (this) {
         StreamQuality.Auto -> QualityChoice.Automatic

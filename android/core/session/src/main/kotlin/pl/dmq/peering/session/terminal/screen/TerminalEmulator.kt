@@ -44,4 +44,7 @@ interface TerminalEmulator {
     fun resize(columns: Int, rows: Int)
 
     fun snapshot(): ScreenSnapshot
+
+    /** Drops scrollback beyond the newest [keepLines] lines; the screen itself stays. Memory pressure asks for this. */
+    fun trimScrollback(keepLines: Int) = Unit
 }

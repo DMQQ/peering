@@ -16,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import pl.dmq.peering.widget.WidgetPublisher
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -29,7 +30,9 @@ import pl.dmq.peering.ui.wiring.ComputerSoundSink
 import pl.dmq.peering.ui.wiring.ConnectivityNetworkSource
 import pl.dmq.peering.ui.wiring.follow
 import pl.dmq.peering.ui.wiring.processForeground
+import pl.dmq.peering.ui.wiring.DevicePower
 import pl.dmq.peering.ui.wiring.DiscoveryHostSource
+import pl.dmq.peering.ui.wiring.MemoryPressure
 import pl.dmq.peering.ui.wiring.HostAliases
 import pl.dmq.peering.ui.wiring.PinTrustedHosts
 import pl.dmq.peering.ui.wiring.PreferencesComposerDrafts
@@ -60,6 +63,7 @@ import pl.dmq.peering.ui.wiring.RelayInviteService
 internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences: SharedPreferences) {
     private val writes = graph.preferenceWrites
     val picture = SurfacePicture()
+    private val power = DevicePower(graph.applicationContext)
 
     /** Built when the Servers tab first opens: it reads sealed storage, which the first screen has no use for. */
     val ssh by lazy { SshHub(graph, scope, preferences) }
@@ -97,7 +101,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
             graph.sessions,
             ComputerSoundSink(picture, sound),
             sessionRecords.history,
-            PeeringQualitySource(settings, billing),
+            PeeringQualitySource(settings, billing, power),
             billing,
             lanAddresses,
             ClipboardHistory(PreferencesKeyValueStore(preferences, writes)),
@@ -111,6 +115,10 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
 
     init {
         scope.launch { relayAllowance.trackSessions(relayInUse(holder.active)) }
+        scope.launch {
+            power.saving.drop(1).collect { holder.active.value?.controller?.powerSavingChanged() }
+        }
+        MemoryPressure(graph.applicationContext) { holder.active.value?.controller?.trimMemory() }
     }
 
     private val relayPresence = PresenceWatch(

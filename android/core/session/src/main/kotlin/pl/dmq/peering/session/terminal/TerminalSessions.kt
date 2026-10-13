@@ -87,6 +87,14 @@ class TerminalSessions(
     /** The picture of one shell's screen as of now. */
     fun snapshot(id: String): ScreenSnapshot = synchronized(lock) { screens[id]?.snapshot() } ?: ScreenSnapshot.EMPTY
 
+    /** Drops the old output of every shell and keeps the newest lines, which is what a person scrolls back to. The shells themselves go on. */
+    fun trimMemory() = synchronized(lock) {
+        screens.forEach { (id, screen) ->
+            screen.trimScrollback(PRESSURE_SCROLLBACK_LINES)
+            markChanged(id)
+        }
+    }
+
     fun dismissFailure() = synchronized(lock) { mutableState.value = mutableState.value.copy(failure = null) }
 
     fun onEvent(event: TerminalEvent) = synchronized(lock) {
@@ -196,6 +204,7 @@ class TerminalSessions(
     }
 
     private companion object {
+        const val PRESSURE_SCROLLBACK_LINES = 200
         const val FRAME_MILLIS = 16L
         const val DEFAULT_COLUMNS = 80
         const val DEFAULT_ROWS = 24

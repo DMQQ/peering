@@ -154,6 +154,13 @@ class VtScreen(columns: Int = 80, rows: Int = 24) : TerminalEmulator {
         record(top.toList())
     }
 
+    override fun trimScrollback(keepLines: Int) {
+        while (history.size > keepLines) {
+            history.removeFirst()
+            styledHistory.removeFirst()
+        }
+    }
+
     private fun record(scrolled: List<ScreenCell>) {
         if (alternate) return
         history.addLast(scrolled)

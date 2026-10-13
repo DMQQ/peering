@@ -62,6 +62,7 @@ internal class ConnectedLink(
     relay: RelayConnect?,
     private val quality: QualityChoice,
     private val ceiling: QualityTier,
+    private val powerSaving: Boolean,
     private val clipboard: ClipboardHistory,
     private val tally: ByteTally,
     private val note: (String) -> Unit,
@@ -83,6 +84,7 @@ internal class ConnectedLink(
         },
     )
     private var automatic: AutoQualityPolicy? = null
+    private var fpsCapped = false
     private var backgrounded = false
     private val direct: DirectPathRunner? = route.datagrams?.let { datagrams ->
         relay?.let { DirectPathRunner(lanes, datagrams, it, route.videoToken) }
@@ -174,7 +176,7 @@ internal class ConnectedLink(
 
     /** Starts the link's loops in this scope. [ended] completes with the reason the link stopped. */
     fun CoroutineScope.serve(ended: CompletableDeferred<LinkEnd>, onTick: () -> Unit) {
-        applyQuality(quality, ceiling)
+        applyQuality(quality, ceiling, powerSaving)
         picture.start(this)
         launchLinkTask(ended, note) {
             if (route.path == SessionRecord.Path.RELAY) {
@@ -213,17 +215,22 @@ internal class ConnectedLink(
         }
     }
 
-    /** Holds the rate the user chose, or starts the policy that moves it, capped at [ceiling]. */
-    fun applyQuality(choice: QualityChoice, ceiling: QualityTier) {
+    /**
+     * Holds the rate the user chose, or starts the policy that moves it, capped at [ceiling]. While [powerSaving] the
+     * frame rate is capped as well, and once it ends the cap is lifted, since the computer keeps the last one it was given.
+     */
+    fun applyQuality(choice: QualityChoice, ceiling: QualityTier, powerSaving: Boolean) {
+        val fps = PowerSaving.framesPerSecond(powerSaving, wasCapped = fpsCapped)
+        fpsCapped = powerSaving
         when (choice) {
             QualityChoice.Automatic -> {
                 val policy = AutoQualityPolicy(route.path.qualityPath(), ceiling)
                 automatic = policy
-                commands.offer(SetStreamQuality(fps = 0, bitrateKbps = policy.tier.kbps))
+                commands.offer(SetStreamQuality(fps = fps, bitrateKbps = policy.tier.kbps))
             }
             is QualityChoice.Fixed -> {
                 automatic = null
-                commands.offer(SetStreamQuality(fps = 0, bitrateKbps = minOf(choice.tier, ceiling).kbps))
+                commands.offer(SetStreamQuality(fps = fps, bitrateKbps = minOf(choice.tier, ceiling).kbps))
             }
         }
     }

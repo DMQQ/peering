@@ -39,6 +39,9 @@ class ControllerRig(
     /** Whether discovery lists the host; a test sets it to move the host onto the phone's network. */
     var hostVisible = !nobodyDiscovered
 
+    /** Whether the phone asks apps to save power; a test sets it and calls powerSavingChanged. */
+    var powerSaving = false
+
     /** Where discovery finds the host; a test sets it to move the host to another address. */
     var hostAddress = LAN_ADDRESS
 
@@ -107,6 +110,13 @@ class ControllerRig(
         sink = sink,
         downloads = DownloadWriter { offset, bytes -> downloads[offset] = bytes },
         relay = RelayPorts(signalling, datagrams, onRemainingSeconds = { remainingReported += it }) { entitlement },
+        quality = object : QualitySource {
+            override fun choice(): QualityChoice = QualityChoice.Automatic
+
+            override fun unlimitedRelay(): Boolean = false
+
+            override fun powerSaving(): Boolean = powerSaving
+        },
         log = { logged += it },
         lanReached = { hostId, address -> reachedOnLan[hostId] = address },
     )

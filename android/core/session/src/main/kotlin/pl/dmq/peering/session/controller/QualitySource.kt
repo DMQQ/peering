@@ -6,6 +6,9 @@ interface QualitySource {
 
     fun unlimitedRelay(): Boolean
 
+    /** Whether the phone asks apps to use less power: battery saver, or a device running hot. The picture is then held lower. */
+    fun powerSaving(): Boolean = false
+
     companion object {
         /** Automatic, with relayed sessions held to Medium: what a phone with no stored choice and no paid relay time streams. */
         val Default: QualitySource = object : QualitySource {
