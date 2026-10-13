@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_servers">Серверы</string>
+
+    <string name="ssh_title">Серверы</string>
+    <string name="ssh_detail">Оболочки на машинах, добавленных вручную.</string>
+    <string name="ssh_section_open">Открытые</string>
+    <string name="ssh_section_servers">Серверы</string>
+    <string name="ssh_add">Добавить сервер</string>
+    <string name="ssh_empty_title">Серверов пока нет</string>
+    <string name="ssh_empty_body">Добавьте машину, доступную по SSH, и открывайте на ней оболочку отсюда.</string>
+    <string name="ssh_this_server">Этот сервер</string>
+
+    <string name="ssh_row_locked">%1$s · Заблокирован</string>
+    <string name="ssh_row_connecting">%1$s · Подключение</string>
+    <string name="ssh_row_live">%1$s · Активен</string>
+    <string name="ssh_row_ended">%1$s · Завершён</string>
+    <string name="ssh_row_more">Другие параметры для %1$s</string>
+    <string name="ssh_menu_edit">Изменить</string>
+    <string name="ssh_menu_public_key">Открытый ключ</string>
+    <string name="ssh_menu_forget_signin">Забыть способ входа</string>
+    <string name="ssh_menu_forget_key">Забыть его ключ</string>
+    <string name="ssh_menu_delete">Удалить</string>
+    <string name="ssh_menu_end">Завершить соединение</string>
+
+    <string name="ssh_forget_title">Забыть способ входа?</string>
+    <string name="ssh_forget_body">%1$s запросит пароль при следующем открытии оболочки. Сам сервер не затрагивается, а любой ключ, уже лежащий в authorized_keys, там остаётся.</string>
+    <string name="ssh_forget_confirm">Забыть</string>
+    <string name="ssh_forget_keep">Оставить</string>
+
+    <string name="ssh_editor_add_title">Новый сервер</string>
+    <string name="ssh_editor_edit_title">Изменить сервер</string>
+    <string name="ssh_save">Сохранить</string>
+    <string name="ssh_cancel">Отмена</string>
+    <string name="ssh_server_card">Сервер</string>
+    <string name="ssh_server_footer">Имя задаёт название строки; если оно пусто, используется хост. Порт 22, если ваш сервер не говорит иное.</string>
+    <string name="ssh_field_name">Имя (необязательно)</string>
+    <string name="ssh_field_host">Хост</string>
+    <string name="ssh_field_port">Порт</string>
+    <string name="ssh_field_user">Пользователь</string>
+    <string name="ssh_error_host_empty">Введите имя хоста или адрес.</string>
+    <string name="ssh_error_host_invalid">Это не имя хоста. Уберите имя пользователя и префикс ssh://.</string>
+    <string name="ssh_error_port">Порт должен быть числом от 1 до 65535.</string>
+    <string name="ssh_error_user">Введите пользователя для входа.</string>
+
+    <string name="ssh_lock_card">Блокировка</string>
+    <string name="ssh_lock_ask">Запрашивать</string>
+    <string name="ssh_lock_nothing">Ничего</string>
+    <string name="ssh_lock_passcode">Код-пароль</string>
+    <string name="ssh_lock_device">Разблокировка устройства</string>
+    <string name="ssh_lock_footer_off">Касание этого сервера сразу открывает оболочку.</string>
+    <string name="ssh_lock_footer_passcode">Шесть цифр, хранятся в защищённом хранилище этого телефона. Если вернуть блокировку в «Ничего», они забываются.</string>
+    <string name="ssh_lock_footer_device">Перед открытием оболочки запрашивается отпечаток пальца, лицо или блокировка экрана.</string>
+    <string name="ssh_lock_choose">Выберите код-пароль</string>
+    <string name="ssh_lock_again">Ещё раз, чтобы быть уверенным.</string>
+    <string name="ssh_lock_mismatch">Эти два не совпали. Начните заново.</string>
+    <string name="ssh_lock_enter">Это спросят, прежде чем этот сервер откроется.</string>
+    <string name="ssh_lock_wrong">Это не тот код-пароль.</string>
+    <string name="ssh_lock_change">Изменить код-пароль</string>
+    <string name="ssh_unlock_title">Разблокировать %1$s</string>
+    <string name="ssh_unlock_device">Разблокировать устройством</string>
+    <string name="ssh_unlock_reason">Открыть оболочку на %1$s.</string>
+    <string name="ssh_unlock_delete">Удалить цифру</string>
+
+    <string name="ssh_signin_card">Входить с помощью</string>
+    <string name="ssh_signin_using">Через</string>
+    <string name="ssh_signin_password">Пароль</string>
+    <string name="ssh_signin_key">Ключ</string>
+    <string name="ssh_signin_password_footer">Пароль запрашивается при открытии оболочки. Выберите в этом запросе «Запомнить», чтобы сохранить его в защищённом хранилище этого телефона.</string>
+    <string name="ssh_signin_key_footer">Ключ заменяет пароль для этого сервера, а не лежит рядом с ним. Закрытая половина хранится в защищённом хранилище этого телефона; открытая половина это строка, которую вы кладёте в ~/.ssh/authorized_keys на сервере.</string>
+    <string name="ssh_signin_key_missing">Выберите ключ</string>
+
+    <string name="ssh_key_title">Ключ</string>
+    <string name="ssh_key_public">Открытый ключ</string>
+    <string name="ssh_key_public_footer">Добавьте эту строку в ~/.ssh/authorized_keys на сервере. Закрытая половина остаётся в защищённом хранилище этого телефона и никуда не отправляется, кроме как в виде подписи.</string>
+    <string name="ssh_key_copy">Скопировать открытый ключ</string>
+    <string name="ssh_key_copied">Открытый ключ скопирован</string>
+    <string name="ssh_key_where">Откуда</string>
+    <string name="ssh_key_generate">Создать новый ключ</string>
+    <string name="ssh_key_import_file">Импортировать файл ключа</string>
+    <string name="ssh_key_paste">Вставить ключ</string>
+    <string name="ssh_key_from_generate">Для сервера, для которого вы ещё не настроили ключ. Это ключ ed25519, какой OpenSSH создаёт по умолчанию.</string>
+    <string name="ssh_key_from_paste">Закрытая половина, а не открытая. Если то, что у вас есть, начинается с ssh-ed25519, это та половина, которая нужна серверу.</string>
+    <string name="ssh_key_name">Имя</string>
+    <string name="ssh_key_name_footer">Просто метка. Её сервер показывает рядом с ключом, и по ней ваш ключ отличается от ключа вашего ноутбука.</string>
+    <string name="ssh_key_text">Закрытый ключ</string>
+    <string name="ssh_key_has_passphrase">Есть парольная фраза</string>
+    <string name="ssh_key_passphrase">Парольная фраза</string>
+    <string name="ssh_key_passphrase_footer">Только если она есть у ключа. Хранится в защищённом хранилище этого телефона рядом с ключом, потому что у телефона нет ssh-agent, который мог бы спросить.</string>
+    <string name="ssh_key_use">Использовать этот ключ</string>
+    <string name="ssh_key_err_not_private">Это не закрытый ключ. Закрытый ключ начинается с -----BEGIN OPENSSH PRIVATE KEY-----. Если вы вставили строку, начинающуюся с ssh-ed25519, это открытая половина, которая нужна на сервере, а не здесь.</string>
+    <string name="ssh_key_err_malformed">Не удалось прочитать этот ключ: %1$s</string>
+    <string name="ssh_key_err_needs_passphrase">У этого ключа есть парольная фраза. Введите её, чтобы приложение могло разблокировать ключ при подключении.</string>
+    <string name="ssh_key_err_wrong_passphrase">Эта парольная фраза не разблокировала этот ключ.</string>
+    <string name="ssh_key_err_file">Не удалось прочитать этот файл.</string>
+
+    <string name="ssh_hostkey_title">Это та самая машина?</string>
+    <string name="ssh_hostkey_body">Вы подключаетесь к %1$s впервые. Сверьте её отпечаток с самим сервером. Большинство провайдеров показывают его в своей консоли, а ssh-keygen -lf выводит его на самой машине.</string>
+    <string name="ssh_hostkey_trust">Доверять</string>
+    <string name="ssh_changed_title">Ключ сервера изменился</string>
+    <string name="ssh_changed_body">Ключ сервера изменился с момента вашего последнего подключения. Если это были не вы, не продолжайте.</string>
+    <string name="ssh_changed_known">Сохранён: %1$s %2$s</string>
+    <string name="ssh_changed_offered">Предложен сейчас: %1$s %2$s</string>
+    <string name="ssh_changed_help">Если вы переустановили сервер или знаете, почему изменился его ключ, выберите «Забыть его ключ» в меню сервера и подключитесь снова. Если не знаете, между вами и сервером может кто-то находиться.</string>
+
+    <string name="ssh_fail_rejected">Вы не приняли ключ этого сервера.</string>
+    <string name="ssh_fail_auth_password">Сервер отклонил этот пароль.</string>
+    <string name="ssh_fail_auth_key">Сервер не принял этот ключ. Проверьте, что его открытая половина есть в authorized_keys.</string>
+    <string name="ssh_fail_timeout">Сервер не ответил вовремя.</string>
+    <string name="ssh_fail_ended">Соединение завершилось.</string>
+
+    <string name="ssh_password_title">Пароль для %1$s</string>
+    <string name="ssh_password_field">Пароль</string>
+    <string name="ssh_password_remember">Запомнить</string>
+    <string name="ssh_password_connect">Подключиться</string>
+
+    <string name="ssh_tab_terminal">Терминал</string>
+    <string name="ssh_tab_files">Файлы</string>
+    <string name="ssh_tab_forwards">Переадресации</string>
+    <string name="ssh_connecting">Подключение к %1$s</string>
+    <string name="ssh_cancel_connecting">Отмена</string>
+    <string name="ssh_reconnect">Подключиться снова</string>
+    <string name="ssh_close">Закрыть</string>
+    <string name="ssh_end_title">Завершить соединение?</string>
+    <string name="ssh_end_body">Оболочки на сервере остановятся вместе со всем, что в них запущено.</string>
+    <string name="ssh_end_confirm">Завершить</string>
+    <string name="ssh_back">Назад к серверам</string>
+    <string name="ssh_files_ended">Это соединение завершено. Откройте сервер снова, чтобы просмотреть его файлы.</string>
+
+    <string name="ssh_forwards_title">Переадресации портов</string>
+    <string name="ssh_forwards_footer_idle">Список туннелей для настройки. Каждый слушает только на этом телефоне, так что другое приложение на телефоне может достучаться до службы, которую видит сервер.</string>
+    <string name="ssh_forwards_footer_live">Проброс работает, пока работает это соединение. Закрытие его или долгий выход из приложения завершает проброс, и ничто здесь не держит его в фоне.</string>
+    <string name="ssh_forward_add">Добавить перенаправление</string>
+    <string name="ssh_forward_title">Проброс порта</string>
+    <string name="ssh_forward_name">Имя (необязательно)</string>
+    <string name="ssh_forward_local_card">Этот телефон</string>
+    <string name="ssh_forward_local_footer">Порт, к которому будет подключаться другое приложение на этом телефоне. Укажите ему localhost:%1$s.</string>
+    <string name="ssh_forward_local">Локальный порт</string>
+    <string name="ssh_forward_remote_card">Сторона сервера</string>
+    <string name="ssh_forward_remote_footer">Куда подключается сервер, если смотреть с сервера. Это может быть 127.0.0.1 для службы, слушающей только на самом сервере, или имя, которое разрешается только с сервера.</string>
+    <string name="ssh_forward_remote_host">Хост</string>
+    <string name="ssh_forward_remote_port">Порт</string>
+    <string name="ssh_forward_when_card">Когда открывается оболочка</string>
+    <string name="ssh_forward_when_footer">Проброс работает, пока работает соединение с этим сервером. Держать его в фоне нельзя.</string>
+    <string name="ssh_forward_enabled">Запускать вместе с соединением</string>
+    <string name="ssh_forward_running">Выполняется</string>
+    <string name="ssh_forward_stopped">Остановлено</string>
+    <string name="ssh_forward_delete">Удалить проброс</string>
+    <string name="ssh_forward_err_local_nan">Локальный порт должен быть числом.</string>
+    <string name="ssh_forward_err_local_range">Локальный порт должен быть от 1 до 65535.</string>
+    <string name="ssh_forward_err_remote_nan">Порт на сервере должен быть числом.</string>
+    <string name="ssh_forward_err_remote_range">Порт на сервере должен быть от 1 до 65535.</string>
+    <string name="ssh_forward_err_host_empty">Укажите, к какой машине должен подключаться сервер. Это машина на другом конце туннеля, и подключается именно сервер.</string>
+    <string name="ssh_forward_err_host_invalid">Это не имя хоста и не адрес. Допустимы только буквы, цифры, точки, двоеточия, подчёркивания и дефисы.</string>
+    <string name="ssh_forward_err_used">Этот сервер уже пробрасывает %1$d. Два проброса не могут слушать один порт, поэтому один из них никогда не запустится.</string>
+</resources>

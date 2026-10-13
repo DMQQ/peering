@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="panel_open_for_text_fields">Открывать для текстовых полей</string>
+    <string name="panel_open_for_text_fields_note">Поднимает клавиатуру, когда курсор компьютера попадает в текстовое поле, и показывает содержимое поля.</string>
+    <string name="remote_chip_screenshot">Снимок экрана</string>
+    <string name="remote_screenshot_share">Поделиться снимком экрана</string>
+    <string name="remote_screenshot_failed">Не удалось захватить картинку.</string>
+</resources>
