@@ -42,17 +42,17 @@ fun OptionsBar(
     onPermission: (AgentPermissionMode) -> Unit,
     onModel: (String?) -> Unit,
     onShowUsage: () -> Unit,
+    onCustomModel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (ui.sessionID == null) return
-    var typingModel by remember { mutableStateOf(false) }
     Row(
         modifier = modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (ui.modelChoices.isNotEmpty()) {
-            ModelChip(ui.model, ui.modelChoices, onModel, onCustom = { typingModel = true })
+            ModelChip(ui.model, ui.modelChoices, onModel, onCustom = onCustomModel)
         }
         if (ui.permissionModes.size > 1) {
             PermissionChip(ui.permissionMode, ui.permissionModes, ui.agentID, onPermission)
@@ -61,7 +61,6 @@ fun OptionsBar(
             chip?.let { ContextBar(it, onShowUsage) }
         }
     }
-    if (typingModel) CustomModelDialog(ui.model.orEmpty(), onUse = { onModel(it.ifBlank { null }) }, onDismiss = { typingModel = false })
 }
 
 /** How much of the context window is used ("70k / 1M") and the five-hour window beside it; it opens the usage sheet. */
@@ -102,7 +101,7 @@ private fun Meter(fraction: Float, nearlyFull: Boolean) {
 }
 
 @Composable
-private fun CustomModelDialog(initial: String, onUse: (String) -> Unit, onDismiss: () -> Unit) {
+internal fun CustomModelDialog(initial: String, onUse: (String) -> Unit, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,

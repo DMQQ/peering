@@ -1,7 +1,9 @@
 package pl.dmq.peering.feature.agents
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -13,7 +15,11 @@ import pl.dmq.peering.feature.agents.attach.AttachmentSender
 import pl.dmq.peering.feature.agents.attach.AttachmentSource
 import pl.dmq.peering.session.agent.AgentChatState
 import pl.dmq.peering.session.agent.ComposerDraft
+import pl.dmq.peering.session.agent.AgentSlash
 import pl.dmq.peering.session.agent.ComposerDrafts
+import pl.dmq.peering.session.agent.MentionQuery
+import pl.dmq.peering.session.agent.SlashKind
+import pl.dmq.peering.session.agent.SlashSuggestion
 import pl.dmq.peering.wire.AgentPermissionMode
 import pl.dmq.peering.wire.AgentSessionState
 
@@ -35,7 +41,28 @@ class ComposerPresenter(
     val ui: StateFlow<ComposerUi> = combine(chats, drafts, attaching) { chatState, saved, files -> derive(chatState, saved, files) }
         .stateIn(scope, SharingStarted.Eagerly, derive(chats.value, drafts.value, attaching.value))
 
+    private val appCommandEvents = MutableSharedFlow<String>(extraBufferCapacity = 1)
+
+    /** A slash command this app answers itself (usage, model, rename), named without the slash. The chat screen opens what it names. */
+    val appCommands: SharedFlow<String> get() = appCommandEvents
+
+    /** What the hints may offer: the computer's own usage and model features, as it declared them. */
+    val hintOffers: HintOffers get() = HintOffers(usage = port.capabilities.usage, model = modelPickerSupported)
+
     fun onTextChanged(text: String) = editSelected { it.copy(text = text) }
+
+    /** An in-app command empties the box and is run here; any other is typed into the box for the CLI to run on send. */
+    fun pickSlash(item: SlashSuggestion) {
+        if (item.kind != SlashKind.APP) {
+            editSelected { it.copy(text = "/${item.name} ") }
+            return
+        }
+        editSelected { it.copy(text = "") }
+        appCommandEvents.tryEmit(item.name)
+    }
+
+    fun pickMention(query: MentionQuery, path: String, isFolder: Boolean) =
+        editSelected { it.copy(text = query.replacing(it.text, path, isFolder)) }
 
     fun attach(path: String) = editSelected { it.copy(attachedPaths = it.attachedPaths + path) }
 
@@ -81,10 +108,20 @@ class ComposerPresenter(
         val current = ui.value
         val sessionID = current.sessionID ?: return
         if (!current.actionEnabled || current.action == ComposerAction.STOP) return
+        if (runTypedAppCommand(current)) return
         val draft = ComposerDraft(text = current.text, attachedPaths = current.attachedPaths)
         if (!draft.canSend(isUploading = current.uploadingName != null)) return
         port.prompt(sessionID, draft.toPrompt())
         saveDraft(sessionID, ComposerDraft())
+    }
+
+    /** A command typed out in full and sent is answered by the app instead of being handed to the CLI. */
+    private fun runTypedAppCommand(current: ComposerUi): Boolean {
+        val typed = AgentSlash.query(current.text) ?: return false
+        val own = AgentSlash.suggestions(typed, current.agentID.orEmpty(), current.directory, hintOffers.usage, hintOffers.model) { null }
+            .firstOrNull { it.kind == SlashKind.APP && it.name == typed } ?: return false
+        pickSlash(own)
+        return true
     }
 
     fun stop() {

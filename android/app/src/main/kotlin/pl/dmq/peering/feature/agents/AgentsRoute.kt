@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import pl.dmq.peering.feature.agents.attach.AttachmentSender
 import pl.dmq.peering.feature.remote.HubTab
 import pl.dmq.peering.feature.remote.ReportHubPage
+import pl.dmq.peering.session.agent.DirectoryLister
 import pl.dmq.peering.session.agent.PromptTemplateStore
 import pl.dmq.peering.session.ports.Clock
 import pl.dmq.peering.ui.kit.DepthTransition
@@ -49,6 +50,8 @@ fun AgentsRoute(
     val composer = remember(port, modelPickerSupported, attachments) {
         ComposerPresenter(port, draftStore, port.chats, modelPickerSupported, scope, attachments)
     }
+    val lister = remember(port) { DirectoryLister(port::browse, scope, System::currentTimeMillis) }
+    val hints = remember(composer, lister) { ComposerHints(composer.ui, lister, composer.hintOffers, scope) }
     val chatState by port.chats.collectAsState()
     val hubUi by hub.ui.collectAsState()
     var showingChat by remember { mutableStateOf(false) }
@@ -62,7 +65,10 @@ fun AgentsRoute(
     }
 
     LaunchedEffect(folders) {
-        port.browseEvents.collect(folders::onEvent)
+        port.browseEvents.collect {
+            folders.onEvent(it)
+            lister.onEvent(it)
+        }
     }
 
     Surface(modifier = modifier, color = MaterialTheme.colorScheme.background) {
@@ -75,6 +81,7 @@ fun AgentsRoute(
                     chat = chat,
                     transcript = transcript,
                     composer = composer,
+                    hints = hints,
                     templates = templates,
                     port = port,
                     onBackToList = { showingChat = false },

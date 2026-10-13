@@ -37,6 +37,7 @@ fun ChatScreen(
     chat: ChatPresenter,
     transcript: TranscriptPresenter,
     composer: ComposerPresenter,
+    hints: ComposerHints?,
     templates: PromptTemplatesPresenter,
     port: AgentsPort,
     onBackToList: () -> Unit,
@@ -50,10 +51,20 @@ fun ChatScreen(
     var showingPreview by remember { mutableStateOf(false) }
     val previewFetch = remember(port.preview) { port.preview?.let(::previewFetchOf) }
     var renaming by remember { mutableStateOf(false) }
+    var typingModel by remember { mutableStateOf(false) }
     var confirmingClose by remember { mutableStateOf(false) }
     val pending = remember(transcriptUi.rows) { pendingApprovals(transcriptUi.rows) }
     var reviewingID by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(pending.firstOrNull()?.approvalID) { reviewingID = pending.firstOrNull()?.approvalID }
+    LaunchedEffect(composer) {
+        composer.appCommands.collect { name ->
+            when (name) {
+                "usage" -> showingUsage = true
+                "model" -> typingModel = true
+                else -> renaming = true
+            }
+        }
+    }
 
     Box(modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -87,7 +98,7 @@ fun ChatScreen(
                     )
                 }
             }
-            Composer(composer, ui.chip, onShowUsage = { showingUsage = true }, modifier = Modifier.navigationBarsPadding().imePadding())
+            Composer(composer, ui.chip, hints, onShowUsage = { showingUsage = true }, onCustomModel = { typingModel = true }, modifier = Modifier.navigationBarsPadding().imePadding())
         }
         if (showingChanges) ui.sessionID?.let { ChangesOverlay(port, it, onClose = { showingChanges = false }) }
         if (showingPreview && previewFetch != null) PreviewScreen(previewFetch, onClose = { showingPreview = false })
@@ -97,6 +108,10 @@ fun ChatScreen(
         ui.sessionID?.let { sessionID ->
             ApprovalSheet(port, sessionID, approval, onDismiss = { reviewingID = null })
         }
+    }
+    if (typingModel) {
+        val current = composerModel(composer)
+        CustomModelDialog(current, onUse = { composer.setModel(it.ifBlank { null }) }, onDismiss = { typingModel = false })
     }
     if (renaming) {
         RenameDialog(
@@ -132,4 +147,10 @@ private fun HistoryLoading() {
         CircularProgressIndicator(color = PeeringColors.ink.copy(alpha = 0.7f), strokeWidth = 2.dp)
         Text(stringResource(R.string.agents_history_loading), style = PeeringText.footnote, color = PeeringColors.ink.copy(alpha = 0.5f))
     }
+}
+
+@Composable
+private fun composerModel(composer: ComposerPresenter): String {
+    val ui by composer.ui.collectAsState()
+    return ui.model.orEmpty()
 }

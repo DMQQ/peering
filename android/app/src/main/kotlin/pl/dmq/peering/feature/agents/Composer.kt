@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.flow.MutableStateFlow
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.agents.attach.AttachmentSource
 import pl.dmq.peering.feature.agents.attach.AttachmentTray
@@ -49,8 +50,16 @@ private val barHeight = 48.dp
 
 /** The options chips over a pill field and a round send button that becomes Queue while a turn runs and Stop when empty. */
 @Composable
-fun Composer(presenter: ComposerPresenter, chip: ContextChip?, onShowUsage: () -> Unit, modifier: Modifier = Modifier) {
+fun Composer(
+    presenter: ComposerPresenter,
+    chip: ContextChip?,
+    hints: ComposerHints?,
+    onShowUsage: () -> Unit,
+    onCustomModel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val ui by presenter.ui.collectAsState()
+    val hint by (hints?.hint ?: remember { MutableStateFlow<ComposerHint>(ComposerHint.None) }).collectAsState()
     val pickDocument = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { presenter.attach(AttachmentSource.Document(it.toString())) }
     }
@@ -58,7 +67,8 @@ fun Composer(presenter: ComposerPresenter, chip: ContextChip?, onShowUsage: () -
         uri?.let { presenter.attach(AttachmentSource.Photo(it.toString())) }
     }
     Column(modifier.fillMaxWidth()) {
-        OptionsBar(ui, chip, presenter::setPermissionMode, presenter::setModel, onShowUsage)
+        ComposerHintPanel(hint, onSlash = presenter::pickSlash, onMention = presenter::pickMention)
+        OptionsBar(ui, chip, presenter::setPermissionMode, presenter::setModel, onShowUsage, onCustomModel)
         AttachmentTray(ui.attachments, ui.uploadingName, onRemoveAttached = presenter::detach, onRemoveFailed = presenter::removeFailedAttachment)
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 6.dp),
