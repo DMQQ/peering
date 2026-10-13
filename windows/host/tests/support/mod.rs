@@ -240,7 +240,6 @@ fn harness_with(
         host_name: HOST_NAME.to_owned(),
         identity_public_key: HOST_KEY.to_vec(),
         mac_addresses: Vec::new(),
-        can_lock_screen: false,
         clock: clock.clone(),
     };
     let runtime = HostRuntime::new(profile, services).expect("the runtime builds over fakes");

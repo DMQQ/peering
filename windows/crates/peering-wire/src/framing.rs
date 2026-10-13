@@ -41,6 +41,7 @@ pub enum MessageKind {
     PreviewEvent = 0x21,
     PointerReport = 0x22,
     ClientState = 0x23,
+    ActivityToken = 0x24,
 }
 
 impl MessageKind {
@@ -81,6 +82,7 @@ impl MessageKind {
             0x21 => PreviewEvent,
             0x22 => PointerReport,
             0x23 => ClientState,
+            0x24 => ActivityToken,
             _ => return None,
         })
     }
@@ -263,6 +265,13 @@ mod tests {
         decoder.push(&whole[whole.len() - 1..]);
         assert_eq!(decoder.next_frame().unwrap().unwrap().payload, b"{}");
         assert_eq!(decoder.buffered(), 0);
+    }
+
+    #[test]
+    fn an_activity_token_frame_decodes_rather_than_closing_the_connection() {
+        let mut decoder = FrameDecoder::new();
+        decoder.push(&encode(MessageKind::ActivityToken, b"{}"));
+        assert_eq!(decoder.next_frame().unwrap().unwrap().kind, MessageKind::ActivityToken);
     }
 
     #[test]

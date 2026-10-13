@@ -9,6 +9,7 @@
 mod advertise;
 mod ask_queue;
 mod agent;
+mod agent_gate;
 mod agent_browse;
 mod agent_pump;
 mod clock;
@@ -76,7 +77,6 @@ pub struct HostRuntime {
 impl HostRuntime {
     /// Builds the shared state from the adapters. Must be called on the thread that runs the `LocalSet` from `run`.
     pub fn new(profile: HostProfile, services: HostServices) -> Result<Self, RuntimeError> {
-        let profile = HostProfile { can_lock_screen: services.system.can_lock_workstation(), ..profile };
         let state = HostState::new(&profile, services)?;
         let (approvals, _unused_receiver) = broadcast::channel::<ApprovalDecision>(APPROVAL_CHANNEL_DEPTH);
         let (commands, command_inbox) = mpsc::channel();

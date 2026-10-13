@@ -18,6 +18,7 @@ use peering_core::session::held_input::HoldGuard;
 use peering_core::terminal::manager::TerminalSessionManager;
 use peering_core::video::intent::VideoIntent;
 use peering_core::video::lane::VideoLane;
+use peering_wire::handshake::ClientCapabilities;
 use tokio::sync::broadcast;
 
 use super::control::{ControlChannel, RelayStatus};
@@ -44,6 +45,7 @@ pub struct SessionSlot {
     pub lane: VideoLane,
     /// The phone reported it left the foreground, so nothing is sent to it until it returns.
     pub background: bool,
+    pub client_flags: ClientCapabilities,
 }
 
 impl SessionSlot {

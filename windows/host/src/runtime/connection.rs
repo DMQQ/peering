@@ -9,7 +9,7 @@ use peering_core::session::deps::{HostDeps, Random};
 use peering_core::session::handshake::{HostConfig, HostSession};
 use peering_core::session::liveness::{counts_as_life, LivenessTracker};
 use peering_wire::framing::{Frame, FrameDecoder, MessageKind};
-use peering_wire::handshake::ClientHello;
+use peering_wire::handshake::{ClientCapabilities, ClientHello};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::broadcast;
 use tokio::task::spawn_local;
@@ -42,7 +42,8 @@ pub(super) struct Connection {
     pub(super) session: HostSession,
     pub(super) session_id: u64,
     pub(super) liveness: LivenessTracker,
-    pub(super) supports_agent_chat: bool,
+    /// What the client's hello declared, which decides the events it may be sent.
+    pub(super) client_flags: ClientCapabilities,
     pub(super) video_for_session: Option<u64>,
     pub(super) registered: bool,
     /// Held until the connection is authorised or turns out to be a video connection.
@@ -89,7 +90,7 @@ where
         session: HostSession::new(config, deps),
         session_id,
         liveness: LivenessTracker::started_at(now),
-        supports_agent_chat: false,
+        client_flags: ClientCapabilities::default(),
         video_for_session: None,
         registered: false,
         pre_auth,
@@ -193,7 +194,7 @@ impl Connection {
 
     fn note_hello(&mut self, frame: &Frame) {
         if let Ok(hello) = serde_json::from_slice::<ClientHello>(&frame.payload) {
-            self.supports_agent_chat = hello.capabilities.supports_agent_chat == Some(true);
+            self.client_flags = hello.capabilities;
         }
     }
 }

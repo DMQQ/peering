@@ -77,7 +77,7 @@ impl Connection {
     }
 
     fn agent_request(&mut self, frame: &Frame) -> Flow {
-        if !self.supports_agent_chat {
+        if self.client_flags.supports_agent_chat != Some(true) {
             return Flow::Open;
         }
         let Ok(request) = serde_json::from_slice::<AgentRequest>(&frame.payload) else {

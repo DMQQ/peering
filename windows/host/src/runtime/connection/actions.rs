@@ -5,6 +5,9 @@ use peering_core::session::actions::SessionAction;
 use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::handshake::ServerHello;
 
+use peering_wire::agent::AgentEvent;
+
+use super::super::agent_gate;
 use super::{Connection, Flow};
 
 impl Connection {
@@ -49,7 +52,10 @@ impl Connection {
         let _queued = self.outbound.send(frame);
     }
 
-    pub(in super::super) fn send_event<T: serde::Serialize>(&self, event: &T) {
+    pub(in super::super) fn send_event(&self, event: &AgentEvent) {
+        if !agent_gate::admits(event, &self.client_flags) {
+            return;
+        }
         // Derived Serialize with string keys only: text from the CLI is just a string value, which cannot fail.
         self.send(Frame::new(MessageKind::AgentEvent, serde_json::to_vec(event).expect("agent events always serialise")));
     }
@@ -67,11 +73,12 @@ impl Connection {
             hello.capabilities.supports_agent_chat = Some(true);
             hello.capabilities.supports_agent_list = Some(true);
             hello.agent_chat_agents = Some(peering_agent::manager::agent_chat_agents());
+            hello.capabilities.supports_agent_model_picker = Some(true);
+            hello.capabilities.supports_agent_permission_modes = Some(true);
+            hello.capabilities.supports_agent_usage = Some(true);
+            hello.capabilities.supports_agent_pause = Some(true);
         }
         hello.capabilities.supports_file_browser = Some(true);
-        if self.profile.can_lock_screen {
-            hello.capabilities.supports_lock_screen = Some(true);
-        }
         // The hello was decoded from our own derived type a moment ago, so writing it back cannot fail.
         Frame::new(MessageKind::ServerHello, serde_json::to_vec(&hello).expect("a hello always serialises"))
     }

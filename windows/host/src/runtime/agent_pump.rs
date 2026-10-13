@@ -7,6 +7,7 @@ use std::time::Duration;
 use tokio::task::{spawn_local, JoinHandle};
 use tokio::time::interval;
 
+use super::agent_gate;
 use super::problem_source::ProblemSource;
 use super::shared::{HostState, Shared};
 use super::supervise::{record_problem, Pass, Supervised};
@@ -24,7 +25,7 @@ impl HostState {
         let mut outgoing = Vec::new();
         for (client_id, event) in events {
             let newest = self.sessions.iter().filter(|(_, slot)| slot.client_id == client_id).max_by_key(|(id, _)| **id);
-            if let Some((_, slot)) = newest {
+            if let Some((_, slot)) = newest.filter(|(_, slot)| agent_gate::admits(&event, &slot.client_flags)) {
                 // Derived Serialize with string keys only: text from the CLI is just a string value, which cannot fail.
                 let payload = serde_json::to_vec(&event).expect("agent events always serialise");
                 outgoing.push(Outgoing { to: slot.outbound.clone(), frame: Frame::new(MessageKind::AgentEvent, payload) });

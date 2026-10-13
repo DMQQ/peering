@@ -14,8 +14,6 @@ pub struct HostProfile {
     pub identity_public_key: Vec<u8>,
     /// Wake-on-LAN addresses for paired clients. Not collected yet, so the hello carries none.
     pub mac_addresses: Vec<String>,
-    /// Whether the host can lock its workstation. `HostRuntime::new` sets this from the system adapter.
-    pub can_lock_screen: bool,
     pub clock: Arc<dyn Clock>,
 }
 
@@ -26,7 +24,6 @@ impl HostProfile {
             host_name: host_name.to_owned(),
             identity_public_key: identity.public_key_bytes(),
             mac_addresses: Vec::new(),
-            can_lock_screen: false,
             clock,
         }
     }

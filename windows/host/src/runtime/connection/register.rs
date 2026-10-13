@@ -63,6 +63,7 @@ impl Connection {
                 datagram_outbound,
                 lane: VideoLane::new(video_token),
                 background: false,
+                client_flags: self.client_flags.clone(),
             },
         );
         state.video.request(VideoIntent::Attach(client_id.to_owned()));

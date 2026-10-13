@@ -1,9 +1,8 @@
 //! Requests a phone makes on its control connection: lock the workstation, change the frame rate without a reconnect, and
-//! pause and resume the picture. The lock is advertised in the hello only when the workstation can be locked.
+//! pause and resume the picture.
 
 mod support;
 
-use peering_core::fakes::system::RecordingSystem;
 use peering_core::ports::capture::RawFrame;
 use peering_core::ports::clock::Clock;
 use peering_wire::command::RemoteCommand;
@@ -22,24 +21,6 @@ fn a_lock_request_locks_the_workstation_once() {
 }
 
 #[test]
-fn the_hello_advertises_the_lock_when_the_workstation_can_be_locked() {
-    run(async {
-        let harness = harness();
-        let hello = server_hello_for(&harness).await;
-        assert_eq!(hello.capabilities.supports_lock_screen, Some(true));
-    });
-}
-
-#[test]
-fn the_hello_does_not_advertise_a_lock_the_workstation_cannot_do() {
-    run(async {
-        let harness = harness_with_system(RecordingSystem::new(false, None));
-        let hello = server_hello_for(&harness).await;
-        assert_eq!(hello.capabilities.supports_lock_screen, None);
-    });
-}
-
-#[test]
 fn the_hello_advertises_chat_and_the_session_list_when_the_agent_cli_is_installed() {
     run(async {
         let harness = harness();
@@ -47,6 +28,18 @@ fn the_hello_advertises_chat_and_the_session_list_when_the_agent_cli_is_installe
         assert_eq!(hello.capabilities.supports_agent_chat, Some(true));
         assert_eq!(hello.capabilities.supports_agent_list, Some(true));
         assert_eq!(hello.agent_chat_agents, Some(vec!["claude".to_owned()]));
+    });
+}
+
+#[test]
+fn the_hello_advertises_the_agent_features_the_manager_implements() {
+    run(async {
+        let harness = harness();
+        let capabilities = server_hello_for(&harness).await.capabilities;
+        assert_eq!(capabilities.supports_agent_model_picker, Some(true));
+        assert_eq!(capabilities.supports_agent_permission_modes, Some(true));
+        assert_eq!(capabilities.supports_agent_usage, Some(true));
+        assert_eq!(capabilities.supports_agent_pause, Some(true));
     });
 }
 
