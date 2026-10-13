@@ -43,6 +43,12 @@ mod tests {
     use crate::claude_adapter::fake::{shared_script, ScriptedLauncher};
     use peering_wire::agent::AgentSessionInfo;
 
+    /// An absolute folder on either platform: the host refuses a path that is not absolute where it runs.
+    #[cfg(windows)]
+    const WORK_DIR: &str = "C:\\work\\project";
+    #[cfg(not(windows))]
+    const WORK_DIR: &str = "/work/project";
+
     fn agents() -> ClientAgents<ScriptedLauncher> {
         let script = shared_script();
         ClientAgents::new(move || ScriptedLauncher::new(&script))
@@ -51,7 +57,7 @@ mod tests {
     fn start(agents: &mut ClientAgents<ScriptedLauncher>, client: &str) -> String {
         let events = agents.handle(
             client,
-            AgentRequest::Start { agent_id: "claude".to_owned(), directory: Some("/work/project".to_owned()) },
+            AgentRequest::Start { agent_id: "claude".to_owned(), directory: Some(WORK_DIR.to_owned()) },
         );
         let [AgentEvent::Created { session }] = events.as_slice() else {
             panic!("expected created, got {events:?}");

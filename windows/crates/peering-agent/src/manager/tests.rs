@@ -12,6 +12,12 @@ use std::path::PathBuf;
 const TEXT_TURN: &str = include_str!("../../tests/fixtures/claude/text_turn.jsonl");
 const APPROVAL_REQUEST: &str = include_str!("../../tests/fixtures/claude/approval_request.jsonl");
 const APPROVAL_ID: &str = "49f17c21-744b-4bc7-a5ee-4ecf7225a13c";
+/// An absolute folder on either platform: the host refuses a path that is not absolute where it runs.
+#[cfg(windows)]
+const WORK_DIR: &str = "C:\\work\\project";
+#[cfg(not(windows))]
+const WORK_DIR: &str = "/work/project";
+
 const PAUSE_NOTICE: &str = "Stopped and moved to history. Send a message to pick this chat up where it left off.";
 
 fn manager() -> (AgentSessionManager<ScriptedLauncher>, SharedScript) {
@@ -75,7 +81,7 @@ fn start_creates_a_chat_and_launches_claude_in_its_folder() {
     let (mut manager, script) = manager();
     let events = manager.handle(AgentRequest::Start {
         agent_id: "claude".to_owned(),
-        directory: Some("/work/project".to_owned()),
+        directory: Some(WORK_DIR.to_owned()),
     });
     let [AgentEvent::Created { session }] = events.as_slice() else {
         panic!("expected created, got {events:?}");
@@ -84,16 +90,16 @@ fn start_creates_a_chat_and_launches_claude_in_its_folder() {
     assert_eq!(session.title, "Claude Code · project");
     assert_eq!(session.state, AgentSessionState::Idle);
     assert_eq!(session.last_index, 0);
-    assert_eq!(session.directory, "/work/project");
-    assert_eq!(lock(&script).launches[0].directory, PathBuf::from("/work/project"));
+    assert_eq!(session.directory, WORK_DIR);
+    assert_eq!(lock(&script).launches[0].directory, PathBuf::from(WORK_DIR));
     assert_eq!(snapshot(&mut manager).len(), 1);
 }
 
 #[test]
 fn chats_in_the_same_folder_get_numbered_titles() {
     let (mut manager, _) = manager();
-    start(&mut manager, "/work/project");
-    start(&mut manager, "/work/project");
+    start(&mut manager, WORK_DIR);
+    start(&mut manager, WORK_DIR);
     let titles: Vec<String> = snapshot(&mut manager).into_iter().map(|session| session.title).collect();
     assert_eq!(titles, ["Claude Code · project", "Claude Code · project 2"]);
 }
@@ -103,7 +109,7 @@ fn an_agent_other_than_claude_fails_with_a_clear_message() {
     let (mut manager, _) = manager();
     let events = manager.handle(AgentRequest::Start {
         agent_id: "codex".to_owned(),
-        directory: Some("/work/project".to_owned()),
+        directory: Some(WORK_DIR.to_owned()),
     });
     assert_eq!(
         events,
@@ -133,7 +139,7 @@ fn a_chat_needs_an_absolute_folder() {
 #[test]
 fn a_prompt_is_logged_then_the_streamed_turn_follows_with_its_facts() {
     let (mut manager, script) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
 
     let sent = prompt(&mut manager, &id, "Reply with exactly the word: ready");
     assert_eq!(
@@ -158,7 +164,7 @@ fn a_prompt_is_logged_then_the_streamed_turn_follows_with_its_facts() {
 #[test]
 fn history_after_a_turn_skips_the_deltas_the_final_text_replaced() {
     let (mut manager, script) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     prompt(&mut manager, &id, "Reply with exactly the word: ready");
     push_lines(&script, &TEXT_TURN.lines().collect::<Vec<_>>());
     manager.poll();
@@ -179,7 +185,7 @@ fn history_after_a_turn_skips_the_deltas_the_final_text_replaced() {
 #[test]
 fn history_since_an_index_replays_only_what_came_after_it() {
     let (mut manager, script) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     prompt(&mut manager, &id, "Reply with exactly the word: ready");
     push_lines(&script, &TEXT_TURN.lines().collect::<Vec<_>>());
     manager.poll();
@@ -230,7 +236,7 @@ fn history_for_a_chat_that_is_gone_fails() {
 #[test]
 fn an_approval_is_shown_as_waiting_and_its_answer_is_sent_back() {
     let (mut manager, script) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     prompt(&mut manager, &id, "remove the file");
     push_lines(&script, &[APPROVAL_REQUEST]);
     let asked = manager.poll();
@@ -259,7 +265,7 @@ fn an_approval_is_shown_as_waiting_and_its_answer_is_sent_back() {
 #[test]
 fn an_answer_to_an_ask_that_is_no_longer_waiting_is_ignored() {
     let (mut manager, script) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     let events = manager.handle(AgentRequest::Approval {
         session_id: id,
         approval_id: APPROVAL_ID.to_owned(),
@@ -272,7 +278,7 @@ fn an_answer_to_an_ask_that_is_no_longer_waiting_is_ignored() {
 #[test]
 fn close_stops_the_process_and_forgets_the_chat() {
     let (mut manager, script) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     let events = manager.handle(AgentRequest::Close { session_id: id.clone() });
     assert_eq!(events, [AgentEvent::Closed { session_id: id.clone() }]);
     assert!(lock(&script).killed);
@@ -286,7 +292,7 @@ fn close_stops_the_process_and_forgets_the_chat() {
 #[test]
 fn pause_moves_an_idle_chat_to_history_once() {
     let (mut manager, script) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     let first = manager.handle(AgentRequest::Pause { session_id: id.clone() });
     assert_eq!(
         streamed(&first),
@@ -301,7 +307,7 @@ fn pause_moves_an_idle_chat_to_history_once() {
 #[test]
 fn pause_is_refused_while_a_turn_runs() {
     let (mut manager, _) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     prompt(&mut manager, &id, "work on it");
     assert_eq!(
         manager.handle(AgentRequest::Pause { session_id: id.clone() }),
@@ -315,7 +321,7 @@ fn pause_is_refused_while_a_turn_runs() {
 #[test]
 fn a_model_and_a_mode_change_are_reported_once_the_cli_confirms_them() {
     let (mut manager, script) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     assert!(manager
         .handle(AgentRequest::SetModel {
             session_id: id.clone(),
@@ -355,7 +361,7 @@ fn a_model_and_a_mode_change_are_reported_once_the_cli_confirms_them() {
 #[test]
 fn a_chat_whose_process_ended_says_so_and_refuses_a_prompt_it_cannot_resume() {
     let (mut manager, script) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     prompt(&mut manager, &id, "hello");
     {
         let mut script = lock(&script);
@@ -378,7 +384,7 @@ fn a_chat_whose_process_ended_says_so_and_refuses_a_prompt_it_cannot_resume() {
 #[test]
 fn a_chat_with_no_conversation_yet_starts_its_process_again_on_a_prompt() {
     let (mut manager, script) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     {
         let mut script = lock(&script);
         script.closed = true;
@@ -395,7 +401,7 @@ fn a_chat_with_no_conversation_yet_starts_its_process_again_on_a_prompt() {
 #[test]
 fn requests_this_host_does_not_support_yet_fail_with_one_message() {
     let (mut manager, _) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     let requests = [
         AgentRequest::Browse { path: None },
         AgentRequest::ListResumable {},
@@ -418,7 +424,7 @@ fn requests_this_host_does_not_support_yet_fail_with_one_message() {
 #[test]
 fn an_overlong_prompt_is_refused_and_nothing_is_written() {
     let (mut manager, script) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     let events = prompt(&mut manager, &id, &"x".repeat(64 * 1024 + 1));
     assert_eq!(
         events,
@@ -433,7 +439,7 @@ fn an_overlong_prompt_is_refused_and_nothing_is_written() {
 #[test]
 fn the_snapshot_keeps_the_fields_a_client_draws_a_chat_with() {
     let (mut manager, _) = manager();
-    let id = start(&mut manager, "/work/project");
+    let id = start(&mut manager, WORK_DIR);
     let info = snapshot(&mut manager).remove(0);
     assert_eq!(info.id, id);
     assert_eq!(info.permission_modes.as_ref().map(Vec::len), Some(4));
