@@ -391,6 +391,7 @@ struct RemoteScreen: View {
         .padding(.horizontal, ChromeMetrics.edgeInset)
         .padding(.top, deviceIsLandscape ? 4 : ChromeMetrics.edgeInset)
         .offset(y: barDrag)
+        .transaction(value: barDrag) { $0.animation = nil }
     }
 
     private var keyboardInputRow: some View {
@@ -431,7 +432,7 @@ struct RemoteScreen: View {
             .contentShape(Rectangle())
             .onTapGesture { toggleShortcuts() }
             .gesture(
-                DragGesture(minimumDistance: 4)
+                DragGesture(minimumDistance: 4, coordinateSpace: .global)
                     .onChanged { drag in
                         // The bar follows the finger with some give, so it reads as something to drag, and settles on release.
                         barDrag = max(-36, min(48, drag.translation.height * 0.6))
