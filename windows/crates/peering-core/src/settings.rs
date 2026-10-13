@@ -13,6 +13,8 @@ pub struct HostSettings {
     pub device_name: String,
     /// Whether Peering is hooked into Claude Code to bring its approvals to the phone. Off until the person turns it on.
     pub terminal_hooks: bool,
+    /// Whether the PC's pointer is drawn into the picture. On, as the Mac host draws it.
+    pub cursor_in_picture: bool,
 }
 
 impl HostSettings {
@@ -24,6 +26,7 @@ impl HostSettings {
             relay_enabled: true,
             device_name: device_name.into(),
             terminal_hooks: false,
+            cursor_in_picture: true,
         }
     }
 
@@ -41,8 +44,8 @@ impl HostSettings {
     pub fn to_text(&self) -> String {
         let device_name = self.device_name.replace(['\r', '\n'], " ");
         format!(
-            "port={}\nframeRate={}\nstartAtLogin={}\nrelayEnabled={}\ndeviceName={}\nterminalHooks={}\n",
-            self.port, self.frame_rate, self.start_at_login, self.relay_enabled, device_name, self.terminal_hooks
+            "port={}\nframeRate={}\nstartAtLogin={}\nrelayEnabled={}\ndeviceName={}\nterminalHooks={}\ncursorInPicture={}\n",
+            self.port, self.frame_rate, self.start_at_login, self.relay_enabled, device_name, self.terminal_hooks, self.cursor_in_picture
         )
     }
 
@@ -68,6 +71,7 @@ fn apply_entry(settings: &mut HostSettings, key: &str, value: &str) {
         "startAtLogin" => settings.start_at_login = parse_bool(value).unwrap_or(defaults.start_at_login),
         "relayEnabled" => settings.relay_enabled = parse_bool(value).unwrap_or(defaults.relay_enabled),
         "terminalHooks" => settings.terminal_hooks = parse_bool(value).unwrap_or(defaults.terminal_hooks),
+        "cursorInPicture" => settings.cursor_in_picture = parse_bool(value).unwrap_or(defaults.cursor_in_picture),
         "deviceName" if !value.trim().is_empty() => settings.device_name = value.to_owned(),
         _ => {}
     }
@@ -114,6 +118,15 @@ mod tests {
         assert!(settings.relay_enabled);
         assert_eq!(settings.device_name, "Office PC");
         assert!(!settings.terminal_hooks, "hooks edit another program's settings, so they start off");
+    }
+
+    #[test]
+    fn the_pointer_is_drawn_unless_the_file_says_otherwise() {
+        assert!(HostSettings::from_text("port=2000\n", "PC").cursor_in_picture);
+        assert!(!HostSettings::from_text("cursorInPicture=false\n", "PC").cursor_in_picture);
+        assert!(HostSettings::from_text("cursorInPicture=maybe\n", "PC").cursor_in_picture, "a value that does not parse takes the default");
+        let off = HostSettings { cursor_in_picture: false, ..HostSettings::default_for("PC") };
+        assert!(!HostSettings::from_text(&off.to_text(), "PC").cursor_in_picture);
     }
 
     #[test]
@@ -164,6 +177,7 @@ mod tests {
             relay_enabled: false,
             device_name: "Den = main, PC".to_owned(),
             terminal_hooks: true,
+            cursor_in_picture: false,
         };
         assert_eq!(HostSettings::from_text(&settings.to_text(), "fallback"), settings);
     }

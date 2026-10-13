@@ -82,6 +82,7 @@ fn run_host(ready: mpsc::Sender<HostHandle>) -> Result<(), RuntimeError> {
         name: host_name,
     };
     let port = settings.port;
+    peering_platform::cursor::set_cursor_in_picture(settings.cursor_in_picture);
     let runtime = HostRuntime::new(profile, services)?.with_settings(settings, saver, loaded.problem);
     let handle = runtime.handle();
     if ready.send(handle.clone()).is_err() {

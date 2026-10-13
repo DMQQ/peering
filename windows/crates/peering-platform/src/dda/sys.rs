@@ -1,5 +1,6 @@
 //! The DXGI duplication loop behind `Capture`. Frame textures stay on the GPU until the encoder takes them.
 
+mod cursor;
 mod open;
 
 use std::time::Instant;
@@ -16,6 +17,7 @@ use crate::dda::{classify, CaptureState, Classification, HresultKind};
 use crate::gpu::GpuContext;
 use crate::handoff::FrameHandoff;
 use crate::monitors;
+use cursor::CursorLayer;
 use open::open_duplication;
 
 const ACQUIRE_TIMEOUT_MS: u32 = 2;
@@ -35,6 +37,7 @@ pub struct DesktopDuplicationCapture {
     frame_held: bool,
     captured: Option<FrameHandoff<ID3D11Texture2D>>,
     sequence: u64,
+    cursor: CursorLayer,
 }
 
 impl Default for DesktopDuplicationCapture {
@@ -55,6 +58,7 @@ impl DesktopDuplicationCapture {
             frame_held: false,
             captured: None,
             sequence: 0,
+            cursor: CursorLayer::default(),
         }
     }
 
@@ -132,7 +136,8 @@ impl DesktopDuplicationCapture {
         match result {
             Ok(()) => {
                 self.frame_held = true;
-                self.on_acquired(resource)
+                let pointer_changed = self.cursor.observe(duplication, &info);
+                self.on_acquired(resource, info.LastPresentTime != 0, pointer_changed)
             }
             Err(error) => {
                 self.on_acquire_error(kind_of(error.code()), now);
@@ -141,9 +146,14 @@ impl DesktopDuplicationCapture {
         }
     }
 
-    /// A frame with no desktop image only moved the pointer. It still has to be released, and it is not a new frame.
-    fn on_acquired(&mut self, resource: Option<IDXGIResource>) -> Option<RawFrame> {
-        let texture = resource.and_then(|resource| resource.cast::<ID3D11Texture2D>().ok());
+    /// A frame with no desktop image only moved the pointer. It still has to be released, and it is a new frame only when the
+    /// pointer is drawn into the picture and moved.
+    fn on_acquired(&mut self, resource: Option<IDXGIResource>, desktop_updated: bool, pointer_changed: bool) -> Option<RawFrame> {
+        let acquired = resource.and_then(|resource| resource.cast::<ID3D11Texture2D>().ok());
+        let texture = match self.gpu.clone() {
+            Some(gpu) => self.cursor.texture_for_frame(&gpu, acquired, desktop_updated, pointer_changed),
+            None => acquired,
+        };
         let Some(texture) = texture else {
             self.release_frame();
             return None;
@@ -209,6 +219,7 @@ impl Capture for DesktopDuplicationCapture {
 
     fn start(&mut self, display_id: u32) -> Result<(), CaptureError> {
         self.stop();
+        self.cursor.reset();
         let device_name = device_name_for(display_id).ok_or(CaptureError::DisplayNotFound(display_id))?;
         match open_duplication(&device_name, self.reusable_gpu()) {
             Ok((gpu, duplication)) => {

@@ -7,6 +7,7 @@ pub mod audio;
 pub mod clipboard;
 pub mod clipboard_image;
 pub mod convert;
+pub mod cursor;
 pub mod dda;
 pub mod dpapi;
 pub mod handoff;
