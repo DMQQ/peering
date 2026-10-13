@@ -20,6 +20,9 @@ final class InputInjector: @unchecked Sendable {
     /// When the last joystick nudge arrived. See the `.joystickMove` case: it is what separates
     /// the first nudge of a gesture from the rest of one.
     private var lastJoystickAt: DispatchTime?
+    private var settleReport: DispatchWorkItem?
+    /// Told where the pointer ended up once the joystick has been still, since the phone only has an estimate built from the nudges it sent. Guarded by `lock`.
+    var onJoystickSettled: (@Sendable (CGPoint) -> Void)?
     private var lastJoystickPostedAt: DispatchTime?
     private var pendingJoystickDx: Double = 0
     private var pendingJoystickDy: Double = 0
@@ -213,6 +216,7 @@ final class InputInjector: @unchecked Sendable {
             if let target = postTarget {
                 postMouse(.mouseMoved, at: target, button: .left)
             }
+            scheduleSettleReport()
 
         case .setCaptureSource, .launchApplication, .switchToSpace, .setStreamQuality,
              .setVideoEnabled, .refreshSpacePreviews, .refreshSourceThumbnails, .watchSourceThumbnails,
@@ -222,6 +226,23 @@ final class InputInjector: @unchecked Sendable {
             // Handled upstream, in the host's own routing, before this method is called.
             break
         }
+    }
+
+    private static let joystickSettleDelay: TimeInterval = 0.3
+
+    private func scheduleSettleReport() {
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let (report, location) = lock.withLock { (onJoystickSettled, cursor) }
+            report?(location)
+        }
+        let previous = lock.withLock { () -> DispatchWorkItem? in
+            let old = settleReport
+            settleReport = item
+            return old
+        }
+        previous?.cancel()
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + Self.joystickSettleDelay, execute: item)
     }
 
     // MARK: - Teardown

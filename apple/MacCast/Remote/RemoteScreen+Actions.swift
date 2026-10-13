@@ -56,9 +56,9 @@ extension RemoteScreen {
         advanceClientCursor(by: scaled)
     }
 
-    /// The Mac's watcher reports any pointer move it did not post itself, and while the joystick drives it a few of its own steps look like a hand. Applied, one pulls the drawn cursor to a position from mid-drag. The estimate stays, because only a hand on the Mac can be trusted to move it elsewhere.
+    /// The Mac's watcher reports any pointer move it did not post itself, and while the joystick drives it a few of its own steps look like a hand. Applied, one pulls the drawn cursor to a position from mid-drag. The Mac sends the pointer's true position once the joystick has been still for 0.3 s, which is what lands after this window and corrects the estimate.
     func adoptHostPointer() {
-        if let last = lastJoystickInput, last.isWithin(seconds: 1) { return }
+        if let last = lastJoystickInput, last.isWithin(seconds: 0.25) { return }
         remoteCursor = model.hostPointer.point
     }
 

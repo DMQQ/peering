@@ -49,6 +49,12 @@ extension HostModel {
                 lastInjected: { input.clickLocation },
                 onMove: { [weak server] point in server?.broadcastPointer(point) }
             )
+            input.lock.withLock {
+                input.onJoystickSettled = { [weak server] location in
+                    guard let transform = input.transform else { return }
+                    server?.broadcastPointer(transform.normalizedPoint(fromGlobal: location))
+                }
+            }
             record("\(clientName) connected · \(detail)")
             // Sent a source list now and immediately: the client is waiting to ask for its last source and the push interval would hold it up. This is also the first catalogue read, which needs Screen Recording; a refusal here is ignored and the video path reports it.
             coordinator?.refreshCatalog(immediate: true)
