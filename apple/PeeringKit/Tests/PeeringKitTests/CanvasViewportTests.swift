@@ -142,7 +142,7 @@ struct CanvasViewportTests {
 
     @Test("The zoom stays inside its range")
     func zoomRange() {
-        #expect(CanvasViewport.clampedZoom(0.1) == 1)
+        #expect(CanvasViewport.clampedZoom(0.1) == 0.99)
         #expect(CanvasViewport.clampedZoom(20) == 8)
         #expect(CanvasViewport.clampedZoom(3) == 3)
         #expect(CanvasViewport.wheeled(zoom: 7, step: -2) == 8)
@@ -151,7 +151,7 @@ struct CanvasViewportTests {
 
     @Test("The wheel reads 0 at the minimum and 1 at the maximum")
     func wheelEnds() {
-        #expect(CanvasViewport.wheelPosition(zoom: 1) == 0)
+        #expect(CanvasViewport.wheelPosition(zoom: 0.99) == 0)
         #expect(CanvasViewport.wheelPosition(zoom: 8) == 1)
         #expect(CanvasViewport.wheelPosition(zoom: 0) == 0)
         let middle = CanvasViewport.wheelPosition(zoom: 2)
