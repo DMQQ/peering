@@ -117,6 +117,15 @@ extension MacSession {
         case .resumable(let sessions):
             resumableSessions = sessions
 
+        case .resumablePeek(let cliSessionID, let events):
+            var peek = RemoteAgentSession(AgentSessionInfo(
+                id: UUID(), agentID: "claude", title: "", directory: "", state: .idle,
+                lastIndex: UInt64(events.count), createdAt: .now
+            ))
+            peek.transcript.apply(events)
+            peek.isLoaded = true
+            resumablePeeks[cliSessionID] = peek
+
         case .closed(let id):
             agentSessions.removeAll { $0.id == id }
             if selectedAgentSessionID == id {

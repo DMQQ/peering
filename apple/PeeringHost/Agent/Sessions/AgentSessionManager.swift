@@ -171,6 +171,9 @@ final class AgentSessionManager: @unchecked Sendable {
 
         case .resume(let agentID, let cliSessionID):
             resume(agentID: agentID, cliSessionID: cliSessionID, clientID: clientID, sink: sink)
+
+        case .peekResumable(let cliSessionID):
+            peekResumable(cliSessionID: cliSessionID, sink: sink)
         }
     }
 

@@ -36,8 +36,9 @@ extension TerminalHubScreen {
 
     @ViewBuilder
     var historySection: some View {
-        let entries = historyEntries
-        if !entries.isEmpty {
+        let all = historyEntries
+        let entries = all.filter { $0.matches(agentHistoryQuery) }
+        if !all.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Controls.sectionLabel(String(localized: "History"), systemImage: "clock.arrow.circlepath")
@@ -51,7 +52,8 @@ extension TerminalHubScreen {
                         .foregroundStyle(.secondary)
                     }
                 }
-                HistoryCard(entries: entries)
+                HistorySearchField(text: $agentHistoryQuery)
+                if entries.isEmpty { HistoryNoMatches() } else { HistoryCard(entries: entries) }
             }
             .padding(.top, 20)
         } else if activeOnMac.isEmpty, model.hostSupportsAgentSessionImport, model.resumableSessions?.isEmpty == true {
@@ -76,7 +78,13 @@ extension TerminalHubScreen {
                 title: "This conversation may be open on your Mac",
                 message: "It was written to a moment ago. If a terminal still has it open, both would add to the same conversation.",
                 proceed: "Continue here anyway"
-            ) : nil
+            ) : nil,
+            peek: {
+                if model.hostSupportsAgentSessionPeek { return AnyView(ResumableChatPeek(conversation: session).environment(model)) }
+                return AnyView(HistoryInfoPeek(
+                    symbol: "sparkles", title: session.title, detail: session.directory, date: session.modifiedAt
+                ))
+            }
         ) {
             model.resumeAgentSession(session)
         }
@@ -91,7 +99,10 @@ extension TerminalHubScreen {
             detail: folder,
             date: card.pausedAt,
             isLive: false,
-            isEnabled: true
+            isEnabled: true,
+            peek: {
+                AnyView(AgentChatPeek(title: card.title, directory: card.directory, session: model.agentSessions.first { $0.id == card.id }).environment(model))
+            }
         ) {
             model.selectedAgentSessionID = card.id
             path.append(.chat(card.id))
@@ -110,7 +121,15 @@ extension TerminalHubScreen {
             detail: entry.macName,
             date: entry.date,
             isLive: live != nil,
-            isEnabled: agent != nil || live != nil
+            isEnabled: agent != nil || live != nil,
+            peek: {
+                if let terminal = model.terminalCards.first(where: { $0.id == live }) {
+                    return AnyView(TerminalPeek(terminal: terminal))
+                }
+                return AnyView(HistoryInfoPeek(
+                    symbol: agent?.symbol ?? "sparkles", title: agent?.name ?? entry.agentID, detail: entry.macName, date: entry.date
+                ))
+            }
         ) {
             if let live {
                 model.selectTerminal(live)
@@ -125,8 +144,12 @@ extension TerminalHubScreen {
     @ViewBuilder
     var terminalHistorySection: some View {
         let _ = terminalHistoryRevision
-        let folders = AgentFolderHistory.load().filter { $0.agentID == AgentFolderHistory.terminalAgentID }
-        if !folders.isEmpty {
+        let all = AgentFolderHistory.load().filter { $0.agentID == AgentFolderHistory.terminalAgentID }
+        let query = terminalHistoryQuery.trimmingCharacters(in: .whitespaces)
+        let folders = query.isEmpty ? all : all.filter {
+            $0.path.localizedCaseInsensitiveContains(query)
+        }
+        if !all.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Controls.sectionLabel(String(localized: "History"), systemImage: "clock.arrow.circlepath")
@@ -138,7 +161,12 @@ extension TerminalHubScreen {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
                 }
-                HistoryCard(entries: folders.prefix(AgentFolderHistory.limit).map(terminalEntry))
+                HistorySearchField(text: $terminalHistoryQuery)
+                if folders.isEmpty {
+                    HistoryNoMatches()
+                } else {
+                    HistoryCard(entries: folders.prefix(AgentFolderHistory.limit).map(terminalEntry))
+                }
             }
             .padding(.top, 20)
         }
@@ -152,7 +180,15 @@ extension TerminalHubScreen {
             detail: AgentFolderPath.display(folder.path, home: model.agentPicker.startPath),
             date: folder.date,
             isLive: false,
-            isEnabled: true
+            isEnabled: true,
+            peek: {
+                let running = model.terminalCards.first { $0.isRunning && TerminalFolders.folder(for: $0.id) == folder.path }
+                if let running { return AnyView(TerminalPeek(terminal: running)) }
+                return AnyView(HistoryInfoPeek(
+                    symbol: "terminal", title: AgentFolderPath.name(of: folder.path),
+                    detail: AgentFolderPath.display(folder.path, home: model.agentPicker.startPath), date: folder.date
+                ))
+            }
         ) {
             AgentFolderHistory.record(directory: folder.path, agentID: AgentFolderHistory.terminalAgentID, macName: model.hostName)
             model.createTerminal(inDirectory: folder.path)

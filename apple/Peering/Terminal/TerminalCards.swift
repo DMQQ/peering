@@ -34,6 +34,8 @@ struct TerminalCardDigest: Identifiable, Equatable {
     let isRunning: Bool
     let createdAt: Date?
     let lines: [String]
+    /// More of the screen than a card shows, for the long-press peek.
+    let peekLines: [String]
     let folder: String?
 
     init(_ terminal: RemoteTerminal) {
@@ -42,16 +44,17 @@ struct TerminalCardDigest: Identifiable, Equatable {
         state = terminal.state
         isRunning = terminal.isRunning
         createdAt = terminal.createdAt
-        lines = terminal.isRunning ? Self.tail(of: terminal) : []
+        lines = terminal.isRunning ? Self.tail(of: terminal, count: 4) : []
+        peekLines = terminal.isRunning ? Self.tail(of: terminal, count: 24) : []
         folder = TerminalFolders.folder(for: terminal.id).map(TerminalFolders.shortened)
     }
 
     /// The last few lines that say something, clipped to what a card can hold.
-    private static func tail(of terminal: RemoteTerminal) -> [String] {
+    private static func tail(of terminal: RemoteTerminal, count: Int) -> [String] {
         terminal.screen.visible
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-            .suffix(4)
+            .suffix(count)
             .map { String($0.prefix(90)) }
     }
 }

@@ -41,6 +41,16 @@ struct AgentWireTests {
         #expect(try MessageCodec.decode(AgentSessionInfo.self, from: older).usage == nil)
     }
 
+    @Test("a peek at a Mac conversation round-trips as a request and as an event")
+    func resumablePeekRoundTrips() throws {
+        let request = AgentRequest.peekResumable(cliSessionID: "abc")
+        #expect(try roundTrip(request) == request)
+        let event = AgentEvent.resumablePeek(
+            cliSessionID: "abc", events: [AgentStreamEvent(index: 1, payload: .notice(text: "hello"))]
+        )
+        #expect(try roundTrip(event) == event)
+    }
+
     @Test("permission modes round-trip, and a listing from an older Mac decodes without them")
     func permissionModesRoundTrip() throws {
         let id = UUID()

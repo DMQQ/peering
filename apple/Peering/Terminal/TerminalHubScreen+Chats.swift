@@ -72,7 +72,7 @@ extension TerminalHubScreen {
             Button("Close", systemImage: "xmark", role: .destructive) { pendingEnd = .chat(session.id) }
                 .menuDanger()
         } preview: {
-            AgentChatPeek(card: session, session: model.agentSessions.first { $0.id == session.id })
+            AgentChatPeek(title: session.title, directory: session.directory, session: model.agentSessions.first { $0.id == session.id })
                 .environment(model)
         }
         .accessibilityIdentifier("chat-row")

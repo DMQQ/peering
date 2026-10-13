@@ -179,6 +179,7 @@ extension HostSession {
             supportsAgentPermissionModes: true,
             supportsAgentUsage: true,
             supportsAgentSessionImport: true,
+            supportsAgentSessionPeek: true,
             supportsAgentPause: true,
             supportsClientState: true,
             supportsLiveActivityPush: true,

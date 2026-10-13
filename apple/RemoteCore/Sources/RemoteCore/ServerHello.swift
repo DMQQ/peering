@@ -56,6 +56,9 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// additive: `nil` reads as no, and the list is offered only on an explicit `true`.
     public var supportsAgentSessionImport: Bool?
 
+    /// Whether this Mac takes ``AgentRequest/peekResumable(cliSessionID:)``. Optional and additive: `nil` reads as no.
+    public var supportsAgentSessionPeek: Bool?
+
     /// Whether this Mac takes ``AgentRequest/pause(sessionID:)``. Optional and additive: `nil` reads as no.
     public var supportsAgentPause: Bool?
 
@@ -89,6 +92,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsAgentPermissionModes: Bool? = nil,
         supportsAgentUsage: Bool? = nil,
         supportsAgentSessionImport: Bool? = nil,
+        supportsAgentSessionPeek: Bool? = nil,
         supportsAgentPause: Bool? = nil,
         supportsClientState: Bool? = nil,
         supportsLiveActivityPush: Bool? = nil,
@@ -116,6 +120,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.supportsAgentPermissionModes = supportsAgentPermissionModes
         self.supportsAgentUsage = supportsAgentUsage
         self.supportsAgentSessionImport = supportsAgentSessionImport
+        self.supportsAgentSessionPeek = supportsAgentSessionPeek
         self.supportsAgentPause = supportsAgentPause
         self.pushesTerminalAlertsWhileConnected = pushesTerminalAlertsWhileConnected
     }

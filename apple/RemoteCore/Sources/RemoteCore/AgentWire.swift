@@ -332,6 +332,10 @@ public enum AgentRequest: Codable, Equatable, Sendable {
     ///
     /// Sent only to a Mac that declared ``ServerHello/supportsAgentSessionImport``.
     case resume(agentID: String, cliSessionID: String)
+    /// The end of one of ``listResumable``'s conversations, to look at without continuing it. Answered with ``AgentEvent/resumablePeek(cliSessionID:events:)``.
+    ///
+    /// Sent only to a Mac that declared ``ServerHello/supportsAgentSessionPeek``.
+    case peekResumable(cliSessionID: String)
     /// Stops the session's process and keeps the chat, which starts again where it left off on the next prompt. Refused while a turn is running.
     ///
     /// Sent only to a Mac that declared ``ServerHello/supportsAgentPause``.
@@ -364,6 +368,8 @@ public enum AgentEvent: Codable, Equatable, Sendable {
     case failed(sessionID: UUID?, message: String)
     /// The answer to ``AgentRequest/listResumable``, newest first.
     case resumable([AgentResumableSession])
+    /// The answer to ``AgentRequest/peekResumable(cliSessionID:)``: the last of the conversation, indexed from 1 so it reads as a transcript. Empty when the file is gone.
+    case resumablePeek(cliSessionID: String, events: [AgentStreamEvent])
 }
 
 /// Whether agent chat traffic may cross a session, in both directions.

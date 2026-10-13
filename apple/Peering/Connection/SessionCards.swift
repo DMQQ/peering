@@ -353,7 +353,14 @@ struct HistoryCard: View {
         let isEnabled: Bool
         /// Asked on the row itself, so the dialog opens from the thing it is about.
         var confirmation: Confirmation?
+        /// The conversation shown on a long press, for entries whose transcript is on the phone.
+        var peek: (() -> AnyView)?
         let run: () -> Void
+
+        func matches(_ query: String) -> Bool {
+            let query = query.trimmingCharacters(in: .whitespaces)
+            return query.isEmpty || title.localizedCaseInsensitiveContains(query) || detail.localizedCaseInsensitiveContains(query)
+        }
     }
 
     struct Confirmation {
@@ -416,7 +423,22 @@ private struct HistoryRow: View {
         if entry.confirmation != nil { isConfirming = true } else { entry.run() }
     }
 
+    @ViewBuilder
     var body: some View {
+        if let peek = entry.peek {
+            row
+                .contextMenu {
+                    Button("Open", systemImage: "arrow.up.right.square", action: tap)
+                        .menuInk()
+                } preview: {
+                    peek()
+                }
+        } else {
+            row
+        }
+    }
+
+    private var row: some View {
         Button(action: tap) {
             HStack(spacing: 11) {
                 Image(systemName: entry.symbol)

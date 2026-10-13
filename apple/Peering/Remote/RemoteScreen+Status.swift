@@ -212,8 +212,8 @@ extension RemoteScreen {
                 // A fixed size: a pill that resized itself to the window's title would move the picture under a finger aiming at it, and a short title made it a small button.
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: 56)
-                .onTapGesture { expandStatusBar() }
                 .contentShape(pillShape)
+                .onTapGesture { expandStatusBar() }
                 .transition(Self.pillContents)
             }
         }
