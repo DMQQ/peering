@@ -61,9 +61,10 @@ fun ChangesScreen(
     commit: CommitPresenter,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    initialPath: String? = null,
 ) {
     val ui by changes.ui.collectAsState()
-    var openPath by remember { mutableStateOf<String?>(null) }
+    var openPath by remember { mutableStateOf(initialPath) }
     var committing by remember { mutableStateOf(false) }
     val words = reviewPromptWords()
     LaunchedEffect(changes) { changes.refresh() }
@@ -234,9 +235,9 @@ private fun BottomBar(commentCount: Int, onRefresh: () -> Unit, onSend: () -> Un
 
 /** The Changes screen over a chat, with its presenters tied to that chat. */
 @Composable
-fun ChangesOverlay(port: AgentsPort, sessionID: String, onClose: () -> Unit) {
+fun ChangesOverlay(port: AgentsPort, sessionID: String, onClose: () -> Unit, initialPath: String? = null) {
     val scope = rememberCoroutineScope()
     val changes = remember(sessionID) { ChangesPresenter(port, sessionID, scope) }
     val commit = remember(sessionID) { CommitPresenter(port, sessionID, scope) }
-    ChangesScreen(changes, commit, onClose = onClose)
+    ChangesScreen(changes, commit, onClose = onClose, initialPath = initialPath)
 }

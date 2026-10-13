@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +25,8 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.R
+import pl.dmq.peering.feature.agents.review.ReviewInbox
+import pl.dmq.peering.feature.agents.review.ToReviewCard
 import pl.dmq.peering.ui.kit.listItemMotion
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.EmptyState
@@ -36,6 +40,8 @@ internal fun HubList(
     ui: HubUi,
     presenter: AgentsHubPresenter,
     guide: HubGuidePresenter,
+    review: ReviewInbox,
+    onOpenReview: () -> Unit,
     onClose: (SessionCard) -> Unit,
     onRename: (SessionCard) -> Unit,
     onSessionOpened: () -> Unit,
@@ -55,6 +61,10 @@ internal fun HubList(
     ) {
         item(key = "heading") { HubHeading(detail, showsHelp = guide.offersHelp, onHelp = guide::reopen) }
         if (guide.visible) item(key = "guide") { HubGuideCard(onDismiss = guide::dismiss) }
+        item(key = "to-review") {
+            val queue by review.queue.collectAsState()
+            ToReviewCard(queue, onOpenReview)
+        }
         if (ui.sessions.isNotEmpty()) {
             section(key = "chats", label = R.string.agents_chats_title, icon = AgentIcons.chats) {
                 sessionCards(ui.sessions, presenter, onRename, onClose, onSessionOpened, onChatStarted)

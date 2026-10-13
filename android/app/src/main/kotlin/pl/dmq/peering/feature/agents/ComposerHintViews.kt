@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AlternateEmail
@@ -42,9 +41,10 @@ import pl.dmq.peering.ui.kit.SessionIcons
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
+import pl.dmq.peering.ui.theme.peeringShapes
 import pl.dmq.peering.wire.RemoteDirectoryEntry
 
-private val PanelShape = RoundedCornerShape(20.dp)
+private val PanelShape get() = peeringShapes.medium
 private const val MENTION_LIMIT = 6
 
 @Composable

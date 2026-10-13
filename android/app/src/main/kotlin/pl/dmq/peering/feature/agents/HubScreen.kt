@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import pl.dmq.peering.R
+import pl.dmq.peering.feature.agents.review.ReviewInbox
 import pl.dmq.peering.ui.kit.DepthTransition
 import pl.dmq.peering.ui.kit.PeeringAlert
 
@@ -23,12 +24,15 @@ fun HubScreen(
     presenter: AgentsHubPresenter,
     folders: FolderPicker,
     guide: HubGuidePresenter,
+    review: ReviewInbox,
+    onOpenReview: () -> Unit,
     onSessionOpened: () -> Unit,
     onChatStarted: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ui by presenter.ui.collectAsState()
     LaunchedEffect(presenter) { presenter.refresh() }
+    LaunchedEffect(review) { review.onHubAppeared() }
     val choosingFolder = ui.newChat is NewChatStep.ChoosingFolder
     BackHandler(enabled = choosingFolder, onBack = presenter::cancelNewChat)
     DepthTransition(state = choosingFolder, depth = { if (it) 1 else 0 }, modifier = modifier, label = "hubFolder") { folderPage ->
@@ -41,7 +45,7 @@ fun HubScreen(
                 onBack = presenter::cancelNewChat,
             )
         } else {
-            HubBody(ui, presenter, guide, onSessionOpened, onChatStarted)
+            HubBody(ui, presenter, guide, review, onOpenReview, onSessionOpened, onChatStarted)
         }
     }
 }
@@ -51,6 +55,8 @@ private fun HubBody(
     ui: HubUi,
     presenter: AgentsHubPresenter,
     guide: HubGuidePresenter,
+    review: ReviewInbox,
+    onOpenReview: () -> Unit,
     onSessionOpened: () -> Unit,
     onChatStarted: () -> Unit,
 ) {
@@ -61,6 +67,8 @@ private fun HubBody(
             ui = ui,
             presenter = presenter,
             guide = guide,
+            review = review,
+            onOpenReview = onOpenReview,
             onClose = { closing = it },
             onRename = { renaming = it },
             onSessionOpened = onSessionOpened,

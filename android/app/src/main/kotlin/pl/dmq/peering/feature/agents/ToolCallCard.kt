@@ -49,7 +49,7 @@ import pl.dmq.peering.ui.theme.peeringShapes
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ToolCallCard(row: TranscriptRow.ToolCall, expanded: Boolean, onToggle: () -> Unit, onReview: (String) -> Unit) {
+fun ToolCallCard(row: TranscriptRow.ToolCall, expanded: Boolean, onToggle: () -> Unit, onReview: ((String) -> Unit)?) {
     var menuOpen by remember { mutableStateOf(false) }
     val awaiting = row.status as? ToolStatus.AwaitingApproval
     Box {
@@ -58,7 +58,7 @@ fun ToolCallCard(row: TranscriptRow.ToolCall, expanded: Boolean, onToggle: () ->
                 .fillMaxWidth()
                 .clip(peeringShapes.small)
                 .border(1.dp, PeeringColors.hairline, peeringShapes.small)
-                .combinedClickable(onClick = { if (awaiting != null) onReview(awaiting.approvalID) else onToggle() }, onLongClick = { menuOpen = true })
+                .combinedClickable(onClick = { if (awaiting != null && onReview != null) onReview(awaiting.approvalID) else onToggle() }, onLongClick = { menuOpen = true })
                 .padding(11.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {

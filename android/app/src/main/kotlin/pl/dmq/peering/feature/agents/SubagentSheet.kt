@@ -77,10 +77,9 @@ internal fun SubagentSheet(subagents: List<SubagentView>, selectedCallID: String
                 TranscriptRowView(
                     row = row,
                     expanded = row.id in expanded,
-                    canAskAgain = false,
                     onToggleTool = { expanded = if (row.id in expanded) expanded - row.id else expanded + row.id },
-                    onAskAgain = {},
-                    onReview = {},
+                    onAskAgain = null,
+                    onReview = null,
                 )
             }
             if (selected?.working == true) item(key = "thinking") { ThinkingRow() }

@@ -82,9 +82,8 @@ fun TranscriptList(
             TranscriptRowView(
                 row = row,
                 expanded = row.id in ui.expandedToolIDs,
-                canAskAgain = !ui.working,
                 onToggleTool = { presenter.toggleTool(row.id) },
-                onAskAgain = onAskAgain,
+                onAskAgain = onAskAgain.takeUnless { ui.working },
                 onReview = onReview,
                 onOpenSubagent = onOpenSubagent,
             )
@@ -101,18 +100,17 @@ fun TranscriptList(
 internal fun TranscriptRowView(
     row: TranscriptRow,
     expanded: Boolean,
-    canAskAgain: Boolean,
     onToggleTool: () -> Unit,
-    onAskAgain: (String) -> Unit,
-    onReview: (String) -> Unit,
-    onOpenSubagent: (String) -> Unit = {},
+    onAskAgain: ((String) -> Unit)?,
+    onReview: ((String) -> Unit)?,
+    onOpenSubagent: ((String) -> Unit)? = null,
 ) {
     when (row) {
-        is TranscriptRow.User -> UserBubble(row.text, canAskAgain) { onAskAgain(row.text) }
+        is TranscriptRow.User -> UserBubble(row.text, onAskAgain != null) { onAskAgain?.invoke(row.text) }
         is TranscriptRow.AssistantText -> Reply(row.text)
         is TranscriptRow.ToolCall -> ToolCallCard(row, expanded = expanded, onToggle = onToggleTool, onReview = onReview)
         is TranscriptRow.Plan -> PlanCard(row.steps)
-        is TranscriptRow.Subagent -> SubagentStrip(row) { onOpenSubagent(row.parentCallID) }
+        is TranscriptRow.Subagent -> SubagentStrip(row) { onOpenSubagent?.invoke(row.parentCallID) }
         is TranscriptRow.TurnSummary -> TurnSummaryPill(TurnSummaryUi.of(row.summary))
         is TranscriptRow.Notice -> NoticeLine(row.text)
         is TranscriptRow.Failure -> FailureLine(row.message)
