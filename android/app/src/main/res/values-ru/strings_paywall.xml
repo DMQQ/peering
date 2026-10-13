@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="plan_pro">Pro</string>
+    <string name="plan_pro_yearly">Pro, на год</string>
+    <string name="plan_pro_note">Без ограничений вне дома, самая чёткая картинка через ретранслятор</string>
+    <string name="plan_lifetime_note">Всё из Pro, оплата один раз</string>
+    <string name="plan_button_monthly">Продолжить с Pro · %1$s/мес.</string>
+    <string name="plan_button_yearly">Продолжить с Pro · %1$s/год</string>
+    <string name="plan_button_lifetime">Получить навсегда · %1$s</string>
+    <string name="paywall_unavailable_body">Если вы уже оформляли подписку, восстановление должно её вернуть. В остальных случаях это обычно временно.</string>
+</resources>

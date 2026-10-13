@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="whatsnew_title">Что нового</string>
+    <string name="whatsnew_done">Понятно</string>
+    <string name="whatsnew_desktops_title">Рабочие столы и виртуальные дисплеи</string>
+    <string name="whatsnew_desktops_detail">Переключайтесь между рабочими столами компьютера на панели «Приложения», добавляйте дисплей по форме телефона и закрывайте или сворачивайте окно долгим нажатием.</string>
+    <string name="whatsnew_composer_title">Команды и файлы в поле ввода</string>
+    <string name="whatsnew_composer_detail">Введите косую черту для команд и навыков или знак @, чтобы упомянуть файл. Просматривайте все изменённые файлы из ваших чатов в одном месте.</string>
+    <string name="whatsnew_review_title">На проверку и дальнейшие шаги</string>
+    <string name="whatsnew_review_detail">Изменённые файлы ждут на странице «Агенты», пока вы их не просмотрите, а завершённый ход предлагает следующий шаг кнопкой.</string>
+    <string name="whatsnew_wake_title">Разбудите компьютер</string>
+    <string name="whatsnew_wake_detail">Отправьте пакет пробуждения спящему компьютеру в вашей сети из его меню на странице подключения.</string>
+</resources>
