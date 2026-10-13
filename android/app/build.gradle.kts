@@ -24,12 +24,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    packaging {
+        // Every BouncyCastle jar (sshj brings three) carries its own copy of these multi-release manifests.
+        resources.excludes += "META-INF/versions/*/OSGI-INF/MANIFEST.MF"
+    }
 }
 
 kotlin { jvmToolchain(17) }
 
 dependencies {
     implementation(project(":core:platform"))
+    implementation(project(":core:sshj"))
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)

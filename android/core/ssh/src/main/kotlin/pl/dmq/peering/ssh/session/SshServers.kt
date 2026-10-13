@@ -28,8 +28,8 @@ class LiveServer(val session: SshSession, val terminals: TerminalSessions) {
 
 /** What stands between a tap and the shell. Only one is asked at a time. */
 sealed interface OpenGate {
-    /** [rejected] is true after a wrong passcode, so the sheet can say so. */
-    data class Locked(val host: SshHost, val rejected: Boolean = false) : OpenGate
+    /** [failures] counts wrong passcodes, so the sheet can say so and clear itself for each new attempt. */
+    data class Locked(val host: SshHost, val failures: Int = 0) : OpenGate
 
     data class NeedsPassword(val host: SshHost) : OpenGate
 }
@@ -119,7 +119,9 @@ class SshServers(
 
     fun submitPasscode(code: String, host: SshHost) {
         if (!SshPasscodeStore.isValid(code)) return
-        if (passcodes.verify(code, host.id)) accept(host) else mutableGate.value = OpenGate.Locked(host, rejected = true)
+        if (passcodes.verify(code, host.id)) return accept(host)
+        val before = (mutableGate.value as? OpenGate.Locked)?.failures ?: 0
+        mutableGate.value = OpenGate.Locked(host, before + 1)
     }
 
     fun submitPassword(password: String, remember: Boolean, host: SshHost) {

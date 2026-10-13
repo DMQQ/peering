@@ -32,6 +32,9 @@ class AppGraph(context: Context) {
 
     private val secrets: SecretStore by lazy { BlobSecretStore(blobs) }
 
+    /** The Keystore-sealed store the SSH servers, keys and known hosts are kept in. */
+    internal val sealedSecrets: SecretStore get() = secrets
+
     private val keystoreIdentity: KeystoreIdentity by lazy {
         KeystoreIdentity(secrets, Build.MODEL.orEmpty())
     }

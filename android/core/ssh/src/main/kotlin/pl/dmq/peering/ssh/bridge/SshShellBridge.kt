@@ -68,6 +68,8 @@ internal class SshShellBridge(
         } catch (failure: Exception) {
             shells.remove(id)
             emit(TerminalEvent.Closed(id))
+            // With no shell to show, the screen still needs to hear that the list is known, or it waits for ever.
+            if (shells.isEmpty()) emit(TerminalEvent.Snapshot(emptyList()))
             emit(TerminalEvent.Failed(null, failure.message ?: "The shell could not be opened."))
         }
     }
