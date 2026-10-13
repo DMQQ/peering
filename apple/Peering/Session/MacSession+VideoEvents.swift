@@ -54,7 +54,9 @@ extension MacSession {
                 let snapshot = self.renderer.currentSnapshot
                 if snapshot.hasConfig {
                     self.captureSessionBandwidth(snapshot)
+                    let framesBefore = self.lastFrameSample?.count
                     self.updateFrameRate(from: snapshot)
+                    self.healStreamingFlag(framesBefore: framesBefore, snapshot: snapshot)
                     self.updateAutoQuality(from: snapshot)
                     self.measureResumeIfNeeded(snapshot)
 
@@ -71,6 +73,19 @@ extension MacSession {
                 }
             }
         }
+    }
+
+    /// Frames arriving are the truth, the flag is an inference from events. A path change reopens the video channel (`.connecting` clears the flag) while the picture keeps coming over the lane already carrying it, and no config follows, so the screen said "Stream paused" over a live picture. Two polls in a row, so the one tick of frames left over after a real end does not count.
+    private func healStreamingFlag(framesBefore: Int?, snapshot: VideoRenderer.Snapshot) {
+        guard !isVideoStreaming, phase == .ready, let framesBefore, snapshot.framesEnqueued > framesBefore else {
+            framesFlowingPolls = 0
+            return
+        }
+        framesFlowingPolls += 1
+        guard framesFlowingPolls >= 2 else { return }
+        framesFlowingPolls = 0
+        isVideoStreaming = true
+        append(note: "The picture is arriving, so the stream is no longer marked paused.")
     }
 
     /// Derived from two polls since neither end knows the other's rate. Smoothed heavily: a half-second window reads one late batch as a swing, and this is for telling thirty from sixty.

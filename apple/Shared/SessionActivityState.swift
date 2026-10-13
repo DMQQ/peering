@@ -56,5 +56,8 @@ nonisolated struct SessionActivityState: Codable, Hashable {
 
         /// Its own case rather than removing the card: a vanished card is indistinguishable from quitting and cannot offer to reconnect.
         case dropped
+
+        /// The app went to the background and iOS froze the connection. The Mac is fine, so the card must not alarm.
+        case paused
     }
 }

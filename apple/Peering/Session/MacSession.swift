@@ -82,6 +82,7 @@ final class MacSession: Identifiable {
     var videoFramesPerSecond: Double = 0
 
     var lastFrameSample: (count: Int, at: ContinuousClock.Instant)?
+    var framesFlowingPolls = 0
 
     var isVideoStreaming = false
 

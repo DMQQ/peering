@@ -22,7 +22,7 @@ struct SessionLiveActivity: Widget {
             .activityBackgroundTint(ActivityCard.backgroundTint)
             .activitySystemActionForegroundColor(.white)
             // A dropped card is the way back in anywhere on it, not only on its Restore button.
-            .widgetURL(context.state.phase == .dropped ? Self.restoreURL : nil)
+            .widgetURL([.dropped, .paused].contains(context.state.phase) ? Self.restoreURL : nil)
         } dynamicIsland: { context in
             DynamicIsland {
                 // Both regions claim the full width and align inside it; otherwise the timer sits wherever the Mac's name ends.
@@ -45,7 +45,7 @@ struct SessionLiveActivity: Widget {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                         Spacer()
-                        if context.state.phase != .dropped {
+                        if ![.dropped, .paused].contains(context.state.phase) {
                             Link(destination: Self.endURL) {
                                 Text("End")
                                     .font(.system(size: 10, weight: .semibold))
@@ -106,6 +106,7 @@ private func statusText(for state: SessionActivityAttributes.ContentState) -> St
         case nil: phase = String(localized: "Reconnecting…")
         }
     case .dropped: phase = String(localized: "Connection dropped")
+    case .paused: phase = String(localized: "Paused · your Mac is still running")
     }
     guard let count = state.sessionCount, count > 1 else { return phase }
     return String(localized: "\(phase) · \(count) Macs")
@@ -113,7 +114,7 @@ private func statusText(for state: SessionActivityAttributes.ContentState) -> St
 
 private func tone(for phase: SessionActivityAttributes.Phase) -> ActivityTone {
     switch phase {
-    case .pending, .reconnecting: return .pending
+    case .pending, .reconnecting, .paused: return .pending
     case .active: return .live
     case .dropped: return .lost
     }
@@ -121,7 +122,7 @@ private func tone(for phase: SessionActivityAttributes.Phase) -> ActivityTone {
 
 /// The way back in when the session was lost, otherwise the way out; a dropped card has no End.
 private func action(for phase: SessionActivityAttributes.Phase) -> ActivityCardAction {
-    phase == .dropped
+    phase == .dropped || phase == .paused
         ? ActivityCardAction(title: String(localized: "Restore"), url: SessionLiveActivity.restoreURL)
         : ActivityCardAction(title: String(localized: "End"), url: SessionLiveActivity.endURL)
 }
@@ -133,5 +134,6 @@ private func symbol(for phase: SessionActivityAttributes.Phase) -> String {
     case .active: return "display"
     case .reconnecting: return "arrow.clockwise"
     case .dropped: return "wifi.slash"
+    case .paused: return "pause.circle"
     }
 }

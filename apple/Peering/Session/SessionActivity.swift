@@ -3,6 +3,7 @@
 import Foundation
 import PeeringKit
 import RemoteCore
+import UIKit
 import os
 
 private let activityLog = Logger(subsystem: "pl.dmq.peering", category: "activity")
@@ -60,7 +61,7 @@ final class SessionActivity {
             if deliberate {
                 end()
             } else {
-                show(.dropped, hostName: hostName, startedAt: startedAt, path: path)
+                show(Self.lostPhase, hostName: hostName, startedAt: startedAt, path: path)
             }
         }
     }
@@ -89,7 +90,12 @@ final class SessionActivity {
         sessionCount: Int? = nil
     ) {
         guard isEnabled else { return }
-        show(.dropped, hostName: hostName, startedAt: startedAt, path: path, sessionCount: sessionCount)
+        show(Self.lostPhase, hostName: hostName, startedAt: startedAt, path: path, sessionCount: sessionCount)
+    }
+
+    /// A connection that ends while the app is off screen is iOS freezing it, not a fault, and coming back restores it.
+    private static var lostPhase: SessionActivityAttributes.Phase {
+        UIApplication.shared.applicationState == .active ? .dropped : .paused
     }
 
     func preferenceChanged(enabled: Bool) {
@@ -250,7 +256,7 @@ final class SessionActivity {
         case .pending, .reconnecting: return Date().addingTimeInterval(45)
         case .active: return nil
         // No deadline: a dropped session does not become less true by waiting, and the card is the only route back.
-        case .dropped: return nil
+        case .dropped, .paused: return nil
         }
     }
 }
