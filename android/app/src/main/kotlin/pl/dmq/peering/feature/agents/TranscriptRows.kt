@@ -34,7 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.util.Locale
+import pl.dmq.peering.ui.kit.twoDecimals
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.PeeringMenu
@@ -144,7 +144,7 @@ fun TurnSummaryPill(summary: TurnSummaryUi) {
             TurnStatus.FAILED -> add(stringResource(R.string.agents_turn_failed))
             TurnStatus.DONE -> Unit
         }
-        summary.costUSD?.let { add(stringResource(R.string.agents_turn_cost, String.format(Locale.US, "%.2f", it))) }
+        summary.costUSD?.let { add(stringResource(R.string.agents_turn_cost, twoDecimals(it))) }
         val input = summary.inputTokens
         val output = summary.outputTokens
         if (input != null && output != null) add(stringResource(R.string.agents_turn_tokens, input, output))

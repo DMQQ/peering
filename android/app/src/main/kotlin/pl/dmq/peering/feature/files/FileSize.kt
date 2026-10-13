@@ -1,28 +1,24 @@
 package pl.dmq.peering.feature.files
 
+import java.text.NumberFormat
 import java.util.Locale
 
 /** A byte count as the iPhone words it: decimal units (1 KB is 1000 bytes), as `ByteCountFormatter` in file style. */
 data class FileSize(val amount: Double, val unit: SizeUnit) {
     enum class SizeUnit(val suffix: String, val fractionDigits: Int) {
-        BYTES("bytes", 0),
+        BYTES("B", 0),
         KILOBYTES("KB", 0),
         MEGABYTES("MB", 1),
         GIGABYTES("GB", 2),
     }
 
-    /** "Zero bytes", "1 byte", "704 bytes", "12 KB", "1.2 MB", "1.07 GB"; a figure that rounds to a whole number drops its decimals. */
+    /** "0 B", "704 B", "12 KB", "1.2 MB", "1.07 GB" with the locale's separator; a figure that rounds to a whole number drops its decimals. */
     fun label(): String {
-        if (unit == SizeUnit.BYTES) {
-            return when (amount.toLong()) {
-                0L -> "Zero bytes"
-                1L -> "1 byte"
-                else -> "${amount.toLong()} bytes"
-            }
+        val format = NumberFormat.getNumberInstance(Locale.getDefault()).apply {
+            minimumFractionDigits = 0
+            maximumFractionDigits = unit.fractionDigits
         }
-        val text = String.format(Locale.US, "%.${unit.fractionDigits}f", amount)
-        val trimmed = if (text.contains('.')) text.trimEnd('0').trimEnd('.') else text
-        return "$trimmed ${unit.suffix}"
+        return "${format.format(amount)} ${unit.suffix}"
     }
 
     companion object {

@@ -29,7 +29,7 @@ import pl.dmq.peering.ui.kit.ControlsCard
 import pl.dmq.peering.ui.kit.ControlsDivider
 import pl.dmq.peering.ui.kit.PeeringTextField
 import pl.dmq.peering.ui.kit.SessionIcons
-import pl.dmq.peering.ui.kit.englishDate
+import pl.dmq.peering.ui.kit.localizedDate
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -127,7 +127,7 @@ private fun inviteFooterText(footer: InviteFooter): String = when (footer) {
     is InviteFooter.Running -> stringResource(
         R.string.settings_invite_footer_running,
         footer.minutes,
-        englishDate(footer.endsAtSeconds * MILLIS_PER_SECOND),
+        localizedDate(footer.endsAtSeconds * MILLIS_PER_SECOND),
         footer.earned,
         footer.max,
     )

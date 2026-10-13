@@ -5,6 +5,7 @@ import pl.dmq.peering.R
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
 import kotlin.math.abs
 
@@ -12,7 +13,7 @@ private const val MINUTE = 60_000L
 private const val HOUR = 60 * MINUTE
 private const val DAY = 24 * HOUR
 
-/** "5 minutes ago" or "in 2 hours", in the app's own wording: the system formatter follows the phone's language and mixes it into English screens. */
+/** "5 minutes ago" or "in 2 hours", worded by the string resources so it follows the app's language. */
 fun Resources.relativeTime(thenMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
     val diff = thenMillis - nowMillis
     val future = diff > 0
@@ -27,10 +28,12 @@ fun Resources.relativeTime(thenMillis: Long, nowMillis: Long = System.currentTim
 
 private fun Resources.count(value: Int, plural: Int): String = getQuantityString(plural, value, value)
 
-private val dateFormat = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH)
-private val dateTimeFormat = DateTimeFormatter.ofPattern("MMM d, yyyy, HH:mm", Locale.ENGLISH)
+/** A calendar date in the language and order of the app's current locale. */
+fun localizedDate(millis: Long): String = format(millis, FormatStyle.MEDIUM, null)
 
-/** A calendar date with English month names, to match the rest of the app's wording. */
-fun englishDate(millis: Long): String = dateFormat.format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
+fun localizedDateTime(millis: Long): String = format(millis, FormatStyle.MEDIUM, FormatStyle.SHORT)
 
-fun englishDateTime(millis: Long): String = dateTimeFormat.format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
+private fun format(millis: Long, date: FormatStyle, time: FormatStyle?): String {
+    val formatter = if (time == null) DateTimeFormatter.ofLocalizedDate(date) else DateTimeFormatter.ofLocalizedDateTime(date, time)
+    return formatter.withLocale(Locale.getDefault()).format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
+}

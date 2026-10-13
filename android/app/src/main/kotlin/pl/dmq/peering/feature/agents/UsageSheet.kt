@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import java.util.Locale
+import pl.dmq.peering.ui.kit.dollars
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.PeeringSheet
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -86,7 +86,7 @@ private fun TokenRows(usage: UsageUi) {
     usage.inputTokens?.let { ValueRow(stringResource(R.string.agents_usage_input), ContextMeter.tokens(it)) }
     usage.outputTokens?.let { ValueRow(stringResource(R.string.agents_usage_output), ContextMeter.tokens(it)) }
     usage.cachedTokens?.let { ValueRow(stringResource(R.string.agents_usage_cached), ContextMeter.tokens(it)) }
-    usage.costUSD?.let { ValueRow(stringResource(R.string.agents_usage_cost), String.format(Locale.US, "$%.2f", it)) }
+    usage.costUSD?.let { ValueRow(stringResource(R.string.agents_usage_cost), dollars(it)) }
 }
 
 @Composable

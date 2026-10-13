@@ -32,7 +32,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.ui.kit.AppIcons
-import pl.dmq.peering.ui.kit.englishDate
+import pl.dmq.peering.ui.kit.localizedDate
+import androidx.compose.ui.res.stringResource
+import pl.dmq.peering.R
 import pl.dmq.peering.ui.theme.FileTileShape
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -44,8 +46,13 @@ import pl.dmq.peering.ui.theme.PeeringText
  */
 @Composable
 fun FileEntryRow(row: FileRowUi, onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier = Modifier) {
-    val detail = remember(row.entry, row.modifiedEpochMillis) {
-        FileRowDetail.of(row.entry, row.modifiedEpochMillis?.let(::englishDate))
+    val words = FileRowDetail.KindWords(
+        symlink = stringResource(R.string.files_kind_symlink),
+        folder = stringResource(R.string.files_kind_folder),
+        file = stringResource(R.string.files_kind_file),
+    )
+    val detail = remember(row.entry, row.modifiedEpochMillis, words) {
+        FileRowDetail.of(row.entry, row.modifiedEpochMillis?.let(::localizedDate), words)
     }
     FileRowFrame(
         icon = if (row.isSelected) AppIcons.check else row.glyph.icon,
@@ -65,7 +72,7 @@ fun UpRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
         icon = Icons.Outlined.NorthWest,
         title = "..",
         detail = null,
-        subtitle = "Up one level",
+        subtitle = stringResource(R.string.files_up_one_level),
         monospacedTitle = true,
         showsChevron = false,
         onClick = onClick,

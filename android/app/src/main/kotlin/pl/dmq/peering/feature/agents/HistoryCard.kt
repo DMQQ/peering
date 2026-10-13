@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.sp
 import java.text.DateFormat
 import java.time.ZoneId
 import java.util.Date
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.PeeringAlert
@@ -121,8 +123,13 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
 private fun dayLabel(day: HistoryDay): String = when (day) {
     HistoryDay.Today -> stringResource(R.string.agents_day_today)
     HistoryDay.Yesterday -> stringResource(R.string.agents_day_yesterday)
-    is HistoryDay.On -> day.date.format(java.time.format.DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH))
+    is HistoryDay.On -> monthDay(day.date)
 }
 
 private fun timeLabel(unixSeconds: Long): String =
     DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(unixSeconds * 1_000L))
+
+private fun monthDay(date: LocalDate): String {
+    val locale = Locale.getDefault()
+    return date.format(DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(locale, "MMMd"), locale))
+}

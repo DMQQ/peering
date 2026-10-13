@@ -22,7 +22,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import pl.dmq.peering.feature.remote.copyText
 import pl.dmq.peering.ui.kit.relativeTime
-import pl.dmq.peering.ui.kit.englishDateTime
+import pl.dmq.peering.ui.kit.localizedDateTime
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -44,7 +44,7 @@ import pl.dmq.peering.ui.theme.PeeringText
 @Composable
 fun SessionDetail(record: SessionRecord, nowMillis: Long, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val logText = sessionLogText(record, BuildConfig.VERSION_NAME, englishDateTime(record.startedAt), nowMillis)
+    val logText = sessionLogText(record, BuildConfig.VERSION_NAME, localizedDateTime(record.startedAt), nowMillis)
     Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
@@ -67,7 +67,7 @@ private fun SessionConnectionCard(record: SessionRecord, nowMillis: Long) {
         ControlsDivider()
         DetailRow(
             stringResource(R.string.sessions_detail_started),
-            englishDateTime(record.startedAt),
+            localizedDateTime(record.startedAt),
         )
         ControlsDivider()
         DetailRow(stringResource(R.string.sessions_detail_duration), durationLabel(record.durationSeconds(nowMillis)))

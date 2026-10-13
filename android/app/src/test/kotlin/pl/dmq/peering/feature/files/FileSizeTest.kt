@@ -1,10 +1,15 @@
 package pl.dmq.peering.feature.files
 
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
+import java.util.Locale
 import pl.dmq.peering.feature.files.FileSize.SizeUnit
 
 class FileSizeTest {
+    @Before
+    fun english() = Locale.setDefault(Locale.US)
+
     @Test
     fun smallCountsStayInBytes() {
         assertEquals(FileSize(999.0, SizeUnit.BYTES), FileSize.of(999))
@@ -23,10 +28,21 @@ class FileSizeTest {
     }
 
     @Test
-    fun theEmptyFileIsNamedNotCounted() {
-        assertEquals("Zero bytes", fileSizeLabel(0))
-        assertEquals("1 byte", fileSizeLabel(1))
-        assertEquals("704 bytes", fileSizeLabel(704))
+    fun bytesUseTheShortUnit() {
+        assertEquals("0 B", fileSizeLabel(0))
+        assertEquals("1 B", fileSizeLabel(1))
+        assertEquals("704 B", fileSizeLabel(704))
+    }
+
+    @Test
+    fun theSeparatorFollowsTheLocale() {
+        val previous = Locale.getDefault()
+        Locale.setDefault(Locale.GERMANY)
+        try {
+            assertEquals("1,2 MB", fileSizeLabel(1_234_567))
+        } finally {
+            Locale.setDefault(previous)
+        }
     }
 
     @Test
