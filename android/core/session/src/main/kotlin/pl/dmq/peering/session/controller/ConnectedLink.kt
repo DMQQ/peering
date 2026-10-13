@@ -192,6 +192,7 @@ internal class ConnectedLink(
             every(LANE_INTERVAL) {
                 for (event in lanes.tick(clock.monotonicSeconds()).asEvents()) applyEvent(event, ended)
                 steerAutomatic()
+                if (picture.takeAutomaticRetry()) retryPicture()
                 if (liveness.isSilent(clock.monotonicSeconds(), SilencePolicy.limitSeconds(backgrounded))) ended.complete(LinkEnd.Lost)
                 onTick()
             }

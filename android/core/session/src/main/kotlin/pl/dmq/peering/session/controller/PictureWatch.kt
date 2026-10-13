@@ -14,10 +14,23 @@ internal class PictureWatch(private val clock: Clock, private val lane: LanVideo
     private var job: Job? = null
     private var scope: CoroutineScope? = null
     private var seen = false
+    private var automaticRetries = 0
     private var waitingSince = clock.monotonicSeconds()
 
     fun noteSeen() {
         seen = true
+        automaticRetries = 0
+    }
+
+    /**
+     * True once when a picture that never arrived has waited long enough to ask again by itself, up to [MAX_AUTOMATIC_RETRIES]
+     * times. After that the state reads as stalled and the Retry button is the user's.
+     */
+    fun takeAutomaticRetry(): Boolean {
+        if (seen || lane?.failure != null || automaticRetries >= MAX_AUTOMATIC_RETRIES) return false
+        if (clock.monotonicSeconds() - waitingSince < STALL_SECONDS) return false
+        automaticRetries += 1
+        return true
     }
 
     fun start(scope: CoroutineScope) {
@@ -47,7 +60,8 @@ internal class PictureWatch(private val clock: Clock, private val lane: LanVideo
         }
     }
 
-    private companion object {
+    internal companion object {
         const val STALL_SECONDS = 6.0
+        const val MAX_AUTOMATIC_RETRIES = 3
     }
 }
