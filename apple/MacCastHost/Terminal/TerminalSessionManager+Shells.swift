@@ -178,7 +178,7 @@ extension TerminalSessionManager {
                 to: session.ownerClientID
             )
             let named = finish.command.map { "\u{201C}\($0)\u{201D}" } ?? "Terminal \u{201C}\(session.name)\u{201D}"
-            let message = "\(named) finished after \(TerminalCommandFinishDetector.spokenDuration(finish.duration))."
+            let message = "\(named) finished after \(TerminalCommandFinishDetector.spokenDuration(finish.duration, locale: Locale(identifier: "en")))."
             push(session: session, title: "Terminal finished", message: message)
         }
     }

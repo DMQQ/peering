@@ -24,9 +24,10 @@ struct GroupProcessTerminationTests {
         let output = Pipe()
         let (process, exits) = try launch(script: "echo ready; sleep 60", output: output)
         _ = output.fileHandleForReading.availableData
-        process.terminateGroup(escalatingAfter: 3600)
+        process.terminateGroup(escalatingAfter: 2)
         let code = await exits.first { _ in true }
         #expect(code == 128 + SIGTERM)
+        await process.waitUntilEscalationSettled()
         #expect(process.escalationPending == false)
     }
 
