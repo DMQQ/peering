@@ -24,18 +24,27 @@
   var menu = document.getElementById("menu");
   var nav = document.getElementById("nav");
   if (menu && nav) {
-    menu.addEventListener("click", function () {
-      var open = nav.classList.toggle("open");
+    function setMenu(open) {
+      nav.classList.toggle("open", open);
+      if (bar) bar.classList.toggle("menu-open", open);
       menu.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
+    menu.addEventListener("click", function () {
+      setMenu(!nav.classList.contains("open"));
     });
 
     // Tapping a link is a request to go somewhere, and the menu it was tapped in is not that
     // place. Closing it here rather than on scroll means a link that lands mid-page does not
     // leave a panel open over the section it just moved to.
     nav.addEventListener("click", function (event) {
-      if (event.target.tagName === "A") {
-        nav.classList.remove("open");
-        menu.setAttribute("aria-expanded", "false");
+      if (event.target.tagName === "A") setMenu(false);
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && nav.classList.contains("open")) {
+        setMenu(false);
+        menu.focus();
       }
     });
   }

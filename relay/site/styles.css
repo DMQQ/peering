@@ -245,57 +245,42 @@ a { color: inherit; }
 
 /* ---------- Bar ---------- */
 
+/* A plain row on the page's own margins. It has no surface until the page moves, then a blurred
+   backdrop and a hairline, so the top of the document is never crossed by a line that means
+   nothing yet. */
 .bar {
   position: sticky;
   top: 0;
   z-index: 10;
   height: var(--bar);
-  padding: 10px 16px 0;
-  pointer-events: none;
+  border-bottom: 1px solid transparent;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+.bar.scrolled {
+  background: rgba(10, 10, 12, 0.74);
+  backdrop-filter: saturate(140%) blur(18px);
+  -webkit-backdrop-filter: saturate(140%) blur(18px);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 .bar-inner {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 24px;
-  height: calc(var(--bar) - 10px);
-  padding: 0 8px 0 20px;
-  border-radius: 999px;
-  background: rgba(16, 16, 19, 0.35);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
-  pointer-events: auto;
-  transition: background-color 0.25s ease, box-shadow 0.25s ease;
-}
-
-.bar-inner::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.04));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-.bar.scrolled .bar-inner {
-  background: rgba(16, 16, 19, 0.82);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  gap: 32px;
+  height: 100%;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
+  min-height: 44px;
   text-decoration: none;
   font-family: var(--display);
   font-weight: 700;
-  font-size: 19px;
+  font-size: 20px;
   letter-spacing: -0.01em;
   flex: none;
 }
@@ -304,31 +289,36 @@ a { color: inherit; }
 
 .nav {
   display: flex;
-  gap: 2px;
-  margin-left: auto;
+  align-items: center;
+  gap: 4px;
   font-size: 14px;
 }
 
 .nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
   text-decoration: none;
   color: var(--ink-55);
-  padding: 7px 13px;
-  border-radius: 999px;
-  transition: color 0.16s ease, background-color 0.16s ease;
+  white-space: nowrap;
+  transition: color 0.16s ease;
 }
 
-.nav a:hover, .nav a[aria-current="true"] {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.07);
-}
+.nav a:hover, .nav a[aria-current="true"] { color: var(--ink); }
 
-.bar-cta { flex: none; }
+/* The button already says Download, so the link of the same name only appears where the button
+   does not: inside the phone menu. */
+.bar-inner:has(.bar-cta) .nav a[href$="/download"] { display: none; }
+
+.bar-cta { flex: none; margin-left: auto; }
 
 .menu {
   display: none;
   margin-left: auto;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
   background: none;
   border: 0;
   cursor: pointer;
@@ -338,18 +328,18 @@ a { color: inherit; }
 
 .menu span {
   position: absolute;
-  left: 10px;
-  right: 10px;
+  left: 12px;
+  right: 12px;
   height: 1.5px;
   background: var(--ink);
   border-radius: 2px;
   transition: transform 0.22s ease, opacity 0.22s ease;
 }
 
-.menu span:nth-child(1) { top: 17px; }
-.menu span:nth-child(2) { top: 23px; }
-.menu[aria-expanded="true"] span:nth-child(1) { transform: translateY(3px) rotate(45deg); }
-.menu[aria-expanded="true"] span:nth-child(2) { transform: translateY(-3px) rotate(-45deg); }
+.menu span:nth-child(1) { top: 18px; }
+.menu span:nth-child(2) { top: 25px; }
+.menu[aria-expanded="true"] span:nth-child(1) { transform: translateY(3.5px) rotate(45deg); }
+.menu[aria-expanded="true"] span:nth-child(2) { transform: translateY(-3.5px) rotate(-45deg); }
 
 /* ---------- Buttons ---------- */
 
@@ -1644,41 +1634,61 @@ a { color: inherit; }
 }
 
 @media (max-width: 720px) {
-  .bar-inner { padding: 0 6px 0 18px; }
+  .bar-inner { gap: 16px; }
 
-  .nav {
-    position: fixed;
-    inset: calc(100% + 8px) 0 auto 0;
+  /* The sections open as a sheet under the bar. Document pages have no menu button, so their few
+     links stay in the row. */
+  .bar[id] .nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
     flex-direction: column;
+    align-items: stretch;
     gap: 0;
-    padding: 6px 20px 10px;
-    background: #101013;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    border-radius: 22px;
+    padding: 4px 24px 12px;
+    background: #0a0a0c;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     font-size: 17px;
-    display: flex;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(-8px);
+    transform: translateY(-6px);
     pointer-events: none;
-    transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s ease 0.22s;
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
   }
 
-  .nav.open {
+  .bar[id] .nav.open {
     opacity: 1;
     visibility: visible;
     transform: translateY(0);
     pointer-events: auto;
-    transition: opacity 0.22s ease, transform 0.22s ease;
+    transition: opacity 0.2s ease, transform 0.2s ease;
   }
-  .nav a { padding: 14px 0; border-radius: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
-  .nav a, .nav a:hover, .nav a[aria-current="true"] { background: none; }
-  .nav a:last-child { border-bottom: 0; }
+
+  .bar[id] .nav a {
+    min-height: 52px;
+    padding: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .bar[id] .nav a:last-child { border-bottom: 0; }
+  .bar-inner:has(.bar-cta) .nav a[href$="/download"] { display: inline-flex; }
+
+  .bar:not([id]) .nav {
+    flex: 1;
+    min-width: 0;
+    gap: 0;
+    font-size: 13px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .bar:not([id]) .nav::-webkit-scrollbar { display: none; }
+  .bar:not([id]) .nav a { flex: none; }
+  .bar:not([id]) .nav a:first-child { margin-left: auto; }
+  .bar:not([id]) .nav a { padding: 0 6px; }
 
   .bar-cta { display: none; }
   .menu { display: block; }
+  .bar.menu-open { background: #0a0a0c; border-bottom-color: transparent; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1686,5 +1696,5 @@ a { color: inherit; }
   .reveal { opacity: 1; transform: none; }
   .link i { animation: none; opacity: 0; }
   .btn:active { transform: none; }
-  .nav { transition: none; }
+  .nav, .bar { transition: none; }
 }
