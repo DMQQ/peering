@@ -1,1 +1,1 @@
-../../../../MacCastHost/LiveActivity/HostLiveActivityPublisher.swift
+../../../../PeeringHost/LiveActivity/HostLiveActivityPublisher.swift
