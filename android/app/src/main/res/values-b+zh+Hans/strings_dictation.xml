@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dictation_start">语音输入</string>
+    <string name="dictation_cancel">取消语音输入</string>
+    <string name="dictation_done">完成语音输入</string>
+    <string name="dictation_listening">正在聆听…</string>
+    <string name="dictation_denied">请在设置中为 Peering 开启麦克风。</string>
+    <string name="dictation_unavailable">语音输入当前不可用。</string>
+    <string name="dictation_settings">设置</string>
+    <string name="dictation_close">关闭</string>
+</resources>
