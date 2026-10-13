@@ -446,16 +446,16 @@ final class SessionRecordTests: XCTestCase {
             record(path: .lan, startedAt: old.addingTimeInterval(Double(offset)), duration: 1)
         }
 
-        XCTAssertEqual(SessionHistoryStore.kept(records, at: now).count, 25)
+        XCTAssertEqual(SessionHistoryStore.kept(records).count, 25)
     }
 
-    func testHiddenSessionsInTheCurrentRelayWindowAreKeptForTheMeter() {
+    func testSessionsInTheCurrentRelayWindowDoNotRaiseTheCap() {
         let now = Date(timeIntervalSince1970: 86_400 * 20_000 + 3_600)
         let records = (0..<30).map { offset in
             record(path: .relay, startedAt: now.addingTimeInterval(Double(-offset - 10)), duration: 1)
         }
 
-        XCTAssertEqual(SessionHistoryStore.kept(records, at: now).count, 30)
+        XCTAssertEqual(SessionHistoryStore.kept(records).count, 25)
         XCTAssertEqual(SessionHistorySummary(records: records).sessionCount, 25)
     }
 

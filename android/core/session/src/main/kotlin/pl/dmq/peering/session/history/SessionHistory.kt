@@ -57,7 +57,7 @@ class SessionHistory private constructor(private val limit: Int, initial: List<S
     fun toJson(): String = toJson(records)
 
     companion object {
-        const val DEFAULT_LIMIT = 50
+        const val DEFAULT_LIMIT = 25
 
         private val STORAGE = Json {
             ignoreUnknownKeys = true

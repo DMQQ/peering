@@ -303,12 +303,9 @@ public enum SessionHistoryStore {
         UserDefaults.standard.set(data, forKey: key)
     }
 
-    /// The twenty-five visible records, plus any extra records the current relay allowance still needs.
-    /// A burst of short sessions must not make the meter forget minutes the relay is still billing.
-    public static func kept(_ records: [ClientSessionRecord], at moment: Date = Date()) -> [ClientSessionRecord] {
-        let windowStart = RelayAllowance.windowStart(windowNumber: RelayAllowance.windowNumber(at: moment))
-        let visibleIDs = Set(records.prefix(visibleLimit).map(\.id))
-        return records.filter { visibleIDs.contains($0.id) || $0.endedAt >= windowStart }
+    /// At most the newest twenty-five records, however many sessions the relay window holds: the history is stored on the phone and must not grow without bound. The relay reports the allowance left, so the phone's own tally is only a fallback.
+    public static func kept(_ records: [ClientSessionRecord]) -> [ClientSessionRecord] {
+        Array(records.prefix(visibleLimit))
     }
 }
 

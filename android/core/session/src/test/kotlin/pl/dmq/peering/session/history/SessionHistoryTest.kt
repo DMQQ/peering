@@ -55,9 +55,10 @@ class SessionHistoryTest {
     }
 
     @Test
-    fun theHistoryKeepsFiftyNewestRecords() {
-        val ids = (1..55).map { history.begin("host-$it", "Mac $it", Path.LAN, startedAt = it.toLong()) }
+    fun theHistoryKeepsTheTwentyFiveNewestRecords() {
+        val ids = (1..30).map { history.begin("host-$it", "Mac $it", Path.LAN, startedAt = it.toLong()) }
 
+        assertEquals(25, SessionHistory.DEFAULT_LIMIT)
         assertEquals(SessionHistory.DEFAULT_LIMIT, history.records.size)
         assertEquals(ids.last(), history.records.first().id)
         assertEquals(ids[5], history.records.last().id)
