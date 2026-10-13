@@ -8,10 +8,10 @@ public enum SessionResume {
         case stopAndShowFailure
     }
 
-    /// A different Mac answered, or the pairing is gone: another rung dials the same thing and fails the same way, while the user is the only one who can fix it.
+    /// A different Mac answered, the pairing is gone, or another phone holds the Mac: another rung dials the same thing and fails the same way, while the user is the only one who can fix it.
     public static func isTerminal(_ reason: ClientSession.FailureReason) -> Bool {
         switch reason {
-        case .pinMismatch, .hostIDMismatch, .noPinOnFile, .protocolMismatch: return true
+        case .pinMismatch, .hostIDMismatch, .noPinOnFile, .protocolMismatch, .anotherDevice: return true
         default: return false
         }
     }

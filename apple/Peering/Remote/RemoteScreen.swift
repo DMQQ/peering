@@ -11,6 +11,7 @@ struct RemoteScreen: View {
     @Environment(SessionModel.self) var model
 
     @State var streamLooksPaused = false
+    @State var dictation = VoiceDictation()
 
     @AppStorage(PreferenceKeys.interactionMode) var interactionMode: InteractionMode = .control
 
@@ -382,6 +383,41 @@ struct RemoteScreen: View {
     }
 
     private var keyboardInputRow: some View {
+        ZStack {
+            HStack(spacing: 8) {
+                keyboardField
+                dictationButton
+            }
+            .opacity(dictation.isActive ? 0 : 1)
+            .allowsHitTesting(!dictation.isActive)
+            switch dictation.state {
+            case .listening, .finishing:
+                DictationOverlay(dictation: dictation, finish: { dictation.finish() }, cancel: { dictation.cancel() })
+            case .denied, .unavailable:
+                DictationNotice(denied: dictation.state == .denied) { dictation.dismissMessage() }
+            case .idle:
+                EmptyView()
+            }
+        }
+        .animation(Motion.settle, value: dictation.state)
+    }
+
+    private var dictationButton: some View {
+        Button {
+            dictation.start { [model] spoken in model.insertDictation(spoken) }
+        } label: {
+            Image(systemName: "mic.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(Color.white.opacity(0.14)))
+                .contentShape(Circle())
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.9, haptic: true))
+        .accessibilityLabel(String(localized: "Dictate", table: "Dictation"))
+    }
+
+    private var keyboardField: some View {
         // **The field itself, and it is a real one.** It holds the sentence, so iOS gives it a caret
         // that can be moved and reports every edit as a range plus a replacement, which is what
         // makes correcting the middle of a line work.

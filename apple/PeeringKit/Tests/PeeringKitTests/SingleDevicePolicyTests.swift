@@ -26,4 +26,19 @@ struct SingleDevicePolicyTests {
         let others = [SingleDevicePolicy.Peer(clientID: "a", silence: 40), SingleDevicePolicy.Peer(clientID: "c", silence: 2)]
         #expect(SingleDevicePolicy.decide(newcomer: "b", others: others) == .refuse)
     }
+
+    @Test func aBackgroundedPhoneKeepsTheMacLongerThanAForegroundOne() {
+        let others = [SingleDevicePolicy.Peer(clientID: "a", silence: 60, inBackground: true)]
+        #expect(SingleDevicePolicy.decide(newcomer: "b", others: others) == .refuse)
+    }
+
+    @Test func aBackgroundedPhoneThatNeverReturnsIsReplacedEventually() {
+        let others = [SingleDevicePolicy.Peer(clientID: "a", silence: 200, inBackground: true)]
+        #expect(SingleDevicePolicy.decide(newcomer: "b", others: others) == .admit(evicting: ["a"]))
+    }
+
+    @Test func aPairedPhoneCanTakeOverFromAPresentOne() {
+        let others = [SingleDevicePolicy.Peer(clientID: "a", silence: 1)]
+        #expect(SingleDevicePolicy.decide(newcomer: "b", others: others, takesOver: true) == .admit(evicting: ["a"]))
+    }
 }

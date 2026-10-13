@@ -31,6 +31,10 @@
 	<string>Peering uses Face ID to protect access to your paired Macs.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Peering connects to your Mac on the local network to stream its screen and send input.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Peering listens while you dictate, so you can speak instead of typing on the Mac.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Peering turns what you say into text, on your iPhone when the language allows it, and types it on your Mac.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>

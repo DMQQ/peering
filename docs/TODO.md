@@ -201,3 +201,5 @@ Install the release APK (`android/tools/README.md`), then:
 - "Stream paused" should no longer cover a picture that is still arriving after a path change.
 - Return from the on-screen keyboard right after typing should submit in Claude Code in a terminal (needs the new host build). The host now waits 45 ms between the text and Return.
 - Watch screenshots for App Store Connect are in `marketing/appstore/watch/`.
+- Voice input: tap the microphone beside the keyboard field in a session. First use asks for Microphone and Speech Recognition. The bar shows a live waveform and the words as you speak, Done types them into the field and on the Mac, Cancel throws them away. Check it with the Mac's audio playing, and that the Mac's sound comes back after.
+- Pressing Disconnect makes the Mac forget the phone's push token, so no notification follows (needs the new host build). Connecting again registers it again.
