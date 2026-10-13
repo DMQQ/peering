@@ -90,6 +90,8 @@ pub struct PushAction<'a> {
     pub category: &'a str,
     pub session_id: &'a str,
     pub approval_id: &'a str,
+    /// Answers for the phone's notification extension to turn into buttons; empty for the rest.
+    pub options: &'a [String],
 }
 
 /// The APNs body. Compact JSON built by hand: the shape never varies.
@@ -101,10 +103,14 @@ fn payload(
     body: &str,
     route: Option<PushRoute<'_>>,
 ) -> Result<String, serde_json::Error> {
-    let category = match route.and_then(|route| route.action) {
+    let action = route.and_then(|route| route.action);
+    let mut category = match action {
         Some(action) => format!(r#","category":{}"#, serde_json::to_string(action.category)?),
         None => String::new(),
     };
+    if action.is_some_and(|action| !action.options.is_empty()) {
+        category.push_str(r#","mutable-content":1"#);
+    }
     let mut payload = format!(
         r#"{{"aps":{{"alert":{{"title":{},"body":{}}},"sound":"default"{}}}"#,
         serde_json::to_string(title)?,
@@ -122,6 +128,9 @@ fn payload(
                 serde_json::to_string(action.session_id)?,
                 serde_json::to_string(action.approval_id)?,
             ));
+            if !action.options.is_empty() {
+                payload.push_str(&format!(r#","agentAnswers":{}"#, serde_json::to_string(action.options)?));
+            }
         }
     }
     payload.push('}');
@@ -391,13 +400,34 @@ mod tests {
                 category: "peering.agent.approval.tool",
                 session_id: "S-1",
                 approval_id: "A-1",
+                options: &[],
             }),
         };
         let json = parsed(&payload("T", "B", Some(route)).unwrap());
+        assert!(json["aps"].get("mutable-content").is_none());
+        assert!(json.get("agentAnswers").is_none());
         assert_eq!(json["aps"]["category"], "peering.agent.approval.tool");
         assert_eq!(json["aps"]["sound"], "default");
         assert_eq!(json["agentSessionId"], "S-1");
         assert_eq!(json["agentApprovalId"], "A-1");
+    }
+
+    #[test]
+    fn payload_with_options_asks_the_phone_to_build_their_buttons() {
+        let options = ["Red".to_owned(), "Blue".to_owned()];
+        let route = PushRoute {
+            host_id: "MAC-1",
+            source: None,
+            action: Some(PushAction {
+                category: "peering.agent.approval.open",
+                session_id: "S-1",
+                approval_id: "A-1",
+                options: &options,
+            }),
+        };
+        let json = parsed(&payload("T", "B", Some(route)).unwrap());
+        assert_eq!(json["aps"]["mutable-content"], 1);
+        assert_eq!(json["agentAnswers"], serde_json::json!(["Red", "Blue"]));
     }
 
     #[test]

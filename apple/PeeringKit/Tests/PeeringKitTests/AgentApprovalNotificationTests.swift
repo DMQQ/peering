@@ -144,6 +144,15 @@ struct AgentApprovalNotificationTests {
         #expect(AgentApprovalNotification.pushCategory(for: asking) == "peering.agent.approval.open")
     }
 
+    @Test func aPushedQuestionWithItsOwnChoicesCarriesThem() {
+        let choices = AgentToolCall(id: "c", name: "AskUserQuestion", title: "Q", questions: [question(["Red", "Blue"])])
+        let yesNo = AgentToolCall(id: "c", name: "AskUserQuestion", title: "Q", questions: [question(["Yes", "No"])])
+        let tool = AgentToolCall(id: "c", name: "Bash", title: "Bash", detail: "ls")
+        #expect(AgentApprovalNotification.pushAnswers(for: choices) == ["Red", "Blue"])
+        #expect(AgentApprovalNotification.pushAnswers(for: yesNo).isEmpty)
+        #expect(AgentApprovalNotification.pushAnswers(for: tool).isEmpty)
+    }
+
     @Test func aPushedYesOrNoQuestionGetsYesAndNoButtons() {
         let asking = AgentToolCall(id: "c", name: "AskUserQuestion", title: "Q", questions: [question(["Yes", "No"])])
         let reversed = AgentToolCall(id: "c", name: "AskUserQuestion", title: "Q", questions: [question([" no", "YES"])])

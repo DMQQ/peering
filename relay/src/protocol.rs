@@ -214,6 +214,10 @@ pub enum ClientMessage {
         /// Which approval request within that chat.
         #[serde(default)]
         approval_id: Option<String>,
+        /// The answers of a question the fixed categories have no buttons for. The phone's
+        /// notification extension turns them into buttons. Absent from Macs that predate it.
+        #[serde(default)]
+        options: Option<Vec<String>>,
     },
 
     /// Pushes an iOS Live Activity update for a registered host, so the activity keeps moving

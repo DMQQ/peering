@@ -10,6 +10,7 @@ fn approval() -> PushAction<'static> {
         category: "peering.agent.approval.tool",
         session_id: "S-1",
         approval_id: "A-1",
+        options: &[],
     }
 }
 

@@ -66,6 +66,7 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
         case code
         case sessionID = "sessionId"
         case approvalID = "approvalId"
+        case options
     }
 
 
@@ -130,6 +131,7 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encodeIfPresent(action?.category, forKey: .category)
             try container.encodeIfPresent(action?.sessionID, forKey: .sessionID)
             try container.encodeIfPresent(action?.approvalID, forKey: .approvalID)
+            if let answers = action?.answers, !answers.isEmpty { try container.encode(answers, forKey: .options) }
         case .notifyActivity(let push):
             try container.encode("notifyActivity", forKey: .type)
             try container.encode(push.activityToken, forKey: .activityToken)
@@ -165,11 +167,14 @@ public struct RelayPushAction: Sendable, Equatable {
     public let category: String
     public let sessionID: String
     public let approvalID: String
+    /// The answers of a question no fixed category has buttons for; the phone's notification extension makes them buttons.
+    public let answers: [String]
 
-    public init(category: String, sessionID: String, approvalID: String) {
+    public init(category: String, sessionID: String, approvalID: String, answers: [String] = []) {
         self.category = category
         self.sessionID = sessionID
         self.approvalID = approvalID
+        self.answers = answers
     }
 }
 

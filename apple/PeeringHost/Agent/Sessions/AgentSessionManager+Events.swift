@@ -76,7 +76,8 @@ extension AgentSessionManager {
                 applied.push = (text.title, text.body, RelayPushAction(
                     category: AgentApprovalNotification.pushCategory(for: call),
                     sessionID: session.id.uuidString,
-                    approvalID: approvalID
+                    approvalID: approvalID,
+                    answers: AgentApprovalNotification.pushAnswers(for: call)
                 ))
             }
         case .approvalResolved(let approvalID, _):

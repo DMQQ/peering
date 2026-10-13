@@ -90,6 +90,13 @@ public struct AgentApprovalNotification: Equatable, Sendable {
         }
     }
 
+    /// The answers a push carries for the phone's notification extension to turn into buttons: a question with its own
+    /// choices, which the fixed categories cannot name. Empty for everything else.
+    public static func pushAnswers(for call: AgentToolCall) -> [String] {
+        guard case .options(let labels) = layout(for: call), !isYesNo(labels) else { return [] }
+        return labels
+    }
+
     static func isYesNo(_ labels: [String]) -> Bool {
         guard labels.count == 2 else { return false }
         let words = labels.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }

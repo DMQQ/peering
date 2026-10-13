@@ -27,7 +27,7 @@ that is not a string counts as absent.
 | `ping` | none |
 | `referralStatus` | `clientId`, `publicKey`, `proof`, `proofTime` |
 | `redeemReferral` | `clientId`, `code`, `publicKey`, `proof`, `proofTime` |
-| `notifyDevice` | registered hosts only: `deviceToken` (hex), `title`, `body`, optional `source`, `category`, `sessionId`, `approvalId` |
+| `notifyDevice` | registered hosts only: `deviceToken` (hex), `title`, `body`, optional `source`, `category`, `sessionId`, `approvalId`, `options` (up to 4 answers, 160 bytes each; sent as `agentAnswers` with `mutable-content` so the phone's notification extension can make them buttons) |
 | `notifyActivity` | registered hosts only: `activityToken` (hex), `activity` (`session`, `agentChat`, `terminal`), `event` (`start`, `update`, `end`), `contentState` (JSON object), optional `staleSeconds`, `priority` (5 or 10), `attributesType`, `attributes`, `alertTitle`, `alertBody`, `environment` (`production`, `sandbox`) |
 
 Limits (`signalling.rs`): `deviceId`, `name`, `hostId`, `clientId`, `apiKey` at most 256 bytes; `deviceToken` at most 128

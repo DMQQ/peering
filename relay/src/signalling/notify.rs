@@ -33,10 +33,11 @@ fn push_action<'a>(
     category: Option<&'a str>,
     session_id: Option<&'a str>,
     approval_id: Option<&'a str>,
+    options: &'a [String],
 ) -> Option<PushAction<'a>> {
     match (category, session_id, approval_id) {
         (Some(category), Some(session_id), Some(approval_id)) if is_agent_category(category) => {
-            Some(PushAction { category, session_id, approval_id })
+            Some(PushAction { category, session_id, approval_id, options })
         }
         _ => None,
     }
@@ -50,7 +51,12 @@ pub(super) struct DeviceNotice {
     pub category: Option<String>,
     pub session_id: Option<String>,
     pub approval_id: Option<String>,
+    pub options: Option<Vec<String>>,
 }
+
+/// A banner holds about four buttons, and each title is cut by the phone, so more is noise.
+const MAX_OPTIONS: usize = 4;
+const MAX_OPTION_BYTES: usize = 160;
 
 impl DeviceNotice {
     fn fits(&self) -> bool {
@@ -62,10 +68,13 @@ impl DeviceNotice {
             && within(&self.category, 128)
             && within(&self.session_id, 128)
             && within(&self.approval_id, 256)
+            && self.options.as_ref().is_none_or(|options| {
+                options.len() <= MAX_OPTIONS && options.iter().all(|option| option.len() <= MAX_OPTION_BYTES)
+            })
     }
 
     fn action(&self) -> Option<PushAction<'_>> {
-        push_action(self.category.as_deref(), self.session_id.as_deref(), self.approval_id.as_deref())
+        push_action(self.category.as_deref(), self.session_id.as_deref(), self.approval_id.as_deref(), self.options.as_deref().unwrap_or(&[]))
     }
 }
 

@@ -365,6 +365,17 @@ struct RelayProtocolTests {
         #expect(encoded.contains(#""approvalId":"A""#))
     }
 
+    @Test("a question with its own choices sends them for the phone to make buttons")
+    func notifyDeviceWithAnswers() throws {
+        let action = RelayPushAction(category: "peering.agent.approval.open", sessionID: "S", approvalID: "A", answers: ["Red", "Blue"])
+        let encoded = String(
+            decoding: try RelayMessageCodec.encode(RelayClientMessage.notifyDevice(token: "ab", title: "T", body: "B", action: action)),
+            as: UTF8.self
+        )
+
+        #expect(encoded.contains(#""options":["Red","Blue"]"#))
+    }
+
     @Test("a push without an action is the message it always was")
     func notifyDeviceWithoutAnAction() throws {
         let encoded = String(
