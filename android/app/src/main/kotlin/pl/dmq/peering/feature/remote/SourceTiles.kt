@@ -5,6 +5,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,9 +20,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -34,9 +44,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.PeeringSpinner
 import pl.dmq.peering.ui.kit.SessionIcons
 import pl.dmq.peering.ui.kit.rememberDecodedBitmap
-import pl.dmq.peering.ui.kit.pressable
+import pl.dmq.peering.ui.kit.pressFeedback
 import pl.dmq.peering.ui.kit.tappable
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.PeeringText
@@ -53,15 +64,43 @@ private const val DEFAULT_SHAPE = 1.6f
 val TILE_HEIGHT: Dp = 98.dp
 
 /** A picture of a screen or window with its name and owner under it, outlined in the blue while it is the one on screen. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun PreviewTile(tile: SourceTile, onClick: () -> Unit, modifier: Modifier = Modifier, badge: Int? = null) {
+internal fun PreviewTile(
+    tile: SourceTile,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    badge: Int? = null,
+    controls: List<TileControl> = emptyList(),
+    dimmed: Boolean = false,
+) {
     val live = tile.selected && badge == null
+    var controlsShown by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
     val shape = (tile.thumbnail?.let { it.width.toFloat() / it.height } ?: pixelShape(tile)).coerceIn(MIN_SHAPE, MAX_SHAPE)
     val width = TILE_HEIGHT * shape
     Column(
         modifier
             .width(width)
-            .pressable(onClick)
+            .alpha(if (dimmed) 0.5f else 1f)
+            .pressFeedback(interaction)
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = !dimmed,
+                role = Role.Button,
+                onLongClick = controls.takeIf { it.isNotEmpty() }?.let {
+                    {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        controlsShown = true
+                    }
+                },
+                onClick = {
+                    controlsShown = false
+                    onClick()
+                },
+            )
             .semantics {
                 selected = tile.selected
                 contentDescription = listOfNotNull(tile.title, tile.subtitle).joinToString(", ")
@@ -80,6 +119,7 @@ internal fun PreviewTile(tile: SourceTile, onClick: () -> Unit, modifier: Modifi
         ) {
             TilePicture(tile)
             badge?.let { PlaceBadge(it, Modifier.align(Alignment.TopEnd).padding(4.dp)) }
+            if (controlsShown) TileControlBar(controls, onDone = { controlsShown = false }, Modifier.align(Alignment.BottomCenter).padding(6.dp))
         }
         Text(
             tile.title,
@@ -134,13 +174,13 @@ internal fun ApplicationIcon(data: String?, size: Dp, fallback: ImageVector = Ap
 
 /** Dashed and empty: a place a tile could be. Tapping it makes one. */
 @Composable
-internal fun AddTile(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun AddTile(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, busy: Boolean = false) {
     val line = PeeringColors.ink.copy(alpha = 0.18f)
     Box(
         modifier
             .size(TILE_HEIGHT * 0.75f, TILE_HEIGHT)
             .clip(peeringShapes.extraSmall)
-            .tappable(onClick)
+            .tappable(onClick, enabled = !busy)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
@@ -151,7 +191,11 @@ internal fun AddTile(label: String, onClick: () -> Unit, modifier: Modifier = Mo
                 style = Stroke(width = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()))),
             )
         }
-        Icon(SessionIcons.add, contentDescription = null, tint = PeeringColors.muted, modifier = Modifier.size(22.dp))
+        if (busy) {
+            PeeringSpinner(size = 20.dp, color = PeeringColors.muted)
+        } else {
+            Icon(SessionIcons.add, contentDescription = null, tint = PeeringColors.muted, modifier = Modifier.size(22.dp))
+        }
     }
 }
 

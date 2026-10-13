@@ -80,6 +80,7 @@ private fun SourcesPanelContent(context: PanelContext) {
         presenter = context.sources,
         onPicked = { if (context.prefs.hidesPanelAfterSelect) context.screen.closePanel() },
         mosaic = MosaicPanel(context.state.mosaic, context.state.rememberedMosaic).takeIf { context.state.supportsMosaic },
+        features = context.state.sourcesFeatures,
     )
 }
 

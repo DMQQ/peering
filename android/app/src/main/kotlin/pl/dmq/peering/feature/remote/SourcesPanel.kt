@@ -42,6 +42,7 @@ import pl.dmq.peering.wire.CaptureCatalog
 import pl.dmq.peering.wire.CaptureSource
 import pl.dmq.peering.wire.CaptureSourceDescriptor
 import pl.dmq.peering.wire.PixelSize
+import pl.dmq.peering.wire.spaces
 
 /**
  * The Apps panel: a search field, the screens as pictures, then one section per application with its windows as pictures
@@ -56,8 +57,13 @@ fun SourcesPanel(
     onPicked: () -> Unit,
     modifier: Modifier = Modifier,
     mosaic: MosaicPanel? = null,
+    features: SourcesFeatures = SourcesFeatures(),
 ) {
     var query by rememberSaveable { mutableStateOf("") }
+    var pending by remember { mutableStateOf<PendingDesktop?>(null) }
+    val spaces = catalog?.spaces?.takeIf { features.desktops && it.showsDesktops }
+    PendingDesktopTimeout(pending) { pending = null }
+    DesktopRefresh(spaces != null, presenter)
     var building by remember { mutableStateOf<MosaicPicks?>(null) }
     val metrics = LocalContext.current.resources.displayMetrics
     DisposableEffect(presenter) {
@@ -68,7 +74,20 @@ fun SourcesPanel(
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item(key = "search") { SearchField(query, { query = it }, stringResource(R.string.sources_search), filled = true, height = 34.dp) }
             if (mosaic != null && building == null) item(key = "mosaic-entry") { MosaicEntry(mosaic, building, presenter, onBuild = { building = it }, onPicked) }
-            sourceLists(catalog, chosen, building, query, presenter, onBuilding = { building = it }, onPicked)
+            sourceLists(
+                catalog, chosen, building, query, presenter, features,
+                desktops = spaces?.let { info ->
+                    DesktopContext(info, chosen, pending) { display, index ->
+                        pending = PendingDesktop(display.displayId, index)
+                        presenter.switchToDesktop(display.displayId, index)
+                        val screen = CaptureSource.Display(display.displayId)
+                        if (chosen != screen) catalog?.displays?.firstOrNull { it.source == screen }?.let { presenter.choose(presenter.tile(it, true)) }
+                        onPicked()
+                    }
+                },
+                onBuilding = { building = it },
+                onPicked = onPicked,
+            )
         }
         building?.let { picks ->
             MosaicPickerBar(
@@ -93,6 +112,8 @@ private fun LazyListScope.sourceLists(
     building: MosaicPicks?,
     query: String,
     presenter: SourcesPresenter,
+    features: SourcesFeatures,
+    desktops: DesktopContext?,
     onBuilding: (MosaicPicks?) -> Unit,
     onPicked: () -> Unit,
 ) {
@@ -109,10 +130,16 @@ private fun LazyListScope.sourceLists(
             onPicked()
         }
     }
-    val screens = catalog.displays.filter { SourceGrouping.matches(it, query) }
-    if (screens.isNotEmpty()) item(key = "screens") { Screens(screens, marking, presenter, pick) }
+    val showsVirtual = features.virtualDisplays && building == null
+    if (showsVirtual) {
+        item(key = "virtual") {
+            VirtualDisplaysSection(catalog.displays.filter { it.isManagedVirtualDisplay }, marking, features, presenter, pick)
+        }
+    }
+    val screens = catalog.displays.filter { SourceGrouping.matches(it, query) && !(showsVirtual && it.isManagedVirtualDisplay) }
+    if (screens.isNotEmpty()) item(key = "screens") { Screens(screens, marking, presenter, pick, desktops.takeIf { building == null && query.isBlank() }) }
     val groups = SourceGrouping.filtered(SourceGrouping.applicationGroups(catalog.applications, catalog.windows), query)
-    items(groups, key = { "app-${it.id}" }) { group -> ApplicationSection(group, marking, presenter, pick, onPicked) }
+    items(groups, key = { "app-${it.id}" }) { group -> ApplicationSection(group, marking, presenter, features, pick, onPicked) }
     if (building == null) installedGrid(SourceGrouping.installedNotRunning(catalog, query), presenter, onPicked)
 }
 
@@ -125,17 +152,31 @@ private fun Waiting() {
 }
 
 @Composable
-private fun SectionTitle(text: String) {
+internal fun SectionTitle(text: String) {
     Text(text.uppercase(), style = PeeringText.caption2.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.1.sp), color = PeeringColors.muted)
 }
 
 @Composable
-private fun Screens(matches: List<CaptureSourceDescriptor>, marking: Marking, presenter: SourcesPresenter, pick: (SourceTile) -> Unit) {
+private fun Screens(
+    matches: List<CaptureSourceDescriptor>,
+    marking: Marking,
+    presenter: SourcesPresenter,
+    pick: (SourceTile) -> Unit,
+    desktops: DesktopContext?,
+) {
+    val withDesktops = matches.mapNotNull { screen ->
+        val display = (screen.source as? CaptureSource.Display)?.let { desktops?.info?.display(it.id) }?.takeIf { it.count > 0 }
+        display?.let { screen to it }
+    }
+    val plain = matches.filter { screen -> withDesktops.none { it.first === screen } }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionTitle(stringResource(R.string.sources_section_screens))
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            matches.forEach { display -> marking.tile(presenter, display).let { tile -> PreviewTile(tile, { pick(tile) }, badge = marking.place(display.source)) } }
+        if (plain.isNotEmpty()) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                plain.forEach { display -> marking.tile(presenter, display).let { tile -> PreviewTile(tile, { pick(tile) }, badge = marking.place(display.source)) } }
+            }
         }
+        if (desktops != null) withDesktops.forEach { (screen, display) -> ScreenDesktops(screen, display, desktops) }
     }
 }
 
@@ -144,6 +185,7 @@ private fun ApplicationSection(
     group: ApplicationGroup,
     marking: Marking,
     presenter: SourcesPresenter,
+    features: SourcesFeatures,
     pick: (SourceTile) -> Unit,
     onPicked: () -> Unit,
 ) {
@@ -175,9 +217,14 @@ private fun ApplicationSection(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                group.windows.forEach { window -> marking.tile(presenter, window).let { tile -> PreviewTile(tile, { pick(tile) }, badge = marking.place(window.source)) } }
+                group.windows.forEach { window ->
+                    marking.tile(presenter, window).let { tile ->
+                        val controls = if (marking.picking) emptyList() else presenter.actionsFor(window, features).map { action -> TileControl(action) { presenter.perform(window, action) } }
+                        PreviewTile(tile, { pick(tile) }, badge = marking.place(window.source), controls = controls)
+                    }
+                }
             }
-            group.bundleIdentifier?.takeIf { !marking.picking }?.let { bundle ->
+            group.bundleIdentifier?.takeIf { !marking.picking && features.windowControls }?.let { bundle ->
                 AddTile(stringResource(R.string.sources_new_window), {
                     presenter.openNewWindow(bundle)
                     onPicked()
@@ -214,7 +261,7 @@ private fun LazyListScope.installedGrid(installed: List<InstalledApplication>, p
 private const val ICON_COLUMNS = 5
 
 /** What marks a tile: the source on screen, or while a mosaic is being picked, the sources picked so far. */
-private class Marking(private val chosen: CaptureSource?, private val picks: MosaicPicks?) {
+internal class Marking(private val chosen: CaptureSource?, private val picks: MosaicPicks?) {
     val picking: Boolean get() = picks != null
 
     fun place(source: CaptureSource?): Int? = source?.let { picks?.place(it) }

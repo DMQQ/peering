@@ -33,6 +33,8 @@ data class RemoteUiState(
     val hostClipboard: ClipboardContent?,
     /** Whether the computer declared that it takes pictures on its clipboard. */
     val clipboardImages: Boolean,
+    /** What the computer can do beyond showing its screen, which the Apps panel offers only when it can. */
+    val sourcesFeatures: SourcesFeatures = SourcesFeatures(),
     /** Whether the computer declared that it can compose a mosaic. A Windows host does not. */
     val supportsMosaic: Boolean = false,
     /** The mosaic on screen, or null while a single source is. */

@@ -7,7 +7,14 @@ import pl.dmq.peering.wire.CaptureSourceKind
 import pl.dmq.peering.session.video.MosaicArrangement
 import pl.dmq.peering.session.video.MosaicEdit
 import pl.dmq.peering.session.video.MosaicGrid
+import pl.dmq.peering.wire.AddVirtualDisplay
 import pl.dmq.peering.wire.LaunchApplication
+import pl.dmq.peering.wire.PerformWindowAction
+import pl.dmq.peering.wire.RefreshSpacePreviews
+import pl.dmq.peering.wire.RemoveVirtualDisplay
+import pl.dmq.peering.wire.RenameVirtualDisplay
+import pl.dmq.peering.wire.SwitchToSpace
+import pl.dmq.peering.wire.WindowAction
 import pl.dmq.peering.wire.MosaicLayout
 import pl.dmq.peering.wire.OpenNewWindow
 import pl.dmq.peering.wire.PixelSize
@@ -83,6 +90,52 @@ class SourcesPresenter(private val sink: CommandSink) {
         sink.send(LaunchApplication(application.bundleIdentifier))
     }
 
+    /** Moves [display] to its desktop [index]. The caller also makes that display the picture. */
+    fun switchToDesktop(display: Long, index: Int) {
+        sink.send(SwitchToSpace(display, index))
+    }
+
+    /** Asks for fresh pictures of the desktops, which change under the user while the panel is open. */
+    fun refreshDesktops() {
+        sink.send(RefreshSpacePreviews)
+    }
+
+    /** One fixed shape, a real phone panel in landscape: a virtual display is worked at like a monitor. */
+    fun addVirtualDisplay() {
+        sink.send(AddVirtualDisplay(name = "", width = VIRTUAL_DISPLAY_WIDTH, height = VIRTUAL_DISPLAY_HEIGHT, startLandscape = true))
+    }
+
+    fun removeVirtualDisplay(displayId: Long) {
+        sink.send(RemoveVirtualDisplay(displayId))
+    }
+
+    /** False when [name] is blank, which the computer would refuse. */
+    fun renameVirtualDisplay(displayId: Long, name: String): Boolean {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return false
+        sink.send(RenameVirtualDisplay(displayId, trimmed))
+        return true
+    }
+
+    /** What a long press on [descriptor] offers: a window's title bar buttons, or a managed virtual display's remove and rename. */
+    fun actionsFor(descriptor: CaptureSourceDescriptor, features: SourcesFeatures): List<TileAction> = when (descriptor.source) {
+        is CaptureSource.Window -> if (features.windowControls) listOf(TileAction.CLOSE, TileAction.MINIMISE, TileAction.ZOOM) else emptyList()
+        is CaptureSource.Display ->
+            if (descriptor.isManagedVirtualDisplay && features.virtualDisplays) listOf(TileAction.REMOVE, TileAction.RENAME) else emptyList()
+        else -> emptyList()
+    }
+
+    /** Sends [action] for [descriptor]. Rename needs a name, so it goes through [renameVirtualDisplay] instead. */
+    fun perform(descriptor: CaptureSourceDescriptor, action: TileAction) {
+        val source = descriptor.source
+        when {
+            source is CaptureSource.Window && action == TileAction.CLOSE -> sink.send(PerformWindowAction(source.id, WindowAction.CLOSE))
+            source is CaptureSource.Window && action == TileAction.MINIMISE -> sink.send(PerformWindowAction(source.id, WindowAction.MINIMIZE))
+            source is CaptureSource.Window && action == TileAction.ZOOM -> sink.send(PerformWindowAction(source.id, WindowAction.ZOOM))
+            source is CaptureSource.Display && action == TileAction.REMOVE -> removeVirtualDisplay(source.id)
+        }
+    }
+
     /** One descriptor as the tile the panel draws, marked when it is what the picture shows. */
     fun tile(descriptor: CaptureSourceDescriptor, chosen: CaptureSource?): SourceTile = tile(descriptor, descriptor.source == chosen)
 
@@ -106,3 +159,12 @@ class SourcesPresenter(private val sink: CommandSink) {
         tiles = descriptors.map { tile(it, chosen) },
     )
 }
+
+/** What the computer can do, as the panel offers it. A Windows host can do neither. */
+data class SourcesFeatures(val windowControls: Boolean = false, val virtualDisplays: Boolean = false, val desktops: Boolean = false)
+
+enum class TileAction { CLOSE, MINIMISE, ZOOM, REMOVE, RENAME }
+
+const val MAX_MANAGED_DISPLAYS = 3
+private const val VIRTUAL_DISPLAY_WIDTH = 1290
+private const val VIRTUAL_DISPLAY_HEIGHT = 2796

@@ -3,6 +3,7 @@ package pl.dmq.peering.ui.wiring
 import pl.dmq.peering.feature.remote.HubCapabilities
 import pl.dmq.peering.feature.remote.PictureState
 import pl.dmq.peering.feature.remote.RemoteUiState
+import pl.dmq.peering.feature.remote.SourcesFeatures
 import pl.dmq.peering.session.connection.HostCapability
 import pl.dmq.peering.session.controller.PictureState as SessionPictureState
 import pl.dmq.peering.session.controller.SessionPhase
@@ -36,6 +37,11 @@ internal fun remoteUiState(
         hostName = ready?.hostName,
         reconnecting = session.phase is SessionPhase.Reconnecting,
         hostClipboard = session.hostClipboard,
+        sourcesFeatures = SourcesFeatures(
+            windowControls = ready?.capabilities?.contains(HostCapability.MacControls) == true,
+            virtualDisplays = ready?.capabilities?.contains(HostCapability.VirtualDisplayManagement) == true,
+            desktops = ready?.capabilities?.contains(HostCapability.MacControls) == true,
+        ),
         supportsMosaic = ready?.capabilities?.contains(HostCapability.Mosaic) == true,
         mosaic = mosaic,
         rememberedMosaic = session.rememberedMosaic,
