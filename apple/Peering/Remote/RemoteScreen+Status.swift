@@ -41,6 +41,7 @@ extension RemoteScreen {
             statusPill(availableWidth: availableWidth)
             if !statusBarExpanded {
                 mosaicDot.layoutPriority(1)
+                closeMosaicDot.layoutPriority(1)
                 terminalDot.layoutPriority(1)
             }
         }
@@ -200,6 +201,7 @@ extension RemoteScreen {
                         .padding(.leading, 13)
                     }
 
+                    Spacer(minLength: 0)
                     Image(systemName: "chevron.down")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.tertiary)
@@ -207,7 +209,8 @@ extension RemoteScreen {
                 .padding(.leading, 16)
                 .padding(.trailing, 20)
                 .padding(.vertical, 8)
-                // A fixed height: a pill that resized itself as the source changed would move the picture under a finger aiming at it.
+                // A fixed size: a pill that resized itself to the window's title would move the picture under a finger aiming at it, and a short title made it a small button.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: 56)
                 .onTapGesture { expandStatusBar() }
                 .contentShape(pillShape)
@@ -333,6 +336,22 @@ extension RemoteScreen {
             ) {
                 // The picture is asked for at the end of the movement so the canvas arrives around a window already in place.
                 animateBackToMosaic()
+            }
+            .transition(.scale.combined(with: .opacity))
+        }
+    }
+
+    /// The way out of an arrangement in one tap: back to the Mac's first display, and the arrangement is forgotten so it does not return.
+    @ViewBuilder
+    var closeMosaicDot: some View {
+        if model.isShowingMosaic {
+            sessionDot(
+                symbol: "xmark.rectangle",
+                label: String(localized: "Close the mosaic", table: "Chrome")
+            ) {
+                guard let display = model.catalog?.displays.first ?? model.catalog?.all.first else { return }
+                if let hostID = model.activeSession?.hostID { MosaicArrangementStore.save([], hostID: hostID) }
+                withAnimation(Motion.settle) { model.selectSource(display) }
             }
             .transition(.scale.combined(with: .opacity))
         }
