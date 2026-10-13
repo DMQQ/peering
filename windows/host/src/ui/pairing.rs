@@ -3,7 +3,7 @@
 
 use eframe::egui;
 
-use super::model::{PairingPanel, UiModel};
+use super::model::{PairedListReset, PairingPanel, UiModel};
 use super::qr::modules_for;
 use crate::runtime::RuntimeCommand;
 use crate::strings;
@@ -11,13 +11,14 @@ use crate::strings;
 const QR_SIDE: f32 = 240.0;
 const QUIET_ZONE_MODULES: usize = 4;
 
-pub fn show(ui: &mut egui::Ui, model: &UiModel, now_unix: u64, commands: &mut Vec<RuntimeCommand>) {
+pub fn show(ui: &mut egui::Ui, model: &UiModel, now_unix: u64, reset_asked: &mut bool, commands: &mut Vec<RuntimeCommand>) {
     ui.heading(strings::PAIRING_TITLE);
     show_panel(ui, model);
     ui.separator();
     show_approvals(ui, model, commands);
     ui.separator();
     show_devices(ui, model, now_unix, commands);
+    show_reset(ui, model, reset_asked, commands);
 }
 
 fn show_panel(ui: &mut egui::Ui, model: &UiModel) {
@@ -63,6 +64,27 @@ fn show_devices(ui: &mut egui::Ui, model: &UiModel, now_unix: u64, commands: &mu
         ui.label(format!("{} · {}", device.name, device.last_seen));
         if ui.button(strings::FORGET).clicked() {
             commands.push(device.forget);
+        }
+    }
+}
+
+fn show_reset(ui: &mut egui::Ui, model: &UiModel, asked: &mut bool, commands: &mut Vec<RuntimeCommand>) {
+    match model.paired_list_reset(*asked) {
+        PairedListReset::Hidden => *asked = false,
+        PairedListReset::Offered => {
+            if ui.button(strings::RESET_PAIRED_DEVICES).clicked() {
+                *asked = true;
+            }
+        }
+        PairedListReset::Confirming => {
+            ui.label(strings::RESET_PAIRED_DEVICES_WARNING);
+            if ui.button(strings::RESET_CONFIRM).clicked() {
+                commands.push(RuntimeCommand::ResetPairedDevices);
+                *asked = false;
+            }
+            if ui.button(strings::RESET_CANCEL).clicked() {
+                *asked = false;
+            }
         }
     }
 }

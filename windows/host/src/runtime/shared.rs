@@ -28,6 +28,7 @@ use super::agent_browse::FolderBrowser;
 use super::notifications::WaitingNotifications;
 use super::outbound::{FrameSender, Outbound};
 use super::peer_address::PeerAddressRouter;
+use super::pins::SecretPins;
 use super::problem_source::ProblemSource;
 use super::services::{BoxedInput, BoxedSystem, SharedFileSystem};
 use super::video_handle::VideoHandle;
@@ -54,6 +55,8 @@ impl SessionSlot {
 
 pub struct HostState {
     pub pins: Arc<dyn PinStore>,
+    /// The same list as `pins`, for resetting it when it cannot be read.
+    pub paired_list: Arc<SecretPins>,
     pub pairing: PairingService,
     pub catalogue: CatalogueService,
     pub catalogues: SessionCatalogue<u64>,

@@ -34,7 +34,7 @@ use super::{HostProfile, RuntimeError};
 struct Opened {
     host_id: String,
     now: f64,
-    pins: Arc<dyn PinStore>,
+    secret_pins: Arc<SecretPins>,
     terminals: TerminalSessionManager,
     capture: SharedCapture,
     encoder: Box<dyn Encoder + Send>,
@@ -56,7 +56,7 @@ impl HostState {
         let opened = Opened {
             host_id: profile.host_id.clone(),
             now: profile.clock.now_seconds(),
-            pins: secret_pins,
+            secret_pins,
             terminals,
             capture: SharedCapture::new(capture),
             encoder,
@@ -75,10 +75,12 @@ impl HostState {
     }
 
     fn assemble(opened: Opened) -> Self {
-        let Opened { host_id, now, pins, terminals, capture, encoder, rebuild_video, input, system, files, home_directory, agent_binaries } = opened;
+        let Opened { host_id, now, secret_pins, terminals, capture, encoder, rebuild_video, input, system, files, home_directory, agent_binaries } = opened;
+        let pins: Arc<dyn PinStore> = secret_pins.clone();
         Self {
             pairing: PairingService::new(&host_id, pins.clone()),
             pins,
+            paired_list: secret_pins,
             catalogue: CatalogueService::new(),
             catalogues: SessionCatalogue::new(),
             video: VideoHandle::new(VideoCoordinator::new(capture.clone(), BoxedEncoder(encoder)), capture, rebuild_video),

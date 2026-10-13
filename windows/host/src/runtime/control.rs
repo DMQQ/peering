@@ -4,6 +4,7 @@
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
+use peering_core::paired_list::ResetOutcome;
 use peering_core::pairing::ApprovalDecision;
 use peering_core::ports::input::InputSink;
 use peering_core::session::slots::sessions_of_client;
@@ -12,6 +13,7 @@ use peering_wire::handshake::ErrorPayload;
 use peering_wire::pairing_payload;
 
 use super::lock::lock_ignoring_poison;
+use super::problem_source::ProblemSource;
 use super::shared::HostState;
 
 const PUBLISH_INTERVAL_SECONDS: f64 = 1.0;
@@ -66,6 +68,8 @@ pub struct HostSnapshot {
     /// What is wrong while the host keeps running (capture recovering, a paired list that could not be read, a clock
     /// that is off). Each is a sentence for the window.
     pub problems: Vec<String>,
+    /// The stored list of paired phones could not be read, so the window offers to start a new one.
+    pub paired_list_unreadable: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,6 +79,8 @@ pub enum RuntimeCommand {
     Decline(u64),
     Forget(String),
     SetFrameRate(u32),
+    /// Move the unreadable paired list aside and start an empty one.
+    ResetPairedDevices,
 }
 
 /// The UI's end of the channel. Clone it freely; it can be used from any thread.
@@ -143,6 +149,7 @@ impl HostState {
             frame_rate: self.video.frame_rate(),
             stopped: self.stopped.clone(),
             problems: self.problems.values().cloned().collect(),
+            paired_list_unreadable: self.problems.contains_key(&ProblemSource::PairedDevices),
         }
     }
 
@@ -158,6 +165,14 @@ impl HostState {
         self.refresh_bitrate_ceiling();
         self.input.release_all();
         self.terminals.disconnect(client_id);
+    }
+
+    /// Starts a new paired list after the old one could not be read. The problem stays, with the reason, when it did not work.
+    fn reset_paired_list(&mut self) {
+        match self.paired_list.reset_unreadable() {
+            ResetOutcome::Done | ResetOutcome::NothingStored => self.clear_problem(ProblemSource::PairedDevices),
+            failed => self.set_problem(ProblemSource::PairedDevices, crate::strings::paired_list_reset_failed(failed)),
+        }
     }
 
     /// Stops the sessions when hosting is switched off. Each is told first, so the client does not reconnect; the frame
@@ -197,6 +212,7 @@ impl HostState {
                     self.end_client_sessions(&client_id);
                 }
                 RuntimeCommand::SetFrameRate(fps) => self.video.request(VideoIntent::SetFrameRate(fps)),
+                RuntimeCommand::ResetPairedDevices => self.reset_paired_list(),
             }
         }
         decisions

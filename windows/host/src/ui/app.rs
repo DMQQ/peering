@@ -34,7 +34,7 @@ pub fn run(handle: HostHandle) -> Result<(), eframe::Error> {
             // `reg` can take seconds, so the box starts unticked and a worker reads the Run entry.
             let jobs = Jobs::default();
             let _unread = jobs.spawn("read-autostart", || SettingsJob::AutostartRead(autostart::is_enabled()));
-            Ok(Box::new(HostApp { handle, tray, window_open: false, settings: SettingsState::new(false), jobs }))
+            Ok(Box::new(HostApp { handle, tray, window_open: false, reset_asked: false, settings: SettingsState::new(false), jobs }))
         }),
     )
 }
@@ -43,6 +43,8 @@ struct HostApp {
     handle: HostHandle,
     tray: Tray,
     window_open: bool,
+    /// The person pressed Reset paired devices and is looking at the warning.
+    reset_asked: bool,
     settings: SettingsState,
     jobs: Jobs<SettingsJob>,
 }
@@ -106,7 +108,7 @@ impl HostApp {
             for problem in model.problems() {
                 ui.colored_label(egui::Color32::from_rgb(200, 60, 40), problem);
             }
-            pairing::show(ui, &model, now_unix, &mut commands);
+            pairing::show(ui, &model, now_unix, &mut self.reset_asked, &mut commands);
             ui.separator();
             settings_view::show(ui, &panel, &mut choices);
         });

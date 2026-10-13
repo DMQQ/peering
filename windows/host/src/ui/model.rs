@@ -95,6 +95,15 @@ pub struct DeviceRow {
     pub forget: RuntimeCommand,
 }
 
+/// Whether the window offers to start a new paired list, and whether it is asking for the go-ahead first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PairedListReset {
+    /// The stored list reads fine, so there is nothing to offer.
+    Hidden,
+    Offered,
+    Confirming,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiModel {
     snapshot: HostSnapshot,
@@ -143,6 +152,16 @@ impl UiModel {
                 forget: RuntimeCommand::Forget(device.id.clone()),
             })
             .collect()
+    }
+
+    /// The reset of the paired list: offered only while the stored list cannot be read. `asked` is whether the person has
+    /// already pressed the button and is looking at the warning.
+    pub fn paired_list_reset(&self, asked: bool) -> PairedListReset {
+        match (self.snapshot.paired_list_unreadable, asked) {
+            (false, _) => PairedListReset::Hidden,
+            (true, false) => PairedListReset::Offered,
+            (true, true) => PairedListReset::Confirming,
+        }
     }
 
     /// What is wrong while the host keeps running, one sentence each, for the top of the window.

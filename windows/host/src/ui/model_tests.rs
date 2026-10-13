@@ -172,6 +172,20 @@ mod pairing {
     }
 
     #[test]
+    fn the_reset_is_hidden_while_the_paired_list_reads_fine() {
+        let model = UiModel::new(snapshot(true, None));
+        assert_eq!(model.paired_list_reset(false), PairedListReset::Hidden);
+        assert_eq!(model.paired_list_reset(true), PairedListReset::Hidden);
+    }
+
+    #[test]
+    fn the_reset_is_offered_when_the_list_is_unreadable_and_asks_before_it_goes_ahead() {
+        let model = UiModel::new(HostSnapshot { paired_list_unreadable: true, ..snapshot(true, None) });
+        assert_eq!(model.paired_list_reset(false), PairedListReset::Offered);
+        assert_eq!(model.paired_list_reset(true), PairedListReset::Confirming);
+    }
+
+    #[test]
     fn last_seen_reads_in_seconds_minutes_hours_and_days() {
         assert_eq!(strings::last_seen(5), "Seen just now");
         assert_eq!(strings::last_seen(120), "Seen 2 min ago");

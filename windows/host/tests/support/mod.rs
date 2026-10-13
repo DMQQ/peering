@@ -148,7 +148,7 @@ pub fn harness() -> Harness {
 /// A host whose workstation is `system`, for tests of the lock request and of the hello that advertises it.
 pub fn harness_with_system(system: RecordingSystem) -> Harness {
     let encoder = Arc::new(Mutex::new(FakeEncoder::default()));
-    harness_with(vec![display()], system, Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: true }))
+    harness_with(vec![display()], system, Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: true }), Arc::new(InMemorySecretStore::default()))
 }
 
 /// The answer to "is the agent CLI installed", fixed by the test.
@@ -165,12 +165,20 @@ impl BinaryLocator for AgentCli {
 /// A host on a PC without the agent CLI.
 pub fn harness_without_agent_cli() -> Harness {
     let encoder = Arc::new(Mutex::new(FakeEncoder::default()));
-    harness_with(vec![display()], RecordingSystem::new(true, None), Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: false }))
+    harness_with(vec![display()], RecordingSystem::new(true, None), Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: false }), Arc::new(InMemorySecretStore::default()))
 }
 
 /// A host whose encoder is `encoder`. `unused` stands in for the inspectable encoder the other tests read.
 pub fn harness_with_encoder(encoder: Box<dyn Encoder + Send>) -> Harness {
-    harness_with(vec![display()], RecordingSystem::new(true, None), encoder, Arc::new(Mutex::new(FakeEncoder::default())), Box::new(AgentCli { installed: true }))
+    harness_with(vec![display()], RecordingSystem::new(true, None), encoder, Arc::new(Mutex::new(FakeEncoder::default())), Box::new(AgentCli { installed: true }), Arc::new(InMemorySecretStore::default()))
+}
+
+/// A host whose secret store already holds `value` under `name`, as left by an earlier run.
+pub fn harness_with_stored_secret(name: &str, value: &[u8]) -> Harness {
+    let secrets = Arc::new(InMemorySecretStore::default());
+    assert!(peering_core::ports::secret_store::SecretStore::write(secrets.as_ref(), name, value));
+    let encoder = Arc::new(Mutex::new(FakeEncoder::default()));
+    harness_with(vec![display()], RecordingSystem::new(true, None), Box::new(SharedEncoder(encoder.clone())), encoder, Box::new(AgentCli { installed: true }), secrets)
 }
 
 /// A second, non-primary display, for tests of switching the captured screen.
@@ -186,6 +194,7 @@ pub fn harness_with_two_displays(encoder: Box<dyn Encoder + Send>) -> Harness {
         encoder,
         Arc::new(Mutex::new(FakeEncoder::default())),
         Box::new(AgentCli { installed: true }),
+        Arc::new(InMemorySecretStore::default()),
     )
 }
 
@@ -195,11 +204,11 @@ fn harness_with(
     encoder_port: Box<dyn Encoder + Send>,
     encoder: Arc<Mutex<FakeEncoder>>,
     agent_binaries: Box<dyn BinaryLocator>,
+    secrets: Arc<InMemorySecretStore>,
 ) -> Harness {
     let capture = Arc::new(Mutex::new(FakeCapture::new(displays)));
     let system = Arc::new(Mutex::new(system));
     let input = Arc::new(Mutex::new(RecordingInput::default()));
-    let secrets = Arc::new(InMemorySecretStore::default());
     let mut files = InMemoryFileSystem::default();
     files.add_folder("C:\\Users\\me", 0.0);
     files.add_file("C:\\Users\\me\\notes.txt", b"hello", 0.0);

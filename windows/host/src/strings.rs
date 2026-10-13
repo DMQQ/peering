@@ -98,6 +98,23 @@ pub fn relay_task_stopped(reason: &str) -> String {
     format!("The relay connection stopped ({reason}). Phones away from this network cannot connect until Peering Host is restarted.")
 }
 
+pub const RESET_PAIRED_DEVICES: &str = "Reset paired devices";
+pub const RESET_PAIRED_DEVICES_WARNING: &str = "This starts an empty list. Every phone has to be paired again. The unreadable list is kept aside as pairedDevices-bad.";
+pub const RESET_CONFIRM: &str = "Reset";
+pub const RESET_CANCEL: &str = "Cancel";
+
+pub fn paired_list_reset_failed(outcome: peering_core::paired_list::ResetOutcome) -> String {
+    use peering_core::paired_list::ResetOutcome;
+    let reason = match outcome {
+        ResetOutcome::BackupFailed => "a copy of the unreadable list could not be kept, so nothing was changed",
+        ResetOutcome::ReplaceFailed => "the new list could not be written, so the old one is still in place",
+        ResetOutcome::ReadFailed => "the stored list could not be read at all",
+        ResetOutcome::NotNeeded => "the stored list reads fine now, so restart Peering Host to load it",
+        ResetOutcome::Done | ResetOutcome::NothingStored => "nothing needed resetting",
+    };
+    format!("The list of paired phones was not reset: {reason}. Pairing and forgetting stay paused.")
+}
+
 pub fn paired_list_unreadable(copy_kept: bool) -> String {
     let kept = if copy_kept {
         "A copy was kept as pairedDevices-bad."
@@ -105,6 +122,6 @@ pub fn paired_list_unreadable(copy_kept: bool) -> String {
         "A copy could not be kept."
     };
     format!(
-        "The list of paired phones could not be read, so pairing and forgetting are paused to protect it. {kept} Remove the pairedDevices file from the Peering Host folder in %LOCALAPPDATA% to start over, then restart Peering Host."
+        "The list of paired phones could not be read, so pairing and forgetting are paused to protect it. {kept} Use Reset paired devices in the window to start over."
     )
 }

@@ -8,6 +8,7 @@ pub mod catalogue;
 pub mod files;
 pub mod notice;
 pub mod outbound;
+pub mod paired_list;
 pub mod pairing;
 pub mod push_tokens;
 pub mod relay;

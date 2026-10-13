@@ -5,6 +5,7 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use peering_core::paired_list::{reset_unreadable, ResetOutcome};
 use peering_core::ports::secret_store::{SecretStore, StoreError};
 use peering_core::session::deps::{PairedDevice, PinStore};
 use serde::{Deserialize, Serialize};
@@ -26,7 +27,7 @@ struct StoredDevice {
 pub struct SecretPins {
     secrets: Arc<dyn SecretStore + Send + Sync>,
     devices: Mutex<Vec<PairedDevice>>,
-    unreadable: Option<Unreadable>,
+    unreadable: Mutex<Option<Unreadable>>,
 }
 
 /// What happened to a stored list that did not decode.
@@ -45,12 +46,28 @@ impl SecretPins {
                 None => (Vec::new(), Some(Unreadable { copy_kept: secrets.write(KEPT_COPY_NAME, &bytes) })),
             },
         };
-        Ok(Self { secrets, devices: Mutex::new(devices), unreadable })
+        Ok(Self { secrets, devices: Mutex::new(devices), unreadable: Mutex::new(unreadable) })
     }
 
     /// The sentence for the window when the stored list could not be read, else `None`.
     pub fn load_problem(&self) -> Option<String> {
-        self.unreadable.map(|unreadable| crate::strings::paired_list_unreadable(unreadable.copy_kept))
+        self.unreadable().map(|unreadable| crate::strings::paired_list_unreadable(unreadable.copy_kept))
+    }
+
+    fn unreadable(&self) -> Option<Unreadable> {
+        *lock_ignoring_poison(&self.unreadable)
+    }
+
+    /// Moves the list that could not be read to the kept copy and starts a fresh empty one. Changes are accepted again
+    /// only when that worked. A list that reads fine now is not touched and stays refused: the devices in memory are the
+    /// empty ones from the failed read, and accepting a change would save over the readable list.
+    pub fn reset_unreadable(&self) -> ResetOutcome {
+        let mut unreadable = lock_ignoring_poison(&self.unreadable);
+        let outcome = reset_unreadable(self.secrets.as_ref(), STORAGE_NAME, KEPT_COPY_NAME, |bytes| decode(bytes).is_some());
+        if matches!(outcome, ResetOutcome::Done | ResetOutcome::NothingStored) {
+            *unreadable = None;
+        }
+        outcome
     }
 
     fn locked(&self) -> MutexGuard<'_, Vec<PairedDevice>> {
@@ -98,7 +115,7 @@ impl PinStore for SecretPins {
     }
 
     fn record(&self, device: &PairedDevice) -> bool {
-        if self.unreadable.is_some() {
+        if self.unreadable().is_some() {
             return false;
         }
         let mut devices = self.locked();
@@ -115,7 +132,7 @@ impl PinStore for SecretPins {
     }
 
     fn mark_seen(&self, client_id: &str, unix_seconds: u64) {
-        if self.unreadable.is_some() {
+        if self.unreadable().is_some() {
             return;
         }
         let mut devices = self.locked();
@@ -133,7 +150,7 @@ impl PinStore for SecretPins {
     }
 
     fn revoke(&self, client_id: &str) -> bool {
-        if self.unreadable.is_some() {
+        if self.unreadable().is_some() {
             return false;
         }
         let mut devices = self.locked();
@@ -232,6 +249,55 @@ mod tests {
         let store = Arc::new(InMemorySecretStore::default());
         store.set_fail_reads(true);
         assert!(SecretPins::open(store.clone()).is_err());
+    }
+
+    #[test]
+    fn resetting_an_unreadable_list_keeps_the_bytes_aside_and_accepts_pairings_again() {
+        let store = Arc::new(InMemorySecretStore::default());
+        put(&store, b"garbage");
+        let pins = open(&store);
+        assert!(pins.load_problem().is_some());
+
+        assert_eq!(pins.reset_unreadable(), ResetOutcome::Done);
+
+        assert!(pins.load_problem().is_none());
+        assert_eq!(store.read(KEPT_COPY_NAME).expect("reads"), Some(b"garbage".to_vec()));
+        assert!(pins.record(&device("new")));
+        assert_eq!(open(&store).devices().len(), 1);
+    }
+
+    #[test]
+    fn a_reset_that_could_not_keep_a_copy_leaves_the_list_refusing_changes() {
+        let store = Arc::new(InMemorySecretStore::default());
+        put(&store, b"garbage");
+        let pins = open(&store);
+        store.set_fail_writes(true);
+
+        assert_eq!(pins.reset_unreadable(), ResetOutcome::BackupFailed);
+
+        store.set_fail_writes(false);
+        assert!(!pins.record(&device("new")));
+        assert_eq!(store.read(STORAGE_NAME).expect("reads"), Some(b"garbage".to_vec()));
+    }
+
+    #[test]
+    fn a_reset_asked_of_a_readable_list_changes_nothing() {
+        let store = Arc::new(InMemorySecretStore::default());
+        let pins = open(&store);
+        assert!(pins.record(&device("a")));
+        assert_eq!(pins.reset_unreadable(), ResetOutcome::NotNeeded);
+        assert_eq!(pins.devices().len(), 1);
+    }
+
+    #[test]
+    fn a_list_that_became_readable_after_the_failed_read_stays_refused_until_a_restart() {
+        let store = Arc::new(InMemorySecretStore::default());
+        put(&store, b"garbage");
+        let pins = open(&store);
+        put(&store, b"[]");
+        assert_eq!(pins.reset_unreadable(), ResetOutcome::NotNeeded);
+        assert!(pins.load_problem().is_some());
+        assert!(!pins.record(&device("new")));
     }
 
     #[test]
