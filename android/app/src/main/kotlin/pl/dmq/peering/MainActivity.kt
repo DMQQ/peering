@@ -9,7 +9,6 @@ import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +42,14 @@ import pl.dmq.peering.widget.WidgetLinkGate
 
 /** A FragmentActivity because the system's unlock prompt is hosted by one. */
 class MainActivity : FragmentActivity() {
+    internal val permissionRequests = PermissionRequests()
+
+    @Deprecated("Forwards the answer to PermissionRequests")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        permissionRequests.onResult(requestCode, grantResults)
+    }
+
     private lateinit var appLock: AppLock
     private var locked by mutableStateOf(false)
     private var connectRequests by mutableIntStateOf(0)
@@ -113,8 +120,9 @@ class MainActivity : FragmentActivity() {
     /** The system dialog is launched from here because only an activity can; the app asks through the permission object. */
     private fun followNotificationPermission() {
         val permission = notificationPermission ?: return
-        val launcher = registerForActivityResult(ActivityResultContracts.RequestPermission(), permission::onSystemDialogAnswered)
-        permission.launchSystemDialog = { launcher.launch(Manifest.permission.POST_NOTIFICATIONS) }
+        permission.launchSystemDialog = {
+            permissionRequests.request(this, Manifest.permission.POST_NOTIFICATIONS, permission::onSystemDialogAnswered)
+        }
     }
 
     private fun announceUnreadablePairings() {

@@ -9,8 +9,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import pl.dmq.peering.MainActivity
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -46,10 +45,13 @@ fun QrScannerRoute(
     var rationale by rememberSaveable { mutableStateOf(false) }
     var unavailable by remember { mutableStateOf(!context.hasCameraHardware()) }
     var notice by remember { mutableStateOf<ScanOutcome?>(null) }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { result ->
-        requested = true
-        granted = result
-        rationale = context.findActivity()?.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) == true
+    val requestCamera = {
+        val host = context.findActivity() as? MainActivity
+        host?.permissionRequests?.request(host, Manifest.permission.CAMERA) { result ->
+            requested = true
+            granted = result
+            rationale = host.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
+        }
     }
     LifecycleResumeEffect(Unit) {
         granted = context.hasCameraPermission()
@@ -58,7 +60,7 @@ fun QrScannerRoute(
     BackHandler(onBack = onClose)
     val permission = CameraPermissionState.of(granted, requested, rationale)
     LaunchedEffect(permission) {
-        if (permission == CameraPermissionState.Unasked) launcher.launch(Manifest.permission.CAMERA)
+        if (permission == CameraPermissionState.Unasked) requestCamera()
     }
 
     Box(modifier = modifier.fillMaxSize().background(PeeringColors.backdrop)) {
@@ -80,7 +82,7 @@ fun QrScannerRoute(
             permission == CameraPermissionState.Rationale -> ScanMessage(
                 icon = AppIcons.camera,
                 text = stringResource(R.string.scan_rationale),
-                action = ScanAction(stringResource(R.string.scan_allow)) { launcher.launch(Manifest.permission.CAMERA) },
+                action = ScanAction(stringResource(R.string.scan_allow)) { requestCamera() },
             )
             permission == CameraPermissionState.PermanentlyDenied -> ScanMessage(
                 icon = AppIcons.camera,
