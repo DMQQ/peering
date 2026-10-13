@@ -8,6 +8,12 @@ async fn ask(phone: &mut Phone, request: &AgentRequest) {
     phone.send_json(MessageKind::AgentRequest, request).await;
 }
 
+/// An absolute folder where the host runs: the host refuses a path that is not absolute there.
+#[cfg(windows)]
+const HOME_FOLDER: &str = "C:\\Users";
+#[cfg(not(windows))]
+const HOME_FOLDER: &str = "/C:/Users";
+
 async fn next_event(phone: &mut Phone) -> AgentEvent {
     decode_json(&phone.next_of(MessageKind::AgentEvent).await)
 }
@@ -17,7 +23,7 @@ fn a_chat_survives_its_phone_reconnecting() {
     run(async {
         let harness = harness();
         let mut first = paired_phone(&harness.runtime).await;
-        ask(&mut first, &AgentRequest::Start { agent_id: "claude".to_owned(), directory: Some("/C:/Users".to_owned()) }).await;
+        ask(&mut first, &AgentRequest::Start { agent_id: "claude".to_owned(), directory: Some(HOME_FOLDER.to_owned()) }).await;
         let AgentEvent::Created { session } = next_event(&mut first).await else { panic!("a created chat") };
         drop(first);
 

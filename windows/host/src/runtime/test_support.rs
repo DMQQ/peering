@@ -6,11 +6,14 @@ use super::services::platform_services;
 use super::shared::SessionSlot;
 use super::outbound::outbound;
 use super::{HostProfile, HostRuntime, SystemClock};
+use peering_core::fakes::secret_store::InMemorySecretStore;
 use peering_core::video::lane::VideoLane;
 use peering_wire::handshake::ClientCapabilities;
 
 pub(super) fn runtime() -> HostRuntime {
-    let services = platform_services(String::new()).expect("the stand-in adapters build");
+    let mut services = platform_services(String::new()).expect("the stand-in adapters build");
+    // On Windows the adapters are the real ones, whose secret store is a file every test shares: a token one test registers would be found by the next.
+    services.secrets = Arc::new(InMemorySecretStore::default());
     let profile = HostProfile {
         host_id: "host".to_owned(),
         host_name: "PC".to_owned(),
