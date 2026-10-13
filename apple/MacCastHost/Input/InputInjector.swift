@@ -233,7 +233,21 @@ final class InputInjector: @unchecked Sendable {
     private func scheduleSettleReport() {
         let item = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            let (report, location) = lock.withLock { (onJoystickSettled, cursor) }
+            // The post rate cap holds back a nudge that arrives soon after another, and nothing follows the last one to carry it: without this the pointer stops short of where the phone drew it.
+            let (tail, report, location) = lock.withLock { () -> (CGPoint?, (@Sendable (CGPoint) -> Void)?, CGPoint) in
+                var tail: CGPoint?
+                if pendingJoystickDx != 0 || pendingJoystickDy != 0 {
+                    let target = clamped(CGPoint(x: cursor.x + pendingJoystickDx, y: cursor.y + pendingJoystickDy), to: _transform)
+                    pendingJoystickDx = 0
+                    pendingJoystickDy = 0
+                    cursor = target
+                    tail = target
+                }
+                return (tail, onJoystickSettled, cursor)
+            }
+            if let tail { postMouse(.mouseMoved, at: tail, button: .left) }
+            let real = CGEvent(source: nil)?.location ?? location
+            inputLog.notice("joystick settled · tail \(tail != nil, privacy: .public) · pointer off by \(Int(hypot(real.x - location.x, real.y - location.y))) pt")
             report?(location)
         }
         let previous = lock.withLock { () -> DispatchWorkItem? in
