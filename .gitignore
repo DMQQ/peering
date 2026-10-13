@@ -84,3 +84,7 @@ wiki/
 /marketing/social/reel/
 /relay/site/updates/*.delta
 /relay/site/updates/old_updates/
+
+# Local signing secrets, never committed
+.private/
+AuthKey_*.p8
