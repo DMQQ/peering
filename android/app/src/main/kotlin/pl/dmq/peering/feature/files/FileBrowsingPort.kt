@@ -50,4 +50,19 @@ interface FileBrowsingPort {
     fun upload(sources: List<String>)
 
     fun cancelUpload()
+
+    /** The shell a file can be sent to, or null where the computer has none to offer. */
+    val shell: ShellActions? get() = null
+}
+
+/** What the file list can do with the computer's shells: put a path on the command line of the one in use, or run a file in a new one. */
+interface ShellActions {
+    /** True while the shell in use is running, so there is a command line to type on. */
+    val ready: StateFlow<Boolean>
+
+    /** Types [path] quoted for the shell, without Return, so the person finishes the line. */
+    fun putPath(path: String)
+
+    /** Runs the file at [path] in a new shell. */
+    fun run(path: String)
 }

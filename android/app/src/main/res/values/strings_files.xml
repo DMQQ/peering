@@ -55,4 +55,10 @@
     <string name="preview_empty">This file is empty.</string>
     <string name="preview_picture_too_large">This picture is %1$s, more than a preview can carry. You can download it instead.</string>
     <string name="preview_share_title">Share %1$s</string>
+    <string name="files_put_path">Put path in terminal</string>
+    <string name="files_run">Run in a new terminal</string>
+    <string name="files_run_title">Run this file?</string>
+    <string name="files_run_message">%1$s will run with your permissions on your computer.</string>
+    <string name="preview_pdf_unreadable">This PDF could not be opened. It may need a password.</string>
+    <string name="preview_pdf_page">Page %1$d</string>
 </resources>

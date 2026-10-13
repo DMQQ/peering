@@ -51,25 +51,26 @@ private fun PreviewBody(ui: FilePreviewUi, modifier: Modifier) {
         is PreviewContent.Text -> TextPreviewView(content, ui.wraps, modifier)
         is PreviewContent.Markdown -> MarkdownPreviewView(content, modifier)
         is PreviewContent.Image -> PictureContent(content.bytes, modifier)
-        PreviewContent.Empty -> Notice(stringResource(R.string.preview_empty), PeeringColors.muted, modifier)
-        is PreviewContent.TooLarge -> Notice(
+        is PreviewContent.Pdf -> PdfPreviewView(content.bytes, modifier)
+        PreviewContent.Empty -> PreviewNotice(stringResource(R.string.preview_empty), PeeringColors.muted, modifier)
+        is PreviewContent.TooLarge -> PreviewNotice(
             stringResource(R.string.preview_picture_too_large, fileSizeLabel(content.totalBytes)),
             PeeringColors.muted,
             modifier,
         )
-        is PreviewContent.Unsupported -> Notice(
+        is PreviewContent.Unsupported -> PreviewNotice(
             stringResource(
                 if (content.kind == RemoteFileKind.TEXT) R.string.preview_unsupported_text else R.string.preview_unsupported_kind,
             ),
             PeeringColors.muted,
             modifier,
         )
-        is PreviewContent.Failed -> Notice(content.message, PeeringColors.danger, modifier)
+        is PreviewContent.Failed -> PreviewNotice(content.message, PeeringColors.danger, modifier)
     }
 }
 
 @Composable
-private fun Notice(text: String, tint: Color, modifier: Modifier) {
+internal fun PreviewNotice(text: String, tint: Color, modifier: Modifier) {
     Box(modifier = modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Text(text, style = MaterialTheme.typography.bodyMedium, color = tint, textAlign = TextAlign.Center)
     }
@@ -84,7 +85,7 @@ private fun PictureContent(bytes: ByteArray, modifier: Modifier) {
     }
     val bitmap = (decoded ?: return).bitmap
     if (bitmap == null) {
-        Notice(stringResource(R.string.preview_unsupported_kind), PeeringColors.muted, modifier)
+        PreviewNotice(stringResource(R.string.preview_unsupported_kind), PeeringColors.muted, modifier)
     } else {
         Image(
             bitmap = bitmap,

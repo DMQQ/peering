@@ -11,6 +11,7 @@ class FakeFileBrowsingPort(initial: FileBrowserState = FileBrowserState()) : Fil
     val calls = mutableListOf<String>()
 
     val failed = MutableStateFlow(false)
+    override var shell: ShellActions? = null
     val connected = MutableStateFlow(true)
 
     override val state: StateFlow<FileBrowserState> get() = browser

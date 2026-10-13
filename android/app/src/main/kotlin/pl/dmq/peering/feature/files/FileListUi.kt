@@ -47,6 +47,9 @@ sealed interface FileDialog {
         val kind: RemoteEntryKind get() = if (purpose == Purpose.NEW_FILE) RemoteEntryKind.FILE else RemoteEntryKind.FOLDER
     }
 
+    /** The one guard between a tap and a program running on the computer, so it is asked every time. */
+    data class ConfirmRun(val entry: RemoteDirectoryEntry) : FileDialog
+
     data class ConfirmDelete(val entries: List<RemoteDirectoryEntry>) : FileDialog {
         val includesFolder: Boolean get() = entries.any { it.isDirectory }
     }
@@ -73,6 +76,8 @@ data class FileListUi(
     val isOffline: Boolean,
     val upload: FileUpload,
     val download: DownloadStatus,
+    /** True while there is a running shell to put a path on or to run a file beside. */
+    val canUseShell: Boolean = false,
 ) {
     val isSelecting: Boolean get() = selectedCount > 0
 

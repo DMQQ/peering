@@ -28,6 +28,7 @@ fun FileDialogHost(dialog: FileDialog?, presenter: FileListPresenter) {
         null -> Unit
         is FileDialog.Name -> NameDialog(dialog, presenter)
         is FileDialog.ConfirmDelete -> DeleteDialog(dialog, presenter)
+        is FileDialog.ConfirmRun -> RunDialog(dialog, presenter)
     }
 }
 
@@ -92,5 +93,17 @@ private fun DeleteDialog(dialog: FileDialog.ConfirmDelete, presenter: FileListPr
         cancel = stringResource(R.string.files_cancel),
         onCancel = presenter::dismissDialog,
         destructive = true,
+    )
+}
+
+@Composable
+private fun RunDialog(dialog: FileDialog.ConfirmRun, presenter: FileListPresenter) {
+    PeeringAlert(
+        title = stringResource(R.string.files_run_title),
+        message = stringResource(R.string.files_run_message, dialog.entry.name),
+        confirm = stringResource(R.string.files_run),
+        onConfirm = presenter::confirmRun,
+        cancel = stringResource(R.string.files_cancel),
+        onCancel = presenter::dismissDialog,
     )
 }

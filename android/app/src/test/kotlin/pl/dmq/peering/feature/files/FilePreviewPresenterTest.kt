@@ -72,9 +72,9 @@ class FilePreviewPresenterTest {
     }
 
     @Test
-    fun pdfsAndVideosAreUnsupportedWithTheirKindKept() = runTest {
-        val pdf = preview(RemoteFileKind.PDF, total = 1, complete = true)
-        assertEquals(PreviewContent.Unsupported(RemoteFileKind.PDF), presenter(port(pdf)).ui.value!!.content)
+    fun videosAndSvgsAreUnsupportedWithTheirKindKept() = runTest {
+        val video = preview(RemoteFileKind.VIDEO, total = 1, complete = true)
+        assertEquals(PreviewContent.Unsupported(RemoteFileKind.VIDEO), presenter(port(video)).ui.value!!.content)
         val svg = preview(RemoteFileKind.SVG, total = 1, complete = true)
         assertEquals(PreviewContent.Unsupported(RemoteFileKind.SVG), presenter(port(svg)).ui.value!!.content)
     }
@@ -149,5 +149,22 @@ class FilePreviewPresenterTest {
         presenter.cancelDownload()
         presenter.close()
         assertEquals(listOf("cancelDownload", "closePreview"), p.calls)
+    }
+
+    @Test
+    fun aPdfSentWholeIsDrawnAndOneCutAtTheLimitSaysItIsTooLarge() = runTest {
+        val whole = preview(RemoteFileKind.PDF, "%PDF".toByteArray(), total = 4, complete = true)
+        val content = presenter(port(whole)).ui.value!!.content as PreviewContent.Pdf
+        assertEquals("%PDF", String(content.bytes))
+
+        val cut = FilePreview("/a/f", RemoteFileKind.PDF, "%PDF".toByteArray(), 90_000_000, isComplete = true)
+        assertEquals(PreviewContent.TooLarge(90_000_000), presenter(port(cut)).ui.value!!.content)
+    }
+
+    @Test
+    fun aPdfPageIsDrawnAtItsOwnShapeAndHeldToAHeightABitmapCanHave() {
+        assertEquals(1_100, PdfPageSize.heightFor(widthPx = 850, pageWidth = 612, pageHeight = 792))
+        assertEquals(8_192, PdfPageSize.heightFor(widthPx = 1_000, pageWidth = 100, pageHeight = 100_000))
+        assertEquals(500, PdfPageSize.heightFor(widthPx = 500, pageWidth = 0, pageHeight = 0))
     }
 }

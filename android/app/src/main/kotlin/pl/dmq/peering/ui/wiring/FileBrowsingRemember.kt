@@ -19,6 +19,6 @@ internal fun rememberFileBrowsing(active: ActiveSession, browser: FileBrowser): 
     return remember(browser) {
         val online = active.controller.state.map { it.phase is SessionPhase.Ready }
             .stateIn(scope, SharingStarted.Eagerly, active.controller.state.value.phase is SessionPhase.Ready)
-        SessionFileBrowsing(browser, active.downloads, resolver, online, scope)
+        SessionFileBrowsing(browser, active.downloads, resolver, online, scope, active.controller.terminals)
     }
 }

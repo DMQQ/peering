@@ -6,13 +6,19 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pl.dmq.peering.feature.files.FileBrowsingPort
 import pl.dmq.peering.feature.files.InputChunks
+import pl.dmq.peering.feature.files.ShellActions
 import pl.dmq.peering.session.files.FileBrowser
 import pl.dmq.peering.session.files.FileBrowserState
 import pl.dmq.peering.session.files.FileUpload
+import pl.dmq.peering.session.files.ShellPath
+import pl.dmq.peering.session.terminal.TerminalSessions
 import pl.dmq.peering.session.files.TransferLimits
 import pl.dmq.peering.wire.RemoteDirectoryEntry
 import pl.dmq.peering.wire.RemoteEntryKind
@@ -28,8 +34,23 @@ internal class SessionFileBrowsing(
     private val resolver: ContentResolver,
     override val online: StateFlow<Boolean>,
     private val scope: CoroutineScope,
+    private val terminals: TerminalSessions? = null,
 ) : FileBrowsingPort {
     private var uploading: Job? = null
+
+    override val shell: ShellActions? = terminals?.let { sessions ->
+        object : ShellActions {
+            override val ready: StateFlow<Boolean> = sessions.state
+                .map { state -> state.tabs.firstOrNull { it.id == state.selectedID }?.isRunning == true }
+                .stateIn(scope, SharingStarted.Eagerly, false)
+
+            override fun putPath(path: String) {
+                sessions.state.value.selectedID?.let { sessions.input(it, ShellPath.quoted(path)) }
+            }
+
+            override fun run(path: String) = sessions.runInNewTerminal(ShellPath.runCommand(path))
+        }
+    }
 
     override val state: StateFlow<FileBrowserState> get() = browser.state
 

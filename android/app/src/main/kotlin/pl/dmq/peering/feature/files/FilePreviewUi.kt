@@ -34,6 +34,9 @@ sealed interface PreviewContent {
     /** The bytes of a picture, decoded by the screen; the presenter does not decode them. */
     class Image(val bytes: ByteArray) : PreviewContent
 
+    /** A PDF the computer sent whole, drawn by the system's renderer. */
+    class Pdf(val bytes: ByteArray) : PreviewContent
+
     data object Empty : PreviewContent
 
     /** A picture or document cut at the cap, which cannot be drawn in part. */

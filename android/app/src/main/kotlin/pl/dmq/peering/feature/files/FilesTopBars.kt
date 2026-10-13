@@ -2,6 +2,7 @@ package pl.dmq.peering.feature.files
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DriveFileRenameOutline
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -15,6 +16,7 @@ import androidx.compose.ui.res.stringResource
 import pl.dmq.peering.R
 import pl.dmq.peering.session.files.FilePath
 import pl.dmq.peering.ui.kit.AppIcons
+import pl.dmq.peering.ui.kit.SessionIcons
 import pl.dmq.peering.ui.theme.PeeringColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,6 +59,16 @@ fun SelectionTopBar(ui: FileListUi, presenter: FileListPresenter) {
             if (ui.selectedCount == 1) {
                 IconButton(onClick = presenter::downloadSelected) {
                     Icon(AppIcons.download, contentDescription = stringResource(R.string.files_download))
+                }
+                if (ui.canUseShell) {
+                    IconButton(onClick = presenter::putSelectedPathInShell) {
+                        Icon(SessionIcons.enter, contentDescription = stringResource(R.string.files_put_path))
+                    }
+                    if (presenter.selectedEntries().singleOrNull()?.isExecutable == true) {
+                        IconButton(onClick = presenter::beginRunSelected) {
+                            Icon(Icons.Outlined.PlayArrow, contentDescription = stringResource(R.string.files_run))
+                        }
+                    }
                 }
                 IconButton(onClick = { presenter.selectedEntries().singleOrNull()?.let(presenter::beginRename) }, enabled = ui.canChange) {
                     Icon(Icons.Outlined.DriveFileRenameOutline, contentDescription = stringResource(R.string.files_rename))

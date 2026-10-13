@@ -33,6 +33,7 @@ class TerminalSessions(
     private val frames = HashMap<String, MutableStateFlow<ScreenSnapshot>>()
     private val dirty = HashSet<String>()
     private var pendingFrame: Job? = null
+    private var pendingRun: String? = null
     private val mutableState = MutableStateFlow(TerminalsState())
 
     val state: StateFlow<TerminalsState> = mutableState.asStateFlow()
@@ -97,7 +98,21 @@ class TerminalSessions(
 
     fun dismissFailure() = synchronized(lock) { mutableState.value = mutableState.value.copy(failure = null) }
 
-    fun onEvent(event: TerminalEvent) = synchronized(lock) {
+    /** Opens a shell of its own and types [command] and Return into it once it exists, so a program that prints or prompts does not take over the shell in use. */
+    fun runInNewTerminal(command: String) {
+        synchronized(lock) { pendingRun = command }
+        open()
+    }
+
+    fun onEvent(event: TerminalEvent) {
+        val toRun = synchronized(lock) {
+            handle(event)
+            if (event is TerminalEvent.Created) pendingRun.also { pendingRun = null }?.let { event.terminal.id to it } else null
+        }
+        toRun?.let { (id, command) -> input(id, command + "\r") }
+    }
+
+    private fun handle(event: TerminalEvent) {
         when (event) {
             is TerminalEvent.Snapshot -> onList(event.terminals)
             is TerminalEvent.Created -> onCreated(event.terminal)

@@ -99,6 +99,8 @@ class FilePreviewPresenter(
             RemoteFileKind.TEXT -> textContent(preview)
             RemoteFileKind.IMAGE ->
                 if (preview.isTruncated) PreviewContent.TooLarge(preview.totalBytes ?: 0L) else PreviewContent.Image(preview.contents)
+            RemoteFileKind.PDF ->
+                if (preview.isTruncated) PreviewContent.TooLarge(preview.totalBytes ?: 0L) else PreviewContent.Pdf(preview.contents)
             else -> PreviewContent.Unsupported(preview.kind)
         }
     }

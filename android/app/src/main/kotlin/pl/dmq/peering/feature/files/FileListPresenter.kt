@@ -1,12 +1,14 @@
 package pl.dmq.peering.feature.files
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -29,9 +31,11 @@ class FileListPresenter(
 
     val destination = DownloadDestination(port)
 
-    val ui: StateFlow<FileListUi> = combine(port.state, port.online, view) { browser, online, current ->
-        derive(browser, online, current)
-    }.stateIn(scope, SharingStarted.Eagerly, derive(port.state.value, port.online.value, view.value))
+    private val shellReady: Flow<Boolean> = port.shell?.ready ?: flowOf(false)
+
+    val ui: StateFlow<FileListUi> = combine(port.state, port.online, view, shellReady) { browser, online, current, shell ->
+        derive(browser, online, current, shell)
+    }.stateIn(scope, SharingStarted.Eagerly, derive(port.state.value, port.online.value, view.value, false))
 
     init {
         scope.launch {
@@ -104,6 +108,29 @@ class FileListPresenter(
 
     fun beginDeleteSelected() = beginDelete(selectedEntries())
 
+    /** Types the selected entry's path, quoted, on the command line of the shell in use; the person finishes the line. */
+    fun putSelectedPathInShell() {
+        val shell = port.shell ?: return
+        val entry = selectedEntries().singleOrNull() ?: return
+        val folder = ui.value.path ?: return
+        shell.putPath(FilePath.child(folder, entry.name))
+        clearSelection()
+    }
+
+    /** Asks before running the selected file, which runs with the person's permissions on the computer. */
+    fun beginRunSelected() {
+        val entry = selectedEntries().singleOrNull()?.takeIf { it.isExecutable && port.shell != null } ?: return
+        view.update { it.copy(dialog = FileDialog.ConfirmRun(entry)) }
+    }
+
+    fun confirmRun() {
+        val dialog = view.value.dialog as? FileDialog.ConfirmRun ?: return
+        val folder = ui.value.path
+        dismissDialog()
+        if (folder != null) port.shell?.run(FilePath.child(folder, dialog.entry.name))
+        clearSelection()
+    }
+
     fun editName(text: String) {
         view.update { current ->
             val dialog = current.dialog as? FileDialog.Name ?: return@update current
@@ -165,7 +192,7 @@ class FileListPresenter(
         else -> null
     }
 
-    private fun derive(browser: FileBrowserState, online: Boolean, current: ListView): FileListUi {
+    private fun derive(browser: FileBrowserState, online: Boolean, current: ListView, shellReady: Boolean): FileListUi {
         val listing = browser.listing
         val matching = (listing?.entries ?: emptyList())
             .filter { current.showsHidden || !it.name.startsWith('.') }
@@ -202,6 +229,7 @@ class FileListPresenter(
             isOffline = !online,
             upload = browser.upload,
             download = DownloadStatuses.of(browser.transfer, null) ?: DownloadStatus.Idle,
+            canUseShell = shellReady,
         )
     }
 
