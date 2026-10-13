@@ -81,28 +81,34 @@ private fun HubBody(
             AgentPicker(ui.agents, ui.agentUsage, ui.selectedAgentID, presenter::chooseAgent, presenter::cancelNewChat)
         }
     }
-    renaming?.let { card ->
-        RenameDialog(
-            initial = card.title,
-            onSave = {
-                presenter.renameSession(card.id, it)
-                renaming = null
-            },
-            onDismiss = { renaming = null },
-        )
-    }
-    closing?.let { card ->
-        PeeringAlert(
-            title = stringResource(R.string.agents_close_title, card.title),
-            message = stringResource(R.string.agents_close_message),
-            confirm = stringResource(R.string.agents_end_chat),
-            onConfirm = {
-                presenter.closeSession(card.id)
-                closing = null
-            },
-            cancel = stringResource(R.string.agents_cancel),
-            onCancel = { closing = null },
-            destructive = true,
-        )
-    }
+    renaming?.let { card -> RenamePrompt(card, presenter, onDone = { renaming = null }) }
+    closing?.let { card -> ClosePrompt(card, presenter, onDone = { closing = null }) }
+}
+
+@Composable
+private fun RenamePrompt(card: SessionCard, presenter: AgentsHubPresenter, onDone: () -> Unit) {
+    RenameDialog(
+        initial = card.title,
+        onSave = {
+            presenter.renameSession(card.id, it)
+            onDone()
+        },
+        onDismiss = onDone,
+    )
+}
+
+@Composable
+private fun ClosePrompt(card: SessionCard, presenter: AgentsHubPresenter, onDone: () -> Unit) {
+    PeeringAlert(
+        title = stringResource(R.string.agents_close_title, card.title),
+        message = stringResource(R.string.agents_close_message),
+        confirm = stringResource(R.string.agents_end_chat),
+        onConfirm = {
+            presenter.closeSession(card.id)
+            onDone()
+        },
+        cancel = stringResource(R.string.agents_cancel),
+        onCancel = onDone,
+        destructive = true,
+    )
 }

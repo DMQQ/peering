@@ -79,13 +79,9 @@ private fun ClipboardOverview(actions: ClipboardActions, onHistory: () -> Unit, 
     var phone by remember { mutableStateOf(manager.currentClip(context)) }
     var confirmed by remember { mutableStateOf<Side?>(null) }
     var feedback by remember { mutableStateOf<ClipboardFeedback>(ClipboardFeedback.Silent) }
-    DisposableEffect(manager) {
-        val listener = ClipboardManager.OnPrimaryClipChangedListener {
-            phone = manager.currentClip(context)
-            feedback = ClipboardFeedback.Silent
-        }
-        manager.addPrimaryClipChangedListener(listener)
-        onDispose { manager.removePrimaryClipChangedListener(listener) }
+    OnPrimaryClipChanged(manager) {
+        phone = manager.currentClip(context)
+        feedback = ClipboardFeedback.Silent
     }
     LaunchedEffect(confirmed) {
         if (confirmed != null) {
@@ -93,66 +89,99 @@ private fun ClipboardOverview(actions: ClipboardActions, onHistory: () -> Unit, 
             confirmed = null
         }
     }
+    Column(modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        PhoneClipboardRow(
+            actions, phone, feedback,
+            confirmed = confirmed == Side.PHONE,
+            onFeedback = { feedback = it },
+            onConfirmed = { confirmed = Side.PHONE },
+        )
+        ComputerClipboardRow(
+            actions.host,
+            confirmed = confirmed == Side.COMPUTER,
+            onCopy = {
+                scope.launch {
+                    manager.copyContent(context, context.getString(R.string.clipboard_computer), actions.host)
+                    confirmed = Side.COMPUTER
+                }
+            },
+        )
+        if (actions.history.isNotEmpty()) HistoryRow(actions.history.size, onHistory)
+    }
+}
+
+@Composable
+private fun OnPrimaryClipChanged(manager: ClipboardManager, onChanged: () -> Unit) {
+    DisposableEffect(manager) {
+        val listener = ClipboardManager.OnPrimaryClipChangedListener { onChanged() }
+        manager.addPrimaryClipChangedListener(listener)
+        onDispose { manager.removePrimaryClipChangedListener(listener) }
+    }
+}
+
+@Composable
+private fun PhoneClipboardRow(
+    actions: ClipboardActions,
+    phone: PhoneClip,
+    feedback: ClipboardFeedback,
+    confirmed: Boolean,
+    onFeedback: (ClipboardFeedback) -> Unit,
+    onConfirmed: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     fun sendPhoneImage(uri: Uri, paste: Boolean) {
         scope.launch {
-            feedback = when (val read = ClipboardImages.readPng(context, uri)) {
+            val result = when (val read = ClipboardImages.readPng(context, uri)) {
                 is ImageRead.Png -> actions.onSendImage(read.bytes, paste).feedback()
                 is ImageRead.TooLarge -> ClipboardFeedback.TooLarge(read.bytes)
                 ImageRead.Unreadable -> ClipboardFeedback.Silent
             }
-            if (feedback == ClipboardFeedback.Confirmed) confirmed = Side.PHONE
+            onFeedback(result)
+            if (result == ClipboardFeedback.Confirmed) onConfirmed()
         }
     }
     val text = (phone as? PhoneClip.Text)?.text
     val pictureUri = (phone as? PhoneClip.Image)?.uri
     val canSend = actions.ready && (text != null || (pictureUri != null && actions.imagesAllowed))
-    Column(modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ClipboardRow(
-            icon = SessionIcons.phone,
-            title = stringResource(R.string.clipboard_phone),
-            detail = phoneDetail(phone, feedback, actions.imagesAllowed),
-            empty = phone == PhoneClip.Empty,
-            confirmed = confirmed == Side.PHONE,
-        ) {
-            ClipAction(stringResource(R.string.clipboard_send), enabled = canSend) {
-                if (pictureUri != null) {
-                    sendPhoneImage(pictureUri, paste = false)
-                } else {
-                    actions.onSend(text.orEmpty())
-                    confirmed = Side.PHONE
-                }
-            }
-            ClipAction(stringResource(R.string.clipboard_paste_on_computer), prominent = true, enabled = canSend) {
-                if (pictureUri != null) {
-                    sendPhoneImage(pictureUri, paste = true)
-                } else {
-                    actions.onPasteOnComputer(text.orEmpty())
-                    confirmed = Side.PHONE
-                }
-            }
+    fun send(paste: Boolean, sendText: (String) -> Unit) {
+        if (pictureUri != null) {
+            sendPhoneImage(pictureUri, paste)
+        } else {
+            sendText(text.orEmpty())
+            onConfirmed()
         }
-        val host = actions.host
-        val hasHostContent = host is ClipboardContent.Image || (host is ClipboardContent.Text && host.text.isNotEmpty())
-        ClipboardRow(
-            icon = AppIcons.computer,
-            title = stringResource(R.string.clipboard_computer),
-            detail = when {
-                host == null -> stringResource(R.string.clipboard_not_checked)
-                host is ClipboardContent.Image -> stringResource(R.string.clipboard_image)
-                host is ClipboardContent.Text && hasHostContent -> host.text
-                else -> stringResource(R.string.clipboard_nothing_to_copy)
-            },
-            empty = !hasHostContent,
-            confirmed = confirmed == Side.COMPUTER,
-        ) {
-            ClipAction(stringResource(R.string.clipboard_copy_to_phone), enabled = hasHostContent) {
-                scope.launch {
-                    manager.copyContent(context, context.getString(R.string.clipboard_computer), host)
-                    confirmed = Side.COMPUTER
-                }
-            }
+    }
+    ClipboardRow(
+        icon = SessionIcons.phone,
+        title = stringResource(R.string.clipboard_phone),
+        detail = phoneDetail(phone, feedback, actions.imagesAllowed),
+        empty = phone == PhoneClip.Empty,
+        confirmed = confirmed,
+    ) {
+        ClipAction(stringResource(R.string.clipboard_send), enabled = canSend) { send(paste = false, actions.onSend) }
+        ClipAction(stringResource(R.string.clipboard_paste_on_computer), prominent = true, enabled = canSend) {
+            send(paste = true, actions.onPasteOnComputer)
         }
-        if (actions.history.isNotEmpty()) HistoryRow(actions.history.size, onHistory)
+    }
+}
+
+@Composable
+private fun ComputerClipboardRow(host: ClipboardContent?, confirmed: Boolean, onCopy: () -> Unit) {
+    val hasHostContent = host is ClipboardContent.Image || (host is ClipboardContent.Text && host.text.isNotEmpty())
+    ClipboardRow(
+        icon = AppIcons.computer,
+        title = stringResource(R.string.clipboard_computer),
+        detail = when {
+            host == null -> stringResource(R.string.clipboard_not_checked)
+            host is ClipboardContent.Image -> stringResource(R.string.clipboard_image)
+            host is ClipboardContent.Text && hasHostContent -> host.text
+            else -> stringResource(R.string.clipboard_nothing_to_copy)
+        },
+        empty = !hasHostContent,
+        confirmed = confirmed,
+    ) {
+        ClipAction(stringResource(R.string.clipboard_copy_to_phone), enabled = hasHostContent, onClick = onCopy)
     }
 }
 

@@ -143,9 +143,12 @@ internal class ConnectedLink(
         picture.restart()
     }
 
-    /** Tells the host the phone left or returned to the foreground. False when the host did not declare that it understands. */
-    fun reportBackground(background: Boolean): Boolean {
+    /**
+     * Tells the host the phone left or returned to the foreground. [probeNow] pings the host at once (see [ReturnProbe]); the
+     * silence counted from the return then ends the link after the foreground limit. False when the host did not declare that it understands. */
+    fun reportBackground(background: Boolean, probeNow: Boolean = false): Boolean {
         if (backgrounded && !background) liveness.resetSilence()
+        if (probeNow) writer.enqueue(liveness.nextPing())
         backgrounded = background
         if (!HostCapability.ClientState.declaredBy(hello)) return false
         val payload = WireJson.encodeToString(ClientStatePayload.serializer(), ClientStatePayload(background))

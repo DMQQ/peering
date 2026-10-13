@@ -25,34 +25,43 @@ object MarkdownBlocks {
     private val rule = Regex("^\\s*([-*_])(\\s*\\1){2,}\\s*$")
 
     fun parse(text: String): List<MarkdownBlock> {
-        val blocks = mutableListOf<MarkdownBlock>()
-        val paragraph = mutableListOf<String>()
-        val quote = mutableListOf<String>()
-        var fence: MutableList<String>? = null
+        val reader = BlockReader()
+        for (line in text.lines()) reader.accept(line)
+        return reader.finish()
+    }
 
-        fun flush() {
-            if (paragraph.isNotEmpty()) blocks += MarkdownBlock.Paragraph(paragraph.joinToString(" "))
-            if (quote.isNotEmpty()) blocks += MarkdownBlock.Quote(quote.joinToString(" "))
-            paragraph.clear()
-            quote.clear()
+    private class BlockReader {
+        private val blocks = mutableListOf<MarkdownBlock>()
+        private val paragraph = mutableListOf<String>()
+        private val quote = mutableListOf<String>()
+        private var fence: MutableList<String>? = null
+
+        fun accept(line: String) {
+            val open = fence
+            when {
+                line.trimStart().startsWith("```") -> toggleFence(open)
+                open != null -> open += line
+                else -> acceptText(line)
+            }
         }
 
-        for (line in text.lines()) {
-            val open = fence
-            if (line.trimStart().startsWith("```")) {
-                if (open == null) {
-                    flush()
-                    fence = mutableListOf()
-                } else {
-                    blocks += MarkdownBlock.Code(open.joinToString("\n"))
-                    fence = null
-                }
-                continue
+        fun finish(): List<MarkdownBlock> {
+            fence?.let { blocks += MarkdownBlock.Code(it.joinToString("\n")) }
+            flush()
+            return blocks
+        }
+
+        private fun toggleFence(open: MutableList<String>?) {
+            if (open == null) {
+                flush()
+                fence = mutableListOf()
+            } else {
+                blocks += MarkdownBlock.Code(open.joinToString("\n"))
+                fence = null
             }
-            if (open != null) {
-                open += line
-                continue
-            }
+        }
+
+        private fun acceptText(line: String) {
             val kind = blockOf(line)
             when {
                 line.isBlank() -> flush()
@@ -70,9 +79,13 @@ object MarkdownBlocks {
                 }
             }
         }
-        fence?.let { blocks += MarkdownBlock.Code(it.joinToString("\n")) }
-        flush()
-        return blocks
+
+        private fun flush() {
+            if (paragraph.isNotEmpty()) blocks += MarkdownBlock.Paragraph(paragraph.joinToString(" "))
+            if (quote.isNotEmpty()) blocks += MarkdownBlock.Quote(quote.joinToString(" "))
+            paragraph.clear()
+            quote.clear()
+        }
     }
 
     private fun blockOf(line: String): MarkdownBlock? {

@@ -87,6 +87,24 @@ class InvitePresenterTest {
     }
 
     @Test
+    fun everyRelayRefusalIsShownAsItsOwnMessage() = runTest {
+        for (refusal in ReferralRefusal.entries) {
+            val presenter = presenter(FakeService({ standing }, { throw ReferralRefused(refusal) }))
+
+            presenter.redeem("ABCDEFGH")
+
+            assertEquals(refusal, presenter.state.value.failure)
+        }
+    }
+
+    @Test
+    fun everyRefusalHasItsOwnStringResource() {
+        val messages = ReferralRefusal.entries.map { it.messageRes() }
+
+        assertEquals(ReferralRefusal.entries.size, messages.toSet().size)
+    }
+
+    @Test
     fun anUnreachableRelayIsShownAsUnavailable() = runTest {
         val service = FakeService({ standing }, { throw IOException("down") })
         val presenter = presenter(service)

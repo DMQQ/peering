@@ -4,6 +4,9 @@ import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ProducerScope
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -38,7 +41,36 @@ class NsdDiscovery(
 
     override fun events(): Flow<DiscoveryEvent> = callbackFlow {
         val changes = Channel<ServiceChange>(Channel.UNLIMITED)
-        val listener = object : NsdManager.DiscoveryListener {
+        val listener = browseListener(changes) { failure -> close(failure) }
+
+        multicast.acquire()
+        val started = try {
+            nsd.discoverServices(HostMapper.SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
+            true
+        } catch (failure: RuntimeException) {
+            PlatformLog.w(TAG, { "starting the browse threw" }, failure)
+            close(IOException("NSD discovery could not start", failure))
+            false
+        }
+
+        val resolver = launch { resolveChanges(changes) }
+
+        awaitClose {
+            resolver.cancel()
+            changes.close()
+            if (started) {
+                try {
+                    nsd.stopServiceDiscovery(listener)
+                } catch (failure: RuntimeException) {
+                    PlatformLog.w(TAG, { "stopping the browse threw" }, failure)
+                }
+            }
+            multicast.release()
+        }
+    }
+
+    private fun browseListener(changes: SendChannel<ServiceChange>, onFailed: (IOException) -> Unit): NsdManager.DiscoveryListener =
+        object : NsdManager.DiscoveryListener {
             override fun onDiscoveryStarted(serviceType: String) {
                 PlatformLog.d(TAG) { "browse started for $serviceType" }
             }
@@ -63,47 +95,23 @@ class NsdDiscovery(
 
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
                 PlatformLog.w(TAG, { "starting the browse failed, code $errorCode" })
-                close(IOException("NSD discovery failed with code $errorCode"))
+                onFailed(IOException("NSD discovery failed with code $errorCode"))
             }
         }
 
-        multicast.acquire()
-        val started = try {
-            nsd.discoverServices(HostMapper.SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
-            true
-        } catch (failure: RuntimeException) {
-            PlatformLog.w(TAG, { "starting the browse threw" }, failure)
-            close(IOException("NSD discovery could not start", failure))
-            false
-        }
-
-        val resolver = launch {
-            val roster = ServiceRoster()
-            for (change in changes) {
-                val events = when (change) {
-                    is ServiceChange.Found -> resolve(change.info)
-                        ?.let { roster.found(change.info.serviceName, it) }
-                        .orEmpty()
-                    is ServiceChange.Lost -> roster.lost(change.serviceName)
-                }
-                for (event in events) {
-                    PlatformLog.d(TAG) { "emit ${describe(event)}" }
-                    send(event)
-                }
+    private suspend fun ProducerScope<DiscoveryEvent>.resolveChanges(changes: ReceiveChannel<ServiceChange>) {
+        val roster = ServiceRoster()
+        for (change in changes) {
+            val events = when (change) {
+                is ServiceChange.Found -> resolve(change.info)
+                    ?.let { roster.found(change.info.serviceName, it) }
+                    .orEmpty()
+                is ServiceChange.Lost -> roster.lost(change.serviceName)
             }
-        }
-
-        awaitClose {
-            resolver.cancel()
-            changes.close()
-            if (started) {
-                try {
-                    nsd.stopServiceDiscovery(listener)
-                } catch (failure: RuntimeException) {
-                    PlatformLog.w(TAG, { "stopping the browse threw" }, failure)
-                }
+            for (event in events) {
+                PlatformLog.d(TAG) { "emit ${describe(event)}" }
+                send(event)
             }
-            multicast.release()
         }
     }
 

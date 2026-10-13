@@ -60,35 +60,8 @@ internal fun ClipboardHistoryList(actions: ClipboardActions, onBack: () -> Unit,
     var justCopied by remember { mutableStateOf<Long?>(null) }
     var confirmsClear by remember { mutableStateOf(false) }
     Column(modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(
-                Modifier.tappable(onBack).padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-            ) {
-                Icon(AppIcons.back, contentDescription = stringResource(R.string.clipboard_back), tint = PeeringColors.ink, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.clipboard_history), style = PeeringText.subheadlineSemibold, color = PeeringColors.ink)
-            }
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
-                if (actions.history.isNotEmpty()) {
-                    Text(
-                        stringResource(R.string.clipboard_clear),
-                        style = PeeringText.subheadlineMedium,
-                        color = PeeringColors.danger,
-                        modifier = Modifier.tappable({ confirmsClear = true }).padding(horizontal = 8.dp, vertical = 6.dp),
-                    )
-                }
-            }
-        }
-        if (actions.history.isEmpty()) {
-            Text(
-                stringResource(R.string.clipboard_history_empty),
-                style = PeeringText.caption,
-                color = PeeringColors.muted,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-            )
-        }
+        HistoryHeader(onBack, hasEntries = actions.history.isNotEmpty(), onClear = { confirmsClear = true })
+        if (actions.history.isEmpty()) HistoryEmptyNote()
         LazyColumn(Modifier.heightIn(max = LIST_MAX_HEIGHT), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(actions.history, key = { it.id }) { entry ->
                 HistoryEntryRow(
@@ -101,31 +74,76 @@ internal fun ClipboardHistoryList(actions: ClipboardActions, onBack: () -> Unit,
                             justCopied = entry.id
                         }
                     },
-                    onSend = {
-                        when (val content = entry.content) {
-                            is ClipboardContent.Text -> actions.onSend(content.text)
-                            is ClipboardContent.Image -> actions.onSendImage(content.png, false)
-                        }
-                    },
+                    onSend = { actions.sendEntry(entry.content) },
                     onDelete = { actions.onRemoveEntry(entry.id) },
                 )
             }
         }
     }
     if (confirmsClear) {
-        PeeringAlert(
-            title = stringResource(R.string.clipboard_clear_title),
-            message = stringResource(R.string.clipboard_clear_message),
-            confirm = stringResource(R.string.clipboard_clear),
+        ClearHistoryAlert(
             onConfirm = {
                 confirmsClear = false
                 actions.onClearHistory()
             },
-            cancel = stringResource(R.string.clipboard_cancel),
             onCancel = { confirmsClear = false },
-            destructive = true,
         )
     }
+}
+
+private fun ClipboardActions.sendEntry(content: ClipboardContent) {
+    when (content) {
+        is ClipboardContent.Text -> onSend(content.text)
+        is ClipboardContent.Image -> onSendImage(content.png, false)
+    }
+}
+
+@Composable
+private fun HistoryHeader(onBack: () -> Unit, hasEntries: Boolean, onClear: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.tappable(onBack).padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Icon(AppIcons.back, contentDescription = stringResource(R.string.clipboard_back), tint = PeeringColors.ink, modifier = Modifier.size(18.dp))
+            Text(stringResource(R.string.clipboard_history), style = PeeringText.subheadlineSemibold, color = PeeringColors.ink)
+        }
+        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
+            if (hasEntries) {
+                Text(
+                    stringResource(R.string.clipboard_clear),
+                    style = PeeringText.subheadlineMedium,
+                    color = PeeringColors.danger,
+                    modifier = Modifier.tappable(onClear).padding(horizontal = 8.dp, vertical = 6.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryEmptyNote() {
+    Text(
+        stringResource(R.string.clipboard_history_empty),
+        style = PeeringText.caption,
+        color = PeeringColors.muted,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+    )
+}
+
+@Composable
+private fun ClearHistoryAlert(onConfirm: () -> Unit, onCancel: () -> Unit) {
+    PeeringAlert(
+        title = stringResource(R.string.clipboard_clear_title),
+        message = stringResource(R.string.clipboard_clear_message),
+        confirm = stringResource(R.string.clipboard_clear),
+        onConfirm = onConfirm,
+        cancel = stringResource(R.string.clipboard_cancel),
+        onCancel = onCancel,
+        destructive = true,
+    )
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -148,17 +166,7 @@ private fun HistoryEntryRow(
                 .padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            when (val content = entry.content) {
-                is ClipboardContent.Text -> Text(content.text, style = PeeringText.subheadline, color = PeeringColors.ink, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                is ClipboardContent.Image -> HistoryThumbnail(entry.id, content)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(relativeTime(entry.atMillis), style = PeeringText.caption2, color = PeeringColors.tertiary)
-                if (copied) {
-                    Icon(AppIcons.check, contentDescription = null, tint = PeeringColors.accent, modifier = Modifier.size(12.dp))
-                    Text(stringResource(R.string.clipboard_copied), style = PeeringText.caption2, color = PeeringColors.accent)
-                }
-            }
+            HistoryEntryContent(entry, copied)
         }
         PeeringMenu(expanded = menuOpen, onDismiss = { menuOpen = false }) {
             PeeringMenuItem(
@@ -179,6 +187,21 @@ private fun HistoryEntryRow(
                     onDelete()
                 },
             )
+        }
+    }
+}
+
+@Composable
+private fun HistoryEntryContent(entry: ClipboardEntry, copied: Boolean) {
+    when (val content = entry.content) {
+        is ClipboardContent.Text -> Text(content.text, style = PeeringText.subheadline, color = PeeringColors.ink, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        is ClipboardContent.Image -> HistoryThumbnail(entry.id, content)
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(relativeTime(entry.atMillis), style = PeeringText.caption2, color = PeeringColors.tertiary)
+        if (copied) {
+            Icon(AppIcons.check, contentDescription = null, tint = PeeringColors.accent, modifier = Modifier.size(12.dp))
+            Text(stringResource(R.string.clipboard_copied), style = PeeringText.caption2, color = PeeringColors.accent)
         }
     }
 }

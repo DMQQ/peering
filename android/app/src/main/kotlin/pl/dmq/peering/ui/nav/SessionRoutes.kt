@@ -84,35 +84,17 @@ internal fun SessionScreens(
     onClose: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     var route by rememberSaveable { mutableStateOf(SessionRoute.REMOTE) }
     var spentPaywall by rememberSaveable { mutableStateOf(false) }
-    val remote = remember(active) {
-        ControllerRemoteModel(
-            controller = active.controller,
-            picture = picture,
-            scope = scope,
-            quality = ControllerQualityPort(active.controller, settings, scope),
-            prefs = devicePrefs,
-            macros = macros,
-            relayAllowance = relayAllowance.allowance,
-            onDisconnect = onDisconnect,
-            onLeave = onClose,
-            onOpenHub = { context.startActivity(Intent(context, HubActivity::class.java)) },
-            onOpenPaywall = { route = SessionRoute.PAYWALL },
-        )
+    val remote = rememberRemoteModel(active, picture, settings, devicePrefs, macros, relayAllowance, onDisconnect, onClose) {
+        route = SessionRoute.PAYWALL
     }
     val session by active.controller.state.collectAsState()
     val browser = active.controller.files
     LaunchedEffect(browser) { browser?.let { active.downloads.watch(it) } }
-    LaunchedEffect(session.phase) {
-        val phase = session.phase
-        if (phase is SessionPhase.Failed && phase.reason == SessionFailure.Quota) {
-            relayAllowance.relayRefusedQuota()
-            spentPaywall = true
-            route = SessionRoute.PAYWALL
-        }
+    QuotaWatch(session.phase, relayAllowance) {
+        spentPaywall = true
+        route = SessionRoute.PAYWALL
     }
     BackHandler(enabled = route != SessionRoute.REMOTE) { route = SessionRoute.REMOTE }
     SessionBridge(active, route, openHub = { remote.onHubEntry(HubEntry.HUB) }, setRoute = { route = it })
@@ -126,15 +108,62 @@ internal fun SessionScreens(
     ) { shown ->
         when (shown) {
             SessionRoute.REMOTE -> RemoteWithNotice(remote, session.phase)
-            SessionRoute.PAYWALL -> PaywallRoute(
-                billing = StorePaywallBilling(billing) { context.findActivity() },
-                allowance = relayAllowance.allowance,
-                reason = if (spentPaywall) PaywallReason.RelayTimeSpent else PaywallReason.Upgrade,
-                startsWithAllowanceNotice = false,
-                onDismiss = { route = SessionRoute.REMOTE },
-            )
+            SessionRoute.PAYWALL -> SessionPaywall(billing, relayAllowance, spentPaywall) { route = SessionRoute.REMOTE }
         }
     }
+}
+
+@Composable
+private fun rememberRemoteModel(
+    active: ActiveSession,
+    picture: SurfacePicture,
+    settings: SettingsStore,
+    devicePrefs: DevicePreferences,
+    macros: MacroStore,
+    relayAllowance: RelayAllowanceTracker,
+    onDisconnect: () -> Unit,
+    onClose: () -> Unit,
+    onOpenPaywall: () -> Unit,
+): ControllerRemoteModel {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    return remember(active) {
+        ControllerRemoteModel(
+            controller = active.controller,
+            picture = picture,
+            scope = scope,
+            quality = ControllerQualityPort(active.controller, settings, scope),
+            prefs = devicePrefs,
+            macros = macros,
+            relayAllowance = relayAllowance.allowance,
+            onDisconnect = onDisconnect,
+            onLeave = onClose,
+            onOpenHub = { context.startActivity(Intent(context, HubActivity::class.java)) },
+            onOpenPaywall = onOpenPaywall,
+        )
+    }
+}
+
+@Composable
+private fun QuotaWatch(phase: SessionPhase, relayAllowance: RelayAllowanceTracker, onQuotaSpent: () -> Unit) {
+    LaunchedEffect(phase) {
+        if (phase is SessionPhase.Failed && phase.reason == SessionFailure.Quota) {
+            relayAllowance.relayRefusedQuota()
+            onQuotaSpent()
+        }
+    }
+}
+
+@Composable
+private fun SessionPaywall(billing: PlayBilling, relayAllowance: RelayAllowanceTracker, spent: Boolean, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    PaywallRoute(
+        billing = StorePaywallBilling(billing) { context.findActivity() },
+        allowance = relayAllowance.allowance,
+        reason = if (spent) PaywallReason.RelayTimeSpent else PaywallReason.Upgrade,
+        startsWithAllowanceNotice = false,
+        onDismiss = onDismiss,
+    )
 }
 
 @Composable

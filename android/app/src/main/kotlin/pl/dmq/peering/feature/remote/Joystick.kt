@@ -20,7 +20,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.hypot
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -75,81 +78,11 @@ fun Joystick(
             .sessionSurface(PillShape)
             .semantics { contentDescription = description }
             .pointerInput(radius, pointWidth, pointHeight) {
-                var lastTapEnded = 0L
-                var pendingClick: Job? = null
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
-                    var pendingX = 0.0
-                    var pendingY = 0.0
-                    var lastSample = SystemClock.uptimeMillis()
-                    var moved = false
-                    var held = false
-                    val hold = scope.launch {
-                        delay(LONG_PRESS_MS)
-                        if (!moved) {
-                            held = true
-                            longPress = true
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        }
-                    }
-                    val drain = scope.launch {
-                        while (isActive) {
-                            delay(SEND_INTERVAL_MS)
-                            if (pendingX != 0.0 || pendingY != 0.0) {
-                                actions.onMove(pendingX, pendingY)
-                                pendingX = 0.0
-                                pendingY = 0.0
-                            }
-                        }
-                    }
-                    var change = awaitPointerEventChange()
-                    var travelled = 0f
-                    while (change.pressed) {
-                        val raw = change.position - Offset(radius, radius)
-                        if (hypot(raw.x, raw.y) > TAP_MAX_DISPLACEMENT_PX) {
-                            moved = true
-                            hold.cancel()
-                            held = false
-                            longPress = false
-                        }
-                        travelled = maxOf(travelled, hypot(raw.x, raw.y))
-                        val (x, y) = JoystickMath.clamped(raw.x.toDouble(), raw.y.toDouble(), radius.toDouble())
-                        knob = Offset(x.toFloat(), y.toFloat())
-                        if (!held) {
-                            val now = SystemClock.uptimeMillis()
-                            val (dx, dy) = JoystickMath.travel(x, y, radius.toDouble(), pointWidth, pointHeight, (now - lastSample) / MILLIS)
-                            lastSample = now
-                            pendingX += dx
-                            pendingY += dy
-                        }
-                        change.consume()
-                        change = awaitPointerEventChange()
-                    }
-                    hold.cancel()
-                    drain.cancel()
-                    if (pendingX != 0.0 || pendingY != 0.0) actions.onMove(pendingX, pendingY)
-                    knob = Offset.Zero
-                    longPress = false
-                    if (travelled < TAP_MAX_DISPLACEMENT_PX) {
-                        if (held) {
-                            actions.onRightClick()
-                        } else {
-                            val now = SystemClock.uptimeMillis()
-                            if (now - lastTapEnded < DOUBLE_TAP_MS) {
-                                pendingClick?.cancel()
-                                lastTapEnded = 0L
-                                actions.onDoubleTap()
-                            } else {
-                                lastTapEnded = now
-                                pendingClick = scope.launch {
-                                    delay(DOUBLE_TAP_MS)
-                                    actions.onTap()
-                                    lastTapEnded = 0L
-                                }
-                            }
-                        }
-                    }
-                }
+                joystickGestures(
+                    radius, pointWidth, pointHeight, scope, haptics, actions,
+                    onKnob = { knob = it },
+                    onLongPress = { longPress = it },
+                )
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -168,6 +101,131 @@ fun Joystick(
                 color = PeeringColors.onInk,
                 modifier = Modifier.alpha(1f),
             )
+        }
+    }
+}
+
+private suspend fun PointerInputScope.joystickGestures(
+    radius: Float,
+    pointWidth: Double,
+    pointHeight: Double,
+    scope: CoroutineScope,
+    haptics: HapticFeedback,
+    actions: JoystickActions,
+    onKnob: (Offset) -> Unit,
+    onLongPress: (Boolean) -> Unit,
+) {
+    val taps = JoystickTapResolver(scope, actions)
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false)
+        val gesture = JoystickGesture(radius, pointWidth, pointHeight, actions, onKnob, onLongPress)
+        val hold = scope.launch {
+            delay(LONG_PRESS_MS)
+            if (gesture.holdElapsed()) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+        val drain = scope.launch {
+            while (isActive) {
+                delay(SEND_INTERVAL_MS)
+                gesture.flush()
+            }
+        }
+        var change = awaitPointerEventChange()
+        while (change.pressed) {
+            if (gesture.drag(change.position)) hold.cancel()
+            change.consume()
+            change = awaitPointerEventChange()
+        }
+        hold.cancel()
+        drain.cancel()
+        gesture.release()
+        if (gesture.travelled < TAP_MAX_DISPLACEMENT_PX) taps.resolve(gesture.held)
+    }
+}
+
+/** One touch: the travel not yet sent, and whether it has become a hold or a drag. */
+private class JoystickGesture(
+    private val radius: Float,
+    private val pointWidth: Double,
+    private val pointHeight: Double,
+    private val actions: JoystickActions,
+    private val onKnob: (Offset) -> Unit,
+    private val onLongPress: (Boolean) -> Unit,
+) {
+    var held = false
+        private set
+    var travelled = 0f
+        private set
+    private var moved = false
+    private var pendingX = 0.0
+    private var pendingY = 0.0
+    private var lastSample = SystemClock.uptimeMillis()
+
+    fun holdElapsed(): Boolean {
+        if (moved) return false
+        held = true
+        onLongPress(true)
+        return true
+    }
+
+    fun flush() {
+        if (pendingX != 0.0 || pendingY != 0.0) {
+            actions.onMove(pendingX, pendingY)
+            pendingX = 0.0
+            pendingY = 0.0
+        }
+    }
+
+    /** True once the finger has gone past tap distance, so the hold timer should stop. */
+    fun drag(position: Offset): Boolean {
+        val raw = position - Offset(radius, radius)
+        val pastTap = hypot(raw.x, raw.y) > TAP_MAX_DISPLACEMENT_PX
+        if (pastTap) {
+            moved = true
+            held = false
+            onLongPress(false)
+        }
+        travelled = maxOf(travelled, hypot(raw.x, raw.y))
+        val (x, y) = JoystickMath.clamped(raw.x.toDouble(), raw.y.toDouble(), radius.toDouble())
+        onKnob(Offset(x.toFloat(), y.toFloat()))
+        if (!held) {
+            val now = SystemClock.uptimeMillis()
+            val (dx, dy) = JoystickMath.travel(x, y, radius.toDouble(), pointWidth, pointHeight, (now - lastSample) / MILLIS)
+            lastSample = now
+            pendingX += dx
+            pendingY += dy
+        }
+        return pastTap
+    }
+
+    fun release() {
+        flush()
+        onKnob(Offset.Zero)
+        onLongPress(false)
+    }
+}
+
+/** Tells a single tap from a double tap: a tap waits out the double tap window before it clicks. */
+private class JoystickTapResolver(private val scope: CoroutineScope, private val actions: JoystickActions) {
+    private var lastTapEnded = 0L
+    private var pendingClick: Job? = null
+
+    fun resolve(held: Boolean) {
+        if (held) {
+            actions.onRightClick()
+            return
+        }
+        val now = SystemClock.uptimeMillis()
+        if (now - lastTapEnded < DOUBLE_TAP_MS) {
+            pendingClick?.cancel()
+            lastTapEnded = 0L
+            actions.onDoubleTap()
+        } else {
+            lastTapEnded = now
+            pendingClick = scope.launch {
+                delay(DOUBLE_TAP_MS)
+                actions.onTap()
+                lastTapEnded = 0L
+            }
         }
     }
 }
