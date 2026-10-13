@@ -1,10 +1,10 @@
 //
 //  PlanAccessTests.swift
-//  MacCastKitTests
+//  PeeringKitTests
 //
 
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 final class PlanAccessTests: XCTestCase {
 

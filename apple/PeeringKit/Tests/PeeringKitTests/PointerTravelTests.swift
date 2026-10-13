@@ -1,6 +1,6 @@
 import CoreGraphics
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct PointerTravelTests {
     @Test("a MacBook display, already in points, is left alone")

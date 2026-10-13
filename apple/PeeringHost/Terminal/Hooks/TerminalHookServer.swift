@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import os
 
 private let hookServerLog = Logger(subsystem: "pl.dmq.peering.host", category: "terminal-hooks")

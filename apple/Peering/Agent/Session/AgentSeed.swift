@@ -1,6 +1,6 @@
 #if DEBUG
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// A finished-looking chat for the App Store capture, switched on by `-Peering.seedAgentChat 1`.

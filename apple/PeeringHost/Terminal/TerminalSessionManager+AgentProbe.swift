@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 extension TerminalSessionManager {
     private static let agentNames = ["claude", "codex", "opencode", "hermes", "gemini", "aider"]

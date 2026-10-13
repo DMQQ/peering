@@ -1,6 +1,6 @@
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct MainWindowChoiceTests {
     @Test func theWindowNamedForTheGroupWinsOverAnEarlierOneThatCouldBeMain() {

@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 import Security
 import StoreKit
@@ -7,7 +7,7 @@ import os
 
 private let storeLog = Logger(subsystem: "pl.dmq.peering", category: "store")
 
-// RelayPlan lives in MacCastKit so its allowance can be tested; this file is about buying.
+// RelayPlan lives in PeeringKit so its allowance can be tested; this file is about buying.
 
 /// How often a plan is billed. Every tier is sold both ways so the paywall compares plans, not periods; monthly is roughly eight months to the year.
 nonisolated enum BillingPeriod: String, CaseIterable, Identifiable, Sendable {

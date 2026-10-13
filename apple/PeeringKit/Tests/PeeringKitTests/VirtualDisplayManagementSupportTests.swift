@@ -1,5 +1,5 @@
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// The compatibility rule and resource ceiling for displays the phone asks the Mac to make.
 final class VirtualDisplayManagementSupportTests: XCTestCase {

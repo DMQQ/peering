@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import MacCastKit
+@testable import PeeringKit
 import RemoteCore
 
 /// Fixtures are lines captured from real runs: Claude Code's stream-json (`result`, `assistant` and

@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// One chat as the manager holds it. Every property is read and written under the manager's lock.

@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 /// Holds the rebuild task for ``CaptureRecoveryScheduler``, whose tokens decide which rebuild is current.
 final class CaptureRecovery: @unchecked Sendable {

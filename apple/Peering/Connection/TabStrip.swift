@@ -1,4 +1,4 @@
-import MacCastKit
+import PeeringKit
 import SwiftUI
 
 /// A horizontal strip of names shared by the session strip and both terminal screens, so the tab looks and scrolls the same on all three.

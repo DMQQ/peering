@@ -31,21 +31,21 @@ step() {
 
 step "String catalogs are fully translated" python3 Tools/check-localization.py
 
-for package in MacCastKit RemoteCore SSHCore; do
+for package in PeeringKit RemoteCore SSHCore; do
     step "$package tests" swift test --package-path "$package"
 done
 
 if [ "${1:-}" != "--quick" ]; then
-    step "iPhone app builds" xcodebuild -project MacCast.xcodeproj -scheme MacCast \
+    step "iPhone app builds" xcodebuild -project Peering.xcodeproj -scheme Peering \
         -configuration Debug -destination 'generic/platform=iOS' \
         -derivedDataPath "$DERIVED_DATA_DIR" CODE_SIGNING_ALLOWED=NO build
-    step "Mac host builds" xcodebuild -project MacCast.xcodeproj -scheme MacCastHost \
+    step "Mac host builds" xcodebuild -project Peering.xcodeproj -scheme PeeringHost \
         -configuration Debug -destination 'platform=macOS' \
         -derivedDataPath "$DERIVED_DATA_DIR" CODE_SIGNING_ALLOWED=NO build
 
     # The probes compile the host's own sources, so a host change can break them without touching the apps.
     # A scratch path outside the package keeps the probe's own .build, and the signature run-probe.sh pins, untouched.
-    for probe in MacCastProbe CaptureProbe; do
+    for probe in PeeringProbe CaptureProbe; do
         step "$probe builds" swift build --package-path "Tools/$probe" --scratch-path "$DERIVED_DATA_DIR/$probe"
     done
 fi

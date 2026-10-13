@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite("Agent pause clock")
 struct AgentPauseClockTests {

@@ -1,5 +1,5 @@
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// Same rule as ``MosaicSupportTests``: an undecodable request ends the session.
 final class SourceThumbnailSupportTests: XCTestCase {

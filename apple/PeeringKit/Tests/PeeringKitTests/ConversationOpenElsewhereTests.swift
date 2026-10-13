@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct ConversationOpenElsewhereTests {
     private let now = Date(timeIntervalSince1970: 1_000_000)

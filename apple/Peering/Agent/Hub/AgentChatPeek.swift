@@ -1,4 +1,4 @@
-import MacCastKit
+import PeeringKit
 import SwiftUI
 
 /// What a long press on a chat card shows without opening it: the conversation itself, scrolled to its end and not answerable.

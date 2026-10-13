@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// Exec mode has no approval channel (a CLI fact): the session's sandbox constrains it. The model is passed per turn with `-c model=` only after the picker is used.

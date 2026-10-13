@@ -1,7 +1,7 @@
 import CoreGraphics
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite("The zoom and pan rules of the remote picture")
 struct CanvasViewportTests {

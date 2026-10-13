@@ -1,6 +1,6 @@
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct AgentPromptQueueTests {
     @Test func idleChatSendsAtOnce() {

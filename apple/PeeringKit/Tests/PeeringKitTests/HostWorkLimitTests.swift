@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct ConcurrencyLimiterTests {
     @Test func slotsRunOutAndComeBackWhenReleased() {

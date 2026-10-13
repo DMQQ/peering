@@ -1,6 +1,6 @@
 //
 //  SeededAgentChat.swift
-//  MacCastUITests
+//  PeeringUITests
 //
 //  Launches the app with a pretend Mac and a seeded agent chat, and walks to it, so a chat can be
 //  driven with no host. The seeds are DEBUG-only (`AgentSeed+Scenarios.swift`).

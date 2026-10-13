@@ -1,13 +1,13 @@
 //
 //  SSHLockFlowTests.swift
-//  MacCastUITests
+//  PeeringUITests
 //
 // Walks the Servers-tab work end to end: save a server with a passcode lock, try a wrong then the right passcode, sign in, and find the refused shell in the connection log.
 // **Run it against a wiped container.** Servers persist in `UserDefaults`, so a second run matches two rows:
 //
 //      xcrun simctl uninstall 825ECC2B-F0D1-439A-9F1B-AD942DFE178F pl.dmq.peering
 //
-// The scheme has no `<Testables>`, so `xcodebuild test` refuses until a `TestableReference` for `MacCastUITests` is added to `MacCast.xcscheme` (temporary edit).
+// The scheme has no `<Testables>`, so `xcodebuild test` refuses until a `TestableReference` for `PeeringUITests` is added to `Peering.xcscheme` (temporary edit).
 //
 // Nothing listens on the simulator's loopback at port 22, so the shell is refused within a second, which produces the log entry. With Remote Login on, the app would wait for a password.
 //

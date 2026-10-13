@@ -1,6 +1,6 @@
 import Testing
 import RemoteCore
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct DropStreakTests {
     private func drop(_ streak: inout DropStreak, _ reason: ClientSession.FailureReason = .unresponsive, ran: Double = 50, picture: Double = 20) -> DropStreak.Verdict {

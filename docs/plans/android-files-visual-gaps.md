@@ -1,7 +1,7 @@
 # Android Files tab: visual gaps against the iPhone
 
-Source of truth: `apple/MacCast/Files/` (FileBrowserPanel, FileBrowserPanel+List, FileBrowserPanel+Header, FileEntryRow,
-FolderBrowserBar, MacFilesScreen, FilePreviewPanel+Toolbar) and `apple/MacCast/Design/SharedControls.swift`.
+Source of truth: `apple/Peering/Files/` (FileBrowserPanel, FileBrowserPanel+List, FileBrowserPanel+Header, FileEntryRow,
+FolderBrowserBar, MacFilesScreen, FilePreviewPanel+Toolbar) and `apple/Peering/Design/SharedControls.swift`.
 The hub embeds the browser with `embedded: true` and `showsBreadcrumbs: false`, so the Files tab has no heading and no
 breadcrumbs: the hub switcher, the list, and one bottom bar.
 

@@ -53,7 +53,7 @@
 	  The same declaration the iOS app makes, and here it is about exporting rather than about
 	  App Store Connect: this Mac ships by download, and putting software on a web server is an
 	  export whether or not a store is involved. The reasoning is the app's own and is written
-	  out in full in Config/MacCast-Info.plist: standard algorithms, implemented by the
+	  out in full in Config/Peering-Info.plist: standard algorithms, implemented by the
 	  operating system, and no third-party crypto in the bundle.
 	-->
 	<key>ITSAppUsesNonExemptEncryption</key>

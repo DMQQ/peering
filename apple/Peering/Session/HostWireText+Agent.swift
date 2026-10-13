@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 extension HostWireText {
     /// Transcript lines, git outcomes and folder-access notes the Mac writes for an agent chat. The

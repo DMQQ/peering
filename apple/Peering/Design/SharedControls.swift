@@ -1,4 +1,4 @@
-import MacCastKit
+import PeeringKit
 import SwiftUI
 
 /// The card-and-row vocabulary the app's settings-shaped screens are built from.

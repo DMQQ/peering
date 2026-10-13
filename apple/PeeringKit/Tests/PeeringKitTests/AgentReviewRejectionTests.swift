@@ -2,7 +2,7 @@ import Foundation
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 private func comment(_ path: String, _ text: String = "fix this") -> AgentReviewComment {
     AgentReviewComment(path: path, line: 3, text: text)

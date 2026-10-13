@@ -2,7 +2,7 @@ import Foundation
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct AgentPreviewTests {
     private func transcript(_ payloads: [AgentStreamEvent.Payload]) -> AgentTranscript {

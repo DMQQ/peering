@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// Answers ``AgentRequest/commit(sessionID:paths:message:)`` and ``AgentRequest/push(sessionID:)`` in the session's own folder.

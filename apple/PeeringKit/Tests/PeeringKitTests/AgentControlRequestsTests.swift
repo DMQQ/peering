@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite struct AgentControlRequestsTests {
     private func object(_ line: String) -> [String: Any] {

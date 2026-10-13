@@ -1,4 +1,4 @@
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 extension SessionModel {

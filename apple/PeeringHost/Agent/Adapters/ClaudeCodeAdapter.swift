@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// `--permission-prompt-tool stdio` routes permission prompts here as `can_use_tool` requests; without it the CLI denies tools needing approval itself and nothing reaches the phone.

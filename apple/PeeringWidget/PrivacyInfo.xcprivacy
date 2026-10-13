@@ -6,7 +6,7 @@
   It collects nothing and tracks nothing, and it talks to nothing: a widget extension cannot open
   a socket to the relay, cannot see the app's own defaults and has no network of its own. What it
   does is read the App Group container, which is the whole reason that container exists — see the
-  entitlement in `Config/MacCast.entitlements` and the note in `Shared/SessionActivityAttributes`.
+  entitlement in `Config/Peering.entitlements` and the note in `Shared/SessionActivityAttributes`.
 
   So one reason code, `1C8F.1`, for user defaults shared between the app and a member of its own
   App Group. The app's manifest carries the same code for the same store and the extra one for the

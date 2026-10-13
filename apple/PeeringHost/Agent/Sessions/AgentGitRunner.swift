@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 /// What a git run printed, cut at a byte limit.
 struct AgentGitOutput {

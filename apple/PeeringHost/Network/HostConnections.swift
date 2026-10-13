@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// Everything the listener tracks about its connections, in one value that is only touched on the server's queue: control sessions, relay tunnels waiting for or carrying a connection, the pairing prompt, and video connections.

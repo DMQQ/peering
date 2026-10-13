@@ -27,7 +27,7 @@ def set_language(lang):
 
 
 def title(lang, key):
-    cat = json.load(open(f"{ROOT}/MacCast/Localizable.xcstrings"))["strings"]
+    cat = json.load(open(f"{ROOT}/Peering/Localizable.xcstrings"))["strings"]
     return key if lang == "en" else cat[key]["localizations"][lang]["stringUnit"]["value"]
 
 
@@ -47,9 +47,9 @@ def run(lang):
             os.remove(f"/Users/Shared/{f}")
     tmp = tempfile.mkdtemp()
     result = f"{tmp}/r.xcresult"
-    proc = subprocess.Popen(["xcodebuild", "test", "-project", f"{ROOT}/MacCast.xcodeproj", "-scheme", "MacCast",
+    proc = subprocess.Popen(["xcodebuild", "test", "-project", f"{ROOT}/Peering.xcodeproj", "-scheme", "Peering",
                              "-destination", f"platform=iOS Simulator,id={SIM}", "-derivedDataPath", os.environ.get("TMPDIR", "/tmp") + "/PeeringUI",
-                             "-only-testing:MacCastUITests/LockShotTests/testLockScreen", "-resultBundlePath", result],
+                             "-only-testing:PeeringUITests/LockShotTests/testLockScreen", "-resultBundlePath", result],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for _ in range(600):
         if os.path.exists("/Users/Shared/peering-home"):

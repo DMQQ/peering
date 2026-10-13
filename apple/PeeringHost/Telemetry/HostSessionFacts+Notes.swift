@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 /// Named notes for the places that end a session, so those files need not know the closed sets.
 extension HostSessionFacts {

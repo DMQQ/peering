@@ -1,7 +1,7 @@
 import Testing
 
 @testable import RemoteCore
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite struct AgentClaudeFailureReasonTests {
     private func lines(_ result: String) -> [AgentStreamEvent.Payload] {

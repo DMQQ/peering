@@ -1,10 +1,10 @@
 //
 //  TourTests.swift
-//  MacCastKitTests
+//  PeeringKitTests
 //
 
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// The first-run tips: what each tour says, which of its steps a screen can show, and when it is
 /// owed.

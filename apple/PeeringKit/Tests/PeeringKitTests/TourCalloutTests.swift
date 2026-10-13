@@ -1,10 +1,10 @@
 //
 //  TourCalloutTests.swift
-//  MacCastKitTests
+//  PeeringKitTests
 //
 
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// Card placement: a card over its control still draws fine but hides what the person was asked to look at.
 final class TourCalloutTests: XCTestCase {

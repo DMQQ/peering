@@ -1,4 +1,4 @@
-import MacCastKit
+import PeeringKit
 import SwiftUI
 
 /// How a diff line is coloured: added and removed lines carry a tinted row and a saturated gutter marker, everything else stays white.

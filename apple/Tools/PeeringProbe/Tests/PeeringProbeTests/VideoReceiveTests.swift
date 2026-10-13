@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import RemoteCore
-@testable import MacCastProbe
+@testable import PeeringProbe
 
 /// The `--video-recv` checks, driven with frames directly.
 ///

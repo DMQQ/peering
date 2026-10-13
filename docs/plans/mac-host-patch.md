@@ -1,6 +1,6 @@
 # Mac host patch: platform and codec hints (APPLIED)
 
-Status: applied by the owner in commit a50f539 (`apple/RemoteCore`, `apple/MacCastHost`, and the paragraph in `docs/protocol.md`). The text below is the original proposal; the commit is the source of truth.
+Status: applied by the owner in commit a50f539 (`apple/RemoteCore`, `apple/PeeringHost`, and the paragraph in `docs/protocol.md`). The text below is the original proposal; the commit is the source of truth.
 
 For the owner to review and apply. Nothing under `apple/` was changed. Additive only: no change to existing fields, no
 `ProtocolInfo.version` bump. Shipped iPhone builds ignore unknown keys, so a host that sends the new fields stays compatible with
@@ -36,7 +36,7 @@ line 179 still decodes.
 
 ## 2. Host reads `videoCodecs`
 
-`apple/MacCastHost/Network/HostSession+Handshake.swift`, in `handleClientHello` next to the other `clientSupports...` lines (about line 88):
+`apple/PeeringHost/Network/HostSession+Handshake.swift`, in `handleClientHello` next to the other `clientSupports...` lines (about line 88):
 
 ```swift
 clientVideoCodecs = hello.videoCodecs
@@ -63,6 +63,6 @@ This keeps iPhone behaviour exactly as it is and lets an Android phone without a
 ## 4. Test plan
 
 * `apple/RemoteCore` unit tests for the two new optional fields (above).
-* A unit test for the codec choice as a pure function in `RemoteCore` or `MacCastKit`:
+* A unit test for the codec choice as a pure function in `RemoteCore` or `PeeringKit`:
   `chooseCodec(current:, hostCanEncode:, clientList:, otherClientsAttached:) -> VideoCodec`.
 * Manual: connect the Android client with `videoCodecs: ["h264"]` and check the log line `encoder ready ... h264`.

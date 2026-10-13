@@ -1,5 +1,5 @@
 import LocalAuthentication
-import MacCastKit
+import PeeringKit
 import SwiftUI
 
 /// One gate for every way into the app (row tap, widget, URL, Shortcut): per-button auth would leave other entrances open and interrupt automatic reconnects.

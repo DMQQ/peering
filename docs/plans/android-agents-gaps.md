@@ -1,6 +1,6 @@
 # Android Agents: gaps against the iPhone app
 
-Swift reference: `apple/MacCast/Agent/*`, `apple/RemoteCore/.../AgentWire.swift`, `apple/MacCastKit/.../AgentChatEnding.swift`.
+Swift reference: `apple/Peering/Agent/*`, `apple/RemoteCore/.../AgentWire.swift`, `apple/PeeringKit/.../AgentChatEnding.swift`.
 Status is as of the start of this pass. "Closed" rows name the commit area that closed them.
 
 | Capability (iPhone) | Android before | Status |

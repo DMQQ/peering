@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite("Remembering the folder the Files browser was in")
 struct FolderMemoryTests {

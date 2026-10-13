@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 extension HostServer {
     /// The Mac user's answer to a pairing that arrived without the QR secret.

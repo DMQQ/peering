@@ -17,9 +17,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "C2C03AF43058094900ABF943"
-               BuildableName = "MacCastWidgetExtension.appex"
-               BlueprintName = "MacCastWidgetExtension"
-               ReferencedContainer = "container:MacCast.xcodeproj">
+               BuildableName = "PeeringWidgetExtension.appex"
+               BlueprintName = "PeeringWidgetExtension"
+               ReferencedContainer = "container:Peering.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
          <BuildActionEntry
@@ -31,9 +31,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "C2C039BE30574AB400ABF943"
-               BuildableName = "MacCast.app"
-               BlueprintName = "MacCast"
-               ReferencedContainer = "container:MacCast.xcodeproj">
+               BuildableName = "Peering.app"
+               BlueprintName = "Peering"
+               ReferencedContainer = "container:Peering.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -63,9 +63,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C2C039BE30574AB400ABF943"
-            BuildableName = "MacCast.app"
-            BlueprintName = "MacCast"
-            ReferencedContainer = "container:MacCast.xcodeproj">
+            BuildableName = "Peering.app"
+            BlueprintName = "Peering"
+            ReferencedContainer = "container:Peering.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <EnvironmentVariables>
@@ -99,9 +99,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C2C039BE30574AB400ABF943"
-            BuildableName = "MacCast.app"
-            BlueprintName = "MacCast"
-            ReferencedContainer = "container:MacCast.xcodeproj">
+            BuildableName = "Peering.app"
+            BlueprintName = "Peering"
+            ReferencedContainer = "container:Peering.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

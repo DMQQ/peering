@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import MacCastKit
+@testable import PeeringKit
 import RemoteCore
 
 final class AgentTranscriptTests: XCTestCase {

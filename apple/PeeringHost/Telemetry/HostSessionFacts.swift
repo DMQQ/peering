@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import os
 
 /// What the host remembers about each open session for the end event: who joined it, how, and what it had already cost when it began. Keyed by client ID, never sent.

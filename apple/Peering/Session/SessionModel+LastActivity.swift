@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 extension SessionModel {
     func noteOpenedChat(_ id: UUID) {

@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct RelayReportedAllowanceTests {
     private static let windowNumber = 20_000.0

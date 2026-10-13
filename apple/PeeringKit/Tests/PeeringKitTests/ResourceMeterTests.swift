@@ -1,5 +1,5 @@
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// Every failure here yields a plausible-looking number (missing interval, negative rate after a counter reset, a share clamped at one core), so each is asserted.
 final class ResourceMeterTests: XCTestCase {

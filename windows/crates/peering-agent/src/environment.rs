@@ -1,4 +1,4 @@
-//! Finds the agent CLIs on Windows and says how to start each one. Mirrors `apple/MacCastHost/Agent/Process/AgentEnvironment.swift`.
+//! Finds the agent CLIs on Windows and says how to start each one. Mirrors `apple/PeeringHost/Agent/Process/AgentEnvironment.swift`.
 
 #[cfg(test)]
 mod tests;

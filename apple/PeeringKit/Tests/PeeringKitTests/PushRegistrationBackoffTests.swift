@@ -1,5 +1,5 @@
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite struct PushRegistrationBackoffTests {
     @Test func delaysGrowWithEachFailure() {

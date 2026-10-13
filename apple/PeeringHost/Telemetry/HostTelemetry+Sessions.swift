@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 extension HostTelemetry {
     /// A phone whose hello names a client that is already open replaces it: the older session is closed here, as `replaced`.

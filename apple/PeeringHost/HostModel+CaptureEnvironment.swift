@@ -1,5 +1,5 @@
 import AppKit
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 extension HostModel {

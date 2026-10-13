@@ -2,7 +2,7 @@ import Foundation
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct AgentClaudeSessionFileTests {
     private let meta = #"{"type":"user","isMeta":true,"cwd":"/Users/a/app","message":{"role":"user","content":"<local-command-caveat>x</local-command-caveat>"}}"#

@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// Maps errors the host already handles onto the closed codes of ``HostEventCodes/ErrorCode``, so a call site is one line.

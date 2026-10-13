@@ -1,5 +1,5 @@
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// Both ends fail quietly (too narrow wraps full-screen programs, too wide loses the right of each line), so the arithmetic is asserted.
 final class TerminalMetricsTests: XCTestCase {

@@ -2,7 +2,7 @@ import Foundation
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 private let patch = """
 diff --git a/Sources/A.swift b/Sources/A.swift

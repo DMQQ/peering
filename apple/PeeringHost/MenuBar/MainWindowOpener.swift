@@ -1,5 +1,5 @@
 import AppKit
-import MacCastKit
+import PeeringKit
 import SwiftUI
 
 /// Brings the main window forward from outside a scene, where `openWindow` does not exist. When none is open, the app is asked to open its own `peering-host://` URL, which makes the `WindowGroup` create one; that needs nothing to have appeared first.
@@ -9,7 +9,7 @@ enum MainWindowOpener {
         NSApp.activate(ignoringOtherApps: true)
         let windows = NSApp.windows
         let index = MainWindowChoice.index(
-            of: MacCastHostApp.mainWindowID,
+            of: PeeringHostApp.mainWindowID,
             identifiers: windows.map { $0.identifier?.rawValue },
             canBecomeMain: windows.map(\.canBecomeMain)
         )

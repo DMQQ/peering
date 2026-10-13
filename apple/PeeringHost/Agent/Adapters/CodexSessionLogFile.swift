@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// Finds a Codex thread's session log and reads its usage. See ``AgentCodexSessionLog``.

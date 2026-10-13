@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct AgentDraftTests {
     @Test func filesGoFirstAsMentions() {

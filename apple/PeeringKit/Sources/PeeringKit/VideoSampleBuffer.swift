@@ -2,7 +2,7 @@ import CoreMedia
 import Foundation
 import RemoteCore
 
-/// The attachments decide whether the picture plays at all; they live here so `MacCastPolicyTests` can assert them without an app bundle.
+/// The attachments decide whether the picture plays at all; they live here so `PeeringPolicyTests` can assert them without an app bundle.
 public enum VideoSampleBuffer {
     /// `decodeTimeStamp = .invalid` is correct: the host encodes with `AllowFrameReordering` false,
     /// so presentation order is decode order and there is no second timestamp to supply.

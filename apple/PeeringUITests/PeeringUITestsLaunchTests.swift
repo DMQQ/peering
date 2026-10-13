@@ -1,13 +1,13 @@
 //
-//  MacCastUITestsLaunchTests.swift
-//  MacCastUITests
+//  PeeringUITestsLaunchTests.swift
+//  PeeringUITests
 //
 //  Created by Damian Derlecki on 13/09/2026.
 //
 
 import XCTest
 
-final class MacCastUITestsLaunchTests: XCTestCase {
+final class PeeringUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

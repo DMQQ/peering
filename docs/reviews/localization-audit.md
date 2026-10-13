@@ -4,7 +4,7 @@ Rule being enforced: every user-visible string is internationalized in all ten s
 languages (en source; de, es, fr, it, ja, ko, pt-BR, ru, zh-Hans).
 
 Scope: `git diff be87fd01..HEAD -- apple` (260 files), covering the iPhone app, both widget
-extensions, the Mac host and the `MacCastKit`, `RemoteCore` and `SSHCore` packages. Two other agents
+extensions, the Mac host and the `PeeringKit`, `RemoteCore` and `SSHCore` packages. Two other agents
 own the RemoteCore sentences `pinsUnreadable`, `handshakeTimedOut` and the relay `timedOut`, and
 the capture-recovery notice code mapping; nothing here touches them.
 
@@ -27,13 +27,13 @@ nine translations in state `translated`.
 
 | Catalog | be87fd01 | before audit | now | added by audit |
 | --- | --- | --- | --- | --- |
-| MacCast/Localizable.xcstrings | 1615 | 1632 | 1813 | 181 |
-| MacCastHost/Localizable.xcstrings | 276 | 286 | 435 | 149 |
-| MacCastWidget/Localizable.xcstrings | 46 | 46 | 47 | 1 |
-| MacCastHostWidget/Localizable.xcstrings | 13 | 13 | 13 | 0 |
-| MacCast/AppShortcuts.xcstrings | 9 | 9 | 9 | 0 |
-| MacCast/InfoPlist.xcstrings | 5 | 5 | 5 | 0 |
-| MacCastHost/InfoPlist.xcstrings | 8 | 8 | 8 | 0 |
+| Peering/Localizable.xcstrings | 1615 | 1632 | 1813 | 181 |
+| PeeringHost/Localizable.xcstrings | 276 | 286 | 435 | 149 |
+| PeeringWidget/Localizable.xcstrings | 46 | 46 | 47 | 1 |
+| PeeringHostWidget/Localizable.xcstrings | 13 | 13 | 13 | 0 |
+| Peering/AppShortcuts.xcstrings | 9 | 9 | 9 | 0 |
+| Peering/InfoPlist.xcstrings | 5 | 5 | 5 | 0 |
+| PeeringHost/InfoPlist.xcstrings | 8 | 8 | 8 | 0 |
 
 The 23 keys the diff itself added to the phone and host catalogs (upload, shell and Keychain
 alerts, transfer failures, capture recovery) were already complete in all ten languages with
@@ -86,9 +86,9 @@ Catalog hygiene:
 ## Wire text
 
 English sentences the Mac (or a library) sends and the phone shows. The phone now runs these
-through `HostWireText.localized(_:)` (`apple/MacCast/Session/HostWireText*.swift`) at the point of
+through `HostWireText.localized(_:)` (`apple/Peering/Session/HostWireText*.swift`) at the point of
 display: exact sentences by `switch`, sentences with a path, name or number by
-`SentenceTemplate` (`MacCastKit`, tested). No protocol change: an unknown sentence, or one from a
+`SentenceTemplate` (`PeeringKit`, tested). No protocol change: an unknown sentence, or one from a
 newer Mac, is shown unchanged. Matching is on the English, so a Mac whose own language is not
 English that already localized a sentence is shown as the Mac wrote it.
 
@@ -153,7 +153,7 @@ fell back to `String` because its sibling branch was `String(localized:)`.
 
 ### Agent pushes
 
-`MacCastKit` cannot have strings extracted, so `AgentNotificationText.approval/finished`,
+`PeeringKit` cannot have strings extracted, so `AgentNotificationText.approval/finished`,
 `AgentTurnDigest.detail` and `ClaudeHookBroker` take an `AgentNotificationWords` value
 (`AgentNotificationWords.swift`). `.english` is the default and what the tests assert; the host builds
 `AgentNotificationWords.localized` (`AgentNotificationWords+Localized.swift`) from the host catalog and
@@ -220,12 +220,12 @@ and now use `spokenDuration`.
 
 | Catalog | stale |
 | --- | --- |
-| MacCast/Localizable.xcstrings | 269 |
-| MacCastHost/Localizable.xcstrings | 5 |
-| MacCast/AppShortcuts.xcstrings | 5 |
+| Peering/Localizable.xcstrings | 269 |
+| PeeringHost/Localizable.xcstrings | 5 |
+| Peering/AppShortcuts.xcstrings | 5 |
 
 Do not delete these blindly. Xcode does not extract strings from Swift packages, so every
-`String(localized:)` in `MacCastKit` (session notifications such as "Connected to %@", the relay
+`String(localized:)` in `PeeringKit` (session notifications such as "Connected to %@", the relay
 quality labels, tour copy) is flagged stale although it is in use. In the phone catalog 50 of the
 269 stale keys still appear as literals in the sources. Newly orphaned by this audit:
 `%@ finished%@.` and `%lld seconds`.

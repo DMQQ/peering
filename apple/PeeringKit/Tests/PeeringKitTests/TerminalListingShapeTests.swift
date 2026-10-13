@@ -1,6 +1,6 @@
 import RemoteCore
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// A listing replays history onto a fresh screen, which must keep the shape the shell was last told:
 /// at the 80x24 default full-screen frames wrap and clip, and the later resize cannot repair them.

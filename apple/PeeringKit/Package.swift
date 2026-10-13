@@ -3,25 +3,25 @@ import PackageDescription
 
 // The app's own policy, kept where it can be tested.
 let package = Package(
-    name: "MacCastKit",
+    name: "PeeringKit",
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
-        .library(name: "MacCastKit", targets: ["MacCastKit"]),
+        .library(name: "PeeringKit", targets: ["PeeringKit"]),
     ],
     dependencies: [
         .package(path: "../RemoteCore"),
     ],
     targets: [
         .target(
-            name: "MacCastKit",
+            name: "PeeringKit",
             dependencies: [
                 .product(name: "RemoteCore", package: "RemoteCore"),
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
-            name: "MacCastKitTests",
-            dependencies: ["MacCastKit"],
+            name: "PeeringKitTests",
+            dependencies: ["PeeringKit"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]

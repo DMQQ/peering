@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 final class AgentDiffTests: XCTestCase {
     func testReplacementShowsBothSidesUnderTheFile() {

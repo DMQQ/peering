@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// What a list card needs from a chat, and nothing that changes on every streamed token. The list reads these, rebuilt a couple of times a second, instead of the transcripts, which change many times a second while an agent works and made every switch of tab compete with a redraw of the whole page.

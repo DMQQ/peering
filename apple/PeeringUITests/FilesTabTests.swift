@@ -1,6 +1,6 @@
 //
 //  FilesTabTests.swift
-//  MacCastUITests
+//  PeeringUITests
 //
 //  The hub's Files tab on the pretend Mac: where it opens and what it lists.
 //

@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 /// The shared answer to "is this phone looking at the app": one lock around ``PhonePresenceBook``, read from the terminal, agent and Live Activity code.
 final class PhonePresenceRegistry: @unchecked Sendable {

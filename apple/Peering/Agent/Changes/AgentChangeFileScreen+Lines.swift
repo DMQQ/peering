@@ -1,4 +1,4 @@
-import MacCastKit
+import PeeringKit
 import SwiftUI
 
 /// What a comment is about: the whole file, or one line of the diff.

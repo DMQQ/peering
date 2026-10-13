@@ -2,7 +2,7 @@ import AVFoundation
 import CoreGraphics
 import CoreMedia
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 import os
 

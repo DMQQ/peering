@@ -1,5 +1,5 @@
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct ClipboardHistoryPolicyTests {
     @Test func ordinaryTextIsRemembered() {

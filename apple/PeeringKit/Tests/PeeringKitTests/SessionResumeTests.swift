@@ -1,5 +1,5 @@
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 import RemoteCore
 
 /// Whether a disconnected Mac is being put back; four places must agree on the answer.

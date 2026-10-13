@@ -1,5 +1,5 @@
 //! The host side of the control connection: role, hello and the decision between a paired resume and pairing.
-//! Mirrors `apple/MacCastHost/Network/HostSession+Handshake.swift`; see docs/protocol.md sections 5 and 6.
+//! Mirrors `apple/PeeringHost/Network/HostSession+Handshake.swift`; see docs/protocol.md sections 5 and 6.
 
 mod pairing;
 

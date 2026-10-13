@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// The Mac and the networking libraries word their errors in English. The phone shows the ones it

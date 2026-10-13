@@ -2,7 +2,7 @@ import Foundation
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite("Live Activity push content")
 struct LiveActivityPushBuilderTests {

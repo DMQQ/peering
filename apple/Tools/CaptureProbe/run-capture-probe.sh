@@ -19,18 +19,18 @@
 #        Tools/CaptureProbe/run-capture-probe.sh --seconds 5 --output /tmp/screen.mov
 #        Tools/CaptureProbe/run-capture-probe.sh --synthetic
 #
-# MACCAST_LAUNCH=open runs it through LaunchServices instead of exec'ing the binary. That
+# PEERING_LAUNCH=open runs it through LaunchServices instead of exec'ing the binary. That
 # is a different TCC question, not a different way of starting the same program: a process
 # exec'd from a shell inherits the shell's "responsible process", while one LaunchServices
 # starts is responsible for itself. When the two disagree about the permission, that is the
 # reason, and this switch is how to tell which one you are looking at.
 set -euo pipefail
 
-LAUNCH="${MACCAST_LAUNCH:-exec}"
-LOG="${MACCAST_PROBE_LOG:-/tmp/maccast-capture-probe.log}"
+LAUNCH="${PEERING_LAUNCH:-exec}"
+LOG="${PEERING_PROBE_LOG:-/tmp/peering-capture-probe.log}"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="${TMPDIR:-/tmp}/maccast-captureprobe"
+BUILD_DIR="${TMPDIR:-/tmp}/peering-captureprobe"
 APP="$BUILD_DIR/CaptureProbe.app"
 BUNDLE_ID="pl.dmq.maccast.captureprobe"
 

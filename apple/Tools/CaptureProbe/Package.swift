@@ -11,7 +11,7 @@ import PackageDescription
 // outside the package root"), so a symlink is the only way to compile a directory that
 // lives in the Xcode target from here.
 //
-// It depends on RemoteCore by path for the same reason `MacCastProbe` does: those are the
+// It depends on RemoteCore by path for the same reason `PeeringProbe` does: those are the
 // types the capture code is written against, and testing against anything else would be
 // testing a different program.
 let package = Package(
@@ -20,16 +20,16 @@ let package = Package(
     dependencies: [
         .package(path: "../../RemoteCore"),
         // The host's own resource sampler is compiled here too, and it takes its arithmetic
-        // from MacCastKit, so the probe measures this process with the same subtraction, the
+        // from PeeringKit, so the probe measures this process with the same subtraction, the
         // same reset handling and the same rounding the window shows.
-        .package(path: "../../MacCastKit"),
+        .package(path: "../../PeeringKit"),
     ],
     targets: [
         .executableTarget(
             name: "CaptureProbe",
             dependencies: [
                 .product(name: "RemoteCore", package: "RemoteCore"),
-                .product(name: "MacCastKit", package: "MacCastKit"),
+                .product(name: "PeeringKit", package: "PeeringKit"),
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

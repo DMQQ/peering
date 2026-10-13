@@ -1,12 +1,12 @@
 //
 //  ObservationForwardingTests.swift
-//  MacCastKitTests
+//  PeeringKitTests
 //
 
 import Foundation
 import Observation
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// SessionModel forwards per-Mac state through computed properties to the active session. If Observation did not
 /// track nested reads through them, screens would draw once and never update. The app target cannot run tests (see AGENTS.md).

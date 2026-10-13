@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import SwiftUI
 
 struct HostLogEntry: Identifiable, Sendable, Equatable {

@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// Turns what the planner decided into the relay message, using the state types the widget decodes.

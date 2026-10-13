@@ -1,6 +1,6 @@
 //
 //  Item.swift
-//  MacCast
+//  Peering
 //
 //  Created by Damian Derlecki on 13/09/2026.
 //

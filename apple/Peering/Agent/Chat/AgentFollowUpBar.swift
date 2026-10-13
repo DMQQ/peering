@@ -1,4 +1,4 @@
-import MacCastKit
+import PeeringKit
 import SwiftUI
 
 /// What to do next after a turn that changed the project, as buttons over the composer.

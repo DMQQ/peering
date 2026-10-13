@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import Observation
 import RemoteCore
 import SwiftUI
@@ -13,7 +13,7 @@ let sessionLog = Logger(subsystem: "pl.dmq.peering", category: "session")
 @MainActor
 final class MacSession: Identifiable {
     /// Per Mac: one can be on this network while another is across the country, and the picture ceiling differs. See ``videoCeiling``.
-    typealias ConnectionPath = MacCastKit.ConnectionPath
+    typealias ConnectionPath = PeeringKit.ConnectionPath
 
     // MARK: - Identity
 

@@ -12,7 +12,7 @@ import os
 
 let clientSessionLog = Logger(subsystem: "pl.dmq.peering", category: "session")
 
-/// The client half of the MacCast protocol: connect, authenticate, and stay usable.
+/// The client half of the Peering protocol: connect, authenticate, and stay usable.
 /// Two sockets, always. ``control`` carries the handshake, commands, and the catalog;
 /// ``video`` carries nothing but encoded pictures. A single stream would put a keyframe in front
 /// of the next mouse move.

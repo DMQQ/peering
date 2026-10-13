@@ -1,5 +1,5 @@
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct CaptureRecoverySchedulerTests {
     private let stopped = CaptureRecoveryBudget.Cause.streamStopped(code: -3821)

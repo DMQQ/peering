@@ -1,6 +1,6 @@
 @preconcurrency import ActivityKit
 import Foundation
-import MacCastKit
+import PeeringKit
 import os
 
 private let activityLog = Logger(subsystem: "pl.dmq.peering", category: "terminal-activity")

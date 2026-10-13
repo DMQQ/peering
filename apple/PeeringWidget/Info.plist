@@ -10,7 +10,7 @@
 	  Carried here as well as in the app, though the extension is not the bundle App Store
 	  Connect asks about and does no encryption of its own beyond reading the App Group. The
 	  answer is the app's answer, and the reasoning behind it is written out in full in
-	  Config/MacCast-Info.plist. It is here so that a tool reading this plist on its own
+	  Config/Peering-Info.plist. It is here so that a tool reading this plist on its own
 	  cannot come away thinking the question was left unanswered.
 	-->
 	<key>ITSAppUsesNonExemptEncryption</key>

@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import os
 
 /// The Mac host's failure events. Call sites pass a code from a closed set and, at most, a number: never an error message, a path, a name or an address.

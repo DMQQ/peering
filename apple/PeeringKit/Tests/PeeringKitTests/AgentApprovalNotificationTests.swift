@@ -1,7 +1,7 @@
 import Foundation
 import RemoteCore
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct AgentApprovalNotificationTests {
     private let session = UUID()

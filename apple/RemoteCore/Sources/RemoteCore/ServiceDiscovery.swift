@@ -75,7 +75,7 @@ extension DiscoveredHost {
         .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
     }
 
-    /// Builds a host from a browse result, or nil if it is not a MacCast host. `_remotedesktop._tcp` is Apple's Screen Sharing type, so other Macs appear too; the device ID (required, since the pin and handshake key on it) tells them apart.
+    /// Builds a host from a browse result, or nil if it is not a Peering host. `_remotedesktop._tcp` is Apple's Screen Sharing type, so other Macs appear too; the device ID (required, since the pin and handshake key on it) tells them apart.
     static func decode(endpoint: NWEndpoint, txt: NWTXTRecord?) -> DiscoveredHost? {
         // An empty `id=` is malformed, and all of them would collapse to one host.
         guard let id = txt?[ProtocolInfo.TXTRecordKey.deviceID], !id.isEmpty else { return nil }

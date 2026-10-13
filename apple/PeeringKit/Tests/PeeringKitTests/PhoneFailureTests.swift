@@ -1,7 +1,7 @@
 import Foundation
 import RemoteCore
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct PhoneFailureTests {
     private enum Sample: Error { case transport(String), hostKeyChanged(String), browse(String), forward(String), tooNew(String) }

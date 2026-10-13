@@ -1,5 +1,5 @@
 import AppKit
-import MacCastKit
+import PeeringKit
 import SwiftUI
 
 /// The app's own delegate, for the one hook a scene cannot be trusted with.
@@ -52,7 +52,7 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct MacCastHostApp: App {
+struct PeeringHostApp: App {
     /// The window is reopened from the menu bar, which needs something to name it by once the
     /// user has closed it — closing a window must not take the host down with it.
     static let mainWindowID = "main"

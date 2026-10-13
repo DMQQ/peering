@@ -1,4 +1,4 @@
-import MacCastKit
+import PeeringKit
 import SwiftUI
 
 struct AgentLaunch: Codable, Identifiable, Equatable {

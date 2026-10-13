@@ -1,6 +1,6 @@
 //
-//  MacCastPolicyTests.swift
-//  MacCastKitTests
+//  PeeringPolicyTests.swift
+//  PeeringKitTests
 //
 //  Created by Damian Derlecki on 13/09/2026.
 //
@@ -9,12 +9,12 @@ import AVFoundation
 import CoreGraphics
 import RemoteCore
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
-/// The app's own policy, tested where it can run. Moved here from `MacCastTests` because Xcode 27 cannot execute that test action (the Crypto product's target never runs a link step, so X509, RemoteCore and the app fail to link). Runs under `swift test`; the two tests needing UIKit stay in `MacCastTests`.
+/// The app's own policy, tested where it can run. Moved here from `PeeringTests` because Xcode 27 cannot execute that test action (the Crypto product's target never runs a link step, so X509, RemoteCore and the app fail to link). Runs under `swift test`; the two tests needing UIKit stay in `PeeringTests`.
 /// `@MainActor`: the app builds with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so these are main-actor types there.
 @MainActor
-final class MacCastPolicyTests: XCTestCase {
+final class PeeringPolicyTests: XCTestCase {
 
     // MARK: - Auto quality
 
@@ -669,7 +669,7 @@ final class MacCastPolicyTests: XCTestCase {
 
     /// A defaults store of this test's own, since saving and restoring `UserDefaults.standard` fails when another test runs beside it.
     private func scratchDefaults(_ name: String = #function) throws -> UserDefaults {
-        let suite = "MacCastKitTests.\(name)"
+        let suite = "PeeringKitTests.\(name)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defaults.removePersistentDomain(forName: suite)
         addTeardownBlock { defaults.removePersistentDomain(forName: suite) }

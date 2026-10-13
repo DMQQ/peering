@@ -1,6 +1,6 @@
 # Android Agents parity checklist
 
-Source: `apple/MacCast/Terminal/TerminalHubScreen*.swift` (the Agents tab of the hub), `Connection/SessionCards.swift`, `Agent/Hub`, `Agent/Chat`, `Agent/Composer`, `Agent/Transcript`, `Agent/Approval`.
+Source: `apple/Peering/Terminal/TerminalHubScreen*.swift` (the Agents tab of the hub), `Connection/SessionCards.swift`, `Agent/Hub`, `Agent/Chat`, `Agent/Composer`, `Agent/Transcript`, `Agent/Approval`.
 
 Page column: 16 pt side inset, 20 pt between sections, 28 pt at the bottom, 70 pt of room under the list for the dock.
 

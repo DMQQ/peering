@@ -1,7 +1,7 @@
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite struct AgentNotificationTextTests {
     @Test func anApprovalLeadsWithItsCommandThenItsReason() {

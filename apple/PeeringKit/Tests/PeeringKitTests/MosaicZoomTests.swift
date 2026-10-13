@@ -2,7 +2,7 @@ import CoreGraphics
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite("The movement between an arrangement and one of its windows")
 struct MosaicZoomTests {

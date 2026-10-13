@@ -1,10 +1,10 @@
 //
 //  PicturePauseTests.swift
-//  MacCastKitTests
+//  PeeringKitTests
 //
 
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// supportsVideoPause is optional: nil (an old Mac) must not be read as permission, or an unknown command breaks the session.
 final class PicturePauseTests: XCTestCase {

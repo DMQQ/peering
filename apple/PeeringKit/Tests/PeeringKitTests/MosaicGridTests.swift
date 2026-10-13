@@ -2,7 +2,7 @@ import CoreGraphics
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite("Arranging a mosaic")
 struct MosaicGridTests {

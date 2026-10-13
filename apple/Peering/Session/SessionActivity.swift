@@ -1,7 +1,7 @@
 // `@preconcurrency` is load-bearing: ActivityKit's `Activity` is not `Sendable` while `update` and `end` are `@concurrent`, so Swift 6 rejects every call without it.
 @preconcurrency import ActivityKit
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 import os
 

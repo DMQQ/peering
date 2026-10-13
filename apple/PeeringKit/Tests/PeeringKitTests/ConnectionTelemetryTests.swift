@@ -1,6 +1,6 @@
 import Testing
 import RemoteCore
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct ConnectionTelemetryTests {
     private let context = ConnectionTelemetry.Context(

@@ -1,6 +1,6 @@
 #if DEBUG
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// Which chat the UI tests find on launch, chosen by `-Peering.seedAgentScenario <name>`; with none, ``AgentSeed`` draws the App Store capture.

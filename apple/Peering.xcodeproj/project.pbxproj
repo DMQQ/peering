@@ -17,16 +17,16 @@
 		C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039ED30574AB600ABF943 /* RemoteCore */; };
 		C2C03AF83058094A00ABF943 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF73058094900ABF943 /* WidgetKit.framework */; };
 		C2C03AFA3058094A00ABF943 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF93058094A00ABF943 /* SwiftUI.framework */; };
-		C2C03B093058094B00ABF943 /* MacCastWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C2C03AF53058094900ABF943 /* MacCastWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C2C03B093058094B00ABF943 /* PeeringWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C2C03AF53058094900ABF943 /* PeeringWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C2C03B15305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */; };
 		C2C03B16305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */; };
 		D4A10001305B000100ABF943 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF73058094900ABF943 /* WidgetKit.framework */; };
 		D4A10002305B000100ABF943 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF93058094A00ABF943 /* SwiftUI.framework */; };
-		D4A10003305B000100ABF943 /* MacCastHostWidgetExtension.appex in Embed Host Widget Extension */ = {isa = PBXBuildFile; fileRef = D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D4A10003305B000100ABF943 /* PeeringHostWidgetExtension.appex in Embed Host Widget Extension */ = {isa = PBXBuildFile; fileRef = D4A10006305B000100ABF943 /* PeeringHostWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FF02305B000100ABF943 /* SSHCore */; };
-		D4C0FFA4305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA2305B000100ABF943 /* MacCastKit */; };
-		D4C0FFA5305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA3305B000100ABF943 /* MacCastKit */; };
-		D4C0FFA6305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA7305B000100ABF943 /* MacCastKit */; };
+		D4C0FFA4305B000100ABF943 /* PeeringKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA2305B000100ABF943 /* PeeringKit */; };
+		D4C0FFA5305B000100ABF943 /* PeeringKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA3305B000100ABF943 /* PeeringKit */; };
+		D4C0FFA6305B000100ABF943 /* PeeringKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA7305B000100ABF943 /* PeeringKit */; };
 		F0A10001305B000100ABF943 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F0A10003305B000100ABF943 /* PostHog */; };
 		F0A10002305B000100ABF943 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F0A10004305B000100ABF943 /* PostHog */; };
 		AC0100000000000000000000 /* SessionActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000000 /* SessionActivityState.swift */; };
@@ -46,28 +46,28 @@
 			containerPortal = C2C039B730574AB400ABF943 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = C2C039BE30574AB400ABF943;
-			remoteInfo = MacCast;
+			remoteInfo = Peering;
 		};
 		C2C039D930574AB600ABF943 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C2C039B730574AB400ABF943 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = C2C039BE30574AB400ABF943;
-			remoteInfo = MacCast;
+			remoteInfo = Peering;
 		};
 		C2C03B073058094B00ABF943 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C2C039B730574AB400ABF943 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = C2C03AF43058094900ABF943;
-			remoteInfo = MacCastWidgetExtension;
+			remoteInfo = PeeringWidgetExtension;
 		};
 		D4A10004305B000100ABF943 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C2C039B730574AB400ABF943 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = D4A1000A305B000100ABF943;
-			remoteInfo = MacCastHostWidgetExtension;
+			remoteInfo = PeeringHostWidgetExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -78,7 +78,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				C2C03B093058094B00ABF943 /* MacCastWidgetExtension.appex in Embed Foundation Extensions */,
+				C2C03B093058094B00ABF943 /* PeeringWidgetExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -89,7 +89,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				D4A10003305B000100ABF943 /* MacCastHostWidgetExtension.appex in Embed Host Widget Extension */,
+				D4A10003305B000100ABF943 /* PeeringHostWidgetExtension.appex in Embed Host Widget Extension */,
 			);
 			name = "Embed Host Widget Extension";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -99,72 +99,72 @@
 /* Begin PBXFileReference section */
 		AA00000000000000000000AA /* TerminalActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalActivityAttributes.swift; sourceTree = "<group>"; };
 		AB00000000000000000000AA /* AgentChatSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChatSnapshot.swift; sourceTree = "<group>"; };
-		C2C039BF30574AB400ABF943 /* MacCast.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacCast.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		C2C039CE30574AB600ABF943 /* MacCastTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacCastTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		C2C039D830574AB600ABF943 /* MacCastUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacCastUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2C039BF30574AB400ABF943 /* Peering.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Peering.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2C039CE30574AB600ABF943 /* PeeringTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PeeringTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2C039D830574AB600ABF943 /* PeeringUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PeeringUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2C039F330574AB600ABF943 /* Peering.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Peering.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		C2C03AF53058094900ABF943 /* MacCastWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MacCastWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2C03AF53058094900ABF943 /* PeeringWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PeeringWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2C03AF73058094900ABF943 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		C2C03AF93058094A00ABF943 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionActivityAttributes.swift; sourceTree = "<group>"; };
-		D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MacCastHostWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D4A10006305B000100ABF943 /* PeeringHostWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PeeringHostWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AC0000000000000000000000 /* SessionActivityState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionActivityState.swift; sourceTree = "<group>"; };
 		AD0000000000000000000000 /* AgentChatActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChatActivityAttributes.swift; sourceTree = "<group>"; };
 		AE0000000000000000000000 /* HostKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostKey.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		C2C03B0D3058094B00ABF943 /* Exceptions for "MacCastWidget" folder in "MacCastWidgetExtension" target */ = {
+		C2C03B0D3058094B00ABF943 /* Exceptions for "PeeringWidget" folder in "PeeringWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = C2C03AF43058094900ABF943 /* MacCastWidgetExtension */;
+			target = C2C03AF43058094900ABF943 /* PeeringWidgetExtension */;
 		};
-		D4A10007305B000100ABF943 /* Exceptions for "MacCastHostWidget" folder in "MacCastHostWidgetExtension" target */ = {
+		D4A10007305B000100ABF943 /* Exceptions for "PeeringHostWidget" folder in "PeeringHostWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = D4A1000A305B000100ABF943 /* MacCastHostWidgetExtension */;
+			target = D4A1000A305B000100ABF943 /* PeeringHostWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		C2C039C130574AB400ABF943 /* MacCast */ = {
+		C2C039C130574AB400ABF943 /* Peering */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MacCast;
+			path = Peering;
 			sourceTree = "<group>";
 		};
-		C2C039D130574AB600ABF943 /* MacCastTests */ = {
+		C2C039D130574AB600ABF943 /* PeeringTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MacCastTests;
+			path = PeeringTests;
 			sourceTree = "<group>";
 		};
-		C2C039DB30574AB600ABF943 /* MacCastUITests */ = {
+		C2C039DB30574AB600ABF943 /* PeeringUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MacCastUITests;
+			path = PeeringUITests;
 			sourceTree = "<group>";
 		};
-		C2C039F230574AB600ABF943 /* MacCastHost */ = {
+		C2C039F230574AB600ABF943 /* PeeringHost */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MacCastHost;
+			path = PeeringHost;
 			sourceTree = "<group>";
 		};
-		C2C03AFB3058094A00ABF943 /* MacCastWidget */ = {
+		C2C03AFB3058094A00ABF943 /* PeeringWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				C2C03B0D3058094B00ABF943 /* Exceptions for "MacCastWidget" folder in "MacCastWidgetExtension" target */,
+				C2C03B0D3058094B00ABF943 /* Exceptions for "PeeringWidget" folder in "PeeringWidgetExtension" target */,
 			);
-			path = MacCastWidget;
+			path = PeeringWidget;
 			sourceTree = "<group>";
 		};
-		D4A10008305B000100ABF943 /* MacCastHostWidget */ = {
+		D4A10008305B000100ABF943 /* PeeringHostWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				D4A10007305B000100ABF943 /* Exceptions for "MacCastHostWidget" folder in "MacCastHostWidgetExtension" target */,
+				D4A10007305B000100ABF943 /* Exceptions for "PeeringHostWidget" folder in "PeeringHostWidgetExtension" target */,
 			);
-			path = MacCastHostWidget;
+			path = PeeringHostWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -176,7 +176,7 @@
 			files = (
 				C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */,
 				D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */,
-				D4C0FFA4305B000100ABF943 /* MacCastKit in Frameworks */,
+				D4C0FFA4305B000100ABF943 /* PeeringKit in Frameworks */,
 				F0A10001305B000100ABF943 /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -186,7 +186,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2C039F030574AB600ABF943 /* RemoteCore in Frameworks */,
-				D4C0FFA5305B000100ABF943 /* MacCastKit in Frameworks */,
+				D4C0FFA5305B000100ABF943 /* PeeringKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -202,7 +202,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2B2281E306093ED008FB38C /* Sparkle in Frameworks */,
-				D4C0FFA6305B000100ABF943 /* MacCastKit in Frameworks */,
+				D4C0FFA6305B000100ABF943 /* PeeringKit in Frameworks */,
 				C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */,
 				F0A10002305B000100ABF943 /* PostHog in Frameworks */,
 			);
@@ -232,12 +232,12 @@
 		C2C039B630574AB400ABF943 = {
 			isa = PBXGroup;
 			children = (
-				C2C039C130574AB400ABF943 /* MacCast */,
-				C2C039D130574AB600ABF943 /* MacCastTests */,
-				C2C039DB30574AB600ABF943 /* MacCastUITests */,
-				C2C039F230574AB600ABF943 /* MacCastHost */,
-				C2C03AFB3058094A00ABF943 /* MacCastWidget */,
-				D4A10008305B000100ABF943 /* MacCastHostWidget */,
+				C2C039C130574AB400ABF943 /* Peering */,
+				C2C039D130574AB600ABF943 /* PeeringTests */,
+				C2C039DB30574AB600ABF943 /* PeeringUITests */,
+				C2C039F230574AB600ABF943 /* PeeringHost */,
+				C2C03AFB3058094A00ABF943 /* PeeringWidget */,
+				D4A10008305B000100ABF943 /* PeeringHostWidget */,
 				C2C03AF63058094900ABF943 /* Frameworks */,
 				C2C039C030574AB400ABF943 /* Products */,
 				C2C03B14305809EC00ABF943 /* Shared */,
@@ -247,12 +247,12 @@
 		C2C039C030574AB400ABF943 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				C2C039BF30574AB400ABF943 /* MacCast.app */,
-				C2C039CE30574AB600ABF943 /* MacCastTests.xctest */,
-				C2C039D830574AB600ABF943 /* MacCastUITests.xctest */,
+				C2C039BF30574AB400ABF943 /* Peering.app */,
+				C2C039CE30574AB600ABF943 /* PeeringTests.xctest */,
+				C2C039D830574AB600ABF943 /* PeeringUITests.xctest */,
 				C2C039F330574AB600ABF943 /* Peering.app */,
-				C2C03AF53058094900ABF943 /* MacCastWidgetExtension.appex */,
-				D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */,
+				C2C03AF53058094900ABF943 /* PeeringWidgetExtension.appex */,
+				D4A10006305B000100ABF943 /* PeeringHostWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -282,9 +282,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		C2C039BE30574AB400ABF943 /* MacCast */ = {
+		C2C039BE30574AB400ABF943 /* Peering */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C2C039E230574AB600ABF943 /* Build configuration list for PBXNativeTarget "MacCast" */;
+			buildConfigurationList = C2C039E230574AB600ABF943 /* Build configuration list for PBXNativeTarget "Peering" */;
 			buildPhases = (
 				C2C039BB30574AB400ABF943 /* Sources */,
 				C2C039BC30574AB400ABF943 /* Frameworks */,
@@ -298,22 +298,22 @@
 				C2C03B083058094B00ABF943 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				C2C039C130574AB400ABF943 /* MacCast */,
+				C2C039C130574AB400ABF943 /* Peering */,
 			);
-			name = MacCast;
+			name = Peering;
 			packageProductDependencies = (
 				C2C039EC30574AB600ABF943 /* RemoteCore */,
 				D4C0FF02305B000100ABF943 /* SSHCore */,
-				D4C0FFA2305B000100ABF943 /* MacCastKit */,
+				D4C0FFA2305B000100ABF943 /* PeeringKit */,
 				F0A10003305B000100ABF943 /* PostHog */,
 			);
-			productName = MacCast;
-			productReference = C2C039BF30574AB400ABF943 /* MacCast.app */;
+			productName = Peering;
+			productReference = C2C039BF30574AB400ABF943 /* Peering.app */;
 			productType = "com.apple.product-type.application";
 		};
-		C2C039CD30574AB600ABF943 /* MacCastTests */ = {
+		C2C039CD30574AB600ABF943 /* PeeringTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C2C039E530574AB600ABF943 /* Build configuration list for PBXNativeTarget "MacCastTests" */;
+			buildConfigurationList = C2C039E530574AB600ABF943 /* Build configuration list for PBXNativeTarget "PeeringTests" */;
 			buildPhases = (
 				C2C039CA30574AB600ABF943 /* Sources */,
 				C2C039CB30574AB600ABF943 /* Frameworks */,
@@ -325,20 +325,20 @@
 				C2C039D030574AB600ABF943 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				C2C039D130574AB600ABF943 /* MacCastTests */,
+				C2C039D130574AB600ABF943 /* PeeringTests */,
 			);
-			name = MacCastTests;
+			name = PeeringTests;
 			packageProductDependencies = (
 				C2C039EE30574AB600ABF943 /* RemoteCore */,
-				D4C0FFA3305B000100ABF943 /* MacCastKit */,
+				D4C0FFA3305B000100ABF943 /* PeeringKit */,
 			);
-			productName = MacCastTests;
-			productReference = C2C039CE30574AB600ABF943 /* MacCastTests.xctest */;
+			productName = PeeringTests;
+			productReference = C2C039CE30574AB600ABF943 /* PeeringTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		C2C039D730574AB600ABF943 /* MacCastUITests */ = {
+		C2C039D730574AB600ABF943 /* PeeringUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C2C039E830574AB600ABF943 /* Build configuration list for PBXNativeTarget "MacCastUITests" */;
+			buildConfigurationList = C2C039E830574AB600ABF943 /* Build configuration list for PBXNativeTarget "PeeringUITests" */;
 			buildPhases = (
 				C2C039D430574AB600ABF943 /* Sources */,
 				C2C039D530574AB600ABF943 /* Frameworks */,
@@ -350,18 +350,18 @@
 				C2C039DA30574AB600ABF943 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				C2C039DB30574AB600ABF943 /* MacCastUITests */,
+				C2C039DB30574AB600ABF943 /* PeeringUITests */,
 			);
-			name = MacCastUITests;
+			name = PeeringUITests;
 			packageProductDependencies = (
 			);
-			productName = MacCastUITests;
-			productReference = C2C039D830574AB600ABF943 /* MacCastUITests.xctest */;
+			productName = PeeringUITests;
+			productReference = C2C039D830574AB600ABF943 /* PeeringUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
-		C2C039F430574AB600ABF943 /* MacCastHost */ = {
+		C2C039F430574AB600ABF943 /* PeeringHost */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C2C039F830574AB600ABF943 /* Build configuration list for PBXNativeTarget "MacCastHost" */;
+			buildConfigurationList = C2C039F830574AB600ABF943 /* Build configuration list for PBXNativeTarget "PeeringHost" */;
 			buildPhases = (
 				C2C039F530574AB600ABF943 /* Sources */,
 				C2C039F630574AB600ABF943 /* Frameworks */,
@@ -375,22 +375,22 @@
 				D4A1000D305B000100ABF943 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				C2C039F230574AB600ABF943 /* MacCastHost */,
+				C2C039F230574AB600ABF943 /* PeeringHost */,
 			);
-			name = MacCastHost;
+			name = PeeringHost;
 			packageProductDependencies = (
 				C2C039ED30574AB600ABF943 /* RemoteCore */,
-				D4C0FFA7305B000100ABF943 /* MacCastKit */,
+				D4C0FFA7305B000100ABF943 /* PeeringKit */,
 				E1A00002305B000100ABF943 /* Sparkle */,
 				F0A10004305B000100ABF943 /* PostHog */,
 			);
-			productName = MacCastHost;
+			productName = PeeringHost;
 			productReference = C2C039F330574AB600ABF943 /* Peering.app */;
 			productType = "com.apple.product-type.application";
 		};
-		C2C03AF43058094900ABF943 /* MacCastWidgetExtension */ = {
+		C2C03AF43058094900ABF943 /* PeeringWidgetExtension */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C2C03B0E3058094B00ABF943 /* Build configuration list for PBXNativeTarget "MacCastWidgetExtension" */;
+			buildConfigurationList = C2C03B0E3058094B00ABF943 /* Build configuration list for PBXNativeTarget "PeeringWidgetExtension" */;
 			buildPhases = (
 				C2C03AF13058094900ABF943 /* Sources */,
 				C2C03AF23058094900ABF943 /* Frameworks */,
@@ -401,18 +401,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				C2C03AFB3058094A00ABF943 /* MacCastWidget */,
+				C2C03AFB3058094A00ABF943 /* PeeringWidget */,
 			);
-			name = MacCastWidgetExtension;
+			name = PeeringWidgetExtension;
 			packageProductDependencies = (
 			);
-			productName = MacCastWidgetExtension;
-			productReference = C2C03AF53058094900ABF943 /* MacCastWidgetExtension.appex */;
+			productName = PeeringWidgetExtension;
+			productReference = C2C03AF53058094900ABF943 /* PeeringWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		D4A1000A305B000100ABF943 /* MacCastHostWidgetExtension */ = {
+		D4A1000A305B000100ABF943 /* PeeringHostWidgetExtension */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = D4A10010305B000100ABF943 /* Build configuration list for PBXNativeTarget "MacCastHostWidgetExtension" */;
+			buildConfigurationList = D4A10010305B000100ABF943 /* Build configuration list for PBXNativeTarget "PeeringHostWidgetExtension" */;
 			buildPhases = (
 				D4A1000B305B000100ABF943 /* Sources */,
 				D4A10009305B000100ABF943 /* Frameworks */,
@@ -423,13 +423,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				D4A10008305B000100ABF943 /* MacCastHostWidget */,
+				D4A10008305B000100ABF943 /* PeeringHostWidget */,
 			);
-			name = MacCastHostWidgetExtension;
+			name = PeeringHostWidgetExtension;
 			packageProductDependencies = (
 			);
-			productName = MacCastHostWidgetExtension;
-			productReference = D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */;
+			productName = PeeringHostWidgetExtension;
+			productReference = D4A10006305B000100ABF943 /* PeeringHostWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -464,7 +464,7 @@
 					};
 				};
 			};
-			buildConfigurationList = C2C039BA30574AB400ABF943 /* Build configuration list for PBXProject "MacCast" */;
+			buildConfigurationList = C2C039BA30574AB400ABF943 /* Build configuration list for PBXProject "Peering" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -485,7 +485,7 @@
 			packageReferences = (
 				C2C039EB30574AB600ABF943 /* XCLocalSwiftPackageReference "RemoteCore" */,
 				D4C0FF01305B000100ABF943 /* XCLocalSwiftPackageReference "SSHCore" */,
-				D4C0FFA1305B000100ABF943 /* XCLocalSwiftPackageReference "MacCastKit" */,
+				D4C0FFA1305B000100ABF943 /* XCLocalSwiftPackageReference "PeeringKit" */,
 				C2C039FB30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-certificates" */,
 				C2C039FE30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-asn1" */,
 				E1A00001305B000100ABF943 /* XCRemoteSwiftPackageReference "Sparkle" */,
@@ -496,12 +496,12 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				C2C039BE30574AB400ABF943 /* MacCast */,
-				C2C039CD30574AB600ABF943 /* MacCastTests */,
-				C2C039D730574AB600ABF943 /* MacCastUITests */,
-				C2C039F430574AB600ABF943 /* MacCastHost */,
-				C2C03AF43058094900ABF943 /* MacCastWidgetExtension */,
-				D4A1000A305B000100ABF943 /* MacCastHostWidgetExtension */,
+				C2C039BE30574AB400ABF943 /* Peering */,
+				C2C039CD30574AB600ABF943 /* PeeringTests */,
+				C2C039D730574AB600ABF943 /* PeeringUITests */,
+				C2C039F430574AB600ABF943 /* PeeringHost */,
+				C2C03AF43058094900ABF943 /* PeeringWidgetExtension */,
+				D4A1000A305B000100ABF943 /* PeeringHostWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -647,22 +647,22 @@
 /* Begin PBXTargetDependency section */
 		C2C039D030574AB600ABF943 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = C2C039BE30574AB400ABF943 /* MacCast */;
+			target = C2C039BE30574AB400ABF943 /* Peering */;
 			targetProxy = C2C039CF30574AB600ABF943 /* PBXContainerItemProxy */;
 		};
 		C2C039DA30574AB600ABF943 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = C2C039BE30574AB400ABF943 /* MacCast */;
+			target = C2C039BE30574AB400ABF943 /* Peering */;
 			targetProxy = C2C039D930574AB600ABF943 /* PBXContainerItemProxy */;
 		};
 		C2C03B083058094B00ABF943 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = C2C03AF43058094900ABF943 /* MacCastWidgetExtension */;
+			target = C2C03AF43058094900ABF943 /* PeeringWidgetExtension */;
 			targetProxy = C2C03B073058094B00ABF943 /* PBXContainerItemProxy */;
 		};
 		D4A1000D305B000100ABF943 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = D4A1000A305B000100ABF943 /* MacCastHostWidgetExtension */;
+			target = D4A1000A305B000100ABF943 /* PeeringHostWidgetExtension */;
 			targetProxy = D4A10004305B000100ABF943 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -795,13 +795,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Config/MacCast.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Config/Peering.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 202610111;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Config/MacCast-Info.plist";
+				INFOPLIST_FILE = "Config/Peering-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -831,13 +831,13 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Config/MacCast.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Config/Peering.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 202610111;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Config/MacCast-Info.plist";
+				INFOPLIST_FILE = "Config/Peering-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -878,7 +878,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MacCast.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MacCast";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Peering.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Peering";
 			};
 			name = Debug;
 		};
@@ -900,7 +900,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MacCast.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MacCast";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Peering.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Peering";
 			};
 			name = Release;
 		};
@@ -920,7 +920,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = MacCast;
+				TEST_TARGET_NAME = Peering;
 			};
 			name = Debug;
 		};
@@ -940,7 +940,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = MacCast;
+				TEST_TARGET_NAME = Peering;
 			};
 			name = Release;
 		};
@@ -950,13 +950,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Config/MacCastHost.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Config/PeeringHost.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 202610111;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Config/MacCastHost-Info.plist";
+				INFOPLIST_FILE = "Config/PeeringHost-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -982,14 +982,14 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Config/MacCastHost.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Config/PeeringHost.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 202610111;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Config/MacCastHost-Info.plist";
+				INFOPLIST_FILE = "Config/PeeringHost-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1013,13 +1013,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = Config/MacCastWidget.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Config/PeeringWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 202610111;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = MacCastWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MacCastWidget;
+				INFOPLIST_FILE = PeeringWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PeeringWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1044,13 +1044,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = Config/MacCastWidget.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Config/PeeringWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 202610111;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = MacCastWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MacCastWidget;
+				INFOPLIST_FILE = PeeringWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PeeringWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1073,12 +1073,12 @@
 		D4A1000E305B000100ABF943 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Config/MacCastHostWidget.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Config/PeeringHostWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 202610111;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = MacCastHostWidget/Info.plist;
+				INFOPLIST_FILE = PeeringHostWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Peering Host";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1101,13 +1101,13 @@
 		D4A1000F305B000100ABF943 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = Config/MacCastHostWidget.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Config/PeeringHostWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 202610111;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = MacCastHostWidget/Info.plist;
+				INFOPLIST_FILE = PeeringHostWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Peering Host";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1130,7 +1130,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C2C039BA30574AB400ABF943 /* Build configuration list for PBXProject "MacCast" */ = {
+		C2C039BA30574AB400ABF943 /* Build configuration list for PBXProject "Peering" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C2C039E030574AB600ABF943 /* Debug */,
@@ -1139,7 +1139,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		C2C039E230574AB600ABF943 /* Build configuration list for PBXNativeTarget "MacCast" */ = {
+		C2C039E230574AB600ABF943 /* Build configuration list for PBXNativeTarget "Peering" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C2C039E330574AB600ABF943 /* Debug */,
@@ -1148,7 +1148,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		C2C039E530574AB600ABF943 /* Build configuration list for PBXNativeTarget "MacCastTests" */ = {
+		C2C039E530574AB600ABF943 /* Build configuration list for PBXNativeTarget "PeeringTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C2C039E630574AB600ABF943 /* Debug */,
@@ -1157,7 +1157,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		C2C039E830574AB600ABF943 /* Build configuration list for PBXNativeTarget "MacCastUITests" */ = {
+		C2C039E830574AB600ABF943 /* Build configuration list for PBXNativeTarget "PeeringUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C2C039E930574AB600ABF943 /* Debug */,
@@ -1166,7 +1166,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		C2C039F830574AB600ABF943 /* Build configuration list for PBXNativeTarget "MacCastHost" */ = {
+		C2C039F830574AB600ABF943 /* Build configuration list for PBXNativeTarget "PeeringHost" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C2C039F930574AB600ABF943 /* Debug */,
@@ -1175,7 +1175,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		C2C03B0E3058094B00ABF943 /* Build configuration list for PBXNativeTarget "MacCastWidgetExtension" */ = {
+		C2C03B0E3058094B00ABF943 /* Build configuration list for PBXNativeTarget "PeeringWidgetExtension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C2C03B0B3058094B00ABF943 /* Debug */,
@@ -1184,7 +1184,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		D4A10010305B000100ABF943 /* Build configuration list for PBXNativeTarget "MacCastHostWidgetExtension" */ = {
+		D4A10010305B000100ABF943 /* Build configuration list for PBXNativeTarget "PeeringHostWidgetExtension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D4A1000E305B000100ABF943 /* Debug */,
@@ -1204,9 +1204,9 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = SSHCore;
 		};
-		D4C0FFA1305B000100ABF943 /* XCLocalSwiftPackageReference "MacCastKit" */ = {
+		D4C0FFA1305B000100ABF943 /* XCLocalSwiftPackageReference "PeeringKit" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = MacCastKit;
+			relativePath = PeeringKit;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -1262,17 +1262,17 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = SSHCore;
 		};
-		D4C0FFA2305B000100ABF943 /* MacCastKit */ = {
+		D4C0FFA2305B000100ABF943 /* PeeringKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = MacCastKit;
+			productName = PeeringKit;
 		};
-		D4C0FFA3305B000100ABF943 /* MacCastKit */ = {
+		D4C0FFA3305B000100ABF943 /* PeeringKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = MacCastKit;
+			productName = PeeringKit;
 		};
-		D4C0FFA7305B000100ABF943 /* MacCastKit */ = {
+		D4C0FFA7305B000100ABF943 /* PeeringKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = MacCastKit;
+			productName = PeeringKit;
 		};
 		E1A00002305B000100ABF943 /* Sparkle */ = {
 			isa = XCSwiftPackageProductDependency;

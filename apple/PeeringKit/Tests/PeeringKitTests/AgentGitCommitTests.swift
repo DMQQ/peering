@@ -2,7 +2,7 @@ import Foundation
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 private func file(_ path: String, _ kind: AgentChangeKind) -> AgentChangedFile {
     AgentChangedFile(path: path, kind: kind, added: 1, removed: 0, diff: nil)

@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import MacCastKit
+@testable import PeeringKit
 import RemoteCore
 
 /// Fixtures are lines captured from a real opencode 1.18.34 process, trimmed to the fields the parser reads. The permission case is real: without `--auto` a call outside the folder is rejected.

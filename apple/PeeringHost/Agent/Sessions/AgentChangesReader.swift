@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// Answers ``AgentRequest/changes(sessionID:)``: the session's folder as git sees it.

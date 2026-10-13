@@ -1,7 +1,7 @@
 import RemoteCore
 import SwiftUI
 import UniformTypeIdentifiers
-import MacCastKit
+import PeeringKit
 import os
 
 /// A folder on the Mac, as a list. Draws what it is given and asks for nothing: every tap is a callback, and ``TerminalScreen`` owns the session, path and cache, so one view serves both browsers. Drawn on the terminal's own black because it is what the terminal shows instead of its output.

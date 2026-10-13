@@ -1,5 +1,5 @@
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// Which commands want the terminal drawn small: the first non-wrapper word is the program.
 final class TerminalProgramTests: XCTestCase {

@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 /// App-wide: the relay charges every splice a client ID makes to one counter, so what is left is a sum over every session on every Mac.
 /// `directPathSummary` is here because it too is a reading over every finished session and belongs to no one Mac.

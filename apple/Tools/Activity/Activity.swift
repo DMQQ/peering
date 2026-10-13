@@ -16,7 +16,7 @@ import Foundation
 /// cooperation — and because display capture includes it, so moving it genuinely changes the
 /// captured pixels. It is put back where it started, so a run leaves no trace on screen.
 ///
-/// usage: maccast-activity [seconds] [--hz N] [--quiet]
+/// usage: peering-activity [seconds] [--hz N] [--quiet]
 
 private func argument(_ name: String, in arguments: [String]) -> String? {
     guard let index = arguments.firstIndex(of: name), index + 1 < arguments.count else {

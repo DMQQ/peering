@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// What one client is shown while it is not looking. Terminal output is not sent (the host keeps 512 KB of history and replays it on return); agent events are held in order, since an approval or a reply must still arrive.

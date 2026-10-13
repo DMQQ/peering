@@ -1,10 +1,10 @@
 //
 //  DirectPathSummaryTests.swift
-//  MacCastKitTests
+//  PeeringKitTests
 //
 
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// What the finished sessions say about the direct path. The arithmetic is tested here because Xcode 27 cannot run the app target's test action, so a rule left in a view is never checked. See `AGENTS.md`.
 /// The real defect is the rate: a session that received no picture must not spread its duration through the average, or failing to deliver reads as a cheaper picture.

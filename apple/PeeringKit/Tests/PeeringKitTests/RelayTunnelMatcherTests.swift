@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct RelayTunnelMatcherTests {
     private let start = ContinuousClock.now

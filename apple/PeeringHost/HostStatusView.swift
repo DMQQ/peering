@@ -1,7 +1,7 @@
 import AppKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
-import MacCastKit
+import PeeringKit
 import RemoteCore
 import SwiftUI
 

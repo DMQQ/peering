@@ -17,7 +17,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "C2C039F430574AB600ABF943"
                BuildableName = "Peering.app"
-               ReferencedContainer = "container:MacCast.xcodeproj">
+               ReferencedContainer = "container:Peering.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,7 +46,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C2C039F430574AB600ABF943"
             BuildableName = "Peering.app"
-            ReferencedContainer = "container:MacCast.xcodeproj">
+            ReferencedContainer = "container:Peering.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -62,7 +62,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C2C039F430574AB600ABF943"
             BuildableName = "Peering.app"
-            ReferencedContainer = "container:MacCast.xcodeproj">
+            ReferencedContainer = "container:Peering.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

@@ -1,8 +1,8 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
-/// Asks for an App Store rating on the teardown of a session, after several real sessions over several days. The rule is ``MacCastKit/ReviewPromptPolicy``; the system decides whether the prompt actually appears.
+/// Asks for an App Store rating on the teardown of a session, after several real sessions over several days. The rule is ``PeeringKit/ReviewPromptPolicy``; the system decides whether the prompt actually appears.
 extension SessionModel {
     private var reviewTally: ReviewPromptPolicy.Tally {
         get {

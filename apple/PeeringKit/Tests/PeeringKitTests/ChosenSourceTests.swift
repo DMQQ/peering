@@ -3,7 +3,7 @@ import Foundation
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// Serialised: the store is a read-modify-write over one key, so parallel saves lose each other's writes. The app cannot hit this (saves are on the main actor).
 @Suite("Remembering a source", .serialized)

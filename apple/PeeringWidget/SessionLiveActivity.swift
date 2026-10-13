@@ -4,7 +4,7 @@ import WidgetKit
 
 /// A Peering session on the Lock Screen and in the Dynamic Island. The system renders the duration from `startedAt`, so the clock stays correct while the app is not running.
 struct SessionLiveActivity: Widget {
-    /// Where the Restore link goes: `peering://connect`, routed by `MacCastApp`'s `onOpenURL`.
+    /// Where the Restore link goes: `peering://connect`, routed by `PeeringApp`'s `onOpenURL`.
     nonisolated static let restoreURL = URL(string: "peering://connect")!
     nonisolated static let endURL = URL(string: "peering://disconnect")!
 

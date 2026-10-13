@@ -3,7 +3,7 @@ import Foundation
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// Serialized, like the source-store suite: these tests write one key in `UserDefaults.standard`, and parallel runs read each other's arrangement.
 @Suite("Remembering an arrangement", .serialized)

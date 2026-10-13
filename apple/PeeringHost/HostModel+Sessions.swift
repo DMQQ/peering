@@ -220,7 +220,7 @@ extension HostModel {
     /// display stays lit so ScreenCaptureKit does not turn a healthy stream into black frames.
     func acquireSleepAssertion() {
         guard sleepAssertionID == 0 else { return }
-        let reason = "MacCast session active" as CFString
+        let reason = "Peering session active" as CFString
         let result = IOPMAssertionCreateWithName(
             kIOPMAssertionTypeNoDisplaySleep as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),

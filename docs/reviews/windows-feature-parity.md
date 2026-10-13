@@ -1,7 +1,7 @@
 # Windows host feature parity
 
 Audit of `windows/` (host, `peering-core`, `peering-platform`, `peering-wire`, `peering-net`, `peering-agent`) against the Mac host
-(`apple/MacCastHost`) and against what the iPhone and Android clients send and expect (`docs/protocol.md`, `apple/RemoteCore`,
+(`apple/PeeringHost`) and against what the iPhone and Android clients send and expect (`docs/protocol.md`, `apple/RemoteCore`,
 `android/core`). Read-only audit, 2026-10-13, by reading and grepping the Rust source. Nothing was run: per `windows/README.md` the
 Windows-only code has not yet run on a Windows machine, so PRESENT means "the code is there and wired", not "seen working".
 
@@ -53,7 +53,7 @@ Headlines (as audited; the counts and the item lines above carry the fixes of 20
 * Nothing is advertised falsely in a way that breaks a phone. Several claims need care (see "Advertised but not handled" below): `supportsFileBrowser` is true while
   writes fail, `supportsLockScreen` is emitted but read by nobody, and agent facts that the Mac withholds from clients without the matching
   flag are sent unconditionally.
-* The iPhone has no gating on `hostPlatform` (a grep of `apple/MacCast` and `RemoteCore` finds only a telemetry read), so it is expected to offer
+* The iPhone has no gating on `hostPlatform` (a grep of `apple/Peering` and `RemoteCore` finds only a telemetry read), so it is expected to offer
   Mac-only controls against a Windows host, and the host drops those commands without a reply. Android hides them (`HostCapability.kt:47`).
 
 ## 1. Pairing

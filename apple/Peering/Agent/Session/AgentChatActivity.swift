@@ -1,6 +1,6 @@
 @preconcurrency import ActivityKit
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 import os
 

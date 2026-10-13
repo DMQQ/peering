@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// Run mode has no approval channel: without `--auto` a call needing one is rejected as a failed tool, the safe direction; `--auto` is passed only in the mode that asks for it.

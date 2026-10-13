@@ -1,4 +1,4 @@
-import MacCastKit
+import PeeringKit
 import SwiftUI
 
 /// Where the control a tour describes is, read from the view rather than a table of rectangles (wrong on other phones, orientations and card heights).

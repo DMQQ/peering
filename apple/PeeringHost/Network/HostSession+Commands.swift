@@ -1,6 +1,6 @@
 import CryptoKit
 import Foundation
-import MacCastKit
+import PeeringKit
 import Network
 import RemoteCore
 import Security

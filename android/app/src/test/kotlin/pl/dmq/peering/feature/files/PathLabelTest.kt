@@ -11,7 +11,7 @@ class PathLabelTest {
 
     @Test
     fun aLongPathLosesItsFrontAtAFolderBoundary() {
-        assertEquals("…/projects/MacCast", headTruncated("/Users/dmq/Desktop/projects/MacCast", limit = 20))
+        assertEquals("…/projects/Peering", headTruncated("/Users/dmq/Desktop/projects/Peering", limit = 20))
     }
 
     @Test

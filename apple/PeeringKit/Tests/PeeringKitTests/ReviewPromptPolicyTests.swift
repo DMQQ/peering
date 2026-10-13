@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct ReviewPromptPolicyTests {
     private let start = Date(timeIntervalSince1970: 1_800_000_000)

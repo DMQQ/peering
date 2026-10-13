@@ -1,13 +1,13 @@
 //
-//  MacCastUITests.swift
-//  MacCastUITests
+//  PeeringUITests.swift
+//  PeeringUITests
 //
 //  Created by Damian Derlecki on 13/09/2026.
 //
 
 import XCTest
 
-final class MacCastUITests: XCTestCase {
+final class PeeringUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false

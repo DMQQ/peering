@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite("Background notice debounce")
 struct BackgroundNoticeDebounceTests {

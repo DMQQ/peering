@@ -1,7 +1,7 @@
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite("Streaming in Low Power Mode")
 struct PowerSavingPolicyTests {

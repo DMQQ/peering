@@ -1,6 +1,6 @@
 import Darwin
 import Foundation
-import MacCastKit
+import PeeringKit
 
 /// Narrow on purpose: CPU and memory are this process alone (kernel accounting) and network is counted by the streamer where bytes leave.
 /// A value holding no timer: the window decides when it is looked at.

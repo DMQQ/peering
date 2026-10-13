@@ -17,8 +17,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "D4A1000A305B000100ABF943"
-               BuildableName = "MacCastHostWidgetExtension.appex"
-               ReferencedContainer = "container:MacCast.xcodeproj">
+               BuildableName = "PeeringHostWidgetExtension.appex"
+               ReferencedContainer = "container:Peering.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
          <BuildActionEntry
@@ -31,7 +31,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "C2C039F430574AB600ABF943"
                BuildableName = "Peering.app"
-               ReferencedContainer = "container:MacCast.xcodeproj">
+               ReferencedContainer = "container:Peering.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -62,7 +62,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C2C039F430574AB600ABF943"
             BuildableName = "Peering.app"
-            ReferencedContainer = "container:MacCast.xcodeproj">
+            ReferencedContainer = "container:Peering.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <EnvironmentVariables>
@@ -97,7 +97,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "C2C039F430574AB600ABF943"
             BuildableName = "Peering.app"
-            ReferencedContainer = "container:MacCast.xcodeproj">
+            ReferencedContainer = "container:Peering.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

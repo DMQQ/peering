@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import Observation
 import RemoteCore
 import os

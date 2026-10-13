@@ -289,7 +289,7 @@ struct HandshakeTests {
 @Suite("Device identity")
 struct DeviceIdentityTests {
     private func scratchDefaults() -> UserDefaults {
-        let name = "pl.dmq.maccast.tests.\(UUID().uuidString)"
+        let name = "pl.dmq.peering.tests.\(UUID().uuidString)"
         return UserDefaults(suiteName: name)!
     }
 

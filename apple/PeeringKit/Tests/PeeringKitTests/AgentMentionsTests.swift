@@ -1,7 +1,7 @@
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct AgentMentionsTests {
     private func entry(_ name: String, folder: Bool = false) -> RemoteDirectoryEntry {

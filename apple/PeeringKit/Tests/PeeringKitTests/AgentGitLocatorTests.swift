@@ -1,6 +1,6 @@
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct AgentGitLocatorTests {
     private func locate(existing: Set<String>, developer: String? = nil) -> String? {

@@ -1,6 +1,6 @@
 import RemoteCore
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// The screen is fed rather than rebuilt, so bytes arriving across a change of shape must leave what a program drew where it drew it.
 final class TerminalScreenFeedTests: XCTestCase {

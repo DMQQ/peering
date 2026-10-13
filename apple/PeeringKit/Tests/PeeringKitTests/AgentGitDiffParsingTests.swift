@@ -1,5 +1,5 @@
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct AgentGitDiffParsingTests {
     private func block(_ path: String, eol: String = "\n") -> String {

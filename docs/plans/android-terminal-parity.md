@@ -1,6 +1,6 @@
 # Android Terminal parity
 
-Redone from the Swift source. Sources read in full: `apple/MacCast/Terminal/TerminalScreen.swift`, `TerminalDeck.swift`, `TerminalCommandField.swift`, `TerminalPalette.swift`, `TerminalCards.swift` (empty state), `TerminalEndPrompt.swift`, `TerminalHubScreen*.swift`, `HubTabs.swift`, `Connection/TabStrip.swift`, `Remote/InputBarStyle.swift`, `Remote/RailButtons.swift`, `Design/Theme.swift`, `MacCastKit/TerminalMetrics.swift`. The marketing screenshots in `marketing/appstore/raw/en` contain no terminal screen, so values come from the code only. Nothing was run on a device or emulator.
+Redone from the Swift source. Sources read in full: `apple/Peering/Terminal/TerminalScreen.swift`, `TerminalDeck.swift`, `TerminalCommandField.swift`, `TerminalPalette.swift`, `TerminalCards.swift` (empty state), `TerminalEndPrompt.swift`, `TerminalHubScreen*.swift`, `HubTabs.swift`, `Connection/TabStrip.swift`, `Remote/InputBarStyle.swift`, `Remote/RailButtons.swift`, `Design/Theme.swift`, `PeeringKit/TerminalMetrics.swift`. The marketing screenshots in `marketing/appstore/raw/en` contain no terminal screen, so values come from the code only. Nothing was run on a device or emulator.
 
 The previous version of this file claimed a match and listed rows that were not true. The rows below replace it. Status: fixed, kept (Android-appropriate), or open.
 

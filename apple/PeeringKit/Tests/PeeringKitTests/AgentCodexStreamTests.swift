@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import MacCastKit
+@testable import PeeringKit
 import RemoteCore
 
 /// Fixtures are lines captured from a real codex-cli 0.157.1 process (`codex exec --json`), trimmed to the fields the parser reads. The failed turn is real: that account's model is refused by the API.

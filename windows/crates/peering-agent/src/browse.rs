@@ -1,4 +1,4 @@
-//! Folder browsing for choosing where an agent chat starts. Mirrors `apple/MacCastHost/Agent/Sessions/AgentDirectoryBrowser.swift`.
+//! Folder browsing for choosing where an agent chat starts. Mirrors `apple/PeeringHost/Agent/Sessions/AgentDirectoryBrowser.swift`.
 
 mod path;
 #[cfg(test)]

@@ -1,6 +1,6 @@
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct HostSessionFactsTests {
     @Test func anErrorWithNoOwnerIsTaggedWithTheOnlySessionOpen() {

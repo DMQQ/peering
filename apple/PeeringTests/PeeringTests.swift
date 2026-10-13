@@ -1,21 +1,21 @@
 //
-//  MacCastTests.swift
-//  MacCastTests
+//  PeeringTests.swift
+//  PeeringTests
 //
 //  Created by Damian Derlecki on 13/09/2026.
 //
 
 import CoreGraphics
-import MacCastKit
+import PeeringKit
 import RemoteCore
 import UIKit
 import XCTest
-@testable import MacCast
+@testable import Peering
 
-/// The two tests that need a real UIKit view; everything else lives in `MacCastKitTests`.
+/// The two tests that need a real UIKit view; everything else lives in `PeeringKitTests`.
 /// Xcode 27 cannot run this target's test action (the package products fail to link), so these only compile for now.
 @MainActor
-final class MacCastTests: XCTestCase {
+final class PeeringTests: XCTestCase {
 
     func testPortraitGestureSurfaceUsesItsOwnBoundsForCentreTap() async throws {
         let normalized = try await normalizedCentreReportedByGestureSurface(

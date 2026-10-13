@@ -3,7 +3,7 @@ import AVKit
 import CoreMedia
 import CoreVideo
 import Foundation
-import MacCastKit
+import PeeringKit
 import Observation
 import RemoteCore
 import SwiftUI

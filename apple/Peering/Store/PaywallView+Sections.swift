@@ -1,4 +1,4 @@
-import MacCastKit
+import PeeringKit
 import StoreKit
 import SwiftUI
 

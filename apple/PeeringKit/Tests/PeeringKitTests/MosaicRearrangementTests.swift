@@ -1,6 +1,6 @@
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite("Which capture a rearranged tile is drawn from")
 struct MosaicRearrangementTests {

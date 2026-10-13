@@ -3,7 +3,7 @@ import AVKit
 import CoreMedia
 import CoreVideo
 import Foundation
-import MacCastKit
+import PeeringKit
 import Observation
 import RemoteCore
 import SwiftUI
@@ -341,7 +341,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
 
     // MARK: - Sample buffers
 
-    /// Body lives in ``MacCastKit/VideoSampleBuffer`` so its three attachments can be tested; wrong ones show one frame every two seconds.
+    /// Body lives in ``PeeringKit/VideoSampleBuffer`` so its three attachments can be tested; wrong ones show one frame every two seconds.
     static func makeSampleBuffer(
         _ frame: EncodedVideoFrame,
         format: CMVideoFormatDescription

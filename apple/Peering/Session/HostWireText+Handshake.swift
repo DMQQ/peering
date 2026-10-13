@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 extension HostWireText {
     /// The sentences `RemoteCore` raises while it sets up a session, none of which the Mac sends.

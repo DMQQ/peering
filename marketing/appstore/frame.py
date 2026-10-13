@@ -295,7 +295,7 @@ def background(centers):
 
 
 def lockscreen(lang, copy, out):
-    cat = json.load(open(f"{HERE}/../../MacCast/Localizable.xcstrings"))["strings"]
+    cat = json.load(open(f"{HERE}/../../Peering/Localizable.xcstrings"))["strings"]
     title = lambda k: k if lang == "en" else cat[k]["localizations"][lang]["stringUnit"]["value"]
     S = 2
     wp = Image.open(f"{HERE}/assets/wp_45.png").convert("RGB")
@@ -312,7 +312,7 @@ def lockscreen(lang, copy, out):
     d = ImageDraw.Draw(c)
     d.text((W / 2, 250), copy["date"], font=sans(58, "Semibold"), fill=(255, 255, 255, 215), anchor="mm")
     d.text((W / 2, 480), "9:41", font=sans(400, "Light"), fill=(255, 255, 255, 245), anchor="mm")
-    icon = Image.open(f"{HERE}/../../MacCast/Assets.xcassets/AppIcon.appiconset/AppIcon-dark.png").convert("RGB").resize((116, 116), Image.LANCZOS)
+    icon = Image.open(f"{HERE}/../../Peering/Assets.xcassets/AppIcon.appiconset/AppIcon-dark.png").convert("RGB").resize((116, 116), Image.LANCZOS)
     mk = Image.new("L", (116 * S, 116 * S), 0)
     ImageDraw.Draw(mk).rounded_rectangle((0, 0, 116 * S - 1, 116 * S - 1), radius=27 * S, fill=255)
     mk = mk.resize((116, 116), Image.LANCZOS)

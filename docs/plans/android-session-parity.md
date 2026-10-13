@@ -1,6 +1,6 @@
 # Android session parity checklist
 
-Source: `apple/MacCast/Remote/RemoteScreen*.swift`, `RailButtons`, `ScrollWheelView`, `JoystickView`, `SourcesPanel*`, `ClipboardPanel`, `SettingsPanel`, `Connection/SettingsTab*`, `HostPickerView+ActivityTab`, `Onboarding/FAQView`, and `marketing/appstore/raw/en/02-session.png`, `03-keyboard.png`, `04-shortcuts.png`, `05-settings.png`.
+Source: `apple/Peering/Remote/RemoteScreen*.swift`, `RailButtons`, `ScrollWheelView`, `JoystickView`, `SourcesPanel*`, `ClipboardPanel`, `SettingsPanel`, `Connection/SettingsTab*`, `HostPickerView+ActivityTab`, `Onboarding/FAQView`, and `marketing/appstore/raw/en/02-session.png`, `03-keyboard.png`, `04-shortcuts.png`, `05-settings.png`.
 
 The phone's layout is the blueprint. Android adaptations are limited to the Material 3 `NavigationBar`, ripples, system back and insets, Material menus, dialogs and sheet behaviour, switch and text field styling. Wording says "computer" for "Mac".
 

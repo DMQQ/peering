@@ -1,6 +1,6 @@
 import Darwin
 import Foundation
-import MacCastKit
+import PeeringKit
 
 /// A child started as the leader of its own process group, so stopping it reaches everything it started.
 /// Foundation's `Process` cannot do this: `terminate()` signals the child alone, and a grandchild left holding a pipe open keeps a reader waiting for good.

@@ -1,10 +1,10 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// When the app asks the user to subscribe, and how often it is allowed to ask.
 /// Two doors: the first finished session and a nearly spent relay allowance. Neither is the relay refusing a connection; that wall already exists.
-/// The rule is in ``MacCastKit/SessionOfferPolicy`` and is tested there; the effect (hold the answer for a beat, look again, spend it) needs a running app.
+/// The rule is in ``PeeringKit/SessionOfferPolicy`` and is tested there; the effect (hold the answer for a beat, look again, spend it) needs a running app.
 /// Nothing here decides what to sell: the reason travels to ``PaywallView``.
 /// Never during a session and never twice: offers are made on teardown so a purchase screen does not compete with a live desktop; the first-session offer is once ever and running-low once per window.
 extension SessionModel {

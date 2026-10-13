@@ -1,7 +1,7 @@
 import CoreGraphics
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite("Fitting a window into one tile of an arrangement")
 struct MosaicTileFitTests {

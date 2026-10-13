@@ -1,7 +1,7 @@
 import Foundation
 import RemoteCore
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite struct ControlTextPolicyTests {
     private let session = UUID()

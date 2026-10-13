@@ -7,9 +7,9 @@ reviews (`android-code-review.md`, `windows-code-review.md`) are not repeated. W
 most severe first. HIGH items can lose data, drop sessions on ordinary input, or open a security gap. A few findings
 repeat across areas and are grouped under "Cross cutting" at the end.
 
-## iPhone app, RemoteCore, SSHCore, MacCastKit
+## iPhone app, RemoteCore, SSHCore, PeeringKit
 
-1. **HIGH. Pasting more than 64 KB kills the session.** `MacCast/Session/SessionModel+Clipboard.swift:37-40,124`,
+1. **HIGH. Pasting more than 64 KB kills the session.** `Peering/Session/SessionModel+Clipboard.swift:37-40,124`,
    `ClientSession.sendTerminal` and `sendAgent`. Only images are chunked. The host rejects a control payload over
    `maxControlPayload` (64 KB, `HostSession+Commands.swift:13,37,45`) as malformed and drops the session, and the resume
    ladder reconnects and the retried tap drops it again. Fix: cap text at about 48 KB on the phone with a message, or chunk
@@ -46,7 +46,7 @@ repeat across areas and are grouped under "Cross cutting" at the end.
    waits forever. Fix: retract only when the Mac confirms, otherwise post a delivery failure.
 10. **LOW-MEDIUM. Memory warnings and Low Power Mode are not handled.** Terminal buffers, logs and transcripts are never
     trimmed and streaming runs at full rate. Fix: observe both notifications, trim buffers, lower quality.
-11. **LOW-MEDIUM. URL commands run without confirmation, and while the app lock is up.** `MacCastApp.swift:126-186`,
+11. **LOW-MEDIUM. URL commands run without confirmation, and while the app lock is up.** `PeeringApp.swift:126-186`,
     `AppSecurity.swift:86-88`. Any page or app can open `peering://disconnect` or `peering://end-shells`, and `connect` spends
     relay allowance. Fix: confirm destructive links, ignore `connect` while locked.
 12. **LOW.** Product fetch has no retry (`StoreManager.swift:301-320`), `Transaction.updates` task never cancelled, wall

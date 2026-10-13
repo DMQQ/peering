@@ -1,4 +1,4 @@
-import MacCastKit
+import PeeringKit
 import os
 import UserNotifications
 import RemoteCore
@@ -42,10 +42,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 }
 
 @main
-struct MacCastApp: App {
+struct PeeringApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     /// Owned here, not by a view: a connection outlives any screen, and a model created by `HostPickerView` would be destroyed when the picker left the hierarchy, which is when the connection starts being used.
-    @State private var model = MacCastApp.makeModel()
+    @State private var model = PeeringApp.makeModel()
     /// Owned here also because an intent has no view hierarchy and "open a shell on prod" arrives before any screen exists.
     @State private var servers = SSHModel()
     @State private var quickCommands = QuickCommands()

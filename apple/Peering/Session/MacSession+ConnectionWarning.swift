@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 extension MacSession {
     /// Only for the Mac on screen: a background Mac's slow link is not what the person is looking at.

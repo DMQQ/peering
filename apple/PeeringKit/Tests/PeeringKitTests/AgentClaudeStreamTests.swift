@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import MacCastKit
+@testable import PeeringKit
 import RemoteCore
 
 /// Fixtures are lines captured from a real Claude Code 2.1.289 process (`claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages --replay-user-messages --permission-prompt-tool stdio`), trimmed to the fields the parser reads.

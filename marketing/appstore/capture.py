@@ -16,7 +16,7 @@ KEYS = ["Apps", "Keyboard", "Shortcuts", "Open Mac terminals", "Mac terminals", 
 
 
 def labels(lang):
-    cat = json.load(open(f"{ROOT}/MacCast/Localizable.xcstrings"))["strings"]
+    cat = json.load(open(f"{ROOT}/Peering/Localizable.xcstrings"))["strings"]
     out = {"lang": lang, "locale": LOCALES[lang]}
     for k in KEYS:
         loc = cat.get(k, {}).get("localizations", {}).get(lang, {}).get("stringUnit", {}).get("value")
@@ -32,9 +32,9 @@ def attempt(lang):
     json.dump(labels(lang), open("/Users/Shared/peering-labels.json", "w"), ensure_ascii=False)
     tmp = tempfile.mkdtemp()
     result = f"{tmp}/r.xcresult"
-    run_log = subprocess.run(["xcodebuild", "test", "-project", f"{ROOT}/MacCast.xcodeproj", "-scheme", "MacCast",
+    run_log = subprocess.run(["xcodebuild", "test", "-project", f"{ROOT}/Peering.xcodeproj", "-scheme", "Peering",
                               "-destination", f"platform=iOS Simulator,id={SIM}", "-derivedDataPath", os.environ.get("TMPDIR", "/tmp") + "/PeeringUI",
-                              "-only-testing:MacCastUITests/ListingShotTests/testScenes", "-resultBundlePath", result],
+                              "-only-testing:PeeringUITests/ListingShotTests/testScenes", "-resultBundlePath", result],
                              capture_output=True, text=True)
     for line in (run_log.stdout + run_log.stderr).splitlines():
         if "error:" in line:

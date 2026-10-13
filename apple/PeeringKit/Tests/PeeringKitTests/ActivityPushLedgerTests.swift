@@ -1,6 +1,6 @@
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite("Tying an activity refusal to its push")
 struct ActivityPushLedgerTests {

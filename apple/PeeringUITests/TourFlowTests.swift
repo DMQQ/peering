@@ -1,13 +1,13 @@
 //
 //  TourFlowTests.swift
-//  MacCastUITests
+//  PeeringUITests
 //
 // Walks the first-run tips: the Connect screen's tour runs to its end, the Servers screen's is skipped, neither returns after a relaunch, the Settings row restores them, and a shell hands its tour to the terminal's.
 // **Run it against a wiped container**: the tips are remembered in `UserDefaults`, so a second run starts answered:
 //
 //      xcrun simctl uninstall 825ECC2B-F0D1-439A-9F1B-AD942DFE178F pl.dmq.peering
 //
-// The scheme has no `TestableReference` for `MacCastUITests`, so `xcodebuild test` refuses until one is added to `MacCast.xcscheme` (temporary edit).
+// The scheme has no `TestableReference` for `PeeringUITests`, so `xcodebuild test` refuses until one is added to `Peering.xcscheme` (temporary edit).
 //
 // The welcome flow is skipped with a launch argument (argument domain), which writes nothing down.
 

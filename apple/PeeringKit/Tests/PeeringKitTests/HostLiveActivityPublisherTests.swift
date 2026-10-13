@@ -2,7 +2,7 @@ import Foundation
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct HostLiveActivityPublisherTests {
     /// Stands in for the relay link: records what the publisher handed over and lets the test decide when each push counts as sent.

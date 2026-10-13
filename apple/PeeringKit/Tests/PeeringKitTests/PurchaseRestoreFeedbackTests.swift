@@ -1,10 +1,10 @@
 //
 //  PurchaseRestoreFeedbackTests.swift
-//  MacCastKitTests
+//  PeeringKitTests
 //
 
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 final class PurchaseRestoreFeedbackTests: XCTestCase {
     func testNothingOnTheAppleAccountIsSaidOutLoud() {

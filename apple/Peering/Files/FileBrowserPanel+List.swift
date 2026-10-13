@@ -1,7 +1,7 @@
 import RemoteCore
 import SwiftUI
 import UniformTypeIdentifiers
-import MacCastKit
+import PeeringKit
 import os
 
 extension FileBrowserPanel {

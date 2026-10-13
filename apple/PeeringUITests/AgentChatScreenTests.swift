@@ -1,6 +1,6 @@
 //
 //  AgentChatScreenTests.swift
-//  MacCastUITests
+//  PeeringUITests
 //
 //  What an open agent chat shows: the model picker's names.
 //

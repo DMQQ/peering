@@ -1,10 +1,10 @@
 //
 //  SessionRecordTests.swift
-//  MacCastKitTests
+//  PeeringKitTests
 //
 
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// Session filing and allowance rules, moved out of SessionModel because the app target cannot run its tests (see AGENTS.md).
 /// The allowance sums every live relay session, and a session put back after a drop is one row (see ``SessionContinuation``).

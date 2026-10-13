@@ -1,12 +1,12 @@
 import CoreGraphics
 import Foundation
-import MacCastKit
+import PeeringKit
 import os
 
 private let virtualDisplayLog = Logger(subsystem: "pl.dmq.peering.host", category: "capture")
 
 /// A software monitor shaped like the phone, offered as an ordinary CaptureSource/display(_:).
-/// Private API (CGVirtualDisplay, no header), host-only: the DMG is notarised outside the App Store, but MacCast, MacCastKit and RemoteCore must never reach for it.
+/// Private API (CGVirtualDisplay, no header), host-only: the DMG is notarised outside the App Store, but Peering, PeeringKit and RemoteCore must never reach for it.
 /// Differences from the widely copied header, read back with class_copyMethodList on macOS 27:
 /// - setTerminalID: does not exist; sending it raises an uncatchable NSException. The field is setSerialNumber:.
 /// - hiDPI does not make a display denser (1720x3728 with an 860x1864 mode came back as 1x points). The mode is the size.

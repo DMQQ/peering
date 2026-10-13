@@ -1,6 +1,6 @@
 import CoreMedia
 import Foundation
-import MacCastKit
+import PeeringKit
 import ScreenCaptureKit
 import os
 

@@ -1,6 +1,6 @@
 //
 //  FAQFlowTests.swift
-//  MacCastUITests
+//  PeeringUITests
 //
 //  Walks the FAQ: every answer is closed to begin with, one question opens on a tap, and it
 //  closes again on the next one.
@@ -11,7 +11,7 @@
 //
 //      xcrun simctl uninstall <device> pl.dmq.peering
 //
-//  The scheme's TestAction lists only MacCastTests, which does not link; swap the reference to run this.
+//  The scheme's TestAction lists only PeeringTests, which does not link; swap the reference to run this.
 //
 
 import XCTest

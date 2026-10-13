@@ -2,7 +2,7 @@ import Foundation
 import RemoteCore
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// The plans run against real git in a throwaway repository whose upstream is a bare repository beside it.
 @Suite struct AgentGitScratchRepoTests {

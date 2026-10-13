@@ -44,7 +44,7 @@ struct Probe {
             let found = try await browse(seconds: options.browseSeconds)
             guard !found.isEmpty else {
                 throw ProbeError(message: """
-                    no MacCast hosts found in \(Int(options.browseSeconds))s.
+                    no Peering hosts found in \(Int(options.browseSeconds))s.
                     Check that the host is running and that this process may browse \
                     \(ProtocolInfo.bonjourServiceType).
                     """)
@@ -545,7 +545,7 @@ struct Probe {
     /// ``VideoStreamConfig`` does not carry this. The width belongs to the format
     /// description rather than to the stream: the host reads it out of
     /// `CMVideoFormatDescriptionGetH264ParameterSetAtIndex` and passes it along internally
-    /// (`EncodedFrame.nalUnitHeaderLength` in `MacCastHost/Capture/VideoEncoder.swift`), and
+    /// (`EncodedFrame.nalUnitHeaderLength` in `PeeringHost/Capture/VideoEncoder.swift`), and
     /// its default is 4. Four is what every H.264 format description VideoToolbox produces
     /// reports, and it is what the wire carries, so 4 is assumed here. A host that emitted
     /// some other width could not say so in the current protocol — this constant is the
@@ -988,7 +988,7 @@ struct Probe {
         return """
             \(base). Not even a videoConfig arrived, and the host sends one as soon as it \
             attaches a video client — and it only attaches once capture has produced a format \
-            description. So the capture path never got that far: MacCastHost is most likely \
+            description. So the capture path never got that far: PeeringHost is most likely \
             missing Screen Recording permission, without which the stream never starts.
             """
     }
@@ -1133,7 +1133,7 @@ struct Probe {
         guard failures == 0 else {
             let base = """
                 \(failures) of \(samples.count) moves did not land, both before and after \
-                asking MacCastHost to capture the main display. If the cursor did not move at \
+                asking PeeringHost to capture the main display. If the cursor did not move at \
                 all, it is almost certainly missing Accessibility permission — without it \
                 every synthetic event is discarded silently.
                 """
@@ -1229,7 +1229,7 @@ struct Probe {
         }
 
         throw ProbeError(message: """
-            asked MacCastHost to capture the main display and the cursor never started \
+            asked PeeringHost to capture the main display and the cursor never started \
             landing where that mapping puts it: (0.50, 0.50) should be the middle of the \
             display at (\(Int(centre.x)), \(Int(centre.y))) and the cursor stayed at \
             (\(Int(actual.x)), \(Int(actual.y))) for \(Int(Self.displayAdoptionTimeout))s. \
@@ -1872,7 +1872,7 @@ struct Probe {
         var host = "127.0.0.1"
         var port = ProtocolInfo.defaultPort
         var clientID = "probe-client"
-        var clientName = "MacCast Probe"
+        var clientName = "Peering Probe"
         var pinnedKey: Data?
         var accept = false
         var resetIdentity = false
@@ -2090,9 +2090,9 @@ struct Probe {
         }
 
         static let usage = """
-        usage: MacCastProbe [--host H] [--port P] [--id ID] [--name NAME] [--pin HEX] [--accept]
+        usage: PeeringProbe [--host H] [--port P] [--id ID] [--name NAME] [--pin HEX] [--accept]
 
-          --host   hostname or IP of the Mac running MacCastHost (default 127.0.0.1)
+          --host   hostname or IP of the Mac running PeeringHost (default 127.0.0.1)
           --port   port to connect to (default \(ProtocolInfo.defaultPort))
           --id     client device ID; must be stable across runs for the pin to match
           --name   client name shown on the host

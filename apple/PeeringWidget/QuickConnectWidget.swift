@@ -134,7 +134,7 @@ private struct QuickConnectEntryView: View {
         }
     }
 
-    /// The URL carries which Mac was asked for (see `onOpenURL` in `MacCastApp`); no id means the last one used.
+    /// The URL carries which Mac was asked for (see `onOpenURL` in `PeeringApp`); no id means the last one used.
     private static func connectURL(for id: String?) -> URL {
         var components = URLComponents()
         components.scheme = "peering"

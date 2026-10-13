@@ -1,6 +1,6 @@
 import RemoteCore
 import XCTest
-@testable import MacCastKit
+@testable import PeeringKit
 
 /// The picker's grouping and the mismatches where it could drop a window quietly.
 final class SourceGroupingTests: XCTestCase {

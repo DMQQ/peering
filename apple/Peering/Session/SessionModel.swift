@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import Observation
 import RemoteCore
 import SwiftUI
@@ -22,7 +22,7 @@ final class SessionModel {
     typealias FileWrite = MacSession.FileWrite
     typealias FileChange = MacSession.FileChange
 
-    typealias StreamQuality = MacCastKit.StreamQuality
+    typealias StreamQuality = PeeringKit.StreamQuality
 
     // MARK: - The sessions
 

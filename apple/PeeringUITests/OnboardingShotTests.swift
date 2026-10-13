@@ -1,15 +1,15 @@
 //
 //  OnboardingShotTests.swift
-//  MacCastUITests
+//  PeeringUITests
 //
 // Screenshots a page of the first-run tour to check its art resolves and fits the frame. Same job as `PaywallShotTests`.
 //  Run it against the simulator whose screen you want the picture at, and export the attachment:
 //
-//      xcodebuild test -scheme MacCast -destination 'id=<device-udid>' \
-//        -only-testing:MacCastUITests/OnboardingShotTests -resultBundlePath /tmp/ui.xcresult
+//      xcodebuild test -scheme Peering -destination 'id=<device-udid>' \
+//        -only-testing:PeeringUITests/OnboardingShotTests -resultBundlePath /tmp/ui.xcresult
 //      xcrun xcresulttool export attachments --path /tmp/ui.xcresult --output-path /tmp/shots
 //
-// The scheme's `TestAction` lists `MacCastTests`, which does not build, so `xcodebuild test` refuses until its `TestableReference` is dropped from `MacCast.xcscheme` (put it back afterwards).
+// The scheme's `TestAction` lists `PeeringTests`, which does not build, so `xcodebuild test` refuses until its `TestableReference` is dropped from `Peering.xcscheme` (put it back afterwards).
 
 import XCTest
 

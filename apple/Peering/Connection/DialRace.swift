@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// A wire in a race is held back until it wins, so a loser's failure never reads as the Mac dropping. Frames and configs are kept, not dropped: a lost config leaves the decoder unable to read until the next one.

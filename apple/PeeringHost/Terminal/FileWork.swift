@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 /// Runs blocking file-system work with a cap on how much can be in flight and a deadline on the answer. A network mount that stops answering parks its thread in the kernel for good; the cap is what keeps the threads of everything else from going the same way.
 enum FileWork {

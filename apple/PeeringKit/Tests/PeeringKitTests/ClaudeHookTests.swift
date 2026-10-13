@@ -1,7 +1,7 @@
 import Foundation
 import RemoteCore
 import Testing
-@testable import MacCastKit
+@testable import PeeringKit
 
 struct ClaudeHookTests {
     private let command = "\"/Users/x/Library/Application Support/pl.dmq.peering.host/peering-hook\""

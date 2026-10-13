@@ -4,7 +4,7 @@ use peering_wire::framing::{Frame, MessageKind};
 
 use super::state::HostPhase;
 
-/// Silence limits from `apple/MacCastHost/Network/HostServer.swift` (reapSilentSessions).
+/// Silence limits from `apple/PeeringHost/Network/HostServer.swift` (reapSilentSessions).
 pub const AUTHORISED_SILENCE_SECONDS: f64 = 60.0;
 pub const UNAUTHENTICATED_SILENCE_SECONDS: f64 = 30.0;
 pub const AWAITING_APPROVAL_SILENCE_SECONDS: f64 = 120.0;

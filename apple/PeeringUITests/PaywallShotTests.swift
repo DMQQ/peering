@@ -1,6 +1,6 @@
 //
 //  PaywallShotTests.swift
-//  MacCastUITests
+//  PeeringUITests
 //
 //  TEMPORARY. A screenshot run for the paywall rework: the cards, the period picker and the footer
 //  are all behind a tap, and a simulator driven by `simctl` alone cannot make one. Delete this file

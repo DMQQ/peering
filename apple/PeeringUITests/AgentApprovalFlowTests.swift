@@ -1,6 +1,6 @@
 //
 //  AgentApprovalFlowTests.swift
-//  MacCastUITests
+//  PeeringUITests
 //
 //  The sheet an agent's ask opens: a multi-question ask walks one question at a time, and a command
 //  approval shows the command itself with the CLI's reason beneath it.

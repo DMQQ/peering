@@ -1,6 +1,6 @@
 import Darwin
 import Foundation
-import MacCastKit
+import PeeringKit
 
 extension GroupProcess {
     struct Result {

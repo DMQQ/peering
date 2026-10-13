@@ -1,6 +1,6 @@
 import CoreGraphics
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 // MARK: - Virtual display management (phone-requested)

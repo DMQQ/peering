@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import MacCastKit
+@testable import PeeringKit
 
 @Suite("Warning about a very bad connection")
 struct BadConnectionWarningTests {

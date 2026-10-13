@@ -1,7 +1,7 @@
 import CoreMedia
 import CoreVideo
 import Foundation
-import MacCastKit
+import PeeringKit
 import RemoteCore
 import ScreenCaptureKit
 import os

@@ -1,6 +1,6 @@
 import Foundation
 import os
-import MacCastKit
+import PeeringKit
 import RemoteCore
 
 /// Starting, restarting, ending and observing a session's CLI.

@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 /// One hook process: reads its line, hands it on, and writes the answer back when there is one.
 final class TerminalHookConnection: @unchecked Sendable {

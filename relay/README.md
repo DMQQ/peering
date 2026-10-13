@@ -544,9 +544,9 @@ any — they are the URLs to paste into App Store Connect.
 #### Publishing a Mac release
 
 The Mac app updates itself with [Sparkle](https://sparkle-project.org), which is already a package
-dependency of the `MacCastHost` target. Three things have to line up, and only the first is code:
+dependency of the `PeeringHost` target. Three things have to line up, and only the first is code:
 
-1. **The feed URL and the public key** are in `apple/Config/MacCastHost-Info.plist` — `SUFeedURL` points at
+1. **The feed URL and the public key** are in `apple/Config/PeeringHost-Info.plist` — `SUFeedURL` points at
    `/updates/appcast.xml` on this site, and `SUPublicEDKey` holds the Ed25519 public key that every
    download is verified against.
 2. **The private key** goes in the login keychain of whoever publishes, once, and never in this
@@ -556,7 +556,7 @@ dependency of the `MacCastHost` target. Three things have to line up, and only t
 
 ```sh
 # One-time: the signing key pair. Keep the private half where it is; add the printed public half
-# to apple/Config/MacCastHost-Info.plist as SUPublicEDKey.
+# to apple/Config/PeeringHost-Info.plist as SUPublicEDKey.
 "$SPARKLE/bin/generate_keys"
 
 # Build a release. The version that matters is CFBundleVersion (sparkle:version in the feed) and it
@@ -564,7 +564,7 @@ dependency of the `MacCastHost` target. Three things have to line up, and only t
 #
 # **Pass it on the command line, every release.** The project carries a date-stamped value as a
 # floor rather than as the answer: it is there so that a plain archive is at least newer than the
-# first release, which it was not: `MacCastHost` sat at CFBundleVersion 1 while the iPhone app was
+# first release, which it was not: `PeeringHost` sat at CFBundleVersion 1 while the iPhone app was
 # stamped 202609161, and Sparkle compares numbers, so a second release built from the project as it
 # stood would have carried the number the installed copy already had and been offered to nobody.
 # Nothing about that fails loudly: the upload succeeds, the feed updates, and the update simply
@@ -573,7 +573,7 @@ dependency of the `MacCastHost` target. Three things have to line up, and only t
 # The number is YYYYMMDD and a revision digit, so today's first build is 202609200. Give both
 # settings the same value; the marketing version is what a person reads on the About pane.
 VERSION=$(date +%Y%m%d)0
-xcodebuild -project MacCast.xcodeproj -scheme MacCastHost -configuration Release \
+xcodebuild -project Peering.xcodeproj -scheme PeeringHost -configuration Release \
   MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION" \
   -destination 'generic/platform=macOS' \
   -archivePath /tmp/Peering.xcarchive archive
@@ -596,7 +596,7 @@ xcodebuild -project MacCast.xcodeproj -scheme MacCastHost -configuration Release
 # exclusion into a broken update.
 ARCHIVE_APP=/tmp/Peering.xcarchive/Products/Applications/Peering.app
 lipo -archs "$ARCHIVE_APP/Contents/MacOS/Peering"                     # expect: x86_64 arm64
-lipo -archs "$ARCHIVE_APP/Contents/PlugIns/MacCastHostWidgetExtension.appex/Contents/MacOS/MacCastHostWidgetExtension"
+lipo -archs "$ARCHIVE_APP/Contents/PlugIns/PeeringHostWidgetExtension.appex/Contents/MacOS/PeeringHostWidgetExtension"
                                                                       # expect: x86_64 arm64
 xcrun vtool -show-build "$ARCHIVE_APP/Contents/MacOS/Peering" | grep minos   # expect: minos 15.0
 

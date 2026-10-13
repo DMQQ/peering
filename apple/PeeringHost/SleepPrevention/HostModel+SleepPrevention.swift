@@ -43,7 +43,7 @@ extension HostModel {
         let result = IOPMAssertionCreateWithName(
             "PreventSystemSleep" as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),
-            "MacCast lid-close sleep prevention" as CFString,
+            "Peering lid-close sleep prevention" as CFString,
             &lidSleepAssertionID
         )
         if result != kIOReturnSuccess {

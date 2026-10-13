@@ -1,5 +1,5 @@
 import Foundation
-import MacCastKit
+import PeeringKit
 
 /// Writes Peering's hooks into Claude Code's settings, and takes them out again. Only ever called after the person said yes.
 enum TerminalHookInstaller {

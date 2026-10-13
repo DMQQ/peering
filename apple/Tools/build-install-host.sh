@@ -20,8 +20,8 @@ cd "$REPO_DIR"
 # `ARCHS`, so this flag is the only thing standing between a universal app and an arm64-only
 # one, and the failure is silent because the build succeeds either way.
 xcodebuild \
-    -project MacCast.xcodeproj \
-    -scheme MacCastHost \
+    -project Peering.xcodeproj \
+    -scheme PeeringHost \
     -configuration Release \
     -destination 'generic/platform=macOS' \
     -allowProvisioningUpdates \
@@ -29,7 +29,7 @@ xcodebuild \
 
 # Resolved *after* the build: on a Mac that has never built this scheme the directory does not
 # exist yet, and looking it up first would leave the variable empty and fail a build that worked.
-BUILT_APP="$(ls -d "$HOME"/Library/Developer/Xcode/DerivedData/MacCast-*/Build/Products/Release/Peering.app 2>/dev/null | head -1 || true)"
+BUILT_APP="$(ls -d "$HOME"/Library/Developer/Xcode/DerivedData/Peering-*/Build/Products/Release/Peering.app 2>/dev/null | head -1 || true)"
 if [ -z "$BUILT_APP" ] || [ ! -d "$BUILT_APP" ]; then
     echo "No Release build of the host was found in the default DerivedData." >&2
     exit 1
@@ -43,7 +43,7 @@ fi
 # and it is the half nobody looks at.
 for binary in \
     "$BUILT_APP/Contents/MacOS/Peering" \
-    "$BUILT_APP/Contents/PlugIns/MacCastHostWidgetExtension.appex/Contents/MacOS/MacCastHostWidgetExtension"
+    "$BUILT_APP/Contents/PlugIns/PeeringHostWidgetExtension.appex/Contents/MacOS/PeeringHostWidgetExtension"
 do
     archs="$(lipo -archs "$binary" 2>/dev/null || echo missing)"
     case "$archs" in
