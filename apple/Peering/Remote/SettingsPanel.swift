@@ -162,7 +162,7 @@ struct SettingsPanel: View {
             // Its own row: what the picture costs and what you hear are two decisions, and this is the one reached for mid-session.
             Toggle(isOn: Binding(
                 get: { !model.hostAudioMuted },
-                set: { model.hostAudioMuted = $0 }
+                set: { model.hostAudioMuted = !$0 }
             )) {
                 Text("Sound from the Mac")
                     .font(.subheadline.weight(.medium))

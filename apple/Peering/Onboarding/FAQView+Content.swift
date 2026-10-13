@@ -93,7 +93,7 @@ extension FAQView {
             items: [
                 QA(
                     question: String(localized: "Is Mac audio sent?"),
-                    answer: String(localized: "Yes, and you hear it. Whatever the Mac plays comes out of the phone, from the music you left running to the alert it makes in answer to a key you sent it. Sound from the Mac is a switch in the session panel, under Stream, on by default. Turning it off is a tap rather than a teardown: the audio keeps arriving and is dropped here, so turning it back on is instant.")
+                    answer: String(localized: "Yes, and you hear it. Whatever the Mac plays comes out of the phone, from the music you left running to the alert it makes in answer to a key you sent it. Sound from the Mac is a switch in the session panel, under Stream, off by default. Turning it off is a tap rather than a teardown: the audio keeps arriving and is dropped here, so turning it back on is instant.")
                 ),
                 QA(
                     question: String(localized: "How does clipboard sharing work?"),

@@ -91,7 +91,7 @@ final class SessionModel {
     }()
 
     /// The channel also carries system sounds the Mac makes in response to this phone's input, so a chord that leads nowhere is heard a round trip late.
-    var hostAudioMuted = UserDefaults.standard.object(forKey: PreferenceKeys.hostAudioMuted) as? Bool ?? false {
+    var hostAudioMuted = UserDefaults.standard.object(forKey: PreferenceKeys.hostAudioMuted) as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(hostAudioMuted, forKey: PreferenceKeys.hostAudioMuted)
             // Every Mac, not the one on screen: one behind it would keep playing unnoticed.

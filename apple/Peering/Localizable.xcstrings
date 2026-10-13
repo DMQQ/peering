@@ -101618,60 +101618,60 @@
         }
       }
     },
-    "Yes, and you hear it. Whatever the Mac plays comes out of the phone, from the music you left running to the alert it makes in answer to a key you sent it. Sound from the Mac is a switch in the session panel, under Stream, on by default. Turning it off is a tap rather than a teardown: the audio keeps arriving and is dropped here, so turning it back on is instant." : {
+    "Yes, and you hear it. Whatever the Mac plays comes out of the phone, from the music you left running to the alert it makes in answer to a key you sent it. Sound from the Mac is a switch in the session panel, under Stream, off by default. Turning it off is a tap rather than a teardown: the audio keeps arriving and is dropped here, so turning it back on is instant." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ja, und du hörst es. Alles, was der Mac abspielt, kommt aus dem Telefon, von der Musik, die du laufen ließest, bis zum Signalton, den er als Antwort auf eine gesendete Taste macht. Ton vom Mac ist ein Schalter im Sitzungsbereich unter Stream, standardmäßig an. Ihn auszuschalten ist ein Tippen und kein Abbau: Das Audio kommt weiter an und wird hier verworfen, sodass das Wiedereinschalten sofort geht."
+            "value" : "Ja, und du hörst es. Alles, was der Mac abspielt, kommt aus dem Telefon, von der Musik, die du laufen ließest, bis zum Signalton, den er als Antwort auf eine gesendete Taste macht. Ton vom Mac ist ein Schalter im Sitzungsbereich unter Stream, standardmäßig aus. Ihn auszuschalten ist ein Tippen und kein Abbau: Das Audio kommt weiter an und wird hier verworfen, sodass das Wiedereinschalten sofort geht."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sí, y lo oyes. Todo lo que reproduce el Mac sale por el teléfono, desde la música que dejaste sonando hasta el aviso que hace en respuesta a una tecla que enviaste. El sonido del Mac es un interruptor en el panel de sesión, en Transmisión, activado por defecto. Desactivarlo es un toque y no un desmontaje: el audio sigue llegando y se descarta aquí, así que volver a activarlo es instantáneo."
+            "value" : "Sí, y lo oyes. Todo lo que reproduce el Mac sale por el teléfono, desde la música que dejaste sonando hasta el aviso que hace en respuesta a una tecla que enviaste. El sonido del Mac es un interruptor en el panel de sesión, en Transmisión, desactivado por defecto. Desactivarlo es un toque y no un desmontaje: el audio sigue llegando y se descarta aquí, así que volver a activarlo es instantáneo."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Oui, et vous l'entendez. Tout ce que le Mac joue sort du téléphone, de la musique laissée en route à l'alerte qu'il émet en réponse à une touche que vous avez envoyée. Le son du Mac est un interrupteur dans le panneau de session, sous Flux, activé par défaut. Le couper est un geste et non un démontage : l'audio continue d'arriver et est abandonné ici, donc le remettre est instantané."
+            "value" : "Oui, et vous l'entendez. Tout ce que le Mac joue sort du téléphone, de la musique laissée en route à l'alerte qu'il émet en réponse à une touche que vous avez envoyée. Le son du Mac est un interrupteur dans le panneau de session, sous Flux, désactivé par défaut. Le couper est un geste et non un démontage : l'audio continue d'arriver et est abandonné ici, donc le remettre est instantané."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sì, e lo senti. Tutto ciò che il Mac riproduce esce dal telefono, dalla musica lasciata in esecuzione all'avviso che emette in risposta a un tasto che hai inviato. Il suono dal Mac è un interruttore nel pannello di sessione, sotto Streaming, attivo per impostazione predefinita. Disattivarlo è un tocco e non uno smontaggio: l'audio continua ad arrivare e viene scartato qui, quindi riattivarlo è immediato."
+            "value" : "Sì, e lo senti. Tutto ciò che il Mac riproduce esce dal telefono, dalla musica lasciata in esecuzione all'avviso che emette in risposta a un tasto che hai inviato. Il suono dal Mac è un interruttore nel pannello di sessione, sotto Streaming, disattivato per impostazione predefinita. Disattivarlo è un tocco e non uno smontaggio: l'audio continua ad arrivare e viene scartato qui, quindi riattivarlo è immediato."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "はい、聞こえます。Macが再生するものはすべてiPhoneから出ます。流しっぱなしの音楽から、送ったキーに対して鳴らす通知音まで。Macの音はセッションパネルの「ストリーム」にあるスイッチで、既定ではオンです。オフにするのはタップ一つで、作り直しは不要です。音声は届き続けてここで破棄されるので、オンに戻すのは一瞬です。"
+            "value" : "はい、聞こえます。Macが再生するものはすべてiPhoneから出ます。流しっぱなしの音楽から、送ったキーに対して鳴らす通知音まで。Macの音はセッションパネルの「ストリーム」にあるスイッチで、既定ではオフです。オフにするのはタップ一つで、作り直しは不要です。音声は届き続けてここで破棄されるので、オンに戻すのは一瞬です。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "예, 그리고 들립니다. Mac이 재생하는 것은 모두 iPhone에서 나옵니다. 틀어 둔 음악부터 내가 보낸 키에 대한 응답으로 내는 알림음까지. Mac의 소리는 세션 패널의 스트림에 있는 스위치이며 기본으로 켜져 있습니다. 끄는 것은 해체가 아니라 탭 한 번입니다. 오디오는 계속 도착해 여기서 버려지므로 다시 켜는 것은 즉시 됩니다."
+            "value" : "예, 그리고 들립니다. Mac이 재생하는 것은 모두 iPhone에서 나옵니다. 틀어 둔 음악부터 내가 보낸 키에 대한 응답으로 내는 알림음까지. Mac의 소리는 세션 패널의 스트림에 있는 스위치이며 기본으로 꺼져 있습니다. 끄는 것은 해체가 아니라 탭 한 번입니다. 오디오는 계속 도착해 여기서 버려지므로 다시 켜는 것은 즉시 됩니다."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sim, e você o ouve. Tudo que o Mac toca sai pelo telefone, da música que você deixou tocando ao alerta que ele faz em resposta a uma tecla que você enviou. O som do Mac é um botão no painel da sessão, em Transmissão, ligado por padrão. Desligá-lo é um toque e não uma desmontagem: o áudio continua chegando e é descartado aqui, então religar é instantâneo."
+            "value" : "Sim, e você o ouve. Tudo que o Mac toca sai pelo telefone, da música que você deixou tocando ao alerta que ele faz em resposta a uma tecla que você enviou. O som do Mac é um botão no painel da sessão, em Transmissão, desligado por padrão. Desligá-lo é um toque e não uma desmontagem: o áudio continua chegando e é descartado aqui, então religar é instantâneo."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Да, и вы его слышите. Всё, что воспроизводит Mac, звучит из телефона, от оставленной музыки до сигнала в ответ на отправленную клавишу. Звук с Mac это переключатель в панели сеанса, в разделе «Поток», по умолчанию включён. Выключить его это касание, а не разборка: звук продолжает приходить и отбрасывается здесь, поэтому включить снова можно мгновенно."
+            "value" : "Да, и вы его слышите. Всё, что воспроизводит Mac, звучит из телефона, от оставленной музыки до сигнала в ответ на отправленную клавишу. Звук с Mac это переключатель в панели сеанса, в разделе «Поток», по умолчанию выключен. Выключить его это касание, а не разборка: звук продолжает приходить и отбрасывается здесь, поэтому включить снова можно мгновенно."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "会，而且你能听到。Mac 播放的所有声音都从手机发出，从你留着播放的音乐，到它为响应你发送的按键而发出的提示音。来自 Mac 的声音是会话面板“串流”下的一个开关，默认开启。关闭它只需轻点一下，而不是拆除：音频仍在到达并在这里被丢弃，所以重新打开是即时的。"
+            "value" : "会，而且你能听到。Mac 播放的所有声音都从手机发出，从你留着播放的音乐，到它为响应你发送的按键而发出的提示音。来自 Mac 的声音是会话面板“串流”下的一个开关，默认关闭。关闭它只需轻点一下，而不是拆除：音频仍在到达并在这里被丢弃，所以重新打开是即时的。"
           }
         }
       }
