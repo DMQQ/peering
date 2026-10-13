@@ -26,3 +26,18 @@ Terminology decisions to confirm:
 Long or technical texts worth a read: `legal_privacy_body`, `legal_terms_body`, `faq_*_answer` (especially `faq_pair_answer`, `faq_files_answer`, `faq_background_answer`, `faq_gaps_answer`), `panel_*_note`, `ssh_signin_key_footer`, `ssh_key_*_footer`, `ssh_changed_help`, `ssh_forward_remote_footer`, `settings_invite_message`.
 
 Shorter ones that may read oddly: `agents_jump_to_latest`, `agents_turn_tokens` ("입력 %1$d / 출력 %2$d"), `panel_direct_probing`, `panel_lock` ("컴퓨터 잠금 · 현장에서 해제"), `settings_keywords_*` and `panel_keywords_*` (search keywords, Korean plus a few English terms), `remote_pointer_*_description`, `remote_joystick`, `whatsnew_composer_detail`, `terminal_quick_empty_body`.
+
+## zh-Hans (Simplified Chinese): strings for a native speaker to review
+
+Android strings in `values-b+zh+Hans/`: 1449 entries (plurals included, with the single CLDR quantity `other`). All 21 files mirror the English ones. Terminology was aligned by hand with the iPhone's zh-Hans (智能体, 中继, 配对, 受信任的…, 串流, 会话, 轻点); strings were not copied mechanically, so near-identical iPhone phrases may differ slightly in wording.
+
+Terminology decisions to confirm:
+- "电脑" for the generic computer (the iPhone says "Mac"); "Mac" is kept only where the English says Mac (`connect_pairings_unreadable`).
+- "移除" for Forget (as the iPhone), but "忘记登录方式" and "忘记其密钥" in the SSH texts (as the iPhone).
+- "存储" for Save and "拷贝" for Copy (Android Chinese often says 保存 and 复制). "轻点" is kept from the iPhone although Android Chinese usually says 点按 or 点击.
+- "回合" was avoided: an agent's turn is "一轮" (`agents_turn_*`, `approval_cancelled`, `whatsnew_review_detail`); "空间" for a macOS Space; "马赛克" for Mosaic.
+- English technical names kept as is: shell, token, Keycode, Unicode, HEVC, SSH, git, zsh-style terms, Keystore.
+
+Long or technical texts worth a read: `legal_privacy_body`, `legal_terms_body`, `faq_*_answer`, `panel_*_note`, `ssh_signin_key_footer`, `ssh_key_*`, `ssh_changed_help`, `ssh_forward_*_footer`, `settings_invite_message`.
+
+Shorter ones that may read oddly: `agents_jump_to_latest`, `agents_turn_tokens` ("输入 %1$d / 输出 %2$d"), `agents_turn_cost` ("%1$s 美元"), `panel_direct_probing` ("正在试探"), `panel_lock`, `settings_keywords_*` and `panel_keywords_*` (search keywords), `remote_joystick`, `terminal_group_pages`, `terminal_key_*`, `tour_notifications_title` ("shell 在等你时会通知你"), `tour_notification_date` ("9月24日 星期三").
