@@ -23,7 +23,8 @@ extension MacSession {
         reconnectingSince = nil
         stopReconnecting()
         dialRace?.cancel()
-        wire?.disconnect()
+        let leaving = wire
+        if deliberate { leaving?.disconnectAfterForgettingPushToken() } else { leaving?.disconnect() }
         wire = nil
         videoPoll?.cancel()
         videoPoll = nil

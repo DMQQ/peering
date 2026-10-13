@@ -122,3 +122,23 @@ extension ClientSession {
         emit(.phase(.disconnected))
     }
 }
+
+extension ClientSession {
+    /// For a person who pressed Disconnect: the Mac is told to forget this phone's push token first, so nothing it has to say reaches the phone until it connects again. Closed once the network has taken the request, or after a short wait if it never does.
+    public func disconnectAfterForgettingPushToken() {
+        guard isReady else {
+            disconnect()
+            return
+        }
+        let once = OSAllocatedUnfairLock(initialState: false)
+        let close: @Sendable () -> Void = { [weak self] in
+            let first = once.withLock { done -> Bool in
+                defer { done = true }
+                return !done
+            }
+            if first { self?.disconnect() }
+        }
+        sendTerminal(.registerPushToken(Data())) { _ in close() }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.5, execute: close)
+    }
+}
