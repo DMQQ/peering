@@ -74,6 +74,14 @@ impl eframe::App for HostApp {
     }
 }
 
+/// Hands a folder or a web address to Explorer, which opens it in the right program. Explorer reports a failure through an exit
+/// code that is non-zero even on success, so only the start of the process is checked, and a failure to start is logged.
+fn open_in_explorer(target: &str) {
+    if let Err(error) = std::process::Command::new("explorer.exe").arg(target).spawn() {
+        crate::logfile::record(&format!("could not open {target}: {error}"));
+    }
+}
+
 fn program_path() -> std::io::Result<PathBuf> {
     std::env::current_exe()
 }
@@ -130,7 +138,16 @@ impl HostApp {
         match &choice {
             SettingsChoice::StartAtLogin(wanted) => self.change_autostart(*wanted),
             SettingsChoice::FixFirewall => self.fix_firewall(port),
-            SettingsChoice::FrameRate(_) | SettingsChoice::RelayEnabled(_) | SettingsChoice::TerminalHooks(_) => {
+            SettingsChoice::OpenLogs => {
+                if let Some(folder) = crate::logfile::directory() {
+                    open_in_explorer(&folder.to_string_lossy());
+                }
+            }
+            SettingsChoice::OpenUpdatePage(page) => open_in_explorer(page),
+            SettingsChoice::FrameRate(_)
+            | SettingsChoice::RelayEnabled(_)
+            | SettingsChoice::TerminalHooks(_)
+            | SettingsChoice::CheckForUpdates(_) => {
                 if let Some(command) = settings_command(&choice) {
                     self.send(ctx, command);
                 }

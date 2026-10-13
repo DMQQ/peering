@@ -10,7 +10,7 @@ use tokio::task::{JoinHandle, LocalSet};
 
 use super::lock::lock_ignoring_poison;
 use super::{
-    advertise, agent_pump, audio, focus_pump, listener, pointer_pump, relay_switch, supervise, video_pass, HostRuntime, RuntimeConfig, RuntimeError,
+    advertise, agent_pump, audio, focus_pump, listener, pointer_pump, update, relay_switch, supervise, video_pass, HostRuntime, RuntimeConfig, RuntimeError,
 };
 
 struct PumpTasks {
@@ -57,6 +57,11 @@ impl HostRuntime {
             .map_err(|source| RuntimeError::Bind { port: config.port, source })?;
         let _advertisement = advertise::start(identity.device_id(), &self.profile.host_name, config.port)?;
         let pumps = self.spawn_pumps();
+        let (source, version) = {
+            let state = self.shared.lock();
+            (state.update_source.clone(), state.running_version)
+        };
+        update::spawn(self.shared.clone(), self.profile.clone(), source, version);
         if let Some(relay_config) = config.relay {
             relay_switch::spawn(self.shared.clone(), self.profile.clone(), tls.clone(), relay_config, Rc::new(identity));
         }

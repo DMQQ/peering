@@ -35,6 +35,11 @@ pub const START_AT_LOGIN: &str = "Start at login";
 pub const RELAY_ENABLED: &str = "Reach this PC away from home through the relay";
 pub const TERMINAL_HOOKS: &str = "Send Claude Code approvals to my phone";
 pub const TERMINAL_HOOKS_HINT: &str = "Adds hooks to the Claude Code settings file. Turning this off takes them out again.";
+pub const CHECK_FOR_UPDATES: &str = "Tell me when a newer version is available";
+pub const CHECK_FOR_UPDATES_HINT: &str = "Looks at this program's releases on GitHub about once a day. It never downloads or installs anything.";
+pub const OPEN_DOWNLOAD: &str = "Open the download page";
+pub const OPEN_LOGS: &str = "Open the log folder";
+pub const OPEN_LOGS_HINT: &str = "What the host did and what went wrong is written to files there, the last few megabytes of it.";
 pub const FIX_FIREWALL: &str = "Fix firewall";
 pub const FIREWALL_HINT: &str = "Windows asks once for permission to let phones reach this PC. This works on networks Windows calls Private: if this one is Public, switch it to Private in Windows settings.";
 pub const FIREWALL_REQUESTED: &str = "Approve the Windows prompt to add the firewall rule.";
@@ -51,6 +56,10 @@ pub const MOSAIC_UNAVAILABLE: &str = "This PC cannot show several screens at onc
 pub const CLIPBOARD_WRITE_FAILED: &str = "This PC could not put that on its clipboard.";
 
 pub const HOOKS_NO_RANDOM: &str = "Claude Code hooks could not start: this PC gave no random number for their access token.";
+
+pub fn update_available(version: &str) -> String {
+    format!("Version {version} is available. It is not installed for you: download it and run the installer.")
+}
 
 pub fn hooks_could_not_listen(reason: &str) -> String {
     format!("Claude Code hooks could not start: Peering could not listen for them ({reason}).")

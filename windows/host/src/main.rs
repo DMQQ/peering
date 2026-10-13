@@ -27,6 +27,11 @@ fn main() -> Result<(), RuntimeError> {
         let program = std::env::current_exe().map_err(|error| RuntimeError::Firewall(error.to_string()))?;
         return firewall::apply_rule(&program, port).map_err(|error| RuntimeError::Firewall(error.to_string()));
     }
+    if let Some(directory) = default_directory() {
+        // Without a log file the host still runs; there is just less to read when it misbehaves.
+        drop(peering_host::logfile::install(&directory.join("logs")));
+    }
+    peering_host::logfile::record("peering-host started");
     let (ready, handles) = mpsc::channel();
     let host = thread::spawn(move || run_host(ready));
     match handles.recv() {

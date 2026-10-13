@@ -49,6 +49,7 @@ mod windows;
 mod fakes;
 
 use super::lock::lock_ignoring_poison;
+use super::update::{NoReleases, ReleaseSource};
 use super::RuntimeError;
 
 /// What terminals run on: the pseudo console, the shells this PC has, where a new one starts and the environment it gets.
@@ -89,11 +90,14 @@ pub struct HostExtras {
     pub focus: Box<dyn FocusProbe + Send>,
     /// Where a folder zipped for a phone is kept until the phone has read it.
     pub archive_directory: std::path::PathBuf,
+    /// Where the list of newer builds comes from, and the version of the running build.
+    pub releases: Arc<dyn ReleaseSource>,
+    pub version: &'static str,
 }
 
 impl Default for HostExtras {
     fn default() -> Self {
-        Self { audio: Box::new(SilentAudio), focus: Box::new(BlindFocus), archive_directory: std::env::temp_dir().join("PeeringArchives") }
+        Self { audio: Box::new(SilentAudio), focus: Box::new(BlindFocus), archive_directory: std::env::temp_dir().join("PeeringArchives"), releases: Arc::new(NoReleases), version: env!("PEERING_HOST_VERSION") }
     }
 }
 

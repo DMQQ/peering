@@ -86,6 +86,10 @@ pub struct HostState {
     pub files: Arc<FileBrowser<SharedFileSystem>>,
     /// Where folders zipped for a phone wait to be read.
     pub archive_directory: std::path::PathBuf,
+    /// A newer build than this one, once the check found one.
+    pub update: Option<peering_core::update::UpdateNotice>,
+    pub update_source: Arc<dyn super::update::ReleaseSource>,
+    pub running_version: &'static str,
     pub agents: ClientAgents<StdLauncher>,
     pub agent_availability: AgentAvailability,
     pub agent_pushes: AgentPushPlanner,

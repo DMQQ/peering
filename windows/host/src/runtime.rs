@@ -48,6 +48,7 @@ mod services;
 mod shared;
 mod supervise;
 mod terminal;
+mod update;
 #[cfg(test)]
 mod test_support;
 mod video;
@@ -70,6 +71,7 @@ pub use config::{RelayConfig, RuntimeConfig};
 pub use error::RuntimeError;
 pub use profile::{HostProfile, PeerInfo, VideoEndpoint};
 pub use control::{ApprovalView, DeviceView, HostHandle, HostSnapshot, OfferView, RelayStatus, RuntimeCommand};
+pub use update::{GithubReleases, NoReleases, ReleaseSource};
 pub use services::{platform_services, HostExtras, HostServices, RebuildVideo, TerminalServices};
 
 use control::ControlChannel;

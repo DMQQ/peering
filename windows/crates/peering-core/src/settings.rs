@@ -15,6 +15,8 @@ pub struct HostSettings {
     pub terminal_hooks: bool,
     /// Whether the PC's pointer is drawn into the picture. On, as the Mac host draws it.
     pub cursor_in_picture: bool,
+    /// Whether the host asks GitHub, about once a day, if a newer build exists. On; it only ever shows a notice.
+    pub check_for_updates: bool,
 }
 
 impl HostSettings {
@@ -27,6 +29,7 @@ impl HostSettings {
             device_name: device_name.into(),
             terminal_hooks: false,
             cursor_in_picture: true,
+            check_for_updates: true,
         }
     }
 
@@ -44,8 +47,8 @@ impl HostSettings {
     pub fn to_text(&self) -> String {
         let device_name = self.device_name.replace(['\r', '\n'], " ");
         format!(
-            "port={}\nframeRate={}\nstartAtLogin={}\nrelayEnabled={}\ndeviceName={}\nterminalHooks={}\ncursorInPicture={}\n",
-            self.port, self.frame_rate, self.start_at_login, self.relay_enabled, device_name, self.terminal_hooks, self.cursor_in_picture
+            "port={}\nframeRate={}\nstartAtLogin={}\nrelayEnabled={}\ndeviceName={}\nterminalHooks={}\ncursorInPicture={}\ncheckForUpdates={}\n",
+            self.port, self.frame_rate, self.start_at_login, self.relay_enabled, device_name, self.terminal_hooks, self.cursor_in_picture, self.check_for_updates
         )
     }
 
@@ -72,6 +75,7 @@ fn apply_entry(settings: &mut HostSettings, key: &str, value: &str) {
         "relayEnabled" => settings.relay_enabled = parse_bool(value).unwrap_or(defaults.relay_enabled),
         "terminalHooks" => settings.terminal_hooks = parse_bool(value).unwrap_or(defaults.terminal_hooks),
         "cursorInPicture" => settings.cursor_in_picture = parse_bool(value).unwrap_or(defaults.cursor_in_picture),
+        "checkForUpdates" => settings.check_for_updates = parse_bool(value).unwrap_or(defaults.check_for_updates),
         "deviceName" if !value.trim().is_empty() => settings.device_name = value.to_owned(),
         _ => {}
     }
@@ -118,6 +122,13 @@ mod tests {
         assert!(settings.relay_enabled);
         assert_eq!(settings.device_name, "Office PC");
         assert!(!settings.terminal_hooks, "hooks edit another program's settings, so they start off");
+    }
+
+    #[test]
+    fn updates_are_checked_unless_the_file_says_otherwise() {
+        assert!(HostSettings::from_text("port=2000\n", "PC").check_for_updates);
+        assert!(!HostSettings::from_text("checkForUpdates=false\n", "PC").check_for_updates);
+        assert!(HostSettings::from_text("checkForUpdates=never\n", "PC").check_for_updates);
     }
 
     #[test]
@@ -178,6 +189,7 @@ mod tests {
             device_name: "Den = main, PC".to_owned(),
             terminal_hooks: true,
             cursor_in_picture: false,
+            check_for_updates: false,
         };
         assert_eq!(HostSettings::from_text(&settings.to_text(), "fallback"), settings);
     }

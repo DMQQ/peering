@@ -60,6 +60,8 @@ jobs:
       - run: cargo clippy --locked --workspace --all-targets
       - run: cargo test --locked --workspace
       - run: cargo build --locked --release -p peering-host
+        env:
+          PEERING_RELEASE_TAG: ${{ inputs.release_tag }}
       - name: Install Inno Setup when the runner image lacks it
         shell: pwsh
         run: |

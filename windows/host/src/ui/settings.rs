@@ -42,6 +42,11 @@ pub enum SettingsChoice {
     FrameRate(u32),
     RelayEnabled(bool),
     TerminalHooks(bool),
+    CheckForUpdates(bool),
+    /// Opens the folder the log files are in.
+    OpenLogs,
+    /// Opens the release page of the newer build in the browser.
+    OpenUpdatePage(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

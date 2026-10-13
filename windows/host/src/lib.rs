@@ -3,6 +3,7 @@
 pub mod autostart;
 pub mod firewall;
 pub mod hooks;
+pub mod logfile;
 pub mod runtime;
 pub mod settings_store;
 pub mod strings;

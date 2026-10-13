@@ -25,6 +25,21 @@ pub fn show(ui: &mut egui::Ui, panel: &SettingsPanel, choices: &mut Vec<Settings
         choices.push(SettingsChoice::TerminalHooks(terminal_hooks));
     }
     ui.label(strings::TERMINAL_HOOKS_HINT);
+    let mut check_for_updates = panel.check_for_updates;
+    if ui.checkbox(&mut check_for_updates, strings::CHECK_FOR_UPDATES).changed() {
+        choices.push(SettingsChoice::CheckForUpdates(check_for_updates));
+    }
+    ui.label(strings::CHECK_FOR_UPDATES_HINT);
+    if let Some(update) = &panel.update {
+        ui.colored_label(egui::Color32::from_rgb(40, 120, 60), strings::update_available(&update.version));
+        if ui.button(strings::OPEN_DOWNLOAD).clicked() {
+            choices.push(SettingsChoice::OpenUpdatePage(update.page.clone()));
+        }
+    }
+    if ui.button(strings::OPEN_LOGS).clicked() {
+        choices.push(SettingsChoice::OpenLogs);
+    }
+    ui.label(strings::OPEN_LOGS_HINT);
     if ui.button(strings::FIX_FIREWALL).clicked() {
         choices.push(SettingsChoice::FixFirewall);
     }

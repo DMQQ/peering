@@ -184,6 +184,8 @@ impl UiModel {
             start_at_login: state.start_at_login(),
             relay_enabled: self.snapshot.relay_enabled,
             terminal_hooks: self.snapshot.terminal_hooks,
+            check_for_updates: self.snapshot.check_for_updates,
+            update: self.snapshot.update.clone(),
             autostart_note: state.autostart_note().map(str::to_owned),
             frame_rates: frame_rate_choices(self.snapshot.frame_rate),
             firewall_note: firewall_note(state.firewall()),
@@ -197,6 +199,9 @@ pub struct SettingsPanel {
     pub start_at_login: bool,
     pub relay_enabled: bool,
     pub terminal_hooks: bool,
+    pub check_for_updates: bool,
+    /// A newer build, with the page to get it from.
+    pub update: Option<peering_core::update::UpdateNotice>,
     pub autostart_note: Option<String>,
     pub frame_rates: Vec<FrameRateChoice>,
     pub firewall_note: Option<String>,
@@ -222,7 +227,8 @@ pub fn settings_command(choice: &SettingsChoice) -> Option<RuntimeCommand> {
         SettingsChoice::FrameRate(fps) => Some(RuntimeCommand::SetFrameRate(*fps)),
         SettingsChoice::RelayEnabled(enabled) => Some(RuntimeCommand::SetRelayEnabled(*enabled)),
         SettingsChoice::TerminalHooks(enabled) => Some(RuntimeCommand::SetTerminalHooks(*enabled)),
-        SettingsChoice::StartAtLogin(_) | SettingsChoice::FixFirewall => None,
+        SettingsChoice::CheckForUpdates(enabled) => Some(RuntimeCommand::SetCheckForUpdates(*enabled)),
+        SettingsChoice::StartAtLogin(_) | SettingsChoice::FixFirewall | SettingsChoice::OpenLogs | SettingsChoice::OpenUpdatePage(_) => None,
     }
 }
 

@@ -69,6 +69,10 @@ pub struct HostSnapshot {
     pub port: u16,
     /// Whether Claude Code hooks are on, as the person set it.
     pub terminal_hooks: bool,
+    /// Whether the host looks for newer builds, as the person set it.
+    pub check_for_updates: bool,
+    /// A newer build than this one, when the check found one.
+    pub update: Option<peering_core::update::UpdateNotice>,
     /// Why the runtime ended, once it has. The tray shows it instead of a healthy-looking status.
     pub stopped: Option<String>,
     /// What is wrong while the host keeps running (capture recovering, a paired list that could not be read, a clock
@@ -87,6 +91,7 @@ pub enum RuntimeCommand {
     SetFrameRate(u32),
     SetRelayEnabled(bool),
     SetTerminalHooks(bool),
+    SetCheckForUpdates(bool),
     /// What the Run entry says now, kept in the saved settings so they match.
     NoteStartAtLogin(bool),
     /// Move the unreadable paired list aside and start an empty one.
@@ -160,6 +165,8 @@ impl HostState {
             relay_enabled: self.settings.relay_enabled,
             port: self.settings.port,
             terminal_hooks: self.settings.terminal_hooks,
+            check_for_updates: self.settings.check_for_updates,
+            update: self.update.clone(),
             stopped: self.stopped.clone(),
             problems: self.problems.values().cloned().collect(),
             paired_list_unreadable: self.problems.contains_key(&ProblemSource::PairedDevices),
@@ -232,6 +239,7 @@ impl HostState {
                 }
                 RuntimeCommand::SetRelayEnabled(enabled) => self.set_settings(|settings| settings.relay_enabled = enabled),
                 RuntimeCommand::SetTerminalHooks(enabled) => self.set_settings(|settings| settings.terminal_hooks = enabled),
+                RuntimeCommand::SetCheckForUpdates(enabled) => self.set_settings(|settings| settings.check_for_updates = enabled),
                 RuntimeCommand::NoteStartAtLogin(enabled) => {
                     if self.settings.start_at_login != enabled {
                         self.set_settings(|settings| settings.start_at_login = enabled);

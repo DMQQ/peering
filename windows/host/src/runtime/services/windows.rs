@@ -25,7 +25,7 @@ use super::adapters::Adapters;
 use crate::runtime::archive;
 use crate::runtime::disk::{protected_folders, StdDisk};
 use crate::runtime::files::DiskFileSystem;
-use crate::runtime::{HostExtras, RuntimeError, TerminalServices};
+use crate::runtime::{GithubReleases, HostExtras, RuntimeError, TerminalServices};
 
 pub fn build() -> Result<Adapters, RuntimeError> {
     let directory: PathBuf = default_directory().ok_or(RuntimeError::NoDataDirectory)?;
@@ -51,7 +51,7 @@ pub fn build() -> Result<Adapters, RuntimeError> {
             protected_folders(&|name| std::env::var(name).ok()),
             default_directory().map(|directory| directory.join("upload-folders.txt")),
         )),
-        extras: HostExtras { audio: Box::new(LoopbackAudio::default()), focus: Box::new(UiaFocus::default()), archive_directory },
+        extras: HostExtras { audio: Box::new(LoopbackAudio::default()), focus: Box::new(UiaFocus::default()), archive_directory, releases: Arc::new(GithubReleases { user_agent: format!("peering-host/{}", env!("PEERING_HOST_VERSION")) }), version: env!("PEERING_HOST_VERSION") },
     })
 }
 

@@ -271,6 +271,23 @@ mod settings {
     }
 
     #[test]
+    fn the_update_switch_is_a_host_command_and_opening_things_is_not() {
+        assert_eq!(settings_command(&SettingsChoice::CheckForUpdates(false)), Some(RuntimeCommand::SetCheckForUpdates(false)));
+        assert_eq!(settings_command(&SettingsChoice::OpenLogs), None);
+        assert_eq!(settings_command(&SettingsChoice::OpenUpdatePage("https://example.com".to_owned())), None);
+    }
+
+    #[test]
+    fn a_newer_version_found_by_the_host_reaches_the_settings_section() {
+        let update = peering_core::update::UpdateNotice { version: "0.2.0".to_owned(), page: "https://github.com/DMQQ/peering/releases/tag/windows-v0.2.0".to_owned() };
+        let model = UiModel::new(HostSnapshot { check_for_updates: true, update: Some(update.clone()), ..HostSnapshot::default() });
+        let panel = model.settings(&SettingsState::new(false));
+        assert!(panel.check_for_updates);
+        assert_eq!(panel.update, Some(update));
+        assert!(strings::update_available("0.2.0").contains("0.2.0"));
+    }
+
+    #[test]
     fn the_switches_show_what_the_host_has_set() {
         let model = UiModel::new(HostSnapshot { relay_enabled: true, terminal_hooks: true, ..HostSnapshot::default() });
         let panel = model.settings(&SettingsState::new(false));
