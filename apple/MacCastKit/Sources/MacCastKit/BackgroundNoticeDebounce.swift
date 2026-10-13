@@ -8,16 +8,16 @@ public struct BackgroundNoticeDebounce: Equatable, Sendable {
         case none
         case tell(background: Bool)
         /// Ask again at this time with ``fire(now:)``.
-        case wait(until: Date)
+        case wait(until: ContinuousClock.Instant)
     }
 
-    private var inactiveSince: Date?
+    private var inactiveSince: ContinuousClock.Instant?
 
     public init() {}
 
-    public mutating func becameInactive(now: Date) -> Action {
+    public mutating func becameInactive(now: ContinuousClock.Instant) -> Action {
         if inactiveSince == nil { inactiveSince = now }
-        return .wait(until: (inactiveSince ?? now).addingTimeInterval(Self.inactiveDelay))
+        return .wait(until: (inactiveSince ?? now) + .seconds(Self.inactiveDelay))
     }
 
     public mutating func becameBackground() -> Action {
@@ -31,8 +31,8 @@ public struct BackgroundNoticeDebounce: Equatable, Sendable {
     }
 
     /// The delay ran out. Does nothing when the app came back first.
-    public mutating func fire(now: Date) -> Action {
-        guard let since = inactiveSince, now >= since.addingTimeInterval(Self.inactiveDelay) else { return .none }
+    public mutating func fire(now: ContinuousClock.Instant) -> Action {
+        guard let since = inactiveSince, now >= since + .seconds(Self.inactiveDelay) else { return .none }
         inactiveSince = nil
         return .tell(background: true)
     }

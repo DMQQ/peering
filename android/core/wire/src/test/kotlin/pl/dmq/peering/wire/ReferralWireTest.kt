@@ -27,7 +27,10 @@ class ReferralWireTest {
         assertEquals(ReferralRefusal.OwnCode, ReferralRefusal.of("referralOwnCode"))
         assertEquals(ReferralRefusal.AlreadyRedeemed, ReferralRefusal.of("referralAlreadyRedeemed"))
         assertEquals(ReferralRefusal.NeedsKeyProof, ReferralRefusal.of("proofStale"))
-        assertEquals(ReferralRefusal.Busy, ReferralRefusal.of("tooManyRequests"))
+        assertEquals(ReferralRefusal.NeedsKeyProof, ReferralRefusal.of("proofRequired"))
+        assertEquals(ReferralRefusal.NeedsKeyProof, ReferralRefusal.of("proofInvalid"))
+        assertEquals(ReferralRefusal.Busy, ReferralRefusal.of("referralsBusy"))
+        assertEquals(ReferralRefusal.NetworkLimit, ReferralRefusal.of("tooManyRequests"))
         assertEquals(ReferralRefusal.Unavailable, ReferralRefusal.of("anythingElse"))
     }
 

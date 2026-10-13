@@ -52,6 +52,7 @@ class SessionController(
     private var job: Job? = null
     private var pictureEnabled = true
     private var backgrounded = false
+    private val returnProbe = ReturnProbe()
     private val recorder = SessionRecorder(ports, history)
     private val prompt = PairingPrompt(target, ::update)
     private val services: SessionServices = SessionServices(ports) { runner.link }
@@ -138,7 +139,7 @@ class SessionController(
      */
     fun clientBackgrounded(background: Boolean) {
         backgrounded = background
-        link?.reportBackground(background)
+        link?.reportBackground(background, probeNow = !background && returnProbe.onReturn())
     }
 
     /** Applies the stream quality to the live session. False when no session is running. */
@@ -154,6 +155,7 @@ class SessionController(
      * again when the host turns out to be on this network, so the picture moves to the local path.
      */
     fun networkChanged() {
+        returnProbe.networkMoved(backgrounded)
         reconnect.networkChanged()
         ports.relay?.signalling?.drop()
         runner.networkMoved()

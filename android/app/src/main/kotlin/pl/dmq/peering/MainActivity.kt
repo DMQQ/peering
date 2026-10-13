@@ -30,8 +30,9 @@ import pl.dmq.peering.ui.wiring.DeviceUnlock
 import pl.dmq.peering.ui.wiring.PreferencesFirstRunStore
 import pl.dmq.peering.ui.wiring.ScreenSecurity
 import pl.dmq.peering.widget.LinkNonce
-import pl.dmq.peering.widget.LockedLinkQueue
+import pl.dmq.peering.widget.LinkRequest
 import pl.dmq.peering.widget.WidgetLink
+import pl.dmq.peering.widget.WidgetLinkGate
 
 /** A FragmentActivity because the system's unlock prompt is hosted by one. */
 class MainActivity : FragmentActivity() {
@@ -39,7 +40,7 @@ class MainActivity : FragmentActivity() {
     private var locked by mutableStateOf(false)
     private var connectRequests by mutableIntStateOf(0)
     private var sessionActive = false
-    private val lockedLinks = LockedLinkQueue()
+    private val linkGate by lazy { WidgetLinkGate(LinkNonce.load(noBackupFilesDir)) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -54,7 +55,7 @@ class MainActivity : FragmentActivity() {
         if (BuildConfig.DEBUG && intent.getBooleanExtra(RESET_FIRST_RUN_EXTRA, false)) {
             PreferencesFirstRunStore(preferences).reset()
         }
-        appLock = AppLock(preferences)
+        appLock = AppLock(preferences, (application as PeeringApplication).graph.preferenceWrites)
         val deviceLockAvailable = DeviceUnlock.isAvailable(this)
         if (ScreenSecurity.lockLapsed(appLock.isEnabled(), deviceLockAvailable)) {
             appLock.setEnabled(false)
@@ -111,9 +112,8 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun openWidgetLink(intent: Intent) {
-        if (!LinkNonce.accepts(LinkNonce.load(noBackupFilesDir), intent.getStringExtra(LinkNonce.EXTRA))) return
-        val link = WidgetLink.parse(intent.dataString) ?: return
-        act(lockedLinks.admit(link, locked) ?: return)
+        val request = LinkRequest(intent.dataString.orEmpty(), intent.getStringExtra(LinkNonce.EXTRA))
+        act(linkGate.receive(request, locked) ?: return)
     }
 
     private fun act(link: WidgetLink) {
@@ -137,7 +137,7 @@ class MainActivity : FragmentActivity() {
         DeviceUnlock.prompt(this, getString(R.string.connect_unlock_title)) { unlocked ->
             if (unlocked) {
                 locked = false
-                lockedLinks.release()?.let(::act)
+                linkGate.released()?.let(::act)
             }
         }
     }

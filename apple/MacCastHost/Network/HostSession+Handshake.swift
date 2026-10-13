@@ -69,13 +69,7 @@ extension HostSession {
         }
         let hello = try decode(ClientHello.self, from: frame, as: .clientHello)
 
-        guard hello.protocolVersion == ProtocolInfo.version else {
-            throw SessionError.protocolMismatch(client: hello.protocolVersion, host: ProtocolInfo.version)
-        }
-
-        guard hello.clientID.utf8.count <= 256, hello.clientName.utf8.count <= 256 else {
-            throw SessionError.malformedPayload(.clientHello, SessionError.protocolMismatch(client: 0, host: 0))
-        }
+        try checkAcceptable(hello)
 
         // The peer's key comes from the TLS certificate, never from the message: a client that
         // could declare its own public key would make pinning pointless.
@@ -91,16 +85,9 @@ extension HostSession {
             throw SessionError.clientKeyMismatch(clientID: clientID)
         }
 
-        // Announced only after the key check: a client that fails it must not appear in the session
+        // Only after the key check: a client that fails it must not appear in the session
         // list, because the disconnect that follows would name a device the UI never showed.
-        announced = true
-        HostTelemetry.sessionOpened(clientID: clientID, sessionRef: hello.sessionRef, clientPlatform: hello.clientPlatform, viaRelay: arrivedThroughRelay)
-        emit(.clientConnected(
-            clientID: clientID,
-            clientName: clientName,
-            viaRelay: arrivedThroughRelay,
-            detail: "\(connection.negotiatedTLSVersion) · \(presentedKey.count)-byte key"
-        ))
+        announce(hello, presentedKey: presentedKey)
 
         let alreadyPaired = ClientHello.hostTreatsAsPaired(clientKeyIsPinned: existingPin != nil, lostPairing: hello.lostPairing)
         send(.serverHello, serverHello(alreadyPaired: alreadyPaired))
@@ -113,6 +100,26 @@ extension HostSession {
             return
         }
         try beginPairing()
+    }
+
+    private func checkAcceptable(_ hello: ClientHello) throws {
+        guard hello.protocolVersion == ProtocolInfo.version else {
+            throw SessionError.protocolMismatch(client: hello.protocolVersion, host: ProtocolInfo.version)
+        }
+        guard hello.clientID.utf8.count <= 256, hello.clientName.utf8.count <= 256 else {
+            throw SessionError.malformedPayload(.clientHello, SessionError.protocolMismatch(client: 0, host: 0))
+        }
+    }
+
+    private func announce(_ hello: ClientHello, presentedKey: Data) {
+        announced = true
+        HostTelemetry.sessionOpened(clientID: clientID, sessionRef: hello.sessionRef, clientPlatform: hello.clientPlatform, viaRelay: arrivedThroughRelay)
+        emit(.clientConnected(
+            clientID: clientID,
+            clientName: clientName,
+            viaRelay: arrivedThroughRelay,
+            detail: "\(connection.negotiatedTLSVersion) · \(presentedKey.count)-byte key"
+        ))
     }
 
     /// Read here, not assumed: both ends speak the same protocol version, so these flags are the

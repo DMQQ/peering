@@ -137,14 +137,13 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
     // MARK: - Working it out
 
     private func refresh(_ clientID: String, ignoringGap: Bool = false, _ change: (inout Client) -> Void = { _ in }) {
-        let now = Date()
-        for command in plan(clientID, now: now, ignoringGap: ignoringGap, change) {
-            deliver(command, clientID: clientID, now: now)
+        for command in plan(clientID, now: .now, ignoringGap: ignoringGap, change) {
+            deliver(command, clientID: clientID, now: Date())
         }
     }
 
     /// Applies the change, asks the planner what is due and arms the timer for what is not yet.
-    private func plan(_ clientID: String, now: Date, ignoringGap: Bool, _ change: (inout Client) -> Void) -> [LiveActivityCommand] {
+    private func plan(_ clientID: String, now: ContinuousClock.Instant, ignoringGap: Bool, _ change: (inout Client) -> Void) -> [LiveActivityCommand] {
         var client = clients[clientID] ?? Client()
         client.timer?.cancel()
         client.timer = nil
@@ -168,8 +167,8 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
         return commands
     }
 
-    private func schedule(_ clientID: String, at due: Date) {
-        schedule(clientID, after: .seconds(max(0, due.timeIntervalSinceNow)))
+    private func schedule(_ clientID: String, at due: ContinuousClock.Instant) {
+        schedule(clientID, after: max(.zero, ContinuousClock.now.duration(to: due)))
     }
 
     private func schedule(_ clientID: String, after delay: Duration) {

@@ -1,5 +1,6 @@
 import Foundation
 import WidgetKit
+import RemoteCore
 
 /// Writes the chats to the shared store for the widget and drives the Live Activity from the same list.
 ///
@@ -13,7 +14,7 @@ final class AgentWidgetPublisher {
 
     private var byHost: [String: [AgentChatSnapshot]] = [:]
     private var written: [AgentChatSnapshot] = []
-    private var lastWrite = Date.distantPast
+    private var lastWrite: MonotonicStamp?
     private var pending: Task<Void, Never>?
 
     private init() {}
@@ -33,7 +34,7 @@ final class AgentWidgetPublisher {
 
     private func schedule() {
         guard pending == nil else { return }
-        let wait = max(0, Self.minimumGap - Date().timeIntervalSince(lastWrite))
+        let wait = max(0, Self.minimumGap - (lastWrite?.elapsedSeconds() ?? Self.minimumGap))
         pending = Task { [weak self] in
             if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
             guard !Task.isCancelled else { return }
@@ -44,7 +45,7 @@ final class AgentWidgetPublisher {
     private func flush() {
         pending = nil
         let all = AgentChatSnapshot.ordered(byHost.values.flatMap { $0 })
-        lastWrite = Date()
+        lastWrite = MonotonicStamp()
         // The clock alone is not a change: comparing it would rewrite the store on every token.
         guard all.map(\.withoutClock) != written.map(\.withoutClock) else { return }
         written = all

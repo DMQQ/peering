@@ -4,7 +4,7 @@ import Testing
 @testable import MacCastKit
 
 struct NotificationHoldQueueTests {
-    private let start = Date(timeIntervalSince1970: 3_000)
+    private let start = ContinuousClock.now
 
     @Test func anOldNotificationIsNotDeliveredAfterItsLifetime() {
         var queue = NotificationHoldQueue<String>()

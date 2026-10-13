@@ -49,7 +49,7 @@ struct HostEventCodesTests {
 
     @Test func aFailureLoopSendsOneEventPerCodePerMinuteAndCountsTheRest() {
         var limiter = HostErrorLimiter()
-        let start = Date(timeIntervalSince1970: 1_000)
+        let start = ContinuousClock.now
         #expect(limiter.admit(.captureFailed, at: start) == 1)
         #expect(limiter.admit(.captureFailed, at: start.addingTimeInterval(1)) == nil)
         #expect(limiter.admit(.captureFailed, at: start.addingTimeInterval(30)) == nil)
@@ -59,7 +59,7 @@ struct HostEventCodesTests {
 
     @Test func eachCodeHasItsOwnWindow() {
         var limiter = HostErrorLimiter()
-        let start = Date(timeIntervalSince1970: 1_000)
+        let start = ContinuousClock.now
         #expect(limiter.admit(.captureFailed, at: start) == 1)
         #expect(limiter.admit(.encoderFailed, at: start) == 1)
     }

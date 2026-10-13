@@ -240,7 +240,7 @@ extension SessionModel {
         guard allowsRelay, pins.hostIDs.contains(hostID) else { return }
 
         // The same grace `enteringForeground()` gives, for a cold launch: dialling the relay before Bonjour's first sweep sent phones past a Mac on their own LAN, since the relay session gets a picture and the LAN handover's `!hasHadPicture` guard never fires.
-        let elapsedMilliseconds = Date().timeIntervalSince(launchedAt) * 1000
+        let elapsedMilliseconds = launchedAt.elapsedSeconds() * 1000
         guard elapsedMilliseconds >= Double(Self.localMacGrace) else {
             Task { [weak self] in
                 try? await Task.sleep(for: .milliseconds(

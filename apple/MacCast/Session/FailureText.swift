@@ -1,7 +1,7 @@
 import Foundation
 import RemoteCore
 
-/// The sentence for a failure in the user's language. RemoteCore's own sentences are English and are for the log; a failure with no cause (it names a Mac, a version or text the Mac wrote) keeps the sentence it came with.
+/// The sentence for a failure in the user's language. RemoteCore's own sentences are English and are for the log; a failure with no cause keeps the sentence it came with.
 enum FailureText {
     static func message(for cause: ClientSession.FailureCause) -> String {
         switch cause {
@@ -31,6 +31,20 @@ enum FailureText {
             return String(localized: "The relay answered in a way this app could not use. Try again in a moment.")
         case .network(let kind):
             return message(for: kind)
+        case .protocolMismatch(let client, let host):
+            return String(localized: "This Mac speaks protocol v\(String(host)) and this app speaks v\(String(client)). Update whichever is older.")
+        case .identityChanged(let hostID):
+            return String(localized: "This Mac's identity has changed. What answered at this address (\(hostID)) does not have the key this iPhone saved when it paired. Only continue if you expect this, for example because the Mac was reset or Peering was reinstalled on it. If you do, forget this Mac here and pair again. If you do not, do not connect.")
+        case .noPinOnFile(let hostID):
+            return String(localized: "This iPhone has no pairing on file for that Mac (\(hostID)). The Mac still trusts this iPhone, so it will not ask to pair again: on the Mac, open Devices and forget this iPhone, then pair again.")
+        case .hostIDMismatch(let dialled, let answered):
+            return String(localized: "A different Mac answered: \(answered), not \(dialled). Check that the code you scanned or typed came from the Mac you meant.")
+        case .relayVersionMismatch:
+            return String(localized: "The Mac and this app are running different versions of Peering. Update whichever is older.")
+        case .relayRefused(let message):
+            return String(localized: "The relay refused the session: \(message)")
+        case .hostRefused(let message):
+            return String(localized: "The Mac refused the session: \(HostWireText.localized(message))")
         }
     }
 

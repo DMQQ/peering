@@ -76,7 +76,7 @@ extension MacSession {
         }
         model.rememberTerminalCommand(text)
         lastSentCommand = text
-        lastSentAt = Date()
+        lastSentAt = MonotonicStamp()
     }
 
     /// Only "command not found", and only for the command just sent: that phrase is the shell
@@ -88,7 +88,7 @@ extension MacSession {
               let sentAt = lastSentAt,
               // A shell's answer arrives in the next read or two. Past that the message belongs
               // to something else — a build log, a script printing its own failures.
-              Date().timeIntervalSince(sentAt) < 5
+              sentAt.isWithin(seconds: 5)
         else { return }
 
         model.removeFromTerminalHistory(command)

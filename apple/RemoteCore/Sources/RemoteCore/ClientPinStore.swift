@@ -16,6 +16,7 @@ public final class ClientPinStore: @unchecked Sendable {
     private let backing: any ClientPinBacking
     private var pins: [String: Data] = [:]
     private var unreadable = false
+    private var unreadableStatus: Int32?
     private var unreadableReported = false
     private let alarm: PinStoreAlarm
     /// Set under the lock when the store first turns unreadable, raised once the lock is released so a handler may call back in.
@@ -40,6 +41,42 @@ public final class ClientPinStore: @unchecked Sendable {
 
     /// True while the Keychain cannot be read. Pins then look absent, which is not the same as the Mac being unpaired.
     public var isUnreadable: Bool { locked { retryIfUnreadable(); return unreadable } }
+
+    /// Why the store cannot be read, or `nil` while it can. Only ``Unreadable/corrupt`` is cured by ``resetCorrupt()``: a locked Keychain needs unlocking, not erasing.
+    public var unreadableState: Unreadable? {
+        locked {
+            retryIfUnreadable()
+            guard unreadable else { return nil }
+            return unreadableStatus == nil ? .corrupt : .keychainUnavailable
+        }
+    }
+
+    public enum Unreadable: Sendable, Equatable {
+        /// The Keychain refused to answer (locked, or another error): the pins may be intact.
+        case keychainUnavailable
+        /// Both items exist or the primary does, and neither decodes: nothing in them can be recovered.
+        case corrupt
+
+        public var canBeReset: Bool { self == .corrupt }
+    }
+
+    /// Deletes the primary and backup items so the person can pair again. Refuses unless the store is corrupt, so no readable pin is ever erased by it.
+    /// - Returns: `true` when the store is readable and empty afterwards.
+    @discardableResult
+    public func resetCorrupt() -> Bool {
+        locked {
+            if unreadable { _ = reload() }
+            guard unreadable, unreadableStatus == nil else { return false }
+            let primaryGone = backing.delete(.primary)
+            let backupGone = backing.delete(.backup)
+            guard primaryGone, backupGone else {
+                transportLog.error("could not delete the corrupt client pins")
+                return false
+            }
+            pins = [:]
+            return reload()
+        }
+    }
 
     public func pin(for hostID: String) -> Data? { readable { $0[hostID] } }
 
@@ -117,13 +154,16 @@ public final class ClientPinStore: @unchecked Sendable {
         case .pins(let loaded):
             pins = loaded
             unreadable = false
+            unreadableStatus = nil
             return true
         case .absent:
             unreadable = false
+            unreadableStatus = nil
             return true
         case .unreadable(let status):
             if !unreadable { alarmDue = UnreadableAlarm(status: status) }
             unreadable = true
+            unreadableStatus = status
             return false
         }
     }

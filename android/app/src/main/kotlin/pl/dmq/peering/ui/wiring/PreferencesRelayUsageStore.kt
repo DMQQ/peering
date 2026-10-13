@@ -6,7 +6,10 @@ import pl.dmq.peering.feature.paywall.RelayUsageStore
 import java.time.LocalDate
 
 /** The day's relay use in preferences, as "yyyy-mm-dd;seconds". A value that does not parse counts as no use. */
-internal class PreferencesRelayUsageStore(private val preferences: SharedPreferences) : RelayUsageStore {
+internal class PreferencesRelayUsageStore(
+    private val preferences: SharedPreferences,
+    private val writes: PreferenceWrites,
+) : RelayUsageStore {
     override fun load(): DailyRelayUsage? {
         val stored = preferences.getString(KEY_USAGE, null) ?: return null
         val parts = stored.split(SEPARATOR)
@@ -17,7 +20,7 @@ internal class PreferencesRelayUsageStore(private val preferences: SharedPrefere
     }
 
     override fun save(usage: DailyRelayUsage) {
-        PreferenceWrites.shared.save(preferences) { putString(KEY_USAGE, "${usage.day}$SEPARATOR${usage.seconds}") }
+        writes.save(preferences) { putString(KEY_USAGE, "${usage.day}$SEPARATOR${usage.seconds}") }
     }
 
     private companion object {

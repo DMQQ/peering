@@ -44,25 +44,7 @@ private fun NameDialog(dialog: FileDialog.Name, presenter: FileListPresenter) {
     AlertDialog(
         onDismissRequest = presenter::dismissDialog,
         title = { Text(stringResource(title)) },
-        text = {
-            Column {
-                PeeringTextField(
-                    value = dialog.text,
-                    onValueChange = presenter::editName,
-                    label = stringResource(R.string.files_name_label),
-                    modifier = Modifier.focusRequester(focus),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { presenter.confirmName() }),
-                )
-                dialog.problem?.let {
-                    Text(
-                        stringResource(if (it == FileDialog.NameProblem.TAKEN) R.string.files_name_taken else R.string.files_name_invalid),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = PeeringColors.danger,
-                    )
-                }
-            }
-        },
+        text = { NameDialogField(dialog, presenter, focus) },
         confirmButton = { TextButton(onClick = presenter::confirmName) { Text(stringResource(confirm), color = PeeringColors.accent) } },
         dismissButton = {
             TextButton(onClick = presenter::dismissDialog) { Text(stringResource(R.string.files_cancel), color = PeeringColors.accent) }
@@ -72,6 +54,27 @@ private fun NameDialog(dialog: FileDialog.Name, presenter: FileListPresenter) {
         textContentColor = PeeringColors.muted,
         iconContentColor = Color.Unspecified,
     )
+}
+
+@Composable
+private fun NameDialogField(dialog: FileDialog.Name, presenter: FileListPresenter, focus: FocusRequester) {
+    Column {
+        PeeringTextField(
+            value = dialog.text,
+            onValueChange = presenter::editName,
+            label = stringResource(R.string.files_name_label),
+            modifier = Modifier.focusRequester(focus),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { presenter.confirmName() }),
+        )
+        dialog.problem?.let {
+            Text(
+                stringResource(if (it == FileDialog.NameProblem.TAKEN) R.string.files_name_taken else R.string.files_name_invalid),
+                style = MaterialTheme.typography.bodySmall,
+                color = PeeringColors.danger,
+            )
+        }
+    }
 }
 
 @Composable

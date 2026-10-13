@@ -105,4 +105,18 @@ struct TerminalCommandFinishDetectorTests {
         #expect(TerminalCommandFinishDetector.spokenDuration(.nan, locale: english) == "0s")
         #expect(TerminalCommandFinishDetector.spokenDuration(-3, locale: english) == "0s")
     }
+
+    @Test("the English spoken duration reads back as seconds", arguments: [
+        ("4s", 4.0), ("0s", 0.0), ("2m 5s", 125.0), ("3h 5m", 11_100.0),
+    ])
+    func readsBackEnglishDuration(text: String, seconds: Double) {
+        #expect(TerminalCommandFinishDetector.seconds(fromEnglishSpokenDuration: text) == seconds)
+    }
+
+    @Test("a duration in another language or shape is not read", arguments: [
+        "", "4", "2 Min. 5 Sek.", "5s 2m", "1h 2m 3s 4s", "-4s", "4秒", "x4s",
+    ])
+    func rejectsOtherDurations(text: String) {
+        #expect(TerminalCommandFinishDetector.seconds(fromEnglishSpokenDuration: text) == nil)
+    }
 }

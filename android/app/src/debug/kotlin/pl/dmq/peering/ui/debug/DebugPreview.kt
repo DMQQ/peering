@@ -47,50 +47,71 @@ private val samplePaired = listOf(
 @Composable
 fun DebugPreview(name: String) {
     Box(Modifier.fillMaxSize().peeringBackdrop().windowInsetsPadding(WindowInsets.systemBars)) {
-        when (name) {
-            "connect_found" -> connect(NearbyPhase.Found, HostListing(samplePaired, sampleNearby))
-            "connect_searching" -> connect(NearbyPhase.Searching, HostListing(emptyList(), emptyList()))
-            "connect_none" -> connect(NearbyPhase.NoneFound, HostListing(emptyList(), emptyList()))
-            "pairing_entry" -> PairingCodeContent(PairingCodeScreen.EnteringCode(0, null), previewPairing())
-            "pairing_wrong" -> PairingCodeContent(
-                PairingCodeScreen.EnteringCode(1, PairingCodeError.WrongCode),
-                previewPairing(),
-            )
-            "pairing_too_many" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.TooManyAttempts), previewPairing(scan = false))
-            "pairing_connecting" -> PairingCodeContent(PairingCodeScreen.Connecting, previewPairing(scan = false))
-            "pairing_wait" -> PairingCodeContent(PairingCodeScreen.Waiting, previewPairing(scan = false))
-            "pairing_done" -> PairingCodeContent(PairingCodeScreen.Done, previewPairing(scan = false))
-            "pairing_failed" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.Unreachable, "ConnectException: failed to connect to /192.168.1.20 (port 51515)"), previewPairing(scan = false))
-            "scan_denied" -> ScanMessage(
-                icon = AppIcons.camera,
-                title = stringResource(R.string.scan_denied_title),
-                text = stringResource(R.string.scan_denied),
-                action = ScanAction(stringResource(R.string.scan_open_settings), note("open settings")),
-            )
-            "onboarding_landing" -> sampleOnboarding(OnboardingStep.LANDING)
-            "onboarding_1" -> sampleOnboarding(OnboardingStep.INSTALL)
-            "onboarding_2" -> sampleOnboarding(OnboardingStep.PAIR)
-            "onboarding_3" -> sampleOnboarding(OnboardingStep.SOURCES)
-            "onboarding_4" -> sampleOnboarding(OnboardingStep.CONTROLS)
-            "onboarding_5" -> sampleOnboarding(OnboardingStep.FOLLOWS)
-            "onboarding_6" -> sampleOnboarding(OnboardingStep.MOSAIC)
-            "onboarding_7" -> sampleOnboarding(OnboardingStep.NOTIFICATIONS)
-            "onboarding_8" -> sampleOnboarding(OnboardingStep.PLANS)
-            "connect_address" -> {
-                connect(NearbyPhase.Found, HostListing(emptyList(), sampleNearby))
-                ManualAddressSheet(onConnect = { host, port -> note("connect $host:$port") }, onDismiss = note("dismiss"))
-            }
-            "connect_entry" -> {
-                connect(NearbyPhase.Found, HostListing(emptyList(), sampleNearby))
-                HostIdEntrySheet(HostIdEntryState(), { note("text $it") }, note("submit"), note("scan"), note("dismiss"))
-            }
-            "first_connection" -> FirstConnectionScreen(
-                ConnectUiState(listing = HostListing(emptyList(), sampleNearby), nearbyPhase = NearbyPhase.Found),
-                previewConnect(),
-                onSkip = note("skip"),
-            )
-            "connect_nonetwork" -> connect(NearbyPhase.NoNetwork, HostListing(samplePaired.take(1), emptyList()))
+        when {
+            name.startsWith("pairing_") -> PairingPreview(name)
+            name.startsWith("onboarding_") -> OnboardingPreview(name)
+            else -> ConnectPreview(name)
         }
+    }
+}
+
+@Composable
+private fun PairingPreview(name: String) {
+    when (name) {
+        "pairing_entry" -> PairingCodeContent(PairingCodeScreen.EnteringCode(0, null), previewPairing())
+        "pairing_wrong" -> PairingCodeContent(
+            PairingCodeScreen.EnteringCode(1, PairingCodeError.WrongCode),
+            previewPairing(),
+        )
+        "pairing_too_many" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.TooManyAttempts), previewPairing(scan = false))
+        "pairing_connecting" -> PairingCodeContent(PairingCodeScreen.Connecting, previewPairing(scan = false))
+        "pairing_wait" -> PairingCodeContent(PairingCodeScreen.Waiting, previewPairing(scan = false))
+        "pairing_done" -> PairingCodeContent(PairingCodeScreen.Done, previewPairing(scan = false))
+        "pairing_failed" -> PairingCodeContent(PairingCodeScreen.Failed(PairingMessage.Unreachable, "ConnectException: failed to connect to /192.168.1.20 (port 51515)"), previewPairing(scan = false))
+    }
+}
+
+@Composable
+private fun OnboardingPreview(name: String) {
+    when (name) {
+        "onboarding_landing" -> sampleOnboarding(OnboardingStep.LANDING)
+        "onboarding_1" -> sampleOnboarding(OnboardingStep.INSTALL)
+        "onboarding_2" -> sampleOnboarding(OnboardingStep.PAIR)
+        "onboarding_3" -> sampleOnboarding(OnboardingStep.SOURCES)
+        "onboarding_4" -> sampleOnboarding(OnboardingStep.CONTROLS)
+        "onboarding_5" -> sampleOnboarding(OnboardingStep.FOLLOWS)
+        "onboarding_6" -> sampleOnboarding(OnboardingStep.MOSAIC)
+        "onboarding_7" -> sampleOnboarding(OnboardingStep.NOTIFICATIONS)
+        "onboarding_8" -> sampleOnboarding(OnboardingStep.PLANS)
+    }
+}
+
+@Composable
+private fun ConnectPreview(name: String) {
+    when (name) {
+        "connect_found" -> connect(NearbyPhase.Found, HostListing(samplePaired, sampleNearby))
+        "connect_searching" -> connect(NearbyPhase.Searching, HostListing(emptyList(), emptyList()))
+        "connect_none" -> connect(NearbyPhase.NoneFound, HostListing(emptyList(), emptyList()))
+        "scan_denied" -> ScanMessage(
+            icon = AppIcons.camera,
+            title = stringResource(R.string.scan_denied_title),
+            text = stringResource(R.string.scan_denied),
+            action = ScanAction(stringResource(R.string.scan_open_settings), note("open settings")),
+        )
+        "connect_address" -> {
+            connect(NearbyPhase.Found, HostListing(emptyList(), sampleNearby))
+            ManualAddressSheet(onConnect = { host, port -> note("connect $host:$port") }, onDismiss = note("dismiss"))
+        }
+        "connect_entry" -> {
+            connect(NearbyPhase.Found, HostListing(emptyList(), sampleNearby))
+            HostIdEntrySheet(HostIdEntryState(), { note("text $it") }, note("submit"), note("scan"), note("dismiss"))
+        }
+        "first_connection" -> FirstConnectionScreen(
+            ConnectUiState(listing = HostListing(emptyList(), sampleNearby), nearbyPhase = NearbyPhase.Found),
+            previewConnect(),
+            onSkip = note("skip"),
+        )
+        "connect_nonetwork" -> connect(NearbyPhase.NoNetwork, HostListing(samplePaired.take(1), emptyList()))
     }
 }
 

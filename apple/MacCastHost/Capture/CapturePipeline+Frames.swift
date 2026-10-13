@@ -53,7 +53,7 @@ extension CapturePipeline {
             do {
                 encoder = try rebuildEncoder(for: size, replacing: current, source: source)
             } catch {
-                Analytics.failed(error, in: .capture)
+                CaptureHostHooks.reportFailure(error)
                 report(error as? CaptureError ?? .encodingFailed("\(error)"))
                 return
             }
@@ -80,7 +80,7 @@ extension CapturePipeline {
         replacement.onFrame = { [weak self] encoded in self?.deliver(encoded, source: source) }
         replacement.onFailure = { [weak self] error in self?.report(error) }
 
-        if current != nil { HostSessionFacts.shared.noteEncoderRestart() }
+        if current != nil { CaptureHostHooks.noteEncoderRestart() }
         // A new session owes a keyframe whether or not one was asked for.
         lock.withLock {
             encoder = replacement

@@ -40,7 +40,7 @@ extension SessionModel {
     /// Control Center, Face ID and the app switcher pass through here and come straight back, so the Mac is told only if it lasts.
     func becameInactive() {
         beginBackgroundGrace()
-        applyBackgroundNotice(backgroundNotice.becameInactive(now: .now))
+        applyBackgroundNotice(backgroundNotice.becameInactive(now: ContinuousClock.now))
     }
 
     func applyBackgroundNotice(_ action: BackgroundNoticeDebounce.Action) {
@@ -54,10 +54,10 @@ extension SessionModel {
         case .wait(let deadline):
             guard backgroundNoticeTask == nil else { return }
             backgroundNoticeTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(max(0, deadline.timeIntervalSinceNow)))
+                try? await Task.sleep(until: deadline, clock: .continuous)
                 guard !Task.isCancelled, let self else { return }
                 backgroundNoticeTask = nil
-                applyBackgroundNotice(backgroundNotice.fire(now: .now))
+                applyBackgroundNotice(backgroundNotice.fire(now: ContinuousClock.now))
             }
         }
     }

@@ -66,21 +66,29 @@ internal fun DownloadLink(modifier: Modifier = Modifier, compact: Boolean = fals
             )
             Icon(AppIcons.openExternal, null, tint = PeeringColors.muted, modifier = Modifier.size(18.dp))
         }
-        Box(
-            Modifier
-                .size(44.dp)
-                .tappable({ clipboard.setText(AnnotatedString(address)); copied = true })
-                .semantics { contentDescription = "" },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                if (copied) AppIcons.check else AppIcons.copy,
-                contentDescription = stringResource(if (copied) R.string.tour_download_copied else R.string.tour_download_copy),
-                tint = if (copied) PeeringColors.ink else PeeringColors.muted,
-                modifier = Modifier.size(20.dp),
-            )
+        DownloadCopyButton(copied) {
+            clipboard.setText(AnnotatedString(address))
+            copied = true
         }
         Box(Modifier.size(10.dp))
+    }
+}
+
+@Composable
+private fun DownloadCopyButton(copied: Boolean, onCopy: () -> Unit) {
+    Box(
+        Modifier
+            .size(44.dp)
+            .tappable({ onCopy() })
+            .semantics { contentDescription = "" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            if (copied) AppIcons.check else AppIcons.copy,
+            contentDescription = stringResource(if (copied) R.string.tour_download_copied else R.string.tour_download_copy),
+            tint = if (copied) PeeringColors.ink else PeeringColors.muted,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 

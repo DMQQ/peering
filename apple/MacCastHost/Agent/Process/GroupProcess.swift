@@ -9,6 +9,8 @@ final class GroupProcess: @unchecked Sendable {
     private let lock = NSLock()
     private var exited = false  // guarded by lock
     private var escalation: DispatchWorkItem?  // guarded by lock
+    private var escalationSettled = true  // guarded by lock: no kill is scheduled
+    private var settleWaiters: [CheckedContinuation<Void, Never>] = []  // guarded by lock
 
     var hasExited: Bool { lock.withLock { exited } }
 
@@ -75,34 +77,87 @@ final class GroupProcess: @unchecked Sendable {
         return process
     }
 
-    /// SIGTERM to the whole group, then SIGKILL to it after the grace if a member is still alive. The kill is dropped when the group is already gone, because its id may by then belong to an unrelated group.
+    /// SIGTERM to the whole group, then SIGKILL to it after the grace if a member is still alive. The kill is dropped as soon as the group is gone, because its id may by then belong to an unrelated group.
     func terminateGroup(escalatingAfter grace: TimeInterval = 5) {
         signalGroup(SIGTERM)
         let work = DispatchWorkItem { [weak self] in
-            guard let self, self.groupExists else { return }
-            self.signalGroup(SIGKILL)
+            guard let self else { return }
+            if self.groupExists { self.signalGroup(SIGKILL) }
+            self.settleEscalation()
         }
-        let alreadyGone = lock.withLock {
+        let (alreadyGone, watchGroup) = lock.withLock {
             escalation?.cancel()
             escalation = work
-            return exited && !groupExists
+            escalationSettled = false
+            let gone = exited && !groupExists
+            if gone { escalationSettled = true }
+            return (gone, exited && !gone)
         }
         if alreadyGone {
             work.cancel()
-        } else {
-            DispatchQueue.global().asyncAfter(deadline: .now() + grace, execute: work)
+            resumeSettleWaiters()
+            return
         }
+        DispatchQueue.global().asyncAfter(deadline: .now() + grace, execute: work)
+        if watchGroup { watchUntilGroupGone() }
     }
 
-    var escalationPending: Bool { lock.withLock { escalation.map { !$0.isCancelled } ?? false } }
+    var escalationPending: Bool { lock.withLock { escalation != nil && !escalationSettled } }
+
+    /// Returns once no kill is scheduled any more: it fired, or the group was found gone and it was cancelled.
+    func waitUntilEscalationSettled() async {
+        await withCheckedContinuation { continuation in
+            let settled = lock.withLock { () -> Bool in
+                if escalation == nil || escalationSettled { return true }
+                settleWaiters.append(continuation)
+                return false
+            }
+            if settled { continuation.resume() }
+        }
+    }
 
     private var groupExists: Bool { killpg(processIdentifier, 0) == 0 }
 
     private func leaderReaped() {
-        lock.withLock {
+        let watchGroup = lock.withLock { () -> Bool in
             exited = true
-            if !groupExists { escalation?.cancel() }
+            guard let work = escalation, !escalationSettled else { return false }
+            if groupExists { return true }
+            work.cancel()
+            escalationSettled = true
+            return false
         }
+        resumeSettleWaiters()
+        if watchGroup { watchUntilGroupGone() }
+    }
+
+    /// Members of the group can outlive the leader for a moment (a child still exiting), so the kill is cancelled as soon as the last one is gone and not left waiting for the grace.
+    private func watchUntilGroupGone() {
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.02) { [weak self] in
+            guard let self else { return }
+            let keepWatching = self.lock.withLock { () -> Bool in
+                guard let work = self.escalation, !self.escalationSettled else { return false }
+                if self.groupExists { return true }
+                work.cancel()
+                self.escalationSettled = true
+                return false
+            }
+            if keepWatching { self.watchUntilGroupGone() } else { self.resumeSettleWaiters() }
+        }
+    }
+
+    private func settleEscalation() {
+        lock.withLock { escalationSettled = true }
+        resumeSettleWaiters()
+    }
+
+    private func resumeSettleWaiters() {
+        let waiters = lock.withLock { () -> [CheckedContinuation<Void, Never>] in
+            guard escalationSettled else { return [] }
+            defer { settleWaiters = [] }
+            return settleWaiters
+        }
+        waiters.forEach { $0.resume() }
     }
 
     private func signalGroup(_ signal: Int32) {

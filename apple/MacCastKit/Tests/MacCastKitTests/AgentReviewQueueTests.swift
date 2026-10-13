@@ -133,19 +133,19 @@ struct AgentReviewRefreshPolicyTests {
     @Test func aChatIsAskedOnceInsideTheInterval() {
         var policy = AgentReviewRefreshPolicy()
         let chat = UUID()
-        let start = Date(timeIntervalSince1970: 1000)
+        let start = ContinuousClock.Instant.now
         #expect(policy.chatsToAsk([chat], reason: .hubAppeared, now: start) == [chat])
-        #expect(policy.chatsToAsk([chat], reason: .hubAppeared, now: start.addingTimeInterval(10)).isEmpty)
-        #expect(policy.chatsToAsk([chat], reason: .hubAppeared, now: start.addingTimeInterval(31)) == [chat])
+        #expect(policy.chatsToAsk([chat], reason: .hubAppeared, now: start + .seconds(10)).isEmpty)
+        #expect(policy.chatsToAsk([chat], reason: .hubAppeared, now: start + .seconds(31)) == [chat])
     }
 
     @Test func aFinishedTurnAsksSoonerButNotInABurst() {
         var policy = AgentReviewRefreshPolicy()
         let chat = UUID()
-        let start = Date(timeIntervalSince1970: 1000)
+        let start = ContinuousClock.Instant.now
         _ = policy.chatsToAsk([chat], reason: .hubAppeared, now: start)
-        #expect(policy.chatsToAsk([chat], reason: .turnFinished, now: start.addingTimeInterval(1)).isEmpty)
-        #expect(policy.chatsToAsk([chat], reason: .turnFinished, now: start.addingTimeInterval(5)) == [chat])
+        #expect(policy.chatsToAsk([chat], reason: .turnFinished, now: start + .seconds(1)).isEmpty)
+        #expect(policy.chatsToAsk([chat], reason: .turnFinished, now: start + .seconds(5)) == [chat])
     }
 }
 

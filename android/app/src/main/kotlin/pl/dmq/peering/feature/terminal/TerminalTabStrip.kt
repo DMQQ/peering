@@ -110,49 +110,59 @@ private fun TerminalTabChip(tab: TerminalTab, selected: Boolean, mark: TerminalM
                 onLongClick = { menuOpen = true },
             ),
         ) {
-            Row(
-                Modifier.height(32.dp).widthIn(min = 88.dp, max = 190.dp).padding(horizontal = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TerminalMarkGlyph(mark)
-                Spacer(Modifier.width(7.dp))
-                Text(
-                    tab.name,
-                    modifier = Modifier.weight(1f, fill = false),
-                    color = terminalNameColour(mark, selected),
-                    fontSize = 12.5.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                val closeLabel = stringResource(R.string.terminal_close_named, tab.name)
-                Box(
-                    Modifier.size(width = 22.dp, height = 32.dp).tappable({ actions.onClose(tab) }),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(AppIcons.close, closeLabel, tint = PeeringColors.muted, modifier = Modifier.size(10.dp))
-                }
-            }
+            TerminalTabLabel(tab, selected, mark, actions)
             Box(
                 Modifier.padding(horizontal = 9.dp).padding(bottom = 5.dp).fillMaxWidth().height(2.dp).clip(CircleShape)
                     .background(if (selected) PeeringColors.ink else Color.Transparent),
             )
         }
-        PeeringMenu(expanded = menuOpen, onDismiss = { menuOpen = false }) {
-            PeeringMenuItem(stringResource(R.string.terminal_rename), icon = AppIcons.edit, onClick = {
-                menuOpen = false
-                actions.onRename(tab)
-            })
-            PeeringMenuItem(stringResource(R.string.terminal_copy), icon = AppIcons.copy, onClick = {
-                menuOpen = false
-                actions.onCopy(tab)
-            })
-            PeeringMenuItem(stringResource(R.string.terminal_end), icon = AppIcons.close, destructive = true, onClick = {
-                menuOpen = false
-                actions.onClose(tab)
-            })
+        TerminalTabMenu(menuOpen, { menuOpen = false }, tab, actions)
+    }
+}
+
+@Composable
+private fun TerminalTabLabel(tab: TerminalTab, selected: Boolean, mark: TerminalMark, actions: TerminalTabActions) {
+    Row(
+        Modifier.height(32.dp).widthIn(min = 88.dp, max = 190.dp).padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TerminalMarkGlyph(mark)
+        Spacer(Modifier.width(7.dp))
+        Text(
+            tab.name,
+            modifier = Modifier.weight(1f, fill = false),
+            color = terminalNameColour(mark, selected),
+            fontSize = 12.5.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        val closeLabel = stringResource(R.string.terminal_close_named, tab.name)
+        Box(
+            Modifier.size(width = 22.dp, height = 32.dp).tappable({ actions.onClose(tab) }),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(AppIcons.close, closeLabel, tint = PeeringColors.muted, modifier = Modifier.size(10.dp))
         }
+    }
+}
+
+@Composable
+private fun TerminalTabMenu(expanded: Boolean, onDismiss: () -> Unit, tab: TerminalTab, actions: TerminalTabActions) {
+    PeeringMenu(expanded = expanded, onDismiss = onDismiss) {
+        PeeringMenuItem(stringResource(R.string.terminal_rename), icon = AppIcons.edit, onClick = {
+            onDismiss()
+            actions.onRename(tab)
+        })
+        PeeringMenuItem(stringResource(R.string.terminal_copy), icon = AppIcons.copy, onClick = {
+            onDismiss()
+            actions.onCopy(tab)
+        })
+        PeeringMenuItem(stringResource(R.string.terminal_end), icon = AppIcons.close, destructive = true, onClick = {
+            onDismiss()
+            actions.onClose(tab)
+        })
     }
 }
 

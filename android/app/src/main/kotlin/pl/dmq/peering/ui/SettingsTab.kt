@@ -40,8 +40,6 @@ private const val SUPPORT_ADDRESS = "support@getpeering.app"
 internal fun SettingsTab(wiring: FeatureWiring) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val chrome = LocalRootChrome.current
-    val clipboard = LocalClipboardManager.current
     var legal by rememberSaveable { mutableStateOf<LegalDocument?>(null) }
     var plans by rememberSaveable { mutableStateOf(false) }
     val version = remember(context) { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty() }
@@ -56,11 +54,30 @@ internal fun SettingsTab(wiring: FeatureWiring) {
             scope = scope,
         )
     }
+    val actions = rememberSettingsActions(wiring, version, onOpenLegal = { legal = it }, onSeePlans = { plans = true })
+    BackHandler(enabled = legal != null) { legal = null }
+    BackHandler(enabled = legal == null && plans) { plans = false }
+    val page = legal?.let { SettingsPage.Legal(it) } ?: if (plans) SettingsPage.Plans else SettingsPage.Root
+    DepthTransition(state = page, depth = { if (it == SettingsPage.Root) 0 else 1 }, label = "settingsPage") { shown ->
+        SettingsPageContent(shown, wiring, presenter, actions, onDismissPlans = { plans = false })
+    }
+}
+
+@Composable
+private fun rememberSettingsActions(
+    wiring: FeatureWiring,
+    version: String,
+    onOpenLegal: (LegalDocument) -> Unit,
+    onSeePlans: () -> Unit,
+): SettingsActions {
+    val context = LocalContext.current
+    val chrome = LocalRootChrome.current
+    val clipboard = LocalClipboardManager.current
     val reportSubject = stringResource(R.string.settings_report_subject)
     val reportBody = stringResource(R.string.settings_report_body, version, Build.VERSION.RELEASE)
-    val actions = SettingsActions(
-        onOpenLegal = { legal = it },
-        onSeePlans = { plans = true },
+    return SettingsActions(
+        onOpenLegal = onOpenLegal,
+        onSeePlans = onSeePlans,
         onGetHostApp = { context.openWebPage(DOWNLOAD_URL) },
         onShowIntroduction = {
             wiring.firstRun.reset()
@@ -75,21 +92,27 @@ internal fun SettingsTab(wiring: FeatureWiring) {
         },
         protection = rememberAppProtection(),
     )
-    BackHandler(enabled = legal != null) { legal = null }
-    BackHandler(enabled = legal == null && plans) { plans = false }
-    val page = legal?.let { SettingsPage.Legal(it) } ?: if (plans) SettingsPage.Plans else SettingsPage.Root
-    DepthTransition(state = page, depth = { if (it == SettingsPage.Root) 0 else 1 }, label = "settingsPage") { shown ->
-        when (shown) {
-            is SettingsPage.Legal -> LegalPageScreen(document = shown.document, onOpenWebPage = { context.openWebPage(it) })
-            SettingsPage.Plans -> PaywallRoute(
-                billing = remember(wiring) { StorePaywallBilling(wiring.billing) { context.findActivity() } },
-                allowance = wiring.relayAllowance.allowance,
-                reason = PaywallReason.Upgrade,
-                startsWithAllowanceNotice = false,
-                onDismiss = { plans = false },
-            )
-            SettingsPage.Root -> SettingsRoute(presenter = presenter, invites = wiring.invites, nowSeconds = wiring.clock::unixSeconds, actions = actions)
-        }
+}
+
+@Composable
+private fun SettingsPageContent(
+    shown: SettingsPage,
+    wiring: FeatureWiring,
+    presenter: SettingsPresenter,
+    actions: SettingsActions,
+    onDismissPlans: () -> Unit,
+) {
+    val context = LocalContext.current
+    when (shown) {
+        is SettingsPage.Legal -> LegalPageScreen(document = shown.document, onOpenWebPage = { context.openWebPage(it) })
+        SettingsPage.Plans -> PaywallRoute(
+            billing = remember(wiring) { StorePaywallBilling(wiring.billing) { context.findActivity() } },
+            allowance = wiring.relayAllowance.allowance,
+            reason = PaywallReason.Upgrade,
+            startsWithAllowanceNotice = false,
+            onDismiss = onDismissPlans,
+        )
+        SettingsPage.Root -> SettingsRoute(presenter = presenter, invites = wiring.invites, nowSeconds = wiring.clock::unixSeconds, actions = actions)
     }
 }
 

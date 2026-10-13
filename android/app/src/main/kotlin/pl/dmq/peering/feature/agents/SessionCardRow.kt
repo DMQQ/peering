@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -65,61 +66,60 @@ fun SessionCardRow(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconTile(AgentBrand.of(card.agentID).icon(), size = 42.dp)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(
-                        card.title,
-                        style = PeeringText.subheadlineSemibold.copy(fontSize = 15.5.sp),
-                        color = PeeringColors.ink,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        StatePill(card.state)
-                        FolderAndAgent(card)
-                    }
-                }
-            }
+            CardHeader(card)
             card.preview?.let { Preview(it) }
         }
-        PeeringMenu(menuOpen, { menuOpen = false }) {
-            PeeringMenuItem(
-                title = stringResource(R.string.agents_new_chat_here),
-                icon = AgentIcons.plus,
-                onClick = {
-                    menuOpen = false
-                    onNewChatHere()
-                },
+        SessionCardMenu(card, menuOpen, { menuOpen = false }, onNewChatHere, onRename, onPause, onClose)
+    }
+}
+
+@Composable
+private fun SessionCardMenu(
+    card: SessionCard,
+    open: Boolean,
+    close: () -> Unit,
+    onNewChatHere: () -> Unit,
+    onRename: () -> Unit,
+    onPause: () -> Unit,
+    onClose: () -> Unit,
+) {
+    PeeringMenu(open, close) {
+        CardMenuItem(R.string.agents_new_chat_here, AgentIcons.plus, close, onNewChatHere)
+        CardMenuItem(R.string.agents_rename, AppIcons.edit, close, onRename)
+        if (card.canPause) CardMenuItem(R.string.agents_stop_to_history, AgentIcons.archive, close, onPause, destructive = true)
+        CardMenuItem(R.string.agents_close_chat, AppIcons.close, close, onClose, destructive = true)
+    }
+}
+
+@Composable
+private fun CardMenuItem(title: Int, icon: ImageVector, close: () -> Unit, onSelect: () -> Unit, destructive: Boolean = false) {
+    PeeringMenuItem(
+        title = stringResource(title),
+        icon = icon,
+        destructive = destructive,
+        onClick = {
+            close()
+            onSelect()
+        },
+    )
+}
+
+@Composable
+private fun CardHeader(card: SessionCard) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconTile(AgentBrand.of(card.agentID).icon(), size = 42.dp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(
+                card.title,
+                style = PeeringText.subheadlineSemibold.copy(fontSize = 15.5.sp),
+                color = PeeringColors.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            PeeringMenuItem(
-                title = stringResource(R.string.agents_rename),
-                icon = AppIcons.edit,
-                onClick = {
-                    menuOpen = false
-                    onRename()
-                },
-            )
-            if (card.canPause) {
-                PeeringMenuItem(
-                    title = stringResource(R.string.agents_stop_to_history),
-                    icon = AgentIcons.archive,
-                    destructive = true,
-                    onClick = {
-                        menuOpen = false
-                        onPause()
-                    },
-                )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                StatePill(card.state)
+                FolderAndAgent(card)
             }
-            PeeringMenuItem(
-                title = stringResource(R.string.agents_close_chat),
-                icon = AppIcons.close,
-                destructive = true,
-                onClick = {
-                    menuOpen = false
-                    onClose()
-                },
-            )
         }
     }
 }

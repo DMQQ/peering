@@ -58,19 +58,31 @@ fun ConnectScreen(
         }
         ProtectionCard(protection)
     }
+    ConnectEntrySheets(state, actions, entryOpen, addressOpen, { entryOpen = it }, { addressOpen = it })
+}
+
+@Composable
+internal fun ConnectEntrySheets(
+    state: ConnectUiState,
+    actions: ConnectActions,
+    entryOpen: Boolean,
+    addressOpen: Boolean,
+    setEntryOpen: (Boolean) -> Unit,
+    setAddressOpen: (Boolean) -> Unit,
+) {
     if (entryOpen) {
         HostIdEntrySheet(
             state = state.entry,
             onTextChanged = actions.onEntryTextChanged,
             onSubmit = actions.onEntrySubmit,
-            onScan = actions.onScan?.let { scan -> { entryOpen = false; scan() } },
-            onDismiss = { entryOpen = false },
+            onScan = actions.onScan?.let { scan -> { setEntryOpen(false); scan() } },
+            onDismiss = { setEntryOpen(false) },
         )
     }
     if (addressOpen) {
         ManualAddressSheet(
-            onConnect = { host, port -> addressOpen = false; actions.onConnectAddress(host, port) },
-            onDismiss = { addressOpen = false },
+            onConnect = { host, port -> setAddressOpen(false); actions.onConnectAddress(host, port) },
+            onDismiss = { setAddressOpen(false) },
         )
     }
 }

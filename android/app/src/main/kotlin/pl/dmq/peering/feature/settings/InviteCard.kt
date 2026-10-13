@@ -36,6 +36,7 @@ import pl.dmq.peering.ui.theme.PeeringText
 import pl.dmq.peering.ui.theme.peeringShapes
 import pl.dmq.peering.wire.ReferralCode
 import pl.dmq.peering.wire.ReferralRefusal
+import pl.dmq.peering.wire.RelayReferral
 
 private const val MILLIS_PER_SECOND = 1_000L
 
@@ -52,22 +53,7 @@ internal fun InviteCard(
     val referral = state.referral
     ControlsCard(stringResource(R.string.settings_invite_heading), footer = inviteFooterText(inviteFooter(referral, nowSeconds))) {
         if (referral != null) {
-            ControlRow(stringResource(R.string.settings_invite_code), SessionIcons.ticket) {
-                SelectionContainer {
-                    Text(
-                        ReferralCode.display(referral.code),
-                        style = PeeringText.subheadlineSemibold.copy(fontFamily = FontFamily.Monospace),
-                        color = PeeringColors.ink,
-                    )
-                }
-            }
-            ControlsDivider()
-            val message = stringResource(R.string.settings_invite_message, ReferralCode.display(referral.code))
-            ControlRow(
-                stringResource(R.string.settings_invite_share),
-                SessionIcons.share,
-                Modifier.clip(peeringShapes.extraSmall).tappable({ onShare(message) }),
-            )
+            InviteReferralRows(referral, onShare)
         }
         if (referral?.redeemed != true) {
             if (referral != null) ControlsDivider()
@@ -87,6 +73,26 @@ internal fun InviteCard(
             onDismiss = { redeeming = false },
         )
     }
+}
+
+@Composable
+private fun InviteReferralRows(referral: RelayReferral, onShare: (String) -> Unit) {
+        ControlRow(stringResource(R.string.settings_invite_code), SessionIcons.ticket) {
+            SelectionContainer {
+                Text(
+                    ReferralCode.display(referral.code),
+                    style = PeeringText.subheadlineSemibold.copy(fontFamily = FontFamily.Monospace),
+                    color = PeeringColors.ink,
+                )
+            }
+        }
+        ControlsDivider()
+        val message = stringResource(R.string.settings_invite_message, ReferralCode.display(referral.code))
+        ControlRow(
+            stringResource(R.string.settings_invite_share),
+            SessionIcons.share,
+            Modifier.clip(peeringShapes.extraSmall).tappable({ onShare(message) }),
+        )
 }
 
 @Composable
@@ -135,5 +141,6 @@ internal fun ReferralRefusal.messageRes(): Int = when (this) {
     ReferralRefusal.AlreadyRedeemed -> R.string.settings_invite_already
     ReferralRefusal.NeedsKeyProof -> R.string.settings_invite_proof
     ReferralRefusal.Busy -> R.string.settings_invite_busy
+    ReferralRefusal.NetworkLimit -> R.string.settings_invite_network_limit
     ReferralRefusal.Unavailable -> R.string.settings_invite_unavailable
 }

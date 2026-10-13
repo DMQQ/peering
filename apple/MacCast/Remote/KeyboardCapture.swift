@@ -337,7 +337,7 @@ struct KeyboardTypingCapture: UIViewRepresentable {
         view.onReturn = { [weak model] in model?.pressReturn() }
         view.onDraftChange = { [weak model] draft in
             model?.typedDraft = draft
-            model?.lastLocalEdit = Date()
+            model?.lastLocalEdit = MonotonicStamp()
         }
         view.restore(model.typedDraft)
         view.appliedFieldSerial = model.fieldSerial

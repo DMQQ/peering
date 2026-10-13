@@ -78,7 +78,7 @@ extension ScreenCaptureSourceResolver {
             // Desktop windows are excluded: they make the list enormous. Which windows reach the phone is decided in ``isUserFacingWindow(_:)``.
             fresh = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
         } catch {
-            Analytics.failed(error, in: .capture)
+            CaptureHostHooks.reportFailure(error)
             throw CaptureError.from(error)
         }
 

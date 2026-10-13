@@ -12,7 +12,7 @@ extension RelaySignallingConnection: RelayPeerLink {}
 /// Asks the relay where the other end of a session is, over one signalling socket kept for as long as it works.
 ///
 /// The relay answers each request exactly once, so asking again on the same socket is safe. A socket that fails or times out is closed, and the next ask opens a new one.
-actor RelayPeerLookup {
+public actor RelayPeerLookup {
     private let open: @Sendable () -> any RelayPeerLink
     private var link: (any RelayPeerLink)?
     private(set) var socketsOpened = 0
@@ -21,12 +21,16 @@ actor RelayPeerLookup {
         self.open = open
     }
 
-    init(url: URL) {
+    public init(url: URL) {
         self.init(open: { RelaySignallingConnection(url: url) })
     }
 
     /// `nil` means only that the peer has not been heard from yet, which is the ordinary first answer.
-    func address(videoToken: Data, deadline: TimeInterval = ConnectDeadlines.peerDiscovery) async throws -> RelayPeerAddress? {
+    public func address(videoToken: Data) async throws -> RelayPeerAddress? {
+        try await address(videoToken: videoToken, deadline: ConnectDeadlines.peerDiscovery)
+    }
+
+    func address(videoToken: Data, deadline: TimeInterval) async throws -> RelayPeerAddress? {
         let link = currentLink()
         do {
             return try await Deadline.run(seconds: deadline) {
@@ -46,7 +50,7 @@ actor RelayPeerLookup {
         }
     }
 
-    func close() {
+    public func close() {
         link?.cancel()
         link = nil
     }

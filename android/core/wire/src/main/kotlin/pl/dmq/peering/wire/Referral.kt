@@ -39,6 +39,7 @@ enum class ReferralRefusal {
     AlreadyRedeemed,
     NeedsKeyProof,
     Busy,
+    NetworkLimit,
     Unavailable,
     ;
 
@@ -48,7 +49,8 @@ enum class ReferralRefusal {
             "referralOwnCode" -> OwnCode
             "referralAlreadyRedeemed" -> AlreadyRedeemed
             "proofRequired", "proofStale", "proofInvalid" -> NeedsKeyProof
-            "referralsBusy", "tooManyRequests" -> Busy
+            "referralsBusy" -> Busy
+            "tooManyRequests" -> NetworkLimit
             else -> Unavailable
         }
     }

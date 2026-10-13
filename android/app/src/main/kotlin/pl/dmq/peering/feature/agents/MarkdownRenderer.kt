@@ -41,55 +41,64 @@ object MarkdownRenderer {
         if (previous is Block.Item && next is Block.Item) "\n" else "\n\n"
 
     private fun parseBlocks(source: String): List<Block> {
-        val blocks = mutableListOf<Block>()
-        val paragraph = mutableListOf<String>()
-        val code = mutableListOf<String>()
-        var inCode = false
+        val reader = BlockReader()
+        for (line in source.lines()) reader.accept(line)
+        return reader.finish()
+    }
 
-        fun flushParagraph() {
-            if (paragraph.isEmpty()) return
-            blocks += Block.Paragraph(paragraph.joinToString("\n"))
-            paragraph.clear()
+    private class BlockReader {
+        private val blocks = mutableListOf<Block>()
+        private val paragraph = mutableListOf<String>()
+        private val code = mutableListOf<String>()
+        private var inCode = false
+
+        fun accept(line: String) {
+            when {
+                line.trimStart().startsWith("```") -> toggleFence()
+                inCode -> code += line
+                else -> acceptText(line)
+            }
         }
 
-        for (line in source.lines()) {
-            if (line.trimStart().startsWith("```")) {
-                if (inCode) {
-                    blocks += Block.Code(code.joinToString("\n"))
-                    code.clear()
-                } else {
-                    flushParagraph()
-                }
-                inCode = !inCode
-                continue
-            }
+        fun finish(): List<Block> {
+            if (inCode && code.isNotEmpty()) blocks += Block.Code(code.joinToString("\n"))
+            flushParagraph()
+            return blocks
+        }
+
+        private fun toggleFence() {
             if (inCode) {
-                code += line
-                continue
+                blocks += Block.Code(code.joinToString("\n"))
+                code.clear()
+            } else {
+                flushParagraph()
             }
+            inCode = !inCode
+        }
+
+        private fun acceptText(line: String) {
             val bullet = bulletLine.matchEntire(line)
             val numbered = numberedLine.matchEntire(line)
             val heading = headingLine.matchEntire(line)
             when {
                 line.isBlank() -> flushParagraph()
-                bullet != null -> {
-                    flushParagraph()
-                    blocks += Block.Item("•", bullet.groupValues[1])
-                }
-                numbered != null -> {
-                    flushParagraph()
-                    blocks += Block.Item("${numbered.groupValues[1]}.", numbered.groupValues[2])
-                }
-                heading != null -> {
-                    flushParagraph()
-                    blocks += Block.Heading(heading.groupValues[1])
-                }
+                bullet != null -> addBlock(Block.Item("•", bullet.groupValues[1]))
+                numbered != null -> addBlock(Block.Item("${numbered.groupValues[1]}.", numbered.groupValues[2]))
+                heading != null -> addBlock(Block.Heading(heading.groupValues[1]))
                 else -> paragraph += line
             }
         }
-        if (inCode && code.isNotEmpty()) blocks += Block.Code(code.joinToString("\n"))
-        flushParagraph()
-        return blocks
+
+        private fun addBlock(block: Block) {
+            flushParagraph()
+            blocks += block
+        }
+
+        private fun flushParagraph() {
+            if (paragraph.isEmpty()) return
+            blocks += Block.Paragraph(paragraph.joinToString("\n"))
+            paragraph.clear()
+        }
     }
 
     private fun AnnotatedString.Builder.appendBlock(block: Block) {

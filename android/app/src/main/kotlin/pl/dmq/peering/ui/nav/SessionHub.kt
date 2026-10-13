@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBars
@@ -37,6 +38,7 @@ import pl.dmq.peering.ui.kit.rememberMotionDistances
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.wiring.ActiveSession
 import pl.dmq.peering.ui.wiring.PreferencesKeyValueStore
+import pl.dmq.peering.ui.wiring.preferenceWrites
 import pl.dmq.peering.ui.wiring.TerminalHost
 
 
@@ -53,19 +55,9 @@ internal fun SessionHub(
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
-    val preferences = remember(context) { PreferencesKeyValueStore(context.getSharedPreferences("peering_hub", Context.MODE_PRIVATE)) }
-    val tabs = remember(active, preferences) {
-        val offered = HubPresenter().offeredTabs(
-            HubCapabilities(
-                agentChat = active.controller.agentChat != null,
-                fileBrowser = active.controller.files != null,
-                terminal = active.controller.terminals != null,
-            ),
-        )
-        HubTabsPresenter(offered, preferences)
-    }
+    val preferences = remember(context) { PreferencesKeyValueStore(context.getSharedPreferences("peering_hub", Context.MODE_PRIVATE), context.preferenceWrites()) }
+    val tabs = rememberHubTabs(active, preferences)
     val chrome = remember { HubChrome() }
-    val risePx = rememberMotionDistances().risePx
     val density = LocalDensity.current
     val switcherInset = with(density) { WindowInsets.statusBars.getTop(density).toDp() } + HubTabBarHeight
     HubBridge(tabs, chrome, onClose)
@@ -89,20 +81,38 @@ internal fun SessionHub(
                     null -> LaunchedEffect(Unit) { onClose() }
                 }
             }
-            AnimatedVisibility(
-                visible = chrome.showsSwitcher(tabs.selected),
-                modifier = Modifier.align(Alignment.TopCenter),
-                enter = Motion.enterRising(-risePx),
-                exit = Motion.leave,
-            ) {
-                HubTabBar(
-                    offered = tabs.offered,
-                    selected = tabs.selected,
-                    onSelect = tabs::select,
-                    onClose = onClose,
-                    modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
-                )
-            }
+            HubSwitcher(chrome, tabs, onClose)
         }
+    }
+}
+
+@Composable
+private fun rememberHubTabs(active: ActiveSession, preferences: PreferencesKeyValueStore): HubTabsPresenter =
+    remember(active, preferences) {
+        val offered = HubPresenter().offeredTabs(
+            HubCapabilities(
+                agentChat = active.controller.agentChat != null,
+                fileBrowser = active.controller.files != null,
+                terminal = active.controller.terminals != null,
+            ),
+        )
+        HubTabsPresenter(offered, preferences)
+    }
+
+@Composable
+private fun BoxScope.HubSwitcher(chrome: HubChrome, tabs: HubTabsPresenter, onClose: () -> Unit) {
+    AnimatedVisibility(
+        visible = chrome.showsSwitcher(tabs.selected),
+        modifier = Modifier.align(Alignment.TopCenter),
+        enter = Motion.enterRising(-rememberMotionDistances().risePx),
+        exit = Motion.leave,
+    ) {
+        HubTabBar(
+            offered = tabs.offered,
+            selected = tabs.selected,
+            onSelect = tabs::select,
+            onClose = onClose,
+            modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
+        )
     }
 }

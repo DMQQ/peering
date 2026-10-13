@@ -50,6 +50,7 @@ import pl.dmq.peering.ui.wiring.RelayInviteService
 /** The adapters the screens share, built once for the process. [install] points the tab slots at the real screens. */
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences: SharedPreferences) {
+    private val writes = graph.preferenceWrites
     val picture = SurfacePicture()
 
     /** What the Connect tab showed last, so coming back to it starts from that and not from an empty list. */
@@ -64,15 +65,15 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val devicePrefs = PreferencesDevicePreferences(preferences, Build.MODEL.orEmpty())
     val macros = PreferencesMacroStore(preferences)
     val deviceId: String = graph.sessions.identity.clientId
-    val hostNames = PersistedHostDirectory(PreferencesKeyValueStore(preferences))
+    val hostNames = PersistedHostDirectory(PreferencesKeyValueStore(preferences, writes))
     val trusted = PinTrustedHosts(graph.sessions.pins, hostNames)
-    val lanAddresses = RememberedLanAddresses(PreferencesKeyValueStore(preferences))
-    val aliases = HostAliases(PreferencesKeyValueStore(preferences)) { graph.sessions.pins.hostIds().toSet() }
+    val lanAddresses = RememberedLanAddresses(PreferencesKeyValueStore(preferences, writes))
+    val aliases = HostAliases(PreferencesKeyValueStore(preferences, writes)) { graph.sessions.pins.hostIds().toSet() }
     val discovery = DiscoveryHostSource(graph.sessions.discovery, graph.sessions.pins, hostNames, lanAddresses, aliases, scope)
     val billing = PlayBilling(graph.applicationContext, scope) { graph.sessions.identity.publicKey }.also { it.connect() }
-    val sessionRecords = PersistedSessionRecords.load(preferences)
+    val sessionRecords = PersistedSessionRecords.load(preferences, writes)
     val relayAllowance = RelayAllowanceTracker(
-        PreferencesRelayUsageStore(preferences),
+        PreferencesRelayUsageStore(preferences, writes),
         graph.sessions.clock,
         ZoneId.systemDefault(),
         billing.paidRelay,
@@ -86,7 +87,7 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
             PeeringQualitySource(settings, billing),
             billing,
             lanAddresses,
-            ClipboardHistory(PreferencesKeyValueStore(preferences)),
+            ClipboardHistory(PreferencesKeyValueStore(preferences, writes)),
             relayAllowance::relayReportedRemaining,
         ) { devicePrefs.prefs.value.deviceName },
         hostNames,

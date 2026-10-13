@@ -1,9 +1,11 @@
 package pl.dmq.peering.ui.wiring
 
+import android.content.Context
 import android.content.SharedPreferences
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import pl.dmq.peering.DebugLog
+import pl.dmq.peering.PeeringApplication
 
 /**
  * Preference writes that never block the main thread and are on disk before the next one starts. An `apply()` alone is
@@ -39,6 +41,11 @@ internal class PreferenceWrites(private val executor: Executor) {
     companion object {
         private const val TAG = "PeeringPreferences"
 
-        val shared = PreferenceWrites(Executors.newSingleThreadExecutor { task -> Thread(task, "peering-preferences").apply { isDaemon = true } })
+        fun onBackgroundThread(): PreferenceWrites =
+            PreferenceWrites(Executors.newSingleThreadExecutor { task -> Thread(task, "peering-preferences").apply { isDaemon = true } })
     }
 }
+
+/** For composables, which have no constructor to inject through: the one writer the application graph owns. */
+internal fun Context.preferenceWrites(): PreferenceWrites =
+    (applicationContext as PeeringApplication).graph.preferenceWrites

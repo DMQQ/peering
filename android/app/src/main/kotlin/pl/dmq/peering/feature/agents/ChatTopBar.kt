@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -78,64 +79,28 @@ private fun ChatMenu(ui: ChatUi, onShowUsage: () -> Unit, onShowChanges: () -> U
         IconButton(onClick = { open = true }) {
             Icon(AppIcons.more, contentDescription = stringResource(R.string.agents_chat_options), tint = PeeringColors.ink)
         }
-        PeeringMenu(open, { open = false }) {
-            if (ui.usageSupported) {
-                PeeringMenuItem(
-                    title = stringResource(R.string.agents_usage_title),
-                    icon = AgentIcons.usage,
-                    onClick = {
-                        open = false
-                        onShowUsage()
-                    },
-                )
-            }
-            PeeringMenuItem(
-                title = stringResource(R.string.changes_menu),
-                icon = AgentIcons.changes,
-                onClick = {
-                    open = false
-                    onShowChanges()
-                },
-            )
-            if (onShowPreview != null) {
-                PeeringMenuItem(
-                    title = stringResource(R.string.preview_menu),
-                    icon = AppIcons.globe,
-                    onClick = {
-                        open = false
-                        onShowPreview()
-                    },
-                )
-            }
-            PeeringMenuItem(
-                title = stringResource(R.string.agents_rename),
-                icon = AppIcons.edit,
-                onClick = {
-                    open = false
-                    onRename()
-                },
-            )
-            if (ui.canPause) {
-                PeeringMenuItem(
-                    title = stringResource(R.string.agents_stop_to_history),
-                    icon = AgentIcons.archive,
-                    destructive = true,
-                    onClick = {
-                        open = false
-                        onPause()
-                    },
-                )
-            }
+        val close = { open = false }
+        PeeringMenu(open, close) {
+            if (ui.usageSupported) ChatMenuItem(R.string.agents_usage_title, AgentIcons.usage, close, onShowUsage)
+            ChatMenuItem(R.string.changes_menu, AgentIcons.changes, close, onShowChanges)
+            if (onShowPreview != null) ChatMenuItem(R.string.preview_menu, AppIcons.globe, close, onShowPreview)
+            ChatMenuItem(R.string.agents_rename, AppIcons.edit, close, onRename)
+            if (ui.canPause) ChatMenuItem(R.string.agents_stop_to_history, AgentIcons.archive, close, onPause, destructive = true)
             PeeringMenuDivider()
-            PeeringMenuItem(
-                title = stringResource(R.string.agents_close_chat_menu),
-                icon = AppIcons.close,
-                destructive = true,
-                onClick = {
-                    open = false
-                    onClose()
-                },
-            )
+            ChatMenuItem(R.string.agents_close_chat_menu, AppIcons.close, close, onClose, destructive = true)
         }
     }
+}
+
+@Composable
+private fun ChatMenuItem(title: Int, icon: ImageVector, close: () -> Unit, onSelect: () -> Unit, destructive: Boolean = false) {
+    PeeringMenuItem(
+        title = stringResource(title),
+        icon = icon,
+        destructive = destructive,
+        onClick = {
+            close()
+            onSelect()
+        },
+    )
 }

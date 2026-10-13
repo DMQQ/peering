@@ -45,6 +45,15 @@ class ReaderLoopTest {
     }
 
     @Test
+    fun aFortyKibTerminalOrAgentChunkIsKeptBeforeAndAfterTheHandshake() = runTest {
+        val terminal = Frame(MessageKind.TerminalEvent, ByteArray(40 * 1024))
+        val agent = Frame(MessageKind.AgentEvent, ByteArray(40 * 1024))
+
+        assertEquals(listOf(terminal, agent), read(terminal, agent))
+        assertEquals(listOf(terminal, agent), read(terminal, agent, limitApplies = false))
+    }
+
+    @Test
     fun aPictureFrameLargerThanSixtyFourKibIsKept() = runTest {
         val picture = Frame(MessageKind.VideoFrame, ByteArray(MAX_CONTROL_PAYLOAD * 4))
 

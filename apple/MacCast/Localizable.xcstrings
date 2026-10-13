@@ -2502,6 +2502,64 @@
         }
       }
     },
+    "Damaged pairings" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beschädigte Kopplungen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Emparejamientos dañados"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Associations endommagées"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abbinamenti danneggiati"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "破損したペアリング"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "손상된 페어링"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pareamentos danificados"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Повреждённые связывания"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已损坏的配对"
+          }
+        }
+      }
+    },
     "End this session?" : {
       "localizations" : {
         "de" : {
@@ -3372,6 +3430,64 @@
         }
       }
     },
+    "Paired Macs were reset. Pair each Mac again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die gekoppelten Macs wurden zurückgesetzt. Koppele jeden Mac erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se restablecieron los Macs emparejados. Vuelve a emparejar cada Mac."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les Mac associés ont été réinitialisés. Associez chaque Mac à nouveau."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I Mac abbinati sono stati ripristinati. Abbina di nuovo ogni Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリング済みのMacをリセットしました。各Macをもう一度ペアリングしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링된 Mac이 초기화되었습니다. 각 Mac을 다시 페어링하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os Macs pareados foram redefinidos. Pareie cada Mac de novo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Связанные Mac сброшены. Свяжите каждый Mac заново."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已重置已配对的 Mac。请重新配对每台 Mac。"
+          }
+        }
+      }
+    },
     "Part of that path is not a folder." : {
       "localizations" : {
         "de" : {
@@ -3774,6 +3890,122 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已将 %@ 重命名为 %@"
+          }
+        }
+      }
+    },
+    "Reset paired Macs" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gekoppelte Macs zurücksetzen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer Macs emparejados"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réinitialiser les Mac associés"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristina i Mac abbinati"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリング済みのMacをリセット"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링된 Mac 초기화"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redefinir Macs pareados"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сбросить связанные Mac"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置已配对的 Mac"
+          }
+        }
+      }
+    },
+    "Reset paired Macs?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gekoppelte Macs zurücksetzen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Restablecer los Macs emparejados?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réinitialiser les Mac associés ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ripristinare i Mac abbinati?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリング済みのMacをリセットしますか?"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링된 Mac을 초기화할까요?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redefinir os Macs pareados?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сбросить связанные Mac?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要重置已配对的 Mac 吗？"
           }
         }
       }
@@ -4586,6 +4818,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "该聊天已不存在。"
+          }
+        }
+      }
+    },
+    "That commit is too large to send. Choose fewer files or shorten the message." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Commit ist zu groß zum Senden. Wähle weniger Dateien oder kürze die Nachricht."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este commit es demasiado grande para enviarlo. Elige menos archivos o acorta el mensaje."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce commit est trop volumineux pour être envoyé. Choisissez moins de fichiers ou raccourcissez le message."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo commit è troppo grande per essere inviato. Scegli meno file o accorcia il messaggio."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このコミットは大きすぎて送信できません。ファイルを減らすか、メッセージを短くしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 커밋은 너무 커서 보낼 수 없습니다. 파일을 줄이거나 메시지를 짧게 하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este commit é grande demais para ser enviado. Escolha menos arquivos ou encurte a mensagem."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот коммит слишком большой для отправки. Выберите меньше файлов или сократите сообщение."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此提交过大，无法发送。请选择更少的文件或缩短提交信息。"
           }
         }
       }
@@ -7316,6 +7606,64 @@
         }
       }
     },
+    "The Mac and this app are running different versions of Peering. Update whichever is older." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac und diese App verwenden unterschiedliche Versionen von Peering. Aktualisiere die ältere."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac y esta app usan versiones distintas de Peering. Actualiza la más antigua."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac et cette app utilisent des versions différentes de Peering. Mettez à jour la plus ancienne."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac e questa app usano versioni diverse di Peering. Aggiorna la più vecchia."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MacとこのAppでPeeringのバージョンが異なります。古い方をアップデートしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac과 이 앱의 Peering 버전이 서로 다릅니다. 더 오래된 쪽을 업데이트하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac e este app estão com versões diferentes do Peering. Atualize o mais antigo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На Mac и в этом приложении установлены разные версии Peering. Обновите более старую."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 和此 App 使用的 Peering 版本不同。请更新较旧的一方。"
+          }
+        }
+      }
+    },
     "The Mac closed the connection." : {
       "localizations" : {
         "de" : {
@@ -7834,6 +8182,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mac 拒绝了连接。请确认其上的 Peering 正在运行。"
+          }
+        }
+      }
+    },
+    "The Mac refused the session: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac hat die Sitzung abgelehnt: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac rechazó la sesión: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac a refusé la session : %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac ha rifiutato la sessione: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macがセッションを拒否しました: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 세션을 거부했습니다: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac recusou a sessão: %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac отклонил сеанс: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 拒绝了会话：%@"
           }
         }
       }
@@ -8592,6 +8998,122 @@
         }
       }
     },
+    "The pairings saved on this iPhone are damaged and cannot be recovered. Resetting deletes them, and you will pair each Mac again. Nothing on your Macs is changed." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die auf diesem iPhone gespeicherten Kopplungen sind beschädigt und lassen sich nicht wiederherstellen. Beim Zurücksetzen werden sie gelöscht, und du koppelst jeden Mac erneut. An deinen Macs wird nichts geändert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los emparejamientos guardados en este iPhone están dañados y no se pueden recuperar. Al restablecerlos se eliminan y tendrás que emparejar cada Mac de nuevo. No se cambia nada en tus Macs."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les associations enregistrées sur cet iPhone sont endommagées et ne peuvent pas être récupérées. La réinitialisation les supprime, et vous associerez chaque Mac à nouveau. Rien n'est modifié sur vos Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gli abbinamenti salvati su questo iPhone sono danneggiati e non possono essere recuperati. Il ripristino li elimina e dovrai abbinare di nuovo ogni Mac. Non viene modificato nulla sui tuoi Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このiPhoneに保存されているペアリング情報は破損しており、復元できません。リセットすると削除されるため、各Macをもう一度ペアリングする必要があります。Mac側は変更されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 iPhone에 저장된 페어링 정보가 손상되어 복구할 수 없습니다. 초기화하면 삭제되며, 각 Mac을 다시 페어링해야 합니다. Mac에는 아무 변경도 가해지지 않습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os pareamentos salvos neste iPhone estão danificados e não podem ser recuperados. Redefinir os exclui, e você vai parear cada Mac de novo. Nada é alterado nos seus Macs."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Связывания, сохранённые на этом iPhone, повреждены и не могут быть восстановлены. Сброс удалит их, и каждый Mac придётся связать заново. На ваших Mac ничего не изменится."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 iPhone 上保存的配对信息已损坏，无法恢复。重置会将其删除，之后需要重新配对每台 Mac。你的 Mac 上不会有任何更改。"
+          }
+        }
+      }
+    },
+    "The pairings saved on this iPhone are damaged and cannot be read. Reset them to pair your Macs again. No new pairing is saved until then." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die auf diesem iPhone gespeicherten Kopplungen sind beschädigt und lassen sich nicht lesen. Setze sie zurück, um deine Macs erneut zu koppeln. Bis dahin wird keine neue Kopplung gespeichert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los emparejamientos guardados en este iPhone están dañados y no se pueden leer. Restablécelos para volver a emparejar tus Macs. Hasta entonces no se guarda ningún emparejamiento nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les associations enregistrées sur cet iPhone sont endommagées et illisibles. Réinitialisez-les pour associer à nouveau vos Mac. Aucune nouvelle association n'est enregistrée d'ici là."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gli abbinamenti salvati su questo iPhone sono danneggiati e non possono essere letti. Ripristinali per abbinare di nuovo i tuoi Mac. Fino ad allora non viene salvato nessun nuovo abbinamento."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このiPhoneに保存されているペアリング情報は破損していて読み取れません。リセットしてMacをもう一度ペアリングしてください。それまでは新しいペアリングは保存されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 iPhone에 저장된 페어링 정보가 손상되어 읽을 수 없습니다. 초기화한 다음 Mac을 다시 페어링하세요. 그때까지는 새 페어링이 저장되지 않습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os pareamentos salvos neste iPhone estão danificados e não podem ser lidos. Redefina-os para parear seus Macs de novo. Até lá, nenhum pareamento novo é salvo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Связывания, сохранённые на этом iPhone, повреждены и не читаются. Сбросьте их, чтобы связать Mac заново. До этого новые связывания не сохраняются."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此 iPhone 上保存的配对信息已损坏，无法读取。请重置后重新配对你的 Mac。在此之前不会保存新的配对。"
+          }
+        }
+      }
+    },
     "The picture stopped and this Mac could not start it again. Reconnect to try once more, or check Screen Recording and the display on the Mac." : {
       "localizations" : {
         "de" : {
@@ -8936,6 +9458,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "配对已在 Mac 上被拒绝。"
+          }
+        }
+      }
+    },
+    "The relay refused the session: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Relay hat die Sitzung abgelehnt: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El relay rechazó la sesión: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le relais a refusé la session : %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il relay ha rifiutato la sessione: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リレーがセッションを拒否しました: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "릴레이가 세션을 거부했습니다: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O relay recusou a sessão: %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Релей отклонил сеанс: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中继拒绝了会话：%@"
           }
         }
       }
@@ -11546,6 +12126,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这台 Mac 的磁盘跟不上，因此已停止传输。"
+          }
+        }
+      }
+    },
+    "This Mac's identity has changed. What answered at this address (%@) does not have the key this iPhone saved when it paired. Only continue if you expect this, for example because the Mac was reset or Peering was reinstalled on it. If you do, forget this Mac here and pair again. If you do not, do not connect." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Identität dieses Macs hat sich geändert. Was unter dieser Adresse geantwortet hat (%@), hat nicht den Schlüssel, den dieses iPhone bei der Kopplung gespeichert hat. Fahre nur fort, wenn du das erwartest, zum Beispiel weil der Mac zurückgesetzt oder Peering darauf neu installiert wurde. Wenn ja, entferne diesen Mac hier und koppele erneut. Wenn nicht, verbinde dich nicht."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La identidad de este Mac ha cambiado. Lo que respondió en esta dirección (%@) no tiene la clave que este iPhone guardó al emparejarse. Continúa solo si lo esperas, por ejemplo porque el Mac se restableció o se reinstaló Peering en él. Si es así, olvida este Mac aquí y vuelve a emparejarlo. Si no, no te conectes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'identité de ce Mac a changé. Ce qui a répondu à cette adresse (%@) n'a pas la clé que cet iPhone a enregistrée lors de l'association. Ne continuez que si vous vous y attendiez, par exemple parce que le Mac a été réinitialisé ou que Peering y a été réinstallé. Si c'est le cas, oubliez ce Mac ici et associez-le à nouveau. Sinon, ne vous connectez pas."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'identità di questo Mac è cambiata. Ciò che ha risposto a questo indirizzo (%@) non ha la chiave che questo iPhone ha salvato durante l'abbinamento. Continua solo se te lo aspetti, ad esempio perché il Mac è stato ripristinato o Peering è stato reinstallato su di esso. In tal caso, dimentica questo Mac qui e abbinalo di nuovo. Altrimenti, non connetterti."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacの識別情報が変わりました。このアドレスで応答したもの(%@)は、ペアリング時にこのiPhoneが保存したキーを持っていません。Macを初期化した、Peeringを再インストールしたなど、心当たりがある場合のみ続けてください。その場合は、ここでこのMacを削除してもう一度ペアリングしてください。心当たりがない場合は、接続しないでください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac의 ID가 변경되었습니다. 이 주소에서 응답한 기기(%@)에는 페어링할 때 이 iPhone이 저장한 키가 없습니다. Mac을 초기화했거나 Peering을 다시 설치하는 등 짐작 가는 경우에만 계속하세요. 그렇다면 여기서 이 Mac을 삭제한 다음 다시 페어링하세요. 짐작 가는 바가 없다면 연결하지 마세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A identidade deste Mac mudou. O que respondeu neste endereço (%@) não tem a chave que este iPhone salvou ao parear. Continue apenas se você já esperava isso, por exemplo porque o Mac foi redefinido ou o Peering foi reinstalado nele. Se for o caso, esqueça este Mac aqui e pareie de novo. Se não, não se conecte."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Идентичность этого Mac изменилась. У того, что ответило по этому адресу (%@), нет ключа, который этот iPhone сохранил при связывании. Продолжайте, только если вы этого ожидали, например потому, что Mac был сброшен или на нём заново установили Peering. В таком случае забудьте этот Mac здесь и свяжите заново. Если нет, не подключайтесь."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台 Mac 的身份已更改。此地址上响应的设备（%@）没有此 iPhone 在配对时保存的密钥。只有在你预料到这种情况时才继续，例如这台 Mac 已被重置，或其上的 Peering 已重新安装。如果是这样，请在此移除这台 Mac 并重新配对。如果不是，请不要连接。"
           }
         }
       }

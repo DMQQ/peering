@@ -30,12 +30,14 @@ internal val failed = ColorProvider(R.color.widget_failed)
 internal fun text(color: ColorProvider, size: Int, weight: FontWeight = FontWeight.Normal) =
     TextStyle(color = color, fontSize = size.sp, fontWeight = weight)
 
-internal fun openLink(context: Context, link: String): Action =
-    actionStartActivity(
-        Intent(Intent.ACTION_VIEW, Uri.parse(link))
+internal fun openLink(context: Context, link: String): Action {
+    val request = WidgetLinkGate.requestFor(link, LinkNonce.load(context.noBackupFilesDir))
+    return actionStartActivity(
+        Intent(Intent.ACTION_VIEW, Uri.parse(request.data))
             .setClass(context, MainActivity::class.java)
-            .putExtra(LinkNonce.EXTRA, LinkNonce.load(context.noBackupFilesDir)),
+            .putExtra(LinkNonce.EXTRA, request.nonce),
     )
+}
 
 @Composable
 internal fun Icon(drawable: Int, color: ColorProvider, size: Int, modifier: GlanceModifier = GlanceModifier) {
