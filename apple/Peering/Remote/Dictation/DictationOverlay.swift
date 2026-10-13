@@ -18,7 +18,7 @@ struct DictationOverlay: View {
             }
             roundButton(symbol: "checkmark", filled: true, label: String(localized: "Done", table: "Dictation"), action: finish)
         }
-        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+        .transition(.blurReplace)
     }
 
     private var placeholder: String {

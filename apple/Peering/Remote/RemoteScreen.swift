@@ -379,10 +379,7 @@ struct RemoteScreen: View {
                     keyboardKeyRow
                     if !deviceIsLandscape { arrowStrip(withReturn: false) }
                 }
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .top)).combined(with: .offset(y: -8)),
-                    removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .top))
-                ))
+                .transition(.blurReplace)
             }
         }
         .animation(Motion.settle, value: shortcutsExpanded)
