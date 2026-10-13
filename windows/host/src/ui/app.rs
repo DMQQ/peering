@@ -161,7 +161,7 @@ impl HostApp {
         if !self.settings.begin_firewall() {
             return;
         }
-        let started = self.jobs.spawn("firewall", || match program_path() {
+        let started = self.jobs.spawn("firewall", move || match program_path() {
             Ok(path) => SettingsJob::Firewall(firewall::request_rule_elevated(&path, port)),
             Err(error) => SettingsJob::Firewall(firewall::HelperResult::CouldNotStart(error.to_string())),
         });

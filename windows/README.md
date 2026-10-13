@@ -74,19 +74,46 @@ tests of `windows.yml` and attaches the installer to a release. The installer's 
 - `host`: the process. The runtime serves clients, `ui` holds the tray and pairing window, and `autostart` and
   `firewall` hold the start-at-login and firewall helpers.
 
+## Settings
+
+`%LOCALAPPDATA%\Peering Host\settings.txt` holds `key=value` lines: `port`, `frameRate` (15, 30 or 60), `startAtLogin`,
+`relayEnabled`, `deviceName` and `terminalHooks`. It is read at start and rewritten whole (through a file beside it that is
+renamed over it) whenever the window changes a setting. A key that is missing or out of range takes its default, and a file
+that cannot be read starts the host on the defaults and says so in the window. The window has controls for start at login,
+the relay, the hooks, the firewall rule and the frame rate. The port and the device name are changed in the file, and take
+effect at the next start. The relay switch takes effect at once. `startAtLogin` follows the Run entry, which stays the truth.
+
+## What a phone gets besides the picture
+
+- Clipboard, both directions: Unicode text, and pictures as `CF_DIBV5` converted to PNG (8 MiB). Anything larger than one
+  frame travels as 16 KiB `videoChunk` pieces, up to 12 MiB. A request is always answered, with empty text when the clipboard
+  is empty, busy or holds something the phone cannot take.
+- The PC stays awake (`SetThreadExecutionState`, system and display) while hosting with at least one phone connected.
+- Paired phones are given the hardware addresses of the Ethernet and Wi-Fi adapters, for Wake-on-LAN.
+- `pointerReport` when a hand moves the mouse and 0.3 s after the last joystick nudge, for phones that declared it.
+- Files: upload, new file or folder, rename and delete. An upload goes to `.name.peering-<id>.part` beside the destination and is
+  moved over it when every byte has arrived (2 GB at most, 32 KiB pieces, 8 transfers at once, a transfer silent for 90 s is
+  dropped). Names follow the same rules as paths from the phone, so a name cannot leave its folder or open a device. Create and
+  rename never replace a name that is taken. Delete goes to the Recycle Bin, only from the PC's own drives, and refuses the user
+  profile, the Windows folder, Program Files, ProgramData and anything that holds them. A folder archive is not built.
+- What the host will not do is answered with a notice that lapses after 6 s (desktops, launching apps, window actions, privacy
+  mode, a mosaic, a source it cannot capture) and a web preview request gets a `failure` event. An `error` frame is never used
+  for this, because it ends an iPhone session.
+
+Not built: audio, window and application capture (Windows.Graphics.Capture is not a dependency and a second capture path cannot
+be tried without a Windows machine), `textFocus` and `fieldState`, a folder archive, the web preview proxy, Live Activity pushes.
+
 ## Claude Code terminal hooks
 
-The hook server (`host/src/hooks`) and the broker behind it (`peering_core::terminal::hooks`) are built and tested, but
-nothing in the runtime starts them: there is no setting that turns them on, no token is minted, the settings file is never
-edited, the broker has no `Phones` implementation that sends through the relay, and a phone's Allow or Deny is not routed
-back to `HookBroker::resolve`. Those parts need a phone and a relay to check, so the hooks are compiled only with the cargo
-feature `terminal-hooks` (off by default):
-
-```
-cargo test --locked -p peering-host --features terminal-hooks
-```
-
-Until the wiring is done, the Windows host does not push Claude Code approvals to the phone.
+With the setting on (the window's "Send Claude Code approvals to my phone"), the host listens on a loopback port with a token it
+mints on every start, writes `peering-hook.cmd` beside its settings, and adds `PermissionRequest` and `Notification` hooks to
+`%USERPROFILE%\.claude\settings.json` (leaving every other key alone, keeping one copy of the original as
+`settings.json.peering-backup`, and refusing a file it does not understand). A permission request becomes a push through the
+relay and is held until the phone answers; an Allow or Deny arrives as an ordinary `agentRequest` approval and goes to
+`HookBroker::resolve` before any chat is asked. With no answer in ten minutes, or no phone registered for pushes, Claude Code
+shows its own prompt. Turning the setting off removes the hooks and the script. If the hooks cannot be installed the setting
+turns itself off and the window says why. The chain is tested over a real loopback socket with a scripted phone. It has not been
+seen with a real phone, the relay or Claude Code.
 
 ## Status
 
@@ -107,7 +134,7 @@ Checked on macOS, with the commands in this file:
   device, the NV12 video processor, the Media Foundation encoder, SendInput, DPAPI, LockWorkStation) against the
   `windows` crate 0.58. Compiling is not running: none of those calls has been executed.
 
-The host crate (tray, window, firewall and autostart executors) can also be type checked from a Mac. `ring`'s build script
+The host crate (tray, window, firewall and autostart executors, and the adapters in `host/src/runtime/services/windows.rs`) can also be type checked from a Mac, and linted with `cargo clippy` the same way. `ring`'s build script
 needs a C compiler for the MSVC target, which only has to produce files for `cargo check`, so two stub scripts are enough.
 The compiler stub creates an empty file at the path after `-Fo` (or `-o`) and exits 0. The archiver stub is called like
 `lib.exe`, so it must create an empty file at the path in its `-out:PATH` argument (`/out:PATH` also occurs) and exit 0; one
