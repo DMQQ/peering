@@ -153,7 +153,7 @@ class PairedDialTest {
 
         rig.hostVisible = true
         rig.controller.networkChanged()
-        advanceTimeBy(1_000)
+        advanceTimeBy(4_000)
         runCurrent()
 
         assertEquals(ControlRoute.Direct(ControllerRig.LAN_ADDRESS), rig.controlRoutes.last())

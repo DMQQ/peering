@@ -5,6 +5,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import pl.dmq.peering.session.agent.AgentCapabilities
@@ -50,6 +51,7 @@ class SessionController(
     private val selection = SourceSelection()
     private var reconnect = ReconnectSupervisor(ports.clock)
     private var job: Job? = null
+    private var handoverJob: Job? = null
     private var pictureEnabled = true
     private var backgrounded = false
     private val returnProbe = ReturnProbe()
@@ -82,6 +84,8 @@ class SessionController(
         reconnect = ReconnectSupervisor(ports.clock)
         update { it.copy(phase = SessionPhase.Connecting(target.path)) }
         job = scope.launch { lifecycle() }
+        handoverJob?.cancel()
+        handoverJob = scope.launch { handover.watch(state.map { (it.phase as? SessionPhase.Ready)?.path }, ::moveToLan) }
     }
 
     /** The six digits the user typed. Ignored, and read as a mismatch, when no code is awaited. */
@@ -163,7 +167,7 @@ class SessionController(
 
     /**
      * The network moved, so the reconnect ladder starts again from its shortest step and a dial in flight starts over
-     * on the new network. A session on the relay is dialled
+     * on the new network. A session on the relay or a punched hole is dialled
      * again when the host turns out to be on this network, so the picture moves to the local path.
      */
     fun networkChanged() {
@@ -173,11 +177,13 @@ class SessionController(
         runner.networkMoved()
         val live = link ?: return
         scope.launch {
-            if (handover.worthMovingFrom(live.path) && link === live) {
-                recorder.note("the host is on this network now, moving off the relay")
-                runner.endLink(LinkEnd.Lost)
-            }
+            if (handover.worthMovingFrom(live.path) && link === live) moveToLan()
         }
+    }
+
+    private fun moveToLan() {
+        recorder.note("the host is on this network now, moving to it")
+        runner.endLink(LinkEnd.Lost)
     }
 
     /** Ends the session now. The phone does not reconnect afterwards. */
@@ -196,6 +202,7 @@ class SessionController(
         if (job?.isActive != true) return
         // The handshake tells the host and ends the link itself, so its decline is written before the close.
         if (!runner.cancelHandshake()) job?.cancel()
+        handoverJob?.cancel()
         recorder.end(SessionRecord.EndReason.USER_ENDED)
         update { it.copy(phase = phase) }
     }
