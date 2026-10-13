@@ -20,6 +20,7 @@ glance = "1.1.1"
 sshj = "0.39.0"
 bouncycastle = "1.80.2"
 slf4j = "1.7.36"
+sshd = "2.15.0"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
@@ -54,7 +55,9 @@ billing-ktx = { module = "com.android.billingclient:billing-ktx", version.ref = 
 sshj = { module = "com.hierynomus:sshj", version.ref = "sshj" }
 bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 bouncycastle-pkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
-slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
+sshd-core = { module = "org.apache.sshd:sshd-core", version.ref = "sshd" }
+sshd-sftp = { module = "org.apache.sshd:sshd-sftp", version.ref = "sshd" }
+slf4j-nop ={ module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
 
 androidx-glance-appwidget ={ module = "androidx.glance:glance-appwidget", version.ref = "glance" }
 
