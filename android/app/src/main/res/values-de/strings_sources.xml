@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sources_section_virtual">Virtuelle Displays</string>
+    <string name="sources_add_display">Display hinzufügen</string>
+    <string name="sources_virtual_empty">Keine virtuellen Displays. Füge eines hinzu, um deinem Smartphone auf dem Computer einen eigenen Bildschirm in seiner Form zu geben.</string>
+    <string name="sources_desktop">Schreibtisch %d</string>
+    <string name="sources_desktop_here">Schreibtisch %d · hier</string>
+    <string name="sources_action_close">Fenster schließen</string>
+    <string name="sources_action_minimise">Fenster ablegen</string>
+    <string name="sources_action_zoom">Fenster zoomen</string>
+    <string name="sources_action_remove_display">Display entfernen</string>
+    <string name="sources_action_rename_display">Display umbenennen</string>
+    <string name="sources_rename_display">Display umbenennen</string>
+    <string name="sources_rename_hint">Name</string>
+    <string name="sources_rename_save">Sichern</string>
+    <string name="sources_rename_cancel">Abbrechen</string>
+</resources>

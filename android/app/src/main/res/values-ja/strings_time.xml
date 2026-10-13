@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="time_just_now">たった今</string>
+    <plurals name="time_minutes_ago">
+        <item quantity="other">%d分前</item>
+    </plurals>
+    <plurals name="time_hours_ago">
+        <item quantity="other">%d時間前</item>
+    </plurals>
+    <plurals name="time_days_ago">
+        <item quantity="other">%d日前</item>
+    </plurals>
+    <plurals name="time_minutes_ahead">
+        <item quantity="other">%d分後</item>
+    </plurals>
+    <plurals name="time_hours_ahead">
+        <item quantity="other">%d時間後</item>
+    </plurals>
+    <plurals name="time_days_ahead">
+        <item quantity="other">%d日後</item>
+    </plurals>
+</resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="panel_open_for_text_fields">Bei Textfeldern öffnen</string>
+    <string name="panel_open_for_text_fields_note">Blendet die Tastatur ein, wenn der Cursor des Computers in einem Textfeld landet, und zeigt, was das Feld enthält.</string>
+    <string name="remote_chip_screenshot">Bildschirmfoto</string>
+    <string name="remote_screenshot_share">Screenshot teilen</string>
+    <string name="remote_screenshot_failed">Das Bild konnte nicht aufgenommen werden.</string>
+</resources>

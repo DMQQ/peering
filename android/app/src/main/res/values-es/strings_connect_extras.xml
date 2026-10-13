@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connect_wake">Activar ordenador por LAN</string>
+    <string name="connect_wake_refusal_no_address">Aún no hay dirección de hardware guardada. Conéctate una vez primero.</string>
+    <string name="connect_wake_refusal_awake">Ese ordenador ya está activo.</string>
+    <string name="connect_wake_no_address">No hay dirección de hardware guardada para ese ordenador, así que no hay a dónde enviar un paquete de activación.</string>
+    <string name="connect_wake_unreadable">No se pudo leer la dirección de hardware guardada de ese ordenador, así que no se envió ningún paquete de activación.</string>
+    <plurals name="connect_wake_sent">
+        <item quantity="one">Paquete de activación enviado a %d dirección de hardware. Solo puede llegar a un ordenador de esta red.</item>
+        <item quantity="other">Paquete de activación enviado a %d direcciones de hardware. Solo puede llegar a un ordenador de esta red.</item>
+    </plurals>
+    <string name="session_failed_key_changed">La clave de este ordenador ha cambiado desde que lo emparejaste. Si no lo esperabas, no te conectes. Para confiar en la nueva clave, olvida aquí el ordenador y vuelve a emparejarlo.</string>
+    <string name="session_failed_wrong_computer">El ordenador que respondió no es el que pediste. Olvídalo aquí y vuelve a emparejarlo si se ha movido.</string>
+    <string name="session_failed_no_pin">Este teléfono ya no confía en ese ordenador. Vuelve a emparejarlo para conectar.</string>
+    <string name="link_end_title">¿Terminar esta sesión?</string>
+    <string name="link_end_message">Un enlace externo a Peering pidió desconectarte de tu ordenador.</string>
+    <string name="link_end_confirm">Terminar sesión</string>
+</resources>

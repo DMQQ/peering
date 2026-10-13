@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="whatsnew_title">Novità</string>
+    <string name="whatsnew_done">Capito</string>
+    <string name="whatsnew_desktops_title">Desktop e display virtuali</string>
+    <string name="whatsnew_desktops_detail">Passa da un desktop all\'altro del computer dal pannello App, aggiungi un display con la forma del telefono e chiudi o minimizza una finestra con una pressione prolungata.</string>
+    <string name="whatsnew_composer_title">Comandi e file nel campo di scrittura</string>
+    <string name="whatsnew_composer_detail">Digita una barra per comandi e skill, o una chiocciola per citare un file. Rivedi in un solo posto ogni file modificato in tutte le tue chat.</string>
+    <string name="whatsnew_review_title">Da rivedere, e passi successivi</string>
+    <string name="whatsnew_review_detail">I file modificati restano nella pagina Agenti finché non li hai guardati, e un turno concluso propone il passo successivo come pulsante.</string>
+    <string name="whatsnew_wake_title">Riattiva il tuo computer</string>
+    <string name="whatsnew_wake_detail">Invia un pacchetto di riattivazione a un computer in stop sulla tua rete dal suo menu nella pagina Connetti.</string>
+</resources>

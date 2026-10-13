@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="changes_menu">Cambios</string>
+    <string name="changes_title">Cambios</string>
+    <string name="changes_close">Cerrar</string>
+    <string name="changes_back">Volver a los archivos</string>
+    <string name="changes_refresh">Actualizar</string>
+    <string name="changes_none">Sin cambios</string>
+    <plurals name="changes_count">
+        <item quantity="one">%d archivo modificado</item>
+        <item quantity="other">%d archivos modificados</item>
+    </plurals>
+    <string name="changes_truncated">Este proyecto es grande, así que solo se muestra una parte.</string>
+    <string name="changes_waiting">Consultando a tu ordenador</string>
+    <string name="changes_empty">Todavía no ha cambiado nada en esta carpeta.</string>
+    <string name="changes_kind_modified">Modificado</string>
+    <string name="changes_kind_added">Añadido</string>
+    <string name="changes_kind_deleted">Eliminado</string>
+    <string name="changes_kind_untracked">Nuevo, git aún no lo sigue</string>
+    <string name="changes_no_diff">No hay ningún diff de texto que mostrar para este archivo.</string>
+    <string name="changes_comment_file">Comentar este archivo</string>
+    <string name="changes_comment_hint">Comentario</string>
+    <string name="changes_comment_add">Añadir</string>
+    <string name="changes_comment_cancel">Cancelar</string>
+    <string name="changes_comment_remove">Quitar comentario</string>
+    <plurals name="changes_send_comments">
+        <item quantity="one">Enviar %d comentario al agente</item>
+        <item quantity="other">Enviar %d comentarios al agente</item>
+    </plurals>
+    <string name="changes_commented">%d comentarios en este archivo</string>
+    <string name="review_prompt_intro">Atiende estos comentarios de revisión sobre tus cambios.</string>
+    <string name="review_prompt_removed">(línea eliminada por el cambio)</string>
+    <plurals name="review_prompt_left_out">
+        <item quantity="one">%d comentario más no cupo y no está incluido.</item>
+        <item quantity="other">%d comentarios más no cupieron y no están incluidos.</item>
+    </plurals>
+    <string name="commit_title">Confirmar cambios</string>
+    <string name="commit_files">Archivos que incluir</string>
+    <string name="commit_none">No ha cambiado nada en esta carpeta.</string>
+    <string name="commit_message">Mensaje de commit</string>
+    <plurals name="commit_button">
+        <item quantity="one">Confirmar %d archivo</item>
+        <item quantity="other">Confirmar %d archivos</item>
+    </plurals>
+    <string name="commit_busy">Confirmando</string>
+    <string name="commit_this_folder">esta carpeta</string>
+    <plurals name="commit_confirm_title">
+        <item quantity="one">¿Hacer commit de %1$d archivo en %2$s?</item>
+        <item quantity="other">¿Hacer commit de %1$d archivos en %2$s?</item>
+    </plurals>
+    <string name="commit_confirm">Confirmar cambios</string>
+    <string name="commit_done">Confirmado</string>
+    <string name="commit_failed">El commit no se realizó</string>
+    <string name="push_done">Enviado (push)</string>
+    <string name="push_failed">El push no se realizó</string>
+    <string name="push_title">Push</string>
+    <plurals name="push_ready">
+        <item quantity="one">Hay %1$d commit en %2$s que aún no está en %3$s.</item>
+        <item quantity="other">Hay %1$d commits en %2$s que aún no están en %3$s.</item>
+    </plurals>
+    <string name="push_nothing">Todo lo de esta rama ya está enviado.</string>
+    <string name="push_unreadable">No se pudo leer la rama de esta carpeta.</string>
+    <string name="push_detached">Esta carpeta no está en una rama (HEAD desacoplado), así que no hay nada que enviar.</string>
+    <string name="push_no_upstream">Esta rama no tiene upstream. Define uno en tu ordenador y luego haz push desde aquí.</string>
+    <string name="push_button">Push</string>
+    <string name="push_busy">Haciendo push</string>
+    <string name="push_confirm_title">¿Enviar %1$s a %2$s?</string>
+</resources>

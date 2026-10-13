@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="agents_rename">Renommer</string>
+    <string name="agents_rename_field">Nom</string>
+    <string name="agents_rename_save">Enregistrer</string>
+    <string name="agents_template_save_title">Enregistrer un prompt</string>
+    <string name="agents_template_field">Que doit faire l’agent ?</string>
+    <string name="agents_template_message">Il apparaît avec les suggestions dans chaque nouveau chat.</string>
+    <string name="agents_template_add">Enregistrer votre propre prompt</string>
+    <string name="agents_template_yours">Votre prompt</string>
+    <string name="agents_template_remove">Retirer</string>
+    <string name="agents_attach">Joindre un fichier</string>
+    <string name="agents_attach_photos">Photothèque</string>
+    <string name="agents_attach_files">Fichiers</string>
+    <string name="agents_attach_sending">Envoi à votre ordinateur</string>
+    <string name="agents_attach_remove">Retirer</string>
+    <string name="agents_attach_too_large">Ce fichier est trop volumineux pour être envoyé depuis cet appareil (la limite est de %1$d Mo).</string>
+    <string name="agents_attach_unreadable">Cet appareil n\'a pas pu lire ce fichier.</string>
+    <string name="agents_attach_bad_name">Le nom de ce fichier ne peut pas être utilisé sur l\'ordinateur.</string>
+</resources>

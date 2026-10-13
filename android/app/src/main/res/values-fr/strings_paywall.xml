@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="plan_pro">Pro</string>
+    <string name="plan_pro_yearly">Pro, annuel</string>
+    <string name="plan_pro_note">Durée illimitée à distance, l\'image la plus nette via le relais</string>
+    <string name="plan_lifetime_note">Tout Pro, payé une seule fois</string>
+    <string name="plan_button_monthly">Continuer avec Pro · %1$s/mois</string>
+    <string name="plan_button_yearly">Continuer avec Pro · %1$s/an</string>
+    <string name="plan_button_lifetime">Prendre À vie · %1$s</string>
+    <string name="paywall_unavailable_body">Si vous vous êtes déjà abonné, la restauration devrait le récupérer. Sinon, c\'est généralement temporaire.</string>
+</resources>

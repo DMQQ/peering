@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="whatsnew_title">新機能</string>
+    <string name="whatsnew_done">了解</string>
+    <string name="whatsnew_desktops_title">デスクトップと仮想ディスプレイ</string>
+    <string name="whatsnew_desktops_detail">Appパネルからコンピュータのデスクトップを切り替えたり、スマートフォンの形のディスプレイを追加したり、長押しでウインドウを閉じたり最小化したりできます。</string>
+    <string name="whatsnew_composer_title">入力欄でコマンドとファイル</string>
+    <string name="whatsnew_composer_detail">スラッシュでコマンドとスキル、アットマークでファイルを指定できます。すべてのチャットで変更されたファイルを、1か所で確認できます。</string>
+    <string name="whatsnew_review_title">確認待ちとフォローアップ</string>
+    <string name="whatsnew_review_detail">変更されたファイルは、確認するまでエージェントのページで待機します。完了したターンは、次のステップをボタンで提案します。</string>
+    <string name="whatsnew_wake_title">コンピュータを起動</string>
+    <string name="whatsnew_wake_detail">「接続」ページのメニューから、ネットワーク上のスリープ中のコンピュータに起動パケットを送れます。</string>
+</resources>

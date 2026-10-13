@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="agents_rename">Rinomina</string>
+    <string name="agents_rename_field">Nome</string>
+    <string name="agents_rename_save">Salva</string>
+    <string name="agents_template_save_title">Salva un prompt</string>
+    <string name="agents_template_field">Cosa deve fare l’agente?</string>
+    <string name="agents_template_message">Appare con i suggerimenti in ogni nuova chat.</string>
+    <string name="agents_template_add">Salva il tuo prompt</string>
+    <string name="agents_template_yours">Il tuo prompt</string>
+    <string name="agents_template_remove">Rimuovi</string>
+    <string name="agents_attach">Allega un file</string>
+    <string name="agents_attach_photos">Libreria foto</string>
+    <string name="agents_attach_files">File</string>
+    <string name="agents_attach_sending">Invio al tuo computer</string>
+    <string name="agents_attach_remove">Rimuovi</string>
+    <string name="agents_attach_too_large">Quel file è troppo grande da inviare da questo dispositivo (il limite è %1$d MB).</string>
+    <string name="agents_attach_unreadable">Questo dispositivo non è riuscito a leggere quel file.</string>
+    <string name="agents_attach_bad_name">Il nome di quel file non può essere usato sul computer.</string>
+</resources>

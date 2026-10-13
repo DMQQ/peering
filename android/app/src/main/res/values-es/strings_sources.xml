@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sources_section_virtual">Pantallas virtuales</string>
+    <string name="sources_add_display">Añadir una pantalla</string>
+    <string name="sources_virtual_empty">No hay pantallas virtuales. Añade una para dar a tu teléfono una pantalla propia en el ordenador, con la forma de este teléfono.</string>
+    <string name="sources_desktop">Escritorio %d</string>
+    <string name="sources_desktop_here">Escritorio %d · aquí</string>
+    <string name="sources_action_close">Cerrar ventana</string>
+    <string name="sources_action_minimise">Minimizar ventana</string>
+    <string name="sources_action_zoom">Zoom de la ventana</string>
+    <string name="sources_action_remove_display">Quitar pantalla</string>
+    <string name="sources_action_rename_display">Renombrar pantalla</string>
+    <string name="sources_rename_display">Renombrar pantalla</string>
+    <string name="sources_rename_hint">Nombre</string>
+    <string name="sources_rename_save">Guardar</string>
+    <string name="sources_rename_cancel">Cancelar</string>
+</resources>

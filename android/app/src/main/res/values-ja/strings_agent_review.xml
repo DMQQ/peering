@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="review_title">確認待ち</string>
+    <plurals name="review_files">
+        <item quantity="other">%d個のファイル</item>
+    </plurals>
+    <plurals name="review_in_chats">
+        <item quantity="other">%d件のチャット内</item>
+    </plurals>
+    <plurals name="review_more_files">
+        <item quantity="other">ほかに%d個のファイル</item>
+    </plurals>
+    <string name="review_mark_all">すべて確認済みにする</string>
+    <string name="review_unmark_all">すべて未確認にする</string>
+    <string name="review_mark_reviewed">確認済み</string>
+    <string name="review_empty_title">確認するものはありません</string>
+    <string name="review_empty_body">エージェントが変更したファイルは、確認するまでここに表示されます。</string>
+    <string name="review_not_repository">このフォルダには、gitで比較できるものがありません。</string>
+    <string name="review_checking">このチャットの変更を確認しています…</string>
+</resources>

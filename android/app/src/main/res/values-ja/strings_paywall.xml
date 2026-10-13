@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="plan_pro">Pro</string>
+    <string name="plan_pro_yearly">Pro（年額）</string>
+    <string name="plan_pro_note">外出先で無制限、リレーで最もシャープな映像</string>
+    <string name="plan_lifetime_note">Proのすべてを買い切りで</string>
+    <string name="plan_button_monthly">Proで続ける · %1$s/月</string>
+    <string name="plan_button_yearly">Proで続ける · %1$s/年</string>
+    <string name="plan_button_lifetime">買い切りを購入 · %1$s</string>
+    <string name="paywall_unavailable_body">以前に購読したことがある場合は、復元すると元に戻るはずです。そうでなければ、たいていは一時的なものです。</string>
+</resources>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connect_wake">Riattiva il computer via LAN</string>
+    <string name="connect_wake_refusal_no_address">Nessun indirizzo hardware salvato. Connettiti prima una volta.</string>
+    <string name="connect_wake_refusal_awake">Quel computer è già sveglio.</string>
+    <string name="connect_wake_no_address">Per quel computer non c\'è alcun indirizzo hardware salvato, quindi non c\'è nulla a cui inviare un pacchetto di riattivazione.</string>
+    <string name="connect_wake_unreadable">L\'indirizzo hardware salvato di quel computer non è leggibile, quindi non è stato inviato alcun pacchetto di riattivazione.</string>
+    <plurals name="connect_wake_sent">
+        <item quantity="one">Pacchetto di riattivazione inviato a %d indirizzo hardware. Può raggiungere solo un computer di questa rete.</item>
+        <item quantity="other">Pacchetto di riattivazione inviato a %d indirizzi hardware. Può raggiungere solo un computer di questa rete.</item>
+    </plurals>
+    <string name="session_failed_key_changed">La chiave di questo computer è cambiata da quando lo hai abbinato. Se non te lo aspettavi, non connetterti. Per fidarti della nuova chiave, dimentica qui il computer e abbinalo di nuovo.</string>
+    <string name="session_failed_wrong_computer">Il computer che ha risposto non è quello richiesto. Dimenticalo qui e abbinalo di nuovo se è stato spostato.</string>
+    <string name="session_failed_no_pin">Questo telefono non si fida più di quel computer. Abbinalo di nuovo per connetterti.</string>
+    <string name="link_end_title">Terminare questa sessione?</string>
+    <string name="link_end_message">Un link esterno a Peering ha chiesto di disconnetterti dal tuo computer.</string>
+    <string name="link_end_confirm">Termina sessione</string>
+</resources>

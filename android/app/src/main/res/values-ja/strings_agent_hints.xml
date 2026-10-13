@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hints_nothing_matches">一致するものはありません</string>
+    <string name="hints_in_project">このプロジェクト内</string>
+    <string name="hints_looking">検索中…</string>
+    <string name="hints_nothing_starts">「%1$s」で始まるものはありません。</string>
+    <plurals name="hints_more">
+        <item quantity="other">ほかに%d件あります。続けて入力して絞り込んでください</item>
+    </plurals>
+    <string name="hints_tag_app">Peering内</string>
+    <string name="hints_tag_builtin">内蔵</string>
+    <string name="hints_tag_command">コマンド</string>
+    <string name="hints_tag_skill">スキル</string>
+    <string name="hints_usage">使用状況と上限を開く</string>
+    <string name="hints_model">モデルを選択</string>
+    <string name="hints_rename">このチャットの名前を変更</string>
+    <string name="hints_compact">会話を要約してコンテキストを空ける</string>
+    <string name="hints_clear">空のコンテキストでやり直す</string>
+    <string name="hints_this_project">このプロジェクト</string>
+    <string name="hints_yours">あなたの</string>
+    <string name="followup_review">変更を確認</string>
+    <string name="followup_tests">テストを実行</string>
+    <string name="followup_summarize">変更を要約</string>
+    <string name="agents_pane_empty_title">チャットを選択</string>
+    <string name="agents_pane_empty_body">一覧から選ぶか、新しく始めてください。</string>
+</resources>

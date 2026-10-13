@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sessions_detail">最近のセッションとリレーの利用状況。</string>
+    <string name="sessions_relay">Relay</string>
+    <string name="sessions_relay_free">無料のリレー時間</string>
+    <string name="sessions_relay_left">残り%1$s</string>
+    <string name="sessions_relay_period">過去24時間</string>
+    <string name="sessions_relay_note">使用枠は固定のセッション数ではなく、リレーの利用時間で測られます。ここに表示されるのは、このデバイスに記録されたセッションからの推定値です。</string>
+    <string name="sessions_upgrade">Proにアップグレード</string>
+    <string name="sessions_recent">最近の接続</string>
+    <string name="sessions_recent_empty">まだありません。コンピュータとペアリングすると、接続した先がここに表示されます。</string>
+    <string name="sessions_summary_sessions">セッション</string>
+    <string name="sessions_summary_connected">接続済み</string>
+    <string name="sessions_summary_received">受信</string>
+    <string name="sessions_row_detail">%1$s · %2$s · %3$s</string>
+    <string name="sessions_detail_back">セッションに戻る</string>
+    <string name="sessions_detail_connection">接続</string>
+    <string name="sessions_detail_computer">コンピュータ</string>
+    <string name="sessions_detail_path">経路</string>
+    <string name="sessions_detail_started">開始</string>
+    <string name="sessions_detail_duration">所要時間</string>
+    <string name="sessions_detail_ended">終了</string>
+    <string name="sessions_detail_received">受信</string>
+    <string name="sessions_detail_sent">送信</string>
+    <string name="sessions_detail_copy">セッションログをコピー</string>
+    <string name="sessions_detail_copied">コピーしました</string>
+    <string name="sessions_detail_log">セッションログ</string>
+    <string name="sessions_detail_log_empty">このセッションでは診断イベントが記録されていません。</string>
+    <string name="sessions_ended_user">あなたが終了しました</string>
+    <string name="sessions_ended_host">コンピュータが停止しました</string>
+    <string name="sessions_ended_lost">接続が切れました</string>
+    <string name="sessions_ended_failed">失敗しました</string>
+</resources>

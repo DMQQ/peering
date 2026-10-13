@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="time_just_now">à l\'instant</string>
+    <plurals name="time_minutes_ago">
+        <item quantity="one">il y a %d minute</item>
+        <item quantity="other">il y a %d minutes</item>
+    </plurals>
+    <plurals name="time_hours_ago">
+        <item quantity="one">il y a %d heure</item>
+        <item quantity="other">il y a %d heures</item>
+    </plurals>
+    <plurals name="time_days_ago">
+        <item quantity="one">il y a %d jour</item>
+        <item quantity="other">il y a %d jours</item>
+    </plurals>
+    <plurals name="time_minutes_ahead">
+        <item quantity="one">dans %d minute</item>
+        <item quantity="other">dans %d minutes</item>
+    </plurals>
+    <plurals name="time_hours_ahead">
+        <item quantity="one">dans %d heure</item>
+        <item quantity="other">dans %d heures</item>
+    </plurals>
+    <plurals name="time_days_ahead">
+        <item quantity="one">dans %d jour</item>
+        <item quantity="other">dans %d jours</item>
+    </plurals>
+</resources>

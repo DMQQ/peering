@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="panel_open_for_text_fields">テキストフィールドで開く</string>
+    <string name="panel_open_for_text_fields_note">コンピュータのカーソルがテキストフィールドに入るとキーボードを表示し、フィールドの内容も表示します。</string>
+    <string name="remote_chip_screenshot">スクリーンショット</string>
+    <string name="remote_screenshot_share">スクリーンショットを共有</string>
+    <string name="remote_screenshot_failed">映像を取り込めませんでした。</string>
+</resources>

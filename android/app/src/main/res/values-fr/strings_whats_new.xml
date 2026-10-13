@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="whatsnew_title">Nouveautés</string>
+    <string name="whatsnew_done">Compris</string>
+    <string name="whatsnew_desktops_title">Bureaux et écrans virtuels</string>
+    <string name="whatsnew_desktops_detail">Passez d\'un bureau de votre ordinateur à l\'autre depuis le panneau Apps, ajoutez un écran à la forme du téléphone, et fermez ou réduisez une fenêtre par un appui long.</string>
+    <string name="whatsnew_composer_title">Commandes et fichiers dans le champ de saisie</string>
+    <string name="whatsnew_composer_detail">Tapez une barre oblique pour les commandes et les skills, ou un arobase pour mentionner un fichier. Examinez tous les fichiers modifiés de vos discussions au même endroit.</string>
+    <string name="whatsnew_review_title">À relire, et suites</string>
+    <string name="whatsnew_review_detail">Les fichiers modifiés attendent sur la page Agents jusqu\'à ce que vous les ayez examinés, et un tour terminé propose son étape suivante sous forme de bouton.</string>
+    <string name="whatsnew_wake_title">Réveillez votre ordinateur</string>
+    <string name="whatsnew_wake_detail">Envoyez un paquet de réveil à un ordinateur en veille sur votre réseau depuis son menu dans la page Connexion.</string>
+</resources>

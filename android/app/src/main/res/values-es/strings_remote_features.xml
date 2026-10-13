@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="panel_open_for_text_fields">Abrir en campos de texto</string>
+    <string name="panel_open_for_text_fields_note">Sube el teclado cuando el cursor del ordenador entra en un campo de texto y muestra lo que contiene el campo.</string>
+    <string name="remote_chip_screenshot">Captura de pantalla</string>
+    <string name="remote_screenshot_share">Compartir captura</string>
+    <string name="remote_screenshot_failed">No se pudo capturar la imagen.</string>
+</resources>

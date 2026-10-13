@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sessions_detail">Letzte Sitzungen und Relay-Nutzung.</string>
+    <string name="sessions_relay">Relay</string>
+    <string name="sessions_relay_free">Kostenlose Relay-Zeit</string>
+    <string name="sessions_relay_left">%1$s übrig</string>
+    <string name="sessions_relay_period">letzte 24 Stunden</string>
+    <string name="sessions_relay_note">Dein Kontingent wird in Relay-Zeit gemessen, nicht in einer festen Zahl von Sitzungen. Was hier steht, wird anhand der auf diesem Gerät aufgezeichneten Sitzungen geschätzt.</string>
+    <string name="sessions_upgrade">Auf Pro upgraden</string>
+    <string name="sessions_recent">Letzte Verbindungen</string>
+    <string name="sessions_recent_empty">Noch nichts. Koppele einen Computer, dann erscheint hier, womit du dich verbindest.</string>
+    <string name="sessions_summary_sessions">Sitzungen</string>
+    <string name="sessions_summary_connected">Verbunden</string>
+    <string name="sessions_summary_received">Empfangen</string>
+    <string name="sessions_row_detail">%1$s · %2$s · %3$s</string>
+    <string name="sessions_detail_back">Zurück zu den Sitzungen</string>
+    <string name="sessions_detail_connection">Verbindung</string>
+    <string name="sessions_detail_computer">Computer</string>
+    <string name="sessions_detail_path">Weg</string>
+    <string name="sessions_detail_started">Gestartet</string>
+    <string name="sessions_detail_duration">Dauer</string>
+    <string name="sessions_detail_ended">Beendet</string>
+    <string name="sessions_detail_received">Empfangen</string>
+    <string name="sessions_detail_sent">Gesendet</string>
+    <string name="sessions_detail_copy">Sitzungsprotokoll kopieren</string>
+    <string name="sessions_detail_copied">Kopiert</string>
+    <string name="sessions_detail_log">Sitzungsprotokoll</string>
+    <string name="sessions_detail_log_empty">Für diese Sitzung wurden keine Diagnoseereignisse aufgezeichnet.</string>
+    <string name="sessions_ended_user">Du hast sie beendet</string>
+    <string name="sessions_ended_host">Der Computer hat sie beendet</string>
+    <string name="sessions_ended_lost">Die Verbindung ging verloren</string>
+    <string name="sessions_ended_failed">Sie ist fehlgeschlagen</string>
+</resources>

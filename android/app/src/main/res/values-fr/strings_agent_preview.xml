@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_menu">Aperçu web</string>
+    <string name="preview_title">Aperçu web</string>
+    <string name="preview_done">OK</string>
+    <string name="preview_address_hint">localhost:3000</string>
+    <string name="preview_back">Retour</string>
+    <string name="preview_reload">Recharger</string>
+    <string name="preview_start_title">Ouvrir un serveur qui tourne sur votre ordinateur</string>
+    <string name="preview_start_detail">Saisissez un port, ou choisissez-en un qui répond maintenant. Seuls localhost et 127.0.0.1 de l\'ordinateur peuvent être ouverts.</string>
+    <string name="preview_found_none">Rien trouvé sur les ports habituels</string>
+    <string name="preview_found_some">Sur l\'ordinateur maintenant</string>
+    <string name="preview_look_again">Vérifier à nouveau</string>
+    <string name="preview_port_label">:%1$d</string>
+    <string name="preview_note_live_reload">Le rechargement en direct via WebSocket n\'est pas pris en charge ici. Rechargez pour voir les changements. Les formulaires et les requêtes qui envoient des données ne le sont pas non plus.</string>
+    <string name="preview_notice_only_loopback">Seuls localhost et 127.0.0.1 peuvent être ouverts ici, avec un port.</string>
+    <string name="preview_notice_links_outside">Les liens hors de localhost ne s\'ouvrent pas ici.</string>
+    <string name="preview_try_again">Réessayer</string>
+    <string name="preview_fail_not_listening">Rien n\'écoute à cet endroit</string>
+    <string name="preview_fail_not_listening_detail">Demandez à l\'agent de démarrer le serveur, ou vérifiez le port, puis réessayez.</string>
+    <string name="preview_fail_disconnected">Non connecté à l\'ordinateur</string>
+    <string name="preview_fail_disconnected_detail">Reconnectez-vous à l\'ordinateur et réessayez.</string>
+    <string name="preview_fail_timed_out">Le serveur n\'a pas répondu</string>
+    <string name="preview_fail_timed_out_detail">La connexion a été acceptée, mais rien n\'a été renvoyé.</string>
+    <string name="preview_fail_other">La page n\'a pas pu être ouverte</string>
+    <string name="preview_fail_too_large_detail">Cette requête était trop volumineuse pour passer par l\'aperçu.</string>
+    <string name="preview_fail_not_allowed_detail">L\'aperçu ne peut ouvrir que des pages simples sur localhost.</string>
+    <string name="preview_fail_busy_detail">Trop de requêtes sont en attente. Réessayez dans un instant.</string>
+    <string name="preview_fail_failed_detail">L\'ordinateur n\'a pas pu le récupérer.</string>
+    <string name="preview_reply_not_carried">Les requêtes qui envoient des données ne sont pas prises en charge par l\'aperçu.</string>
+</resources>

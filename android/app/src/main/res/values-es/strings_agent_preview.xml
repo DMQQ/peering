@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_menu">Vista previa web</string>
+    <string name="preview_title">Vista previa web</string>
+    <string name="preview_done">Listo</string>
+    <string name="preview_address_hint">localhost:3000</string>
+    <string name="preview_back">Atrás</string>
+    <string name="preview_reload">Recargar</string>
+    <string name="preview_start_title">Abre un servidor que se ejecuta en tu ordenador</string>
+    <string name="preview_start_detail">Escribe un puerto o elige uno que esté respondiendo ahora. Solo se pueden abrir localhost y 127.0.0.1 del ordenador.</string>
+    <string name="preview_found_none">No se encontró nada en los puertos habituales</string>
+    <string name="preview_found_some">En el ordenador ahora</string>
+    <string name="preview_look_again">Revisar de nuevo</string>
+    <string name="preview_port_label">:%1$d</string>
+    <string name="preview_note_live_reload">La recarga en vivo por WebSocket no se transmite aquí. Recarga para ver los cambios. Tampoco se transmiten los formularios ni las peticiones que envían datos.</string>
+    <string name="preview_notice_only_loopback">Aquí solo se pueden abrir localhost y 127.0.0.1, con un puerto.</string>
+    <string name="preview_notice_links_outside">Los enlaces fuera de localhost no se abren aquí.</string>
+    <string name="preview_try_again">Reintentar</string>
+    <string name="preview_fail_not_listening">No hay nada escuchando ahí</string>
+    <string name="preview_fail_not_listening_detail">Pide al agente que inicie el servidor, o comprueba el puerto, y vuelve a intentarlo.</string>
+    <string name="preview_fail_disconnected">Sin conexión con el ordenador</string>
+    <string name="preview_fail_disconnected_detail">Vuelve a conectar con el ordenador e inténtalo de nuevo.</string>
+    <string name="preview_fail_timed_out">El servidor no respondió</string>
+    <string name="preview_fail_timed_out_detail">Aceptó la conexión, pero no devolvió nada.</string>
+    <string name="preview_fail_other">No se pudo abrir la página</string>
+    <string name="preview_fail_too_large_detail">Esa solicitud era demasiado grande para enviarla a través de la vista previa.</string>
+    <string name="preview_fail_not_allowed_detail">La vista previa solo puede abrir páginas simples en localhost.</string>
+    <string name="preview_fail_busy_detail">Hay demasiadas solicitudes en espera. Inténtalo de nuevo en un momento.</string>
+    <string name="preview_fail_failed_detail">El ordenador no pudo obtenerlo.</string>
+    <string name="preview_reply_not_carried">La vista previa no transmite las peticiones que envían datos.</string>
+</resources>

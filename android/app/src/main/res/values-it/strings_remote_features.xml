@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="panel_open_for_text_fields">Apri per i campi di testo</string>
+    <string name="panel_open_for_text_fields_note">Mostra la tastiera quando il cursore del computer entra in un campo di testo, e mostra ciò che il campo contiene.</string>
+    <string name="remote_chip_screenshot">Schermata</string>
+    <string name="remote_screenshot_share">Condividi screenshot</string>
+    <string name="remote_screenshot_failed">Non è stato possibile catturare l\'immagine.</string>
+</resources>

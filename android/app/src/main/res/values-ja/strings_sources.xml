@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sources_section_virtual">仮想ディスプレイ</string>
+    <string name="sources_add_display">ディスプレイを追加</string>
+    <string name="sources_virtual_empty">仮想ディスプレイはありません。追加すると、このスマートフォンの形で、コンピュータ上にスマートフォン専用の画面ができます。</string>
+    <string name="sources_desktop">デスクトップ%d</string>
+    <string name="sources_desktop_here">デスクトップ%d · ここ</string>
+    <string name="sources_action_close">ウインドウを閉じる</string>
+    <string name="sources_action_minimise">ウインドウをしまう</string>
+    <string name="sources_action_zoom">ウインドウをズーム</string>
+    <string name="sources_action_remove_display">ディスプレイを削除</string>
+    <string name="sources_action_rename_display">ディスプレイの名前を変更</string>
+    <string name="sources_rename_display">ディスプレイの名前を変更</string>
+    <string name="sources_rename_hint">名前</string>
+    <string name="sources_rename_save">保存</string>
+    <string name="sources_rename_cancel">キャンセル</string>
+</resources>

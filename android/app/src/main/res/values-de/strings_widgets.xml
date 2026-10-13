@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_connect_label">Schnellverbindung</string>
+    <string name="widget_quick_connect_description">Öffne Peering und verbinde dich mit einem deiner Computer.</string>
+    <string name="widget_quick_connect_tap">Zum Verbinden tippen</string>
+    <string name="widget_quick_connect_empty">Koppele einen Computer, dann erscheint er hier.</string>
+    <string name="widget_agents_label">Agenten</string>
+    <string name="widget_agents_description">Sieh, welcher Chat arbeitet, welcher auf dich wartet und welche fertig sind.</string>
+    <string name="widget_agents_waiting">%d warten</string>
+    <string name="widget_agents_working">%d arbeiten</string>
+    <string name="widget_agents_empty_title">Keine Chats</string>
+    <string name="widget_agents_empty_detail">Starte einen im Terminal deines Computers.</string>
+    <string name="widget_agent_waiting">Wartet auf dich</string>
+    <string name="widget_agent_working">Arbeitet</string>
+    <string name="widget_agent_finished">Fertig</string>
+    <string name="widget_agent_failed">Mit Fehler gestoppt</string>
+    <string name="widget_agent_stale">Öffne Peering zum Aktualisieren</string>
+</resources>

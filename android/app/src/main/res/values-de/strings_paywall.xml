@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="plan_pro">Pro</string>
+    <string name="plan_pro_yearly">Pro, jährlich</string>
+    <string name="plan_pro_note">Unbegrenzt unterwegs, schärfstes Bild über das Relay</string>
+    <string name="plan_lifetime_note">Alles aus Pro, einmal bezahlt</string>
+    <string name="plan_button_monthly">Weiter mit Pro · %1$s/Mo.</string>
+    <string name="plan_button_yearly">Weiter mit Pro · %1$s/Jahr</string>
+    <string name="plan_button_lifetime">Lebenslang holen · %1$s</string>
+    <string name="paywall_unavailable_body">Wenn du schon einmal abonniert hast, sollte das Wiederherstellen es zurückbringen. Sonst ist es meist nur vorübergehend.</string>
+</resources>

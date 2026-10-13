@@ -54,3 +54,23 @@ For a native speaker to review:
 - The agent prompt texts `review_prompt_intro` and `review_prompt_removed` are sent to the agent and use the informal "ты" form of the iPhone prompts for agent suggestions.
 - Search keyword lists (`panel_keywords_*`, `settings_keywords_*`) hold Russian words followed by the English ones, so searching in either language works.
 - Kept as English on purpose: key names (Enter, Escape, Home, End), Unicode, Keycode, git, diff, push, HEVC, SSH terms, Keystore.
+## de, es, fr, it, ja: strings for a native speaker to review
+
+Each of `values-de`, `values-es`, `values-fr`, `values-it`, `values-ja` has 1449 translatable entries (plurals and string-arrays included): 747 reuse the iPhone's translation from `Localizable.xcstrings` where the English matched exactly (placeholders converted from `%@`/`%lld` to `%s`/`%d`), 702 are translated fresh, following the catalog's terminology and formality (du, tú, vous, tu, です・ます). `StringResourcesTest` checks keys, placeholders, plural quantities and dashes for every locale directory.
+
+Shared decisions to confirm:
+- "computer" is generic on Android where the iPhone says "Mac": de "Computer", es "ordenador" (Spain-leaning; Latin America says "computadora"), fr "ordinateur", it "computer", ja コンピュータ.
+- Commit and push wording (de Committen/Pushen, es "hacer commit", fr Valider/Pousser, it "Commit"): `commit_button`, `commit_confirm_title`, `push_confirm_title`, `push_no_upstream`.
+- `agents_turn_tokens` (in / out), `agents_turn_cost` (currency order), `agents_active_*` and `terminal_age_*` (abbreviations in de "Min./Std./Tg.", it "g").
+- `panel_direct_probing` ("Knocking on", an idiom each language renders differently).
+- `remote_wheel_up` and `remote_wheel_down` ("Roll up one notch").
+- `faq_away_answer` names the on-screen labels LAN, RELAY, DIRECT; de "DIREKT" and fr "RELAIS" must match the labels the app shows (the app labels are currently not localised).
+- `faq_background_answer` is new Android-specific text about the foreground service, notifications and the permission.
+- `review_prompt_intro` is sent to the agent as an instruction; tone matters.
+- `settings_invite_message` in fr uses "tu" (a message to a friend) while the app uses "vous".
+- `plan_button_lifetime` uses the catalog's plan name capitalised ("De por vida", "À vie", "A vita", "Lebenslang").
+- `faq_files_answer` in ja renders the Bin as コンピュータのゴミ箱; `whatsnew_composer_detail` leaves "skills" in English in es and fr.
+- `settings_keywords_*` search word lists were chosen fresh in every language.
+- Long texts worth a full read: `legal_privacy_body`, `legal_terms_body`, `faq_*_answer`, `panel_*` explanations.
+
+Not localised on purpose: the shortcut and macro labels in `ApplicationProfiles.kt` and `QuickAction.kt` (the iPhone keeps them in English too), and error messages produced inside `core/` modules (SSH failures, video lane notes, preview HTTP reason phrases, follow-up prompts sent to agents).
