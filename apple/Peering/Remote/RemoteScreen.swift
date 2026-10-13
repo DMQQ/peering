@@ -375,10 +375,17 @@ struct RemoteScreen: View {
             if !dictation.isListeningUI { shortcutsHandle.padding(.top, -10).padding(.bottom, -6) }
             keyboardInputRow
             if !dictation.isListeningUI, !shortcutsCollapsed {
-                keyboardKeyRow
-                if !deviceIsLandscape { arrowStrip(withReturn: false) }
+                VStack(spacing: 8) {
+                    keyboardKeyRow
+                    if !deviceIsLandscape { arrowStrip(withReturn: false) }
+                }
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .top)).combined(with: .offset(y: -8)),
+                    removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .top))
+                ))
             }
         }
+        .animation(Motion.settle, value: shortcutsExpanded)
         .padding(.horizontal, 14)
         .padding(.vertical, deviceIsLandscape ? 8 : 12)
         .matchedGeometryEffect(id: "surface", in: floatingSurface)
