@@ -18,7 +18,7 @@ private fun ignore() = Unit
 private fun ignore(offer: PlanOffer) = Unit
 
 private val offers = listOf(
-    PaywallProduct(PlanOffer.MONTHLY, "monthly", "$4.99"),
+    PaywallProduct(PlanOffer.MONTHLY, "monthly", "$2.99"),
     PaywallProduct(PlanOffer.YEARLY, "yearly", "$29.99"),
     PaywallProduct(PlanOffer.LIFETIME, "lifetime", "$59.99"),
 )

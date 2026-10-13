@@ -20,8 +20,8 @@ internal object SampleFirstRun : FirstRunStore {
 
 internal object SampleBilling : PaywallBilling {
     override suspend fun products() = listOf(
-        PaywallProduct(PlanOffer.MONTHLY, "monthly", "$4.99"),
-        PaywallProduct(PlanOffer.LIFETIME, "lifetime", "$39.99"),
+        PaywallProduct(PlanOffer.MONTHLY, "monthly", "$2.99"),
+        PaywallProduct(PlanOffer.LIFETIME, "lifetime", "$24.99"),
     )
 
     override suspend fun purchase(productID: String) = PurchaseOutcome.CANCELLED
