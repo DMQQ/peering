@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dictation_start">음성 입력</string>
+    <string name="dictation_cancel">음성 입력 취소</string>
+    <string name="dictation_done">음성 입력 완료</string>
+    <string name="dictation_listening">듣는 중…</string>
+    <string name="dictation_denied">설정에서 Peering의 마이크를 켜 주세요.</string>
+    <string name="dictation_unavailable">지금은 음성 입력을 사용할 수 없습니다.</string>
+    <string name="dictation_settings">설정</string>
+    <string name="dictation_close">닫기</string>
+</resources>

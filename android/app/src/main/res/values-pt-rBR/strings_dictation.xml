@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dictation_start">Ditar</string>
+    <string name="dictation_cancel">Cancelar ditado</string>
+    <string name="dictation_done">Concluir ditado</string>
+    <string name="dictation_listening">Ouvindo…</string>
+    <string name="dictation_denied">Ative o microfone para o Peering nos Ajustes.</string>
+    <string name="dictation_unavailable">O ditado não está disponível agora.</string>
+    <string name="dictation_settings">Ajustes</string>
+    <string name="dictation_close">Fechar</string>
+</resources>

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,6 +26,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import pl.dmq.peering.R
+import pl.dmq.peering.feature.remote.dictation.DictationKey
+import pl.dmq.peering.feature.remote.dictation.DictationNotice
+import pl.dmq.peering.feature.remote.dictation.DictationOverlay
+import pl.dmq.peering.feature.remote.dictation.VoiceDictation
 import pl.dmq.peering.ui.theme.CompactKeyShape
 import pl.dmq.peering.ui.theme.KeyboardBarShape
 import pl.dmq.peering.ui.kit.SessionIcons
@@ -44,6 +49,8 @@ class KeyboardKeys(
     val onKey: (Int) -> Unit,
     val onEnter: () -> Unit,
     val onDelete: () -> Unit,
+    val dictation: VoiceDictation,
+    val onDictated: (String) -> Unit,
 )
 
 /**
@@ -52,11 +59,12 @@ class KeyboardKeys(
  */
 @Composable
 fun KeyboardBar(keys: KeyboardKeys, modifier: Modifier = Modifier, landscape: Boolean = false) {
+    DisposableEffect(keys.dictation) { onDispose(keys.dictation::cancel) }
     Column(
         modifier = modifier.fillMaxWidth().sessionSurface(KeyboardBarShape).blockTouches().padding(horizontal = 14.dp, vertical = if (landscape) 8.dp else 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        TypedLine(keys.typed)
+        TypedRow(keys)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CompactKey(SessionIcons.hideKeyboard, stringResource(R.string.remote_keyboard_hide), keys.onHide, filled = true, large = true)
             ModifierBar(keys.latches, keys.onModifier)
@@ -69,6 +77,21 @@ fun KeyboardBar(keys: KeyboardKeys, modifier: Modifier = Modifier, landscape: Bo
             CompactKey(SessionIcons.enter, stringResource(R.string.remote_key_enter), keys.onEnter, large = true)
         }
         if (!landscape) ArrowStrip(keys, Modifier.fillMaxWidth())
+    }
+}
+
+/** The line being typed with the dictation key beside it, or in its place the listening view or the reason dictation cannot start. */
+@Composable
+private fun TypedRow(keys: KeyboardKeys) {
+    val dictation = keys.dictation
+    when (dictation.state) {
+        VoiceDictation.State.Listening, VoiceDictation.State.Finishing -> DictationOverlay(dictation)
+        VoiceDictation.State.Denied -> DictationNotice(denied = true, dismiss = dictation::dismissMessage)
+        VoiceDictation.State.Unavailable -> DictationNotice(denied = false, dismiss = dictation::dismissMessage)
+        VoiceDictation.State.Idle -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TypedLine(keys.typed, Modifier.weight(1f))
+            DictationKey { dictation.start(keys.onDictated) }
+        }
     }
 }
 
@@ -85,10 +108,10 @@ private fun ArrowStrip(keys: KeyboardKeys, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun TypedLine(typed: String) {
+private fun TypedLine(typed: String, modifier: Modifier = Modifier) {
     val shape = CompactKeyShape
     Box(
-        Modifier
+        modifier
             .fillMaxWidth()
             .clip(shape)
             .background(PeeringColors.backdrop.copy(alpha = 0.55f))

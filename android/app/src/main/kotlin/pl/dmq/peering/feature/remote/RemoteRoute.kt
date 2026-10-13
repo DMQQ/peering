@@ -33,6 +33,8 @@ import pl.dmq.peering.R
 import pl.dmq.peering.feature.files.FileShare
 import pl.dmq.peering.feature.files.ShareRequest
 import pl.dmq.peering.ui.wiring.findActivity
+import pl.dmq.peering.feature.remote.dictation.VoiceDictation
+import pl.dmq.peering.feature.remote.dictation.rememberVoiceDictation
 import pl.dmq.peering.feature.settings.DevicePrefs
 import pl.dmq.peering.testing.RemoteBridge
 import pl.dmq.peering.ui.kit.LocalBorderless
@@ -67,7 +69,7 @@ fun RemoteRoute(model: RemoteModel) {
     RemoteBridge(screen, pill, actions, model.clipboard)
     RemoteBackHandler(screen)
     val pictureView = remember { PictureViewHolder() }
-    val handlers = chromeHandlers(model, screen, pill, actions, canvas, keyboard, typed, latches, presenters.follower, shareScreenshot(pictureView, scope))
+    val handlers = chromeHandlers(model, screen, pill, actions, canvas, keyboard, typed, latches, presenters.follower, rememberVoiceDictation(), shareScreenshot(pictureView, scope))
     val chrome = chromeState(state, prefs, screen, overlay, pill, canvasState.viewport.zoom)
     val panelContext = PanelContext(model, state, prefs, screen, actions, keyboard, presenters.sources, presenters.quality, customMacros, overlay)
 
@@ -263,6 +265,7 @@ private fun chromeHandlers(
     typed: String,
     latches: Map<StickyModifier, ModifierLatch>,
     follower: TextFieldFollower,
+    dictation: VoiceDictation,
     onScreenshot: () -> Unit,
 ): ChromeHandlers = ChromeHandlers(
     status = StatusActions(
@@ -305,6 +308,8 @@ private fun chromeHandlers(
         onKey = actions::sendKey,
         onEnter = keyboard::pressEnter,
         onDelete = keyboard::onSoftKeyboardDelete,
+        dictation = dictation,
+        onDictated = keyboard::onDictated,
     ),
 )
 

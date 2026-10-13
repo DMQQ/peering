@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dictation_start">音声入力</string>
+    <string name="dictation_cancel">音声入力をキャンセル</string>
+    <string name="dictation_done">音声入力を完了</string>
+    <string name="dictation_listening">聞き取り中…</string>
+    <string name="dictation_denied">設定でPeeringのマイクをオンにしてください。</string>
+    <string name="dictation_unavailable">音声入力は現在利用できません。</string>
+    <string name="dictation_settings">設定</string>
+    <string name="dictation_close">閉じる</string>
+</resources>

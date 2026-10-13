@@ -60,6 +60,9 @@ fn data_for(route: Option<PushRoute<'_>>) -> Map<String, Value> {
         data.insert("category".to_owned(), action.category.into());
         data.insert("agentSessionId".to_owned(), action.session_id.into());
         data.insert("agentApprovalId".to_owned(), action.approval_id.into());
+        if !action.options.is_empty() {
+            data.insert("agentAnswers".to_owned(), Value::String(Value::from(action.options).to_string()));
+        }
     }
     data
 }
