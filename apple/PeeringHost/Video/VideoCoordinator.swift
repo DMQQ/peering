@@ -150,13 +150,14 @@ final class VideoCoordinator: @unchecked Sendable {
               )
         else { return nil }
 
+        // Before the copy, not after: the buffer list's byte size follows `frameLength`, which starts at zero, and a copy into a list of no bytes fails with -12731. Every buffer was refused for that, so the phone never heard anything.
+        pcm.frameLength = AVAudioFrameCount(sampleCount)
         guard CMSampleBufferCopyPCMDataIntoAudioBufferList(
             sampleBuffer,
             at: 0,
             frameCount: Int32(sampleCount),
             into: pcm.mutableAudioBufferList
         ) == noErr else { return nil }
-        pcm.frameLength = AVAudioFrameCount(sampleCount)
 
         guard let channels = pcm.floatChannelData else { return nil }
         let stride = pcm.stride
