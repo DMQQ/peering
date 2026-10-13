@@ -118,6 +118,26 @@ struct LiveActivityPushPlannerTests {
         #expect(planner.observe(truth(.ended), presence: .gone, now: t0.addingTimeInterval(5)).isEmpty)
     }
 
+    @Test("a card for a phone that stays gone comes down after the dropped linger")
+    func droppedCardEnds() {
+        var planner = planner()
+        _ = planner.observe(truth(), presence: .background, now: t0)
+        let dropped = planner.observe(truth(.dropped), presence: .gone, now: t0.addingTimeInterval(5))
+        #expect(dropped.first?.event == .update)
+        #expect(planner.nextDue == t0.addingTimeInterval(5 + LiveActivityPushPlanner.droppedLinger))
+        let ended = planner.due(now: t0.addingTimeInterval(5 + LiveActivityPushPlanner.droppedLinger))
+        #expect(ended.first?.event == .end)
+    }
+
+    @Test("a phone that comes back inside the linger keeps its card")
+    func droppedCardSurvivesAReturn() {
+        var planner = planner()
+        _ = planner.observe(truth(), presence: .background, now: t0)
+        _ = planner.observe(truth(.dropped), presence: .gone, now: t0.addingTimeInterval(5))
+        _ = planner.observe(truth(), presence: .background, now: t0.addingTimeInterval(60))
+        #expect(planner.nextDue == nil)
+    }
+
     @Test("an end inside the gap waits for it, and the host stopping sends it at once")
     func endObeysGap() {
         var held = planner()

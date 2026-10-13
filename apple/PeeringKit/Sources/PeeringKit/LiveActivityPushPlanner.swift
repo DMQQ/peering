@@ -9,6 +9,8 @@ public struct LiveActivityPushPlanner: Sendable {
     public static let minimumGap: TimeInterval = 1
     /// How long a card about finished work stays up for a tap. The Mac sends the `end` at this mark and the card goes with it.
     public static let finishedLinger: TimeInterval = 30 * 60
+    /// How long a card for a phone that is gone stays up offering to reconnect. A phone that was force quit never says goodbye, so without a limit its cards sat on the Lock Screen for days.
+    public static let droppedLinger: TimeInterval = 10 * 60
 
     private struct Channel {
         var tokens: ActivityTokenPayload?
@@ -16,6 +18,8 @@ public struct LiveActivityPushPlanner: Sendable {
         var startSent = false
         /// When the headline became work that has stopped, for the linger.
         var settledSince: ContinuousClock.Instant?
+        /// When the connection was lost, for the dropped linger.
+        var droppedSince: ContinuousClock.Instant?
         /// The state each chat was last announced in, so an alert goes out once per change and not again when the phone comes back.
         var announced: [String: LiveActivityChat.State] = [:]
     }
@@ -85,8 +89,9 @@ public struct LiveActivityPushPlanner: Sendable {
             guard let token = channel.tokens?.pushToken, let last = lastPushAt[token] else { return due }
             return max(due, last.advanced(by: .seconds(Self.minimumGap)))
         }
+        let gone = channels.values.compactMap { $0.droppedSince?.advanced(by: .seconds(Self.droppedLinger)) }
         let gap = held ? lastPushAt.values.map { $0.advanced(by: .seconds(Self.minimumGap)) } : []
-        return (lingering + gap).min()
+        return (lingering + gone + gap).min()
     }
 
     /// Makes the next evaluation send the current state again, after a refusal that was nobody's fault.
@@ -111,6 +116,13 @@ public struct LiveActivityPushPlanner: Sendable {
             return []
         }
         guard let truth = latest else { return [] }
+        for kind in channels.keys {
+            if truth.phase == .dropped {
+                if channels[kind]?.droppedSince == nil { channels[kind]?.droppedSince = now }
+            } else {
+                channels[kind]?.droppedSince = nil
+            }
+        }
         return LiveActivityKind.allCases.compactMap { command(for: $0, truth: truth, now: now, ignoringGap: ignoringGap) }
     }
 
@@ -177,6 +189,9 @@ public struct LiveActivityPushPlanner: Sendable {
         channel: Channel,
         now: ContinuousClock.Instant
     ) -> LiveActivityCommand.Event? {
+        if let since = channel.droppedSince, truth.phase == .dropped, now >= since.advanced(by: .seconds(Self.droppedLinger)) {
+            return .end
+        }
         switch kind {
         case .session:
             return truth.phase == .ended ? .end : .update
