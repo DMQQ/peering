@@ -83,6 +83,8 @@ final class MacSession: Identifiable {
 
     var lastFrameSample: (count: Int, at: ContinuousClock.Instant)?
     var framesFlowingPolls = 0
+    /// Chats seen working or asking since this connection began: only those can have "finished", since an idle chat nobody ran is not news.
+    var agentChatsSeenBusy: Set<UUID> = []
 
     var isVideoStreaming = false
 

@@ -83,9 +83,15 @@ extension MacSession {
         let chats = agentSessions.compactMap { session -> AgentChatSnapshot? in
             let state: AgentChatSnapshot.State
             switch session.state {
-            case .working: state = .working
-            case .awaitingApproval: state = .needsYou
-            case .idle: state = .finished
+            case .working:
+                agentChatsSeenBusy.insert(session.id)
+                state = .working
+            case .awaitingApproval:
+                agentChatsSeenBusy.insert(session.id)
+                state = .needsYou
+            case .idle:
+                guard agentChatsSeenBusy.contains(session.id) else { return nil }
+                state = .finished
             case .failed: state = .failed
             case .exited: return nil
             }

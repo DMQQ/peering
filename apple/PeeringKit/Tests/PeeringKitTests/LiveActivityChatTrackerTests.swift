@@ -29,7 +29,8 @@ struct LiveActivityChatTrackerTests {
     func stops() {
         var tracker = LiveActivityChatTracker()
         _ = observe(&tracker, [("a", .working), ("b", .working)])
-        let chats = observe(&tracker, [("a", .idle), ("b", .failed)], at: 5)
+        _ = observe(&tracker, [("a", .idle), ("b", .failed)], at: 5)
+        let chats = observe(&tracker, [("a", .idle), ("b", .failed)], at: 16)
         #expect(Set(chats.map(\.state)) == [.finished, .failed])
     }
 
@@ -38,7 +39,8 @@ struct LiveActivityChatTrackerTests {
         var tracker = LiveActivityChatTracker()
         _ = observe(&tracker, [("a", .working), ("b", .working)])
         _ = observe(&tracker, [("a", .idle), ("b", .working)], at: 5)
-        let chats = observe(&tracker, [("a", .idle), ("b", .idle)], at: 9)
+        _ = observe(&tracker, [("a", .idle), ("b", .idle)], at: 9)
+        let chats = observe(&tracker, [("a", .idle), ("b", .idle)], at: 20)
         #expect(chats.map(\.id) == ["b", "a"])
     }
 
@@ -47,6 +49,7 @@ struct LiveActivityChatTrackerTests {
         var tracker = LiveActivityChatTracker()
         _ = observe(&tracker, [("a", .working)])
         _ = observe(&tracker, [("a", .idle)], at: 1)
+        _ = observe(&tracker, [("a", .idle)], at: 12)
         #expect(observe(&tracker, [("a", .idle)], at: 1 + 30 * 60 - 1).count == 1)
         #expect(observe(&tracker, [("a", .idle)], at: 1 + 30 * 60).isEmpty)
     }
@@ -65,5 +68,24 @@ struct LiveActivityChatTrackerTests {
         _ = observe(&tracker, [("a", .working)])
         _ = observe(&tracker, [("a", .idle)], at: 2)
         #expect(observe(&tracker, [], at: 3).isEmpty)
+    }
+
+    @Test("a turn that ends is still working until the chat stays quiet, so a CLI starting its next turn never reads as finished")
+    func holdsBeforeFinished() {
+        var tracker = LiveActivityChatTracker()
+        _ = observe(&tracker, [("a", .working)])
+        #expect(observe(&tracker, [("a", .idle)], at: 2).map(\.state) == [.working])
+        #expect(observe(&tracker, [("a", .idle)], at: 11).map(\.state) == [.working])
+        #expect(observe(&tracker, [("a", .idle)], at: 12).map(\.state) == [.finished])
+    }
+
+    @Test("work that resumes inside the hold never shows as finished")
+    func resumesInsideTheHold() {
+        var tracker = LiveActivityChatTracker()
+        _ = observe(&tracker, [("a", .working)])
+        _ = observe(&tracker, [("a", .idle)], at: 2)
+        #expect(observe(&tracker, [("a", .working)], at: 6).map(\.state) == [.working])
+        #expect(observe(&tracker, [("a", .idle)], at: 7).map(\.state) == [.working])
+        #expect(tracker.nextDue == t0.addingTimeInterval(17))
     }
 }

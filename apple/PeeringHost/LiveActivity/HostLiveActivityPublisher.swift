@@ -163,7 +163,7 @@ final class HostLiveActivityPublisher: @unchecked Sendable {
         )
         let commands = client.planner.observe(truth, presence: presence(clientID), now: now, ignoringGap: ignoringGap)
         clients[clientID] = client
-        if let due = client.planner.nextDue { schedule(clientID, at: due) }
+        if let due = [client.planner.nextDue, client.tracker.nextDue].compactMap({ $0 }).min() { schedule(clientID, at: due) }
         return commands
     }
 
