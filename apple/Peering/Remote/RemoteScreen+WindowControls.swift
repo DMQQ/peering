@@ -41,6 +41,8 @@ extension RemoteScreen {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(.leading, leading)
             .padding(.top, top)
+            // The picture's rectangle is measured from the screen's own corner, so the safe area must not move this.
+            .ignoresSafeArea()
             .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottomLeading)))
         }
     }
