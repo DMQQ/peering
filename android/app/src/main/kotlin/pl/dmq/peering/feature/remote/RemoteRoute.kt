@@ -1,6 +1,8 @@
 package pl.dmq.peering.feature.remote
 
+import android.content.res.Configuration
 import android.os.SystemClock
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -20,14 +22,22 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import kotlin.math.ln
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import pl.dmq.peering.R
+import pl.dmq.peering.feature.files.FileShare
+import pl.dmq.peering.feature.files.ShareRequest
+import pl.dmq.peering.ui.wiring.findActivity
 import pl.dmq.peering.feature.settings.DevicePrefs
 import pl.dmq.peering.testing.RemoteBridge
 import pl.dmq.peering.ui.kit.LocalBorderless
 import pl.dmq.peering.wire.MouseButton
+import pl.dmq.peering.wire.ReportDeviceOrientation
 import pl.dmq.peering.wire.SetCaptureSource
 
 /** The remote screen for a connected computer: the picture, the chrome over it, the panels, and the keyboard. */
@@ -51,18 +61,20 @@ fun RemoteRoute(model: RemoteModel) {
     state.hostName?.let { lastHostName = it }
     val overlay = sessionOverlay(state, lastHostName)
     SessionEffects(state, prefs, screen, canvas, presenters.tracker, presenters.keyboard, presenters.follower)
+    ReportOrientation(model, ready = state.hostName != null)
     val pill = rememberStatusPill(model, scope, ready = state.hostName != null)
     SessionWindow()
     RemoteBridge(screen, pill, actions, model.clipboard)
     RemoteBackHandler(screen)
-    val handlers = chromeHandlers(model, screen, pill, actions, canvas, keyboard, typed, latches, presenters.follower)
+    val pictureView = remember { PictureViewHolder() }
+    val handlers = chromeHandlers(model, screen, pill, actions, canvas, keyboard, typed, latches, presenters.follower, shareScreenshot(pictureView, scope))
     val chrome = chromeState(state, prefs, screen, overlay, pill, canvasState.viewport.zoom)
     val panelContext = PanelContext(model, state, prefs, screen, actions, keyboard, presenters.sources, presenters.quality, customMacros, overlay)
 
     CompositionLocalProvider(LocalBorderless provides true) {
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             Box(modifier = Modifier.fillMaxSize().imePadding()) {
-                RemoteCanvas(presenter = canvas, surface = model.surface, modifier = Modifier.fillMaxSize().displayCutoutPadding())
+                RemoteCanvas(presenter = canvas, surface = model.surface, pictureView = pictureView, modifier = Modifier.fillMaxSize().displayCutoutPadding())
                 val shown = ChromePolicy.cursorShown(prefs.interaction, state.pictureState, state.showsMosaic)
                 MosaicChrome(state, canvasState, canvas, presenters.sources, Modifier.fillMaxSize().displayCutoutPadding())
                 canvasState.picture?.takeIf { shown }?.let { CursorGlyph(cursor, it, Modifier.displayCutoutPadding()) }
@@ -168,6 +180,29 @@ private fun SessionEffects(
     }
 }
 
+/** Copies the picture and hands it to the system's share sheet, which also offers saving it. Stays on the phone. */
+@Composable
+private fun shareScreenshot(pictureView: PictureViewHolder, scope: CoroutineScope): () -> Unit {
+    val context = LocalContext.current
+    return {
+        scope.launch {
+            val window = context.findActivity()?.window
+            val png = window?.let { PictureShot.png(pictureView.view, it) }
+            val shared = png != null && FileShare.share(context, ShareRequest("Peering screenshot.png", png, "image/png"), context.getString(R.string.remote_screenshot_share))
+            if (!shared) Toast.makeText(context, R.string.remote_screenshot_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
+/** Tells the computer which way the phone is held, so it can shape what it sends. A host that did not declare it is not sent it. */
+@Composable
+private fun ReportOrientation(model: RemoteModel, ready: Boolean) {
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    LaunchedEffect(landscape, ready) {
+        if (ready) model.commands.send(ReportDeviceOrientation(landscape))
+    }
+}
+
 @Composable
 private fun rememberStatusPill(model: RemoteModel, scope: CoroutineScope, ready: Boolean): StatusPillPresenter {
     val pill = remember { StatusPillPresenter(scope, memory = model.statusPillMemory) }
@@ -228,11 +263,13 @@ private fun chromeHandlers(
     typed: String,
     latches: Map<StickyModifier, ModifierLatch>,
     follower: TextFieldFollower,
+    onScreenshot: () -> Unit,
 ): ChromeHandlers = ChromeHandlers(
     status = StatusActions(
         onLock = { pill.onInteraction(); actions.lock() },
         onToggleDark = { pill.onInteraction(); actions.toggleDark() },
         onToggleFill = { pill.onInteraction(); actions.toggleFill() },
+        onScreenshot = { pill.onInteraction(); onScreenshot() },
         onResetZoom = { pill.onInteraction(); canvas.fitToCanvas() },
         onImmersive = {
             pill.collapse()

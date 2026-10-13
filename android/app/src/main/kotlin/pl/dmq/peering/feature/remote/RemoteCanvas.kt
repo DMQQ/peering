@@ -34,6 +34,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 fun RemoteCanvas(
     presenter: RemoteCanvasPresenter,
     surface: SurfaceListener,
+    pictureView: PictureViewHolder,
     modifier: Modifier = Modifier,
 ) {
     val state by presenter.state.collectAsState()
@@ -55,18 +56,22 @@ fun RemoteCanvas(
                     translationY = state.viewport.panY.toFloat()
                 },
         ) {
-            state.picture?.let { PictureSurface(it, surface) }
+            state.picture?.let { PictureSurface(it, surface, pictureView) }
         }
     }
 }
 
 @Composable
-private fun PictureSurface(fit: CanvasRect, surface: SurfaceListener) {
+private fun PictureSurface(fit: CanvasRect, surface: SurfaceListener, pictureView: PictureViewHolder) {
     AndroidView(
         modifier = Modifier.placedAt(fit),
         factory = { context ->
-            SurfaceView(context).apply { holder.addCallback(PictureSurfaceCallback(surface)) }
+            SurfaceView(context).apply {
+                holder.addCallback(PictureSurfaceCallback(surface))
+                pictureView.view = this
+            }
         },
+        onRelease = { if (pictureView.view === it) pictureView.view = null },
     )
 }
 

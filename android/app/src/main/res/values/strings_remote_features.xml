@@ -2,4 +2,7 @@
 <resources>
     <string name="panel_open_for_text_fields">Open for text fields</string>
     <string name="panel_open_for_text_fields_note">Raises the keyboard when the computer\u2019s cursor lands in a text field, and shows what the field holds.</string>
+    <string name="remote_chip_screenshot">Screenshot</string>
+    <string name="remote_screenshot_share">Share screenshot</string>
+    <string name="remote_screenshot_failed">Could not capture the picture.</string>
 </resources>

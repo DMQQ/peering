@@ -70,6 +70,7 @@ class StatusActions(
     val onLock: () -> Unit,
     val onToggleDark: () -> Unit,
     val onToggleFill: () -> Unit,
+    val onScreenshot: () -> Unit,
     val onResetZoom: () -> Unit,
     val onImmersive: () -> Unit,
     val onStepAway: () -> Unit,

@@ -24,6 +24,7 @@ internal fun StatusRows(ui: StatusUi, actions: StatusActions) {
                     if (ui.darkened) SessionIcons.bright else SessionIcons.dim,
                     actions.onToggleDark,
                 ),
+                PillChipSpec(stringResource(R.string.remote_chip_screenshot), AppIcons.camera, actions.onScreenshot),
             ),
         )
         PillRow(
