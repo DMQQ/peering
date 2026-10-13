@@ -1,4 +1,5 @@
 import AppKit
+import MacCastKit
 import Network
 
 /// Calls back when this Mac wakes or its network path changes, the two moments a signalling socket is most likely to be half open.

@@ -33,6 +33,7 @@ final class HostSession: @unchecked Sendable {
         case protocolMismatch(client: UInt16, host: UInt16)
         case malformedPayload(MessageKind, any Error)
         case clientKeyMismatch(clientID: String)
+        case anotherDeviceConnected
         case commitmentMismatch
         case noPeerCertificate
         case randomFailure
@@ -51,6 +52,8 @@ final class HostSession: @unchecked Sendable {
                 "Malformed \(String(describing: kind)) payload: \(String(describing: error))"
             case .clientKeyMismatch(let clientID):
                 "A client claiming to be \(clientID) presented a different key."
+            case .anotherDeviceConnected:
+                "Another device is already connected to this Mac. Disconnect it first."
             case .commitmentMismatch:
                 "Pairing commitment did not match the revealed value."
             case .noPeerCertificate:
@@ -78,6 +81,8 @@ final class HostSession: @unchecked Sendable {
     /// What this client has pressed and not released, so leaving can release exactly that.
     var heldInput = HeldInputLedger()
 
+    /// Asks whether this client may join while others are connected: false when another device is present.
+    var admitsClient: (@Sendable (String) -> Bool)?
     /// Asks for the Mac's one unauthenticated pairing prompt; nil when granted.
     var claimPairingPrompt: (@Sendable () -> PairingGate.Refusal?)?
     /// Gives the prompt back; whether this session was holding it.

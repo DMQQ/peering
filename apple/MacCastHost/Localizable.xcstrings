@@ -1926,6 +1926,64 @@
         }
       }
     },
+    "Another device is already connected to this Mac. Disconnect it first." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein anderes Gerät ist bereits mit diesem Mac verbunden. Trenne es zuerst."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otro dispositivo ya está conectado a este Mac. Desconéctalo primero."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un autre appareil est déjà connecté à ce Mac. Déconnectez-le d'abord."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un altro dispositivo è già connesso a questo Mac. Disconnettilo prima."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "別のデバイスがすでにこの Mac に接続されています。先にそのデバイスを切断してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다른 기기가 이미 이 Mac에 연결되어 있습니다. 먼저 연결을 끊어 주세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outro dispositivo já está conectado a este Mac. Desconecte-o primeiro."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "К этому Mac уже подключено другое устройство. Сначала отключите его."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "另一台设备已连接到这台 Mac。请先断开它。"
+          }
+        }
+      }
+    },
     "Application launched but no running process was returned" : {
       "localizations" : {
         "de" : {

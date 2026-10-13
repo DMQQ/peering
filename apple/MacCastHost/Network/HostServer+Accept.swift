@@ -41,6 +41,10 @@ extension HostServer {
         )
         installRequestHandlers(on: session)
         installPairingPrompt(on: session, address: address)
+        session.admitsClient = { [weak self, weak session] clientID in
+            guard let self, let session else { return false }
+            return admitDevice(clientID: clientID, joining: session)
+        }
         installVideoHandlers(on: session, peer: peer, tunnel: tunnel)
         installLifecycleHandlers(on: session, relayBridge: tunnel?.bridge)
         connections.add(session)

@@ -51,6 +51,23 @@ extension HostServer {
         }
     }
 
+    /// One device drives the Mac at a time. A device that went quiet is replaced, so a phone that vanished does not lock the Mac for the others.
+    func admitDevice(clientID: String, joining session: HostSession) -> Bool {
+        let rivals = connections.sessions.filter { $0.isAuthorized && $0 !== session }
+        let decision = SingleDevicePolicy.decide(
+            newcomer: clientID,
+            others: rivals.map { SingleDevicePolicy.Peer(clientID: $0.clientID, silence: $0.silence) }
+        )
+        switch decision {
+        case .refuse:
+            admissionLog.notice("turned away a second device while another is connected")
+            return false
+        case .admit(let evicting):
+            rivals.filter { evicting.contains($0.clientID) }.forEach { $0.cancel() }
+            return true
+        }
+    }
+
     /// A departing client's held buttons and keys are released while another client stays; the last one out is handled by the model's full release.
     func releaseHeldInput(of session: HostSession) {
         guard connections.hasAuthorizedSession else { return }

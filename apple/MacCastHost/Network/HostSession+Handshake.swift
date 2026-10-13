@@ -85,6 +85,8 @@ extension HostSession {
             throw SessionError.clientKeyMismatch(clientID: clientID)
         }
 
+        if let admitsClient, !admitsClient(hello.clientID) { throw SessionError.anotherDeviceConnected }
+
         // Only after the key check: a client that fails it must not appear in the session
         // list, because the disconnect that follows would name a device the UI never showed.
         announce(hello, presentedKey: presentedKey)

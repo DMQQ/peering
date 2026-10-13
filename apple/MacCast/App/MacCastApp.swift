@@ -127,6 +127,10 @@ struct MacCastApp: App {
                     TerminalActivity.shared.adoptOrphan()
                     AgentChatActivity.shared.adoptOrphan()
                 }
+                // A screen that locks itself under a live remote desktop looks like a dropped connection.
+                .onChange(of: model.hasOpenSession, initial: true) { _, open in
+                    UIApplication.shared.isIdleTimerDisabled = open
+                }
                 // Coming back to the front ends the banners' relevance: a pairing prompt from last night is a claim about the past.
                 .onChange(of: scenePhase, initial: true) { _, phase in
                     switch phase {
