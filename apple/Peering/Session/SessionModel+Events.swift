@@ -49,6 +49,7 @@ extension SessionModel {
                 isResuming = true
                 reconnect(session, to: .discovered(host))
             }
+            considerLANUpgrade()
             self.resumeIfNeeded()
             browseStatus = hosts.isEmpty
                 ? String(localized: "No Macs found yet. Make sure Peering is running on your Mac and on the same network, or pair with a Mac that is not on your network.")

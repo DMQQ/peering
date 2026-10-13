@@ -31,7 +31,10 @@ extension SessionModel {
             self?.sessions.contains { $0.isResumingAfterDrop } ?? false
         }
         watcher.onUsableChange = { [weak self] in self?.networkChanged() }
-        watcher.onPathChange = { [weak self] in self?.verifyLiveSessions() }
+        watcher.onPathChange = { [weak self] in
+            self?.verifyLiveSessions()
+            self?.considerLANUpgrade()
+        }
         networkWatcher = watcher
         watcher.start()
     }
