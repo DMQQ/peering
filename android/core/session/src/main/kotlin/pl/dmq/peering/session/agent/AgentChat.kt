@@ -72,6 +72,18 @@ class AgentChat(
     fun approve(approvalID: String, answer: ApprovalAnswer) =
         ifDeclared(capabilities.chat) { commit(AgentChatIntents.approve(mutableState.value, approvalID, answer)) }
 
+    /**
+     * Answers an ask in any chat, not only the selected one, for a notification button. False when the chat or the ask is
+     * gone: it was answered on the computer or another phone, and sending would only be ignored.
+     */
+    fun answer(sessionID: String, approvalID: String, answer: ApprovalAnswer): Boolean {
+        if (!capabilities.chat) return false
+        val session = mutableState.value.session(sessionID) ?: return false
+        val request = answerRequest(sessionID, pendingApprovals(session.transcript.rows), approvalID, answer) ?: return false
+        send(request)
+        return true
+    }
+
     fun interrupt() = ifDeclared(capabilities.chat) { mutableState.value.selectedSessionID?.let { send(AgentRequest.Interrupt(it)) } }
 
     fun close() = ifDeclared(capabilities.chat) { mutableState.value.selectedSessionID?.let { send(AgentRequest.Close(it)) } }
