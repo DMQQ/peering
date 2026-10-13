@@ -98,8 +98,13 @@ a step in `apple/Tools/check.sh`).
 
 Install the release APK (`android/tools/README.md`), then:
 - [ ] Network change: start a relay session, join the home Wi-Fi, it should move to LAN. Wi-Fi to Wi-Fi counts too.
-- [ ] Background and return: the session ends in the background by design (30 s silence limit away); returning retries
+- [ ] Background and return: with "Keep sessions in the background" on, the session stays up behind the ongoing
+      notification and the Mac pauses the picture; with it off the session may end after 30 s away and returning retries
       once and pings the host at once after a network move.
+- [ ] Background service and notices (Android): screen off for several minutes, over Wi-Fi and over the relay; the
+      notification's Disconnect and tap; Allow/Deny from the lock screen (Allow asks to unlock); a terminal password
+      prompt; an agent finishing; notices vanish on return; denying POST_NOTIFICATIONS leaves the session working; try an
+      aggressive OEM battery setting (Xiaomi, Samsung, OnePlus) and see whether the service survives.
 - [ ] Widgets (Quick Connect and Agents): add both, tap to connect and open an agent. A tap needs the per-install nonce
       (a forged link from another app is ignored); with the app lock on a tap waits for unlock.
 - [ ] Invites in Settings: expect an error until the relay is redeployed (the live relay does not know `referralStatus`).
@@ -148,8 +153,11 @@ Install the release APK (`android/tools/README.md`), then:
 
 ## Open items I could not or did not do
 
-- Android: the session core still parses on the Main thread (needs a threading redesign); no foreground service, so a
-  session ends in the background; a micro benchmark guards the per frame cost.
+- Android: the session core still parses on the Main thread (needs a threading redesign); a micro benchmark guards the
+  per frame cost.
+- Android follow-up: push when the app is fully closed (FCM through the relay: the host's push to a registered token
+  with the approval and finished categories, as for the iPhone's APNs), and Reply/Continue buttons on the finished
+  notice. Terminal "command finished" notices need the host to send a finished event the wire does not carry yet.
 - Windows: terminal and agent snapshot sizes are not capped.
 - Receipts bound to the device (`appAccountToken`), see section 6.
 - An older branch `worktree-agent-a88300f4d9d3cd81e` (two plans with Lifetime, 4 Oct) is unmerged and not part of this work.

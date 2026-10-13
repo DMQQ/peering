@@ -34,16 +34,27 @@ permissions when asked. For the relay path no network setup is needed.
 
 ## Sessions and the background
 
-A session lasts while the app is on screen. Peering has no foreground service, so Android may stop the connection of an
-app that is in the background (Doze, app standby, battery limits). The app copes in three ways:
+While a session is open (connecting, ready or reconnecting) a foreground service of type `specialUse`
+(`background/SessionKeepAliveService.kt`) holds the process, behind a low-priority ongoing notification that names the
+computer, returns to the session when tapped and has a Disconnect button. The service starts while the app is on screen
+(Android refuses to start one from the background) and stops when the session ends. The Settings row "Keep sessions in
+the background" turns it off.
 
-* While the process is backgrounded the host may stay silent for 30 s instead of 3 s before the link counts as lost.
-* A session lost while the app was away is started once more when the app returns to the foreground. A second failure is
-  shown to the user, who taps the computer to connect again.
-* The FAQ tells the user this (Troubleshooting, "What happens when I leave the app?").
+* The phone tells the host it is in the background (`clientState`, only to a host that declared `supportsClientState`),
+  so the Mac pauses the picture, and the host may stay silent for 30 s instead of 3 s before the link counts as lost.
+* With the service off, or when Android refuses to start it, Android may stop the connection of a backgrounded app (Doze,
+  app standby, battery limits). A session lost while the app was away is started once more when the app returns, and a
+  second failure is shown to the user.
+* While away, local notifications (channels Approval requests, Terminal prompts, Agent finished) say that an agent needs
+  approval (with Allow and Deny, or the answers of a one-question ask, as buttons), that a terminal waits for a password
+  or confirmation, or that an agent finished. They are retracted when the app returns or the ask is answered elsewhere.
+  The planner is `core/session/.../notices/BackgroundNotices.kt`; `background/` is the thin Android side.
+* POST_NOTIFICATIONS (Android 13+) is asked for after a one-time explanation when the first session starts, and again from
+  the Settings "Notifications" toggle (which opens the system settings after a refusal). Without it the service still
+  runs and no notices are shown.
 
-A foreground service was left out on purpose: it needs a persistent notification and a Play policy declaration, and a
-phone remote that keeps a connection open for hours in a pocket is not the use it is built for.
+Play Console needs a foreground service declaration for `specialUse`; the manifest property carries the justification.
+Push while the app is fully closed (FCM through the relay) is not built, see `docs/TODO.md`.
 
 ## First run against a Mac host
 
