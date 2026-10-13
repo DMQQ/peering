@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sources_section_virtual">Виртуальные дисплеи</string>
+    <string name="sources_add_display">Добавить дисплей</string>
+    <string name="sources_virtual_empty">Виртуальных дисплеев нет. Добавьте один, чтобы дать телефону собственный экран на компьютере, по форме этого телефона.</string>
+    <string name="sources_desktop">Рабочий стол %d</string>
+    <string name="sources_desktop_here">Рабочий стол %d · здесь</string>
+    <string name="sources_action_close">Закрыть окно</string>
+    <string name="sources_action_minimise">Свернуть окно</string>
+    <string name="sources_action_zoom">Развернуть окно</string>
+    <string name="sources_action_remove_display">Удалить дисплей</string>
+    <string name="sources_action_rename_display">Переименовать дисплей</string>
+    <string name="sources_rename_display">Переименовать дисплей</string>
+    <string name="sources_rename_hint">Имя</string>
+    <string name="sources_rename_save">Сохранить</string>
+    <string name="sources_rename_cancel">Отмена</string>
+</resources>

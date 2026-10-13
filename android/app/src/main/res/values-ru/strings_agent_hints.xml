@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hints_nothing_matches">Ничего не найдено</string>
+    <string name="hints_in_project">В этом проекте</string>
+    <string name="hints_looking">Поиск…</string>
+    <string name="hints_nothing_starts">Ничего не начинается с «%1$s».</string>
+    <plurals name="hints_more">
+        <item quantity="one">Ещё %d, продолжайте вводить, чтобы сузить</item>
+        <item quantity="few">Ещё %d, продолжайте вводить, чтобы сузить</item>
+        <item quantity="many">Ещё %d, продолжайте вводить, чтобы сузить</item>
+        <item quantity="other">Ещё %d, продолжайте вводить, чтобы сузить</item>
+    </plurals>
+    <string name="hints_tag_app">В Peering</string>
+    <string name="hints_tag_builtin">Встроенные</string>
+    <string name="hints_tag_command">Команда</string>
+    <string name="hints_tag_skill">Навык</string>
+    <string name="hints_usage">Открыть использование и лимиты</string>
+    <string name="hints_model">Выбрать модель</string>
+    <string name="hints_rename">Переименовать этот чат</string>
+    <string name="hints_compact">Сжать беседу, чтобы освободить контекст</string>
+    <string name="hints_clear">Начать заново с пустым контекстом</string>
+    <string name="hints_this_project">Этот проект</string>
+    <string name="hints_yours">Ваши</string>
+    <string name="followup_review">Проверить изменения</string>
+    <string name="followup_tests">Запустить тесты</string>
+    <string name="followup_summarize">Кратко описать изменения</string>
+    <string name="agents_pane_empty_title">Выберите чат</string>
+    <string name="agents_pane_empty_body">Выберите чат из списка или начните новый.</string>
+</resources>

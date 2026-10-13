@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="review_title">На проверку</string>
+    <plurals name="review_files">
+        <item quantity="one">%d файл</item>
+        <item quantity="few">%d файла</item>
+        <item quantity="many">%d файлов</item>
+        <item quantity="other">%d файла</item>
+    </plurals>
+    <plurals name="review_in_chats">
+        <item quantity="one">в %d чате</item>
+        <item quantity="few">в %d чатах</item>
+        <item quantity="many">в %d чатах</item>
+        <item quantity="other">в %d чатах</item>
+    </plurals>
+    <plurals name="review_more_files">
+        <item quantity="one">ещё %d файл</item>
+        <item quantity="few">ещё %d файла</item>
+        <item quantity="many">ещё %d файлов</item>
+        <item quantity="other">ещё %d файла</item>
+    </plurals>
+    <string name="review_mark_all">Отметить все проверенными</string>
+    <string name="review_unmark_all">Снять отметку со всех</string>
+    <string name="review_mark_reviewed">Проверено</string>
+    <string name="review_empty_title">Нечего проверять</string>
+    <string name="review_empty_body">Файлы, которые изменят ваши агенты, будут появляться здесь, пока вы их не просмотрите.</string>
+    <string name="review_not_repository">В этой папке git нечего сравнивать.</string>
+    <string name="review_checking">Проверка изменений этого чата…</string>
+</resources>

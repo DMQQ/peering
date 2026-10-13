@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="changes_menu">Изменения</string>
+    <string name="changes_title">Изменения</string>
+    <string name="changes_close">Закрыть</string>
+    <string name="changes_back">Назад к файлам</string>
+    <string name="changes_refresh">Обновить</string>
+    <string name="changes_none">Нет изменений</string>
+    <plurals name="changes_count">
+        <item quantity="one">%d изменённый файл</item>
+        <item quantity="few">%d изменённых файла</item>
+        <item quantity="many">%d изменённых файлов</item>
+        <item quantity="other">%d изменённого файла</item>
+    </plurals>
+    <string name="changes_truncated">Проект большой, поэтому показана только его часть.</string>
+    <string name="changes_waiting">Запрос к вашему компьютеру</string>
+    <string name="changes_empty">В этой папке пока ничего не изменилось.</string>
+    <string name="changes_kind_modified">Изменён</string>
+    <string name="changes_kind_added">Добавлено</string>
+    <string name="changes_kind_deleted">Удалён</string>
+    <string name="changes_kind_untracked">Новый, git пока не отслеживает</string>
+    <string name="changes_no_diff">Для этого файла нет текстового диффа.</string>
+    <string name="changes_comment_file">Комментировать файл</string>
+    <string name="changes_comment_hint">Комментарий</string>
+    <string name="changes_comment_add">Добавить</string>
+    <string name="changes_comment_cancel">Отмена</string>
+    <string name="changes_comment_remove">Удалить комментарий</string>
+    <plurals name="changes_send_comments">
+        <item quantity="one">Отправить %d комментарий агенту</item>
+        <item quantity="few">Отправить %d комментария агенту</item>
+        <item quantity="many">Отправить %d комментариев агенту</item>
+        <item quantity="other">Отправить %d комментария агенту</item>
+    </plurals>
+    <string name="changes_commented">Комментариев к этому файлу: %d</string>
+
+    <string name="review_prompt_intro">Пожалуйста, учти эти замечания к твоим изменениям.</string>
+    <string name="review_prompt_removed">(строка удалена этим изменением)</string>
+    <plurals name="review_prompt_left_out">
+        <item quantity="one">Ещё %d комментарий не поместился и не включён.</item>
+        <item quantity="few">Ещё %d комментария не поместились и не включены.</item>
+        <item quantity="many">Ещё %d комментариев не поместились и не включены.</item>
+        <item quantity="other">Ещё %d комментария не поместились и не включены.</item>
+    </plurals>
+
+    <string name="commit_title">Коммит</string>
+    <string name="commit_files">Файлы для включения</string>
+    <string name="commit_none">В этой папке ничего не изменилось.</string>
+    <string name="commit_message">Сообщение коммита</string>
+    <plurals name="commit_button">
+        <item quantity="one">Закоммитить %d файл</item>
+        <item quantity="few">Закоммитить %d файла</item>
+        <item quantity="many">Закоммитить %d файлов</item>
+        <item quantity="other">Закоммитить %d файла</item>
+    </plurals>
+    <string name="commit_busy">Создание коммита</string>
+    <string name="commit_this_folder">этой папке</string>
+    <plurals name="commit_confirm_title">
+        <item quantity="one">Закоммитить %1$d файл в %2$s?</item>
+        <item quantity="few">Закоммитить %1$d файла в %2$s?</item>
+        <item quantity="many">Закоммитить %1$d файлов в %2$s?</item>
+        <item quantity="other">Закоммитить %1$d файла в %2$s?</item>
+    </plurals>
+    <string name="commit_confirm">Закоммитить</string>
+    <string name="commit_done">Закоммичено</string>
+    <string name="commit_failed">Коммит не выполнен</string>
+    <string name="push_done">Запушено</string>
+    <string name="push_failed">Отправка (push) не выполнена</string>
+    <string name="push_title">Push</string>
+    <plurals name="push_ready">
+        <item quantity="one">%1$d коммит из %2$s ещё не в %3$s.</item>
+        <item quantity="few">%1$d коммита из %2$s ещё не в %3$s.</item>
+        <item quantity="many">%1$d коммитов из %2$s ещё не в %3$s.</item>
+        <item quantity="other">%1$d коммита из %2$s ещё не в %3$s.</item>
+    </plurals>
+    <string name="push_nothing">Всё в этой ветке уже отправлено.</string>
+    <string name="push_unreadable">Не удалось прочитать ветку этой папки.</string>
+    <string name="push_detached">Эта папка не на ветке (detached HEAD), поэтому отправлять нечего.</string>
+    <string name="push_no_upstream">У этой ветки нет upstream. Задайте его на компьютере, затем отправляйте отсюда.</string>
+    <string name="push_button">Push</string>
+    <string name="push_busy">Отправка (push)</string>
+    <string name="push_confirm_title">Отправить %1$s в %2$s?</string>
+</resources>

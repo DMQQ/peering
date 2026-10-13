@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_menu">Веб-превью</string>
+    <string name="preview_title">Веб-превью</string>
+    <string name="preview_done">Готово</string>
+    <string name="preview_address_hint">localhost:3000</string>
+    <string name="preview_back">Назад</string>
+    <string name="preview_reload">Перезагрузить</string>
+    <string name="preview_start_title">Откройте сервер, запущенный на вашем компьютере</string>
+    <string name="preview_start_detail">Введите порт или выберите тот, что отвечает сейчас. Открыть можно только localhost и 127.0.0.1 на компьютере.</string>
+    <string name="preview_found_none">На обычных портах ничего не найдено</string>
+    <string name="preview_found_some">Сейчас на компьютере</string>
+    <string name="preview_look_again">Проверить ещё раз</string>
+    <string name="preview_port_label">:%1$d</string>
+    <string name="preview_note_live_reload">Живая перезагрузка через WebSocket здесь не передаётся. Перезагрузите страницу, чтобы увидеть изменения. Формы и запросы, отправляющие данные, тоже не передаются.</string>
+    <string name="preview_notice_only_loopback">Здесь можно открыть только localhost и 127.0.0.1 с указанием порта.</string>
+    <string name="preview_notice_links_outside">Ссылки за пределами localhost здесь не открываются.</string>
+    <string name="preview_try_again">Повторить</string>
+    <string name="preview_fail_not_listening">Там ничего не слушает</string>
+    <string name="preview_fail_not_listening_detail">Попросите агента запустить сервер или проверьте порт, затем повторите попытку.</string>
+    <string name="preview_fail_disconnected">Нет подключения к компьютеру</string>
+    <string name="preview_fail_disconnected_detail">Подключитесь к компьютеру снова и повторите попытку.</string>
+    <string name="preview_fail_timed_out">Сервер не ответил</string>
+    <string name="preview_fail_timed_out_detail">Соединение принято, но ответа не последовало.</string>
+    <string name="preview_fail_other">Не удалось открыть страницу</string>
+    <string name="preview_fail_too_large_detail">Этот запрос слишком велик, чтобы отправить его через предпросмотр.</string>
+    <string name="preview_fail_not_allowed_detail">Предпросмотр открывает только обычные страницы на localhost.</string>
+    <string name="preview_fail_busy_detail">Слишком много запросов в очереди. Повторите попытку чуть позже.</string>
+    <string name="preview_fail_failed_detail">Компьютеру не удалось это загрузить.</string>
+    <string name="preview_reply_not_carried">Запросы, отправляющие данные, превью не передаёт.</string>
+</resources>
