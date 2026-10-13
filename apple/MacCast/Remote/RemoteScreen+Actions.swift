@@ -37,6 +37,7 @@ extension RemoteScreen {
     }
 
     func sendJoystick(_ travel: CGSize) {
+        lastJoystickInput = MonotonicStamp()
         // The speed multiplies the travel here rather than at the joystick, so the drawn cursor
         // and the Mac's pointer are advanced by the same amount. Scaling one and not the other
         // is exactly the drift where the arrow on screen stops agreeing with the thing clicking.
@@ -53,6 +54,26 @@ extension RemoteScreen {
         // screen edge while the thumb keeps pushing. The next touch corrects it, because a touch
         // is absolute.
         advanceClientCursor(by: scaled)
+    }
+
+    /// A report is one round trip old, so mid-drag it would pull the drawn cursor back to where the Mac was. It is applied once the joystick has been quiet, and the latest report is read then.
+    func adoptHostPointer() {
+        pointerSyncTask?.cancel()
+        let quietPeriod = 0.35
+        guard let last = lastJoystickInput, last.isWithin(seconds: quietPeriod) else {
+            remoteCursor = model.hostPointer.point
+            return
+        }
+        let remaining = quietPeriod - last.elapsedSeconds()
+        pointerSyncTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(max(remaining, 0.05)))
+            guard !Task.isCancelled else { return }
+            if let last = lastJoystickInput, last.isWithin(seconds: quietPeriod) {
+                adoptHostPointer()
+            } else {
+                remoteCursor = model.hostPointer.point
+            }
+        }
     }
 
     func advanceClientCursor(by travel: CGSize) {

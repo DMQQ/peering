@@ -20,6 +20,8 @@ struct RemoteScreen: View {
     @State var pan: CGSize = .zero
     @State var canvasSize: CGSize = .zero
     @State var remoteCursor = NormalizedPoint(x: 0.5, y: 0.5)
+    @State var lastJoystickInput: MonotonicStamp?
+    @State var pointerSyncTask: Task<Void, Never>?
     @AppStorage(PreferenceKeys.hidesPanelAfterSelect) var hidesPanelAfterSelect = true
 
     @State var showsLandscapeHint = false
@@ -230,7 +232,7 @@ struct RemoteScreen: View {
         // A hidden panel reports nothing, so its last frame would go on blocking touches in a
         // region that no longer has anything in it.
         .onChange(of: model.hostPointer) { _, reported in
-            remoteCursor = reported.point
+            adoptHostPointer()
         }
         .onChange(of: model.phase, initial: true) { _, phase in
             guard phase == .ready else {
