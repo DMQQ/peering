@@ -119,6 +119,10 @@ pub fn video_abandoned(seconds: f64) -> String {
     format!("The video encoder did not answer for {seconds:.0} s, so the host dropped it and is starting the screen capture again. If this repeats, update the graphics driver.")
 }
 
+pub fn audio_unavailable(reason: &str) -> String {
+    format!("The PC's sound cannot be captured, so the phone hears nothing: {reason}")
+}
+
 pub fn capture_recovering(reason: &str) -> String {
     format!("Screen capture failed ({reason}). The host is trying again.")
 }

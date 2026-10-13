@@ -1,5 +1,6 @@
 //! Traits the host core calls out through. `peering-platform` implements them per OS; `fakes` implements them for tests.
 
+pub mod audio;
 pub mod capture;
 pub mod clipboard;
 pub mod clock;

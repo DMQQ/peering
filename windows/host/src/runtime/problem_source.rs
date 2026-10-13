@@ -7,6 +7,7 @@ pub enum ProblemSource {
     Terminals,
     Agents,
     Pointer,
+    Audio,
     Hooks,
     Settings,
     Relay,

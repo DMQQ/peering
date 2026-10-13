@@ -33,5 +33,6 @@ pub(super) fn slot(client_id: &str) -> SessionSlot {
         lane: VideoLane::new([0; 16]),
         background: false,
         client_flags: ClientCapabilities::default(),
+        audio: Default::default(),
     }
 }

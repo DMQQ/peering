@@ -266,6 +266,7 @@ fn harness_with(
         agent_binaries,
         clipboard: clipboard.clone(),
         file_disk: Box::new(disk.clone()),
+        extras: Default::default(),
     };
     let profile = HostProfile {
         host_id: HOST_ID.to_owned(),

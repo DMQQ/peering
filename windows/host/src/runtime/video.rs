@@ -4,6 +4,7 @@
 use peering_core::notice::notice_frame;
 use peering_core::video::coordinator::CaptureCondition;
 use peering_core::video::intent::VideoIntent;
+use peering_core::video::lane::LaneSend;
 use peering_wire::handshake::NoticePayload;
 use peering_core::ports::capture::DisplayInfo;
 use peering_core::ports::input::TransformSnapshot;
@@ -13,7 +14,7 @@ use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::source::{CaptureCatalog, CaptureSource};
 
 use super::outbound::FrameSender;
-use super::shared::HostState;
+use super::shared::{HostState, SessionSlot};
 use super::video_handle::VideoHandle;
 
 const CATALOGUE_CHECK_SECONDS: f64 = 1.0;
@@ -161,6 +162,22 @@ impl HostState {
         };
         let frame = notice_frame(&payload);
         self.sessions.values().map(|slot| Outgoing { to: slot.outbound.clone(), frame: frame.clone() }).collect()
+    }
+}
+
+/// Turns what a lane produced into the frames to write, onto the session's video connection when it has one.
+pub fn queue_sends(slot: &SessionSlot, sends: Vec<LaneSend>, outgoing: &mut Vec<Outgoing>) {
+    let to = slot.video_outbound.clone().unwrap_or_else(|| slot.outbound.clone());
+    for send in sends {
+        match send {
+            LaneSend::ControlFrames(frames) => outgoing.extend(frames.into_iter().map(|frame| Outgoing { to: to.clone(), frame })),
+            LaneSend::Datagram(bytes) => {
+                // Only a session with a relayed lane is granted a key, so its lane task is there to send it.
+                if let Some(datagrams) = &slot.datagram_outbound {
+                    let _queued = datagrams.send(bytes);
+                }
+            }
+        }
     }
 }
 

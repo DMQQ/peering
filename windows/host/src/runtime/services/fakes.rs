@@ -15,7 +15,7 @@ use super::adapters::Adapters;
 use crate::runtime::disk::StdDisk;
 use crate::runtime::files::DiskFileSystem;
 use peering_core::ports::recycle::NoRecycleBin;
-use crate::runtime::{RuntimeError, TerminalServices};
+use crate::runtime::{HostExtras, RuntimeError, TerminalServices};
 
 pub fn build() -> Result<Adapters, RuntimeError> {
     Ok(Adapters {
@@ -34,5 +34,6 @@ pub fn build() -> Result<Adapters, RuntimeError> {
         rebuild_video: Arc::new(|| (Box::new(FakeCapture::new(Vec::new())), Box::new(FakeEncoder::default()))),
         clipboard: Arc::new(MemoryClipboard::default()),
         file_disk: Box::new(StdDisk::new(Box::new(NoRecycleBin), Vec::new(), None)),
+        extras: HostExtras::default(),
     })
 }

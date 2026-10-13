@@ -12,6 +12,7 @@ mod agent;
 mod agent_gate;
 mod agent_browse;
 mod agent_pump;
+mod audio;
 mod clipboard;
 mod clock;
 mod config;
@@ -67,7 +68,7 @@ pub use config::{RelayConfig, RuntimeConfig};
 pub use error::RuntimeError;
 pub use profile::{HostProfile, PeerInfo, VideoEndpoint};
 pub use control::{ApprovalView, DeviceView, HostHandle, HostSnapshot, OfferView, RelayStatus, RuntimeCommand};
-pub use services::{platform_services, HostServices, RebuildVideo, TerminalServices};
+pub use services::{platform_services, HostExtras, HostServices, RebuildVideo, TerminalServices};
 
 use control::ControlChannel;
 use peer_address::PeerAddressRouter;

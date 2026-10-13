@@ -1,7 +1,7 @@
 use super::*;
 use peering_wire::chunks::{Reassembler, CONTROL_CHUNK_SIZE, HEADER_SIZE};
 use peering_wire::sealing::{Opener, Sealer, MAX_DATAGRAM_SIZE};
-use peering_wire::video::{EncodedVideoFrame, VideoCodec, VideoStreamConfig, VideoTimestamp};
+use peering_wire::video::{AudioStreamConfig, EncodedAudioFrame, EncodedVideoFrame, VideoCodec, VideoStreamConfig, VideoTimestamp};
 
 const TOKEN: [u8; TOKEN_SIZE] = [7; TOKEN_SIZE];
 const SECRET_BYTE: u8 = 0x11;
@@ -279,4 +279,46 @@ fn the_shared_encoder_takes_the_lowest_ceiling_any_session_needs() {
 fn no_ceiling_applies_when_no_session_asks_for_one() {
     assert_eq!(lowest_ceiling_kbps([None, None]), None);
     assert_eq!(lowest_ceiling_kbps(std::iter::empty()), None);
+}
+
+fn sound() -> EncodedAudioFrame {
+    EncodedAudioFrame {
+        sample_count: 960,
+        channel_count: 2,
+        presentation_time: VideoTimestamp { value: 0, timescale: 48_000 },
+        samples: vec![0; 960 * 2 * 4],
+    }
+}
+
+#[test]
+fn sound_goes_whole_on_the_control_connection_before_a_key_exists() {
+    let mut lane = VideoLane::new(TOKEN);
+    let config = lane.send_audio_config(&crate::audio::output_config()).unwrap();
+    let frame = lane.send_audio(&sound()).unwrap();
+    let pieces = control_pieces(&config);
+    assert_eq!(pieces[0].kind, MessageKind::AudioConfig);
+    assert_eq!(serde_json::from_slice::<AudioStreamConfig>(&pieces[0].payload).unwrap(), crate::audio::output_config());
+    let pieces = control_pieces(&frame);
+    assert_eq!((pieces.len(), pieces[0].kind), (1, MessageKind::AudioFrame));
+    assert_eq!(pieces[0].payload, sound().encode());
+}
+
+#[test]
+fn sound_is_sealed_on_the_datagram_lane_once_keyed() {
+    let mut lane = keyed_lane();
+    let mut sends = lane.send_audio_config(&crate::audio::output_config()).unwrap();
+    sends.extend(lane.send_audio(&sound()).unwrap());
+    let opened = open_all(&mut client_opener(), &sends);
+    assert_eq!(opened.iter().map(|frame| frame.kind).collect::<Vec<_>>(), vec![MessageKind::AudioConfig, MessageKind::AudioFrame]);
+    assert_eq!(opened[1].payload, sound().encode());
+}
+
+#[test]
+fn sound_on_the_fallback_lane_is_not_probed_on_the_primary_lane() {
+    let mut lane = keyed_lane();
+    lane.send(&video(true, 100), 1.0).unwrap();
+    lane.handle_transport_request(&request(VideoTransportKind::Control), 1.5);
+    let sends = lane.send_audio(&sound()).unwrap();
+    assert!(datagrams(&sends).is_empty());
+    assert_eq!(control_pieces(&sends).len(), 1, "one 7.7 KB frame fits one 16 KiB piece");
 }

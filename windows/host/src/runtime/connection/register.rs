@@ -63,6 +63,7 @@ impl Connection {
                 lane: VideoLane::new(video_token),
                 background: false,
                 client_flags: self.client_flags.clone(),
+                audio: Default::default(),
             },
         );
         state.refresh_keep_awake();

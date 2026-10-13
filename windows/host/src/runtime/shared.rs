@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use peering_agent::availability::AgentAvailability;
 use peering_agent::manager::ClientAgents;
+use peering_core::audio::AudioDelivery;
 use peering_core::catalogue::{CatalogueService, SessionCatalogue};
 use peering_core::files::browse::FileBrowser;
 use peering_core::notice::NoticeTracker;
@@ -31,6 +32,7 @@ use super::diagnostics;
 use super::file_writer::FileWriter;
 use super::lock::{lock_clearing_poison, lock_ignoring_poison};
 use super::agent::StdLauncher;
+use super::audio::AudioPipeline;
 use super::agent_browse::FolderBrowser;
 use super::notifications::WaitingNotifications;
 use super::outbound::{FrameSender, Outbound};
@@ -56,6 +58,7 @@ pub struct SessionSlot {
     /// The phone reported it left the foreground, so nothing is sent to it until it returns.
     pub background: bool,
     pub client_flags: ClientCapabilities,
+    pub audio: AudioDelivery,
 }
 
 impl SessionSlot {
@@ -96,6 +99,7 @@ pub struct HostState {
     /// Whether the PC is being kept awake for the phones connected now.
     pub keeping_awake: bool,
     pub pointer: PointerTracker,
+    pub audio: AudioPipeline,
     pub settings: HostSettings,
     pub settings_saver: SettingsSaver,
     /// The hook broker while Claude Code hooks are on, which a phone's Allow or Deny is offered to first.

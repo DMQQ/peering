@@ -6,6 +6,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use peering_agent::availability::BinaryLocator;
 use peering_core::files::disk::DiskOps;
 use peering_core::files::vfs::{FileSystem, FsError, RawEntry};
+use peering_core::fakes::audio::SilentAudio;
+use peering_core::ports::audio::AudioSource;
 use peering_core::ports::clipboard::Clipboard;
 use peering_core::ports::capture::{Capture, CaptureError, DisplayInfo, RawFrame};
 use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
@@ -34,6 +36,7 @@ mod adapters {
         pub rebuild_video: super::RebuildVideo,
         pub clipboard: std::sync::Arc<dyn peering_core::ports::clipboard::Clipboard>,
         pub file_disk: Box<dyn peering_core::files::disk::DiskOps + Send>,
+        pub extras: super::HostExtras,
     }
 }
 
@@ -74,6 +77,19 @@ pub struct HostServices {
     pub clipboard: Arc<dyn Clipboard>,
     /// Where files phones send are written, and where a delete goes.
     pub file_disk: Box<dyn DiskOps + Send>,
+    pub extras: HostExtras,
+}
+
+/// Adapters that a host without them still works: the sound it plays, and the text field it is typing into. `Default` is the
+/// host that has neither.
+pub struct HostExtras {
+    pub audio: Box<dyn AudioSource + Send>,
+}
+
+impl Default for HostExtras {
+    fn default() -> Self {
+        Self { audio: Box::new(SilentAudio) }
+    }
 }
 
 /// The capture behind a lock, so the coordinator and the runtime both reach the same device.
@@ -207,7 +223,7 @@ impl FileSystem for SharedFileSystem {
 
 /// The platform adapters for this machine. `home_directory` is where a file listing starts when the client names none.
 pub fn platform_services(home_directory: String) -> Result<HostServices, RuntimeError> {
-    let adapters::Adapters { capture, encoder, input, system, secrets, files, terminal, rebuild_video, clipboard, file_disk } = adapters::build()?;
+    let adapters::Adapters { capture, encoder, input, system, secrets, files, terminal, rebuild_video, clipboard, file_disk, extras } = adapters::build()?;
     Ok(HostServices {
         capture,
         encoder,
@@ -221,5 +237,6 @@ pub fn platform_services(home_directory: String) -> Result<HostServices, Runtime
         agent_binaries: Box::new(super::agent::DiskBinaries),
         clipboard,
         file_disk,
+        extras,
     })
 }

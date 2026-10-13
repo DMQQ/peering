@@ -3,6 +3,7 @@
 //! This crate must not depend on `ring` (a C build that does not cross compile from a Mac).
 
 pub mod addresses;
+pub mod audio;
 pub mod clipboard;
 pub mod clipboard_image;
 pub mod convert;

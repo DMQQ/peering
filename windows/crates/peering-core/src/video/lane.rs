@@ -5,7 +5,7 @@ use peering_wire::fallback::{HostAnswer, HostFallbackGate, CONTROL_LANE_CAP_KBPS
 use peering_wire::framing::{Frame, MessageKind};
 use peering_wire::handshake::{VideoKeyGrant, VideoTransportKind, VideoTransportRequest};
 use peering_wire::sealing::{Direction, Opener, SealError, Sealer, SECRET_SIZE, TOKEN_SIZE};
-use peering_wire::video::VideoWireError;
+use peering_wire::video::{AudioStreamConfig, EncodedAudioFrame, VideoWireError};
 use thiserror::Error;
 
 use super::coordinator::VideoOutput;
@@ -169,6 +169,16 @@ impl VideoLane {
         }
         sends.extend(self.carry(kind, payload)?);
         Ok(sends)
+    }
+
+    /// What to write to announce the sound's format. It travels as the picture does, on whichever lane is in use.
+    pub fn send_audio_config(&mut self, config: &AudioStreamConfig) -> Result<Vec<LaneSend>, LaneError> {
+        self.carry(MessageKind::AudioConfig, serde_json::to_vec(config)?)
+    }
+
+    /// What to write for one piece of sound. A piece is small enough to go out whole on the control connection.
+    pub fn send_audio(&mut self, frame: &EncodedAudioFrame) -> Result<Vec<LaneSend>, LaneError> {
+        self.carry(MessageKind::AudioFrame, frame.encode())
     }
 
     fn probe_due(&self, output: &VideoOutput, now: f64) -> bool {

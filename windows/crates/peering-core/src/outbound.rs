@@ -16,6 +16,11 @@ pub trait Queued {
     fn weight(&self) -> usize;
     /// True for data that is worthless once a newer copy exists, such as a video frame.
     fn droppable(&self) -> bool;
+    /// True for a piece of sound, of which only the newest is worth sending: a newer one replaces any that is still waiting,
+    /// as on the Mac, so a slow peer hears the present and not a growing delay.
+    fn supersedes_waiting_sound(&self) -> bool {
+        false
+    }
 }
 
 impl Queued for Frame {
@@ -25,6 +30,10 @@ impl Queued for Frame {
 
     fn droppable(&self) -> bool {
         matches!(self.kind, MessageKind::VideoFrame | MessageKind::VideoChunk | MessageKind::AudioFrame)
+    }
+
+    fn supersedes_waiting_sound(&self) -> bool {
+        self.kind == MessageKind::AudioFrame
     }
 }
 
@@ -53,6 +62,7 @@ pub struct OutboundQueue<T: Queued> {
     droppable_limit: usize,
     total_limit: usize,
     item_limit: usize,
+    sound_replaced: u64,
 }
 
 impl<T: Queued> OutboundQueue<T> {
@@ -61,10 +71,18 @@ impl<T: Queued> OutboundQueue<T> {
     }
 
     pub fn with_limits(droppable_limit: usize, total_limit: usize, item_limit: usize) -> Self {
-        Self { items: VecDeque::new(), bytes: 0, droppable_bytes: 0, droppable_limit, total_limit, item_limit }
+        Self { items: VecDeque::new(), bytes: 0, droppable_bytes: 0, droppable_limit, total_limit, item_limit, sound_replaced: 0 }
+    }
+
+    /// How many pieces of sound were replaced by a newer one while they waited.
+    pub fn sound_replaced(&self) -> u64 {
+        self.sound_replaced
     }
 
     pub fn push(&mut self, item: T) -> Pushed {
+        if item.supersedes_waiting_sound() {
+            self.drop_waiting_sound();
+        }
         self.bytes += item.weight();
         if item.droppable() {
             self.droppable_bytes += item.weight();
@@ -92,6 +110,20 @@ impl<T: Queued> OutboundQueue<T> {
 
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
+    }
+
+    fn drop_waiting_sound(&mut self) {
+        let mut kept = VecDeque::with_capacity(self.items.len());
+        for waiting in self.items.drain(..) {
+            if waiting.supersedes_waiting_sound() {
+                self.bytes -= waiting.weight();
+                self.droppable_bytes -= waiting.weight();
+                self.sound_replaced += 1;
+            } else {
+                kept.push_back(waiting);
+            }
+        }
+        self.items = kept;
     }
 
     fn drop_stale(&mut self) -> usize {
@@ -184,6 +216,42 @@ mod tests {
         queue.push(control(60));
         queue.pop();
         assert!(matches!(queue.push(control(60)), Pushed::Queued { .. }));
+    }
+
+    fn sound(tag: u8) -> Frame {
+        Frame::new(MessageKind::AudioFrame, vec![tag; 10])
+    }
+
+    #[test]
+    fn a_newer_piece_of_sound_replaces_one_still_waiting() {
+        let mut queue = OutboundQueue::new();
+        queue.push(sound(1));
+        queue.push(video(5));
+        let outcome = queue.push(sound(2));
+        assert_eq!(outcome, Pushed::Queued { dropped: 0 }, "replacing sound is not lost picture data");
+        assert_eq!(queue.len(), 2);
+        assert_eq!(queue.sound_replaced(), 1);
+        assert_eq!(queue.pop().map(|frame| frame.kind), Some(MessageKind::VideoFrame));
+        assert_eq!(queue.pop().map(|frame| frame.payload[0]), Some(2));
+    }
+
+    #[test]
+    fn replacing_sound_releases_its_bytes() {
+        let mut queue = OutboundQueue::with_limits(100, 25, 100);
+        for tag in 0..10 {
+            assert!(matches!(queue.push(sound(tag)), Pushed::Queued { .. }), "one waiting piece never overflows");
+        }
+        assert_eq!(queue.len(), 1);
+    }
+
+    #[test]
+    fn sound_never_replaces_the_config_or_other_control_frames() {
+        let mut queue = OutboundQueue::new();
+        queue.push(Frame::new(MessageKind::AudioConfig, vec![0; 4]));
+        queue.push(control(3));
+        queue.push(sound(1));
+        queue.push(sound(2));
+        assert_eq!(queue.len(), 3);
     }
 
     #[test]

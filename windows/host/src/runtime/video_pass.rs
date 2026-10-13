@@ -11,7 +11,6 @@ use peering_core::catalogue::SessionCatalogue;
 use peering_core::pairing::ApprovalDecision;
 use peering_core::supervision::ABANDON_PASS_SECONDS;
 use peering_core::video::coordinator::{CoordinatorError, VideoOutput};
-use peering_core::video::lane::LaneSend;
 use peering_core::video::recovery::LogGate;
 use tokio::task::{spawn_blocking, spawn_local, JoinError, JoinHandle};
 use tokio::time::{interval, timeout, MissedTickBehavior};
@@ -22,7 +21,7 @@ use super::lock::lock_ignoring_poison;
 use super::problem_source::ProblemSource;
 use super::shared::{HostState, Shared};
 use super::supervise::{record_problem, Pass, PassMeter, Supervised};
-use super::video::{deliver, Outgoing};
+use super::video::{deliver, queue_sends, Outgoing};
 use super::video_handle::{PumpOutcome, VideoHandle};
 use super::HostProfile;
 
@@ -86,20 +85,7 @@ impl HostState {
                 // The next keyframe resynchronises a client whose lane could not take this output.
                 continue;
             };
-            let to = slot.video_outbound.clone().unwrap_or_else(|| slot.outbound.clone());
-            for send in sends {
-                match send {
-                    LaneSend::ControlFrames(frames) => {
-                        outgoing.extend(frames.into_iter().map(|frame| Outgoing { to: to.clone(), frame }));
-                    }
-                    LaneSend::Datagram(bytes) => {
-                        // Only a session with a relayed lane is granted a key, so its lane task is there to send it.
-                        if let Some(datagrams) = &slot.datagram_outbound {
-                            let _queued = datagrams.send(bytes);
-                        }
-                    }
-                }
-            }
+            queue_sends(slot, sends, outgoing);
         }
     }
 }
