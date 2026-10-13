@@ -7,7 +7,7 @@ data class LinkRequest(val data: String, val nonce: String?)
  * Decides what the exported main activity does with a link: only a request carrying the install's nonce counts, and one
  * that arrives while the app lock shows waits for the unlock.
  */
-class WidgetLinkGate(private val expectedNonce: String, private val queue: LockedLinkQueue = LockedLinkQueue()) {
+class WidgetLinkGate(val expectedNonce: String, private val queue: LockedLinkQueue = LockedLinkQueue()) {
     /** The link to act on now, or null when the request is forged, unreadable, or held until [released]. */
     fun receive(request: LinkRequest, locked: Boolean): WidgetLink? {
         if (!LinkNonce.accepts(expectedNonce, request.nonce)) return null

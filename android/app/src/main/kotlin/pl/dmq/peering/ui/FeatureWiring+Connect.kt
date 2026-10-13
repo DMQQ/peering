@@ -15,6 +15,12 @@ internal fun FeatureWiring.connectPaired(hostId: String) {
     )
 }
 
+/** Whether a session is running that a link to end would cut off. */
+internal fun FeatureWiring.hasLiveSession(): Boolean {
+    val phase = holder.active.value?.controller?.state?.value?.phase ?: return false
+    return phase !is SessionPhase.Failed && phase != SessionPhase.Ended
+}
+
 /** Opens the session already running with [hostId] when there is one, else starts a new one. */
 internal fun FeatureWiring.connectOrResume(hostId: String) {
     val live = holder.active.value
@@ -25,6 +31,10 @@ internal fun FeatureWiring.connectOrResume(hostId: String) {
 
 /** Opens the computer a widget tap named, or the one last used. Only a paired computer is dialled: the link comes from outside the app. */
 internal fun FeatureWiring.openFromWidget(link: WidgetLink) {
+    if (link is WidgetLink.Disconnect) {
+        holder.end()
+        return
+    }
     val hostId = link.targetHostId ?: holder.active.value?.target?.hostId ?: return
     if (hostId !in pins.hostIds()) return
     connectOrResume(hostId)

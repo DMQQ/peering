@@ -27,12 +27,15 @@ import pl.dmq.peering.ui.LockScreen
 import pl.dmq.peering.ui.debug.DebugPreview
 import pl.dmq.peering.ui.debug.PREVIEW_EXTRA
 import pl.dmq.peering.ui.nav.PeeringScaffold
+import pl.dmq.peering.ui.EndSessionPrompt
+import pl.dmq.peering.ui.hasLiveSession
 import pl.dmq.peering.ui.openFromWidget
 import pl.dmq.peering.ui.theme.PeeringTheme
 import pl.dmq.peering.ui.wiring.AppLock
 import pl.dmq.peering.ui.wiring.DeviceUnlock
 import pl.dmq.peering.ui.wiring.PreferencesFirstRunStore
 import pl.dmq.peering.ui.wiring.ScreenSecurity
+import pl.dmq.peering.widget.ExternalLinkGate
 import pl.dmq.peering.widget.LinkNonce
 import pl.dmq.peering.widget.LinkRequest
 import pl.dmq.peering.widget.WidgetLink
@@ -45,6 +48,8 @@ class MainActivity : FragmentActivity() {
     private var connectRequests by mutableIntStateOf(0)
     private var sessionActive = false
     private val notificationPermission get() = (application as PeeringApplication).wiring?.background?.permission
+    private val externalGate = ExternalLinkGate()
+    private var confirmingLink by mutableStateOf<WidgetLink?>(null)
     private val linkGate by lazy { WidgetLinkGate(LinkNonce.load(noBackupFilesDir)) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,6 +86,7 @@ class MainActivity : FragmentActivity() {
                     else -> PeeringScaffold(connectRequests)
                 }
                 if (!locked) notificationPermission?.let { NotificationExplanation(it) }
+                confirmingLink?.let { EndSessionPrompt(onConfirm = ::confirmLink, onCancel = ::cancelLink) }
             }
         }
     }
@@ -133,7 +139,34 @@ class MainActivity : FragmentActivity() {
 
     private fun openWidgetLink(intent: Intent) {
         val request = LinkRequest(intent.dataString.orEmpty(), intent.getStringExtra(LinkNonce.EXTRA))
-        act(linkGate.receive(request, locked) ?: return)
+        if (LinkNonce.accepts(linkGate.expectedNonce, request.nonce)) {
+            act(linkGate.receive(request, locked) ?: return)
+        } else {
+            openOutsideLink(request.data)
+        }
+    }
+
+    /** A link from a page or another app carries no nonce: it is run under the outside-link rules. */
+    private fun openOutsideLink(data: String) {
+        val link = WidgetLink.parse(data) ?: return
+        externalGate.setLocked(locked)?.let(::submitOutsideLink)
+        submitOutsideLink(link)
+    }
+
+    private fun submitOutsideLink(link: WidgetLink) {
+        val wiring = (application as PeeringApplication).wiring ?: return
+        externalGate.submit(link, wiring.hasLiveSession())?.let(::act)
+        confirmingLink = externalGate.confirming
+    }
+
+    private fun confirmLink() {
+        externalGate.confirm()?.let(::act)
+        confirmingLink = null
+    }
+
+    private fun cancelLink() {
+        externalGate.cancelConfirmation()
+        confirmingLink = null
     }
 
     private fun act(link: WidgetLink) {
@@ -150,7 +183,11 @@ class MainActivity : FragmentActivity() {
     override fun onStop() {
         super.onStop()
         val hubOnTop = (application as PeeringApplication).hubOpen
-        if (!hubOnTop && appLock.isEnabled() && DeviceUnlock.isAvailable(this)) locked = true
+        if (!hubOnTop && appLock.isEnabled() && DeviceUnlock.isAvailable(this)) {
+            locked = true
+            externalGate.setLocked(true)
+            confirmingLink = null
+        }
     }
 
     private fun requestUnlock() {
@@ -158,6 +195,7 @@ class MainActivity : FragmentActivity() {
             if (unlocked) {
                 locked = false
                 linkGate.released()?.let(::act)
+                externalGate.setLocked(false)?.let(::submitOutsideLink)
             }
         }
     }

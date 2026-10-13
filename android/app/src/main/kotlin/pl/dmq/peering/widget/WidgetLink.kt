@@ -10,16 +10,22 @@ sealed interface WidgetLink {
 
     data class Chat(val chatId: String, val hostId: String?) : WidgetLink
 
+    /** Ends the session on screen. It comes from outside the app only, and asks first when a session is live. */
+    data object Disconnect : WidgetLink
+
     /** The computer the link asks to open, if it names one. */
     val targetHostId: String? get() = when (this) {
         is Connect -> hostId
         is Chat -> hostId
+        Disconnect -> null
     }
 
     companion object {
         const val SCHEME = "peering"
 
         fun connect(hostId: String?): String = build("connect", listOf("id" to hostId))
+
+        fun disconnect(): String = build("disconnect", emptyList())
 
         fun chat(chatId: String, hostId: String?): String = build("chat", listOf("id" to chatId, "host" to hostId))
 
@@ -34,6 +40,7 @@ sealed interface WidgetLink {
             }.getOrNull() ?: return null
             return when (rest.substringBefore('?')) {
                 "connect" -> Connect(query["id"]?.takeIf { it.isNotEmpty() })
+                "disconnect" -> Disconnect
                 "chat" -> query["id"]?.takeIf { it.isNotEmpty() }?.let { Chat(it, query["host"]?.takeIf { host -> host.isNotEmpty() }) }
                 else -> null
             }

@@ -12,4 +12,7 @@
     <string name="session_failed_key_changed">This computer\u2019s key has changed since you paired it. If you did not expect that, do not connect. To trust the new key, forget the computer here and pair it again.</string>
     <string name="session_failed_wrong_computer">The computer that answered is not the one you asked for. Forget it here and pair it again if it has moved.</string>
     <string name="session_failed_no_pin">This phone no longer trusts that computer. Pair it again to connect.</string>
+    <string name="link_end_title">End this session?</string>
+    <string name="link_end_message">A link outside Peering asked to disconnect you from your computer.</string>
+    <string name="link_end_confirm">End session</string>
 </resources>
