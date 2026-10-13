@@ -1,0 +1,300 @@
+# Android feature parity with the iPhone app
+
+Audited 2026-10-13 at the tip of `monorepo`. Read-only: nothing was built or run, no emulator or adb. Every Android claim below was checked by grepping `android/app` and `android/core` (a MISSING row means the grep found nothing outside the wire codec). The iPhone side was read from `apple/MacCast`, `apple/MacCastWidget`, `apple/MacCastKit` and `apple/RemoteCore`. Android paths are relative to the repo root; Line numbers are the declaration or the decisive use.
+
+Classes: PRESENT is an equivalent feature. PARTIAL says what is missing. MISSING could be built on Android. NOT APPLICABLE is iOS-only, with the Android equivalent named.
+
+## Summary
+
+| Class | Count |
+|---|---|
+| PRESENT | 126 |
+| PARTIAL | 9 |
+| MISSING | 43 |
+| NOT APPLICABLE | 12 |
+| Total features audited | 190 |
+
+| Area | Present | Partial | Missing | N/A |
+|---|---|---|---|---|
+| Pairing and first connection | 7 | 1 | 0 | 1 |
+| Hosts list and presence | 12 | 1 | 4 | 0 |
+| Relay, quota and paywall | 8 | 0 | 0 | 1 |
+| Remote screen: picture and input | 24 | 1 | 3 | 1 |
+| Clipboard | 3 | 0 | 0 | 0 |
+| Sources: displays, apps, windows, spaces, virtual displays, mosaic | 5 | 0 | 3 | 0 |
+| Terminal | 13 | 0 | 1 | 1 |
+| Agents | 21 | 1 | 5 | 1 |
+| Files | 12 | 1 | 4 | 0 |
+| SSH servers and terminals | 0 | 0 | 7 | 0 |
+| Notifications and background behaviour | 1 | 0 | 8 | 2 |
+| Widgets, shortcuts and deep links | 3 | 1 | 1 | 3 |
+| Security and privacy | 4 | 0 | 0 | 0 |
+| Settings rows | 6 | 0 | 2 | 2 |
+| Onboarding, tour, What's New, FAQ | 4 | 1 | 1 | 0 |
+| Cross-cutting: localisation, accessibility, analytics, crash reporting, layouts, haptics | 3 | 2 | 4 | 0 |
+
+Where Android stands: the connect, pair, remote picture, input, clipboard, terminal, agent chat, changes review, files and billing paths are all there, and several are tighter than the iPhone's (FLAG_SECURE, predictive back). The gaps cluster in four places: everything that needs the app alive in the background (notifications, foreground service, push), the later iPhone agent features (To review, slash and mention hints, follow-ups), the host commands already ported to the wire but never given UI (Spaces, virtual displays, window actions, orientation, text focus), and platform polish (localisation, tablet layout, analytics, crash reporting, SSH).
+
+## Pairing and first connection
+
+- **PRESENT** Pair with the six digit code and compare the codes. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/pairing/PairingCodeScreen.kt, PairingCodePresenter.kt. iPhone: apple/MacCast/Connection/PairingCodeEntry.swift, PairingApproveDetail.swift.
+- **PRESENT** Scan the pairing QR code. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/scan/QrScannerRoute.kt:38, CameraQrSource.kt:10 (CameraX + ZXing). iPhone: apple/MacCast/Connection/PairingCodeScanner.swift.
+- **PRESENT** Pair from another network by typing or pasting the device ID. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/pairing/HostIdEntrySheet.kt:39. iPhone: apple/MacCast/Connection/RemotePairingSheet.swift.
+- **PRESENT** Plain-language pairing failures (wrong code, tries left, key changed, declined). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/pairing/PairingMessageText.kt, PairingMessageMapping.kt:11. iPhone: apple/MacCast/Connection/PairingPrompt.swift, Session/FailureText.swift.
+- **PRESENT** First connection walkthrough with download link. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/FirstConnectionScreen.kt:66, FirstConnectionSteps.kt. iPhone: apple/MacCast/Onboarding/FirstConnectionScreen.swift.
+- **PRESENT** Camera permission handling for the scanner. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/scan/CameraPermissionState.kt. iPhone: apple/MacCast/Connection/PairingCodeScanner.swift.
+- **PARTIAL** Warning when a paired computer's key has changed. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/pairing/PairingMessageMapping.kt:11 (shown only inside the pairing flow); PinTrustedHosts.kt:11. iPhone: apple/MacCast/Session/SessionModel+PinNotice.swift. On the iPhone a changed identity is explained on the host card ('Mac identity changed') at any connect. The Android string exists only for pairing; verify a live connect to a re-keyed host says the same thing.
+- **PRESENT** Notice when the pairing store cannot be read. Android: android/app/src/main/kotlin/pl/dmq/peering/res/values/strings.xml connect_pairings_unreadable, ProtectionCard.kt:28. iPhone: apple/MacCast/Connection/ResetPairedMacsButton.swift.
+- **NOT APPLICABLE** Local Network permission explainer. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/NetworkSource.kt (on-Wi-Fi check), strings connect_no_network_title. iPhone: apple/MacCast/Connection/LocalNetworkNotice.swift. iOS-only permission. Android has no equivalent prompt for NSD; the 'Not on Wi-Fi' card with an Open Wi-Fi settings button is already the counterpart.
+
+## Hosts list and presence
+
+- **PRESENT** Trusted computers list. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/PairedSection.kt:28. iPhone: apple/MacCast/Connection/HostPickerView+HomeRows.swift.
+- **PRESENT** Nearby computers found over mDNS with Search again. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/NearbySection.kt:31, AppGraph.kt:54 (NsdDiscovery + MulticastLease). iPhone: apple/MacCast/Connection/HostPickerView+HomeTab.swift, Session/SessionModel+Discovery.swift.
+- **PRESENT** Presence: online, nearby, not nearby so will try relay. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/PresenceSource.kt:6, HostStatus.kt, ui/wiring/SessionPresence.kt. iPhone: apple/MacCast/Session/SessionModel+Reachability.swift.
+- **PRESENT** Ordering of hosts (last used first). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/HostOrdering.kt:3. iPhone: apple/MacCast/Connection/HostPickerView+HomeRows.swift.
+- **PRESENT** Rename a computer locally. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/HostMenu.kt:20, RenameDialog.kt, ui/wiring/HostAliases.kt. iPhone: apple/MacCast/Connection/HostPickerView+HomeCards.swift.
+- **PRESENT** Forget a computer. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/HostMenu.kt:20 (connect_forget_*). iPhone: apple/MacCast/Connection/HostPickerView+HomeCards.swift.
+- **PRESENT** Connect by address and port. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/ManualAddressSheet.kt:38. iPhone: apple/MacCast/Connection/ManualConnectionSheet.swift.
+- **PRESENT** Choose LAN or Relay for one connection. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/ConnectVia.kt, strings connect_via_lan / connect_via_relay. iPhone: apple/MacCast/Connection/HostPickerView+HomeCards.swift.
+- **PRESENT** Connection failure card with a reason and a dismiss. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/FailureCard.kt:25. iPhone: apple/MacCast/Connection/HostPickerView+HomeHeader.swift.
+- **PRESENT** Protect paired computers with biometrics prompt on the hosts screen. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/ProtectionCard.kt:28. iPhone: apple/MacCast/Connection/SettingsTab+Access.swift.
+- **PARTIAL** Return to a live session / resume card. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/connect/HostStatus.kt (status 'Connected, tap to go back'), ui/FeatureWiring+Connect.kt:18 connectOrResume. iPhone: apple/MacCast/Connection/HostPickerView+ResumeCard.swift, SessionOffer.swift. No 'pick up where you left off' card with last activity, and no per-terminal 'Return to' rows.
+- **MISSING** Wake a sleeping computer on the LAN (Wake-on-LAN). Android: no match for wake/magic packet in android/; only faq_awake_question text in android/app/src/main/kotlin/pl/dmq/peering/feature/onboarding/FaqEntries.kt:19. iPhone: apple/MacCast/Connection/WakeOnLAN.swift, Session/SessionModel+WakeOnLAN.swift. Needs the MAC address from the host hello and a UDP broadcast on port 9. Android equivalent: DatagramSocket with setBroadcast(true); no extra permission beyond INTERNET.
+- **MISSING** More than one live session at once (tabs between computers). Android: android/app/src/main/kotlin/pl/dmq/peering/ui/wiring/SessionHolder.kt:21 ('The one session the app shows. Starting another ends the current one'). iPhone: apple/MacCast/Connection/SessionTabs.swift, Session/SessionModel+Sessions.swift. The iPhone keeps several computers connected and switches by tab; Android ends the first on connect.
+- **MISSING** Remembered LAN addresses as a connect fallback. Android: PersistedHostDirectory remembers name and last path only: android/core/session/hosts/PersistedHostDirectory.kt:20. iPhone: apple/MacCast/Connection/RememberedLANHosts.swift.
+- **MISSING** In-app review prompt after good sessions. Android: no ReviewManager / play-core review in android/. iPhone: apple/MacCast/Connection/SessionModel+ReviewPrompt.swift. Android equivalent: Play In-App Review API.
+- **PRESENT** Referral and invite codes (share, redeem, bonus minutes). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/settings/InviteCard.kt:44, InvitePresenter.kt, ui/wiring/RelayInviteService.kt. iPhone: apple/MacCast/Connection/SettingsTab+Invite.swift, Session/SessionModel+Referral.swift.
+- **PRESENT** Recent sessions, per-session detail and copyable session log. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/sessions/SessionsScreen.kt:36, SessionDetail.kt, SessionLogText.kt. iPhone: apple/MacCast/Connection/HostPickerView+ActivityTab.swift, SessionHistory.swift.
+
+## Relay, quota and paywall
+
+- **PRESENT** Direct path attempt (hole punching) with relay fallback and path explanation. Android: android/core/session/controller/DirectPathRunner.kt:17; android/app/src/main/kotlin/pl/dmq/peering/feature/remote/SessionFacts.kt:7. iPhone: apple/MacCast/RemoteCore/ClientSession+DirectPath.swift.
+- **PRESENT** Allow-relay switch. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/settings/SettingsDeviceCards.kt, strings settings_allow_relay; remote panel panel_allow_relay. iPhone: apple/MacCast/Connection/SettingsTab+Access.swift, Remote/SettingsPanel.swift.
+- **PRESENT** Free relay time meter (left today, last 24 hours). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/sessions/RelayMeter.kt:6, feature/paywall/RelayAllowanceTracker.kt:20, RelayUsageStore.kt. iPhone: apple/MacCast/Connection/HostPickerView+ActivityTab.swift.
+- **PRESENT** In-session low-time notice and end-of-session on quota. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/QuotaNotice.kt:6, ui/nav/SessionRoutes.kt:95,148 (QuotaWatch). iPhone: apple/MacCast/Remote/ProgressOverlay.swift, Store/AllowanceSpentView.swift.
+- **PRESENT** Allowance spent screen. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/paywall/AllowanceSpentScreen.kt, AllowanceSpentPresenter.kt. iPhone: apple/MacCast/Store/AllowanceSpentView.swift.
+- **PRESENT** Paywall: monthly, yearly, lifetime. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/paywall/PaywallScreen.kt:43, PaywallBilling.kt, billing/PlayBilling.kt:31, PlayProducts.kt. iPhone: apple/MacCast/Store/PaywallView.swift, StoreManager.swift, PlanOffer.swift.
+- **PRESENT** Restore purchases. Android: android/app/src/main/kotlin/pl/dmq/peering/billing/PlayBilling.kt:139 (queryPurchasesAsync on connect; Play restores without a button). iPhone: apple/MacCast/Store/StoreManager.swift. No explicit Restore button; the paywall_unavailable_body text tells the user to retry.
+- **PRESENT** Purchases bound to the install (obfuscated account id). Android: android/app/src/main/kotlin/pl/dmq/peering/billing/ObfuscatedAccount.kt, PurchaseLedger.kt. iPhone: apple/MacCast/Store/StoreManager.swift.
+- **NOT APPLICABLE** StoreKit specifics (App Store receipt, Apple Account restore text, TestFlight detection). Android: android/app/src/main/kotlin/pl/dmq/peering/billing/ (Play Billing is already in place). iPhone: apple/MacCast/Store/StoreManager.swift, App/Analytics.swift. Android equivalent already built: Play Billing with a purchase ledger.
+
+## Remote screen: picture and input
+
+- **PRESENT** Hardware video decode (H.264 and HEVC) onto a Surface. Android: android/core/platform/video/CodecDecoder.kt, DecoderConfig.kt; android/app/src/main/kotlin/pl/dmq/peering/ui/wiring/SurfacePicture.kt. iPhone: apple/MacCast/Remote/VideoRenderer.swift, VideoLayerView.swift.
+- **PRESENT** Touch modes: trackpad, direct touch, observe-only. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/InputMode.kt:3, ObserveGate.kt:6, PointerTracker.kt. iPhone: apple/MacCast/Remote/RemoteScreen+Gestures.swift, Session/HostPointer.swift.
+- **PRESENT** Joystick pointer. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/Joystick.kt:62, JoystickMath.kt. iPhone: apple/MacCast/Remote/JoystickView.swift.
+- **PRESENT** Scroll wheel and zoom wheel. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/ScrollWheel.kt:60, ScrollWheelState.kt. iPhone: apple/MacCast/Remote/ScrollWheelView.swift.
+- **PRESENT** Pinch zoom and pan with zoom percent chip. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/CanvasViewport.kt:9, RemoteCanvas.kt:34, StatusRows.kt:54. iPhone: apple/MacCast/Remote/RemoteCanvas.swift.
+- **PRESENT** Fit and Fill picture. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/StatusRows.kt (remote_chip_fit / fill), SettingsPanelSections.kt. iPhone: apple/MacCast/Remote/RemoteScreen+Picture.swift.
+- **PRESENT** Keyboard bar with sticky modifiers. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/KeyboardBar.kt:54, ModifierBar.kt:32, StickyModifiers.kt:13. iPhone: apple/MacCast/Remote/ModifierBar.swift, KeyboardCapture.swift.
+- **PRESENT** Unicode text mode versus keycode mode. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/KeyboardMode.kt:8, KeyboardPresenter.kt. iPhone: apple/MacCast/Session/KeyboardMode.swift, SessionModel+Input.swift.
+- **PRESENT** Function keys with media and brightness actions. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/FunctionKeyGrid.kt:29, FunctionKey.kt. iPhone: apple/MacCast/Remote/RemoteScreen+Dock.swift.
+- **PRESENT** Per-application shortcut sets and shortcuts panel. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/ApplicationProfiles.kt:6, ShortcutsPanel.kt:63. iPhone: apple/MacCast/RemoteCore/ApplicationProfile.swift, Remote/RemoteScreen+ApplicationDock.swift.
+- **PRESENT** Macros: built-in and custom, with editor. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/Macros.kt:7, MacroEditorSheet.kt:38, ui/wiring/PreferencesMacroStore.kt. iPhone: apple/MacCast/Session/Macro.swift, Remote/MacroBar.swift, MacroEditor.swift.
+- **PRESENT** Quick keys dock (arrows, Enter, Delete, Esc, Tab, Back, Copy/Paste/Undo) with pages. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/DockControls.kt:35, DockPager.kt:33, QuickAction.kt:6. iPhone: apple/MacCast/Remote/RemoteScreen+Controls.swift, RailButtons.swift.
+- **PRESENT** Quit active application (Cmd+Q with confirmation). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/StatusRows.kt:40, RemoteDialogs.kt:32. iPhone: apple/MacCast/Remote/RemoteScreen+Actions.swift.
+- **MISSING** Text field awareness: open the phone keyboard when the computer focuses a text field, and mirror its text and caret. Android: wire only: android/core/wire/Framing.kt:34 (TextFocus), Handshake.kt:15 (supportsTextFocus); no use in app or session. iPhone: apple/MacCast/Session/SessionModel+TextField.swift, RemoteCore/TextFocus.swift, Remote/SettingsPanel.swift ('Open for text fields'). Settings row 'Open keyboard for text fields' also absent.
+- **PARTIAL** Orientation handling. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/LandscapeChrome.kt:25, PortraitChrome.kt; SessionWindow.kt (cutout, keep awake). iPhone: apple/MacCast/Remote/LandscapeHint.swift. Chrome adapts to rotation, but ReportDeviceOrientation (RemoteCommandCases.kt:118) is never sent and there is no rotation lock or hint.
+- **PRESENT** Immersive mode (hide chrome, restore button). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/RemoteChrome.kt:24, SessionWindow.kt:28, StatusRows.kt:55. iPhone: apple/MacCast/Remote/RemoteScreen+Chrome.swift.
+- **PRESENT** Screen kept awake and cutout use during a session. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/SessionWindow.kt:35,53. iPhone: apple/MacCast/Session/SessionModel+Backgrounding.swift.
+- **PRESENT** Stream quality: Automatic or manual Low/Medium/High. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/QualitySheetPresenter.kt:13, QualityDecision.kt, feature/settings/StreamQuality.kt:3; android/core/wire/QualityPolicy.kt. iPhone: apple/MacCast/Session/MacSession+Quality.swift, RemoteCore/StreamQualityLimits.swift. Neither app exposes a frames-per-second picker; Android sends fps = 0 (host default) in ConnectedLink.kt:214.
+- **PRESENT** Pause video when the picture is not visible (SetVideoEnabled). Android: android/core/session/controller/ConnectedLink.kt, SessionController.kt. iPhone: apple/MacCast/Session/MacSession+VideoEvents.swift.
+- **PRESENT** Codec support readout (HEVC yes/no). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/SettingsPanelSections.kt:149. iPhone: apple/MacCast/Remote/SettingsPanel.swift.
+- **PRESENT** Privacy mode (darken the computer's displays) and restore brightness. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/RemoteActions.kt:18,42 (SetPrivacyMode), StatusRows.kt (Darken/Restore). iPhone: apple/MacCast/Remote/RemoteScreen+Status.swift.
+- **PRESENT** Lock the computer. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/SessionStatusBar.kt:55, RemoteActions.kt:38, SettingsPanelSections.kt:117. iPhone: apple/MacCast/Remote/RemoteScreen+Status.swift.
+- **PRESENT** Connection path, latency and direct-path state panel. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/SessionSettingsPanel.kt:65, StatusPill.kt:85, RouteHealth.kt:3. iPhone: apple/MacCast/Remote/SettingsPanel.swift.
+- **PRESENT** Automatic reconnect with 'Reconnecting' state and foreground retry. Android: android/app/src/main/kotlin/pl/dmq/peering/ui/wiring/ForegroundRetry.kt:10, StatusPillPresenter.kt; android/core/session/connection/. iPhone: apple/MacCast/Session/SessionModel+Reconnecting.swift, MacSession+Resume.swift.
+- **PRESENT** Settings search inside the session panel. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/SettingsPanelSections.kt (panel_keywords_*). iPhone: apple/MacCast/Remote/SettingsSearch.swift.
+- **PRESENT** Close panels after selecting; panel transitions. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/PanelTransition.kt, strings settings_close_panels. iPhone: apple/MacCast/Remote/SettingsPanel.swift.
+- **MISSING** Sound from the computer (audio playback). Android: no AudioTrack / audio decode in android/; only the AudioConfig frame id at android/core/wire/Framing.kt:25. iPhone: apple/MacCast/Remote/RemoteAudioPlayer.swift, Session/SessionAudio.swift, Remote/SettingsPanel.swift ('Sound from the Mac'). Android equivalent: MediaCodec (AAC/Opus) into AudioTrack. Needs a mute switch and a session-panel row.
+- **MISSING** Screenshot of the remote picture with share sheet. Android: no PixelCopy / screenshot code in android/ (only FLAG_SECURE comments). iPhone: apple/MacCast/Remote/ScreenshotShare.swift, RemoteScreen+Status.swift. Android equivalent: PixelCopy on the SurfaceView, then the existing FileProvider share (feature/files/FileShare.kt:13). Note FLAG_SECURE is set in release (ui/wiring/ScreenSecurity.kt:8), which also blocks the user's own screenshots.
+- **NOT APPLICABLE** Picture in Picture of the live session (AVPictureInPictureController, auto-start, 'Float automatically'). Android: none; AppIcons.kt:109 only has the tour chip icon. iPhone: apple/MacCast/Remote/SessionPiP.swift, Session/SessionModel+Backgrounding.swift. Android equivalent: Activity Picture-in-Picture (enterPictureInPictureMode, setAutoEnterEnabled on API 31+) with a SurfaceView. Cheap and well suited; worth building even though the iOS mechanism does not port.
+
+## Clipboard
+
+- **PRESENT** Send phone clipboard to the computer; copy the computer's clipboard to the phone. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/ClipboardPanel.kt:64, PhoneClipboard.kt:13, RemoteActions.kt (RequestClipboard, PushClipboard). iPhone: apple/MacCast/Remote/ClipboardPanel.swift, Session/SessionModel+Clipboard.swift.
+- **PRESENT** Clipboard images (with size limit and host capability check). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/ClipboardImages.kt:21, ClipboardFeedback.kt. iPhone: apple/MacCast/Remote/ClipboardPanel.swift.
+- **PRESENT** Clipboard history (computer copies), delete one, clear all. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/ClipboardHistoryList.kt:56, ClipboardRows.kt; android/core/session/clipboard/ClipboardHistory.kt. iPhone: apple/MacCast/Remote/ClipboardHistoryPanel.swift.
+
+## Sources: displays, apps, windows, spaces, virtual displays, mosaic
+
+- **PRESENT** Sources panel: screens, applications, windows, with search. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/SourcesPanel.kt:52, SourceGrouping.kt:21, SourceTiles.kt:57, SourcesPresenter.kt. iPhone: apple/MacCast/Remote/SourcesPanel.swift, SourcesPanel+Tiles.swift, SourcesPanel+Applications.swift.
+- **PRESENT** Live thumbnails for sources (WatchSourceThumbnails). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/SourcesPresenter.kt. iPhone: apple/MacCast/RemoteCore/CaptureSource.swift.
+- **PRESENT** Launch an installed application from the phone; open a new window. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/SourcesPresenter.kt (LaunchApplication, OpenNewWindow), strings sources_installed, sources_new_window. iPhone: apple/MacCast/Remote/SourcesPanel+Applications.swift.
+- **PRESENT** Mosaic: pick several, see all, tap a tile to zoom in, back to the mosaic. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/MosaicOverlay.kt:37, MosaicSection.kt, MosaicPicks.kt, MosaicTapDetector.kt, MosaicGate.kt:6. iPhone: apple/MacCast/Remote/SourcesPanel+Mosaic.swift, MosaicOverlay.swift, Session/MacSession+Mosaic.swift.
+- **PRESENT** Mosaic tile names, close buttons and hold to drag. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/MosaicOverlayTiles.kt, MosaicLift.kt (commit dc8b6ec3). iPhone: apple/MacCast/Remote/MosaicOverlay.swift.
+- **MISSING** Desktops / Spaces: list the computer's desktops per screen and switch. Android: SwitchSpace, SwitchToSpace and RefreshSpacePreviews appear only in the codec table android/core/wire/RemoteCommandCodec.kt:30-37 and HostCapability.kt:59; no UI use. iPhone: apple/MacCast/Remote/SourcesPanel+Desktops.swift. Wire commands are already ported, so this is panel UI and a capability check.
+- **MISSING** Virtual displays: add, rename, remove. Android: AddVirtualDisplay / RemoveVirtualDisplay / RenameVirtualDisplay only in android/core/session/connection/HostCapability.kt:56 and the codec; no UI. iPhone: apple/MacCast/Remote/SourcesPanel+VirtualDisplays.swift. Wire commands are ported; needs a sheet for name and size.
+- **MISSING** Window actions on a window source (close, minimise, zoom: PerformWindowAction). Android: PerformWindowAction not referenced outside the codec. iPhone: apple/MacCast/Remote/SourcesPanel+Tiles.swift, RemoteCore/RemoteCommand.swift.
+
+## Terminal
+
+- **PRESENT** Hub with Agents, Terminals and Files tabs. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/remote/HubTab.kt:4, HubTabBar.kt, HubPresenter.kt, ui/nav/SessionHub.kt. iPhone: apple/MacCast/Terminal/HubTabs.swift, Remote/RemoteScreen+Hub.swift.
+- **PRESENT** Terminal list with running, password, confirm, exited states. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/TerminalListScreen.kt:35, TerminalWindowCard.kt, TerminalStates.kt. iPhone: apple/MacCast/Terminal/TerminalHubScreen+Terminals.swift, TerminalCards.swift.
+- **PRESENT** Terminal deck and tab strip across open terminals. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/TerminalDeck.kt:43, TerminalTabStrip.kt:65. iPhone: apple/MacCast/Terminal/TerminalDeck.swift.
+- **PRESENT** Rendered terminal screen (colours, cursor) and Copy screen. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/TerminalCanvas.kt:38, TerminalPalette.kt:7; android/core/session/terminal/screen/. iPhone: apple/MacCast/Terminal/TerminalPanel.swift, RemoteCore/TerminalScreen.swift.
+- **PRESENT** Terminal keys: full key set grouped (cursor, delete, shell, pages). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/TerminalAllKeys.kt:72, TerminalKeySpecs.kt, TerminalKeys.kt. iPhone: apple/MacCast/Terminal/TerminalScreen.swift.
+- **PRESENT** Command line with highlight and command history. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/TerminalCommandBar.kt:67, CommandHighlight.kt:17. iPhone: apple/MacCast/Terminal/TerminalCommandField.swift, TerminalHubScreen+History.swift.
+- **PRESENT** Quick commands with editor. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/QuickCommands.kt:11, QuickCommandEditor.kt. iPhone: apple/MacCast/Remote/QuickCommands.swift, SSH/SSHQuickCommands.swift.
+- **PRESENT** Text size. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/TerminalTextSize.kt:8. iPhone: apple/MacCast/Terminal/TerminalScreen.swift.
+- **PRESENT** New terminal in a folder with recents. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/TerminalFolderPage.kt:44, TerminalLaunchers.kt:37, feature/agents/FolderRecents.kt. iPhone: apple/MacCast/Terminal/TerminalScreen+Browsing.swift, RemoteDirectory.swift.
+- **PRESENT** Launch an agent in a terminal with launch history. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/TerminalAgent.kt:4, AgentLaunchHistory.kt:9, LaunchAge.kt. iPhone: apple/MacCast/Terminal/TerminalHubScreen+Agents.swift.
+- **PRESENT** Rename and end a terminal with confirmation. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/TerminalDialogs.kt, strings terminal_end_title. iPhone: apple/MacCast/Terminal/TerminalHubScreen+Renaming.swift, TerminalEndPrompt.swift.
+- **PRESENT** How terminals work guide card. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/TerminalGuideCard.kt:48. iPhone: apple/MacCast/Terminal/HubGuideCard.swift.
+- **PRESENT** Jump to Files from a terminal. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/TerminalDock.kt, strings terminal_dock_files. iPhone: apple/MacCast/Terminal/TerminalScreen+Browsing.swift.
+- **MISSING** Notify when a terminal needs input or finishes (password prompt, confirm, command done). Android: no notification code in android/ (see Notifications). iPhone: apple/MacCast/Session/SessionNotifier.swift:142-204, RemoteCore/TerminalAttentionDetector.swift, TerminalCommandFinishDetector.swift.
+- **NOT APPLICABLE** Terminal Live Activity. Android: none. iPhone: apple/MacCast/Session/TerminalActivity.swift, MacCastWidget/TerminalLiveActivity.swift. Android equivalent: the foreground service notification (and Android 16 Live Updates) listing open shells.
+
+## Agents
+
+- **PRESENT** Agents hub: cards, waiting and working counts, close chat. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/HubScreen.kt:22, SessionCard.kt:32, HubList.kt, SessionActivity.kt. iPhone: apple/MacCast/Agent/Hub/AgentsPanel.swift, AgentHubCard.swift.
+- **PRESENT** Agent picker and launcher dock. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/AgentPicker.kt:53, HubDock.kt, AgentCatalog.kt. iPhone: apple/MacCast/Agent/Hub/AgentLauncher.swift.
+- **PRESENT** Folder picker with recents and search. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/FolderPicker.kt:18, FolderPage.kt, FolderBar.kt. iPhone: apple/MacCast/Agent/Hub/AgentFolderPicker.swift.
+- **PRESENT** History: pick up any chat, with full conversation. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/HubHistory.kt:9, HistoryCard.kt:45. iPhone: apple/MacCast/Terminal/TerminalHubScreen+History.swift, Agent/Chat/AgentChatScreen+Expired.swift.
+- **PRESENT** Chat transcript with streaming, stick to bottom, queued rows, turn summary. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/TranscriptList.kt:113, StickToBottom.kt:8, TranscriptPresenter.kt. iPhone: apple/MacCast/Agent/Transcript/AgentChatTranscript.swift, AgentQueuedRow.swift, AgentTurnSummaryPill.swift.
+- **PRESENT** Markdown rendering. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/MarkdownRenderer.kt:17, MarkdownText.kt. iPhone: apple/MacCast/Agent/Transcript/AgentMarkdownText.swift, AgentStreamedMarkdown.swift.
+- **PRESENT** Tool call cards with details and copy. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/ToolCallCard.kt:52, ToolInputSummary.kt. iPhone: apple/MacCast/Agent/Transcript/AgentToolCard.swift.
+- **PRESENT** Plan rows. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/PlanRows.kt:29. iPhone: apple/MacCast/Agent/Transcript/AgentTranscriptRow.swift.
+- **PARTIAL** Subagent display. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/PlanRows.kt:62 (SubagentStrip with step count only). iPhone: apple/MacCast/Agent/Transcript/AgentSubagentStrip.swift, AgentSubagentSheet.swift. No sheet that opens a subagent's own steps.
+- **PRESENT** Composer: send, queue while working, stop. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/Composer.kt:52,164-166, ComposerPresenter.kt:92. iPhone: apple/MacCast/Agent/Composer/AgentComposer.swift.
+- **PRESENT** Composer drafts kept per chat. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/ComposerDraftStore.kt:6, ui/wiring/PreferencesComposerDrafts.kt. iPhone: apple/MacCast/Agent/Chat/AgentChatScreen+Composer.swift.
+- **PRESENT** Attachments: photos and files. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/attach/AttachmentSender.kt:9, AttachmentTray.kt, Composer.kt:57; ui/wiring/SessionAttachments.kt. iPhone: apple/MacCast/Agent/Chat/AgentChatScreen+Attachments.swift, Composer/AgentAttachmentViews.swift.
+- **MISSING** Slash command suggestions (built-ins, commands, skills, in-app actions). Android: no slash handling in feature/agents/. iPhone: apple/MacCast/Agent/Composer/AgentSlashHints.swift, MacCastKit SlashSuggestion. Android equivalent is a suggestion row above the composer; logic belongs in core/session as on iPhone's MacCastKit.
+- **MISSING** @ file mentions with folder drill-down. Android: no mention handling in feature/agents/. iPhone: apple/MacCast/Agent/Composer/AgentMentionHints.swift.
+- **PRESENT** Permission modes (Manual, Accept edits, Plan, Auto) with explanations. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/ComposerMenus.kt:39,132-152, PermissionModeCopy.kt. iPhone: apple/MacCast/Agent/Composer/AgentPermissionModeMenu.swift.
+- **PRESENT** Model chip with custom model name. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/ComposerMenus.kt:68, OptionsBar.kt:109. iPhone: apple/MacCast/Agent/Chat/AgentChatScreen+Options.swift.
+- **PRESENT** Context bar and usage and limits sheet. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/OptionsBar.kt:61,69, UsageSheet.kt:37, UsageSummary.kt. iPhone: apple/MacCast/Agent/Chat/AgentContextBar.swift, Hub/AgentUsageSheet.swift.
+- **PRESENT** Prompt templates (suggestions, save your own). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/PromptTemplatesPresenter.kt:10, SaveTemplateDialog.kt, EmptyChat.kt:64. iPhone: apple/MacCast/Agent/Chat/AgentEmptyChat+Templates.swift.
+- **PRESENT** In-app approval sheet (allow, deny, questions). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/ApprovalSheet.kt:42, ApprovalPresenter.kt. iPhone: apple/MacCast/Agent/Approval/AgentApprovalSheet.swift.
+- **PRESENT** Changes review: file list, per-file diff, line comments sent back to the agent. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/changes/ChangesScreen.kt:59, ChangeFileScreen.kt, ChangeComments.kt:45. iPhone: apple/MacCast/Agent/Changes/AgentChangesScreen.swift, AgentChangeFileScreen.swift.
+- **PRESENT** Commit and push from the phone. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/changes/CommitSheet.kt:46, CommitPresenter.kt. iPhone: apple/MacCast/Agent/Changes/AgentCommitSheet.swift.
+- **PRESENT** Web preview of a localhost server through the computer. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/preview/PreviewScreen.kt:51, PreviewWeb.kt, PreviewRequestHandler.kt. iPhone: apple/MacCast/Agent/Preview/AgentPreviewSheet.swift, PreviewWebView.swift.
+- **PRESENT** Rename, stop to history, close, 'open elsewhere' warning, ended chat state. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/ChatTopBar.kt:84-90, RenameDialog.kt, strings agents_open_elsewhere_*. iPhone: apple/MacCast/Agent/Chat/AgentChatScreen.swift, AgentChatScreen+Expired.swift.
+- **PRESENT** Agents guide card. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/agents/HubGuidePresenter.kt. iPhone: apple/MacCast/Terminal/HubGuideCard.swift.
+- **MISSING** To review inbox: cross-chat list of changed files with reviewed marks, filters, reject sheet. Android: no review inbox in feature/agents/ (per-chat Changes only). iPhone: apple/MacCast/Agent/Review/AgentReviewScreen.swift, AgentReviewInbox.swift, AgentToReviewCard.swift, AgentReviewFilterSheet.swift, AgentReviewRejectSheet.swift.
+- **MISSING** Follow-up suggestion chips after a turn that changed files. Android: none. iPhone: apple/MacCast/Agent/Chat/AgentFollowUpBar.swift.
+- **MISSING** Tab strip to switch between open chats without going back to the hub. Android: ChatScreen.kt:36 is one chat; only terminals have a strip (TerminalTabStrip.kt:65). iPhone: apple/MacCast/Agent/Chat/AgentChatScreen+Tabs.swift.
+- **NOT APPLICABLE** Agent chat Live Activity. Android: none. iPhone: apple/MacCast/Agent/Session/AgentChatActivity.swift, MacCastWidget/AgentChatLiveActivity.swift. Android equivalent: the foreground service notification, see Notifications.
+
+## Files
+
+- **PRESENT** Browse folders with breadcrumbs and Up. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/files/FileListPresenter.kt:23, BreadcrumbBar.kt, FilesRoute.kt. iPhone: apple/MacCast/Files/FileBrowserPanel.swift, MacFilesScreen.swift.
+- **PRESENT** Search this folder. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/files/FilesTopBars.kt, strings files_search. iPhone: apple/MacCast/Files/FileBrowserControls.swift.
+- **PRESENT** Sort order and hidden-files switch. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/files/FileSort.kt:5, FilesBottomBar.kt:64; android/core/session/files/DirectoryModel.kt:10. iPhone: apple/MacCast/Files/FileBrowserPanel+Header.swift.
+- **PRESENT** Multi-select (select all, download, delete). Android: android/app/src/main/kotlin/pl/dmq/peering/feature/files/FileSelection.kt:4. iPhone: apple/MacCast/Files/FileBrowserPanel+List.swift.
+- **PRESENT** Preview text, code and markdown. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/files/TextPreview.kt:9, MarkdownBlocks.kt:5, PreviewText.kt. iPhone: apple/MacCast/Files/FilePreviewPanel.swift.
+- **PRESENT** Preview images. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/files/ImageBitmapDecoder.kt:8, Preview.kt. iPhone: apple/MacCast/Files/FilePreviewPanel.swift.
+- **MISSING** Preview PDF. Android: no PdfRenderer; PDF only gets an icon at android/app/src/main/kotlin/pl/dmq/peering/feature/files/FileGlyph.kt:14. iPhone: apple/MacCast/Files/RemotePDFView.swift. Android equivalent: PdfRenderer on the downloaded bytes.
+- **MISSING** Preview video. Android: no player; video only gets an icon. iPhone: apple/MacCast/Files/RemoteVideoView.swift. Android equivalent: Media3 ExoPlayer from the downloaded temp file.
+- **PRESENT** Upload a file from the phone. Android: android/app/src/main/kotlin/pl/dmq/peering/ui/wiring/SafUploadSource.kt:10, feature/files/InputChunks.kt:7. iPhone: apple/MacCast/Files/PhotoUploadPicker.swift, Terminal/MacSession+UploadSending.swift. 64 MB limit message at files_upload_too_large.
+- **PARTIAL** Upload from the photo library. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/files/FilesRoute.kt (system file picker only); PickVisualMedia is used in agents at feature/agents/Composer.kt:57. iPhone: apple/MacCast/Files/PhotoUploadPicker.swift. Files upload does not offer the photo picker.
+- **MISSING** Upload a whole folder. Android: no OpenDocumentTree / folder walk in feature/files/. iPhone: apple/MacCast/Terminal/MacSession+FolderUpload.swift.
+- **PRESENT** Download file or folder as zip to a chosen place. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/files/DownloadCoordinator.kt:11, ui/wiring/SafDownloadSink.kt:12, SessionDownloads.kt:27. iPhone: apple/MacCast/Terminal/MacSession+FileDownload.swift, Files/DownloadShareSheet.swift.
+- **PRESENT** New file, new folder. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/files/FileDialogs.kt:26, strings files_new_*. iPhone: apple/MacCast/Files/FileBrowserControls.swift.
+- **PRESENT** Rename and delete (single and many) with confirmation. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/files/FileDialogs.kt:26. iPhone: apple/MacCast/Files/FileEntryRow.swift.
+- **PRESENT** Share a previewed file. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/files/FileShare.kt:13, imaging/SharedFiles.kt, res/xml/shared_file_paths.xml. iPhone: apple/MacCast/Files/DownloadShareSheet.swift.
+- **PRESENT** Offline, waiting-for-permission and error states. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/files/FileBanners.kt, FileListStates.kt, FileFailureKind.kt. iPhone: apple/MacCast/Files/MacFilesScreen.swift.
+- **MISSING** Run a file / put its path on the terminal command line. Android: no match in feature/files/. iPhone: apple/MacCast/Files/FileBrowserPanel+List.swift ('Run', 'Put path in command line').
+
+## SSH servers and terminals
+
+Android has no SSH client at all: ui/nav/PeeringDestination.kt:16 says so in a comment, and nothing under android/ references SSH beyond a path-traversal comment in core/session/files/RemoteFileName.kt:5. The iPhone has a Servers tab backed by apple/SSHCore.
+
+- **MISSING** Servers tab: add, edit and list SSH hosts. Android: none. iPhone: apple/MacCast/SSH/SSHTab.swift, SSHHostEditor.swift, SSHModel+Hosts.swift. Android equivalent: an SSH library (sshj, or Apache MINA SSHD) plus a Servers destination in PeeringDestination.
+- **MISSING** SSH terminal screen with quick commands. Android: none. iPhone: apple/MacCast/SSH/SSHTerminalScreen.swift, SSHTerminal.swift, SSHQuickCommands.swift. The terminal renderer and key bar (feature/terminal) could be reused over an SSH channel.
+- **MISSING** SSH keys: generate, import a key file, passphrase. Android: none. iPhone: apple/MacCast/SSH/SSHKeySheet.swift.
+- **MISSING** Host key verification prompt. Android: none. iPhone: apple/MacCast/SSH/SSHModel+HostKeyPrompt.swift.
+- **MISSING** Per-server and app lock (passcode pad, biometrics). Android: none (app lock exists: ui/wiring/AppLock.kt:11). iPhone: apple/MacCast/SSH/SSHLockSheet.swift, SSHPasscodePad.swift, SSHModel+Lock.swift.
+- **MISSING** Port forwards. Android: none. iPhone: apple/MacCast/SSH/SSHForwards.swift, SSHModel+Forwards.swift.
+- **MISSING** Browse files over SFTP on a server. Android: none. iPhone: apple/MacCast/SSH/SSHModel+Browsing.swift.
+
+## Notifications and background behaviour
+
+Android declares only INTERNET, ACCESS_NETWORK_STATE, CHANGE_WIFI_MULTICAST_STATE and CAMERA (android/app/src/main/AndroidManifest.xml:4-7). There is no POST_NOTIFICATIONS, no notification channel, no service and no receiver other than the two widget receivers. docs/TODO.md:151 records 'no foreground service, so a session ends in the background'.
+
+- **MISSING** Approval notifications with Allow and Deny buttons. Android: none (approvals appear only inside the app: feature/agents/ApprovalSheet.kt:42). iPhone: apple/MacCast/Agent/Notifications/AgentApprovalNotifier.swift, AgentApprovalResponder.swift. Android equivalent: NotificationCompat with action buttons and a RemoteInput for replies; needs a live connection (foreground service) or FCM from the relay.
+- **MISSING** Terminal needs you / still waiting / finished notifications. Android: none. iPhone: apple/MacCast/Session/SessionNotifier.swift:142-204.
+- **MISSING** Agent finished notification with reply. Android: none. iPhone: apple/MacCast/Agent/Notifications/AgentApprovalResponder.swift:34.
+- **MISSING** Remote push token registration (relay wakes the phone). Android: none. iPhone: apple/MacCast/Session/SessionModel+PushToken.swift, RemoteCore/RelayActivityPush.swift. Android equivalent: FCM token registered with the relay; the relay needs a second delivery path.
+- **MISSING** Notification permission request and Settings row. Android: feature/onboarding/NotificationBanner.kt is tour artwork only; no POST_NOTIFICATIONS. iPhone: apple/MacCast/Session/SessionNotifier.swift:30-64, Connection/SettingsTab+System.swift.
+- **MISSING** Session survives leaving the app (grace period / keep-alive). Android: ui/wiring/ProcessForeground.kt:14 only reports foreground state; no service. iPhone: apple/MacCast/Session/SessionModel+Backgrounding.swift. The iPhone buys a few seconds of grace; Android can do better: a foreground service (type specialUse or dataSync) with an ongoing notification and a Disconnect action.
+- **NOT APPLICABLE** Live Activities for session, terminal and agent chat (Lock Screen and Dynamic Island). Android: none. iPhone: apple/MacCast/Session/SessionActivity.swift, TerminalActivity.swift, MacCastWidget/SessionLiveActivity.swift. Android equivalent: the foreground service notification; on Android 16 a Live Updates (progress-centric) notification. Dynamic Island has no Android counterpart beyond that chip.
+- **NOT APPLICABLE** Dynamic Island. Android: none. iPhone: apple/MacCast/MacCastWidget/SessionLiveActivity.swift. No Android equivalent.
+- **PRESENT** Network change handling. Android: android/app/src/main/kotlin/pl/dmq/peering/ui/wiring/ConnectivityNetworkSource.kt:18. iPhone: apple/MacCast/App/NetworkPathWatcher.swift.
+- **MISSING** Trim memory on pressure (drop old terminal output and logs). Android: no onTrimMemory / ComponentCallbacks2 in android/. iPhone: apple/MacCast/Session/MacSession+MemoryPressure.swift. Android equivalent: ComponentCallbacks2.onTrimMemory.
+- **MISSING** Low Power Mode lowers the quality ceiling. Android: no PowerManager.isPowerSaveMode use. iPhone: apple/MacCast/Session/SessionModel+Resources.swift:8. Android equivalent: PowerManager.isPowerSaveMode and the thermal status listener (API 29+, already the minSdk).
+
+## Widgets, shortcuts and deep links
+
+- **PRESENT** Quick connect widget. Android: android/app/src/main/kotlin/pl/dmq/peering/widget/QuickConnectWidget.kt:33, WidgetPublisher.kt, WidgetStore.kt; res/xml/quick_connect_widget_info.xml. iPhone: apple/MacCast/MacCastWidget/QuickConnectWidget.swift.
+- **PRESENT** Agents widget (waiting, working, finished). Android: android/app/src/main/kotlin/pl/dmq/peering/widget/AgentsWidget.kt:34, AgentSnapshotBook.kt, AgentChatEntries.kt. iPhone: apple/MacCast/MacCastWidget/AgentsWidget.swift, Agent/Session/AgentWidgetPublisher.swift.
+- **PRESENT** Widget links guarded against other apps (nonce, locked queue). Android: android/app/src/main/kotlin/pl/dmq/peering/widget/LinkNonce.kt, WidgetLinkGate.kt, LockedLinkQueue.kt; MainActivity.kt:68. iPhone: apple/MacCast/App/URLCommandRouter.swift.
+- **NOT APPLICABLE** Lock Screen widgets. Android: none. iPhone: apple/MacCast/MacCastWidget/AgentsWidget.swift, Connection/LockScreenWidgetPreview.swift. Android equivalent: ordinary widgets (lock screen widgets exist on tablets); nothing to port for phones.
+- **MISSING** Add-widget preview in Settings. Android: none. iPhone: apple/MacCast/Connection/HomeScreenWidgetPreview.swift, SettingsTab+More.swift. Android equivalent: AppWidgetManager.requestPinAppWidget from a Settings row.
+- **PARTIAL** peering:// URL commands. Android: android/app/src/main/kotlin/pl/dmq/peering/widget/WidgetLink.kt:7-37 parses connect and chat; MainActivity.kt:68,108 handles them; the manifest has no VIEW intent filter (AndroidManifest.xml:19-24). iPhone: apple/MacCast/MacCastKit/URLCommandPolicy.swift:5-45, App/URLCommandRouter.swift. Missing: peering://pair with code from a link or QR opened outside the app, disconnect, end-shells, and any external caller (by design, since the 2026-10-12 review closed the exported filter).
+- **NOT APPLICABLE** Siri, App Intents and App Shortcuts (Connect to a Mac, Disconnect, Open a shell, End my shells). Android: none; no res/xml/shortcuts.xml. iPhone: apple/MacCast/App/PeeringIntents.swift:84-230, AppShortcuts.xcstrings. Android equivalents: static or dynamic App Shortcuts on the launcher icon (ShortcutManager), Google Assistant App Actions, and a Quick Settings tile. Static shortcuts to connect to the last computer are a few lines.
+- **NOT APPLICABLE** Shortcuts app automation. Android: none. iPhone: apple/MacCast/App/PeeringIntents.swift. Android equivalent: an exported intent action protected by a signature permission, for Tasker-style automation.
+
+## Security and privacy
+
+- **PRESENT** App lock with biometrics or device credential. Android: android/app/src/main/kotlin/pl/dmq/peering/ui/wiring/AppLock.kt:11, ui/LockScreen.kt:25, feature/settings/SettingsAccountCards.kt (settings_require_unlock). iPhone: apple/MacCast/App/AppSecurity.swift, Connection/SettingsTab+Access.swift.
+- **PRESENT** Hide content from recents and screenshots while locked or in a session. Android: android/app/src/main/kotlin/pl/dmq/peering/ui/wiring/ScreenSecurity.kt:8-19, MainActivity.kt:80 (FLAG_SECURE). iPhone: apple/MacCast/App/AppSecurity.swift.
+- **PRESENT** Device identity in the Keystore and paired computers list. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/settings/SettingsDeviceCards.kt; android/core/platform/identity/. iPhone: apple/MacCast/Connection/SettingsTab+Access.swift.
+- **PRESENT** Peer pinning and sealed video. Android: android/core/platform/net/PinningTrustManager.kt, wire/VideoSealing.kt. iPhone: apple/MacCast/RemoteCore/PeerPinning.swift, VideoDatagramSealer.swift.
+
+## Settings rows
+
+- **PRESENT** Device name. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/settings/SettingsDeviceCards.kt, SettingsPresenter.kt. iPhone: apple/MacCast/Connection/SettingsTab.swift.
+- **PRESENT** Interaction: Control, Touch, Observe. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/settings/SettingsDeviceCards.kt (settings_interaction_*). iPhone: apple/MacCast/Connection/SettingsTab+Interaction.swift.
+- **PRESENT** Picture fit or fill, keyboard mode, close panels after selecting, stream quality. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/settings/SettingsDeviceCards.kt, DevicePrefs.kt, StreamQuality.kt. iPhone: apple/MacCast/Connection/SettingsTab+Interaction.swift.
+- **PRESENT** Settings search. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/settings/SettingsSearch.kt:20. iPhone: apple/MacCast/Remote/SettingsSearch.swift.
+- **PRESENT** Upgrade, invite, legal (privacy, terms, notices), report an issue, copy diagnostics, show introduction again. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/settings/SettingsAccountCards.kt, LegalPage.kt, DiagnosticsText.kt:4, ExternalLinks.kt. iPhone: apple/MacCast/Connection/SettingsTab+More.swift.
+- **PRESENT** Peering for the computer download link. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/onboarding/DownloadLink.kt, strings settings_more_host_app. iPhone: apple/MacCast/Connection/SettingsTab+More.swift.
+- **MISSING** Notifications row. Android: none. iPhone: apple/MacCast/Connection/SettingsTab+System.swift.
+- **MISSING** Share anonymous usage statistics toggle. Android: none; the footer says Peering collects no usage statistics (strings settings_security_footer). iPhone: apple/MacCast/Connection/SettingsTab+System.swift, App/Analytics.swift.
+- **NOT APPLICABLE** Live Activity and Picture in Picture toggles. Android: none. iPhone: apple/MacCast/Connection/SettingsTab+System.swift. See the Live Activities and PiP rows; the Android counterparts would be a foreground-service toggle and a PiP toggle.
+- **NOT APPLICABLE** Developer plan override. Android: debug sources only: android/app/src/debug/. iPhone: apple/MacCast/Connection/SettingsTab+System.swift. Debug aid, no user-facing value.
+
+## Onboarding, tour, What's New, FAQ
+
+- **PRESENT** Welcome landing and device-frame tour. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/onboarding/WelcomeLanding.kt:37, TourScreen.kt:61, TourPage.kt, TourStage.kt, ui/kit/DeviceFrames.kt. iPhone: apple/MacCast/Onboarding/WelcomeView.swift, TourOverlay.swift, WelcomeLanding.swift.
+- **PRESENT** Plans step in onboarding. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/onboarding/PlansSection.kt:33, PlanCard.kt, PlansHero.kt. iPhone: apple/MacCast/Onboarding/OnboardingView+Plans.swift.
+- **PRESENT** FAQ. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/onboarding/FaqScreen.kt:37, FaqEntries.kt. iPhone: apple/MacCast/Onboarding/FAQView.swift.
+- **PRESENT** Show introduction again. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/settings/SettingsAccountCards.kt (settings_more_introduction), PreferencesFirstRunStore.kt. iPhone: apple/MacCast/Connection/SettingsTab+More.swift.
+- **MISSING** What's New sheet for returning users. Android: no match for whats_new / WhatsNew in android/. iPhone: apple/MacCast/WhatsNew/WhatsNewSheet.swift, WhatsNewRelease.swift, View+PresentsWhatsNew.swift.
+- **PARTIAL** FAQ coverage. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/onboarding/FaqEntries.kt. iPhone: apple/MacCast/Onboarding/FAQView.swift. The iPhone FAQ answers SSH, audio, multi-Mac and Live Activity questions that do not apply to Android yet; the Android list should be audited against what Android actually does.
+
+## Cross-cutting: localisation, accessibility, analytics, crash reporting, layouts, haptics
+
+- **MISSING** Localisation (de, es, fr, it, ja, ko, pt-BR, ru, zh-Hans). Android: only android/app/src/main/res/values exists (English); ui/kit/RelativeTime.kt:8,30-31 forces Locale.ENGLISH. iPhone: apple/MacCast/Localizable.xcstrings (1841 strings, 10 languages), AppShortcuts.xcstrings, InfoPlist.xcstrings, MacCastWidget/Localizable.xcstrings. Strings are already in resource files per area, so adding values-xx folders is mechanical. The xcstrings translations can seed them. Date formatting needs to follow the locale.
+- **PARTIAL** Accessibility. Android: 45 contentDescription and 139 semantics uses under android/app/src/main. iPhone: apple/MacCast/176 accessibility modifiers across apple/MacCast (counted with grep). No TalkBack pass is documented; custom canvases (joystick, scroll wheel, mosaic, terminal) need explicit semantics and actions.
+- **MISSING** Product analytics (connection funnel, screens, failures). Android: none; docs/TODO.md:147 'Android and Windows send no analytics (decided: later)'. iPhone: apple/MacCast/App/Analytics.swift, Analytics+Connection.swift, Analytics+Failures.swift, View+AnalyticsScreen.swift, PostHogConfiguration.swift.
+- **MISSING** Crash and error reporting. Android: no handler or SDK in android/ (only Play Console vitals). iPhone: apple/MacCast/App/PostHogConfiguration.swift, App/Diagnostics.swift. Android equivalent: PostHog error tracking or Firebase Crashlytics, opt-in; Play vitals already cover ANRs.
+- **MISSING** Tablet, foldable and large-screen layout. Android: no WindowSizeClass / smallestScreenWidth use in android/. iPhone: apple/MacCast/8 files use horizontalSizeClass or userInterfaceIdiom; TARGETED_DEVICE_FAMILY = 1,2 in apple/MacCast.xcodeproj/project.pbxproj; tour has tablet screenshots. Android equivalent: Material 3 adaptive (WindowSizeClass), two-pane hub on Expanded width, picture beside controls.
+- **PARTIAL** Haptics. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/terminal/TerminalWindowCard.kt:79-89 and feature/agents/HubDock.kt:20 only. iPhone: apple/MacCast/12 sensoryFeedback / feedback generator uses (apple/MacCast). Joystick centre, modifier latch, mosaic lift, send and approval have no feedback on Android.
+- **PRESENT** Dark theme, design tokens, Source Serif headings. Android: android/app/src/main/kotlin/pl/dmq/peering/ui/theme/PeeringTheme.kt, PeeringColors.kt, res/font/source_serif_4.ttf. iPhone: apple/MacCast/Design/Theme.swift.
+- **PRESENT** Back gesture handling (predictive back enabled). Android: android/app/src/main/kotlin/pl/dmq/peering/AndroidManifest.xml:15 enableOnBackInvokedCallback, feature/remote/BackStep.kt. iPhone: apple/MacCast/n/a (swipe back).
+- **PRESENT** Diagnostics export and Report an issue mail. Android: android/app/src/main/kotlin/pl/dmq/peering/feature/settings/DiagnosticsText.kt:4, ui/wiring/ExternalLinks.kt:12. iPhone: apple/MacCast/Connection/SettingsTab+More.swift.
+
+## Worth building next
+
+Ranked by user impact against effort. Effort: S is a day or two, M under two weeks, L more.
+
+1. **Foreground service with an ongoing notification for a live session** (impact / effort: High / M). Today a session dies when the app leaves the screen (docs/TODO.md:151). A foreground service keeps the connection, doubles as the Live Activity equivalent (host name, path, Disconnect action), and is the prerequisite for notifications. Needs the manifest service entry, POST_NOTIFICATIONS and a decision on the service type.
+2. **Agent approval and needs-you notifications with action buttons** (impact / effort: High / M after #1). The headline iPhone agent feature (Agent/Notifications). With the service from #1 the app can post approvals, 'terminal needs you' and 'finished' notices with Allow, Deny and reply actions. FCM from the relay is the later step for a fully closed app.
+3. **Localisation into the iPhone's nine other languages** (impact / effort: High / M). Strings already live in per-area resource files, so this is values-xx folders seeded from Localizable.xcstrings, plus replacing the hard-coded Locale.ENGLISH in ui/kit/RelativeTime.kt:30. Most of the iPhone's audience is outside English.
+4. **Audio from the computer** (impact / effort: High / M). The AudioConfig frame is already framed (wire/Framing.kt:25). Needs a decoder into AudioTrack, a mute switch and a settings row. The iPhone FAQ has an entry on Mac audio.
+5. **Spaces (desktops) switching and virtual displays in the Sources panel** (impact / effort: Medium-high / S). SwitchToSpace, RefreshSpacePreviews, AddVirtualDisplay and RenameVirtualDisplay are already in the codec and HostCapability; only panel UI and capability gating are missing.
+6. **Picture in Picture for the live session** (impact / effort: Medium / S). Activity PiP with the existing SurfaceView, auto-enter on API 31+. Lets users glance at the computer while using another app.
+7. **To review inbox** (impact / effort: Medium / M). Per-chat Changes review exists (feature/agents/changes); the cross-chat list with reviewed marks, filters and reject is the missing layer. Marks logic should go into core/session next to AgentChangesReducer.
+8. **Slash command and @ mention hints in the composer** (impact / effort: Medium / S-M). Makes the Android composer match the iPhone's. Put the matching in core/session, as MacCastKit does, and add a suggestion row above Composer.kt.
+9. **Text field awareness (auto-open keyboard, mirrored field)** (impact / effort: Medium / M). The handshake flag and frame type are already decoded; needs a session-level state, the settings row and the keyboard hook.
+10. **Wake-on-LAN** (impact / effort: Medium / S). A magic packet from a known MAC address; fixes the most common 'computer not found' cause. Needs the MAC to be stored at pairing.
+11. **Crash reporting and opt-in analytics** (impact / effort: High for operations / S-M). Android is flying blind on failures: no funnel, no crash stream. Reuse PostHog's event names from docs/analytics-events.md and add the usage toggle row.
+12. **App Shortcuts and a real peering:// intent filter behind the app lock** (impact / effort: Medium / S). Long-press launcher shortcuts for Connect to the last computer and per-computer shortcuts; the lock queue already exists in widget/LockedLinkQueue.kt. Add pair, disconnect and end-shells commands to WidgetLink.
+13. **Tablet and foldable adaptive layout** (impact / effort: Medium-high / L). Material 3 adaptive with WindowSizeClass: two-pane hub, picture beside the controls. Nothing in the app reads window size today.
+14. **SSH servers and terminals** (impact / effort: High / L). Whole iPhone tab with no Android counterpart. Reuse feature/terminal rendering and keys over an SSH library, add key management, host key prompt and the lock. Sequence after the smaller items because it is a product in itself.
+15. **Files extras: PDF and video preview, folder upload, photo picker upload, Run and path-to-terminal** (impact / effort: Medium / S each). PdfRenderer and Media3 for previews; the existing SAF source for folders. Cheap wins that remove a reason to open the iPhone for file work.
+
+Smaller items not in the top 15: screenshot share, What's New sheet, in-app review prompt, Low Power and thermal quality ceiling, onTrimMemory trimming, multiple live sessions, follow-up chips, the chat tab strip, subagent sheet, haptics, the widget pin row in Settings, and a TalkBack pass on the custom canvases.
