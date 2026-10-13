@@ -12,7 +12,7 @@
     <string name="faq_away_question">离家后也能连接吗？</string>
     <string name="faq_away_answer">可以，而且会按顺序尝试两种方式。首先，两台设备会寻找彼此之间的直接路径；如果网络不允许，就由 Peering 的中继承载会话。会话屏幕会以“局域网”“中继”或“直连”显示当前使用的方式。你可以在“设置”的“远程访问”中完全关闭中继，这样连接就只限于你自己的网络。</string>
     <string name="faq_awake_question">我的电脑必须保持唤醒吗？</string>
-    <string name="faq_awake_answer">电脑必须开着才能保持会话。目前还无法从手机唤醒休眠中的电脑。</string>
+    <string name="faq_awake_answer">需要保持开机才能维持会话。同一网络中处于睡眠状态的电脑，如果允许 Wake on LAN，可以从电脑列表中的菜单唤醒。</string>
     <string name="faq_many_question">可以使用多少台电脑？</string>
     <string name="faq_many_answer">配对多少台都可以。它们都会显示在“连接”标签页中，各自有自己的菜单，同一时间只运行一个会话。开始另一个会话会结束第一个。</string>
     <string name="faq_phones_question">两部手机可以使用同一台电脑吗？</string>
@@ -64,7 +64,7 @@
 
     <string name="faq_section_gaps">已知缺口</string>
     <string name="faq_gaps_question">Peering 目前还不能做什么？</string>
-    <string name="faq_gaps_answer">这是一份清单，而不是承诺。电脑的声音还不会在这部手机上播放。没有听写按钮。选择器不显示每个桌面（空间），也不能创建虚拟显示器，也没有多窗口马赛克。剪贴板历史记录以及读取电脑拷贝的内容尚未实现。休眠且不在你网络中的电脑无法被唤醒。</string>
+    <string name="faq_gaps_answer">这是一份清单，而不是承诺。没有听写按钮。文件中的视频预览和整个文件夹上传暂不支持，从照片图库上传也不支持。不在你的网络中且处于睡眠状态的电脑无法唤醒。</string>
     <string name="faq_coming_question">这些会推出吗？</string>
     <string name="faq_coming_answer">其中一部分会。清单上没有哪一项是我们坚持的设计决定，只是都还没有做。内容有变化时，常见问题会同步说明，因为这样的清单只有持续更新才值得一读。</string>
 </resources>

@@ -11,7 +11,7 @@
     <string name="faq_away_question">Posso connettermi fuori casa?</string>
     <string name="faq_away_answer">Sì, e prova due strade in ordine. Prima i due dispositivi cercano un percorso diretto tra loro; se le reti non lo permettono, la sessione passa dal relay di Peering. La schermata della sessione indica quale è in uso: LAN, RELAY o DIRECT. Puoi disattivare del tutto il relay in Impostazioni, Accesso remoto, e le connessioni restano solo sulla tua rete.</string>
     <string name="faq_awake_question">Il mio computer deve essere sveglio?</string>
-    <string name="faq_awake_answer">Deve essere acceso per mantenere una sessione. Un computer in stop non si può ancora svegliare dal telefono.</string>
+    <string name="faq_awake_answer">Deve essere acceso per mantenere una sessione. Un computer in stop sulla tua rete può essere riattivato dal suo menu nell\'elenco dei computer, se consente Wake on LAN.</string>
     <string name="faq_many_question">Quanti computer posso usare?</string>
     <string name="faq_many_answer">Quanti ne associ. Compaiono tutti nella scheda Connetti con il proprio menu, e una sessione gira alla volta. Avviarne un\'altra termina la prima.</string>
     <string name="faq_phones_question">Due telefoni possono usare lo stesso computer?</string>
@@ -58,7 +58,7 @@
     <string name="faq_network_answer">La connessione si ferma, perché l\'indirizzo a cui il computer inviava non esiste più. Peering prova a ripristinare la sessione e ti avvisa se è terminata. Entra nella nuova rete, tocca il computer e sei di nuovo connesso.</string>
     <string name="faq_section_gaps">Lacune note</string>
     <string name="faq_gaps_question">Cosa non sa ancora fare Peering?</string>
-    <string name="faq_gaps_answer">Un elenco, non una promessa. L\'audio del computer non viene ancora riprodotto su questo telefono. Non c\'è un pulsante di dettatura. Il selettore non mostra ogni desktop (Spazio) né crea display virtuali, e non c\'è un mosaico di più finestre. La cronologia degli appunti e la lettura di ciò che il computer ha copiato non sono state realizzate. Un computer in stop e fuori dalla tua rete non può essere svegliato.</string>
+    <string name="faq_gaps_answer">Un elenco, non una promessa. Non c\'è un pulsante di dettatura. L\'anteprima video e il caricamento di intere cartelle in File non sono disponibili, e nemmeno il caricamento dalla libreria foto. Un computer in stop fuori dalla tua rete non può essere riattivato.</string>
     <string name="faq_coming_question">Una parte di questo arriverà?</string>
     <string name="faq_coming_answer">Una parte. Nulla in quell\'elenco è una decisione di design che difendiamo; ogni voce semplicemente non è costruita. Le FAQ lo diranno quando cambierà, perché un elenco così vale la pena di essere letto solo se è mantenuto.</string>
 </resources>

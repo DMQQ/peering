@@ -12,7 +12,7 @@
     <string name="faq_away_question">Can I connect away from home?</string>
     <string name="faq_away_answer">Yes, and it tries two ways in order. First the two devices look for a path straight between themselves; if the networks will not allow one, Peering\'s relay carries the session instead. The session screen shows which is in use as LAN, RELAY, or DIRECT. You can turn the relay off entirely under Settings, Remote access, which leaves connections on your own network only.</string>
     <string name="faq_awake_question">Does my computer have to be awake?</string>
-    <string name="faq_awake_answer">It has to be on to hold a session. A sleeping computer cannot be woken from the phone yet.</string>
+    <string name="faq_awake_answer">It has to be on to hold a session. A sleeping computer on your network can be woken from its menu in the computers list, if it allows Wake on LAN.</string>
     <string name="faq_many_question">How many computers can I use?</string>
     <string name="faq_many_answer">As many as you pair. They all appear in the Connect tab with their own menu, and one session runs at a time. Starting another ends the first.</string>
     <string name="faq_phones_question">Can two phones use the same computer?</string>
@@ -64,7 +64,7 @@
 
     <string name="faq_section_gaps">Known gaps</string>
     <string name="faq_gaps_question">What can\'t Peering do yet?</string>
-    <string name="faq_gaps_answer">A list rather than a promise. The computer\'s sound is not played on this phone yet. There is no dictation button. The picker does not show each desktop (Space) or make virtual displays, and there is no mosaic of several windows. The clipboard history and reading what the computer copied are not built. A computer asleep and off your network cannot be woken.</string>
+    <string name="faq_gaps_answer">A list rather than a promise. There is no dictation button. Video previews and uploading a whole folder in Files are not built, and neither is uploading from the photo library. A computer asleep and off your network cannot be woken.</string>
     <string name="faq_coming_question">Is any of that coming?</string>
     <string name="faq_coming_answer">Some of it. Nothing on that list is a design decision we are defending; each is simply not built. The FAQ will say so when it changes, because a list like this is only worth reading if it is kept.</string>
 </resources>

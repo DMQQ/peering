@@ -12,7 +12,7 @@
     <string name="faq_away_question">Posso me conectar fora de casa?</string>
     <string name="faq_away_answer">Sim, e ele tenta dois caminhos em ordem. Primeiro os dois dispositivos procuram um caminho direto entre si; se as redes não permitirem, o relay do Peering transporta a sessão. A tela da sessão mostra qual está em uso: LAN, RELAY ou DIRECT. Você pode desativar o relay por completo em Configurações, Acesso remoto, o que deixa as conexões apenas na sua própria rede.</string>
     <string name="faq_awake_question">Meu computador precisa estar ligado?</string>
-    <string name="faq_awake_answer">Ele precisa estar ligado para manter uma sessão. Um computador em repouso ainda não pode ser despertado pelo telefone.</string>
+    <string name="faq_awake_answer">Ele precisa estar ligado para manter uma sessão. Um computador em repouso na sua rede pode ser despertado pelo menu dele na lista de computadores, se permitir Wake on LAN.</string>
     <string name="faq_many_question">Quantos computadores posso usar?</string>
     <string name="faq_many_answer">Quantos você parear. Todos aparecem na aba Conectar com o próprio menu, e uma sessão roda por vez. Iniciar outra encerra a primeira.</string>
     <string name="faq_phones_question">Dois telefones podem usar o mesmo computador?</string>
@@ -64,7 +64,7 @@
 
     <string name="faq_section_gaps">Lacunas conhecidas</string>
     <string name="faq_gaps_question">O que o Peering ainda não faz?</string>
-    <string name="faq_gaps_answer">Uma lista, não uma promessa. O som do computador ainda não toca neste telefone. Não há botão de ditado. O seletor não mostra cada área de trabalho (Space) nem cria telas virtuais, e não há mosaico de várias janelas. O histórico da área de transferência e a leitura do que o computador copiou não foram feitos. Um computador em repouso e fora da sua rede não pode ser despertado.</string>
+    <string name="faq_gaps_answer">Uma lista, não uma promessa. Não há botão de ditado. A visualização de vídeo e o envio de pastas inteiras em Arquivos ainda não existem, nem o envio pela fototeca. Um computador em repouso fora da sua rede não pode ser despertado.</string>
     <string name="faq_coming_question">Alguma dessas coisas vem aí?</string>
     <string name="faq_coming_answer">Algumas. Nada nessa lista é uma decisão de design que defendemos; cada item simplesmente não foi construído. O FAQ dirá quando mudar, porque uma lista assim só vale a pena ser lida se for mantida.</string>
 </resources>

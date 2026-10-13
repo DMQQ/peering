@@ -11,7 +11,7 @@
     <string name="faq_away_question">外出先から接続できますか？</string>
     <string name="faq_away_answer">はい。2つの方法を順に試します。まず2台のデバイスが直接つながる経路を探し、ネットワークの都合で使えない場合は、Peeringのリレーがセッションを中継します。セッション画面には、使用中の経路がLAN、RELAY、DIRECTのいずれかで表示されます。設定のリモートアクセスでリレーを完全にオフにすると、自分のネットワーク内だけで接続します。</string>
     <string name="faq_awake_question">コンピュータは起動していないといけませんか？</string>
-    <string name="faq_awake_answer">セッションを維持するには、電源が入っている必要があります。スリープ中のコンピュータは、まだスマートフォンから起こせません。</string>
+    <string name="faq_awake_answer">セッションを維持するには、コンピュータの電源が入っている必要があります。同じネットワーク上でスリープ中のコンピュータは、Wake on LANを許可していれば、コンピュータ一覧のメニューから起こせます。</string>
     <string name="faq_many_question">何台のコンピュータを使えますか？</string>
     <string name="faq_many_answer">ペアリングした分だけ使えます。すべて「接続」タブにそれぞれのメニュー付きで表示され、セッションは一度に1つだけ動きます。別のセッションを始めると最初のものは終了します。</string>
     <string name="faq_phones_question">2台のスマートフォンで同じコンピュータを使えますか？</string>
@@ -58,7 +58,7 @@
     <string name="faq_network_answer">コンピュータが送信していた先のアドレスがなくなるため、接続が途切れます。Peeringはセッションの復旧を試み、終了した場合はお知らせします。新しいネットワークに接続し、コンピュータをタップすれば元に戻ります。</string>
     <string name="faq_section_gaps">既知の制約</string>
     <string name="faq_gaps_question">Peeringにまだできないことは？</string>
-    <string name="faq_gaps_answer">約束ではなく、一覧です。コンピュータの音は、このスマートフォンではまだ再生されません。音声入力ボタンはありません。ピッカーには、各デスクトップ（Space）が表示されず、仮想ディスプレイも作れず、複数のウインドウを並べるモザイクもありません。クリップボード履歴や、コンピュータがコピーしたものの読み取りは未実装です。スリープして、ネットワークから外れたコンピュータは起こせません。</string>
+    <string name="faq_gaps_answer">約束ではなく一覧です。音声入力ボタンはありません。ファイルでの動画プレビューとフォルダ全体のアップロード、フォトライブラリからのアップロードにはまだ対応していません。ネットワーク外でスリープ中のコンピュータは起こせません。</string>
     <string name="faq_coming_question">その一部は実現しますか？</string>
     <string name="faq_coming_answer">一部は。そのリストにあるものは、私たちが守っている設計上の決定ではなく、単にまだ作っていないだけです。このようなリストは更新されていてこそ読む価値があるので、変わったらFAQでお知らせします。</string>
 </resources>

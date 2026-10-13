@@ -11,7 +11,7 @@
     <string name="faq_away_question">Puis-je me connecter hors de chez moi ?</string>
     <string name="faq_away_answer">Oui, et elle essaie deux voies dans l\'ordre. D\'abord les deux appareils cherchent un chemin direct entre eux ; si les réseaux n\'en permettent pas, le relais de Peering porte la session à la place. L\'écran de session indique laquelle est utilisée : LAN, RELAIS ou DIRECT. Vous pouvez désactiver entièrement le relais dans Réglages, Accès à distance, ce qui limite les connexions à votre propre réseau.</string>
     <string name="faq_awake_question">Mon ordinateur doit-il être éveillé ?</string>
-    <string name="faq_awake_answer">Il doit être allumé pour tenir une session. Un ordinateur en veille ne peut pas encore être réveillé depuis le téléphone.</string>
+    <string name="faq_awake_answer">Il doit être allumé pour maintenir une session. Un ordinateur en veille sur ton réseau peut être réveillé depuis son menu dans la liste des ordinateurs, s\'il autorise Wake on LAN.</string>
     <string name="faq_many_question">Combien d\'ordinateurs puis-je utiliser ?</string>
     <string name="faq_many_answer">Autant que vous en associez. Ils apparaissent tous dans l\'onglet Connexion avec leur propre menu, et une seule session tourne à la fois. En démarrer une autre termine la première.</string>
     <string name="faq_phones_question">Deux téléphones peuvent-ils utiliser le même ordinateur ?</string>
@@ -58,7 +58,7 @@
     <string name="faq_network_answer">La connexion devient silencieuse, car l\'adresse vers laquelle l\'ordinateur envoyait n\'existe plus. Peering essaie de rétablir la session et vous prévient si elle s\'est terminée. Rejoignez le nouveau réseau, touchez l\'ordinateur, et vous revoilà.</string>
     <string name="faq_section_gaps">Lacunes connues</string>
     <string name="faq_gaps_question">Que ne peut pas encore faire Peering ?</string>
-    <string name="faq_gaps_answer">Une liste plutôt qu\'une promesse. Le son de l\'ordinateur n\'est pas encore joué sur ce téléphone. Il n\'y a pas de bouton de dictée. Le sélecteur n\'affiche pas chaque bureau (Espace) ni ne crée d\'écrans virtuels, et il n\'y a pas de mosaïque de plusieurs fenêtres. L\'historique du presse-papiers et la lecture de ce que l\'ordinateur a copié ne sont pas encore développés. Un ordinateur en veille et hors de votre réseau ne peut pas être réveillé.</string>
+    <string name="faq_gaps_answer">Une liste plutôt qu\'une promesse. Il n\'y a pas de bouton de dictée. L\'aperçu vidéo et l\'envoi de dossiers entiers dans Fichiers ne sont pas disponibles, pas plus que l\'envoi depuis la photothèque. Un ordinateur en veille hors de ton réseau ne peut pas être réveillé.</string>
     <string name="faq_coming_question">Une partie de cela est-elle prévue ?</string>
     <string name="faq_coming_answer">Une partie. Rien dans cette liste n\'est une décision de conception que nous défendons ; chaque point n\'est simplement pas construit. La FAQ le dira quand cela changera, car une liste comme celle-ci ne vaut la peine d\'être lue que si elle est tenue à jour.</string>
 </resources>

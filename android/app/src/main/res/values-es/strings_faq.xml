@@ -11,7 +11,7 @@
     <string name="faq_away_question">¿Puedo conectarme fuera de casa?</string>
     <string name="faq_away_answer">Sí, y lo intenta de dos maneras, en orden. Primero los dos dispositivos buscan un camino directo entre ellos; si las redes no lo permiten, el relay de Peering lleva la sesión. La pantalla de la sesión muestra cuál se usa: LAN, RELAY o DIRECT. Puedes desactivar el relay por completo en Ajustes, Acceso remoto, lo que deja las conexiones solo en tu propia red.</string>
     <string name="faq_awake_question">¿Mi ordenador tiene que estar activo?</string>
-    <string name="faq_awake_answer">Tiene que estar encendido para mantener una sesión. Todavía no se puede activar desde el teléfono un ordenador en reposo.</string>
+    <string name="faq_awake_answer">Tiene que estar encendido para mantener una sesión. Un ordenador en reposo de tu red se puede despertar desde su menú en la lista de ordenadores, si permite Wake on LAN.</string>
     <string name="faq_many_question">¿Cuántos ordenadores puedo usar?</string>
     <string name="faq_many_answer">Tantos como empareje. Todos aparecen en la pestaña Conectar con su propio menú, y se ejecuta una sesión a la vez. Iniciar otra termina la primera.</string>
     <string name="faq_phones_question">¿Pueden dos teléfonos usar el mismo ordenador?</string>
@@ -58,7 +58,7 @@
     <string name="faq_network_answer">La conexión se queda en silencio, porque la dirección a la que enviaba el ordenador ya no existe. Peering intenta restablecer la sesión y te avisa si terminó. Conéctate a la nueva red, toca el ordenador y listo.</string>
     <string name="faq_section_gaps">Carencias conocidas</string>
     <string name="faq_gaps_question">¿Qué no puede hacer Peering todavía?</string>
-    <string name="faq_gaps_answer">Una lista, no una promesa. El sonido del ordenador todavía no se reproduce en este teléfono. No hay botón de dictado. El selector no muestra cada escritorio (Space) ni crea pantallas virtuales, y no hay mosaico de varias ventanas. El historial del portapapeles y la lectura de lo que copió el ordenador no están hechos. Un ordenador en reposo y fuera de tu red no se puede activar.</string>
+    <string name="faq_gaps_answer">Una lista, no una promesa. No hay botón de dictado. La vista previa de vídeo y la subida de carpetas enteras en Archivos aún no existen, ni tampoco la subida desde la fototeca. Un ordenador en reposo y fuera de tu red no se puede despertar.</string>
     <string name="faq_coming_question">¿Llegará alguna de esas cosas?</string>
     <string name="faq_coming_answer">Algunas. Nada de esa lista es una decisión de diseño que defendamos; simplemente no está construido. Las preguntas frecuentes lo dirán cuando cambie, porque una lista así solo vale la pena si se mantiene.</string>
 </resources>

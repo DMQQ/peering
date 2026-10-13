@@ -11,7 +11,7 @@
     <string name="faq_away_question">Kann ich mich von unterwegs verbinden?</string>
     <string name="faq_away_answer">Ja, und es versucht zwei Wege nacheinander. Zuerst suchen die beiden Geräte einen direkten Weg zueinander; erlauben die Netzwerke keinen, übernimmt das Relay von Peering die Sitzung. Der Sitzungsbildschirm zeigt als LAN, RELAY oder DIREKT, welcher Weg genutzt wird. Du kannst das Relay unter Einstellungen, Fernzugriff, ganz ausschalten, dann bleiben Verbindungen auf dein eigenes Netzwerk beschränkt.</string>
     <string name="faq_awake_question">Muss mein Computer wach sein?</string>
-    <string name="faq_awake_answer">Er muss eingeschaltet sein, um eine Sitzung zu halten. Ein Computer im Ruhezustand kann noch nicht vom Smartphone aus geweckt werden.</string>
+    <string name="faq_awake_answer">Er muss eingeschaltet sein, um eine Sitzung zu halten. Ein Computer im Ruhezustand in deinem Netzwerk kann über sein Menü in der Computerliste geweckt werden, wenn er Wake-on-LAN erlaubt.</string>
     <string name="faq_many_question">Wie viele Computer kann ich nutzen?</string>
     <string name="faq_many_answer">So viele, wie du koppelst. Alle erscheinen im Tab Verbinden mit eigenem Menü, und eine Sitzung läuft zur Zeit. Eine weitere zu starten beendet die erste.</string>
     <string name="faq_phones_question">Können zwei Smartphones denselben Computer nutzen?</string>
@@ -58,7 +58,7 @@
     <string name="faq_network_answer">Die Verbindung wird still, weil die Adresse, an die der Computer gesendet hat, nicht mehr existiert. Peering versucht, die Sitzung wiederherzustellen, und sagt dir, wenn sie beendet wurde. Tritt dem neuen Netzwerk bei, tippe den Computer an, und du bist zurück.</string>
     <string name="faq_section_gaps">Bekannte Lücken</string>
     <string name="faq_gaps_question">Was kann Peering noch nicht?</string>
-    <string name="faq_gaps_answer">Eine Liste statt eines Versprechens. Der Ton des Computers wird auf diesem Smartphone noch nicht abgespielt. Es gibt keine Diktiertaste. Die Auswahl zeigt nicht jeden Schreibtisch (Space) und erstellt keine virtuellen Displays, und es gibt kein Mosaik aus mehreren Fenstern. Der Verlauf der Zwischenablage und das Lesen dessen, was der Computer kopiert hat, sind nicht gebaut. Ein Computer im Ruhezustand außerhalb deines Netzwerks kann nicht geweckt werden.</string>
+    <string name="faq_gaps_answer">Eine Liste statt eines Versprechens. Es gibt keine Diktiertaste. Videovorschau und das Hochladen ganzer Ordner in Dateien fehlen noch, ebenso das Hochladen aus der Fotomediathek. Ein Computer im Ruhezustand außerhalb deines Netzwerks kann nicht geweckt werden.</string>
     <string name="faq_coming_question">Kommt etwas davon?</string>
     <string name="faq_coming_answer">Einiges. Nichts auf dieser Liste ist eine Designentscheidung, die wir verteidigen; jedes ist einfach nicht gebaut. Die FAQ sagt es, wenn sich etwas ändert, denn eine Liste wie diese ist nur lesenswert, wenn sie gepflegt wird.</string>
 </resources>
