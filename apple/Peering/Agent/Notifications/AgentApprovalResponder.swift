@@ -10,7 +10,9 @@ enum AgentApprovalResponder {
     private static let connectionWait: Duration = .seconds(18)
     private static let poll: Duration = .milliseconds(200)
 
-    static func answer(_ decision: AgentApprovalDecision, to reference: AgentApprovalNotification.Reference) async {
+    /// Whether the Mac confirmed the answer, for a caller that has someone waiting to be told.
+    @discardableResult
+    static func answer(_ decision: AgentApprovalDecision, to reference: AgentApprovalNotification.Reference) async -> Bool {
         var backgroundTask = UIBackgroundTaskIdentifier.invalid
         backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Answer agent approval") {
             UIApplication.shared.endBackgroundTask(backgroundTask)
@@ -29,6 +31,7 @@ enum AgentApprovalResponder {
             Analytics.agentFailed(stage: .approval, cause: failure ?? .other)
             await notifier.postDeliveryFailure(reference, sessionTitle: IntentHost.model?.agentTitle(reference.sessionID))
         }
+        return failure == nil
     }
 
     /// The next prompt for a chat, from the button on its "finished" notification.

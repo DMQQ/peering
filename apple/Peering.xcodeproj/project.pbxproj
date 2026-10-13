@@ -7,10 +7,21 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		16B8B3FBF5E26C0FBB419172 /* WatchLink in Frameworks */ = {isa = PBXBuildFile; productRef = 7D7C5B9D810AB36D1EF93D21 /* WatchLink */; };
+		9EDAED34D96B0732CD4DECCC /* PeeringWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 7527CCAAFBCCC10E0FE54C1C /* PeeringWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA00001000000000000000AA /* TerminalActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000AA /* TerminalActivityAttributes.swift */; };
 		AA00002000000000000000AA /* TerminalActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000AA /* TerminalActivityAttributes.swift */; };
 		AB00001000000000000000AA /* AgentChatSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000AA /* AgentChatSnapshot.swift */; };
 		AB00002000000000000000AA /* AgentChatSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000AA /* AgentChatSnapshot.swift */; };
+		AC0100000000000000000000 /* SessionActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000000 /* SessionActivityState.swift */; };
+		AC0200000000000000000000 /* SessionActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000000 /* SessionActivityState.swift */; };
+		AC0300000000000000000000 /* SessionActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000000 /* SessionActivityState.swift */; };
+		AD0100000000000000000000 /* AgentChatActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0000000000000000000000 /* AgentChatActivityAttributes.swift */; };
+		AD0200000000000000000000 /* AgentChatActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0000000000000000000000 /* AgentChatActivityAttributes.swift */; };
+		AE0100000000000000000000 /* HostKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000000 /* HostKey.swift */; };
+		AE0200000000000000000000 /* HostKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000000 /* HostKey.swift */; };
+		AE0300000000000000000000 /* HostKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000000 /* HostKey.swift */; };
+		AF0100000000000000000000 /* AgentChatSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000AA /* AgentChatSnapshot.swift */; };
 		C2B2281E306093ED008FB38C /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = E1A00002305B000100ABF943 /* Sparkle */; };
 		C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EC30574AB600ABF943 /* RemoteCore */; };
 		C2C039F030574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EE30574AB600ABF943 /* RemoteCore */; };
@@ -27,20 +38,20 @@
 		D4C0FFA4305B000100ABF943 /* PeeringKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA2305B000100ABF943 /* PeeringKit */; };
 		D4C0FFA5305B000100ABF943 /* PeeringKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA3305B000100ABF943 /* PeeringKit */; };
 		D4C0FFA6305B000100ABF943 /* PeeringKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA7305B000100ABF943 /* PeeringKit */; };
+		D9850F902C269890FDB9CDF3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D9A91476ADA04FA37C424E36 /* Foundation.framework */; };
+		EE9649D4F46CFB466557FCEF /* WatchLink in Frameworks */ = {isa = PBXBuildFile; productRef = 709D5030F04C8121495FE9B6 /* WatchLink */; };
 		F0A10001305B000100ABF943 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F0A10003305B000100ABF943 /* PostHog */; };
 		F0A10002305B000100ABF943 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F0A10004305B000100ABF943 /* PostHog */; };
-		AC0100000000000000000000 /* SessionActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000000 /* SessionActivityState.swift */; };
-		AC0200000000000000000000 /* SessionActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000000 /* SessionActivityState.swift */; };
-		AC0300000000000000000000 /* SessionActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0000000000000000000000 /* SessionActivityState.swift */; };
-		AD0100000000000000000000 /* AgentChatActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0000000000000000000000 /* AgentChatActivityAttributes.swift */; };
-		AD0200000000000000000000 /* AgentChatActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0000000000000000000000 /* AgentChatActivityAttributes.swift */; };
-		AE0100000000000000000000 /* HostKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000000 /* HostKey.swift */; };
-		AE0200000000000000000000 /* HostKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000000 /* HostKey.swift */; };
-		AE0300000000000000000000 /* HostKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0000000000000000000000 /* HostKey.swift */; };
-		AF0100000000000000000000 /* AgentChatSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000000000000000000AA /* AgentChatSnapshot.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		A5306F80B170F4FA9AE220EE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C2C039B730574AB400ABF943 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 79F7DF0293D454F9F676E78A;
+			remoteInfo = PeeringWatch;
+		};
 		C2C039CF30574AB600ABF943 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = C2C039B730574AB400ABF943 /* Project object */;
@@ -72,6 +83,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		06199EFC484E3B8401F5ECDB /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				9EDAED34D96B0732CD4DECCC /* PeeringWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C2C03B0A3058094B00ABF943 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -97,8 +119,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		7527CCAAFBCCC10E0FE54C1C /* PeeringWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = PeeringWatch.app; path = PeeringWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA00000000000000000000AA /* TerminalActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalActivityAttributes.swift; sourceTree = "<group>"; };
 		AB00000000000000000000AA /* AgentChatSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChatSnapshot.swift; sourceTree = "<group>"; };
+		AC0000000000000000000000 /* SessionActivityState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionActivityState.swift; sourceTree = "<group>"; };
+		AD0000000000000000000000 /* AgentChatActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChatActivityAttributes.swift; sourceTree = "<group>"; };
+		AE0000000000000000000000 /* HostKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostKey.swift; sourceTree = "<group>"; };
 		C2C039BF30574AB400ABF943 /* Peering.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Peering.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2C039CE30574AB600ABF943 /* PeeringTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PeeringTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2C039D830574AB600ABF943 /* PeeringUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PeeringUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -108,9 +134,7 @@
 		C2C03AF93058094A00ABF943 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionActivityAttributes.swift; sourceTree = "<group>"; };
 		D4A10006305B000100ABF943 /* PeeringHostWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PeeringHostWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		AC0000000000000000000000 /* SessionActivityState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionActivityState.swift; sourceTree = "<group>"; };
-		AD0000000000000000000000 /* AgentChatActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChatActivityAttributes.swift; sourceTree = "<group>"; };
-		AE0000000000000000000000 /* HostKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostKey.swift; sourceTree = "<group>"; };
+		D9A91476ADA04FA37C424E36 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS11.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -133,21 +157,29 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C2C039C130574AB400ABF943 /* Peering */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = Peering;
 			sourceTree = "<group>";
 		};
 		C2C039D130574AB600ABF943 /* PeeringTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = PeeringTests;
 			sourceTree = "<group>";
 		};
 		C2C039DB30574AB600ABF943 /* PeeringUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = PeeringUITests;
 			sourceTree = "<group>";
 		};
 		C2C039F230574AB600ABF943 /* PeeringHost */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = PeeringHost;
 			sourceTree = "<group>";
 		};
@@ -167,9 +199,25 @@
 			path = PeeringHostWidget;
 			sourceTree = "<group>";
 		};
+		E9431515AD3317740FC0FE87 /* PeeringWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			path = PeeringWatch;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		06B96741709896FAC664E0CC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D9850F902C269890FDB9CDF3 /* Foundation.framework in Frameworks */,
+				16B8B3FBF5E26C0FBB419172 /* WatchLink in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C2C039BC30574AB400ABF943 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -178,6 +226,7 @@
 				D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */,
 				D4C0FFA4305B000100ABF943 /* PeeringKit in Frameworks */,
 				F0A10001305B000100ABF943 /* PostHog in Frameworks */,
+				EE9649D4F46CFB466557FCEF /* WatchLink in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -229,6 +278,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		AF956476AEA121AB0BF43876 /* watchOS */ = {
+			isa = PBXGroup;
+			children = (
+				D9A91476ADA04FA37C424E36 /* Foundation.framework */,
+			);
+			name = watchOS;
+			sourceTree = "<group>";
+		};
 		C2C039B630574AB400ABF943 = {
 			isa = PBXGroup;
 			children = (
@@ -241,6 +298,7 @@
 				C2C03AF63058094900ABF943 /* Frameworks */,
 				C2C039C030574AB400ABF943 /* Products */,
 				C2C03B14305809EC00ABF943 /* Shared */,
+				E9431515AD3317740FC0FE87 /* PeeringWatch */,
 			);
 			sourceTree = "<group>";
 		};
@@ -253,6 +311,7 @@
 				C2C039F330574AB600ABF943 /* Peering.app */,
 				C2C03AF53058094900ABF943 /* PeeringWidgetExtension.appex */,
 				D4A10006305B000100ABF943 /* PeeringHostWidgetExtension.appex */,
+				7527CCAAFBCCC10E0FE54C1C /* PeeringWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -262,6 +321,7 @@
 			children = (
 				C2C03AF73058094900ABF943 /* WidgetKit.framework */,
 				C2C03AF93058094A00ABF943 /* SwiftUI.framework */,
+				AF956476AEA121AB0BF43876 /* watchOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -282,6 +342,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		79F7DF0293D454F9F676E78A /* PeeringWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 32564A8D196738CCC805E424 /* Build configuration list for PBXNativeTarget "PeeringWatch" */;
+			buildPhases = (
+				124169B8EDCE36233C4746DA /* Sources */,
+				06B96741709896FAC664E0CC /* Frameworks */,
+				1EA8FAD816C80F8EE20A5694 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				E9431515AD3317740FC0FE87 /* PeeringWatch */,
+			);
+			name = PeeringWatch;
+			packageProductDependencies = (
+				7D7C5B9D810AB36D1EF93D21 /* WatchLink */,
+			);
+			productName = PeeringWatch;
+			productReference = 7527CCAAFBCCC10E0FE54C1C /* PeeringWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 		C2C039BE30574AB400ABF943 /* Peering */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C2C039E230574AB600ABF943 /* Build configuration list for PBXNativeTarget "Peering" */;
@@ -291,11 +374,13 @@
 				C2C039BD30574AB400ABF943 /* Resources */,
 				C2C03B0A3058094B00ABF943 /* Embed Foundation Extensions */,
 				F0A10006305B000100ABF943 /* Upload PostHog dSYMs */,
+				06199EFC484E3B8401F5ECDB /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				C2C03B083058094B00ABF943 /* PBXTargetDependency */,
+				AA11DA292B0ACBC8F8F32284 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				C2C039C130574AB400ABF943 /* Peering */,
@@ -306,6 +391,7 @@
 				D4C0FF02305B000100ABF943 /* SSHCore */,
 				D4C0FFA2305B000100ABF943 /* PeeringKit */,
 				F0A10003305B000100ABF943 /* PostHog */,
+				709D5030F04C8121495FE9B6 /* WatchLink */,
 			);
 			productName = Peering;
 			productReference = C2C039BF30574AB400ABF943 /* Peering.app */;
@@ -353,8 +439,6 @@
 				C2C039DB30574AB600ABF943 /* PeeringUITests */,
 			);
 			name = PeeringUITests;
-			packageProductDependencies = (
-			);
 			productName = PeeringUITests;
 			productReference = C2C039D830574AB600ABF943 /* PeeringUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -404,8 +488,6 @@
 				C2C03AFB3058094A00ABF943 /* PeeringWidget */,
 			);
 			name = PeeringWidgetExtension;
-			packageProductDependencies = (
-			);
 			productName = PeeringWidgetExtension;
 			productReference = C2C03AF53058094900ABF943 /* PeeringWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -426,8 +508,6 @@
 				D4A10008305B000100ABF943 /* PeeringHostWidget */,
 			);
 			name = PeeringHostWidgetExtension;
-			packageProductDependencies = (
-			);
 			productName = PeeringHostWidgetExtension;
 			productReference = D4A10006305B000100ABF943 /* PeeringHostWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -490,6 +570,7 @@
 				C2C039FE30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-asn1" */,
 				E1A00001305B000100ABF943 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				F0A10005305B000100ABF943 /* XCRemoteSwiftPackageReference "posthog-ios" */,
+				E9AA9268F21F4E6F94D2935A /* XCLocalSwiftPackageReference "WatchLink" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C2C039C030574AB400ABF943 /* Products */;
@@ -502,11 +583,19 @@
 				C2C039F430574AB600ABF943 /* PeeringHost */,
 				C2C03AF43058094900ABF943 /* PeeringWidgetExtension */,
 				D4A1000A305B000100ABF943 /* PeeringHostWidgetExtension */,
+				79F7DF0293D454F9F676E78A /* PeeringWatch */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		1EA8FAD816C80F8EE20A5694 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C2C039BD30574AB400ABF943 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -585,6 +674,13 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		124169B8EDCE36233C4746DA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C2C039BB30574AB400ABF943 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -645,6 +741,12 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		AA11DA292B0ACBC8F8F32284 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = PeeringWatch;
+			target = 79F7DF0293D454F9F676E78A /* PeeringWatch */;
+			targetProxy = A5306F80B170F4FA9AE220EE /* PBXContainerItemProxy */;
+		};
 		C2C039D030574AB600ABF943 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C2C039BE30574AB400ABF943 /* Peering */;
@@ -668,6 +770,39 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		4E52ACA238A42DE594108257 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 202610111;
+				DEVELOPMENT_TEAM = 55RA6Q9VSR;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Peering;
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = pl.dmq.peering;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 202610111;
+				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.watchkitapp;
+				PRODUCT_NAME = Peering;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 		C2C039E030574AB600ABF943 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -793,13 +928,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/Peering.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 202610111;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Peering-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -828,14 +963,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/Peering.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 202610111;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Peering-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -948,13 +1083,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/PeeringHost.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 202610111;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/PeeringHost-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -979,15 +1114,15 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/PeeringHost.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 202610111;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/PeeringHost-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -1127,9 +1262,50 @@
 			};
 			name = Release;
 		};
+		E8B2AE8C24D07696C7B1A5B0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 202610111;
+				DEVELOPMENT_TEAM = 55RA6Q9VSR;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Peering;
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = pl.dmq.peering;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 202610111;
+				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.watchkitapp;
+				PRODUCT_NAME = Peering;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		32564A8D196738CCC805E424 /* Build configuration list for PBXNativeTarget "PeeringWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4E52ACA238A42DE594108257 /* Release */,
+				E8B2AE8C24D07696C7B1A5B0 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		C2C039BA30574AB400ABF943 /* Build configuration list for PBXProject "Peering" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1208,6 +1384,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = PeeringKit;
 		};
+		E9AA9268F21F4E6F94D2935A /* XCLocalSwiftPackageReference "WatchLink" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = WatchLink;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -1246,6 +1426,14 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		709D5030F04C8121495FE9B6 /* WatchLink */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WatchLink;
+		};
+		7D7C5B9D810AB36D1EF93D21 /* WatchLink */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WatchLink;
+		};
 		C2C039EC30574AB600ABF943 /* RemoteCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = RemoteCore;

@@ -65,6 +65,19 @@ extension MacSession {
 }
 
 extension MacSession {
+    /// The questions this Mac's chats are waiting on, for the watch.
+    func publishWatchApprovals() {
+        let approvals = agentSessions.flatMap { session in
+            session.transcript.pendingApprovals.map { approval in
+                AgentApprovalNotification(approval: approval, sessionID: session.id)
+                    .watchApproval(chatTitle: session.title, hostID: hostID, hostName: shownName, postedAt: .now)
+            }
+        }
+        WatchApprovalBridge.shared.update(hostKey: hostID ?? hostName ?? id.uuidString, approvals: approvals)
+    }
+}
+
+extension MacSession {
     /// The chats as the widget draws them. Called after every agent event; the publisher drops what changed nothing.
     func publishAgentWidget() {
         let chats = agentSessions.compactMap { session -> AgentChatSnapshot? in

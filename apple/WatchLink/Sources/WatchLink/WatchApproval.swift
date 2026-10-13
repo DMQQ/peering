@@ -1,7 +1,7 @@
 import Foundation
 
 /// One question an agent is waiting on, as much of it as a wrist shows.
-public struct WatchApproval: Codable, Equatable, Sendable, Identifiable {
+public struct WatchApproval: Codable, Hashable, Sendable, Identifiable {
     public enum Kind: String, Codable, Sendable {
         /// A tool wants to run: allow or deny.
         case allowDeny
@@ -66,6 +66,11 @@ public struct WatchApproval: Codable, Equatable, Sendable, Identifiable {
         case .openOnly:
             []
         }
+    }
+
+    /// The same question with another time on it: the phone stamps the moment it first saw a question, so republishing it does not look like a change.
+    public func posted(at moment: Date) -> WatchApproval {
+        WatchApproval(approvalID: approvalID, sessionID: sessionID, hostID: hostID, chatTitle: chatTitle, hostName: hostName, body: body, kind: kind, answers: answers, postedAt: moment)
     }
 
     public func answer(_ choice: Choice) -> WatchAnswer {

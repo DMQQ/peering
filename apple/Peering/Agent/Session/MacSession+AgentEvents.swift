@@ -138,5 +138,6 @@ extension MacSession {
 
         publishWork()
         publishAgentWidget()
+        publishWatchApprovals()
     }
 }

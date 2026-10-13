@@ -11,7 +11,7 @@ extension FAQView {
                 ),
                 QA(
                     question: String(localized: "How do I pair a Mac?"),
-                    answer: String(localized: "The two devices have to be able to reach each other once, and somebody has to be at the Mac. On the same network, choose the Mac from Nearby. If it is somewhere else, open Devices in Peering on the Mac, copy its device ID, and use Pair from another network on the iPhone. Either way the Mac shows six digits: enter them on the iPhone and continue only if they match. You pair once; after that the devices recognise each other and reconnect on their own.")
+                    answer: String(localized: "The two devices have to be able to reach each other once, and somebody has to be at the Mac. On the same network, choose the Mac from Nearby. If it is somewhere else, open Devices in Peering on the Mac, copy its device ID, and use Pair from Another Network on the iPhone. Either way the Mac shows six digits: enter them on the iPhone and continue only if they match. You pair once; after that the devices recognise each other and reconnect on their own.")
                 ),
                 QA(
                     question: String(localized: "What does the Mac need?"),
@@ -27,7 +27,7 @@ extension FAQView {
                 ),
                 QA(
                     question: String(localized: "How many Macs can I use?"),
-                    answer: String(localized: "As many as you pair. They all appear in the Connect tab with their own menu, and one session runs at a time. Starting another ends the first.")
+                    answer: String(localized: "As many as you pair. They all appear in the Connect tab, and you can have several open at once, one tab per Mac. Tapping a tab switches to that Mac without disconnecting the one you left, and its shells keep running.")
                 ),
                 QA(
                     question: String(localized: "Can two phones use the same Mac?"),
@@ -49,7 +49,7 @@ extension FAQView {
                 ),
                 QA(
                     question: String(localized: "What are the limits?"),
-                    answer: String(localized: "The Mac has to be on, with the Mac app running and both permissions allowed. Away from your own network the relay is free for 30 minutes in each rolling 24 hours. A Mac that is asleep and off your network cannot be woken, and iOS suspends this app in the background unless Picture in Picture or a Live Activity is running. Known gaps, at the bottom, lists what is not built yet.")
+                    answer: String(localized: "The Mac has to be on, with the Mac app running and both permissions allowed. Away from your own network the relay is free for 30 minutes a day. A Mac that is asleep and off your network cannot be woken, and iOS suspends this app in the background unless Picture in Picture or a Live Activity is running. Known gaps, at the bottom, lists what is not built yet.")
                 ),
                 QA(
                     question: String(localized: "Can I read the code?"),
@@ -97,7 +97,7 @@ extension FAQView {
                 ),
                 QA(
                     question: String(localized: "How does clipboard sharing work?"),
-                    answer: String(localized: "Text moves only when you ask it to: pull the Mac's clipboard, push this phone's, or pick something you pulled earlier. Pulling, pushing and copying are free on every plan. The list of the 25 most recent pulls is the part Relay adds, and it keeps filling on a plan that cannot open it, so the day you subscribe the last twelve things are waiting. Nothing is copied in the background.")
+                    answer: String(localized: "Text moves only when you ask it to: pull the Mac's clipboard, push this phone's, or pick something you pulled earlier. The phone keeps your 25 most recent pulls so you can pick one again. All of it is free. Nothing is copied in the background.")
                 ),
                 QA(
                     question: String(localized: "Can I transfer files?"),
@@ -106,6 +106,10 @@ extension FAQView {
                 QA(
                     question: String(localized: "Can I open a terminal?"),
                     answer: String(localized: "Yes, two kinds. One is a shell on the Mac itself, opened inside the session, with tabs you can rename and a key row for the control keys a phone keyboard cannot send. The other is a saved SSH server, which connects straight from the phone and does not involve the Mac at all. Both file browsers can browse, preview, download, edit, upload, and make, rename or delete what they list.")
+                ),
+                QA(
+                    question: String(localized: "Can I use coding agents?"),
+                    answer: String(localized: "Yes. Peering can run Claude Code, Codex and OpenCode on the Mac. You chat with them from the phone, review what they changed, commit and push, and answer their permission requests from the Lock Screen.")
                 ),
                 QA(
                     question: String(localized: "Can I reach my server, or only my Mac?"),
@@ -117,7 +121,7 @@ extension FAQView {
                 ),
                 QA(
                     question: String(localized: "What are macros and quick commands?"),
-                    answer: String(localized: "Saved commands you fire with a tap rather than typing them on glass. Quick commands are the chips above the terminal keyboard, and the same list is waiting in every shell; macros are longer sequences you record once. Firing one is free on every plan. Making or editing one is Pro, the same way the terminal itself is free and the second shell at once is not.")
+                    answer: String(localized: "Saved commands you fire with a tap rather than typing them on glass. Quick commands are the chips above the terminal keyboard, and the same list is waiting in every shell; macros are longer sequences you record once. Using them and making them are both free.")
                 ),
                 QA(
                     question: String(localized: "Can I switch between the Mac's desktops?"),
@@ -131,15 +135,11 @@ extension FAQView {
             items: [
                 QA(
                     question: String(localized: "What is free?"),
-                    answer: String(localized: "Connecting over your own network, with no limit and no time counted. The relay is the part that reaches a Mac on another network, and free includes 30 minutes of it in each rolling 24 hours.")
+                    answer: String(localized: "Everything in the app. Connecting over your own network has no limit and no time counted. The relay is the part that reaches a Mac on another network, and free includes 30 minutes of it each day. A paid plan adds only one thing: unlimited relay time.")
                 ),
                 QA(
                     question: String(localized: "What happens when my relay time runs out?"),
-                    answer: String(localized: "The relay stops carrying sessions until the window rolls over, and the Sessions tab shows the meter counting down. Connections on your own network keep working the whole time. Any paid plan removes the limit entirely.")
-                ),
-                QA(
-                    question: String(localized: "Can I use more than one Mac at once?"),
-                    answer: String(localized: "One at a time is free on every plan, and starting a session with a second Mac ends the first. Pro keeps them all open, so moving between two machines is a tap rather than a reconnection, and the one you are not looking at stays connected behind the one you are.")
+                    answer: String(localized: "The relay stops carrying sessions until the allowance resets, which happens once a day at midnight UTC, and the Sessions tab shows the meter counting down. Connections on your own network keep working the whole time. Any paid plan removes the limit entirely.")
                 ),
                 QA(
                     question: String(localized: "Why does the app ask me to subscribe?"),
@@ -183,7 +183,7 @@ extension FAQView {
             items: [
                 QA(
                     question: String(localized: "What can't Peering do yet?"),
-                    answer: String(localized: "A list rather than a promise. There is no dictation button. A port forward listens on this phone only: there is no way to open one on the server's side, which is what ssh -R is for. A Mac asleep and off your network cannot be woken. A Mac with its lid shut and no screen attached has nothing to show unless this phone has made a virtual display for it, which is part of Pro.")
+                    answer: String(localized: "A list rather than a promise. There is no dictation button. A port forward listens on this phone only: there is no way to open one on the server's side, which is what ssh -R is for. A Mac asleep and off your network cannot be woken. A Mac with its lid shut and no screen attached has nothing to show unless this phone has made a virtual display for it.")
                 ),
                 QA(
                     question: String(localized: "Is any of that coming?"),

@@ -46,6 +46,13 @@ struct WatchLinkTests {
         #expect(approval(kind: .openOnly).choices(allowTitle: "Allow", denyTitle: "Deny").isEmpty)
     }
 
+    @Test func restampingChangesOnlyTheTime() {
+        let original = approval(kind: .allowDeny)
+        let later = original.posted(at: Date(timeIntervalSince1970: 9_000))
+        #expect(later.postedAt == Date(timeIntervalSince1970: 9_000))
+        #expect(later.posted(at: original.postedAt) == original)
+    }
+
     @Test func replyReadsDelivered() {
         #expect(WatchAnswerReply.isDelivered(WatchAnswerReply.payload(delivered: true)))
         #expect(!WatchAnswerReply.isDelivered(WatchAnswerReply.payload(delivered: false)))

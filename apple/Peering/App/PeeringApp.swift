@@ -67,6 +67,7 @@ struct PeeringApp: App {
         CrashLog.install(subject: "phone")
         UNUserNotificationCenter.current().delegate = NotificationRouter.shared
         AgentApprovalNotifier.shared.registerCategories()
+        WatchApprovalBridge.shared.activate()
     }
 
     /// The pin store is read when the model is built, which happens before `init` runs, so the alarm is wired here.

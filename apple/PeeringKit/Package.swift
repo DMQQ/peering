@@ -10,12 +10,14 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../RemoteCore"),
+        .package(path: "../WatchLink"),
     ],
     targets: [
         .target(
             name: "PeeringKit",
             dependencies: [
                 .product(name: "RemoteCore", package: "RemoteCore"),
+                .product(name: "WatchLink", package: "WatchLink"),
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

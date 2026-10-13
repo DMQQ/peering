@@ -18637,64 +18637,6 @@
         }
       }
     },
-    "A list rather than a promise. There is no dictation button. A port forward listens on this phone only: there is no way to open one on the server's side, which is what ssh -R is for. A Mac asleep and off your network cannot be woken. A Mac with its lid shut and no screen attached has nothing to show unless this phone has made a virtual display for it, which is part of Pro." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eine Liste statt eines Versprechens. Es gibt keine Diktiertaste. Eine Portweiterleitung lauscht nur auf diesem Telefon: Es gibt keine Möglichkeit, eine auf der Seite des Servers zu öffnen, wofür ssh -R da ist. Ein schlafender Mac außerhalb deines Netzwerks kann nicht aufgeweckt werden. Ein Mac mit geschlossenem Deckel und ohne angeschlossenen Bildschirm hat nichts zu zeigen, es sei denn, dieses Telefon hat ihm ein virtuelles Display angelegt, was Teil von Pro ist."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Una lista y no una promesa. No hay botón de dictado. Un reenvío de puerto escucha solo en este teléfono: no hay forma de abrir uno en el lado del servidor, que es para lo que sirve ssh -R. Un Mac dormido y fuera de tu red no se puede despertar. Un Mac con la tapa cerrada y sin pantalla conectada no tiene nada que mostrar, salvo que este teléfono le haya creado una pantalla virtual, algo que forma parte de Pro."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Une liste plutôt qu'une promesse. Il n'y a pas de bouton de dictée. Une redirection de port écoute sur ce téléphone seulement : il n'y a aucun moyen d'en ouvrir une côté serveur, à quoi sert ssh -R. Un Mac en veille et hors de votre réseau ne peut pas être réveillé. Un Mac au capot fermé et sans écran branché n'a rien à montrer, sauf si ce téléphone lui a créé un écran virtuel, ce qui fait partie de Pro."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Un elenco e non una promessa. Non c'è un pulsante di dettatura. Un inoltro di porta ascolta solo su questo telefono: non c'è modo di aprirne uno lato server, che è a cosa serve ssh -R. Un Mac in stop e fuori dalla tua rete non può essere risvegliato. Un Mac con il coperchio chiuso e nessuno schermo collegato non ha nulla da mostrare, a meno che questo telefono non gli abbia creato un display virtuale, il che fa parte di Pro."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "約束ではなくリストです。音声入力ボタンはありません。ポートフォワードはこのiPhoneでのみ待ち受け、サーバ側で開く方法（ssh -Rの役目）はありません。ネットワークの外でスリープしているMacは起動できません。蓋を閉じて画面も接続されていないMacには、このiPhoneが仮想ディスプレイを作らない限り映すものがありません（これはProの一部です）。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "약속이 아니라 목록입니다. 받아쓰기 버튼이 없습니다. 포트 포워드는 이 iPhone에서만 수신 대기하며, 서버 쪽에서 여는 방법(ssh -R의 역할)이 없습니다. 네트워크 밖에서 잠자기 중인 Mac은 깨울 수 없습니다. 덮개가 닫히고 연결된 화면이 없는 Mac은, 이 iPhone이 가상 디스플레이를 만들어 주지 않는 한 보여 줄 것이 없습니다(이는 Pro의 일부입니다)."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uma lista em vez de uma promessa. Não há botão de ditado. Um redirecionamento de porta escuta apenas neste telefone: não há como abrir um do lado do servidor, que é para o que serve o ssh -R. Um Mac em repouso e fora da sua rede não pode ser despertado. Um Mac com a tampa fechada e sem tela conectada não tem nada a mostrar, a menos que este telefone tenha criado uma tela virtual para ele, o que faz parte do Pro."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Список, а не обещание. Нет кнопки диктовки. Переадресация порта слушает только на этом телефоне: нет способа открыть её на стороне сервера, для чего нужен ssh -R. Спящий Mac вне вашей сети разбудить нельзя. Mac с закрытой крышкой и без подключённого экрана ему нечего показывать, если этот телефон не создал для него виртуальный дисплей, что является частью Pro."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这是一份清单，而不是承诺。没有听写按钮。端口转发只在这部手机上监听：没有办法在服务器一侧打开一个，那是 ssh -R 的用途。休眠且不在你网络中的 Mac 无法被唤醒。合盖且没有连接屏幕的 Mac 没有可显示的内容，除非这部手机为它创建了虚拟显示器，这属于 Pro。"
-          }
-        }
-      }
-    },
     "A Mac" : {
       "localizations" : {
         "de" : {
@@ -23076,64 +23018,6 @@
         }
       }
     },
-    "As many as you pair. They all appear in the Connect tab with their own menu, and one session runs at a time. Starting another ends the first." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "So viele, wie du koppelst. Alle erscheinen im Tab Verbinden mit eigenem Menü, und eine Sitzung läuft zur Zeit. Eine weitere zu starten beendet die erste."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tantos como empareje. Todos aparecen en la pestaña Conectar con su propio menú, y se ejecuta una sesión a la vez. Iniciar otra termina la primera."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Autant que vous en associez. Ils apparaissent tous dans l'onglet Connexion avec leur propre menu, et une seule session tourne à la fois. En démarrer une autre termine la première."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quanti ne associ. Compaiono tutti nella scheda Connetti con il proprio menu, e una sessione gira alla volta. Avviarne un'altra termina la prima."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ペアリングした分だけ使えます。すべて「接続」タブにそれぞれのメニュー付きで表示され、セッションは一度に1つだけ動きます。別のセッションを始めると最初のものは終了します。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "페어링한 만큼입니다. 모두 연결 탭에 각자의 메뉴와 함께 나타나며, 세션은 한 번에 하나만 실행됩니다. 다른 세션을 시작하면 처음 것은 종료됩니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quantos você parear. Todos aparecem na aba Conectar com o próprio menu, e uma sessão roda por vez. Iniciar outra encerra a primeira."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сколько свяжете. Все они отображаются на вкладке «Подключение» со своим меню, и одновременно идёт один сеанс. Запуск другого завершает первый."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "配对多少就能用多少。它们都会出现在“连接”标签页，各有自己的菜单，同一时间只运行一个会话。开始另一个会话会结束第一个。"
-          }
-        }
-      }
-    },
     "Ask again" : {
       "localizations" : {
         "de" : {
@@ -25924,64 +25808,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我可以传输文件吗？"
-          }
-        }
-      }
-    },
-    "Can I use more than one Mac at once?" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kann ich mehr als einen Mac gleichzeitig nutzen?"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Puedo usar más de un Mac a la vez?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Puis-je utiliser plus d'un Mac à la fois ?"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Posso usare più di un Mac alla volta?"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "同時に複数のMacを使えますか？"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mac을 동시에 둘 이상 쓸 수 있나요?"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Posso usar mais de um Mac ao mesmo tempo?"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Могу ли я использовать больше одного Mac одновременно?"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "我可以同时使用多台 Mac 吗？"
           }
         }
       }
@@ -30352,64 +30178,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通过你自己的网络连接在所有套餐中都是无限制的，包括免费版，并且每个付费套餐都可与你拥有的每台 Mac 配对。免费版可配对一台。中继时间是唯一被计量的东西。"
-          }
-        }
-      }
-    },
-    "Connecting over your own network, with no limit and no time counted. The relay is the part that reaches a Mac on another network, and free includes 30 minutes of it in each rolling 24 hours." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das Verbinden über dein eigenes Netzwerk, ohne Limit und ohne gezählte Zeit. Das Relay ist der Teil, der einen Mac in einem anderen Netzwerk erreicht, und kostenlos enthält 30 Minuten davon pro gleitenden 24 Stunden."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conectarse por tu propia red, sin límite y sin contar el tiempo. El relay es la parte que llega a un Mac en otra red, y lo gratis incluye 30 minutos en cada periodo de 24 horas."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Se connecter sur votre propre réseau, sans limite et sans temps compté. Le relais est la partie qui atteint un Mac sur un autre réseau, et le gratuit en comprend 30 minutes par période glissante de 24 heures."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connettersi sulla tua rete, senza limite e senza tempo contato. Il relay è la parte che raggiunge un Mac su un'altra rete, e il gratis ne include 30 minuti in ogni 24 ore scorrevoli."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自分のネットワークでの接続は、上限なし、時間のカウントなしです。リレーは別のネットワークにあるMacに届く部分で、無料プランには24時間ごと（ローリング）に30分が含まれます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "내 네트워크에서의 연결은 제한도, 시간 계산도 없습니다. 릴레이는 다른 네트워크의 Mac에 닿는 부분이며, 무료에는 24시간마다(롤링) 30분이 포함됩니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conectar pela sua própria rede, sem limite e sem tempo contado. O relay é a parte que alcança um Mac em outra rede, e o grátis inclui 30 minutos dele em cada 24 horas corridas."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Подключение по вашей собственной сети, без лимита и без подсчёта времени. Релей это часть, которая достигает Mac в другой сети, и бесплатный тариф включает 30 минут релея в каждые скользящие 24 часа."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "通过你自己的网络连接，没有上限，也不计时。中继是到达其他网络上 Mac 的部分，免费版在每个滚动 24 小时内包含 30 分钟。"
           }
         }
       }
@@ -58422,64 +58190,6 @@
         }
       }
     },
-    "One at a time is free on every plan, and starting a session with a second Mac ends the first. Pro keeps them all open, so moving between two machines is a tap rather than a reconnection, and the one you are not looking at stays connected behind the one you are." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Einer zur Zeit ist in jedem Tarif kostenlos, und eine Sitzung mit einem zweiten Mac zu starten beendet die erste. Pro hält alle offen, sodass der Wechsel zwischen zwei Maschinen ein Tippen statt einer neuen Verbindung ist, und die, die du nicht ansiehst, bleibt hinter der, die du ansiehst, verbunden."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uno a la vez es gratis en todos los planes, y iniciar una sesión con un segundo Mac termina la primera. Pro los mantiene todos abiertos, así que pasar de una máquina a otra es un toque y no una reconexión, y la que no estás mirando sigue conectada detrás de la que sí."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Un à la fois est gratuit sur toutes les formules, et démarrer une session avec un second Mac termine la première. Pro les garde tous ouverts, si bien que passer d'une machine à l'autre est un toucher et non une reconnexion, et celle que vous ne regardez pas reste connectée derrière celle que vous regardez."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uno alla volta è gratis su ogni piano, e avviare una sessione con un secondo Mac termina la prima. Pro li tiene tutti aperti, quindi passare da una macchina all'altra è un tocco e non una riconnessione, e quella che non guardi resta connessa dietro quella che guardi."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一度に1台まではどのプランでも無料で、2台目のMacでセッションを始めると最初のものは終了します。Proならすべてを開いたままにでき、2台間の移動は再接続ではなくタップ一つで、見ていないほうは見ているほうの裏でつながったままです。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "한 번에 하나는 모든 플랜에서 무료이며, 두 번째 Mac으로 세션을 시작하면 첫 번째는 종료됩니다. Pro는 모두 열어 두므로 두 머신 사이 이동은 재연결이 아니라 탭 한 번이고, 보고 있지 않은 쪽은 보고 있는 쪽 뒤에서 연결된 채 유지됩니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Um por vez é grátis em todos os planos, e iniciar uma sessão com um segundo Mac encerra a primeira. O Pro mantém todos abertos, então alternar entre duas máquinas é um toque e não uma reconexão, e a que você não está olhando continua conectada atrás da que você está."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "По одному бесплатно на любом тарифе, и запуск сеанса со вторым Mac завершает первый. Pro держит все открытыми, так что переключение между двумя машинами это касание, а не переподключение, а тот, на который вы не смотрите, остаётся подключённым позади того, на который смотрите."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所有套餐中一次一台是免费的，与第二台 Mac 开始会话会结束第一个。Pro 会让它们全部保持打开，所以在两台机器之间移动只需轻点一下而不是重新连接，你没在看的那台会在你正在看的那台后面保持连接。"
-          }
-        }
-      }
-    },
     "One hidden file matches. Show hidden files to see it." : {
       "localizations" : {
         "de" : {
@@ -73614,64 +73324,6 @@
         }
       }
     },
-    "Saved commands you fire with a tap rather than typing them on glass. Quick commands are the chips above the terminal keyboard, and the same list is waiting in every shell; macros are longer sequences you record once. Firing one is free on every plan. Making or editing one is Pro, the same way the terminal itself is free and the second shell at once is not." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gespeicherte Befehle, die du mit einem Tippen auslöst, statt sie aufs Glas zu tippen. Schnellbefehle sind die Chips über der Terminal-Tastatur, und dieselbe Liste wartet in jeder Shell; Makros sind längere Abfolgen, die du einmal aufzeichnest. Eines auszulösen ist in jedem Tarif kostenlos. Eines anzulegen oder zu bearbeiten ist Pro, so wie das Terminal selbst kostenlos ist und die zweite Shell gleichzeitig nicht."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comandos guardados que ejecutas con un toque en lugar de escribirlos en el cristal. Los comandos rápidos son los chips sobre el teclado del terminal, y la misma lista te espera en cada shell; las macros son secuencias más largas que grabas una vez. Ejecutar una es gratis en todos los planes. Crearla o editarla es Pro, igual que el propio terminal es gratis y el segundo shell a la vez no lo es."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Des commandes enregistrées que vous lancez d'un toucher plutôt que de les taper sur du verre. Les commandes rapides sont les pastilles au-dessus du clavier du terminal, et la même liste attend dans chaque shell ; les macros sont des séquences plus longues que vous enregistrez une fois. En lancer une est gratuit sur toutes les formules. En créer ou en modifier une est Pro, de la même façon que le terminal lui-même est gratuit et que le second shell simultané ne l'est pas."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comandi salvati che lanci con un tocco invece di scriverli sul vetro. I comandi rapidi sono i chip sopra la tastiera del terminale, e la stessa lista aspetta in ogni shell; le macro sono sequenze più lunghe che registri una volta. Lanciarne una è gratis su ogni piano. Crearla o modificarla è Pro, allo stesso modo in cui il terminale stesso è gratis e la seconda shell contemporanea no."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ガラスの上で入力する代わりに、タップ一つで実行できる保存済みのコマンドです。クイックコマンドはターミナルキーボードの上のチップで、同じリストがすべてのシェルで待っています。マクロは一度記録する、より長い一連の操作です。実行はどのプランでも無料です。作成や編集はProで、ターミナル自体は無料でも2つ目のシェルの同時利用はそうではないのと同じです。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "유리 위에 입력하는 대신 탭 한 번으로 실행하는 저장된 명령입니다. 빠른 명령은 터미널 키보드 위의 칩이며 같은 목록이 모든 셸에서 기다립니다. 매크로는 한 번 기록하는 더 긴 시퀀스입니다. 실행은 모든 플랜에서 무료입니다. 만들거나 편집하는 것은 Pro이며, 터미널 자체는 무료지만 두 번째 셸을 동시에 쓰는 것은 그렇지 않은 것과 같습니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comandos salvos que você dispara com um toque em vez de digitá-los no vidro. Comandos rápidos são os chips acima do teclado do terminal, e a mesma lista espera em cada shell; macros são sequências mais longas que você grava uma vez. Disparar uma é grátis em todos os planos. Criar ou editar uma é Pro, do mesmo jeito que o terminal em si é grátis e o segundo shell ao mesmo tempo não é."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Сохранённые команды, которые вы запускаете касанием, а не набираете на стекле. Быстрые команды это плашки над клавиатурой терминала, и тот же список ждёт в каждом shell; макросы это более длинные последовательности, которые вы записываете один раз. Запуск бесплатен на любом тарифе. Создание или изменение это Pro, так же как сам терминал бесплатен, а второй shell одновременно нет."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存下来的命令，用轻点一下执行，而不是在玻璃上敲出来。快捷命令是终端键盘上方的标签，同一份列表在每个 Shell 中等着你；宏是你录制一次的更长序列。执行一个在所有套餐中都免费。创建或编辑一个需要 Pro，就像终端本身免费而同时使用第二个 Shell 不免费一样。"
-          }
-        }
-      }
-    },
     "Saved hosts, passwords in the Keychain, the fingerprint shown the first time, and a Face ID or passcode lock you can put on any one of them." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -84904,123 +84556,6 @@
         }
       }
     },
-    "Text moves only when you ask it to: pull the Mac's clipboard, push this phone's, or pick something you pulled earlier. Pulling, pushing and copying are free on every plan. The list of the 12 most recent pulls is the part Relay adds, and it keeps filling on a plan that cannot open it, so the day you subscribe the last twelve things are waiting. Nothing is copied in the background." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Text wandert nur, wenn du es verlangst: die Zwischenablage des Macs holen, die dieses Telefons senden oder etwas wählen, das du zuvor geholt hast. Holen, Senden und Kopieren sind in jedem Tarif kostenlos. Die Liste der 12 letzten Abrufe ist das, was Relay hinzufügt, und sie füllt sich weiter in einem Tarif, der sie nicht öffnen kann, sodass am Tag deines Abos die letzten zwölf Dinge bereitliegen. Nichts wird im Hintergrund kopiert."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El texto se mueve solo cuando lo pides: traer el portapapeles del Mac, enviar el de este teléfono o elegir algo que trajiste antes. Traer, enviar y copiar son gratis en todos los planes. La lista de las 12 últimas copias traídas es lo que añade Relay, y sigue llenándose en un plan que no puede abrirla, así que el día que te suscribas las últimas doce cosas estarán esperando. No se copia nada en segundo plano."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le texte ne circule que quand vous le demandez : récupérer le presse-papiers du Mac, envoyer celui de ce téléphone, ou choisir quelque chose récupéré plus tôt. Récupérer, envoyer et copier sont gratuits sur toutes les formules. La liste des 12 dernières récupérations est ce qu'ajoute Relay, et elle continue de se remplir sur une formule qui ne peut pas l'ouvrir, donc le jour où vous vous abonnez, les douze dernières choses vous attendent. Rien n'est copié en arrière-plan."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il testo si sposta solo quando lo chiedi: prelevare gli appunti del Mac, inviare quelli di questo telefono o scegliere qualcosa prelevato prima. Prelevare, inviare e copiare sono gratis su ogni piano. L'elenco degli ultimi 12 prelievi è ciò che aggiunge Relay, e continua a riempirsi su un piano che non può aprirlo, quindi il giorno in cui ti abboni le ultime dodici cose ti aspettano. Niente viene copiato in background."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "テキストは依頼したときだけ移動します。Macのクリップボードを取得する、このiPhoneのものを送る、以前に取得したものを選ぶ、のいずれかです。取得、送信、コピーはどのプランでも無料です。直近12件の取得リストはRelayが追加する部分で、開けないプランでも溜まり続けるので、購読したその日に直近12件が待っています。バックグラウンドでは何もコピーされません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "텍스트는 내가 요청할 때만 이동합니다. Mac의 클립보드를 가져오기, 이 iPhone의 것을 보내기, 이전에 가져온 것을 고르기입니다. 가져오기, 보내기, 복사는 모든 플랜에서 무료입니다. 최근 12개의 가져오기 목록은 Relay가 더하는 부분이며, 열 수 없는 플랜에서도 계속 쌓이므로 구독하는 날 최근 열두 개가 기다리고 있습니다. 백그라운드에서는 아무것도 복사되지 않습니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O texto só circula quando você pede: puxar a área de transferência do Mac, enviar a deste telefone ou escolher algo que você puxou antes. Puxar, enviar e copiar são grátis em todos os planos. A lista das 12 últimas puxadas é o que o Relay acrescenta, e ela continua se enchendo em um plano que não pode abri-la, então no dia em que você assinar as últimas doze coisas estarão esperando. Nada é copiado em segundo plano."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Текст передаётся только по вашему запросу: забрать буфер обмена Mac, отправить буфер этого телефона или выбрать то, что вы забрали раньше. Забирать, отправлять и копировать бесплатно на любом тарифе. Список из 12 последних забранных элементов добавляет Relay, и он продолжает наполняться на тарифе, который не может его открыть, так что в день подписки последние двенадцать элементов будут ждать. Ничего не копируется в фоне."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "文本只在你要求时才会移动：取回 Mac 的剪贴板、推送这部手机的剪贴板，或选取你之前取回的内容。取回、推送和拷贝在所有套餐中都免费。最近 12 次取回的列表是 Relay 增加的部分，在无法打开它的套餐里它也会持续填充，所以你订阅的那天最近十二项就在那里等着。后台不会拷贝任何内容。"
-          }
-        }
-      }
-    },
-    "Text moves only when you ask it to: pull the Mac's clipboard, push this phone's, or pick something you pulled earlier. Pulling, pushing and copying are free on every plan. The list of the 25 most recent pulls is the part Relay adds, and it keeps filling on a plan that cannot open it, so the day you subscribe the last twelve things are waiting. Nothing is copied in the background." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Text bewegt sich nur, wenn du es willst: die Zwischenablage des Mac holen, die dieses iPhones senden oder etwas wählen, das du früher geholt hast. Holen, Senden und Kopieren sind in jedem Tarif kostenlos. Die Liste der 25 letzten Abrufe ergänzt Relay und sie füllt sich weiter, auch wenn dein Tarif sie nicht öffnen kann, sodass am Tag deines Abos die letzten zwölf Einträge bereitstehen. Im Hintergrund wird nichts kopiert."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El texto solo se mueve cuando lo pides: traer el portapapeles del Mac, enviar el de este teléfono o elegir algo que trajiste antes. Traer, enviar y copiar es gratis en todos los planes. La lista de las 25 últimas copias traídas la añade Relay y sigue llenándose en un plan que no puede abrirla, así que el día que te suscribas tendrás las últimas doce cosas esperando. Nada se copia en segundo plano."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le texte ne circule que si vous le demandez : récupérer le presse-papiers du Mac, envoyer celui de ce téléphone ou choisir un élément récupéré plus tôt. Récupérer, envoyer et copier est gratuit sur toutes les formules. La liste des 25 dernières récupérations est ce qu'ajoute Relay, et elle continue de se remplir sur une formule qui ne peut pas l'ouvrir : le jour de votre abonnement, les douze derniers éléments vous attendent. Rien n'est copié en arrière-plan."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il testo si sposta solo quando lo chiedi: recupera gli appunti del Mac, invia quelli di questo telefono o scegli qualcosa recuperato prima. Recuperare, inviare e copiare è gratis in ogni piano. L'elenco dei 25 recuperi più recenti lo aggiunge Relay e continua a riempirsi anche in un piano che non può aprirlo, così il giorno in cui ti abboni trovi ad aspettarti le ultime dodici cose. Niente viene copiato in background."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "テキストは、あなたが操作したときだけ移動します。Macのクリップボードを取得する、このiPhoneのものを送る、以前に取得したものを選ぶ、のいずれかです。取得、送信、コピーはどのプランでも無料です。直近25件の取得リストはRelayが加える機能で、開けないプランでも蓄積され続けるため、登録した日には直近12件がそろっています。バックグラウンドでコピーされることはありません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "텍스트는 요청할 때만 이동합니다. Mac의 클립보드를 가져오거나, 이 iPhone의 클립보드를 보내거나, 이전에 가져온 항목을 고르세요. 가져오기, 보내기, 복사는 모든 플랜에서 무료입니다. 최근 가져온 25개 목록은 Relay가 더하는 기능이며, 열 수 없는 플랜에서도 계속 쌓이므로 구독하는 날 최근 12개가 기다리고 있습니다. 백그라운드에서는 아무것도 복사되지 않습니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O texto só se move quando você pede: buscar a área de transferência do Mac, enviar a deste iPhone ou escolher algo que você buscou antes. Buscar, enviar e copiar são grátis em todos os planos. A lista das 25 buscas mais recentes é o que o Relay acrescenta, e ela continua se enchendo em um plano que não consegue abri-la, então no dia em que você assinar as últimas doze coisas estarão esperando. Nada é copiado em segundo plano."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Текст перемещается только по вашему запросу: забрать буфер обмена Mac, отправить буфер этого iPhone или выбрать то, что вы забирали раньше. Забирать, отправлять и копировать можно бесплатно на любом тарифе. Список из 25 последних полученных элементов добавляет Relay, и он продолжает наполняться на тарифе, где его нельзя открыть, так что в день подписки последние двенадцать записей уже ждут вас. В фоне ничего не копируется."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "文本只会在你要求时移动：拉取 Mac 的剪贴板、推送这部 iPhone 的剪贴板，或选取之前拉取的内容。拉取、推送和拷贝在所有套餐中都免费。最近 25 次拉取的列表由 Relay 提供，即使当前套餐无法打开它也会持续累积，因此订阅当天最近的十二项内容就已在等你。后台不会拷贝任何内容。"
-          }
-        }
-      }
-    },
     "Text size" : {
       "localizations" : {
         "de" : {
@@ -90325,64 +89860,6 @@
         }
       }
     },
-    "The relay stops carrying sessions until the window rolls over, and the Sessions tab shows the meter counting down. Connections on your own network keep working the whole time. Any paid plan removes the limit entirely." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das Relay trägt keine Sitzungen mehr, bis das Fenster sich erneuert, und der Tab Sitzungen zeigt die herunterzählende Anzeige. Verbindungen in deinem eigenen Netzwerk funktionieren die ganze Zeit weiter. Jeder bezahlte Tarif hebt das Limit komplett auf."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El relay deja de llevar sesiones hasta que se renueve la ventana, y la pestaña Sesiones muestra el contador bajando. Las conexiones de tu propia red siguen funcionando todo el tiempo. Cualquier plan de pago elimina el límite por completo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le relais cesse de porter des sessions jusqu'au renouvellement de la fenêtre, et l'onglet Sessions montre le compteur qui descend. Les connexions sur votre propre réseau continuent de fonctionner pendant tout ce temps. Toute formule payante supprime entièrement la limite."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il relay smette di portare sessioni finché la finestra non si rinnova, e la scheda Sessioni mostra il contatore che scende. Le connessioni sulla tua rete continuano a funzionare per tutto il tempo. Qualsiasi piano a pagamento rimuove del tutto il limite."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "枠が更新されるまでリレーはセッションを運ばなくなり、「セッション」タブにカウントダウンするメーターが表示されます。自分のネットワーク内の接続はその間もずっと使えます。有料プランなら上限がなくなります。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "창이 갱신될 때까지 릴레이가 세션을 전달하지 않으며, 세션 탭에 카운트다운하는 미터가 표시됩니다. 내 네트워크의 연결은 그동안 계속 동작합니다. 유료 플랜은 제한을 완전히 없앱니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O relay para de levar sessões até a janela renovar, e a aba Sessões mostra o medidor em contagem regressiva. As conexões na sua própria rede continuam funcionando o tempo todo. Qualquer plano pago remove o limite por completo."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Релей перестаёт нести сеансы, пока окно не обновится, а вкладка «Сеансы» показывает счётчик, идущий вниз. Подключения в вашей сети работают всё это время. Любой платный тариф полностью снимает лимит."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在窗口刷新之前，中继会停止承载会话，“会话”标签页会显示倒计时的计量表。你自己网络上的连接在整个期间一直正常。任何付费套餐都会完全取消限制。"
-          }
-        }
-      }
-    },
     "The server did not answer" : {
       "localizations" : {
         "de" : {
@@ -91196,64 +90673,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "订阅每月自动续订，直至取消，你可以随时在 App Store 设置中取消。Lifetime 为一次性付款，不会续订。确认时将从你的 Apple 账户扣款。"
-          }
-        }
-      }
-    },
-    "The two devices have to be able to reach each other once, and somebody has to be at the Mac. On the same network, choose the Mac from Nearby. If it is somewhere else, open Devices in Peering on the Mac, copy its device ID, and use Pair from another network on the iPhone. Either way the Mac shows six digits: enter them on the iPhone and continue only if they match. You pair once; after that the devices recognise each other and reconnect on their own." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die beiden Geräte müssen einander einmal erreichen können, und jemand muss am Mac sein. Wähle im selben Netzwerk den Mac unter In der Nähe aus. Ist er woanders, öffne in Peering auf dem Mac Geräte, kopiere seine Geräte-ID und nutze auf dem iPhone Aus anderem Netzwerk koppeln. In beiden Fällen zeigt der Mac sechs Ziffern: Gib sie auf dem iPhone ein und fahre nur fort, wenn sie übereinstimmen. Du koppelst einmal; danach erkennen sich die Geräte und verbinden sich von selbst wieder."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Los dos dispositivos tienen que poder alcanzarse una vez, y alguien tiene que estar frente al Mac. En la misma red, elige el Mac en Cerca. Si está en otro lugar, abre Dispositivos en Peering en el Mac, copia su ID de dispositivo y usa Emparejar desde otra red en el iPhone. En ambos casos el Mac muestra seis dígitos: introdúcelos en el iPhone y continúa solo si coinciden. Emparejas una vez; después los dispositivos se reconocen y se reconectan solos."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les deux appareils doivent pouvoir se joindre une fois, et quelqu'un doit être devant le Mac. Sur le même réseau, choisissez le Mac dans À proximité. S'il est ailleurs, ouvrez Appareils dans Peering sur le Mac, copiez son ID d'appareil et utilisez Associer depuis un autre réseau sur l'iPhone. Dans les deux cas, le Mac affiche six chiffres : saisissez-les sur l'iPhone et ne continuez que s'ils correspondent. Vous n'associez qu'une fois ; ensuite les appareils se reconnaissent et se reconnectent seuls."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "I due dispositivi devono potersi raggiungere una volta, e qualcuno deve essere al Mac. Sulla stessa rete, scegli il Mac in Nelle vicinanze. Se è altrove, apri Dispositivi in Peering sul Mac, copia il suo ID dispositivo e usa Associa da un'altra rete su iPhone. In entrambi i casi il Mac mostra sei cifre: inseriscile su iPhone e prosegui solo se coincidono. Associ una volta; poi i dispositivi si riconoscono e si riconnettono da soli."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "2つのデバイスが一度お互いに到達できる必要があり、Macの前に誰かがいる必要があります。同じネットワークなら、「近く」からMacを選びます。別の場所にある場合は、MacのPeeringの「デバイス」を開いてデバイスIDをコピーし、iPhoneで「別のネットワークからペアリング」を使います。どちらの場合もMacが6桁の数字を表示するので、iPhoneに入力し、一致した場合のみ続行します。ペアリングは一度だけで、その後はデバイス同士が互いを認識して自動で再接続します。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "두 기기가 한 번은 서로 닿을 수 있어야 하고, Mac 앞에 누군가 있어야 합니다. 같은 네트워크에서는 근처에서 Mac을 선택하세요. 다른 곳에 있다면 Mac의 Peering에서 기기를 열어 기기 ID를 복사하고, iPhone에서 다른 네트워크에서 페어링을 사용하세요. 어느 쪽이든 Mac이 여섯 자리 숫자를 표시하면 iPhone에 입력하고, 일치할 때만 계속하세요. 페어링은 한 번만 하며, 이후에는 기기들이 서로를 알아보고 알아서 다시 연결합니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Os dois dispositivos precisam conseguir se alcançar uma vez, e alguém precisa estar no Mac. Na mesma rede, escolha o Mac em Por perto. Se ele estiver em outro lugar, abra Dispositivos no Peering do Mac, copie o ID do dispositivo e use Parear de outra rede no iPhone. Em ambos os casos o Mac mostra seis dígitos: digite-os no iPhone e continue só se coincidirem. Você pareia uma vez; depois os dispositivos se reconhecem e se reconectam sozinhos."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Два устройства должны один раз получить доступ друг к другу, и кто-то должен быть у Mac. В одной сети выберите Mac в разделе «Поблизости». Если он в другом месте, откройте «Устройства» в Peering на Mac, скопируйте его ID устройства и воспользуйтесь на iPhone пунктом «Связать из другой сети». В обоих случаях Mac показывает шесть цифр: введите их на iPhone и продолжайте, только если они совпадают. Связывание делается один раз; потом устройства узнают друг друга и подключаются сами."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "两台设备必须能彼此连通一次，并且需要有人在 Mac 前。在同一网络中，从“附近”选择 Mac。如果它在别处，请在 Mac 上的 Peering 中打开“设备”，拷贝其设备 ID，并在 iPhone 上使用“从其他网络配对”。无论哪种，Mac 都会显示六位数字：在 iPhone 上输入，并且只有在一致时才继续。只需配对一次；之后设备会互相识别并自动重新连接。"
           }
         }
       }
@@ -105284,64 +104703,6 @@
         }
       }
     },
-    "The Mac has to be on, with the Mac app running and both permissions allowed. Away from your own network the relay is free for 30 minutes in each rolling 24 hours. A Mac that is asleep and off your network cannot be woken, and iOS suspends this app in the background unless Picture in Picture or a Live Activity is running. Known gaps, at the bottom, lists what is not built yet." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Mac muss eingeschaltet sein, die Mac-App muss laufen und beide Berechtigungen müssen erteilt sein. Außerhalb deines eigenen Netzwerks ist das Relay in jeweils 24 Stunden (gleitend) 30 Minuten lang kostenlos. Ein Mac, der schläft und nicht in deinem Netzwerk ist, lässt sich nicht aufwecken, und iOS hält diese App im Hintergrund an, sofern nicht Bild-in-Bild oder eine Live Activity läuft. Unter „Bekannte Lücken“ ganz unten steht, was noch nicht gebaut ist."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El Mac tiene que estar encendido, con la app del Mac en ejecución y los dos permisos concedidos. Fuera de tu propia red, el relay es gratuito durante 30 minutos en cada periodo móvil de 24 horas. Un Mac dormido y fuera de tu red no se puede despertar, y iOS suspende esta app en segundo plano salvo que haya Imagen en imagen o una Live Activity en marcha. «Carencias conocidas», al final, enumera lo que aún no está hecho."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le Mac doit être allumé, avec l'app du Mac en cours d'exécution et les deux autorisations accordées. Hors de votre propre réseau, le relais est gratuit pendant 30 minutes par période glissante de 24 heures. Un Mac en veille et hors de votre réseau ne peut pas être réveillé, et iOS suspend cette app en arrière-plan sauf si l'image dans l'image ou une Live Activity est active. « Lacunes connues », en bas, liste ce qui n'est pas encore construit."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il Mac deve essere acceso, con l'app del Mac in esecuzione e i due permessi concessi. Fuori dalla tua rete il relay è gratuito per 30 minuti in ogni periodo mobile di 24 ore. Un Mac in stop e fuori dalla tua rete non può essere riattivato, e iOS sospende questa app in background a meno che non ci sia Picture in Picture o una Live Activity in corso. «Lacune note», in fondo, elenca ciò che non è ancora stato costruito."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Macの電源が入っていて、Macアプリが起動し、2つの権限が許可されている必要があります。自分のネットワークの外では、リレーは直近24時間あたり30分まで無料です。スリープ中でネットワーク外のMacは起こせません。また、ピクチャ・イン・ピクチャまたはLive Activityが動いていない限り、iOSはバックグラウンドでこのアプリを一時停止します。まだ作られていないものは、下の「既知の制約」にまとめています。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mac이 켜져 있고, Mac 앱이 실행 중이며, 두 권한이 모두 허용되어 있어야 합니다. 사용자의 네트워크 밖에서는 릴레이를 24시간 단위(기간이 계속 이동)로 30분까지 무료로 쓸 수 있습니다. 잠자기 상태이고 네트워크 밖에 있는 Mac은 깨울 수 없으며, 화면 속 화면이나 Live Activity가 실행 중이 아니면 iOS가 백그라운드에서 이 앱을 일시 중단합니다. 아직 만들어지지 않은 기능은 맨 아래 「알려진 한계」에 정리되어 있습니다."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O Mac precisa estar ligado, com o app do Mac em execução e as duas permissões concedidas. Fora da sua própria rede, o relay é gratuito por 30 minutos a cada período móvel de 24 horas. Um Mac em repouso e fora da sua rede não pode ser acordado, e o iOS suspende este app em segundo plano, a menos que Picture in Picture ou uma Live Activity esteja ativa. «Lacunas conhecidas», no fim, lista o que ainda não foi construído."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mac должен быть включён, приложение на нём запущено, а оба разрешения выданы. Вне вашей сети ретранслятор бесплатен 30 минут за любые 24 часа. Mac в режиме сна вне вашей сети разбудить нельзя, а iOS приостанавливает это приложение в фоне, если не работает «Картинка в картинке» или Live Activity. Что ещё не сделано, перечислено внизу, в разделе «Известные пробелы»."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mac 必须开机，Mac App 正在运行，并且两项权限都已允许。在你自己的网络之外，中继在任意滚动 24 小时内免费 30 分钟。处于睡眠且不在你网络中的 Mac 无法唤醒；除非画中画或实时活动正在运行，否则 iOS 会在后台暂停这个 App。尚未做好的内容列在最下方的“已知的不足”中。"
-          }
-        }
-      }
-    },
     "Can I read the code?" : {
       "localizations" : {
         "de" : {
@@ -105512,6 +104873,586 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "匿名的使用次数和错误代码，发送到 PostHog：打开了哪些页面、连接是否成功以及在哪一步失败、网络类型。绝不会发送 Mac 的名称或地址、文件名、命令，或任何输入或显示的内容。事件属于设备而不是个人，也没有广告。可在设置中用“共享匿名使用统计”关闭；Mac App 有同样的开关。你可以在设置中复制的诊断信息，除非你自己发送，否则不会去任何地方。"
+          }
+        }
+      }
+    },
+    "As many as you pair. They all appear in the Connect tab, and you can have several open at once, one tab per Mac. Tapping a tab switches to that Mac without disconnecting the one you left, and its shells keep running." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "So viele, wie du koppelst. Alle erscheinen im Tab „Verbinden“, und du kannst mehrere gleichzeitig offen haben, ein Tab pro Mac. Ein Tipp auf einen Tab wechselt zu diesem Mac, ohne den verlassenen zu trennen, und seine Shells laufen weiter."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tantos como emparejes. Todos aparecen en la pestaña Conectar, y puedes tener varios abiertos a la vez, una pestaña por Mac. Tocar una pestaña cambia a ese Mac sin desconectar el que dejas, y sus shells siguen funcionando."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autant que vous en jumelez. Tous apparaissent dans l'onglet Se connecter, et vous pouvez en avoir plusieurs ouverts à la fois, un onglet par Mac. Toucher un onglet bascule vers ce Mac sans déconnecter celui que vous quittez, et ses shells continuent de tourner."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quanti ne abbini. Compaiono tutti nella scheda Connetti e puoi tenerne aperti più d'uno, una scheda per Mac. Toccare una scheda passa a quel Mac senza disconnettere quello che lasci, e le sue shell continuano a girare."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリングした数だけ使えます。すべて「接続」タブに表示され、複数を同時に開いておけます。Macごとに1つのタブです。タブをタップするとそのMacに切り替わり、離れたMacは切断されず、そのシェルも動き続けます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페어링한 만큼 쓸 수 있습니다. 모두 「연결」 탭에 나타나며 여러 대를 동시에 열어 둘 수 있고, Mac마다 탭이 하나씩 생깁니다. 탭을 누르면 그 Mac으로 전환되고, 떠난 Mac은 연결이 끊기지 않으며 셸도 계속 실행됩니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quantos você emparelhar. Todos aparecem na aba Conectar, e você pode manter vários abertos ao mesmo tempo, uma aba por Mac. Tocar em uma aba muda para esse Mac sem desconectar o que você deixou, e os shells dele continuam rodando."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сколько угодно, сколько вы свяжете. Все они появляются на вкладке «Подключиться», и несколько можно держать открытыми одновременно, по одной вкладке на каждый Mac. Касание вкладки переключает на этот Mac, а тот, который вы покинули, не отключается, и его оболочки продолжают работать."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "配对多少就能用多少。它们都出现在“连接”标签页中，你可以同时打开多台，每台一个标签。点按标签会切换到那台 Mac，离开的那台不会断开，它的 shell 也会继续运行。"
+          }
+        }
+      }
+    },
+    "Everything in the app. Connecting over your own network has no limit and no time counted. The relay is the part that reaches a Mac on another network, and free includes 30 minutes of it each day. A paid plan adds only one thing: unlimited relay time." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alles in der App. Verbinden im eigenen Netzwerk hat kein Limit, und es wird keine Zeit gezählt. Das Relay erreicht einen Mac in einem anderen Netzwerk, und kostenlos sind davon 30 Minuten pro Tag enthalten. Ein bezahlter Tarif fügt nur eines hinzu: unbegrenzte Relay-Zeit."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todo lo de la app. Conectar en tu propia red no tiene límite y no se cuenta el tiempo. El relay es lo que llega a un Mac en otra red, y la versión gratuita incluye 30 minutos al día. Un plan de pago añade una sola cosa: tiempo de relay ilimitado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout ce que contient l'app. Se connecter sur votre propre réseau n'a aucune limite et aucun temps n'est compté. Le relais sert à joindre un Mac sur un autre réseau, et l'offre gratuite en inclut 30 minutes par jour. Une offre payante n'ajoute qu'une chose : un temps de relais illimité."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tutto ciò che c'è nell'app. Collegarsi nella tua rete non ha limiti e non si conta il tempo. Il relay è ciò che raggiunge un Mac su un'altra rete, e il piano gratuito ne include 30 minuti al giorno. Un piano a pagamento aggiunge una sola cosa: tempo di relay illimitato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリのすべての機能です。自分のネットワーク内での接続に制限はなく、時間も数えません。別のネットワークにあるMacにつなぐのがリレーで、無料では1日30分まで使えます。有料プランが追加するのは、無制限のリレー時間だけです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱의 모든 기능이 무료입니다. 사용자의 네트워크 안에서 연결하는 데는 제한이 없고 시간도 세지 않습니다. 다른 네트워크에 있는 Mac에 닿게 해 주는 것이 릴레이이며, 무료로는 하루 30분이 포함됩니다. 유료 플랜이 더하는 것은 하나, 무제한 릴레이 시간입니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tudo o que há no app. Conectar na sua própria rede não tem limite e nenhum tempo é contado. O relay é o que alcança um Mac em outra rede, e o plano gratuito inclui 30 minutos por dia. Um plano pago acrescenta uma única coisa: tempo de relay ilimitado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Всё, что есть в приложении. Подключение в вашей собственной сети не ограничено, и время не считается. Ретранслятор нужен, чтобы достучаться до Mac в другой сети, и бесплатно включено 30 минут в день. Платный тариф добавляет только одно: неограниченное время ретранслятора."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App 里的所有功能。在你自己的网络内连接没有限制，也不计时。中继用于连接另一个网络中的 Mac，免费每天包含 30 分钟。付费方案只增加一样东西：不限时的中继。"
+          }
+        }
+      }
+    },
+    "The relay stops carrying sessions until the allowance resets, which happens once a day at midnight UTC, and the Sessions tab shows the meter counting down. Connections on your own network keep working the whole time. Any paid plan removes the limit entirely." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Relay trägt keine Sitzungen mehr, bis das Kontingent zurückgesetzt wird, was einmal am Tag um Mitternacht UTC geschieht; der Tab „Sitzungen“ zeigt den Zähler im Rückwärtslauf. Verbindungen in deinem eigenen Netzwerk funktionieren die ganze Zeit weiter. Jeder bezahlte Tarif hebt die Grenze vollständig auf."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El relay deja de llevar sesiones hasta que se restablece la asignación, algo que ocurre una vez al día a medianoche UTC, y la pestaña Sesiones muestra el contador en cuenta atrás. Las conexiones en tu propia red siguen funcionando todo el tiempo. Cualquier plan de pago elimina el límite por completo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le relais cesse de transporter des sessions jusqu'à la réinitialisation du quota, qui a lieu une fois par jour à minuit UTC, et l'onglet Sessions affiche le compteur à rebours. Les connexions sur votre propre réseau continuent de fonctionner tout ce temps. Toute offre payante supprime entièrement la limite."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il relay smette di trasportare sessioni finché la quota non si azzera, cosa che avviene una volta al giorno a mezzanotte UTC, e la scheda Sessioni mostra il conto alla rovescia. Le connessioni nella tua rete continuano a funzionare per tutto il tempo. Qualsiasi piano a pagamento elimina del tutto il limite."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "割り当てがリセットされるまで、リレーはセッションを中継しません。リセットは1日1回、UTCの午前0時に行われ、「セッション」タブにカウントダウンが表示されます。自分のネットワーク内の接続は、その間もずっと使えます。有料プランなら制限はまったくなくなります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "할당량이 초기화될 때까지 릴레이는 세션을 전달하지 않습니다. 초기화는 하루에 한 번, UTC 자정에 일어나며 「세션」 탭에 남은 시간이 카운트다운으로 표시됩니다. 사용자의 네트워크 안에서의 연결은 그동안에도 계속 동작합니다. 어떤 유료 플랜이든 제한이 완전히 사라집니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O relay deixa de levar sessões até a cota ser zerada, o que acontece uma vez por dia à meia-noite UTC, e a aba Sessões mostra a contagem regressiva. As conexões na sua própria rede continuam funcionando o tempo todo. Qualquer plano pago remove o limite por completo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ретранслятор перестаёт пропускать сеансы, пока лимит не сбросится: это происходит раз в сутки в полночь по UTC, а на вкладке «Сеансы» виден обратный отсчёт. Подключения в вашей собственной сети работают всё это время. Любой платный тариф полностью снимает ограничение."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在额度重置之前，中继不再承载会话。重置每天发生一次，在 UTC 午夜，“会话”标签页会显示倒计时。你自己网络内的连接在此期间照常可用。任何付费方案都会完全取消这一限制。"
+          }
+        }
+      }
+    },
+    "Text moves only when you ask it to: pull the Mac's clipboard, push this phone's, or pick something you pulled earlier. The phone keeps your 25 most recent pulls so you can pick one again. All of it is free. Nothing is copied in the background." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text wird nur bewegt, wenn du es verlangst: die Zwischenablage des Macs holen, die dieses iPhones senden oder etwas wählen, das du früher geholt hast. Das iPhone merkt sich deine 25 letzten Abrufe, damit du einen erneut wählen kannst. Alles davon ist kostenlos. Im Hintergrund wird nichts kopiert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El texto solo se mueve cuando lo pides: traer el portapapeles del Mac, enviar el de este teléfono o elegir algo que trajiste antes. El teléfono guarda los últimos 25 textos que trajiste para que puedas elegir uno otra vez. Todo es gratis. No se copia nada en segundo plano."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le texte ne circule que lorsque vous le demandez : récupérer le presse-papiers du Mac, envoyer celui de ce téléphone, ou choisir quelque chose récupéré plus tôt. Le téléphone garde vos 25 dernières récupérations pour que vous puissiez en reprendre une. Tout cela est gratuit. Rien n'est copié en arrière-plan."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il testo si sposta solo quando lo chiedi: prendere gli appunti del Mac, inviare quelli di questo telefono o scegliere qualcosa che avevi già preso. Il telefono conserva i tuoi 25 prelievi più recenti, così puoi sceglierne uno di nuovo. È tutto gratuito. Niente viene copiato in background."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "テキストは、あなたが頼んだときだけ移動します。Macのクリップボードを取得する、このiPhoneのクリップボードを送る、以前に取得したものを選ぶ、のいずれかです。iPhoneは直近25件の取得を覚えているので、選び直せます。すべて無料です。バックグラウンドでコピーされることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "텍스트는 요청할 때만 이동합니다. Mac의 클립보드를 가져오거나, 이 iPhone의 클립보드를 보내거나, 이전에 가져온 것을 고를 수 있습니다. iPhone은 최근 가져온 25개를 기억해 다시 고를 수 있게 합니다. 모두 무료입니다. 백그라운드에서 복사되는 것은 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O texto só se move quando você pede: trazer a área de transferência do Mac, enviar a deste iPhone ou escolher algo que você trouxe antes. O iPhone guarda os 25 itens mais recentes que você trouxe, para escolher um de novo. Tudo é gratuito. Nada é copiado em segundo plano."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Текст передаётся только по вашей просьбе: получить буфер обмена Mac, отправить буфер этого iPhone или выбрать то, что вы получали раньше. iPhone помнит ваши 25 последних полученных текстов, чтобы вы могли выбрать один снова. Всё это бесплатно. В фоне ничего не копируется."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文本只在你要求时才会移动：拉取 Mac 的剪贴板、推送这部 iPhone 的剪贴板，或选取你之前拉取的内容。iPhone 会记住你最近拉取的 25 条，方便你再次选取。这一切都是免费的。后台不会复制任何内容。"
+          }
+        }
+      }
+    },
+    "Saved commands you fire with a tap rather than typing them on glass. Quick commands are the chips above the terminal keyboard, and the same list is waiting in every shell; macros are longer sequences you record once. Using them and making them are both free." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gespeicherte Befehle, die du mit einem Tipp auslöst, statt sie auf Glas zu tippen. Schnellbefehle sind die Chips über der Terminal-Tastatur, und dieselbe Liste wartet in jeder Shell; Makros sind längere Abfolgen, die du einmal aufnimmst. Benutzen und Anlegen sind beides kostenlos."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comandos guardados que lanzas con un toque en lugar de escribirlos sobre el cristal. Los comandos rápidos son los chips sobre el teclado del terminal, y la misma lista te espera en cada shell; las macros son secuencias más largas que grabas una vez. Usarlos y crearlos es gratis."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Des commandes enregistrées que vous lancez d'un toucher plutôt que de les taper sur le verre. Les commandes rapides sont les pastilles au-dessus du clavier du terminal, et la même liste attend dans chaque shell ; les macros sont des séquences plus longues que vous enregistrez une fois. Les utiliser comme les créer est gratuit."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comandi salvati che lanci con un tocco invece di digitarli sul vetro. I comandi rapidi sono i chip sopra la tastiera del terminale, e la stessa lista ti aspetta in ogni shell; le macro sono sequenze più lunghe che registri una volta. Usarli e crearli è gratuito."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面上で入力する代わりに、タップひとつで実行できる保存済みのコマンドです。クイックコマンドはターミナルのキーボード上に並ぶチップで、同じ一覧がすべてのシェルで使えます。マクロは一度記録しておく長めの手順です。使うことも作ることも無料です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "유리 화면에 직접 입력하는 대신 탭 한 번으로 실행하는 저장된 명령입니다. 빠른 명령은 터미널 키보드 위의 칩이며 같은 목록이 모든 셸에서 기다리고 있고, 매크로는 한 번 녹화해 두는 더 긴 순서입니다. 사용하는 것도 만드는 것도 무료입니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comandos salvos que você dispara com um toque em vez de digitá-los no vidro. Os comandos rápidos são os chips acima do teclado do terminal, e a mesma lista espera em cada shell; as macros são sequências mais longas que você grava uma vez. Usar e criar são gratuitos."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохранённые команды, которые запускаются одним касанием, а не набираются на стекле. Быстрые команды: плашки над клавиатурой терминала, и тот же список ждёт в каждой оболочке; макросы: более длинные последовательности, которые вы записываете один раз. И пользоваться ими, и создавать их бесплатно."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存的命令，点一下即可触发，不必在玻璃屏幕上敲字。快捷命令是终端键盘上方的小标签，同一份列表在每个 shell 中都可用；宏是你录制一次的较长序列。使用和创建都是免费的。"
+          }
+        }
+      }
+    },
+    "A list rather than a promise. There is no dictation button. A port forward listens on this phone only: there is no way to open one on the server's side, which is what ssh -R is for. A Mac asleep and off your network cannot be woken. A Mac with its lid shut and no screen attached has nothing to show unless this phone has made a virtual display for it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Liste statt eines Versprechens. Es gibt keine Diktiertaste. Eine Portweiterleitung lauscht nur auf diesem iPhone: auf der Seite des Servers lässt sich keine öffnen, wofür ssh -R gedacht ist. Ein schlafender Mac außerhalb deines Netzwerks lässt sich nicht aufwecken. Ein Mac mit geschlossenem Deckel und ohne angeschlossenen Bildschirm hat nichts zu zeigen, es sei denn, dieses iPhone hat dafür ein virtuelles Display angelegt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una lista en lugar de una promesa. No hay botón de dictado. Un reenvío de puerto solo escucha en este teléfono: no hay forma de abrir uno en el lado del servidor, para lo que sirve ssh -R. Un Mac dormido y fuera de tu red no se puede despertar. Un Mac con la tapa cerrada y sin pantalla conectada no tiene nada que mostrar, salvo que este teléfono le haya creado una pantalla virtual."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une liste plutôt qu'une promesse. Il n'y a pas de bouton de dictée. Une redirection de port n'écoute que sur ce téléphone : il n'existe aucun moyen d'en ouvrir une côté serveur, ce à quoi sert ssh -R. Un Mac en veille et hors de votre réseau ne peut pas être réveillé. Un Mac au capot fermé et sans écran branché n'a rien à montrer, sauf si ce téléphone lui a créé un écran virtuel."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un elenco, non una promessa. Non c'è un pulsante di dettatura. Un inoltro di porta ascolta solo su questo telefono: non c'è modo di aprirne uno sul lato del server, ed è a questo che serve ssh -R. Un Mac in stop e fuori dalla tua rete non può essere riattivato. Un Mac con il coperchio chiuso e senza schermo collegato non ha nulla da mostrare, a meno che questo telefono non gli abbia creato un display virtuale."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "約束ではなく一覧です。音声入力のボタンはありません。ポート転送はこのiPhoneでのみ待ち受けます。サーバー側で開く方法はなく、それがssh -Rの役目です。スリープ中でネットワーク外のMacは起こせません。蓋を閉じて画面も接続していないMacは、このiPhoneが仮想ディスプレイを作らない限り、映すものがありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "약속이 아니라 목록입니다. 받아쓰기 버튼은 없습니다. 포트 포워딩은 이 iPhone에서만 수신하며, 서버 쪽에서 여는 방법은 없습니다. 그것이 ssh -R의 역할입니다. 잠자기 상태이고 네트워크 밖에 있는 Mac은 깨울 수 없습니다. 덮개를 닫고 화면도 연결하지 않은 Mac은 이 iPhone이 가상 디스플레이를 만들어 주지 않으면 보여 줄 것이 없습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uma lista, não uma promessa. Não há botão de ditado. Um encaminhamento de porta escuta apenas neste iPhone: não há como abrir um no lado do servidor, que é para o que serve o ssh -R. Um Mac em repouso e fora da sua rede não pode ser acordado. Um Mac com a tampa fechada e sem tela conectada não tem nada para mostrar, a menos que este iPhone tenha criado uma tela virtual para ele."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Список, а не обещание. Кнопки диктовки нет. Проброс порта слушает только на этом iPhone: открыть его на стороне сервера нельзя, для этого нужен ssh -R. Mac в режиме сна вне вашей сети разбудить нельзя. У Mac с закрытой крышкой и без подключённого экрана нечего показывать, пока этот iPhone не создал для него виртуальный дисплей."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "是一份清单，而不是承诺。没有听写按钮。端口转发只在这部 iPhone 上监听：无法在服务器一侧开启，那是 ssh -R 的用途。处于睡眠且不在你网络中的 Mac 无法唤醒。合上盖子且没有连接屏幕的 Mac 无物可显示，除非这部 iPhone 为它创建了虚拟显示器。"
+          }
+        }
+      }
+    },
+    "Can I use coding agents?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kann ich Coding-Agenten nutzen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Puedo usar agentes de programación?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puis-je utiliser des agents de code ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posso usare agenti di programmazione?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コーディングエージェントは使えますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "코딩 에이전트를 쓸 수 있나요?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posso usar agentes de programação?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Можно ли пользоваться кодовыми агентами?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可以使用编程代理吗？"
+          }
+        }
+      }
+    },
+    "Yes. Peering can run Claude Code, Codex and OpenCode on the Mac. You chat with them from the phone, review what they changed, commit and push, and answer their permission requests from the Lock Screen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ja. Peering kann Claude Code, Codex und OpenCode auf dem Mac ausführen. Du chattest vom iPhone aus mit ihnen, prüfst ihre Änderungen, committest und pushst und beantwortest ihre Berechtigungsanfragen auf dem Sperrbildschirm."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sí. Peering puede ejecutar Claude Code, Codex y OpenCode en el Mac. Chateas con ellos desde el teléfono, revisas lo que cambiaron, haces commit y push, y respondes a sus solicitudes de permiso desde la pantalla de bloqueo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oui. Peering peut lancer Claude Code, Codex et OpenCode sur le Mac. Vous discutez avec eux depuis le téléphone, relisez ce qu'ils ont modifié, faites un commit et un push, et répondez à leurs demandes d'autorisation depuis l'écran verrouillé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sì. Peering può eseguire Claude Code, Codex e OpenCode sul Mac. Ci chatti dal telefono, rivedi ciò che hanno modificato, fai commit e push, e rispondi alle loro richieste di autorizzazione dalla schermata di blocco."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "はい。PeeringはMac上でClaude Code、Codex、OpenCodeを実行できます。iPhoneからチャットし、変更内容を確認し、コミットとプッシュを行い、許可の確認にはロック画面から答えられます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "네. Peering은 Mac에서 Claude Code, Codex, OpenCode를 실행할 수 있습니다. iPhone에서 대화하고, 바뀐 내용을 검토하고, 커밋과 푸시를 하고, 권한 요청에는 잠금 화면에서 답할 수 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sim. O Peering pode executar Claude Code, Codex e OpenCode no Mac. Você conversa com eles pelo iPhone, revisa o que mudaram, faz commit e push e responde aos pedidos de permissão pela Tela de Bloqueio."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Да. Peering может запускать Claude Code, Codex и OpenCode на Mac. Вы переписываетесь с ними с iPhone, просматриваете их правки, делаете коммит и пуш и отвечаете на их запросы разрешений с экрана блокировки."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可以。Peering 能在 Mac 上运行 Claude Code、Codex 和 OpenCode。你可以在 iPhone 上与它们聊天、查看它们的改动、提交并推送，并在锁屏上回应它们的权限请求。"
+          }
+        }
+      }
+    },
+    "The two devices have to be able to reach each other once, and somebody has to be at the Mac. On the same network, choose the Mac from Nearby. If it is somewhere else, open Devices in Peering on the Mac, copy its device ID, and use Pair from Another Network on the iPhone. Either way the Mac shows six digits: enter them on the iPhone and continue only if they match. You pair once; after that the devices recognise each other and reconnect on their own." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die beiden Geräte müssen einander einmal erreichen können, und jemand muss am Mac sein. Wähle im selben Netzwerk den Mac unter In der Nähe aus. Ist er woanders, öffne in Peering auf dem Mac Geräte, kopiere seine Geräte-ID und nutze auf dem iPhone Aus anderem Netzwerk koppeln. In beiden Fällen zeigt der Mac sechs Ziffern: Gib sie auf dem iPhone ein und fahre nur fort, wenn sie übereinstimmen. Du koppelst einmal; danach erkennen sich die Geräte und verbinden sich von selbst wieder."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los dos dispositivos tienen que poder alcanzarse una vez, y alguien tiene que estar frente al Mac. En la misma red, elige el Mac en Cerca. Si está en otro lugar, abre Dispositivos en Peering en el Mac, copia su ID de dispositivo y usa Emparejar desde otra red en el iPhone. En ambos casos el Mac muestra seis dígitos: introdúcelos en el iPhone y continúa solo si coinciden. Emparejas una vez; después los dispositivos se reconocen y se reconectan solos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les deux appareils doivent pouvoir se joindre une fois, et quelqu'un doit être devant le Mac. Sur le même réseau, choisissez le Mac dans À proximité. S'il est ailleurs, ouvrez Appareils dans Peering sur le Mac, copiez son ID d'appareil et utilisez Associer depuis un autre réseau sur l'iPhone. Dans les deux cas, le Mac affiche six chiffres : saisissez-les sur l'iPhone et ne continuez que s'ils correspondent. Vous n'associez qu'une fois ; ensuite les appareils se reconnaissent et se reconnectent seuls."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I due dispositivi devono potersi raggiungere una volta, e qualcuno deve essere al Mac. Sulla stessa rete, scegli il Mac in Nelle vicinanze. Se è altrove, apri Dispositivi in Peering sul Mac, copia il suo ID dispositivo e usa Associa da un'altra rete su iPhone. In entrambi i casi il Mac mostra sei cifre: inseriscile su iPhone e prosegui solo se coincidono. Associ una volta; poi i dispositivi si riconoscono e si riconnettono da soli."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2つのデバイスが一度お互いに到達できる必要があり、Macの前に誰かがいる必要があります。同じネットワークなら、「近く」からMacを選びます。別の場所にある場合は、MacのPeeringの「デバイス」を開いてデバイスIDをコピーし、iPhoneで「別のネットワークからペアリング」を使います。どちらの場合もMacが6桁の数字を表示するので、iPhoneに入力し、一致した場合のみ続行します。ペアリングは一度だけで、その後はデバイス同士が互いを認識して自動で再接続します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "두 기기가 한 번은 서로 닿을 수 있어야 하고, Mac 앞에 누군가 있어야 합니다. 같은 네트워크에서는 근처에서 Mac을 선택하세요. 다른 곳에 있다면 Mac의 Peering에서 기기를 열어 기기 ID를 복사하고, iPhone에서 다른 네트워크에서 페어링을 사용하세요. 어느 쪽이든 Mac이 여섯 자리 숫자를 표시하면 iPhone에 입력하고, 일치할 때만 계속하세요. 페어링은 한 번만 하며, 이후에는 기기들이 서로를 알아보고 알아서 다시 연결합니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os dois dispositivos precisam conseguir se alcançar uma vez, e alguém precisa estar no Mac. Na mesma rede, escolha o Mac em Por perto. Se ele estiver em outro lugar, abra Dispositivos no Peering do Mac, copie o ID do dispositivo e use Parear de outra rede no iPhone. Em ambos os casos o Mac mostra seis dígitos: digite-os no iPhone e continue só se coincidirem. Você pareia uma vez; depois os dispositivos se reconhecem e se reconectam sozinhos."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Два устройства должны один раз получить доступ друг к другу, и кто-то должен быть у Mac. В одной сети выберите Mac в разделе «Поблизости». Если он в другом месте, откройте «Устройства» в Peering на Mac, скопируйте его ID устройства и воспользуйтесь на iPhone пунктом «Связать из другой сети». В обоих случаях Mac показывает шесть цифр: введите их на iPhone и продолжайте, только если они совпадают. Связывание делается один раз; потом устройства узнают друг друга и подключаются сами."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "两台设备必须能彼此连通一次，并且需要有人在 Mac 前。在同一网络中，从“附近”选择 Mac。如果它在别处，请在 Mac 上的 Peering 中打开“设备”，拷贝其设备 ID，并在 iPhone 上使用“从其他网络配对”。无论哪种，Mac 都会显示六位数字：在 iPhone 上输入，并且只有在一致时才继续。只需配对一次；之后设备会互相识别并自动重新连接。"
+          }
+        }
+      }
+    },
+    "The Mac has to be on, with the Mac app running and both permissions allowed. Away from your own network the relay is free for 30 minutes a day. A Mac that is asleep and off your network cannot be woken, and iOS suspends this app in the background unless Picture in Picture or a Live Activity is running. Known gaps, at the bottom, lists what is not built yet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Mac muss eingeschaltet sein, die Mac-App muss laufen und beide Berechtigungen müssen erteilt sein. Außerhalb deines eigenen Netzwerks ist das Relay 30 Minuten pro Tag kostenlos. Ein Mac, der schläft und nicht in deinem Netzwerk ist, lässt sich nicht aufwecken, und iOS hält diese App im Hintergrund an, sofern nicht Bild-in-Bild oder eine Live Activity läuft. Unter „Bekannte Lücken“ ganz unten steht, was noch nicht gebaut ist."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El Mac tiene que estar encendido, con la app del Mac en ejecución y los dos permisos concedidos. Fuera de tu propia red, el relay es gratuito durante 30 minutos al día. Un Mac dormido y fuera de tu red no se puede despertar, y iOS suspende esta app en segundo plano salvo que haya Imagen en imagen o una Live Activity en marcha. «Carencias conocidas», al final, enumera lo que aún no está hecho."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Mac doit être allumé, avec l'app du Mac en cours d'exécution et les deux autorisations accordées. Hors de votre propre réseau, le relais est gratuit pendant 30 minutes par jour. Un Mac en veille et hors de votre réseau ne peut pas être réveillé, et iOS suspend cette app en arrière-plan sauf si l'image dans l'image ou une Live Activity est active. « Lacunes connues », en bas, liste ce qui n'est pas encore construit."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il Mac deve essere acceso, con l'app del Mac in esecuzione e i due permessi concessi. Fuori dalla tua rete il relay è gratuito per 30 minuti al giorno. Un Mac in stop e fuori dalla tua rete non può essere riattivato, e iOS sospende questa app in background a meno che non ci sia Picture in Picture o una Live Activity in corso. «Lacune note», in fondo, elenca ciò che non è ancora stato costruito."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macの電源が入っていて、Macアプリが起動し、2つの権限が許可されている必要があります。自分のネットワークの外では、リレーは1日30分まで無料です。スリープ中でネットワーク外のMacは起こせません。また、ピクチャ・イン・ピクチャまたはLive Activityが動いていない限り、iOSはバックグラウンドでこのアプリを一時停止します。まだ作られていないものは、下の「既知の制約」にまとめています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac이 켜져 있고, Mac 앱이 실행 중이며, 두 권한이 모두 허용되어 있어야 합니다. 사용자의 네트워크 밖에서는 릴레이를 하루 30분까지 무료로 쓸 수 있습니다. 잠자기 상태이고 네트워크 밖에 있는 Mac은 깨울 수 없으며, 화면 속 화면이나 Live Activity가 실행 중이 아니면 iOS가 백그라운드에서 이 앱을 일시 중단합니다. 아직 만들어지지 않은 기능은 맨 아래 「알려진 한계」에 정리되어 있습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Mac precisa estar ligado, com o app do Mac em execução e as duas permissões concedidas. Fora da sua própria rede, o relay é gratuito por 30 minutos por dia. Um Mac em repouso e fora da sua rede não pode ser acordado, e o iOS suspende este app em segundo plano, a menos que Picture in Picture ou uma Live Activity esteja ativa. «Lacunas conhecidas», no fim, lista o que ainda não foi construído."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac должен быть включён, приложение на нём запущено, а оба разрешения выданы. Вне вашей сети ретранслятор бесплатен 30 минут в день. Mac в режиме сна вне вашей сети разбудить нельзя, а iOS приостанавливает это приложение в фоне, если не работает «Картинка в картинке» или Live Activity. Что ещё не сделано, перечислено внизу, в разделе «Известные пробелы»."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac 必须开机，Mac App 正在运行，并且两项权限都已允许。在你自己的网络之外，中继每天免费 30 分钟。处于睡眠且不在你网络中的 Mac 无法唤醒；除非画中画或实时活动正在运行，否则 iOS 会在后台暂停这个 App。尚未做好的内容列在最下方的“已知的不足”中。"
           }
         }
       }
