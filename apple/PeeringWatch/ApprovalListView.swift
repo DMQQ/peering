@@ -3,9 +3,10 @@ import WatchLink
 
 struct ApprovalListView: View {
     @Environment(ApprovalStore.self) private var store
+    @State private var path: [WatchApproval] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if store.approvals.isEmpty {
                     EmptyApprovalsView(phoneReachable: store.phoneReachable)
@@ -14,6 +15,11 @@ struct ApprovalListView: View {
                         NavigationLink(value: approval) { ApprovalRow(approval: approval) }
                     }
                 }
+            }
+            .task {
+                guard DemoApprovals.isOn else { return }
+                try? await Task.sleep(for: .milliseconds(500))
+                path = DemoApprovals.initialPath
             }
             .navigationTitle(Text(verbatim: "Peering"))
             .navigationDestination(for: WatchApproval.self) { approval in

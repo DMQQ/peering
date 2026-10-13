@@ -26,6 +26,11 @@ final class ApprovalStore {
     func start() {
         guard !started else { return }
         started = true
+        if DemoApprovals.isOn {
+            fromPhone = DemoApprovals.approvals
+            rebuild()
+            return
+        }
         phone.onSnapshot = { [weak self] snapshot in
             Task { @MainActor in self?.adopt(snapshot) }
         }

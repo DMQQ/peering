@@ -191,3 +191,13 @@ Install the release APK (`android/tools/README.md`), then:
   `AppTransaction` is async).
 - Disk: agent worktrees under `.claude/worktrees` use space; `git worktree remove` the ones you no longer need (the merged
   ones are already removed except three locked ones and the unmerged branch above).
+
+### Added later on 2026-10-13 (build 202610131, uploaded to App Store Connect)
+
+- Pushed question buttons: needs the relay deployed with this build's `options` field. Ask Claude Code a question with three choices while the phone is locked: the banner should show the three answers as buttons, and tapping one answers it. Without the new relay it still shows Open.
+- Live Activity says "Paused, your Mac is still running" (not "Connection dropped") when you leave the app and iOS freezes the session. Coming back should restore it.
+- A force quit app leaves its card for ten minutes at most, then the Mac ends it (needs the new host build). Cards from before this build are cleared the next time the app launches.
+- Switching from LTE to Wi-Fi: a session on the relay or a direct path should move to the LAN about three seconds after the Mac is seen, with a short interruption. It tries at most once every 90 seconds per Mac.
+- "Stream paused" should no longer cover a picture that is still arriving after a path change.
+- Return from the on-screen keyboard right after typing should submit in Claude Code in a terminal (needs the new host build). The host now waits 45 ms between the text and Return.
+- Watch screenshots for App Store Connect are in `marketing/appstore/watch/`.
