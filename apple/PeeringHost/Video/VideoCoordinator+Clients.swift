@@ -116,9 +116,11 @@ extension VideoCoordinator {
         }
     }
 
-    /// How long a freshly attached client is given to say what it wants before this Mac picks
-    /// for it.
-    static let firstAskGrace = Duration.seconds(1)
+    /// The longest a freshly attached client is given to say what it wants before this Mac picks
+    /// for it. A client that asks sooner ends the wait at once, and one that never asks costs the
+    /// whole of it on every connect, so it is kept short: a reconnect states its source in the hello.
+    static let firstAskGrace = Duration.milliseconds(300)
+    static let firstAskPoll = Duration.milliseconds(20)
 
     func scheduleEnsureCapturingLocked(generation: UInt64) {
         recovery.reset()
@@ -129,10 +131,11 @@ extension VideoCoordinator {
 // moment it connects, and what comes back is the source it was last on, usually a mosaic. Starting the
 // default display in the meantime builds a stream that is thrown away a round trip later, and the phone
 // watches it happen: a desktop appears, and then the arrangement it was waiting for.
-            if self.lock.withLock({ self.chosenSource }) == nil {
-                try? await Task.sleep(for: Self.firstAskGrace)
-                guard self.hasAudience(generation: generation) else { return }
+            let deadline = ContinuousClock.now + Self.firstAskGrace
+            while ContinuousClock.now < deadline, self.lock.withLock({ self.chosenSource }) == nil {
+                try? await Task.sleep(for: Self.firstAskPoll)
             }
+            guard self.hasAudience(generation: generation) else { return }
 
             do {
                 try await self.ensureCapturing()

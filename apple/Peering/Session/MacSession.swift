@@ -172,7 +172,7 @@ final class MacSession: Identifiable {
     /// Must survive a rotation: ``mosaicLayout`` is built from the live screen size, so its identifier stops matching ``activeSourceID`` once the phone turns.
     var isAskingForMosaic = false
 
-    /// Set whenever the session reaches `.ready`, including a reconnect: the fresh capture pipeline remembers nothing, and the Mac gives a new client about a second to say what it wants before defaulting to a display of its own (`VideoCoordinator.firstAskGrace`), so a mosaic not re-asked is replaced by a plain desktop. Consumed by the next catalogue. See ``MacSession/apply(_:)``.
+    /// Set whenever the session reaches `.ready`, including a reconnect: the fresh capture pipeline remembers nothing, and the Mac gives a new client a moment (a third of a second at most) to say what it wants before defaulting to a display of its own (`VideoCoordinator.firstAskGrace`), so a mosaic not re-asked is replaced by a plain desktop. Consumed by the next catalogue. See ``MacSession/apply(_:)``.
     var pendingSourceReassertion = false
 
     /// Recorded when the Mac answers, not when the app asks: it takes a second or two to build the new tiles, and everything drawn over the picture must agree with it. See ``MacSession/apply(video:)``.
