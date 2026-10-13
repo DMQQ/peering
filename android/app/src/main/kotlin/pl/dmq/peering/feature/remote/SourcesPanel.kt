@@ -8,8 +8,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,34 +64,38 @@ fun SourcesPanel(
         presenter.watchThumbnails(true)
         onDispose { presenter.watchThumbnails(false) }
     }
-    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SearchField(query, { query = it }, stringResource(R.string.sources_search), filled = true, height = 34.dp)
-        MosaicEntry(mosaic, building, presenter, onBuild = { building = it }, onPicked)
+    LazyColumn(modifier.fillMaxWidth(), contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item(key = "search") { SearchField(query, { query = it }, stringResource(R.string.sources_search), filled = true, height = 34.dp) }
+        if (mosaic != null && building == null) item(key = "mosaic-entry") { MosaicEntry(mosaic, building, presenter, onBuild = { building = it }, onPicked) }
         val showing = mosaic?.active
         if (showing != null && building == null) {
-            MosaicTileEditor(
-                editorTiles(presenter.arrangementOf(showing), catalog),
-                onEdit = { edit -> presenter.edit(showing, edit, PixelSize(metrics.widthPixels.toDouble(), metrics.heightPixels.toDouble()), catalog) },
-            )
+            item(key = "mosaic-editor") {
+                MosaicTileEditor(
+                    editorTiles(presenter.arrangementOf(showing), catalog),
+                    onEdit = { edit -> presenter.edit(showing, edit, PixelSize(metrics.widthPixels.toDouble(), metrics.heightPixels.toDouble()), catalog) },
+                )
+            }
         }
         building?.let { picks ->
-            MosaicPickerBar(
-                picks,
-                onBack = { building = null },
-                onStart = {
-                    if (presenter.showMosaic(picks, PixelSize(metrics.widthPixels.toDouble(), metrics.heightPixels.toDouble()), catalog)) {
-                        building = null
-                        onPicked()
-                    }
-                },
-            )
+            item(key = "mosaic-picker") {
+                MosaicPickerBar(
+                    picks,
+                    onBack = { building = null },
+                    onStart = {
+                        if (presenter.showMosaic(picks, PixelSize(metrics.widthPixels.toDouble(), metrics.heightPixels.toDouble()), catalog)) {
+                            building = null
+                            onPicked()
+                        }
+                    },
+                )
+            }
         }
-        SourceLists(catalog, chosen, building, query, presenter, onBuilding = { building = it }, onPicked)
+        sourceLists(catalog, chosen, building, query, presenter, onBuilding = { building = it }, onPicked)
     }
 }
 
-@Composable
-private fun SourceLists(
+/** Lazy, so only the rows on screen are composed: a Mac with fifty apps open made every window preview and icon live at once. */
+private fun LazyListScope.sourceLists(
     catalog: CaptureCatalog?,
     chosen: CaptureSource?,
     building: MosaicPicks?,
@@ -98,7 +105,7 @@ private fun SourceLists(
     onPicked: () -> Unit,
 ) {
     if (catalog == null || (catalog.displays + catalog.applications + catalog.windows).isEmpty()) {
-        Waiting()
+        item(key = "waiting") { Waiting() }
         return
     }
     val marking = Marking(chosen, building)
@@ -110,10 +117,11 @@ private fun SourceLists(
             onPicked()
         }
     }
-    Screens(catalog, marking, presenter, query, pick)
+    val screens = catalog.displays.filter { SourceGrouping.matches(it, query) }
+    if (screens.isNotEmpty()) item(key = "screens") { Screens(screens, marking, presenter, pick) }
     val groups = SourceGrouping.filtered(SourceGrouping.applicationGroups(catalog.applications, catalog.windows), query)
-    groups.forEach { group -> ApplicationSection(group, marking, presenter, pick, onPicked) }
-    if (building == null) InstalledGrid(SourceGrouping.installedNotRunning(catalog, query), presenter, onPicked)
+    items(groups, key = { "app-${it.id}" }) { group -> ApplicationSection(group, marking, presenter, pick, onPicked) }
+    if (building == null) installedGrid(SourceGrouping.installedNotRunning(catalog, query), presenter, onPicked)
 }
 
 @Composable
@@ -130,9 +138,7 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun Screens(catalog: CaptureCatalog, marking: Marking, presenter: SourcesPresenter, query: String, pick: (SourceTile) -> Unit) {
-    val matches = catalog.displays.filter { SourceGrouping.matches(it, query) }
-    if (matches.isEmpty()) return
+private fun Screens(matches: List<CaptureSourceDescriptor>, marking: Marking, presenter: SourcesPresenter, pick: (SourceTile) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionTitle(stringResource(R.string.sources_section_screens))
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -188,31 +194,28 @@ private fun ApplicationSection(
     }
 }
 
-@Composable
-private fun InstalledGrid(installed: List<InstalledApplication>, presenter: SourcesPresenter, onPicked: () -> Unit) {
+private fun LazyListScope.installedGrid(installed: List<InstalledApplication>, presenter: SourcesPresenter, onPicked: () -> Unit) {
     if (installed.isEmpty()) return
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionTitle(stringResource(R.string.sources_installed))
-        installed.chunked(ICON_COLUMNS).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { application ->
-                    Column(
-                        Modifier.weight(1f).tappable({
-                            presenter.launch(application)
-                            onPicked()
-                        }),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        ApplicationIcon(application.iconData, 56.dp)
-                        Text(application.title, style = PeeringText.caption2.copy(fontSize = 10.sp), color = PeeringColors.ink, maxLines = 2, textAlign = TextAlign.Center)
-                    }
+    item(key = "installed-title") { SectionTitle(stringResource(R.string.sources_installed)) }
+    items(installed.chunked(ICON_COLUMNS), key = { row -> "installed-${row.first().title}" }) { row ->
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            row.forEach { application ->
+                Column(
+                    Modifier.weight(1f).tappable({
+                        presenter.launch(application)
+                        onPicked()
+                    }),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    ApplicationIcon(application.iconData, 56.dp)
+                    Text(application.title, style = PeeringText.caption2.copy(fontSize = 10.sp), color = PeeringColors.ink, maxLines = 2, textAlign = TextAlign.Center)
                 }
-                repeat(ICON_COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
             }
+            repeat(ICON_COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
         }
-        Text(stringResource(R.string.sources_installed_note), style = PeeringText.caption2, color = PeeringColors.tertiary)
     }
+    item(key = "installed-note") { Text(stringResource(R.string.sources_installed_note), style = PeeringText.caption2, color = PeeringColors.tertiary) }
 }
 
 private const val ICON_COLUMNS = 5

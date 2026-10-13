@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -55,6 +56,9 @@ import pl.dmq.peering.wire.RemoteEntryKind
 
 private val BAR_HEIGHT = 48.dp
 
+/** Under this the two round buttons leave the search field too little room to type in, so it takes a row of its own. */
+private val NARROW_BAR = 480.dp
+
 /**
  * The one bottom row of the folder browser, as on the iPhone: where you are above it, then new, a search field with the
  * hidden-files switch inside it, and send. A long press on the switch opens the order, which the iPhone does not offer.
@@ -66,10 +70,22 @@ fun FilesBottomBar(ui: FileListUi, presenter: FileListPresenter, onUpload: () ->
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         ui.path?.let { LocationLine(it) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            NewButton(ui.canChange, presenter)
-            SearchCapsule(ui, presenter, Modifier.weight(1f))
-            CircleButton(Icons.Outlined.FileUpload, stringResource(R.string.files_upload), ui.canChange, onUpload)
+        BoxWithConstraints {
+            if (maxWidth < NARROW_BAR) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SearchCapsule(ui, presenter, Modifier.fillMaxWidth())
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        NewButton(ui.canChange, presenter)
+                        CircleButton(Icons.Outlined.FileUpload, stringResource(R.string.files_upload), ui.canChange, onUpload)
+                    }
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    NewButton(ui.canChange, presenter)
+                    SearchCapsule(ui, presenter, Modifier.weight(1f))
+                    CircleButton(Icons.Outlined.FileUpload, stringResource(R.string.files_upload), ui.canChange, onUpload)
+                }
+            }
         }
     }
 }
