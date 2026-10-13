@@ -84,7 +84,8 @@ final class VoiceDictation {
         }
     }
 
-    private static func authorised() async -> Bool {
+    /// Nonisolated: the system calls the authorisation callback on its own queue, and a closure inheriting the main actor traps there.
+    private nonisolated static func authorised() async -> Bool {
         let speech = await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0 == .authorized) }
         }
@@ -105,21 +106,35 @@ final class VoiceDictation {
         let engine = AVAudioEngine()
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
-        nonisolated(unsafe) let sink = request
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            sink.append(buffer)
-            let decibels = Self.decibels(of: buffer)
+        input.installTap(onBus: 0, bufferSize: 1024, format: format, block: Self.tap(feeding: request, levels: { [weak self] decibels in
             Task { @MainActor in self?.levels.add(decibels: decibels) }
-        }
+        }))
         engine.prepare()
         try engine.start()
         self.engine = engine
 
-        task = recogniser.recognitionTask(with: request) { [weak self] result, error in
-            let text = result?.bestTranscription.formattedString
-            let isFinal = result?.isFinal ?? false
-            let failed = error != nil
+        task = recogniser.recognitionTask(with: request, resultHandler: Self.resultHandler { [weak self] text, isFinal, failed in
             Task { @MainActor in self?.heard(text, isFinal: isFinal, failed: failed) }
+        })
+    }
+
+    /// Built outside the class on purpose: a closure written in a main-actor method inherits that isolation, and the audio thread calling it then traps.
+    private nonisolated static func tap(
+        feeding request: SFSpeechAudioBufferRecognitionRequest,
+        levels: @escaping @Sendable (Float) -> Void
+    ) -> AVAudioNodeTapBlock {
+        nonisolated(unsafe) let sink = request
+        return { @Sendable buffer, _ in
+            sink.append(buffer)
+            levels(decibels(of: buffer))
+        }
+    }
+
+    private nonisolated static func resultHandler(
+        _ report: @escaping @Sendable (String?, Bool, Bool) -> Void
+    ) -> @Sendable (SFSpeechRecognitionResult?, Error?) -> Void {
+        { @Sendable result, error in
+            report(result?.bestTranscription.formattedString, result?.isFinal ?? false, error != nil)
         }
     }
 
