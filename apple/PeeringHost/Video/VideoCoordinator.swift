@@ -20,6 +20,13 @@ final class VideoCoordinator: @unchecked Sendable {
 
     var currentSource: CaptureSource?
     var currentAudioConfig: AudioStreamConfig?
+    /// Counts for the log only, so a silent stream can say where it stopped.
+    let audioProgress = OSAllocatedUnfairLock(initialState: AudioProgress())
+
+    struct AudioProgress {
+        var received = 0
+        var rejected = 0
+    }
 
 /// Capture start/stop calls are asynchronous, but their ordering is user-visible. The task chain makes
 /// them land in the same order as the connection changes recorded under `lock`: in particular, an idle
@@ -93,13 +100,25 @@ final class VideoCoordinator: @unchecked Sendable {
 // planar PCM, and the protocol always carries interleaved Float32.
         pipeline.onAudio = { [weak self] sampleBuffer in
             guard let self else { return }
-            guard let prepared = Self.prepareAudio(sampleBuffer) else { return }
+            let first = self.audioProgress.withLock { progress -> Bool in
+                progress.received += 1
+                return progress.received == 1
+            }
+            if first { coordinatorLog.notice("sound from the Mac: the first audio buffer arrived from the capture") }
+            guard let prepared = Self.prepareAudio(sampleBuffer) else {
+                if self.audioProgress.withLock({ progress -> Bool in
+                    progress.rejected += 1
+                    return progress.rejected == 1
+                }) { coordinatorLog.error("sound from the Mac: an audio buffer was rejected (format not float32 PCM or unreadable)") }
+                return
+            }
             let configChanged = self.lock.withLock { () -> Bool in
                 guard self.currentAudioConfig != prepared.config else { return false }
                 self.currentAudioConfig = prepared.config
                 return true
             }
             if configChanged {
+                coordinatorLog.notice("sound from the Mac: sending the stream description, \(Int(prepared.config.sampleRate)) Hz, \(prepared.config.channelCount) channels")
                 self.streamer.sendAudioConfig(prepared.config)
             }
             self.streamer.sendAudioFrame(prepared.frame)
@@ -131,13 +150,14 @@ final class VideoCoordinator: @unchecked Sendable {
               )
         else { return nil }
 
+        // Before the copy, not after: the buffer list's byte size follows `frameLength`, which starts at zero, and a copy into a list of no bytes fails with -12731. Every buffer was refused for that, so the phone never heard anything.
+        pcm.frameLength = AVAudioFrameCount(sampleCount)
         guard CMSampleBufferCopyPCMDataIntoAudioBufferList(
             sampleBuffer,
             at: 0,
             frameCount: Int32(sampleCount),
             into: pcm.mutableAudioBufferList
         ) == noErr else { return nil }
-        pcm.frameLength = AVAudioFrameCount(sampleCount)
 
         guard let channels = pcm.floatChannelData else { return nil }
         let stride = pcm.stride

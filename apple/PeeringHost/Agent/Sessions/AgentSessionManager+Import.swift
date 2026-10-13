@@ -25,6 +25,19 @@ extension AgentSessionManager {
         return Set(guarded.filter { root in sessions.contains { $0.directory == root || $0.directory.hasPrefix(root + "/") } })
     }
 
+    /// Events a peek carries: a screenful of conversation, not the megabytes a resume reads.
+    private static let peekEventLimit = 40
+    private static let peekBytes = 512 * 1024
+
+    func peekResumable(cliSessionID: String, sink: @escaping Sink) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let payloads = ClaudeSessionLibrary.conversation(cliSessionID: cliSessionID, bytes: Self.peekBytes)
+                .map { AgentClaudeSessionFile.settled($0.events).suffix(Self.peekEventLimit) } ?? []
+            let events = payloads.enumerated().map { AgentStreamEvent(index: UInt64($0.offset + 1), payload: $0.element) }
+            sink(.resumablePeek(cliSessionID: cliSessionID, events: events))
+        }
+    }
+
     func resume(agentID: String, cliSessionID: String, clientID: String, sink: @escaping Sink) {
         guard agentID == ClaudeCodeAdapter.command, let entry = AgentCatalogue.entry(for: agentID) else {
             sink(.failed(sessionID: nil, message: "Only Claude Code conversations can be continued from here yet."))

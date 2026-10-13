@@ -45,6 +45,47 @@ struct ClaudeHookTests {
         #expect(!event.canBeAnsweredFromANotification)
     }
 
+    @Test func anIdlePromptIsNeverPushed() throws {
+        let event = try #require(ClaudeHookEvent.parse(line("""
+        {"hook_event_name":"Notification","session_id":"s1","cwd":"/work/app","notification_type":"idle_prompt","message":"Claude is waiting for your input"}
+        """)))
+        let pushed = PushedText()
+        let broker = ClaudeHookBroker(tokens: { ["token"] }, push: { _, title, body, _ in pushed.set(title, body) })
+        broker.handle(event, reply: { _ in })
+        #expect(pushed.title.isEmpty)
+    }
+
+    @Test func theStopHookIsTheTurnFinishing() throws {
+        let event = try #require(ClaudeHookEvent.parse(line("""
+        {"hook_event_name":"Stop","session_id":"s1","cwd":"/work/app","stop_hook_active":false}
+        """)))
+        let pushed = PushedText()
+        let broker = ClaudeHookBroker(tokens: { ["token"] }, push: { _, title, body, _ in pushed.set(title, body) })
+        broker.handle(event, reply: { _ in })
+        #expect(pushed.title == "Claude Code in app finished")
+        #expect(pushed.body == "The turn finished.")
+    }
+
+    @Test func aStopThatClaudeIsContinuingFromIsNotPushedAgain() throws {
+        let event = try #require(ClaudeHookEvent.parse(line("""
+        {"hook_event_name":"Stop","session_id":"s1","cwd":"/work/app","stop_hook_active":true}
+        """)))
+        let pushed = PushedText()
+        let broker = ClaudeHookBroker(tokens: { ["token"] }, push: { _, title, body, _ in pushed.set(title, body) })
+        broker.handle(event, reply: { _ in })
+        #expect(pushed.title.isEmpty)
+    }
+
+    @Test func otherNotificationsKeepClaudeCodesOwnWords() throws {
+        let event = try #require(ClaudeHookEvent.parse(line("""
+        {"hook_event_name":"Notification","session_id":"s1","cwd":"/work/app","notification_type":"elicitation_dialog","message":"Claude needs your input"}
+        """)))
+        let pushed = PushedText()
+        let broker = ClaudeHookBroker(tokens: { ["token"] }, push: { _, title, body, _ in pushed.set(title, body) })
+        broker.handle(event, reply: { _ in })
+        #expect(pushed.body == "Claude needs your input")
+    }
+
     @Test func aLineWithoutASessionIsRefused() {
         #expect(ClaudeHookEvent.parse(line(#"{"hook_event_name":"Stop"}"#)) == nil)
         #expect(ClaudeHookEvent.parse(line("not json")) == nil)
@@ -222,4 +263,20 @@ struct ClaudeHookBrokerTests {
         #expect(recorder.pushes.first?.action == nil)
         #expect(recorder.replies.count == 1)
     }
+}
+
+private final class PushedText: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _title = ""
+    private var _body = ""
+
+    func set(_ title: String, _ body: String) {
+        lock.withLock {
+            _title = title
+            _body = body
+        }
+    }
+
+    var title: String { lock.withLock { _title } }
+    var body: String { lock.withLock { _body } }
 }

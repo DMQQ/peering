@@ -29,6 +29,7 @@ final class VideoStreamer: @unchecked Sendable {
     var pendingAudio: EncodedAudioFrame?
     var audioConfig: AudioStreamConfig?
     var audioConfigOwed = false
+    var loggedAudioWithoutPeer = false
     var sentAudioLast = true
     var sending = false
     var _stats = Stats()

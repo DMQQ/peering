@@ -30,4 +30,34 @@ struct DictationTests {
         #expect(DictationText.insertion(after: "", spoken: "hello") == "hello")
         #expect(DictationText.insertion(after: "ls", spoken: "  ").isEmpty)
     }
+
+    @Test func quietBeforeAnySpeechIsNotAPause() {
+        var pause = DictationPause()
+        let first = pause.observe(level: 0, at: 0)
+        let later = pause.observe(level: 0, at: 10)
+        #expect(!first)
+        #expect(!later)
+    }
+
+    @Test func twoSecondsOfQuietAfterSpeechIsAPauseOnce() {
+        var pause = DictationPause()
+        let spoke = pause.observe(level: 0.5, at: 0)
+        let tooSoon = pause.observe(level: 0.02, at: 1.9)
+        let reached = pause.observe(level: 0.02, at: 2.1)
+        let again = pause.observe(level: 0.02, at: 5)
+        #expect(!spoke)
+        #expect(!tooSoon)
+        #expect(reached)
+        #expect(!again)
+    }
+
+    @Test func speakingAgainRestartsTheWait() {
+        var pause = DictationPause()
+        _ = pause.observe(level: 0.5, at: 0)
+        _ = pause.observe(level: 0.5, at: 1.5)
+        let early = pause.observe(level: 0, at: 3)
+        let reached = pause.observe(level: 0, at: 3.6)
+        #expect(!early)
+        #expect(reached)
+    }
 }

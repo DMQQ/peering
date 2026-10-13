@@ -38,13 +38,10 @@ extension OnboardingView {
                             .font(.subheadline)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-
-                    if case .mac = page.device {
-                        downloadLink
-                    }
                 }
             }
         }
+        // The download row is left out: it is on one page, and holding every page to its height left the others a gap above the buttons.
         // The pages' own padding, so that every body here wraps at the width it wraps at there.
         .padding(.horizontal, 22)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in

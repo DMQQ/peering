@@ -10,8 +10,8 @@ public enum ClaudeHookSettings {
     /// How long a held permission request waits for the phone, in seconds, before Claude Code shows its own dialog. Ten minutes: a phone in a pocket is slow, and the terminal prompt is still there after.
     public static let permissionTimeoutSeconds = 600
     static let notificationTimeoutSeconds = 10
-    /// Idle and question notifications only: a permission prompt already reaches the phone as a `PermissionRequest`.
-    static let notificationMatcher = "idle_prompt|elicitation_dialog"
+    /// Question notifications only: a permission prompt already reaches the phone as a `PermissionRequest`, and the end of a turn is the `Stop` hook. An `idle_prompt` fires after a quiet minute whether or not Claude is still working, so it is no evidence of anything.
+    static let notificationMatcher = "elicitation_dialog"
 
     /// The name every Peering entry's command ends in, which is how an entry is recognised later.
     public static let commandName = "peering-hook"
@@ -21,6 +21,7 @@ public enum ClaudeHookSettings {
         var hooks = try hooks(in: settings)
         try append(to: &hooks, event: "PermissionRequest", matcher: nil, command: command, timeout: permissionTimeoutSeconds)
         try append(to: &hooks, event: "Notification", matcher: notificationMatcher, command: command, timeout: notificationTimeoutSeconds)
+        try append(to: &hooks, event: "Stop", matcher: nil, command: command, timeout: notificationTimeoutSeconds)
         settings["hooks"] = hooks
         return settings
     }
@@ -47,7 +48,7 @@ public enum ClaudeHookSettings {
 
     public static func isInstalled(in settings: [String: Any]) -> Bool {
         guard let hooks = settings["hooks"] as? [String: Any] else { return false }
-        return ["PermissionRequest", "Notification"].allSatisfy { event in
+        return ["PermissionRequest", "Notification", "Stop"].allSatisfy { event in
             (hooks[event] as? [[String: Any]])?.contains {
                 ($0["hooks"] as? [[String: Any]])?.contains(where: isPeering) == true
             } == true

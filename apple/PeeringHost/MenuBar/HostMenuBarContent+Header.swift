@@ -8,8 +8,8 @@ extension HostMenuBarContent {
         HStack(spacing: 11) {
             Image(nsImage: NSApplication.shared.applicationIconImage)
                 .resizable()
-                .frame(width: 36, height: 36)
-                                .accessibilityHidden(true)
+                .frame(width: 34, height: 34)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Peering")
@@ -44,8 +44,8 @@ extension HostMenuBarContent {
             Image(systemName: "power")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(on ? Color.white : Color.secondary)
-                .frame(width: 32, height: 32)
-                .background(on ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary.opacity(0.08)), in: Circle())
+                .frame(width: 28, height: 28)
+                .background(on ? AnyShapeStyle(Color.accentColor.opacity(0.9)) : AnyShapeStyle(Color.primary.opacity(0.08)), in: Circle())
                 .overlay(Circle().strokeBorder(on ? .clear : Color.primary.opacity(0.12)))
                 .contentShape(Circle())
         }

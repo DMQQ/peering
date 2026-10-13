@@ -32,10 +32,8 @@ struct OnboardingView: View {
             content: .feature(icon: "macwindow", screenshot: "AppMac"),
             title: String(localized: "Your Mac needs the other half"),
             body: """
-                An iPhone cannot reach into a Mac from outside. A small Peering app on the Mac captures \
-                its screen and turns your taps into clicks and keys, which macOS allows only after you \
-                grant Screen Recording and Accessibility. It is a download, not an App Store app, because \
-                a sandboxed app cannot send input to other apps. The code is public on GitHub.
+                A small Peering app on your Mac shares its screen and turns your taps into clicks. \
+                It is a download rather than an App Store app, and its code is public.
                 """,
             device: .mac(companion: "AppConnect"),
             chips: [

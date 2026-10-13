@@ -6,12 +6,14 @@ import UIKit
 struct MacroBar: View {
     @Environment(SessionModel.self) private var model
     @State private var showingMacroEditor = false
+    @State private var quitting: Macro?
 
     var body: some View {
         LazyVGrid(columns: ShortcutSets.columns, spacing: 8) {
                 ForEach(model.allMacros) { macro in
                     Button {
-                        model.run(macro)
+                        // Unlike copy or paste, this one can discard unsaved work, so it asks first.
+                        if macro.id == "quit" { quitting = macro } else { model.run(macro) }
                     } label: {
                         Text(macro.title)
                             .font(.system(size: 15, weight: .medium))
@@ -30,6 +32,18 @@ struct MacroBar: View {
                 }
                 .buttonStyle(RailButtonStyle(scale: 0.86))
                 .accessibilityLabel("Edit macros")
+        }
+        .confirmationDialog(
+            "Quit the active Mac app?",
+            isPresented: Binding(get: { quitting != nil }, set: { if !$0 { quitting = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Send ⌘Q", role: .destructive) {
+                if let quitting { model.run(quitting) }
+                quitting = nil
+            }
+        } message: {
+            Text("The Mac may ask you to save open documents first.")
         }
         .sheet(isPresented: $showingMacroEditor) {
             MacroEditorView(model: model)

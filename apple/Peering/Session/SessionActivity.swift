@@ -193,6 +193,11 @@ final class SessionActivity {
         for orphan in orphans {
             Task { await orphan.end(nil, dismissalPolicy: .immediate) }
         }
+        // Looked at again once the system has had time to list everything: at launch the list can still be filling, and a card missed here stayed beside the next session's.
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            self?.endStragglers()
+        }
         guard !orphans.isEmpty else { return }
         activityLog.info("ended \(orphans.count) Live Activit\(orphans.count == 1 ? "y" : "ies") left by a previous launch")
     }
@@ -218,9 +223,17 @@ final class SessionActivity {
                 pushType: .token
             )
             if let activity { observe(activity) }
+            endStragglers()
         } catch {
             Analytics.failed(error, in: .liveActivity)
             activityLog.error("could not start the Live Activity: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// There is one session card, whichever Mac it describes, so any other of this type is a leftover: from a process that was killed, or one the system listed late at launch.
+    private func endStragglers() {
+        for card in Activity<SessionActivityAttributes>.activities where card.id != activity?.id {
+            Task { await card.end(nil, dismissalPolicy: .immediate) }
         }
     }
 

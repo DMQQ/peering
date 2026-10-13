@@ -13,6 +13,12 @@ final class AgentChatActivity {
 
     private var activity: Activity<AgentChatActivityAttributes>?
 
+    /// Whether this run has told the card what is true yet. A card adopted at launch that nobody has spoken for is a ghost.
+    private var hasBeenUpdated = false
+
+    /// How long a launch waits for a Mac to say what its chats are before it ends a card nothing explains.
+    static let orphanGraceSeconds = 25
+
     private var isEnabled: Bool {
         UserDefaults.standard.object(forKey: PreferenceKeys.liveActivities) as? Bool ?? true
     }
@@ -20,6 +26,7 @@ final class AgentChatActivity {
     private init() {}
 
     func update(chats: [AgentChatSnapshot]) {
+        hasBeenUpdated = true
         let busy = chats.filter { $0.state == .working || $0.state == .needsYou }
         // Kept while any chat is open: one that has finished stays on the card, a tap from picking it up.
         guard isEnabled, let top = AgentChatSnapshot.ordered(chats).first else {
@@ -42,6 +49,15 @@ final class AgentChatActivity {
     /// A card from a killed process, or one the Mac started with a push, is taken over rather than ended: the next update rewrites it, and ends it when no chat is left.
     func adoptOrphan() {
         for card in Activity<AgentChatActivityAttributes>.activities { adopt(card) }
+        guard !Activity<AgentChatActivityAttributes>.activities.isEmpty else { return }
+        // Without a Mac connected nothing rewrites or ends an adopted card, so a chat closed yesterday stayed on the Lock Screen.
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.orphanGraceSeconds))
+            guard let self, !hasBeenUpdated else { return }
+            activityLog.info("ending an agent Live Activity that no chat explained")
+            for card in Activity<AgentChatActivityAttributes>.activities { await card.end(nil, dismissalPolicy: .immediate) }
+            activity = nil
+        }
     }
 
     func adopt(_ card: Activity<AgentChatActivityAttributes>) {

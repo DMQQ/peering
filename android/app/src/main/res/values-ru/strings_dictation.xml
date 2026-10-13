@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dictation_start">Диктовка</string>
+    <string name="dictation_cancel">Отменить диктовку</string>
+    <string name="dictation_done">Завершить диктовку</string>
+    <string name="dictation_listening">Слушаю…</string>
+    <string name="dictation_denied">Включите микрофон для Peering в настройках.</string>
+    <string name="dictation_unavailable">Диктовка сейчас недоступна.</string>
+    <string name="dictation_settings">Настройки</string>
+    <string name="dictation_close">Закрыть</string>
+</resources>

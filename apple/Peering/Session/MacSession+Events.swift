@@ -62,6 +62,7 @@ extension MacSession {
             switch event {
             case .config(let config):
                 audioPlayer = RemoteAudioPlayer(config: config)
+                logEvent("Sound from the Mac: \(Int(config.sampleRate)) Hz, \(config.channelCount) channels, \(audioPlayer == nil ? "player could not start" : (shouldPlayAudio ? "playing" : "muted here"))")
                 // A fresh player per stream, so the preference, plan and whether this is the Mac on screen are handed to each. See ``shouldPlayAudio``: a free user's audio and a background Mac's audio are still sent, and this stops them playing.
                 refreshAudioMuteState()
             case .frame(let frame):

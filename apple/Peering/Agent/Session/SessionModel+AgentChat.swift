@@ -61,6 +61,12 @@ extension SessionModel {
 
     var hostSupportsAgentSessionImport: Bool { activeSession?.hostSupportsAgentSessionImport ?? false }
 
+    var hostSupportsAgentSessionPeek: Bool { activeSession?.hostSupportsAgentSessionPeek ?? false }
+
+    func resumablePeek(_ session: AgentResumableSession) -> RemoteAgentSession? { activeSession?.resumablePeeks[session.cliSessionID] }
+
+    func peekResumableSession(_ session: AgentResumableSession) { activeSession?.peekResumableSession(session) }
+
     var resumableSessions: [AgentResumableSession]? { activeSession?.resumableSessions }
 
     func refreshResumableSessions() { activeSession?.refreshResumableSessions() }

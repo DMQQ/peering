@@ -31,6 +31,7 @@ extension MacSession {
         hostSupportsAgentPermissionModes = hello.supportsAgentPermissionModes == true
         hostSupportsAgentUsage = hello.supportsAgentUsage == true
         hostSupportsAgentSessionImport = hello.supportsAgentSessionImport == true
+        hostSupportsAgentSessionPeek = hello.supportsAgentSessionPeek == true
         hostSupportsAgentPause = hello.supportsAgentPause == true
         hostChatAgents = Set(hello.agentChatAgents ?? ["claude", "codex"])
         UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)

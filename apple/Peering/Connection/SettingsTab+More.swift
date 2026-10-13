@@ -124,6 +124,21 @@ extension SettingsTab {
             Controls.divider
 
             Button {
+                if let url = URL(string: "https://github.com/DMQQ/peering") { openURL(url) }
+            } label: {
+                Controls.row(String(localized: "Source code on GitHub", table: "Chrome"), systemImage: "chevron.left.forwardslash.chevron.right") {
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(RailButtonStyle(scale: 0.99))
+            .foregroundStyle(ColorPalette.ink)
+
+            Controls.divider
+
+            Button {
                 UIPasteboard.general.string = Diagnostics.text(model: model)
                 copiedDiagnostics = true
                 Task {

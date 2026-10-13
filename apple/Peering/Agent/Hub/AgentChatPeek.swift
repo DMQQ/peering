@@ -3,7 +3,8 @@ import SwiftUI
 
 /// What a long press on a chat card shows without opening it: the conversation itself, scrolled to its end and not answerable.
 struct AgentChatPeek: View {
-    let card: AgentCardDigest
+    let title: String
+    let directory: String
     let session: RemoteAgentSession?
 
     @State private var expandedTools: Set<UUID> = []
@@ -12,11 +13,11 @@ struct AgentChatPeek: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: card.title)
+                Text(verbatim: title)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(ColorPalette.ink)
                     .lineLimit(1)
-                Text(verbatim: (card.directory as NSString).lastPathComponent)
+                Text(verbatim: (directory as NSString).lastPathComponent)
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.5))
             }

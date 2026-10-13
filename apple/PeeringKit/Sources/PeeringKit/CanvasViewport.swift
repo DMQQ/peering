@@ -3,7 +3,8 @@ import Foundation
 
 /// The zoom and pan rules of the remote picture, with no view in the way.
 public enum CanvasViewport {
-    public static let minimumZoom: CGFloat = 0.5
+    /// The picture never shrinks below the screen, give or take a percent: a screen protector hides the outer few points, and a picture exactly the width of the glass loses its edges under it.
+    public static let minimumZoom: CGFloat = 0.99
     public static let maximumZoom: CGFloat = 8
 
     /// How far past its own edge a zoomed picture may be dragged, as a share of the canvas.
@@ -13,6 +14,8 @@ public enum CanvasViewport {
     static let overscrollRamp: CGFloat = 0.5
     /// Travel allowed around the centre when the picture is smaller than the canvas.
     static let underfitTravel: CGFloat = 80
+    /// How far under 1x the drawn scale goes before the travel is spent: a picture inset by the chrome sits a little under it.
+    static let underfitRange: CGFloat = 0.5
 
     public static func clampedZoom(_ zoom: CGFloat) -> CGFloat {
         min(max(zoom, minimumZoom), maximumZoom)
@@ -55,7 +58,7 @@ public enum CanvasViewport {
                 let cornerAtCentre = extent * effectiveZoom / 2
                 return min(cornerAtCentre, slack > 0 ? slack + max(margin, reach) : reach)
             }
-            let underfit = max(0, min(1, (1 - effectiveZoom) / (1 - minimumZoom)))
+            let underfit = max(0, min(1, (1 - effectiveZoom) / underfitRange))
             return underfitTravel * underfit
         }
         return CGSize(

@@ -83,6 +83,8 @@ final class MacSession: Identifiable {
 
     var lastFrameSample: (count: Int, at: ContinuousClock.Instant)?
     var framesFlowingPolls = 0
+    /// Chats seen working or asking since this connection began: only those can have "finished", since an idle chat nobody ran is not news.
+    var agentChatsSeenBusy: Set<UUID> = []
 
     var isVideoStreaming = false
 
@@ -142,6 +144,7 @@ final class MacSession: Identifiable {
     var hostSupportsAgentPermissionModes = false
     var hostSupportsAgentUsage = false
     var hostSupportsAgentSessionImport = false
+    var hostSupportsAgentSessionPeek = false
     var hostSupportsAgentPause = false
 
     /// A Mac from before the list chats with the first two.
@@ -269,6 +272,8 @@ final class MacSession: Identifiable {
     var agentPicker = AgentPickerState()
     /// Nil until the Mac has answered; the terminal conversations it offers to continue.
     var resumableSessions: [AgentResumableSession]?
+    /// The end of each Mac conversation looked at with a long press, by CLI session id.
+    var resumablePeeks: [String: RemoteAgentSession] = [:]
     /// What git said about each chat's folder, and the chats still waiting for that answer.
     var agentChanges: [UUID: AgentChangesReport] = [:]
     var agentChangesLoading: Set<UUID> = []

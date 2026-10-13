@@ -43,14 +43,14 @@ enum ClaudeSessionLibrary {
         let startsMidConversation: Bool
     }
 
-    static func conversation(cliSessionID: String) -> Conversation? {
+    static func conversation(cliSessionID: String, bytes: Int = conversationBytes) -> Conversation? {
         guard let file = files().first(where: { $0.id == cliSessionID }),
               let summary = summary(of: file.url),
               let handle = openForReading(file.url)
         else { return nil }
         defer { try? handle.close() }
         guard let size = try? handle.seekToEnd() else { return nil }
-        let start = size > UInt64(conversationBytes) ? size - UInt64(conversationBytes) : 0
+        let start = size > UInt64(bytes) ? size - UInt64(bytes) : 0
         try? handle.seek(toOffset: start)
         guard let data = try? handle.readToEnd() else { return nil }
         let text = String(decoding: data, as: UTF8.self)

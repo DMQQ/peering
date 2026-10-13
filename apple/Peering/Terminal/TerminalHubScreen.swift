@@ -10,6 +10,8 @@ struct TerminalHubScreen: View {
     @State var history: [AgentLaunch] = []
     /// Bumped when the terminal history is cleared, so the section reads the store again.
     @State var terminalHistoryRevision = 0
+    @State var agentHistoryQuery = ""
+    @State var terminalHistoryQuery = ""
     @State var selectedAgentID: String?
     @State var pickerOpen = false
     /// A page is built on first visit and kept after: Files lists a folder on the Mac as soon as it appears, and tearing a page down on each switch was the lag.
@@ -104,9 +106,19 @@ struct TerminalHubScreen: View {
             Button("Save") { commitRename() }
         }
         .task { await refreshOnceSettled() }
+        .task(id: tab) { await keepResumableSessionsFresh() }
         // The section draws nothing until the list arrives, so it cannot ask for it itself: an onAppear on an empty view never fires.
         .onChange(of: model.hostSupportsAgentSessionImport) { _, _ in model.refreshResumableSessions() }
         .onChange(of: model.agentCards.map(\.id)) { _, _ in model.ensureAgentPreviews() }
+    }
+
+    /// Whether a conversation is open on the Mac is the host's guess from when its file was last written, so the list goes stale on its own: asked again while the Agents page is up.
+    private func keepResumableSessionsFresh() async {
+        guard tab == .agents else { return }
+        while !Task.isCancelled {
+            do { try await Task.sleep(for: Self.resumableRefresh) } catch { return }
+            model.refreshResumableSessions()
+        }
     }
 
     private func tabChanged(to tab: HubTab) {
@@ -142,6 +154,7 @@ struct TerminalHubScreen: View {
     // MARK: - Agents
 
     static let pushSettle = Duration.milliseconds(400)
+    static let resumableRefresh = Duration.seconds(10)
 
     /// One fade for the pages, the docks and the Files bar, so a tab change moves everything together.
     static let tabFade = Animation.easeOut(duration: 0.12)

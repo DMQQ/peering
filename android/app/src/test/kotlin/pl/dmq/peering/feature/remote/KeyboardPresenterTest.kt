@@ -22,6 +22,22 @@ class KeyboardPresenterTest {
     }
 
     @Test
+    fun `dictated words follow a word on the line after one space`() {
+        presenter.onSoftKeyboardText("ls")
+        presenter.onDictated(" -la ")
+
+        assertEquals(listOf<RemoteCommand>(TextInput("ls"), TextInput(" -la")), sink.sent)
+    }
+
+    @Test
+    fun `dictated words on an empty line are typed as heard and silence types nothing`() {
+        presenter.onDictated("hello")
+        presenter.onDictated("   ")
+
+        assertEquals(listOf<RemoteCommand>(TextInput("hello")), sink.sent)
+    }
+
+    @Test
     fun `an editing key is pressed and released by its Mac keycode`() {
         presenter.onEditingKey(EditingKey.ESCAPE)
 

@@ -7,6 +7,8 @@ public final class ClaudeHookBroker: @unchecked Sendable {
     public typealias Push = @Sendable (_ token: String, _ title: String, _ body: String, _ action: RelayPushAction?) -> Void
     public typealias Schedule = @Sendable (_ seconds: Int, _ work: @escaping @Sendable () -> Void) -> Void
 
+    private static let idlePrompt = "idle_prompt"
+
     /// Short of the hook's own timeout, so the answer to a request nobody took is Claude Code's dialog and not a killed hook.
     public static let holdSeconds = ClaudeHookSettings.permissionTimeoutSeconds - 10
 
@@ -39,8 +41,15 @@ public final class ClaudeHookBroker: @unchecked Sendable {
         case .permissionRequest:
             permissionRequest(event, devices: devices, reply: reply)
         case .notification:
-            let body = event.message ?? words.claudeCodeWaiting
-            for token in devices { push(token, title(for: event), body, nil) }
+            // Never an idle prompt: it fires after a quiet minute while Claude may be mid-task, and the end of a turn is the Stop hook's to say.
+            if event.notificationType != Self.idlePrompt {
+                for token in devices { push(token, title(for: event), event.message ?? words.claudeCodeWaiting, nil) }
+            }
+            reply(nil)
+        case .stop:
+            if !event.stopHookActive {
+                for token in devices { push(token, words.title(title(for: event), .finished), words.turn(.finished), nil) }
+            }
             reply(nil)
         case .other:
             reply(nil)

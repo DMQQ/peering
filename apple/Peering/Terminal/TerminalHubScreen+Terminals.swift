@@ -39,9 +39,7 @@ extension TerminalHubScreen {
             Button("End", systemImage: "xmark", role: .destructive) { pendingEnd = .terminal(terminal.id) }
                 .menuDanger()
         } preview: {
-            TerminalWindowCard(terminal: terminal, index: 0, host: model.shownHostName)
-                .frame(width: 340)
-                .background(ColorPalette.backdrop)
+            TerminalPeek(terminal: terminal)
         }
         .accessibilityIdentifier("terminal-row")
     }

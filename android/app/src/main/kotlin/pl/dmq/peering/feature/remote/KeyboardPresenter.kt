@@ -3,6 +3,7 @@ package pl.dmq.peering.feature.remote
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import pl.dmq.peering.feature.remote.dictation.DictationText
 import pl.dmq.peering.wire.KeyDown
 import pl.dmq.peering.wire.KeyRoute
 import pl.dmq.peering.wire.KeyUp
@@ -67,6 +68,12 @@ class KeyboardPresenter(
     fun onSoftKeyboardText(text: String) {
         if (text.isEmpty()) return
         typeText(text)
+    }
+
+    /** Words heard by dictation go where typed ones do, one space after a word already on the line. */
+    fun onDictated(spoken: String) {
+        val text = DictationText.insertion(preview.value, spoken)
+        if (text.isNotEmpty()) typeText(text)
     }
 
     /** A delete from the soft keyboard, which is the Backspace key. */

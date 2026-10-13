@@ -179,19 +179,50 @@ extension RemoteScreen {
         // panel sits at the bottom of it, which is where a panel belongs.
         if let panel = openPanel {
             ZStack(alignment: .bottom) {
-                panelContent(panel)
-                    .frame(maxWidth: .infinity)
-                    .geometryGroup()
-                    .id(panel)
-                    .transition(.blurReplace(.downUp))
+                VStack(spacing: 0) {
+                    panelHandle
+                    panelContent(panel)
+                        .frame(maxWidth: .infinity)
+                        .geometryGroup()
+                        .id(panel)
+                        .transition(.blurReplace(.downUp))
+                }
             }
             .matchedGeometryEffect(id: "surface", in: floatingSurface)
             .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .padding(.horizontal, 10)
             .reportChromeFrame(.panel, into: $chromeFrames)
             .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
+            .offset(y: panelDrag)
+            .transaction(value: panelDrag) { $0.animation = nil }
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+    }
+
+    /// Every panel has the same one: drag it down to put it away, which leaves the picture free to use.
+    private var panelHandle: some View {
+        Capsule()
+            .fill(Color.white.opacity(0.32))
+            .frame(width: 38, height: 5)
+            .frame(maxWidth: .infinity)
+            .frame(height: 20)
+            .contentShape(Rectangle())
+            .onTapGesture { withAnimation(Motion.settle) { openPanel = nil } }
+            .gesture(
+                DragGesture(minimumDistance: 4, coordinateSpace: .global)
+                    .onChanged { drag in panelDrag = max(0, drag.translation.height * 0.8) }
+                    .onEnded { drag in
+                        let closes = drag.predictedEndTranslation.height > 90 || drag.translation.height > 60
+                        withAnimation(Motion.settle) {
+                            panelDrag = 0
+                            if closes { openPanel = nil }
+                        }
+                    }
+            )
+            .accessibilityElement()
+            .accessibilityLabel(String(localized: "Close panel", table: "Dictation"))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { withAnimation(Motion.settle) { openPanel = nil } }
     }
 
     @ViewBuilder

@@ -45,6 +45,11 @@ extension MacSession {
         wire?.sendAgent(.listResumable)
     }
 
+    func peekResumableSession(_ session: AgentResumableSession) {
+        guard hostSupportsAgentSessionPeek else { return }
+        wire?.sendAgent(.peekResumable(cliSessionID: session.cliSessionID))
+    }
+
     func resumeAgentSession(_ session: AgentResumableSession) {
         guard hostSupportsAgentSessionImport else { return }
         AgentFolderHistory.record(directory: session.directory, agentID: session.agentID, macName: model.hostName)

@@ -64,6 +64,7 @@ extension HostStatusView {
             }
 
             VStack(alignment: .leading, spacing: 8) {
+                Text(Self.versionText)
                 LabeledContent("Protocol", value: "v\(ProtocolInfo.version)")
                 LabeledContent("Port", value: "\(model.boundPort)")
                 LabeledContent("Device ID", value: model.deviceID)
@@ -77,6 +78,10 @@ extension HostStatusView {
             HStack(spacing: 10) {
                 Link(destination: Self.reportURL) {
                     Label("Report an issue", systemImage: "envelope")
+                }
+
+                Link(destination: URL(string: "https://github.com/DMQQ/peering") ?? Self.reportURL) {
+                    Label(String(localized: "Source code on GitHub", table: "Links"), systemImage: "chevron.left.forwardslash.chevron.right")
                 }
 
                 HostDiagnosticsRow(model: model)
