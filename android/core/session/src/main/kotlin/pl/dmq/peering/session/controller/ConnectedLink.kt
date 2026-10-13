@@ -151,12 +151,14 @@ internal class ConnectedLink(
     }
 
     /** Reopens the picture. A relayed session has no lane of its own, so pausing and resuming makes the host send a keyframe. */
-    fun retryPicture() {
+    fun retryPicture() = reopenPicture(automatic = false)
+
+    private fun reopenPicture(automatic: Boolean) {
         if (route.path == SessionRecord.Path.RELAY) {
             commands.send(SetVideoEnabled(false))?.let(writer::enqueue)
             commands.send(SetVideoEnabled(true))?.let(writer::enqueue)
         }
-        picture.restart()
+        picture.restart(automatic)
     }
 
     /**
@@ -208,7 +210,12 @@ internal class ConnectedLink(
             every(LANE_INTERVAL) {
                 for (event in lanes.tick(clock.monotonicSeconds()).asEvents()) applyEvent(event, ended)
                 steerAutomatic()
-                if (picture.takeAutomaticNudge()) requestKeyframe()
+                when (picture.takeEscalation()) {
+                    PictureEscalation.NONE -> Unit
+                    PictureEscalation.KEYFRAME -> requestKeyframe()
+                    PictureEscalation.REOPEN -> reopenPicture(automatic = true)
+                    PictureEscalation.RECONNECT -> ended.complete(LinkEnd.Lost)
+                }
                 if (liveness.isSilent(clock.monotonicSeconds(), SilencePolicy.limitSeconds(backgrounded))) ended.complete(LinkEnd.Lost)
                 onTick()
             }
