@@ -1,6 +1,6 @@
 //! A runtime over the stand-in adapters, for tests of the state that need no phone.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 use super::services::platform_services;
 use super::shared::SessionSlot;
@@ -10,8 +10,14 @@ use peering_core::fakes::secret_store::InMemorySecretStore;
 use peering_core::video::lane::VideoLane;
 use peering_wire::handshake::ClientCapabilities;
 
+/// On Windows building the adapters creates the install's entropy file on the first call, and two tests doing that at once make one of them fail to save it.
+static BUILDING_ADAPTERS: Mutex<()> = Mutex::new(());
+
 pub(super) fn runtime() -> HostRuntime {
-    let mut services = platform_services(String::new()).expect("the stand-in adapters build");
+    let mut services = {
+        let _one_at_a_time = BUILDING_ADAPTERS.lock().unwrap_or_else(PoisonError::into_inner);
+        platform_services(String::new()).expect("the stand-in adapters build")
+    };
     // On Windows the adapters are the real ones, whose secret store is a file every test shares: a token one test registers would be found by the next.
     services.secrets = Arc::new(InMemorySecretStore::default());
     let profile = HostProfile {
