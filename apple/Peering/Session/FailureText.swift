@@ -1,4 +1,5 @@
 import Foundation
+import PeeringKit
 import RemoteCore
 
 /// The sentence for a failure in the user's language. RemoteCore's own sentences are English and are for the log; a failure with no cause keeps the sentence it came with.
@@ -51,9 +52,9 @@ enum FailureText {
     }
 
     /// The phase the app keeps: the failure sentence worded for the user when it has a cause, otherwise untouched.
-    static func localized(_ phase: ClientSession.Phase, cause: ClientSession.FailureCause?) -> ClientSession.Phase {
+    static func localized(_ phase: ClientSession.Phase, cause: ClientSession.FailureCause?, platform: HostPlatform = .mac) -> ClientSession.Phase {
         guard case .failed = phase, let cause else { return phase }
-        return .failed(message(for: cause))
+        return .failed(platform.adapt(message(for: cause)))
     }
 
     static func identityMessage(for error: Error) -> String {

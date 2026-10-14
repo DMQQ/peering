@@ -94,22 +94,37 @@ extension RemoteScreen {
 
     var quickActions: [QuickAction] {
         [
-            QuickAction(chord: "⌘C", label: String(localized: "Copy"), accessibilityLabel: String(localized: "Copy")) {
+            QuickAction(chord: commandChord("C"), label: String(localized: "Copy"), accessibilityLabel: String(localized: "Copy")) {
                 sendKey(keyCode: 8, modifiers: [.command])
             },
-            QuickAction(chord: "⌘V", label: String(localized: "Paste"), accessibilityLabel: String(localized: "Paste")) {
+            QuickAction(chord: commandChord("V"), label: String(localized: "Paste"), accessibilityLabel: String(localized: "Paste")) {
                 sendKey(keyCode: 9, modifiers: [.command])
             },
-            QuickAction(chord: "⌘Z", label: String(localized: "Undo"), accessibilityLabel: String(localized: "Undo")) {
+            QuickAction(chord: commandChord("Z"), label: String(localized: "Undo"), accessibilityLabel: String(localized: "Undo")) {
                 sendKey(keyCode: 6, modifiers: [.command])
             },
-            QuickAction(chord: "⌘X", label: "Cut", accessibilityLabel: "Cut") {
+            QuickAction(chord: commandChord("X"), label: "Cut", accessibilityLabel: "Cut") {
                 sendKey(keyCode: 7, modifiers: [.command])
             },
-            QuickAction(chord: "⌘Q", label: String(localized: "Quit"), accessibilityLabel: String(localized: "Quit active application")) {
+            QuickAction(chord: quitChord, label: String(localized: "Quit"), accessibilityLabel: String(localized: "Quit active application")) {
                 confirmsQuitApplication = true
             },
         ]
+    }
+
+    private func commandChord(_ letter: String) -> String {
+        model.hostPlatform == .windows ? "Ctrl+\(letter)" : "⌘\(letter)"
+    }
+
+    var quitChord: String { model.hostPlatform == .windows ? "Alt+F4" : "⌘Q" }
+
+    /// The shortcut that quits the active application on the host.
+    func quitActiveApplication() {
+        if model.hostPlatform == .windows {
+            sendKey(keyCode: 118, modifiers: [.option])
+        } else {
+            sendKey(keyCode: 12, modifiers: [.command])
+        }
     }
 
     @ViewBuilder

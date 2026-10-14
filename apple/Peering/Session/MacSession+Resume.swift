@@ -172,7 +172,7 @@ extension MacSession {
         // The Live Activity must be told directly: a ladder running out changes no phase, so `sessionMoved` never runs and the card would stay on Reconnecting. Only for the Mac on screen.
         if isActive {
             SessionActivity.shared.sessionDropped(
-                hostName: shownName ?? String(localized: "the Mac"),
+                hostName: shownName ?? hostPlatform.adapt(String(localized: "the Mac")),
                 startedAt: nil,
                 path: Self.activityPath(connectionPath)
             )

@@ -43,6 +43,9 @@ final class MacSession: Identifiable {
 
     var hostName: String?
 
+    /// Chosen from the hello, and from the last hello this host sent until the next one arrives, so a connect that fails first still names the right kind of computer.
+    var hostPlatform = HostPlatform.mac
+
     /// Resolved per Mac: the bitrate on the wire depends on this session's path and plan.
     var connectionPath: ConnectionPath?
     var usedDirectPath = false

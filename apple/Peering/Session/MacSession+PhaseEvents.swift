@@ -27,13 +27,13 @@ extension MacSession {
         if previous == .ready, case .failed = phase { noteDropped(capped: cappedFailure != nil) }
         if cappedFailure != nil { shouldScheduleReconnect = false }
         failureCause = cappedFailure == nil ? wire?.failureCause : nil
-        self.phase = cappedFailure ?? FailureText.localized(phase, cause: failureCause)
+        self.phase = cappedFailure ?? FailureText.localized(phase, cause: failureCause, platform: hostPlatform)
         logPhase(phase)
 
         if phase == .ready { announceReady() }
         if case .failed(let message) = phase {
             reportConnectFailure(appState: Analytics.name(of: UIApplication.shared.applicationState))
-            videoStatus = String(localized: "Stopped: \(HostWireText.localized(message))")
+            videoStatus = hostPlatform.adapt(String(localized: "Stopped: \(HostWireText.localized(message))"))
         }
         if phase == .disconnected {
             videoStatus = String(localized: "Disconnected")
@@ -142,7 +142,7 @@ extension MacSession {
         model.notifier.sessionMoved(
             from: previous,
             to: phase,
-            hostName: shownName ?? String(localized: "the Mac"),
+            hostName: shownName ?? hostPlatform.adapt(String(localized: "the Mac")),
             hostID: hostID,
             deliberate: userEnded,
             resuming: isResumingAfterDrop
@@ -159,7 +159,7 @@ extension MacSession {
             SessionActivity.shared.sessionMoved(
                 from: previous,
                 to: phase,
-                hostName: shownName ?? String(localized: "the Mac"),
+                hostName: shownName ?? hostPlatform.adapt(String(localized: "the Mac")),
                 startedAt: sessionStartedAt,
                 reconnecting: isReconnecting,
                 deliberate: userEnded,
@@ -172,7 +172,7 @@ extension MacSession {
     private func releaseLatchedModifiers() {
         // The buttons stop claiming a modifier once its link is gone, since the release cannot travel back. The window server keeps the flag until a real key-up, so the Mac may still hold it, which is why this says so.
         if !model.latchedModifiers.isEmpty {
-            append(note: String(localized: "The connection ended while \(model.latchedModifiers.label) was held on the Mac. It may still be held there."))
+            append(note: hostPlatform.adapt(String(localized: "The connection ended while \(model.latchedModifiers.label) was held on the Mac. It may still be held there.")))
         }
         model.latchedModifiers = []
         privacyModeEnabled = false

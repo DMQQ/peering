@@ -31,7 +31,7 @@ extension SessionModel {
 
     var thisDeviceDescription: String { "\(device.name) · \(device.id)" }
 
-    var allMacros: [Macro] { Macro.defaults + customMacros }
+    var allMacros: [Macro] { Macro.defaults(for: hostPlatform) + customMacros }
 
     /// The size identifies the stream, as the order a frame and its config reach the main actor cannot be relied on.
     func isReadyToPlace(of size: CGSize) -> Bool {

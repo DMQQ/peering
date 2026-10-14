@@ -342,15 +342,15 @@ struct RemoteScreen: View {
             if phase == .ready { askForSourcePictures() }
         }
         .confirmationDialog(
-            "Quit the active Mac app?",
+            model.hostPlatform == .mac ? "Quit the active Mac app?" : "Close the active app?",
             isPresented: $confirmsQuitApplication,
             titleVisibility: .visible
         ) {
-            Button("Send ⌘Q", role: .destructive) {
-                sendKey(keyCode: 12, modifiers: [.command])
+            Button(model.hostPlatform == .mac ? "Send ⌘Q" : "Send Alt+F4", role: .destructive) {
+                quitActiveApplication()
             }
         } message: {
-            Text("The Mac may ask you to save open documents first.")
+            Text(model.hostPlatform == .mac ? "The Mac may ask you to save open documents first." : "The app may ask you to save open documents first.")
         }
         .onChange(of: model.frameArrived) { _, _ in endTransitionIfReady() }
     }

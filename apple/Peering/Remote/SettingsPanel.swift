@@ -357,7 +357,7 @@ struct SettingsPanel: View {
             // Scrolls sideways: a wrapped grid would change the panel's height whenever a title did.
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    ForEach(Macro.defaults) { macro in
+                    ForEach(Macro.defaults(for: model.hostPlatform)) { macro in
                         Button { model.run(macro) } label: {
                             Text(macro.title)
                                 .font(.caption.weight(.medium))

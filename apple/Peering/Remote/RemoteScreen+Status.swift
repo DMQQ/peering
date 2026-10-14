@@ -117,7 +117,7 @@ extension RemoteScreen {
                         })
                     }
 
-                    actionRow(String(localized: "Mac"), systemImage: "macbook") {
+                    actionRow(model.hostPlatform.adapt(String(localized: "Mac")), systemImage: model.hostPlatform == .mac ? "macbook" : "desktopcomputer") {
                         actionChip(String(localized: "Lock"), systemImage: "lock.fill") { model.lockMac() }
                         actionChip(
                             model.privacyModeEnabled ? String(localized: "Restore") : String(localized: "Darken"),
@@ -236,7 +236,7 @@ extension RemoteScreen {
     }
 
     var connectionDotLabel: String {
-        if isReconnectingToMac { return String(localized: "Reconnecting to the Mac") }
+        if isReconnectingToMac { return model.hostPlatform.adapt(String(localized: "Reconnecting to the Mac")) }
         return model.isVideoStreaming ? String(localized: "Connected") : String(localized: "Not streaming")
     }
 
@@ -361,8 +361,8 @@ extension RemoteScreen {
         sessionDot(
             symbol: terminalRunning > 0 ? "terminal.fill" : "terminal",
             label: terminalRunning > 0
-                ? String(localized: "Mac terminals, \(terminalRunning) running")
-                : String(localized: "Open Mac terminals"),
+                ? model.hostPlatform.adapt(String(localized: "Mac terminals, \(terminalRunning) running"))
+                : model.hostPlatform.adapt(String(localized: "Open Mac terminals")),
             tint: terminalWantsAttention ? .orange : nil,
             badge: terminalRunning > 0 ? terminalRunning : nil,
             badgeTint: terminalWantsAttention ? .orange : ColorPalette.accent

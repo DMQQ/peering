@@ -15,6 +15,8 @@ extension SessionModel {
         set { activeSession?.hostName = newValue }
     }
 
+    var hostPlatform: HostPlatform { activeSession?.hostPlatform ?? .mac }
+
     /// ``hostName`` as the user renamed it, for anything drawn on screen.
     var shownHostName: String? { activeSession?.shownName }
 

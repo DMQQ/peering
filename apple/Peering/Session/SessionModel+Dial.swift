@@ -121,6 +121,7 @@ extension SessionModel {
         }
 
         session.hostName = target.displayName
+        session.hostPlatform = HostPlatformMemory().platform(forHostID: target.hostID)
 
         let race = relay == nil ? nil : DialRace(session: session)
         session.dialRace = race
