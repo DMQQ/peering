@@ -8,6 +8,7 @@ use eframe::egui;
 
 use std::path::PathBuf;
 
+use super::icon;
 use super::jobs::Jobs;
 use super::model::{job_command, settings_command, MenuAction, MenuModel, UiModel};
 use super::pairing;
@@ -22,7 +23,10 @@ const POLL_INTERVAL: Duration = Duration::from_millis(250);
 
 pub fn run(handle: HostHandle) -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_visible(false).with_inner_size([420.0, 620.0]),
+        viewport: egui::ViewportBuilder::default()
+            .with_visible(false)
+            .with_inner_size([420.0, 620.0])
+            .with_icon(egui::IconData { rgba: icon::RGBA.to_vec(), width: icon::SIDE, height: icon::SIDE }),
         ..Default::default()
     };
     eframe::run_native(
@@ -34,7 +38,7 @@ pub fn run(handle: HostHandle) -> Result<(), eframe::Error> {
             // `reg` can take seconds, so the box starts unticked and a worker reads the Run entry.
             let jobs = Jobs::default();
             let _unread = jobs.spawn("read-autostart", || SettingsJob::AutostartRead(autostart::is_enabled()));
-            Ok(Box::new(HostApp { handle, tray, window_open: false, reset_asked: false, settings: SettingsState::new(false), jobs }))
+            Ok(Box::new(HostApp { handle, tray, reset_asked: false, settings: SettingsState::new(false), jobs }))
         }),
     )
 }
@@ -42,7 +46,6 @@ pub fn run(handle: HostHandle) -> Result<(), eframe::Error> {
 struct HostApp {
     handle: HostHandle,
     tray: Tray,
-    window_open: bool,
     /// The person pressed Reset paired devices and is looking at the warning.
     reset_asked: bool,
     settings: SettingsState,
@@ -67,9 +70,8 @@ impl eframe::App for HostApp {
         while let Some(action) = self.tray.poll() {
             self.choose(ctx, &menu, action);
         }
-        if self.window_open {
-            self.draw_window(ctx, UiModel::new(snapshot));
-        }
+        // Drawn every frame: the window can be on screen before the tray ever asks for it, and an undrawn one is blank.
+        self.draw_window(ctx, UiModel::new(snapshot));
         ctx.request_repaint_after(POLL_INTERVAL);
     }
 }
@@ -100,13 +102,11 @@ impl HostApp {
     }
 
     fn show_window(&mut self, ctx: &egui::Context) {
-        self.window_open = true;
         ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
         ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
     }
 
     fn hide_window(&mut self, ctx: &egui::Context) {
-        self.window_open = false;
         ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
     }
 

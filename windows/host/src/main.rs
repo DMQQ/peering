@@ -1,6 +1,9 @@
 //! The Windows host process. The runtime runs on its own thread; the tray and window run on the main thread, which
 //! Windows requires for the tray.
 
+// Without this the exe is a console program and opens a blank terminal beside the window.
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 use std::path::Path;
 use std::sync::mpsc;
 use std::sync::Arc;
