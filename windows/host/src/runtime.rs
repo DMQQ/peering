@@ -48,6 +48,7 @@ mod services;
 mod shared;
 mod supervise;
 mod terminal;
+mod thumbnails;
 mod update;
 #[cfg(test)]
 mod test_support;

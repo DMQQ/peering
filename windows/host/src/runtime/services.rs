@@ -18,6 +18,7 @@ use peering_core::ports::secret_store::SecretStore;
 use peering_core::ports::system::{SystemActions, SystemError};
 use peering_core::terminal::pty::PtySpawner;
 use peering_core::terminal::shell::Shell;
+use peering_core::ports::thumbnails::{NoThumbnails, SourceThumbnails};
 use peering_wire::command::RemoteCommand;
 
 mod adapters {
@@ -93,11 +94,13 @@ pub struct HostExtras {
     /// Where the list of newer builds comes from, and the version of the running build.
     pub releases: Arc<dyn ReleaseSource>,
     pub version: &'static str,
+    /// Takes the pictures the phone's source grid shows.
+    pub thumbnails: Arc<dyn SourceThumbnails>,
 }
 
 impl Default for HostExtras {
     fn default() -> Self {
-        Self { audio: Box::new(SilentAudio), focus: Box::new(BlindFocus), archive_directory: std::env::temp_dir().join("PeeringArchives"), releases: Arc::new(NoReleases), version: env!("PEERING_HOST_VERSION") }
+        Self { audio: Box::new(SilentAudio), focus: Box::new(BlindFocus), archive_directory: std::env::temp_dir().join("PeeringArchives"), releases: Arc::new(NoReleases), version: env!("PEERING_HOST_VERSION"), thumbnails: Arc::new(NoThumbnails) }
     }
 }
 

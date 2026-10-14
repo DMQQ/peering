@@ -144,8 +144,16 @@ fn virtual_display_privacy_window_and_launch_commands_are_ignored() {
 
 #[test]
 fn commands_without_a_port_here_are_ignored_without_panicking() {
-    let (outcome, _, _) = run(RemoteCommand::RefreshSourceThumbnails {}, false);
+    let (outcome, _, _) = run(RemoteCommand::RefreshSpacePreviews {}, false);
     assert_eq!(outcome, DispatchOutcome::Ignored(IgnoreReason::NotSupportedHere));
+}
+
+#[test]
+fn the_requests_for_source_pictures_are_the_hosts_to_answer() {
+    let (refresh, _, _) = run(RemoteCommand::RefreshSourceThumbnails {}, false);
+    assert_eq!(refresh, DispatchOutcome::ForHost(RemoteCommand::RefreshSourceThumbnails {}));
+    let (watch, _, _) = run(RemoteCommand::WatchSourceThumbnails { watching: true }, false);
+    assert_eq!(watch, DispatchOutcome::ForHost(RemoteCommand::WatchSourceThumbnails { watching: true }));
 }
 
 #[test]

@@ -125,7 +125,11 @@ fn ignore_reason(command: &RemoteCommand) -> Option<IgnoreReason> {
 fn is_for_host(command: &RemoteCommand) -> bool {
     matches!(
         command,
-        RemoteCommand::RequestClipboard {} | RemoteCommand::PushClipboard { .. } | RemoteCommand::PushClipboardImage { .. }
+        RemoteCommand::RequestClipboard {}
+            | RemoteCommand::PushClipboard { .. }
+            | RemoteCommand::PushClipboardImage { .. }
+            | RemoteCommand::RefreshSourceThumbnails {}
+            | RemoteCommand::WatchSourceThumbnails { .. }
     )
 }
 

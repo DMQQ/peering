@@ -20,6 +20,7 @@ pub mod mouse;
 pub mod recycle;
 pub mod session_state;
 pub mod terminal;
+pub mod thumbnail;
 pub mod wgc;
 pub mod window_list;
 #[cfg(windows)]

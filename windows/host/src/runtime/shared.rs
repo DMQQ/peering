@@ -100,6 +100,8 @@ pub struct HostState {
     pub sessions: HashMap<u64, SessionSlot>,
     pub next_session: u64,
     pub catalog_checked_at: Option<f64>,
+    /// The pictures for the phones' source grids, and who is looking at them.
+    pub pictures: super::thumbnails::SourcePictures,
     pub notices: NoticeTracker,
     /// The last thing a phone asked for that this host would not do, shown until it lapses.
     pub refusal: Option<Refusal>,

@@ -27,6 +27,8 @@ impl Connection {
     pub(super) fn host_command(&mut self, command: RemoteCommand) {
         match command {
             RemoteCommand::RequestClipboard {} => self.answer_clipboard_request(),
+            RemoteCommand::RefreshSourceThumbnails {} => self.shared.lock().pictures.refresh(),
+            RemoteCommand::WatchSourceThumbnails { watching } => self.shared.lock().pictures.watch(self.session_id, watching),
             RemoteCommand::PushClipboard { text } => self.write_clipboard(ClipboardContent::Text(text)),
             RemoteCommand::PushClipboardImage { png } if png.len() <= MAX_IMAGE_BYTES => {
                 self.write_clipboard(ClipboardContent::Image(png));

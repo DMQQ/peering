@@ -22,11 +22,33 @@ pub fn display_title(ordinal: usize, is_primary: bool) -> String {
 #[derive(Debug, Default)]
 pub struct CatalogueService {
     current: Option<CaptureCatalog>,
+    /// The thumbnail each source id was last photographed with, attached to its descriptor whenever the catalogue is built.
+    pictures: HashMap<String, serde_json::Value>,
 }
 
 impl CatalogueService {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Keeps `picture` for the source `id`. Returns whether it differs from the one held, which means the catalogue changed.
+    pub fn set_picture(&mut self, id: &str, picture: serde_json::Value) -> bool {
+        if self.pictures.get(id) == Some(&picture) {
+            return false;
+        }
+        self.pictures.insert(id.to_owned(), picture);
+        true
+    }
+
+    /// Forgets the pictures of sources that are gone, so a closed window's picture is not held for the life of the host.
+    pub fn keep_pictures_of(&mut self, live: &std::collections::HashSet<String>) {
+        self.pictures.retain(|id, _| live.contains(id));
+    }
+
+    fn attach_pictures(&self, catalog: &mut CaptureCatalog) {
+        for descriptor in catalog.displays.iter_mut().chain(catalog.windows.iter_mut()) {
+            descriptor.thumbnail = self.pictures.get(&descriptor.id).cloned();
+        }
     }
 
     /// The catalogue built from the most recent displays, or None before the first update.
@@ -41,7 +63,8 @@ impl CatalogueService {
 
     /// As `update`, with the windows that can be captured listed beside the displays.
     pub fn update_with_windows(&mut self, displays: &[DisplayInfo], windows: &[WindowInfo]) -> Option<CaptureCatalog> {
-        let catalog = build_catalog(displays, windows);
+        let mut catalog = build_catalog(displays, windows);
+        self.attach_pictures(&mut catalog);
         if self.current.as_ref() == Some(&catalog) {
             return None;
         }
@@ -288,5 +311,32 @@ mod tests {
         sessions.due(&"first", &catalog);
         sessions.forget(&"first");
         assert_eq!(sessions.due(&"first", &catalog), Some(catalog.clone()));
+    }
+
+    #[test]
+    fn a_new_picture_changes_the_catalogue_and_the_same_picture_does_not() {
+        let mut service = CatalogueService::new();
+        let displays = [display(1, true, 1920)];
+        let windows = [window(7, "Notepad", "notes.txt")];
+        assert!(service.update_with_windows(&displays, &windows).is_some());
+        assert!(service.update_with_windows(&displays, &windows).is_none());
+
+        let picture = serde_json::json!({ "width": 240, "height": 150, "jpegData": "AQI=" });
+        assert!(service.set_picture("window:7", picture.clone()));
+        assert!(!service.set_picture("window:7", picture.clone()));
+        let changed = service.update_with_windows(&displays, &windows).expect("the picture changes the catalogue");
+        assert_eq!(changed.windows[0].thumbnail, Some(picture));
+        assert_eq!(changed.displays[0].thumbnail, None);
+    }
+
+    #[test]
+    fn the_picture_of_a_window_that_is_gone_is_dropped() {
+        let mut service = CatalogueService::new();
+        let displays = [display(1, true, 1920)];
+        let picture = serde_json::json!({ "width": 1, "height": 1, "jpegData": "AQI=" });
+        service.set_picture("window:7", picture.clone());
+        service.keep_pictures_of(&std::collections::HashSet::new());
+        assert!(service.set_picture("window:7", picture));
+        let _ = displays;
     }
 }

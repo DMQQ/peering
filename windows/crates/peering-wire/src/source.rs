@@ -3,6 +3,13 @@
 use crate::swift_enum::base64_bytes_option;
 use serde::{Deserialize, Serialize};
 
+/// The picture of one source for the phone's grid, in the shape the phone decodes: pixel size and base64 JPEG bytes.
+pub fn thumbnail_json(width: u32, height: u32, jpeg: &[u8]) -> serde_json::Value {
+    use base64::engine::general_purpose::STANDARD;
+    use base64::Engine;
+    serde_json::json!({ "width": width, "height": height, "jpegData": STANDARD.encode(jpeg) })
+}
+
 /// What the host captures. Raw platform ids, so the wire does not depend on any OS header.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
@@ -255,6 +262,14 @@ mod tests {
         descriptor.icon_png_data = Some(vec![1, 2]);
         let written = serde_json::to_value(&descriptor).unwrap();
         assert_eq!(written["iconPNGData"], "AQI=");
+    }
+
+    #[test]
+    fn a_thumbnail_is_base64_jpeg_under_the_keys_the_phone_decodes() {
+        let written = thumbnail_json(240, 150, &[1, 2]);
+        assert_eq!(written["width"], 240);
+        assert_eq!(written["height"], 150);
+        assert_eq!(written["jpegData"], "AQI=");
     }
 
     #[test]

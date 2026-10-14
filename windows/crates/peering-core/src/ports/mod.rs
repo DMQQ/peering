@@ -11,3 +11,4 @@ pub mod recycle;
 pub mod secret_store;
 pub mod stream;
 pub mod system;
+pub mod thumbnails;

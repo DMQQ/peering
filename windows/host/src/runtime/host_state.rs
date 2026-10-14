@@ -28,6 +28,7 @@ use super::focus_pump::FocusPipeline;
 use super::agent_browse::DiskFolders;
 use super::control::RelayStatus;
 use super::file_writer::FileWriter;
+use super::thumbnails::SourcePictures;
 use super::notifications::WaitingNotifications;
 use super::pins::SecretPins;
 use super::problem_source::ProblemSource;
@@ -117,6 +118,7 @@ impl HostState {
             sessions: HashMap::new(),
             next_session: 0,
             catalog_checked_at: None,
+            pictures: SourcePictures::new(extras.thumbnails.clone()),
             notices: NoticeTracker::default(),
             notice_checked_at: None,
             refusal: None,

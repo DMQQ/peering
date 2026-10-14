@@ -60,6 +60,7 @@ impl Connection {
                 }
             }
         }
+        state.pictures.forget_session(self.session_id);
         if let Some(slot) = state.sessions.remove(&self.session_id) {
             let siblings = state.sessions.iter().map(|(id, other)| (*id, other.client_id.as_str()));
             let last_of_client = !client_has_other_session(siblings, &slot.client_id, self.session_id);
