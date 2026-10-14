@@ -133,6 +133,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         let (width, height) = self.size;
         self.encoder.configure(width, height, self.pacer.rate(), self.target_bitrate_bps())?;
         self.last_config = None;
+        self.last_raw = None;
         self.config_pending = false;
         self.keyframe_pending = true;
         self.reconfigure_pending = false;
@@ -154,6 +155,7 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
             .ok_or_else(|| CaptureError::Failed("no display is attached".to_owned()))?;
         let source = CaptureSource::Display { id: display.id };
         self.source = None;
+        self.last_raw = None;
         self.set_source(source.clone(), now)?;
         self.chosen_source = Some(source);
         Ok(())

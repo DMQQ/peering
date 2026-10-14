@@ -9,7 +9,7 @@ use peering_wire::source::CaptureSource;
 use peering_wire::video::{EncodedVideoFrame, VideoStreamConfig, VideoWireError};
 use thiserror::Error;
 
-use crate::ports::capture::{Capture, CaptureError};
+use crate::ports::capture::{Capture, CaptureError, RawFrame};
 use crate::ports::encoder::{EncodeError, Encoder};
 use crate::settings::{snap_frame_rate, DEFAULT_FRAME_RATE};
 use super::recovery::Recovery;
@@ -63,6 +63,9 @@ pub struct VideoCoordinator<C: Capture, E: Encoder> {
     last_config: Option<VideoStreamConfig>,
     config_pending: bool,
     keyframe_pending: bool,
+    last_drop_keyframe_at: Option<f64>,
+    /// The newest frame of the running source, kept so a keyframe can be made from a screen that is not changing.
+    last_raw: Option<RawFrame>,
     requested_kbps: Option<u32>,
     ceiling_kbps: Option<u32>,
     pacer: FramePacer,
@@ -89,6 +92,8 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
             last_config: None,
             config_pending: false,
             keyframe_pending: false,
+            last_drop_keyframe_at: None,
+            last_raw: None,
             requested_kbps: None,
             ceiling_kbps: None,
             pacer: FramePacer::new(DEFAULT_FRAME_RATE),
@@ -184,14 +189,26 @@ impl<C: Capture, E: Encoder> VideoCoordinator<C, E> {
         self.apply_pending_reconfigure()?;
         let encode_this_pass = self.pacer.due(now);
         let mut encoded = false;
+        // Only the newest frame of a burst is encoded. Encoding all of them and dropping the outputs would leave the next delta
+        // pointing at a picture the phone never received, which shows as artifacts until the next keyframe.
+        let mut newest = None;
         while let Some(raw) = self.capture.poll_frame() {
             self.frame_ever_seen = true;
             self.no_frames = false;
             self.recovery.frame_seen(now);
-            if encode_this_pass && self.sending() {
-                self.encode_into(&raw, now, &mut outputs, &mut slot)?;
-                encoded = true;
+            if newest.replace(raw).is_some() {
+                self.dropped_frames += 1;
             }
+        }
+        // Desktop duplication delivers nothing while the screen is still, so a phone that connects to one would wait for a first
+        // picture that never comes. The last frame is encoded again for it.
+        let repeated = if newest.is_none() && self.keyframe_pending { self.last_raw } else { None };
+        if newest.is_some() {
+            self.last_raw = newest;
+        }
+        if let (Some(raw), true) = (newest.or(repeated), encode_this_pass && self.sending()) {
+            self.encode_into(&raw, now, &mut outputs, &mut slot)?;
+            encoded = true;
         }
         if encoded {
             self.pacer.encoded_at(now);

@@ -4,9 +4,11 @@
 use peering_core::ports::capture::RawFrame;
 use peering_core::ports::encoder::{EncodeError, EncodedOutput, Encoder};
 use peering_wire::quality::even_size;
+use windows::Win32::Graphics::Direct3D11::ID3D11Texture2D;
 
 use super::{locked, SharedLink};
 use crate::gpu::GpuContext;
+use crate::handoff::FrameHandoff;
 use crate::link::{binding_for, resize_for, Binding, DeviceKey};
 use crate::mft::MftEncoder;
 
@@ -27,6 +29,8 @@ pub struct PlatformEncoder {
     link: SharedLink,
     bound: Option<Bound>,
     running: Option<Running>,
+    /// The last captured frame, which a keyframe is made from when the screen has not changed since.
+    last_captured: Option<FrameHandoff<ID3D11Texture2D>>,
 }
 
 // SAFETY: the encoder owns Media Foundation and D3D11 objects that are used from one thread only, the one the host moves it to
@@ -35,7 +39,7 @@ unsafe impl Send for PlatformEncoder {}
 
 impl PlatformEncoder {
     pub fn new(link: SharedLink) -> Self {
-        Self { link, bound: None, running: None }
+        Self { link, bound: None, running: None, last_captured: None }
     }
 
     fn current_gpu(&self) -> Result<(DeviceKey, GpuContext), EncodeError> {
@@ -58,6 +62,7 @@ impl PlatformEncoder {
     fn reopen_at(&mut self, width: u32, height: u32, fps: u32, bitrate_bps: u32) -> Result<(), EncodeError> {
         let (key, gpu) = self.current_gpu()?;
         self.bind_to(key, &gpu)?;
+        self.last_captured = None;
         let bound = self.bound.as_mut().ok_or(EncodeError::NotConfigured)?;
         bound.encoder.configure(width, height, fps, bitrate_bps)?;
         self.running = Some(Running { width, height, fps, bitrate_bps });
@@ -69,9 +74,18 @@ impl PlatformEncoder {
     fn encode_frame(&mut self, frame: &RawFrame, force_keyframe: bool) -> Result<Vec<EncodedOutput>, EncodeError> {
         let running = self.running.ok_or(EncodeError::NotConfigured)?;
         let (key, gpu) = self.current_gpu()?;
-        let captured = locked(&self.link)
-            .take_frame()
-            .ok_or_else(|| EncodeError::Failed(format!("no captured texture for frame {}", frame.sequence)))?;
+        let fresh = locked(&self.link).take_frame();
+        let captured = match fresh {
+            Some(captured) => {
+                self.last_captured = Some(duplicate(&captured));
+                captured
+            }
+            None => self
+                .last_captured
+                .as_ref()
+                .map(duplicate)
+                .ok_or_else(|| EncodeError::Failed(format!("no captured texture for frame {}", frame.sequence)))?,
+        };
         let mut force_keyframe = force_keyframe;
         let rebind = binding_for(self.bound.as_ref().map(|bound| bound.key), key) == Binding::Rebind;
         let resize = resize_for(Some((running.width, running.height)), (frame.width, frame.height));
@@ -108,4 +122,9 @@ impl Encoder for PlatformEncoder {
             bound.encoder.set_bitrate(bitrate_bps);
         }
     }
+}
+
+/// Another handle to the same texture: the encoder only reads it, so a repeat of the frame needs no copy.
+fn duplicate(captured: &FrameHandoff<ID3D11Texture2D>) -> FrameHandoff<ID3D11Texture2D> {
+    FrameHandoff { sequence: captured.sequence, width: captured.width, height: captured.height, texture: captured.texture.clone() }
 }
