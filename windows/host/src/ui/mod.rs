@@ -15,6 +15,8 @@ mod pairing;
 #[cfg(windows)]
 mod settings_view;
 #[cfg(windows)]
+mod theme;
+#[cfg(windows)]
 mod tray;
 
 #[cfg(windows)]

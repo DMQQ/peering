@@ -14,6 +14,7 @@ use super::model::{job_command, settings_command, MenuAction, MenuModel, UiModel
 use super::pairing;
 use super::settings::{SettingsChoice, SettingsJob, SettingsState};
 use super::settings_view;
+use super::theme;
 use super::tray::Tray;
 use crate::autostart;
 use crate::firewall;
@@ -25,14 +26,16 @@ pub fn run(handle: HostHandle) -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_visible(false)
-            .with_inner_size([420.0, 620.0])
+            .with_inner_size([480.0, 760.0])
+            .with_min_inner_size([380.0, 480.0])
             .with_icon(egui::IconData { rgba: icon::RGBA.to_vec(), width: icon::SIDE, height: icon::SIDE }),
         ..Default::default()
     };
     eframe::run_native(
         crate::strings::TOOLTIP,
         options,
-        Box::new(move |_creation| {
+        Box::new(move |creation| {
+            theme::apply(&creation.egui_ctx);
             let model = MenuModel::new(handle.snapshot());
             let tray = Tray::new(&model.entries())?;
             // `reg` can take seconds, so the box starts unticked and a worker reads the Run entry.
@@ -71,9 +74,17 @@ impl eframe::App for HostApp {
             self.choose(ctx, &menu, action);
         }
         // Drawn every frame: the window can be on screen before the tray ever asks for it, and an undrawn one is blank.
-        self.draw_window(ctx, UiModel::new(snapshot));
+        self.draw_window(ctx, UiModel::new(snapshot), &menu.status_line());
         ctx.request_repaint_after(POLL_INTERVAL);
     }
+}
+
+fn header(ui: &mut egui::Ui, status: &str, needs_attention: bool) {
+    ui.label(egui::RichText::new(crate::strings::TOOLTIP).size(26.0).strong().color(egui::Color32::WHITE));
+    ui.horizontal(|ui| {
+        theme::status_dot(ui, if needs_attention { theme::DANGER } else { theme::SUCCESS });
+        ui.label(theme::muted(status));
+    });
 }
 
 /// Hands a folder or a web address to Explorer, which opens it in the right program. Explorer reports a failure through an exit
@@ -110,19 +121,24 @@ impl HostApp {
         ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
     }
 
-    fn draw_window(&mut self, ctx: &egui::Context, model: UiModel) {
+    fn draw_window(&mut self, ctx: &egui::Context, model: UiModel, status: &str) {
         let mut commands = Vec::new();
         let mut choices = Vec::new();
         let now_unix = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_secs());
         let panel = model.settings(&self.settings);
         let port = model.port();
-        egui::CentralPanel::default().show(ctx, |ui| {
-            for problem in model.problems() {
-                ui.colored_label(egui::Color32::from_rgb(200, 60, 40), problem);
-            }
-            pairing::show(ui, &model, now_unix, &mut self.reset_asked, &mut commands);
-            ui.separator();
-            settings_view::show(ui, &panel, &mut choices);
+        let page = egui::Frame::new().fill(theme::BACKDROP).inner_margin(egui::Margin::same(20));
+        egui::CentralPanel::default().frame(page).show(ctx, |ui| {
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                header(ui, status, !model.problems().is_empty());
+                for problem in model.problems() {
+                    theme::card(ui, |ui| {
+                        ui.label(egui::RichText::new(problem).color(theme::DANGER));
+                    });
+                }
+                pairing::show(ui, &model, now_unix, &mut self.reset_asked, &mut commands);
+                settings_view::show(ui, &panel, &mut choices);
+            });
         });
         for command in commands {
             self.send(ctx, command);
