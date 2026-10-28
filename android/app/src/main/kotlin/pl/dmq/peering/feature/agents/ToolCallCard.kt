@@ -2,7 +2,6 @@ package pl.dmq.peering.feature.agents
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,7 +56,7 @@ fun ToolCallCard(row: TranscriptRow.ToolCall, expanded: Boolean, onToggle: () ->
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(peeringShapes.small)
-                .border(1.dp, PeeringColors.hairline, peeringShapes.small)
+                .background(PeeringColors.containerHigh, peeringShapes.small)
                 .combinedClickable(onClick = { if (awaiting != null && onReview != null) onReview(awaiting.approvalID) else onToggle() }, onLongClick = { menuOpen = true })
                 .padding(11.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

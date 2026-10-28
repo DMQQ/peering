@@ -1,5 +1,6 @@
 package pl.dmq.peering.feature.agents
 
+import pl.dmq.peering.ui.kit.tonalCard
 import android.content.res.Resources
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,7 +56,7 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
         )
         val shape = peeringShapes.small
         Column(
-            modifier = Modifier.fillMaxWidth().border(1.dp, PeeringColors.ink.copy(alpha = 0.14f), shape).padding(14.dp),
+            modifier = Modifier.fillMaxWidth().tonalCard(shape).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
         )

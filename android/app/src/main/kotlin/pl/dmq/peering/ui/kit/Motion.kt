@@ -31,13 +31,13 @@ import androidx.compose.ui.unit.dp
  */
 object Motion {
     const val FAST_MS = 120
-    const val STANDARD_MS = 220
-    const val EMPHASIZED_MS = 320
-    const val EXIT_MS = 90
+    const val STANDARD_MS = 260
+    const val EMPHASIZED_MS = 400
+    const val EXIT_MS = 110
 
     /** Material 3 shared axis: the slide takes [AXIS_MS], the old page is gone after [EXIT_MS], the new one fades in over [AXIS_FADE_IN_MS] after that. */
-    const val AXIS_MS = 300
-    const val AXIS_FADE_IN_MS = 210
+    const val AXIS_MS = 380
+    const val AXIS_FADE_IN_MS = 240
 
     /** How long a loading state waits before it shows, so a fast answer never flashes a skeleton. */
     const val LOADING_DELAY_MS = 150L
@@ -46,6 +46,9 @@ object Motion {
     val axisDistance = 30.dp
 
     val emphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+
+    /** A long, soft landing for slides: most of the travel happens early and the last stretch eases in gently. */
+    val glide = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 
     /** Press feedback, small reveals and crossfades. */
     fun <T> fast(): FiniteAnimationSpec<T> = tween(FAST_MS, easing = FastOutSlowInEasing)
@@ -67,7 +70,8 @@ object Motion {
     val leave: ExitTransition = fadeOut(exit())
 
     /** Fade in while rising [risePx] from below. */
-    fun enterRising(risePx: Int): EnterTransition = fadeIn(standard()) + slideInVertically(standard()) { risePx }
+    fun enterRising(risePx: Int): EnterTransition =
+        fadeIn(standard()) + slideInVertically(tween(EMPHASIZED_MS, easing = glide)) { risePx }
 }
 
 /** Pixel values the transitions need, resolved once per density. */
@@ -96,7 +100,7 @@ fun motionTransition(kind: MotionKind, distances: MotionDistances): ContentTrans
 
 /** Material 3 shared axis X: both pages slide 30 dp the same way, the old one fades out quickly and the new one fades in after it. */
 private fun sharedAxisX(sign: Int, axisPx: Int): ContentTransform {
-    val slide = tween<IntOffset>(Motion.AXIS_MS, easing = FastOutSlowInEasing)
+    val slide = tween<IntOffset>(Motion.AXIS_MS, easing = Motion.glide)
     val enter = slideInHorizontally(slide) { sign * axisPx } +
         fadeIn(tween(Motion.AXIS_FADE_IN_MS, delayMillis = Motion.EXIT_MS, easing = FastOutSlowInEasing))
     val exit = slideOutHorizontally(slide) { -sign * axisPx } + fadeOut(tween(Motion.EXIT_MS, easing = FastOutLinearInEasing))

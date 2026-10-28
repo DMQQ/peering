@@ -44,7 +44,7 @@ class TlsControlTransport internal constructor(
     }.flowOn(Dispatchers.IO).catch { failure -> if (!closed.get()) throw failure }
 
     override fun close() {
-        if (closed.compareAndSet(false, true)) socket.close()
+        if (closed.compareAndSet(false, true)) SocketCloser.close(socket)
     }
 
     override fun peerPublicKey(): ByteArray? = trust.observedKey()

@@ -1,7 +1,6 @@
 package pl.dmq.peering.feature.terminal
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,7 +30,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
@@ -48,7 +46,6 @@ import pl.dmq.peering.ui.theme.PeeringColors
 
 private val capsuleHeight = 48.dp
 private val fieldHeight = 30.dp
-private val glassOutline = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.20f), Color.White.copy(alpha = 0.05f)))
 
 /** What the bar edits and where its buttons lead. An empty line sends Return on its own. */
 class CommandBarState(
@@ -74,7 +71,7 @@ fun TerminalCommandBar(state: CommandBarState, focus: FocusRequester, modifier: 
     ) {
         Row(
             Modifier.weight(1f).heightIn(min = capsuleHeight).clip(CircleShape).background(PeeringColors.surface)
-                .border(1.dp, glassOutline, CircleShape).padding(horizontal = 14.dp),
+                .padding(horizontal = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

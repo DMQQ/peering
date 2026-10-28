@@ -40,6 +40,7 @@ internal class SshjConnection(private val client: SSHClient) : SshConnection {
 
     override fun close() {
         closing.set(true)
-        client.runCatching { disconnect() }
+        // The disconnect message is a socket write, which Android refuses on the main thread where a session is ended from.
+        Thread({ client.runCatching { disconnect() } }, "ssh-closer").apply { isDaemon = true }.start()
     }
 }

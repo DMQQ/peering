@@ -1,7 +1,7 @@
 package pl.dmq.peering.feature.terminal
 
+import pl.dmq.peering.ui.kit.tonalCard
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,20 +19,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import pl.dmq.peering.ui.theme.PeeringColors
 import pl.dmq.peering.ui.theme.peeringShapes
 
-private val windowOutline = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.20f), Color.White.copy(alpha = 0.06f)))
-
 /** A shell drawn as a small window: radius 20, a 4 percent title strip, a hairline, then a darkened body. */
 @Composable
 fun TerminalWindowFrame(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val shape = peeringShapes.medium
-    Column(Modifier.fillMaxWidth().clip(shape).then(modifier).border(1.dp, windowOutline, shape), content = content)
+    Column(Modifier.fillMaxWidth().tonalCard(shape).then(modifier), content = content)
 }
 
 @Composable

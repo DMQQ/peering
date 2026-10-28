@@ -213,7 +213,7 @@ private fun SuggestionRow(
                 .fillMaxWidth()
                 .heightIn(min = 62.dp)
                 .clip(shape)
-                .border(1.dp, PeeringColors.hairline, shape)
+                .background(PeeringColors.containerHigh)
                 .combinedClickable(role = Role.Button, onClick = onClick, onLongClick = if (onRemove != null) ({ menuOpen = true }) else null)
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,

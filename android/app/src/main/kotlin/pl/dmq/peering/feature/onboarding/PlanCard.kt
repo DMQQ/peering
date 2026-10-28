@@ -51,7 +51,7 @@ internal fun PlanCard(
             .pressable(onClick, role = Role.RadioButton)
             .clip(CardShape)
             .semantics { role = Role.RadioButton; this.selected = selected }
-            .border(1.dp, PeeringColors.hairline, CardShape)
+            .background(PeeringColors.containerHigh, CardShape)
             .let { if (selected) it.border(1.5.dp, PeeringColors.accent, CardShape) else it }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
