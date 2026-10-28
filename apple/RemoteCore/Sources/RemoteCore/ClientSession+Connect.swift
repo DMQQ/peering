@@ -223,6 +223,7 @@ extension ClientSession {
             supportsAgentChat: true,
             supportsAgentPermissionModes: true,
             supportsAgentUsage: true,
+            supportsAgentQueue: true,
             resumeSource: knowsHost ? resumeSource : nil,
             lostPairing: hostID != nil && !knowsHost ? true : nil,
             takesOver: knowsHost && takesOver ? true : nil,

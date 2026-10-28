@@ -340,6 +340,14 @@ public enum AgentRequest: Codable, Equatable, Sendable {
     ///
     /// Sent only to a Mac that declared ``ServerHello/supportsAgentPause``.
     case pause(sessionID: UUID)
+    /// A message for the chat: sent at once when it is idle, otherwise held by the Mac and sent when the turn ends, so it goes out with the phone away. The Mac answers every change with ``AgentEvent/queueChanged(sessionID:prompts:)``.
+    ///
+    /// Sent only to a Mac that declared ``ServerHello/supportsAgentQueue``.
+    case queue(sessionID: UUID, text: String)
+    /// Takes the message out of the chat's queue, if it is still there. ``text`` is what the phone saw at ``index``, since the queue may have shifted by the time this arrives.
+    ///
+    /// Sent only to a Mac that declared ``ServerHello/supportsAgentQueue``.
+    case unqueue(sessionID: UUID, index: Int, text: String)
 }
 
 public enum AgentEvent: Codable, Equatable, Sendable {
@@ -370,6 +378,8 @@ public enum AgentEvent: Codable, Equatable, Sendable {
     case resumable([AgentResumableSession])
     /// The answer to ``AgentRequest/peekResumable(cliSessionID:)``: the last of the conversation, indexed from 1 so it reads as a transcript. Empty when the file is gone.
     case resumablePeek(cliSessionID: String, events: [AgentStreamEvent])
+    /// The messages waiting behind the chat's running turn, in the order they will go; empty when none are. Sent only to a client that declared ``ClientHello/supportsAgentQueue``.
+    case queueChanged(sessionID: UUID, prompts: [String])
 }
 
 /// Whether agent chat traffic may cross a session, in both directions.

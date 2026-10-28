@@ -15,6 +15,7 @@ struct AgentChatScreen: View {
     @Environment(\.dismiss) var dismiss
 
     @State var drafts: [UUID: String] = [:]
+    @State var dictation = VoiceDictation()
     @State var expandedTools: Set<UUID> = []
     @State var pendingClose: RemoteAgentSession?
     @State var renamingID: UUID?
@@ -274,7 +275,7 @@ struct AgentChatScreen: View {
                         .padding(.top, 6)
                         .padding(.bottom, 2)
                         .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
-                } else {
+                } else if !dictation.isListeningUI {
                     let followUps = (drafts[session.id] ?? "").isEmpty ? AgentFollowUps.suggestions(for: session.transcript) : []
                     if !followUps.isEmpty {
                         AgentFollowUpBar(suggestions: followUps) { follow(up: $0, in: session) }
@@ -302,7 +303,9 @@ struct AgentChatScreen: View {
                                 }
                             }
                             : nil,
-                        stop: { model.interruptAgent(session.id) }
+                        stop: { model.interruptAgent(session.id) },
+                        dictation: dictation,
+                        dictated: { insertDictation($0, into: session.id) }
                     )
                 }
             }
@@ -311,6 +314,7 @@ struct AgentChatScreen: View {
             .animation(Motion.settle, value: attaching == nil)
             .animation(Motion.settle, value: session.transcript.runningSubagents.count)
         }
+        .onDisappear { dictation.cancel() }
         .photosPicker(isPresented: $showsPhotoPicker, selection: $pickedPhoto, matching: .images)
         .onChange(of: pickedPhoto) { _, item in
             guard let item else { return }

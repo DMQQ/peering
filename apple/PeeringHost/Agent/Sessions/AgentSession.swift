@@ -25,6 +25,8 @@ final class AgentSession: @unchecked Sendable {
     /// Files the running turn has edited, for the notification that says it finished.
     var turnEditedFiles: Set<String> = []
     var telemetry = AgentTurnTelemetry()
+    /// Messages waiting behind the running turn.
+    var queue = AgentPromptQueue()
 
     init(
         ownerClientID: String,

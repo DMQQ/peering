@@ -11,10 +11,11 @@ struct AgentChatLiveActivity: Widget {
             let chat = context.state.resolvedChat
             ActivityCard(
                 symbol: chat.symbol,
-                tone: chat.state == .needsYou ? .pending : .live,
+                tone: tone(chat),
                 name: chat.title,
                 status: status(context.state),
                 action: ActivityCardAction(title: chat.state == .needsYou ? String(localized: "Review") : String(localized: "Open"), url: chat.url),
+                statusSymbol: mark(chat),
                 plan: plan(chat)
             )
             .activityBackgroundTint(ActivityCard.backgroundTint)
@@ -27,6 +28,7 @@ struct AgentChatLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     Label(chat.title, systemImage: glyph(chat))
                         .font(.caption.weight(.semibold))
+                        .foregroundStyle(tone(chat).tint)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -51,6 +53,7 @@ struct AgentChatLiveActivity: Widget {
                 }
             } compactLeading: {
                 Image(systemName: glyph(chat))
+                    .foregroundStyle(tone(chat).tint)
             } compactTrailing: {
                 if chat.state == .needsYou {
                     Text("\(context.state.waiting)")
@@ -59,13 +62,33 @@ struct AgentChatLiveActivity: Widget {
                     Text("\(number)/\(chat.planTotal)")
                         .font(.caption.monospacedDigit())
                 } else {
-                    Image(systemName: chat.state == .working ? "ellipsis" : chat.state == .failed ? "exclamationmark" : "checkmark")
+                    Image(systemName: mark(chat))
+                        .foregroundStyle(tone(chat).tint)
                 }
             } minimal: {
                 Image(systemName: glyph(chat))
+                    .foregroundStyle(tone(chat).tint)
             }
             .keylineTint(.white)
             .widgetURL(chat.url)
+        }
+    }
+
+    private func tone(_ chat: AgentChatSnapshot) -> ActivityTone {
+        switch chat.state {
+        case .needsYou: .pending
+        case .working: .live
+        case .finished: .finished
+        case .failed: .lost
+        }
+    }
+
+    private func mark(_ chat: AgentChatSnapshot) -> String {
+        switch chat.state {
+        case .needsYou: "hand.raised.fill"
+        case .working: "ellipsis"
+        case .finished: "checkmark.circle.fill"
+        case .failed: "exclamationmark.triangle.fill"
         }
     }
 

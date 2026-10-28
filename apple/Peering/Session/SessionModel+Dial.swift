@@ -87,7 +87,6 @@ extension SessionModel {
         // Fresh for the path this session just chose: the policy's tier is tuned per path.
         session.autoQualityPolicy = AutoQualityPolicy(path: session.autoQualityPath)
         session.lastAutoDroppedFrames = 0
-        session.beginRoute(.init(session.connectionPath))
 
         // Two facts belong to the Mac, not this attempt, and are carried across a dial of that Mac only.
         // `hasBeenReady` tells a resume from a first connection: the ladder builds a new object, so otherwise a blip would put the connecting card back.
@@ -114,6 +113,9 @@ extension SessionModel {
             // The renderer and screen survive a reconnect, so the description of the picture they show must too, or the grid looks intact but has no overlay or hit targets until a matching config arrives. The next source-tagged config replaces it.
             session.pictureMosaicLayout = old.pictureMosaicLayout
         }
+
+        // After the carry above, which replaces the telemetry: begun earlier, a resumed dial's route was overwritten and `route_attempts` showed the previous session's.
+        session.beginRoute(.init(session.connectionPath))
 
         // The episode begins with the dial, not only a rung: a restoration and the relay-to-LAN handover dial with no ladder, so a dial that never answers is otherwise unbounded. See `reconnectWindow`.
         if isResuming, session.reconnectingSince == nil {

@@ -6,36 +6,25 @@ struct DictationOverlay: View {
     let dictation: VoiceDictation
     let finish: () -> Void
     let cancel: () -> Void
+    var buttonSize: CGFloat = 40
 
     var body: some View {
         HStack(spacing: 10) {
-            roundButton(symbol: "xmark", filled: false, label: String(localized: "Cancel", table: "Dictation"), action: cancel)
+            DictationRoundButton(symbol: "xmark", filled: false, label: String(localized: "Cancel", table: "Dictation"), size: buttonSize, action: cancel)
             VStack(alignment: .leading, spacing: 6) {
                 DictationWaveform(levels: dictation.levels.bars, isLive: dictation.state == .listening)
                     .frame(height: 46)
+                    .background { DictationAura(level: dictation.state == .listening ? dictation.levels.bars.last ?? 0 : 0) }
                 DictationWords(text: dictation.transcript, placeholder: placeholder)
                     .frame(height: 24)
             }
-            roundButton(symbol: "checkmark", filled: true, label: String(localized: "Done", table: "Dictation"), action: finish)
+            DictationRoundButton(symbol: "checkmark", filled: true, label: String(localized: "Done", table: "Dictation"), size: buttonSize, action: finish)
         }
         .transition(.blurReplace)
     }
 
     private var placeholder: String {
         dictation.state == .listening ? String(localized: "Listening…", table: "Dictation") : ""
-    }
-
-    private func roundButton(symbol: String, filled: Bool, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(filled ? ColorPalette.onInk : .white)
-                .frame(width: 40, height: 40)
-                .background(Circle().fill(filled ? ColorPalette.ink : Color.white.opacity(0.14)))
-                .contentShape(Circle())
-        }
-        .buttonStyle(RailButtonStyle(scale: 0.9, haptic: true))
-        .accessibilityLabel(label)
     }
 }
 
@@ -58,9 +47,11 @@ private struct DictationWords: View {
             } else {
                 HStack(spacing: 6) {
                     ForEach(Array(words.enumerated()), id: \.offset) { index, word in
+                        let isNewest = index == words.count - 1
                         Text(word)
-                            .font(.system(size: 17, weight: index == words.count - 1 ? .semibold : .medium))
-                            .foregroundStyle(.white.opacity(index == words.count - 1 ? 1 : 0.72))
+                            .font(.system(size: 17, weight: isNewest ? .semibold : .medium))
+                            .foregroundStyle(isNewest ? AnyShapeStyle(DictationTint.newestWord) : AnyShapeStyle(.white.opacity(0.7)))
+                            .shadow(color: isNewest ? DictationTint.glow : .clear, radius: 7)
                             .lineLimit(1)
                             .fixedSize()
                             .transition(.blurReplace.combined(with: .offset(y: 8)))
@@ -79,7 +70,7 @@ private struct DictationWords: View {
 }
 
 /// Bars that rise with the voice, newest on the right, so the line reads as sound travelling left. Quiet is a row of dots rather than nothing, so it never looks broken.
-private struct DictationWaveform: View {
+struct DictationWaveform: View {
     let levels: [Float]
     let isLive: Bool
 
@@ -97,11 +88,12 @@ private struct DictationWaveform: View {
                     width: width,
                     height: height
                 )
-                let recency = 0.35 + 0.65 * Double(index + 1) / Double(count)
-                context.fill(Path(roundedRect: rect, cornerRadius: width / 2), with: .color(.white.opacity(isLive ? recency : 0.3)))
+                let position = Double(index + 1) / Double(count)
+                let colour = DictationTint.bar.mix(with: .white, by: 1 - position)
+                context.fill(Path(roundedRect: rect, cornerRadius: width / 2), with: .color(colour.opacity(isLive ? 0.3 + 0.7 * position : 0.3)))
             }
         }
-        .animation(.linear(duration: 0.08), value: levels)
+        .animation(.spring(response: 0.16, dampingFraction: 0.7), value: levels)
         .accessibilityHidden(true)
     }
 }
@@ -135,5 +127,48 @@ struct DictationNotice: View {
             .accessibilityLabel(String(localized: "Close", table: "Dictation"))
         }
         .foregroundStyle(.white)
+    }
+}
+
+struct DictationRoundButton: View {
+    let symbol: String
+    let filled: Bool
+    let label: String
+    let size: CGFloat
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(filled ? ColorPalette.onInk : .white)
+                .frame(width: size, height: size)
+                .background(Circle().fill(filled ? ColorPalette.ink : Color.white.opacity(0.14)))
+                .contentShape(Circle())
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.9, haptic: true))
+        .accessibilityLabel(label)
+    }
+}
+
+/// The one blue the app has, lightened, so speech reads as live without a second hue: the newest bars and word lean toward it, the older ones fade to white and out.
+private enum DictationTint {
+    static let bar = Color(red: 0.45, green: 0.72, blue: 1.0)
+    static let glow = bar.opacity(0.55)
+    static let newestWord = LinearGradient(colors: [.white, Color(red: 0.72, green: 0.86, blue: 1.0)], startPoint: .top, endPoint: .bottom)
+}
+
+/// A soft light behind the waveform that swells with the voice, so the bar feels like it is listening and not only drawing.
+private struct DictationAura: View {
+    let level: Float
+
+    var body: some View {
+        Capsule()
+            .fill(DictationTint.bar)
+            .opacity(0.05 + Double(level) * 0.28)
+            .blur(radius: 16)
+            .padding(.horizontal, 24)
+            .animation(.easeOut(duration: 0.14), value: level)
+            .accessibilityHidden(true)
     }
 }

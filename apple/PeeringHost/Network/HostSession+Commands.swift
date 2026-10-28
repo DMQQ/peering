@@ -175,6 +175,7 @@ extension HostSession {
         // A frame kind an older phone cannot decode ends its session, so it is withheld from one.
         if case .permissionModeChanged = event, clientSupportsAgentPermissionModes != true { return }
         if case .usageChanged = event, clientSupportsAgentUsage != true { return }
+        if case .queueChanged = event, clientSupportsAgentQueue != true { return }
         if outputGate.holdsAgentEvent(event, cost: (try? MessageCodec.encode(event))?.count ?? 1024) { return }
         send(.agentEvent, event)
     }

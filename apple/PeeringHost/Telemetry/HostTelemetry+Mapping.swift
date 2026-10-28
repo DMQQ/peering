@@ -15,12 +15,12 @@ extension HostTelemetry {
         }
     }
 
-    /// The relay connection ended: refused by the relay while registering, or lost afterwards.
+    /// The relay connection ended: refused by the relay while registering, or lost afterwards. A socket the network dropped is not reported: one Mac sent it 87 times in a day.
     static func relay(_ failure: Error) {
         let code = errorCode(of: failure)
         if case RelaySignallingError.refused = failure {
             error(.relayRegistrationFailed, stage: .register, errorCode: code)
-        } else {
+        } else if !ErrorReportFilter.isNetworkWeather(failure as NSError) {
             error(.relayDisconnected, stage: .connection, errorCode: code)
         }
     }

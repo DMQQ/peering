@@ -29,4 +29,18 @@ struct ErrorDetailTests {
         #expect(details["error_code"] == "-1009")
         #expect(details["error_case"] == nil)
     }
+
+    @Test("the errors wrapped inside one are listed outermost first")
+    func underlyingChain() {
+        let root = NSError(domain: NSPOSIXErrorDomain, code: 57)
+        let middle = NSError(domain: NSURLErrorDomain, code: -1200, userInfo: [NSUnderlyingErrorKey: root])
+        let outer = NSError(domain: "SUSparkleErrorDomain", code: 2001, userInfo: [NSUnderlyingErrorKey: middle])
+        let details = ErrorDetail.properties(for: outer)
+        #expect(details["error_underlying"] == "NSURLErrorDomain:-1200 > NSPOSIXErrorDomain:57")
+    }
+
+    @Test("an error with nothing inside it has no underlying entry")
+    func noUnderlying() {
+        #expect(ErrorDetail.properties(for: NSError(domain: "Sample", code: 1))["error_underlying"] == nil)
+    }
 }

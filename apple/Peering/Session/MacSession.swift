@@ -149,6 +149,7 @@ final class MacSession: Identifiable {
     var hostSupportsAgentSessionImport = false
     var hostSupportsAgentSessionPeek = false
     var hostSupportsAgentPause = false
+    var hostSupportsAgentQueue = false
 
     /// A Mac from before the list chats with the first two.
     var hostChatAgents: Set<String> = ["claude", "codex"]
@@ -259,8 +260,15 @@ final class MacSession: Identifiable {
     var agentSessions: [RemoteAgentSession] = []
     /// False until the Mac has sent its first chat listing, so an empty list can be told from one not yet asked for.
     var hasAgentListing = false
+    /// The queues a Mac that holds them has reported, which is the whole truth about them: the phone keeps no copy of its own for such a Mac.
+    var hostAgentQueues: [UUID: [String]] = [:]
     /// Messages typed while a turn runs: the CLIs take one question at a time, so the rest wait here and go as each turn ends.
-    var agentQueues: [UUID: AgentPromptQueue] = [:]
+    var agentQueues: [UUID: AgentPromptQueue] = [:] {
+        didSet {
+            guard let hostID else { return }
+            AgentQueueStore.save(agentQueues, hostKey: hostID)
+        }
+    }
     /// Approvals the Mac has reported resolved on this connection; an answer is delivered only once its id is here. See ``ApprovalAnswerPolicy``.
     @ObservationIgnored var resolvedApprovalIDs: Set<String> = []
     /// The chat list's own copy, rebuilt at most a few times a second: see ``AgentCardDigest``.

@@ -20,6 +20,15 @@ struct ErrorReportFilterTests {
         #expect(!r2)
     }
 
+    @Test("a reset connection is weather, also under a wrapper")
+    func resetIsWeatherThroughWrappers() {
+        let reset = NSError(domain: NSPOSIXErrorDomain, code: Int(ECONNRESET))
+        let wrapped = NSError(domain: "Wrapper", code: 1, userInfo: [NSUnderlyingErrorKey: reset])
+        #expect(ErrorReportFilter.isNetworkWeather(reset))
+        #expect(ErrorReportFilter.isNetworkWeather(wrapped))
+        #expect(!ErrorReportFilter.isNetworkWeather(NSError(domain: "Wrapper", code: 1)))
+    }
+
     @Test("a wrapper over a network failure is not reported")
     func wrappedNetworkFailure() {
         var filter = ErrorReportFilter()
@@ -69,5 +78,15 @@ struct ErrorReportFilterTests {
         let tooLarge = NSError(domain: "com.apple.ActivityKit.ActivityAuthorization", code: 0)
         let r11 = filter.shouldReport(tooLarge, area: "liveActivity")
         #expect(r11)
+    }
+
+    @Test("a launch stops reporting once its budget is spent, even for new codes")
+    func launchBudget() {
+        var filter = ErrorReportFilter()
+        var accepted = 0
+        for code in 1...(ErrorReportFilter.reportsPerLaunch + 10) {
+            if filter.shouldReport(NSError(domain: "Sample", code: code), area: "relay") { accepted += 1 }
+        }
+        #expect(accepted == ErrorReportFilter.reportsPerLaunch)
     }
 }

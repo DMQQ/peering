@@ -2,6 +2,9 @@ import Foundation
 
 /// Which handled errors are worth an Error Tracking issue: not the ones that only say the network is down, and not the same one twice.
 public struct ErrorReportFilter: Sendable {
+    /// A loop that throws a different code each turn passes the per-error dedup, so the whole launch is capped as well.
+    public static let reportsPerLaunch = 20
+
     private var reported: Set<String> = []
 
     public init() {}
@@ -25,6 +28,16 @@ public struct ErrorReportFilter: Sendable {
         }
     }
 
+    /// Whether the error, or anything it wraps, is network weather.
+    public static func isNetworkWeather(_ error: NSError) -> Bool {
+        var current: NSError? = error
+        while let link = current {
+            if isNetworkWeather(domain: link.domain, code: link.code) { return true }
+            current = link.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        return false
+    }
+
     /// ScreenCaptureKit's own recoverable states: `-3801` is Screen Recording not granted and `-3821` is the system stopping a stream after a display change or wake. The host handles both and tells the phone, so neither is a defect to track.
     public static func isExpectedCaptureState(domain: String, code: Int) -> Bool {
         domain == "com.apple.ScreenCaptureKit.SCStreamErrorDomain" && [-3801, -3821].contains(code)
@@ -40,7 +53,7 @@ public struct ErrorReportFilter: Sendable {
         }
     }
 
-    /// False for network weather, including when it is the underlying cause of a wrapper such as Sparkle's, and for a failure already reported since launch.
+    /// False for network weather, including when it is the underlying cause of a wrapper such as Sparkle's, for a failure already reported since launch, and once a launch has used its budget.
     public mutating func shouldReport(_ error: NSError, area: String) -> Bool {
         var current: NSError? = error
         while let link = current {
@@ -49,6 +62,7 @@ public struct ErrorReportFilter: Sendable {
                 || Self.isSystemDeclining(domain: link.domain, code: link.code) { return false }
             current = link.userInfo[NSUnderlyingErrorKey] as? NSError
         }
+        guard reported.count < Self.reportsPerLaunch else { return false }
         return reported.insert("\(area)|\(error.domain)|\(error.code)").inserted
     }
 }

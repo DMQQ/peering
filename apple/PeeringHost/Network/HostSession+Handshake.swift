@@ -14,7 +14,7 @@ extension HostSession {
         do {
             try route(frame)
         } catch {
-            Analytics.failed(error, in: .network)
+            Analytics.failed(error, in: .network, context: ["operation": "route client frame"])
             fail(error)
         }
     }
@@ -136,6 +136,7 @@ extension HostSession {
         clientSupportsAgentChat = hello.supportsAgentChat
         clientSupportsAgentPermissionModes = hello.supportsAgentPermissionModes
         clientSupportsAgentUsage = hello.supportsAgentUsage
+        clientSupportsAgentQueue = hello.supportsAgentQueue
         onVideoCodecsDeclared?(hello.videoCodecs)
     }
 
@@ -181,6 +182,7 @@ extension HostSession {
             supportsAgentSessionImport: true,
             supportsAgentSessionPeek: true,
             supportsAgentPause: true,
+            supportsAgentQueue: true,
             supportsClientState: true,
             supportsLiveActivityPush: true,
             hostPlatform: "macos"

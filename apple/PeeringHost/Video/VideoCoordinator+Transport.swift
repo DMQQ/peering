@@ -99,7 +99,7 @@ extension VideoCoordinator {
             coordinatorLog.notice("video is going on the relay's datagram path")
             return secret
         } catch {
-            Analytics.failed(error, in: .relay)
+            Analytics.failed(error, in: .relay, context: ["operation": "open relay datagram lane"])
             coordinatorLog.error("could not open the relay's video datagram path: \(String(describing: error), privacy: .public)")
             return nil
         }

@@ -19,6 +19,8 @@ struct AgentChatTranscript: View {
     @State private var present: Set<UUID>?
     /// Scrolling a transcript shorter than its viewport pushes the offset negative and snaps back, which reads as flicker.
     @State private var overflows = false
+    /// Within a screen's worth of the first message, the one place the jump to the end is offered: partway down, the end is a short scroll away.
+    @State private var nearTop = false
 
     private func scrollToEnd(_ reader: ScrollViewProxy, animated: Bool = false) {
         guard overflows else { return }
@@ -101,6 +103,31 @@ struct AgentChatTranscript: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .scrollDismissesKeyboard(.interactively)
+            .overlay(alignment: .bottom) {
+                if overflows && nearTop {
+                    Button {
+                        stickToBottom = true
+                        scrollToEnd(reader, animated: true)
+                    } label: {
+                        Image(systemName: "arrow.down")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 34, height: 34)
+                            .glassSurface(in: Circle(), interactive: true)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(RailButtonStyle(scale: 0.9, haptic: true))
+                    .accessibilityLabel("Scroll to the latest message")
+                    .padding(.bottom, 10)
+                    .transition(.scale(scale: 0.8).combined(with: .opacity))
+                }
+            }
+            .animation(Motion.tap, value: overflows && nearTop)
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top < geometry.containerSize.height
+            } action: { _, now in
+                nearTop = now
+            }
             // A chat opens at its latest message. Only the first layout: later growth is the manual stick-to-bottom below.
             .defaultScrollAnchor(.bottom, for: .initialOffset)
             .onScrollGeometryChange(for: Bool.self) { geometry in

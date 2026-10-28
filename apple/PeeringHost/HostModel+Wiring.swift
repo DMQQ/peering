@@ -14,7 +14,7 @@ extension HostModel {
             // `ServerHello`, so renaming the Mac never invalidates anything.
             identity = try SelfSignedIdentity.loadOrCreate(role: .server, commonName: device.name)
         } catch {
-            Analytics.failed(error, in: .network)
+            Analytics.failed(error, in: .network, context: ["operation": "load server identity"])
             let message = HostFailureText.resource(for: error)
             status = .failed(message)
             record("Identity unavailable: \(message)", level: .failure)
@@ -166,7 +166,7 @@ extension HostModel {
             )
             server.externalApprovalResolver = terminalHooks.resolver
         } catch {
-            Analytics.failed(error, in: .network)
+            Analytics.failed(error, in: .network, context: ["operation": "start terminal hooks"])
             let message = HostFailureText.resource(for: error)
             status = .failed(message)
             record(message)

@@ -15,6 +15,11 @@ extension AgentSessionManager {
         var activityChanged: Bool?
         var stateChanged = false
         var persists = false
+        /// The next queued message, taken off the queue when the turn ended, to be sent as soon as the lock is let go.
+        var releasedPrompt: String?
+        var queueChanged = false
+        /// How many waiting messages the chat's end discarded, so the transcript can say they never went.
+        var droppedPrompts = 0
     }
 
     func append(_ payload: AgentStreamEvent.Payload, to session: AgentSession) {
@@ -39,6 +44,13 @@ extension AgentSessionManager {
             onActivityChanged?(active)
         }
         if applied.stateChanged { onChatStateChanged?(session.ownerClientID) }
+        if applied.queueChanged { announceQueue(of: session) }
+        if applied.droppedPrompts > 0 {
+            append(.notice(text: String(localized: "\(applied.droppedPrompts) queued message(s) were not sent because the chat stopped.")), to: session)
+        }
+        if let next = applied.releasedPrompt, !sendNow(next, to: session) {
+            applied.sink?(.failed(sessionID: session.id, message: "That chat cannot be continued. Start a new one."))
+        }
         if applied.persists { persist(session) }
     }
 
@@ -93,6 +105,12 @@ extension AgentSessionManager {
             session.pendingApprovals.removeAll()
             session.state = .idle
             applied.persists = true
+            applied.queueChanged = !session.queue.prompts.isEmpty
+            if case .send(let next) = session.queue.release(state: .idle) {
+                applied.releasedPrompt = next
+                // Busy again at once, so a message arriving before the CLI says so queues behind this one instead of racing it.
+                session.state = .working
+            }
             // The CLI's own answer wins: a Mac whose config pins a model keeps running it whatever the picker was told.
             if let model = summary.model, model != session.model {
                 session.model = model
@@ -114,10 +132,16 @@ extension AgentSessionManager {
             // The CLI has lost this conversation: a prompt must not try to resume it again.
             if message == AgentExpiry.message { session.cliSessionID = nil }
             applied.persists = true
+            applied.queueChanged = !session.queue.prompts.isEmpty
+            applied.droppedPrompts = session.queue.prompts.count
+            _ = session.queue.release(state: .failed)
         case .sessionExited:
             session.state = .exited
             session.adapterLive = false
             applied.persists = true
+            applied.queueChanged = applied.queueChanged || !session.queue.prompts.isEmpty
+            applied.droppedPrompts = session.queue.prompts.count
+            _ = session.queue.release(state: .exited)
         case .sessionReady(_, let cliSessionID, let model, _):
             if let cliSessionID { session.cliSessionID = cliSessionID }
             if let model, model != session.model {

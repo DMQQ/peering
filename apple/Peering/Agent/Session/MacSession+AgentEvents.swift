@@ -14,7 +14,13 @@ extension MacSession {
         switch event {
         case .snapshot(let infos):
             // Transcripts already read are kept: the listing says which sessions exist and the conversation arrives in the replay after each top-up.
+            if !hasAgentListing, !hostSupportsAgentQueue, let hostID {
+                // What was waiting when the app last closed, for the chats the Mac still has.
+                let ids = Set(infos.map(\.id))
+                agentQueues = AgentQueueStore.load(hostKey: hostID).filter { ids.contains($0.key) }
+            }
             hasAgentListing = true
+            hostAgentQueues = [:]
             let previous = agentSessions
             agentHistoryRequests.removeAll()
             agentSessions = infos.map { info in
@@ -30,6 +36,10 @@ extension MacSession {
             }
             for session in agentSessions where session.isLoaded {
                 loadAgentHistory(session.id, since: session.transcript.lastIndex)
+            }
+            // A turn may have ended while the phone was away, so no event is coming to release what waited behind it.
+            for session in agentSessions where agentQueues[session.id] != nil {
+                flushAgentQueue(session.id, state: session.state)
             }
             // The chat on screen may have asked before this list existed, and that ask is gone with the set cleared above.
             if let selectedAgentSessionID { ensureAgentHistory(selectedAgentSessionID) }
@@ -114,6 +124,9 @@ extension MacSession {
             }
             agentGitBusy[id] = nil
             agentGitResults[id] = result
+
+        case .queueChanged(let id, let prompts):
+            hostAgentQueues[id] = prompts.isEmpty ? nil : prompts
 
         case .resumable(let sessions):
             resumableSessions = sessions

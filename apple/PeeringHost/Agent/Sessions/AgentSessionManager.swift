@@ -94,6 +94,7 @@ final class AgentSessionManager: @unchecked Sendable {
                     .sorted { $0.createdAt < $1.createdAt }
             }
             sink(.snapshot(snapshot))
+            announceQueues(ownedBy: clientID, to: sink)
 
         case .history(let id, let since):
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
@@ -165,6 +166,14 @@ final class AgentSessionManager: @unchecked Sendable {
         case .pause(let id):
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
             pause(session, sink: sink)
+
+        case .queue(let id, let text):
+            guard let session = owned(id, by: clientID, reporting: sink) else { return }
+            handleQueue(text, for: session, sink: sink)
+
+        case .unqueue(let id, let index, let text):
+            guard let session = owned(id, by: clientID) else { return }
+            handleUnqueue(text, at: index, for: session)
 
         case .listResumable:
             listResumable(clientID: clientID, sink: sink)

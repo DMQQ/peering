@@ -79,6 +79,14 @@ extension MacSession {
             agentSessions[index].failure = nil
             state = agentSessions[index].transcript.state
         }
+        if hostSupportsAgentQueue {
+            // The Mac decides whether it goes now or waits, and keeps it waiting through a closed app.
+            if state != .working, state != .awaitingApproval, let index = agentSessions.firstIndex(where: { $0.id == id }) {
+                agentSessions[index].transcript.markPromptSent()
+            }
+            wire?.sendAgent(.queue(sessionID: id, text: trimmed))
+            return
+        }
         var queue = agentQueues[id] ?? AgentPromptQueue()
         let submission = queue.submit(trimmed, sessionState: state)
         agentQueues[id] = queue.prompts.isEmpty ? nil : queue
@@ -115,7 +123,19 @@ extension MacSession {
         }
     }
 
+    /// What is waiting behind the chat's running turn, wherever it is held.
+    func waitingAgentPrompts(for id: UUID) -> [String] {
+        hostSupportsAgentQueue ? hostAgentQueues[id] ?? [] : agentQueues[id]?.prompts ?? []
+    }
+
     func removeQueuedAgentPrompt(at offset: Int, in id: UUID) {
+        if hostSupportsAgentQueue {
+            guard var waiting = hostAgentQueues[id], waiting.indices.contains(offset) else { return }
+            let text = waiting.remove(at: offset)
+            hostAgentQueues[id] = waiting.isEmpty ? nil : waiting
+            wire?.sendAgent(.unqueue(sessionID: id, index: offset, text: text))
+            return
+        }
         guard var queue = agentQueues[id] else { return }
         queue.remove(at: offset)
         agentQueues[id] = queue.prompts.isEmpty ? nil : queue
