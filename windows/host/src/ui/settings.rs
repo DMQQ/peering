@@ -32,6 +32,8 @@ pub enum SettingsJob {
     AutostartRead(bool),
     AutostartWritten { wanted: bool, result: Result<(), String> },
     Firewall(HelperResult),
+    /// Whether the rules from this build are in place, checked once when the app starts.
+    FirewallChecked { in_place: bool },
 }
 
 /// A control the user changed in the settings section.
@@ -55,12 +57,14 @@ pub struct SettingsState {
     autostart_note: Option<String>,
     firewall: FirewallOutcome,
     autostart_pending: bool,
+    /// The rules are missing or from an older build, so phones on a Public network cannot reach this PC.
+    firewall_needed: bool,
 }
 
 impl SettingsState {
     /// `start_at_login` is what the Run entry says when the window opens.
     pub fn new(start_at_login: bool) -> Self {
-        Self { start_at_login, autostart_note: None, firewall: FirewallOutcome::NotRequested, autostart_pending: false }
+        Self { start_at_login, autostart_note: None, firewall: FirewallOutcome::NotRequested, autostart_pending: false, firewall_needed: false }
     }
 
     pub fn start_at_login(&self) -> bool {
@@ -69,6 +73,10 @@ impl SettingsState {
 
     pub fn autostart_note(&self) -> Option<&str> {
         self.autostart_note.as_deref()
+    }
+
+    pub fn firewall_needed(&self) -> bool {
+        self.firewall_needed
     }
 
     pub fn firewall(&self) -> &FirewallOutcome {
@@ -112,7 +120,13 @@ impl SettingsState {
                 self.autostart_pending = false;
                 self.record_autostart(wanted, result);
             }
-            SettingsJob::Firewall(result) => self.firewall = result.into(),
+            SettingsJob::Firewall(result) => {
+                self.firewall = result.into();
+                if self.firewall == FirewallOutcome::Applied {
+                    self.firewall_needed = false;
+                }
+            }
+            SettingsJob::FirewallChecked { in_place } => self.firewall_needed = !in_place,
         }
     }
 }

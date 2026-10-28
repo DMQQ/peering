@@ -27,6 +27,38 @@ pub fn show(ui: &mut egui::Ui, panel: &SettingsPanel, choices: &mut Vec<Settings
     theme::card(ui, |ui| maintenance(ui, panel, choices));
 }
 
+/// A prompt that cannot be missed, drawn above everything else while the firewall rules are missing or out of date.
+pub fn firewall_prompt(ui: &mut egui::Ui, panel: &SettingsPanel, choices: &mut Vec<SettingsChoice>) {
+    if !panel.firewall_needed {
+        return;
+    }
+    egui::Frame::new()
+        .fill(theme::DANGER.gamma_multiply(0.14))
+        .stroke(egui::Stroke::new(1.5_f32, theme::DANGER))
+        .corner_radius(egui::CornerRadius::same(14))
+        .inner_margin(egui::Margin::same(20))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.label(egui::RichText::new(strings::FIREWALL_PROMPT_TITLE).size(22.0).strong().color(egui::Color32::WHITE));
+            ui.add_space(6.0);
+            ui.label(egui::RichText::new(strings::FIREWALL_PROMPT_BODY).size(15.0).color(egui::Color32::WHITE));
+            ui.add_space(12.0);
+            ui.add_enabled_ui(!panel.firewall_running, |ui| {
+                let button = egui::Button::new(egui::RichText::new(strings::FIREWALL_PROMPT_BUTTON).size(17.0).strong().color(egui::Color32::WHITE))
+                    .fill(theme::ACCENT)
+                    .min_size(egui::vec2(ui.available_width(), 44.0));
+                if ui.add(button).clicked() {
+                    choices.push(SettingsChoice::FixFirewall);
+                }
+            });
+            if let Some(note) = &panel.firewall_note {
+                ui.add_space(8.0);
+                ui.label(theme::muted(note));
+            }
+        });
+    ui.add_space(12.0);
+}
+
 fn switches(ui: &mut egui::Ui, panel: &SettingsPanel, choices: &mut Vec<SettingsChoice>) {
     let mut start_at_login = panel.start_at_login;
     if theme::switch_row(ui, &mut start_at_login, strings::START_AT_LOGIN, panel.autostart_note.as_deref()) {

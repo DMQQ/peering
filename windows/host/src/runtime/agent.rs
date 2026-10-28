@@ -36,14 +36,27 @@ fn start(command: &LaunchSpec) -> io::Result<Child> {
     let resolved = find_binary(&command.program, &search_env(), &DiskExists)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("{} is not installed", command.program)))?;
     let (program, arguments) = launch_command(&resolved, &command.arguments);
-    Command::new(program)
+    let mut process = Command::new(program);
+    process
         .args(arguments)
         .current_dir(&command.directory)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
+        .stderr(Stdio::null());
+    hide_console(&mut process);
+    process.spawn()
 }
+
+/// An agent CLI is a console program, and started from the windowless host it would open a black terminal beside the chat.
+#[cfg(windows)]
+fn hide_console(process: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    process.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn hide_console(_process: &mut Command) {}
 
 /// Looks for the agent CLI the way a launch would.
 pub(super) struct DiskBinaries;

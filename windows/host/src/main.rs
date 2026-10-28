@@ -34,10 +34,21 @@ fn main() -> Result<(), RuntimeError> {
         // Without a log file the host still runs; there is just less to read when it misbehaves.
         drop(peering_host::logfile::install(&directory.join("logs")));
     }
+    #[cfg(windows)]
+    let instance = match peering_platform::single_instance::claim() {
+        peering_platform::single_instance::Claim::First(guard) => guard,
+        peering_platform::single_instance::Claim::Taken => {
+            peering_host::logfile::record("peering-host is already running; asked it to show its window");
+            return Ok(());
+        }
+    };
     peering_host::logfile::record("peering-host started");
     let (ready, handles) = mpsc::channel();
     let host = thread::spawn(move || run_host(ready));
     match handles.recv() {
+        #[cfg(windows)]
+        Ok(handle) => show_ui(handle, instance),
+        #[cfg(not(windows))]
         Ok(handle) => show_ui(handle),
         // The host failed before it was ready, and its error is the one to report.
         Err(_) => host.join().unwrap_or_else(|_| Err(RuntimeError::Executor(std::io::Error::other("the host stopped")))),
@@ -45,8 +56,8 @@ fn main() -> Result<(), RuntimeError> {
 }
 
 #[cfg(windows)]
-fn show_ui(handle: HostHandle) -> Result<(), RuntimeError> {
-    peering_host::ui::run(handle).map_err(|error| RuntimeError::Window(error.to_string()))
+fn show_ui(handle: HostHandle, instance: peering_platform::single_instance::Guard) -> Result<(), RuntimeError> {
+    peering_host::ui::run(handle, instance).map_err(|error| RuntimeError::Window(error.to_string()))
 }
 
 #[cfg(not(windows))]

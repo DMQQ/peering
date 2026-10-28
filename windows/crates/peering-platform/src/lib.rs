@@ -19,6 +19,7 @@ pub mod monitors;
 pub mod mouse;
 pub mod recycle;
 pub mod session_state;
+pub mod single_instance;
 pub mod terminal;
 pub mod thumbnail;
 pub mod wgc;

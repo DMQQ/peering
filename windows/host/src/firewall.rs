@@ -10,8 +10,9 @@ pub const MDNS_RULE_NAME: &str = "Peering Host mDNS";
 const MDNS_PORT: u16 = 5353;
 pub const HELPER_FLAG: &str = "--firewall-rule";
 
-/// The netsh arguments for an inbound TCP rule on `port` for the executable at `exe_path`, on private networks only and
-/// only from the local subnet, so a router that forwards the port does not expose it.
+/// The netsh arguments for an inbound TCP rule on `port` for the executable at `exe_path`, on every network profile (a home
+/// Wi-Fi that Windows labels Public would otherwise never match) and only from the local subnet, so a router that forwards the
+/// port does not expose it.
 pub fn netsh_firewall_args(exe_path: &str, port: u16) -> Vec<String> {
     netsh_rule_args(RULE_NAME, "TCP", port, exe_path)
 }
@@ -32,7 +33,7 @@ fn netsh_rule_args(name: &str, protocol: &str, port: u16, exe_path: &str) -> Vec
         "action=allow".to_owned(),
         format!("protocol={protocol}"),
         format!("localport={port}"),
-        "profile=private".to_owned(),
+        "profile=any".to_owned(),
         "remoteip=localsubnet".to_owned(),
         format!("program={exe_path}"),
     ]
@@ -196,6 +197,21 @@ pub fn rule_plan(exe_path: &str, port: u16) -> Vec<RuleStep> {
     plan
 }
 
+/// Bumped whenever the rules change shape, so a rule written by an older build reads as out of date and the window offers to
+/// replace it. The rule is read back through a marker rather than from netsh's text, which is translated on other languages.
+const RULE_REVISION: &str = "profile-any-1";
+
+/// What the marker holds once the rules for `exe_path` and `port` are in place.
+pub fn marker_contents(exe_path: &str, port: u16) -> String {
+    format!("{RULE_REVISION}|{port}|{exe_path}")
+}
+
+/// Whether the marker says the current rules were written for this program and port. A missing marker means the rules, if
+/// any, came from an older build or another way, and are treated as not good enough.
+pub fn marker_is_current(marker: Option<&str>, exe_path: &str, port: u16) -> bool {
+    marker.is_some_and(|text| text.trim().eq_ignore_ascii_case(&marker_contents(exe_path, port)))
+}
+
 /// Runs the plan through `run`, which returns whether a netsh call with those arguments succeeded and why not if it did not.
 pub fn run_plan(
     plan: &[RuleStep],
@@ -276,6 +292,35 @@ fn helper_exit(process: windows::Win32::Foundation::HANDLE) -> HelperResult {
     }
 }
 
+#[cfg(windows)]
+fn marker_path() -> Option<std::path::PathBuf> {
+    peering_platform::dpapi::default_directory().map(|directory| directory.join("firewall-rule"))
+}
+
+/// Whether the inbound rules written by this build are in place for this program and port: the marker matches and netsh still
+/// finds both rules (a person can delete them in Windows Defender Firewall). Blocks on netsh, so it runs on a worker.
+#[cfg(windows)]
+pub fn rule_in_place(exe_path: &std::path::Path, port: u16) -> bool {
+    let marker = marker_path().and_then(|path| std::fs::read_to_string(path).ok());
+    if !marker_is_current(marker.as_deref(), &exe_path.to_string_lossy(), port) {
+        return false;
+    }
+    let netsh = crate::tools::system_tool("netsh");
+    [RULE_NAME, MDNS_RULE_NAME]
+        .iter()
+        .all(|name| crate::tools::run(&netsh, &netsh_show_args(name), NETSH_TIMEOUT).succeeded())
+}
+
+/// Written by the app, not the elevated helper, so it lands in the signed-in user's own folder.
+#[cfg(windows)]
+pub fn record_rule_applied(exe_path: &std::path::Path, port: u16) {
+    let Some(path) = marker_path() else { return };
+    let contents = marker_contents(&exe_path.to_string_lossy(), port);
+    if let Err(error) = std::fs::write(&path, contents) {
+        crate::logfile::record(&format!("could not record the firewall rule: {error}"));
+    }
+}
+
 /// Replaces the host's inbound rules following `rule_plan`. Runs in the elevated copy started by `request_rule_elevated`.
 #[cfg(windows)]
 pub fn apply_rule(exe_path: &std::path::Path, port: u16) -> std::io::Result<()> {
@@ -297,7 +342,7 @@ mod tests {
     }
 
     #[test]
-    fn the_rule_allows_inbound_tcp_on_the_port_for_this_program_from_the_local_subnet_on_private_networks() {
+    fn the_rule_allows_inbound_tcp_on_the_port_for_this_program_from_the_local_subnet_on_every_profile() {
         let args = netsh_firewall_args(r"C:\Peering\peering-host.exe", 51515);
         assert_eq!(
             args,
@@ -311,7 +356,7 @@ mod tests {
                 "action=allow",
                 "protocol=TCP",
                 "localport=51515",
-                "profile=private",
+                "profile=any",
                 "remoteip=localsubnet",
                 r"program=C:\Peering\peering-host.exe",
             ])
@@ -319,9 +364,25 @@ mod tests {
     }
 
     #[test]
+    fn a_marker_from_this_revision_for_this_program_and_port_is_current() {
+        let marker = marker_contents(r"C:\Peering\peering-host.exe", 51515);
+        assert!(marker_is_current(Some(&marker), r"C:\Peering\peering-host.exe", 51515));
+        assert!(marker_is_current(Some(&format!("{marker}\n")), r"c:\peering\peering-host.exe", 51515));
+    }
+
+    #[test]
+    fn no_marker_an_old_revision_or_another_program_or_port_is_not_current() {
+        let exe = r"C:\Peering\peering-host.exe";
+        assert!(!marker_is_current(None, exe, 51515));
+        assert!(!marker_is_current(Some("profile-private-0|51515|C:\\Peering\\peering-host.exe"), exe, 51515));
+        assert!(!marker_is_current(Some(&marker_contents(r"C:\Other\peering-host.exe", 51515)), exe, 51515));
+        assert!(!marker_is_current(Some(&marker_contents(exe, 51516)), exe, 51515));
+    }
+
+    #[test]
     fn mdns_gets_its_own_udp_rule_from_the_local_subnet() {
         let args = netsh_mdns_args(r"C:\Peering\peering-host.exe");
-        for expected in ["name=Peering Host mDNS", "protocol=UDP", "localport=5353", "dir=in", "profile=private", "remoteip=localsubnet"] {
+        for expected in ["name=Peering Host mDNS", "protocol=UDP", "localport=5353", "dir=in", "profile=any", "remoteip=localsubnet"] {
             assert!(args.contains(&expected.to_owned()), "{expected}");
         }
     }
