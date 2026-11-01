@@ -43,11 +43,15 @@ extension SessionModel {
         WidgetCenter.shared.reloadAllTimelines()
 
         // An attempt from the backoff timer would race this one and start a second session.
-        stopReconnecting()
-        // A session already up is torn down rather than replaced: assigning over it leaves the first connection running unheld, so the peer sees it drop mid-handshake, which with a retry is a loop.
-        activeSession?.connectTask?.cancel()
-        activeSession?.connectTask = nil
-        activeSession?.wire?.disconnect()
+        // Only the session being replaced: tearing down the active one here closed the first Mac whenever a second was opened.
+        // Also a dead attempt at this same Mac, whose ladder would otherwise race this dial.
+        let targetHostID = Self.hostID(of: target)
+        let superseded = old ?? sessions.first { !$0.isLive && targetHostID != nil && $0.hostID == targetHostID }
+        superseded?.stopReconnecting()
+        // Torn down rather than replaced: assigning over it leaves the first connection running unheld, so the peer sees it drop mid-handshake, which with a retry is a loop.
+        superseded?.connectTask?.cancel()
+        superseded?.connectTask = nil
+        superseded?.wire?.disconnect()
         // The user has just asked to reach a Mac, the first moment "tell you when it needs you?" means anything.
         notifier.prepareForFirstConnect()
 
