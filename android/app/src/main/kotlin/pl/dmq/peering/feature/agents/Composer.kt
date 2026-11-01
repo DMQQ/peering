@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import pl.dmq.peering.R
 import pl.dmq.peering.feature.agents.attach.AttachmentSource
 import pl.dmq.peering.feature.agents.attach.AttachmentTray
+import pl.dmq.peering.feature.remote.dictation.rememberVoiceDictation
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.kit.PeeringMenu
 import pl.dmq.peering.ui.kit.PeeringMenuItem
@@ -66,7 +67,9 @@ fun Composer(
     val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let { presenter.attach(AttachmentSource.Photo(it.toString())) }
     }
+    val dictation = rememberVoiceDictation()
     Column(modifier.fillMaxWidth()) {
+        DictationMessage(dictation)
         ComposerHintPanel(hint, onSlash = presenter::pickSlash, onMention = presenter::pickMention)
         OptionsBar(ui, chip, presenter::setPermissionMode, presenter::setModel, onShowUsage, onCustomModel)
         AttachmentTray(ui.attachments, ui.uploadingName, onRemoveAttached = presenter::detach, onRemoveFailed = presenter::removeFailedAttachment)
@@ -81,6 +84,7 @@ fun Composer(
                 onPickPhoto = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 onPickFile = { pickDocument.launch(arrayOf("*/*")) },
                 modifier = Modifier.weight(1f),
+                trailing = { DictationButton(dictation, ui.text, enabled = ui.sessionID != null, onText = presenter::onTextChanged) },
             )
             SendButton(ui.action, ui.actionEnabled, presenter::send, presenter::stop)
         }
@@ -88,7 +92,14 @@ fun Composer(
 }
 
 @Composable
-private fun MessageField(ui: ComposerUi, onChange: (String) -> Unit, onPickPhoto: () -> Unit, onPickFile: () -> Unit, modifier: Modifier) {
+private fun MessageField(
+    ui: ComposerUi,
+    onChange: (String) -> Unit,
+    onPickPhoto: () -> Unit,
+    onPickFile: () -> Unit,
+    modifier: Modifier,
+    trailing: @Composable () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     val border = if (focused) PeeringColors.ink.copy(alpha = 0.3f) else PeeringColors.hairline
     BasicTextField(
@@ -107,7 +118,7 @@ private fun MessageField(ui: ComposerUi, onChange: (String) -> Unit, onPickPhoto
                     .clip(PillShape)
                     .background(PeeringColors.surface)
                     .border(1.dp, border, PillShape)
-                    .padding(start = if (ui.canAttach) 4.dp else 18.dp, end = 18.dp),
+                    .padding(start = if (ui.canAttach) 4.dp else 18.dp, end = 4.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -122,6 +133,7 @@ private fun MessageField(ui: ComposerUi, onChange: (String) -> Unit, onPickPhoto
                         }
                         field()
                     }
+                    trailing()
                 }
             }
         },

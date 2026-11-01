@@ -35,7 +35,7 @@ class MosaicDragTest {
 
     private fun holdOn(x: Double, y: Double) {
         presenter.onPointerDown(1, x, y, 0)
-        presenter.onHoldElapsed()
+        presenter.onHoldElapsed(10_000)
     }
 
     @Test
@@ -100,7 +100,7 @@ class MosaicDragTest {
         presenter.onPointerMove(1, 260.0, 500.0, 100)
 
         assertNull(presenter.holdRemaining(100))
-        assertFalse(presenter.onHoldElapsed())
+        assertFalse(presenter.onHoldElapsed(10_000))
     }
 
     @Test
@@ -118,7 +118,7 @@ class MosaicDragTest {
     fun `a hold in the bars beside the picture lifts nothing`() {
         presenter.onPointerDown(1, 500.0, 100.0, 0)
 
-        assertFalse(presenter.onHoldElapsed())
+        assertFalse(presenter.onHoldElapsed(10_000))
         assertNull(presenter.state.value.drag)
     }
 

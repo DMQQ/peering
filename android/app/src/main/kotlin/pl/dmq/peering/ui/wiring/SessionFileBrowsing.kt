@@ -11,7 +11,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import pl.dmq.peering.DebugLog
 import pl.dmq.peering.feature.files.FileBrowsingPort
+import pl.dmq.peering.feature.files.GalleryStore
 import pl.dmq.peering.feature.files.InputChunks
 import pl.dmq.peering.feature.files.ShellActions
 import pl.dmq.peering.session.files.FileBrowser
@@ -69,15 +71,28 @@ internal class SessionFileBrowsing(
     override fun closePreview() = browser.closePreview()
 
     override fun download(path: String, destination: String, isFolder: Boolean) {
+        val uri = Uri.parse(destination)
         val sink = try {
-            SafDownloadSink.open(resolver, Uri.parse(destination))
+            SafDownloadSink.open(resolver, uri)
         } catch (failure: IOException) {
-            return downloads.refuse()
+            return refuse(uri)
         } catch (failure: SecurityException) {
-            return downloads.refuse()
+            return refuse(uri)
         }
         downloads.begin(sink)
         if (isFolder) browser.downloadFolder(path) else browser.download(path)
+    }
+
+    /** A gallery item reserved for this download would otherwise stay pending. */
+    private fun refuse(uri: Uri) {
+        if (GalleryStore.isGalleryItem(uri)) {
+            try {
+                GalleryStore.remove(resolver, uri)
+            } catch (failure: Exception) {
+                DebugLog.w(TAG, { "deleting the unopened gallery item failed" }, failure)
+            }
+        }
+        downloads.refuse()
     }
 
     override fun cancelDownload() {
@@ -131,3 +146,5 @@ internal class SessionFileBrowsing(
         return browser.state.value.upload is FileUpload.Done
     }
 }
+
+private const val TAG = "PeeringDownload"

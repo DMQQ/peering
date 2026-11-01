@@ -144,6 +144,8 @@ internal class ConnectedLink(
         else -> picture.state(paused, viaControlChannel = lanes.delivery.transport == VideoTransportKind.CONTROL)
     }
 
+    fun notePictureEnabled(enabled: Boolean) = picture.notePaused(!enabled)
+
     /** Pausing and resuming the video makes the host send a keyframe, which starts a stream that is open but showing nothing. */
     private fun requestKeyframe() {
         commands.send(SetVideoEnabled(false))?.let(writer::enqueue)

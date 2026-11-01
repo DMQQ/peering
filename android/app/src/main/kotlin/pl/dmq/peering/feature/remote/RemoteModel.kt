@@ -34,6 +34,9 @@ interface RemoteModel {
     /** Leaves the session screen and keeps the session running, as the Connect chip does. */
     fun onStepAway()
 
+    /** Opens the choice between the screen, the workspace and the remote dock. */
+    fun onChangeMode()
+
     /** The picture stalled or failed and the user asked for it again. */
     fun onRetryPicture()
 

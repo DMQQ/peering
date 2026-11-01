@@ -5,6 +5,12 @@ import pl.dmq.peering.ui.kit.modalMotion
 import pl.dmq.peering.ui.kit.motionTransition
 import pl.dmq.peering.ui.kit.rememberMotionDistances
 import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
+import pl.dmq.peering.feature.sessionmode.ModePicker
+import pl.dmq.peering.feature.sessionmode.RemoteDock
+import pl.dmq.peering.feature.sessionmode.SessionMode
+import pl.dmq.peering.feature.sessionmode.SessionModeMemory
+import pl.dmq.peering.feature.sessionmode.ApplicationFavourites
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,7 +72,7 @@ import pl.dmq.peering.ui.theme.FailureNotice
 import pl.dmq.peering.ui.wiring.messageRes
 
 /** The screens a session presents over its remote screen. The hub is not one: it is its own activity. */
-enum class SessionRoute { REMOTE, PAYWALL }
+enum class SessionRoute { REMOTE, PAYWALL, PICKER, DOCK }
 
 /**
  * The session's screens, one at a time. Back returns to the remote screen from the others. [onClose] leaves the screen
@@ -81,22 +87,30 @@ internal fun SessionScreens(
     macros: MacroStore,
     billing: PlayBilling,
     relayAllowance: RelayAllowanceTracker,
+    modeMemory: SessionModeMemory,
+    favouritesStore: KeyValueStore,
     onClose: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
     var route by rememberSaveable { mutableStateOf(SessionRoute.REMOTE) }
     var spentPaywall by rememberSaveable { mutableStateOf(false) }
-    val remote = rememberRemoteModel(active, picture, settings, devicePrefs, macros, relayAllowance, onDisconnect, onClose) {
+    val session by active.controller.state.collectAsState()
+    val context = LocalContext.current
+    val hubIntent = remember(context) { Intent(context, HubActivity::class.java) }
+    val openHub = remember(hubIntent) { { context.startActivity(hubIntent) } }
+    val navigation = remember { SessionNavigation(route = { route }, show = { route = it }, openHub = openHub) }
+    val modes = rememberSessionModes(active, modeMemory, devicePrefs, ready = session.phase.isReady(), navigation)
+    val remote = rememberRemoteModel(active, picture, settings, devicePrefs, macros, relayAllowance, onDisconnect, onClose, openHub, onChangeMode = modes::ask) {
         route = SessionRoute.PAYWALL
     }
-    val session by active.controller.state.collectAsState()
+    val favourites = remember(active, favouritesStore) { active.target.hostId?.let { ApplicationFavourites(favouritesStore, it) } }
     val browser = active.controller.files
     LaunchedEffect(browser) { browser?.let { active.downloads.watch(it) } }
     QuotaWatch(session.phase, relayAllowance) {
         spentPaywall = true
         route = SessionRoute.PAYWALL
     }
-    BackHandler(enabled = route != SessionRoute.REMOTE) { route = SessionRoute.REMOTE }
+    BackHandler(enabled = route != SessionRoute.REMOTE, onBack = modes::back)
     SessionBridge(active, route, openHub = { remote.onHubEntry(HubEntry.HUB) }, setRoute = { route = it })
     val distances = rememberMotionDistances()
     AnimatedContent(
@@ -108,7 +122,9 @@ internal fun SessionScreens(
     ) { shown ->
         when (shown) {
             SessionRoute.REMOTE -> RemoteWithNotice(remote, session.phase)
-            SessionRoute.PAYWALL -> SessionPaywall(billing, relayAllowance, spentPaywall) { route = SessionRoute.REMOTE }
+            SessionRoute.PAYWALL -> SessionPaywall(billing, relayAllowance, spentPaywall, modes::back)
+            SessionRoute.PICKER -> ModePicker(modes.available, modes.mode, (session.phase as? SessionPhase.Ready)?.hostName, modes::choose)
+            SessionRoute.DOCK -> RemoteDock(remote, favourites, onShowScreen = { modes.choose(SessionMode.SCREEN) }, onChangeMode = modes::ask)
         }
     }
 }
@@ -123,10 +139,11 @@ private fun rememberRemoteModel(
     relayAllowance: RelayAllowanceTracker,
     onDisconnect: () -> Unit,
     onClose: () -> Unit,
+    openHub: () -> Unit,
+    onChangeMode: () -> Unit,
     onOpenPaywall: () -> Unit,
 ): ControllerRemoteModel {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     return remember(active) {
         ControllerRemoteModel(
             controller = active.controller,
@@ -138,7 +155,8 @@ private fun rememberRemoteModel(
             relayAllowance = relayAllowance.allowance,
             onDisconnect = onDisconnect,
             onLeave = onClose,
-            onOpenHub = { context.startActivity(Intent(context, HubActivity::class.java)) },
+            onOpenHub = openHub,
+            openModeChoice = onChangeMode,
             onOpenPaywall = onOpenPaywall,
         )
     }

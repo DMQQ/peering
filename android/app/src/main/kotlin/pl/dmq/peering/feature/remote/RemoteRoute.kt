@@ -37,10 +37,12 @@ import pl.dmq.peering.feature.remote.dictation.VoiceDictation
 import pl.dmq.peering.feature.remote.dictation.rememberVoiceDictation
 import pl.dmq.peering.feature.settings.DevicePrefs
 import pl.dmq.peering.testing.RemoteBridge
+import pl.dmq.peering.feature.sessionmode.commands
 import pl.dmq.peering.ui.kit.LocalBorderless
 import pl.dmq.peering.wire.MouseButton
 import pl.dmq.peering.wire.ReportDeviceOrientation
 import pl.dmq.peering.wire.SetCaptureSource
+import pl.dmq.peering.wire.spaces
 
 /** The remote screen for a connected computer: the picture, the chrome over it, the panels, and the keyboard. */
 @Composable
@@ -55,6 +57,8 @@ fun RemoteRoute(model: RemoteModel) {
     val keyboard = presenters.keyboard
     val actions = presenters.actions
     canvas.onTileTapped = { source -> model.commands.send(SetCaptureSource(source)) }
+    val spaceDisplay = state.catalog?.spaces?.displays?.firstOrNull()
+    canvas.onSwiped = { swipe -> swipe.commands(spaceDisplay, state.sourcesFeatures.desktops).forEach(model.commands::send) }
     val canvasState by canvas.state.collectAsState()
     val cursor by presenters.tracker.position.collectAsState()
     val typed by keyboard.typedPreview.collectAsState()
@@ -151,8 +155,10 @@ private fun SessionEffects(
     }
     LaunchedEffect(state.hostPointer) { state.hostPointer?.let { tracker.report(it.point) } }
     LaunchedEffect(state.mosaic) { canvas.setMosaic(state.mosaic) }
+    // A focus that moved while another mode was up is stale, so it does not open the keyboard on arrival.
+    val focusOnArrival = remember { state.hostTextFocus?.serial }
     LaunchedEffect(state.hostTextFocus?.serial) {
-        val focus = state.hostTextFocus ?: return@LaunchedEffect
+        val focus = state.hostTextFocus?.takeIf { it.serial != focusOnArrival } ?: return@LaunchedEffect
         keyboard.onHostFocusMoved()
         val move = follower.onFocus(
             editable = focus.isEditable,
@@ -239,6 +245,7 @@ private fun chromeState(
         sourceTitle = state.sourceTitle,
         mosaicWindows = state.mosaic?.tiles?.size,
         darkened = screen.darkened,
+        screenControls = state.screenControls,
         fills = prefs.fillsScreen,
         zoomPercent = (zoom * 100).roundToInt().takeIf { it > ZOOMED_PERCENT },
         hubTabs = HubPresenter().offeredTabs(state.capabilities),
@@ -280,6 +287,7 @@ private fun chromeHandlers(
         },
         onStepAway = model::onStepAway,
         onOpenHub = { model.onHubEntry(HubEntry.HUB) },
+        onChangeMode = model::onChangeMode,
         onQuit = { model.onHubEntry(HubEntry.DISCONNECT) },
     ),
     onPillTap = pill::onTap,
@@ -330,7 +338,7 @@ private fun pointerActions(actions: RemoteActions, keyboard: KeyboardPresenter):
 /**
  * The picture's size in the computer's points, which the joystick's travel and the drawn cursor are both measured in.
  * The catalogue reports a MacBook's display in points already (1512 wide) and a larger one in pixels, so only a size past
- * [MAX_POINT_WIDTH] is halved. Halving always made the drawn cursor run twice as far as the real pointer.
+ * [MAX_POINT_WIDTH] is halved.
  */
 private fun pointerSize(state: RemoteUiState): Pair<Double, Double> =
     state.picturePixels?.let {

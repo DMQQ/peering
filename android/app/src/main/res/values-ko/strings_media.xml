@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_save_to_photos">사진에 저장</string>
+    <string name="preview_saved_to_photos">사진에 저장됨</string>
+    <string name="preview_save_to_photos_failed">사진에 저장할 수 없음</string>
+    <string name="bg_progress_working">작업 중</string>
+    <string name="bg_progress_awaiting_approval">승인 대기 중</string>
+</resources>

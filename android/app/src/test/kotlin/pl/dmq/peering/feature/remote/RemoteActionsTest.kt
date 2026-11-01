@@ -60,6 +60,7 @@ class RemoteActionsTest {
         override fun onStepAway() = Unit
         override fun onRetryPicture() = Unit
         override fun onRelayUpgradeRequested() = Unit
+        override fun onChangeMode() = Unit
     }
 
     private fun actions(scope: CoroutineScope): RemoteActions {

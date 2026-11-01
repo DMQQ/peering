@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_save_to_photos">Сохранить в Фото</string>
+    <string name="preview_saved_to_photos">Сохранено в Фото</string>
+    <string name="preview_save_to_photos_failed">Не удалось сохранить в Фото</string>
+    <string name="bg_progress_working">Работает</string>
+    <string name="bg_progress_awaiting_approval">Ожидает подтверждения</string>
+</resources>

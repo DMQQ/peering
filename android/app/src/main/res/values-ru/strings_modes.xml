@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_ask_how_to_use">Спрашивать, как использовать компьютер, при подключении</string>
+    <string name="remote_chip_mode">Режим</string>
+    <string name="mode_picker_title">Как вы хотите использовать этот компьютер?</string>
+    <string name="mode_screen_title">Экран</string>
+    <string name="mode_screen_body">Видеть рабочий стол и управлять касанием.</string>
+    <string name="mode_workspace_title">Рабочая область</string>
+    <string name="mode_workspace_body">Агенты, файлы и терминалы без изображения.</string>
+    <string name="mode_remote_title">Пульт</string>
+    <string name="mode_remote_body">Трекпад и клавиатура без изображения.</string>
+    <string name="dock_show_screen">Экран</string>
+    <string name="dock_change_mode">Режим</string>
+    <string name="dock_keyboard">Клавиатура</string>
+    <string name="dock_hide_keyboard">Скрыть клавиатуру</string>
+    <string name="dock_space_previous">Предыдущий рабочий стол</string>
+    <string name="dock_space_next">Следующий рабочий стол</string>
+    <string name="dock_lock">Блокировка</string>
+    <string name="dock_full_screen">Полный экран</string>
+    <string name="dock_exit_full_screen">Выйти из полноэкранного режима</string>
+    <string name="dock_desktops">Рабочие столы</string>
+    <string name="dock_desktop_number">Рабочий стол %1$d</string>
+    <string name="dock_type_hint">Печатать на Mac</string>
+    <string name="dock_apps_hint">Нажмите и удерживайте приложение, чтобы добавить его в избранное.</string>
+    <string name="dock_apps_favourites">Избранное</string>
+    <string name="dock_apps_running">Запущенные</string>
+    <string name="dock_apps_installed">Установлены на Mac</string>
+    <string name="dock_shortcut_spotlight">Spotlight</string>
+    <string name="dock_shortcut_switch_app">Сменить приложение</string>
+    <string name="dock_shortcut_mission_control">Mission Control</string>
+    <string name="dock_shortcut_show_desktop">Показать рабочий стол</string>
+    <string name="dock_shortcut_copy">Скопировать</string>
+    <string name="dock_shortcut_paste">Вставить</string>
+    <string name="dock_shortcut_undo">Отменить</string>
+    <string name="dock_shortcut_close_window">Закрыть окно</string>
+    <string name="dock_shortcut_quit_app">Завершить приложение</string>
+    <string name="dock_shortcut_screenshot">Снимок экрана</string>
+    <string name="terminal_pane_empty_title">Выберите терминал</string>
+    <string name="terminal_pane_empty_body">Выберите терминал из списка или запустите новый.</string>
+    <string name="files_pane_empty_title">Выберите файл</string>
+    <string name="files_pane_empty_body">Откройте файл из списка, чтобы просмотреть его здесь.</string>
+</resources>

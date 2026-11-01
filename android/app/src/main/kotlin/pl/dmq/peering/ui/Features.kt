@@ -4,7 +4,10 @@ import pl.dmq.peering.feature.connect.ConnectUiState
 import pl.dmq.peering.feature.ssh.ServersTab
 import pl.dmq.peering.feature.ssh.SshHub
 import android.content.SharedPreferences
+import android.content.Context
 import android.os.Build
+import pl.dmq.peering.feature.sessionmode.SessionModeMemory
+import pl.dmq.peering.session.ports.KeyValueStore
 import pl.dmq.peering.ui.wiring.PreferencesDevicePreferences
 import pl.dmq.peering.ui.wiring.PreferencesMacroStore
 import java.time.ZoneId
@@ -81,6 +84,9 @@ internal class FeatureWiring(graph: AppGraph, scope: CoroutineScope, preferences
     val whatsNew = WhatsNewStore(PreferencesKeyValueStore(preferences, writes))
     val devicePrefs = PreferencesDevicePreferences(preferences, Build.MODEL.orEmpty())
     val macros = PreferencesMacroStore(preferences)
+    val sessionModes = SessionModeMemory(PreferencesKeyValueStore(graph.applicationContext.getSharedPreferences("peering_session_mode", Context.MODE_PRIVATE), writes))
+    val applicationFavourites: KeyValueStore =
+        PreferencesKeyValueStore(graph.applicationContext.getSharedPreferences("peering_application_favourites", Context.MODE_PRIVATE), writes)
     val deviceId: String = graph.sessions.identity.clientId
     val hostNames = PersistedHostDirectory(PreferencesKeyValueStore(preferences, writes))
     val trusted = PinTrustedHosts(graph.sessions.pins, hostNames)

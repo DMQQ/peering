@@ -31,6 +31,7 @@ internal class PreferencesDevicePreferences(
             .putBoolean(KEEPS_SESSION, next.keepsSessionInBackground)
             .putBoolean(NOTIFIES, next.notifies)
             .putBoolean(OPENS_KEYBOARD, next.opensKeyboardForTextFields)
+            .putBoolean(ASKS_HOW_TO_USE, next.asksHowToUse)
             .commit()
         if (saved) state.value = next
         return saved
@@ -47,12 +48,14 @@ internal class PreferencesDevicePreferences(
         keepsSessionInBackground = preferences.getBoolean(KEEPS_SESSION, true),
         notifies = preferences.getBoolean(NOTIFIES, true),
         opensKeyboardForTextFields = preferences.getBoolean(OPENS_KEYBOARD, true),
+        asksHowToUse = preferences.getBoolean(ASKS_HOW_TO_USE, false),
     )
 
     private inline fun <reified T : Enum<T>> enumOf(key: String, default: T): T =
         enumValues<T>().firstOrNull { it.name == preferences.getString(key, null) } ?: default
 
     private companion object {
+        const val ASKS_HOW_TO_USE = "asks_how_to_use"
         const val NAME = "device_name"
         const val INTERACTION = "interaction"
         const val FILLS = "fills_screen"

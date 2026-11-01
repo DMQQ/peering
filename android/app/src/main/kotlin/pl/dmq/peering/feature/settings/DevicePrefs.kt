@@ -20,6 +20,8 @@ data class DevicePrefs(
     val notifies: Boolean = true,
     /** Raises the phone keyboard when the computer focuses a text field. */
     val opensKeyboardForTextFields: Boolean = true,
+    /** Asks how to use a Mac every time a session is ready, instead of opening the way it was last used. */
+    val asksHowToUse: Boolean = false,
 )
 
 interface DevicePreferences {

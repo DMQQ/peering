@@ -9,6 +9,15 @@ class TrackpadModelTest {
     private fun model(sensitivity: Double = 1.0) = TrackpadModel(1000.0, 800.0, sensitivity)
 
     @Test
+    fun cancellingAHeldDragReleasesTheButtonAndClicksNothing() {
+        val trackpad = model()
+        trackpad.onDown(1, 100.0, 100.0, 0)
+        trackpad.onMove(1, 101.0, 100.0, 500)
+        assertEquals(listOf(PointerAction.ButtonUp(MouseButton.LEFT)), trackpad.cancel())
+        assertEquals(emptyList<PointerAction>(), trackpad.onUp(1, 101.0, 100.0, 520))
+    }
+
+    @Test
     fun oneFingerDragMovesTheCursorByTheDeltaOverTheCanvasWidth() {
         val trackpad = model()
         trackpad.onDown(1, 100.0, 100.0, 0)

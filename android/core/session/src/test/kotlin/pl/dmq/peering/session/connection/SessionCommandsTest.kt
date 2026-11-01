@@ -21,6 +21,7 @@ import pl.dmq.peering.wire.PerformWindowAction
 import pl.dmq.peering.wire.PushClipboardImage
 import pl.dmq.peering.wire.QualityTier
 import pl.dmq.peering.wire.RefreshSourceThumbnails
+import pl.dmq.peering.wire.RefreshSpacePreviews
 import pl.dmq.peering.wire.RemoteCommand
 import pl.dmq.peering.wire.RemoveVirtualDisplay
 import pl.dmq.peering.wire.RenameVirtualDisplay
@@ -31,6 +32,7 @@ import pl.dmq.peering.wire.SetCaptureSource
 import pl.dmq.peering.wire.SetPrivacyMode
 import pl.dmq.peering.wire.SpaceDirection
 import pl.dmq.peering.wire.SwitchSpace
+import pl.dmq.peering.wire.SwitchToSpace
 import pl.dmq.peering.wire.WindowAction
 import pl.dmq.peering.wire.SetStreamQuality
 import pl.dmq.peering.wire.SetVideoEnabled
@@ -205,9 +207,9 @@ class SessionCommandsTest {
     }
 
     private fun macOnlyCommands(): List<RemoteCommand> = listOf(
-        LockScreen,
-        SetPrivacyMode(true),
         SwitchSpace(SpaceDirection.LEFT),
+        SwitchToSpace(1, 2),
+        RefreshSpacePreviews,
         LaunchApplication("com.apple.Safari"),
         PerformWindowAction(7, WindowAction.CLOSE),
         OpenNewWindow("com.apple.Safari"),
@@ -232,6 +234,23 @@ class SessionCommandsTest {
             val commands = SessionCommands(bareHost.copy(hostPlatform = platform))
             macOnlyCommands().forEach { assertNotNull(it::class.simpleName, commands.send(it)) }
         }
+    }
+
+    @Test
+    fun aWindowsHostAcceptsLockAndDarken() {
+        val commands = SessionCommands(bareHost.copy(hostPlatform = "windows"))
+
+        assertNotNull(commands.send(LockScreen))
+        assertNotNull(commands.send(SetPrivacyMode(true)))
+    }
+
+    @Test
+    fun anUnknownPlatformRefusesLockAndDarken() {
+        val commands = SessionCommands(bareHost.copy(hostPlatform = "linux"))
+
+        assertNull(commands.send(LockScreen))
+        assertNull(commands.send(SetPrivacyMode(true)))
+        assertEquals(2, commands.takeRejections().count { it.missing == HostCapability.ScreenControls })
     }
 
     @Test

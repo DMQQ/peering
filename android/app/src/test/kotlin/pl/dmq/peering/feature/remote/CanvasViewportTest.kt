@@ -8,12 +8,12 @@ class CanvasViewportTest {
     private val fullCanvas = CanvasRect(0.0, 0.0, 1000.0, 1000.0)
 
     @Test
-    fun `zoom never goes below fitted`() {
-        val viewport = CanvasViewport().zoomedAbout(0.5, 500.0, 500.0, canvas)
+    fun `zoom stops at the minimum with the picture centred`() {
+        val viewport = CanvasViewport().zoomedAbout(0.5, 100.0, 100.0, canvas)
 
         assertEquals(CanvasViewport.MIN_ZOOM, viewport.zoom, EPSILON)
-        assertEquals(0.0, viewport.panX, EPSILON)
-        assertEquals(0.0, viewport.panY, EPSILON)
+        assertEquals(125.0, viewport.panX, EPSILON)
+        assertEquals(125.0, viewport.panY, EPSILON)
     }
 
     @Test

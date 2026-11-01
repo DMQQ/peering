@@ -9,6 +9,7 @@ import pl.dmq.peering.wire.OpenNewWindow
 import pl.dmq.peering.wire.PerformWindowAction
 import pl.dmq.peering.wire.PushClipboardImage
 import pl.dmq.peering.wire.RefreshSourceThumbnails
+import pl.dmq.peering.wire.RefreshSpacePreviews
 import pl.dmq.peering.wire.RemoteCommand
 import pl.dmq.peering.wire.RemoveVirtualDisplay
 import pl.dmq.peering.wire.RenameVirtualDisplay
@@ -18,9 +19,11 @@ import pl.dmq.peering.wire.SetCaptureSource
 import pl.dmq.peering.wire.SetPrivacyMode
 import pl.dmq.peering.wire.SetVideoEnabled
 import pl.dmq.peering.wire.SwitchSpace
+import pl.dmq.peering.wire.SwitchToSpace
 import pl.dmq.peering.wire.WatchSourceThumbnails
 
 private const val MAC_PLATFORM = "macos"
+private const val WINDOWS_PLATFORM = "windows"
 
 /** A feature the host declares in its server hello. An older host omits the flag, which reads as not declared; a host
  * that omits its platform predates the Windows host and is a Mac. */
@@ -33,7 +36,10 @@ enum class HostCapability {
     DeviceOrientation,
     ClientState,
 
-    /** Locking, privacy mode, Spaces, launching apps and window actions, and the joystick: a Mac does these and a Windows host does not. */
+    /** Locking the computer and darkening its displays, which both the Mac and the Windows host do. */
+    ScreenControls,
+
+    /** Spaces, launching apps and window actions, and the joystick: a Mac does these and a Windows host does not. */
     MacControls;
 
     fun declaredBy(hello: ServerHello): Boolean = when (this) {
@@ -44,6 +50,7 @@ enum class HostCapability {
         SourceThumbnails -> hello.supportsSourceThumbnails
         DeviceOrientation -> hello.supportsDeviceOrientation
         ClientState -> hello.supportsClientState
+        ScreenControls -> hello.hostPlatform == null || hello.hostPlatform == MAC_PLATFORM || hello.hostPlatform == WINDOWS_PLATFORM
         MacControls -> hello.hostPlatform == null || hello.hostPlatform == MAC_PLATFORM
     } == true
 
@@ -56,7 +63,8 @@ enum class HostCapability {
             is AddVirtualDisplay, is RemoveVirtualDisplay, is RenameVirtualDisplay -> VirtualDisplayManagement
             is WatchSourceThumbnails, is RefreshSourceThumbnails -> SourceThumbnails
             is ReportDeviceOrientation -> DeviceOrientation
-            is LockScreen, is SetPrivacyMode, is SwitchSpace, is LaunchApplication, is PerformWindowAction, is OpenNewWindow, is JoystickMove -> MacControls
+            is LockScreen, is SetPrivacyMode -> ScreenControls
+            is SwitchSpace, is SwitchToSpace, is RefreshSpacePreviews, is LaunchApplication, is PerformWindowAction, is OpenNewWindow, is JoystickMove -> MacControls
             else -> null
         }
     }

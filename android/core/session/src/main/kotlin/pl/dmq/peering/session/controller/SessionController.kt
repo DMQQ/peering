@@ -58,7 +58,7 @@ class SessionController(
     private val recorder = SessionRecorder(ports, history)
     private val prompt = PairingPrompt(target, ::update)
     private val services: SessionServices = SessionServices(ports) { runner.link }
-    private val runner = LinkRunner(target, ports, selection, services, recorder, prompt, ::update, ::pictureArrived, ::publish, { reconnect.linkReady() }) { backgrounded }
+    private val runner = LinkRunner(target, ports, selection, services, recorder, prompt, ::update, ::pictureArrived, ::publish, ::linkReady) { backgrounded }
     private val handover = LanHandover(target, ports)
     private val link: ConnectedLink? get() = runner.link
 
@@ -119,12 +119,18 @@ class SessionController(
         return true
     }
 
-    /** Pauses or resumes the host's video. The picture reads as paused only when the host accepted the change. */
+    /**
+     * Pauses or resumes the host's video. The picture reads as paused only when the host accepted the change. Asked
+     * between links, the choice is kept and the next link sends it; that link is the only place a pause is sent again.
+     */
     fun setPictureEnabled(enabled: Boolean): Boolean {
         val sent = send(SetVideoEnabled(enabled))
         if (sent) {
             pictureEnabled = enabled
+            link?.notePictureEnabled(enabled)
             link?.let(::publish)
+        } else if (link == null) {
+            pictureEnabled = enabled
         }
         return sent
     }
@@ -224,6 +230,12 @@ class SessionController(
             update { it.copy(phase = SessionPhase.Reconnecting(reconnect.attempt)) }
             reconnect.waitFor(step)
         }
+    }
+
+    /** A new link starts with the host's video on, so a pause chosen on an earlier link is sent again, or forgotten when this host cannot pause. */
+    private fun linkReady() {
+        reconnect.linkReady()
+        if (!pictureEnabled && !setPictureEnabled(false)) pictureEnabled = true
     }
 
     private fun pictureArrived() {

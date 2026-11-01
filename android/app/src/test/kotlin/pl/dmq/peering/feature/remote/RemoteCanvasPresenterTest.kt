@@ -39,6 +39,7 @@ class RemoteCanvasPresenterTest {
         presenter.onPictureChanged(PixelSize(1920.0, 1080.0))
 
         presenter.onPointerDown(1, 500.0, 500.0, timeMs = 0)
+        presenter.onPointerUp(1, 500.0, 500.0, timeMs = 50)
 
         assertMove(sink.sent[0], x = 0.5, y = 0.5)
         assertEquals(MouseDown(MouseButton.LEFT), sink.sent[1])
@@ -50,6 +51,7 @@ class RemoteCanvasPresenterTest {
         presenter.onPictureChanged(PixelSize(1920.0, 1080.0))
 
         presenter.onPointerDown(1, 500.0, 0.0, timeMs = 0)
+        presenter.onPointerUp(1, 500.0, 0.0, timeMs = 50)
 
         assertMove(sink.sent[0], x = 0.5, y = 0.0)
     }
@@ -69,6 +71,7 @@ class RemoteCanvasPresenterTest {
         presenter.setMode(InputMode.DIRECT)
         presenter.onPictureChanged(PixelSize(1920.0, 1080.0))
         presenter.onPointerDown(1, 500.0, 500.0, timeMs = 0)
+        presenter.onPointerMove(1, 540.0, 500.0, timeMs = 5)
 
         presenter.onPointerDown(2, 300.0, 500.0, timeMs = 10)
 
@@ -80,6 +83,7 @@ class RemoteCanvasPresenterTest {
         presenter.setMode(InputMode.DIRECT)
         presenter.onPictureChanged(PixelSize(1920.0, 1080.0))
         presenter.onPointerDown(1, 500.0, 500.0, timeMs = 0)
+        presenter.onPointerMove(1, 540.0, 500.0, timeMs = 5)
 
         presenter.setMode(InputMode.TRACKPAD)
 

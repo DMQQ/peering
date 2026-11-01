@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -21,7 +22,11 @@ import pl.dmq.peering.R
 import pl.dmq.peering.feature.remote.HubTab
 import pl.dmq.peering.feature.remote.ReportHubPage
 import pl.dmq.peering.feature.remote.belowHubSwitcher
+import pl.dmq.peering.peeringApplication
 import pl.dmq.peering.session.files.FilePath
+import pl.dmq.peering.ui.kit.TwoPane
+import pl.dmq.peering.ui.kit.rememberWidthClass
+import pl.dmq.peering.ui.theme.EmptyState
 
 /**
  * The files of one computer: its folders under a path bar, and the file open in the preview over them. A [hosted] page
@@ -31,7 +36,8 @@ import pl.dmq.peering.session.files.FilePath
 fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = Modifier, hosted: Boolean = false) {
     val scope = rememberCoroutineScope()
     val list = remember(port) { FileListPresenter(port, scope) }
-    val preview = remember(port) { FilePreviewPresenter(port, scope) }
+    val context = LocalContext.current
+    val preview = remember(port) { FilePreviewPresenter(port, scope, MediaStoreGalleryWriter(context), context.peeringApplication.scope) }
     val listUi by list.ui.collectAsState()
     val previewUi by preview.ui.collectAsState()
 
@@ -44,9 +50,7 @@ fun FilesRoute(port: FileBrowsingPort, onBack: () -> Unit, modifier: Modifier = 
     fun goBack() {
         when {
             previewUi != null -> preview.close()
-            listUi.isSelecting -> list.clearSelection()
-            listUi.query.isNotEmpty() -> list.setQuery("")
-            !list.up() -> onBack()
+            !list.back() -> onBack()
         }
     }
     // A hosted page at its root leaves back to the hub's activity, so the system's own back animation can play.
@@ -80,32 +84,81 @@ private fun FilesScaffold(
     onUpload: () -> Unit,
     modifier: Modifier,
 ) {
+    if (rememberWidthClass().twoPane) {
+        FilesTwoPane(listUi, previewUi, list, preview, hosted, onBack, onUpload, modifier)
+    } else {
+        FilesOnePane(listUi, previewUi, list, preview, hosted, onBack, onUpload, modifier)
+    }
+}
+
+/** A phone: the open file covers the list. */
+@Composable
+private fun FilesOnePane(
+    listUi: FileListUi,
+    previewUi: FilePreviewUi?,
+    list: FileListPresenter,
+    preview: FilePreviewPresenter,
+    hosted: Boolean,
+    onBack: () -> Unit,
+    onUpload: () -> Unit,
+    modifier: Modifier,
+) {
+    if (previewUi != null) PreviewScaffold(previewUi, preview, modifier) else FilesListPane(listUi, list, hosted, onBack, onUpload, modifier)
+}
+
+@Composable
+private fun FilesTwoPane(
+    listUi: FileListUi,
+    previewUi: FilePreviewUi?,
+    list: FileListPresenter,
+    preview: FilePreviewPresenter,
+    hosted: Boolean,
+    onBack: () -> Unit,
+    onUpload: () -> Unit,
+    modifier: Modifier,
+) {
+    TwoPane(
+        list = { FilesListPane(listUi, list, hosted, onBack = { if (!list.back()) onBack() }, onUpload, Modifier.fillMaxSize()) },
+        detail = previewUi?.let { open -> { PreviewScaffold(open, preview, Modifier) } },
+        empty = { EmptyState(icon = null, title = stringResource(R.string.files_pane_empty_title), body = stringResource(R.string.files_pane_empty_body), mascot = true) },
+        modifier = modifier,
+        detailModifier = Modifier.belowHubSwitcher(),
+    )
+}
+
+/** The open file under its own bar, alone on a phone and beside the list on a wide window. */
+@Composable
+private fun PreviewScaffold(previewUi: FilePreviewUi, preview: FilePreviewPresenter, modifier: Modifier) {
+    Scaffold(modifier = modifier, containerColor = MaterialTheme.colorScheme.background, topBar = { PreviewTopBar(previewUi, preview) }) { padding ->
+        FilePreviewScreen(presenter = preview, modifier = Modifier.padding(padding))
+    }
+}
+
+/** The folder list on its own, kept beside an open preview on a wide window. */
+@Composable
+private fun FilesListPane(
+    listUi: FileListUi,
+    list: FileListPresenter,
+    hosted: Boolean,
+    onBack: () -> Unit,
+    onUpload: () -> Unit,
+    modifier: Modifier,
+) {
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            val open = previewUi
             when {
-                open != null -> PreviewTopBar(open, preview)
                 listUi.isSelecting -> Box(Modifier.belowHubSwitcher()) { SelectionTopBar(listUi, list) }
                 !hosted -> FolderTopBar(listUi, onBack = onBack)
             }
         },
-        bottomBar = {
-            if (previewUi == null && listUi.path != null) {
-                FilesBottomBar(listUi, list, onUpload = onUpload)
-            }
-        },
+        bottomBar = { if (listUi.path != null) FilesBottomBar(listUi, list, onUpload = onUpload) },
     ) { padding ->
-        val open = previewUi
-        if (open != null) {
-            FilePreviewScreen(presenter = preview, modifier = Modifier.padding(padding))
-        } else {
-            val underSwitcher = if (hosted && !listUi.isSelecting) Modifier.belowHubSwitcher() else Modifier
-            Column(modifier = Modifier.padding(padding).then(underSwitcher)) {
-                FileBanners(listUi, list)
-                FileList(listUi, list, modifier = Modifier.weight(1f))
-            }
+        val underSwitcher = if (hosted && !listUi.isSelecting) Modifier.belowHubSwitcher() else Modifier
+        Column(modifier = Modifier.padding(padding).then(underSwitcher)) {
+            FileBanners(listUi, list)
+            FileList(listUi, list, modifier = Modifier.weight(1f))
         }
     }
 }

@@ -41,8 +41,8 @@ import pl.dmq.peering.widget.WidgetLink
 import pl.dmq.peering.widget.WidgetLinkGate
 
 /** A FragmentActivity because the system's unlock prompt is hosted by one. */
-class MainActivity : FragmentActivity() {
-    internal val permissionRequests = PermissionRequests()
+class MainActivity : FragmentActivity(), PermissionHost {
+    override val permissionRequests = PermissionRequests()
 
     @Deprecated("Forwards the answer to PermissionRequests")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

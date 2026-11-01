@@ -54,4 +54,21 @@ class PictureWatchTest {
         clock.advance(120.0)
         assertEquals(PictureEscalation.NONE, watch.takeEscalation())
     }
+
+    @Test
+    fun aPicturePausedOnPurposeIsNeverEscalated() {
+        watch.notePaused(true)
+        clock.advance(120.0)
+        assertEquals(PictureEscalation.NONE, watch.takeEscalation())
+    }
+
+    @Test
+    fun resumingAPausedPictureStartsTheWaitOver() {
+        watch.notePaused(true)
+        clock.advance(120.0)
+        watch.notePaused(false)
+        assertEquals(PictureEscalation.NONE, watch.takeEscalation())
+        clock.advance(6.0)
+        assertEquals(PictureEscalation.KEYFRAME, watch.takeEscalation())
+    }
 }

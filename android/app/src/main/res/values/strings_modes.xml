@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_ask_how_to_use">Ask how to use a computer on connect</string>
+    <string name="remote_chip_mode">Mode</string>
+    <string name="mode_picker_title">How do you want to use this computer?</string>
+    <string name="mode_screen_title">Screen</string>
+    <string name="mode_screen_body">See the desktop and control it by touch.</string>
+    <string name="mode_workspace_title">Workspace</string>
+    <string name="mode_workspace_body">Agents, files and terminals, with no picture.</string>
+    <string name="mode_remote_title">Remote</string>
+    <string name="mode_remote_body">A trackpad and keyboard, with no picture.</string>
+    <string name="dock_show_screen">Screen</string>
+    <string name="dock_change_mode">Mode</string>
+    <string name="dock_keyboard">Keyboard</string>
+    <string name="dock_hide_keyboard">Hide keyboard</string>
+    <string name="dock_space_previous">Previous desktop</string>
+    <string name="dock_space_next">Next desktop</string>
+    <string name="dock_lock">Lock</string>
+    <string name="dock_full_screen">Full screen</string>
+    <string name="dock_exit_full_screen">Exit full screen</string>
+    <string name="dock_desktops">Desktops</string>
+    <string name="dock_desktop_number">Desktop %1$d</string>
+    <string name="dock_type_hint">Type to the Mac</string>
+    <string name="dock_apps_hint">Press and hold an app to add it to Favourites.</string>
+    <string name="dock_apps_favourites">Favourites</string>
+    <string name="dock_apps_running">Running</string>
+    <string name="dock_apps_installed">Installed on your Mac</string>
+    <string name="dock_shortcut_spotlight">Spotlight</string>
+    <string name="dock_shortcut_switch_app">Switch app</string>
+    <string name="dock_shortcut_mission_control">Mission Control</string>
+    <string name="dock_shortcut_show_desktop">Show desktop</string>
+    <string name="dock_shortcut_copy">Copy</string>
+    <string name="dock_shortcut_paste">Paste</string>
+    <string name="dock_shortcut_undo">Undo</string>
+    <string name="dock_shortcut_close_window">Close window</string>
+    <string name="dock_shortcut_quit_app">Quit app</string>
+    <string name="dock_shortcut_screenshot">Screenshot</string>
+    <string name="terminal_pane_empty_title">Pick a terminal</string>
+    <string name="terminal_pane_empty_body">Choose one from the list, or start a new one.</string>
+    <string name="files_pane_empty_title">Pick a file</string>
+    <string name="files_pane_empty_body">Open a file from the list to preview it here.</string>
+</resources>

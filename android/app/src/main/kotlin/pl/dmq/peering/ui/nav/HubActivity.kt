@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import pl.dmq.peering.MainActivity
 import pl.dmq.peering.PeeringApplication
+import pl.dmq.peering.PermissionHost
+import pl.dmq.peering.PermissionRequests
 import pl.dmq.peering.R
 import pl.dmq.peering.ui.LockScreen
 import pl.dmq.peering.ui.theme.PeeringColors
@@ -35,7 +37,15 @@ import pl.dmq.peering.ui.wiring.hubShouldClose
  * Agents, Terminals and Files in their own activity, so the system's own open, close and back-gesture animations apply.
  * It reads the live session from the application and closes when there is none or the session ends.
  */
-class HubActivity : FragmentActivity() {
+class HubActivity : FragmentActivity(), PermissionHost {
+    override val permissionRequests = PermissionRequests()
+
+    @Deprecated("Forwards the answer to PermissionRequests")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        permissionRequests.onResult(requestCode, grantResults)
+    }
+
     private var appLock: AppLock? = null
     private var locked by mutableStateOf(false)
 

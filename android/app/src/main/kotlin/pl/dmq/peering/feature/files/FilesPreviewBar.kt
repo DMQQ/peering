@@ -2,6 +2,7 @@ package pl.dmq.peering.feature.files
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.WrapText
+import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -17,7 +18,7 @@ import pl.dmq.peering.session.files.FilePath
 import pl.dmq.peering.ui.kit.AppIcons
 import pl.dmq.peering.ui.theme.PeeringColors
 
-/** The open file's name, with line wrapping, share and download. */
+/** The open file's name, with line wrapping, share, save to Photos and download. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PreviewTopBar(ui: FilePreviewUi, presenter: FilePreviewPresenter) {
@@ -41,6 +42,11 @@ fun PreviewTopBar(ui: FilePreviewUi, presenter: FilePreviewPresenter) {
             if (ui.canShare) {
                 IconButton(onClick = presenter::share) {
                     Icon(Icons.Outlined.Share, contentDescription = stringResource(R.string.preview_share))
+                }
+            }
+            if (ui.canSaveToPhotos) {
+                IconButton(onClick = presenter::saveToPhotos) {
+                    Icon(Icons.Outlined.AddPhotoAlternate, contentDescription = stringResource(R.string.preview_save_to_photos))
                 }
             }
             IconButton(onClick = presenter::download) {

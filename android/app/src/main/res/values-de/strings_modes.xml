@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_ask_how_to_use">Beim Verbinden fragen, wie der Computer genutzt wird</string>
+    <string name="remote_chip_mode">Modus</string>
+    <string name="mode_picker_title">Wie möchtest du diesen Computer nutzen?</string>
+    <string name="mode_screen_title">Bildschirm</string>
+    <string name="mode_screen_body">Den Desktop sehen und per Touch steuern.</string>
+    <string name="mode_workspace_title">Arbeitsbereich</string>
+    <string name="mode_workspace_body">Agenten, Dateien und Terminals, ohne Bild.</string>
+    <string name="mode_remote_title">Fernbedienung</string>
+    <string name="mode_remote_body">Ein Trackpad und eine Tastatur, ohne Bild.</string>
+    <string name="dock_show_screen">Bildschirm</string>
+    <string name="dock_change_mode">Modus</string>
+    <string name="dock_keyboard">Tastatur</string>
+    <string name="dock_hide_keyboard">Tastatur ausblenden</string>
+    <string name="dock_space_previous">Vorheriger Desktop</string>
+    <string name="dock_space_next">Nächster Desktop</string>
+    <string name="dock_lock">Sperren</string>
+    <string name="dock_full_screen">Vollbild</string>
+    <string name="dock_exit_full_screen">Vollbild beenden</string>
+    <string name="dock_desktops">Schreibtische</string>
+    <string name="dock_desktop_number">Schreibtisch %1$d</string>
+    <string name="dock_type_hint">An den Mac tippen</string>
+    <string name="dock_apps_hint">Halte eine App gedrückt, um sie zu den Favoriten hinzuzufügen.</string>
+    <string name="dock_apps_favourites">Favoriten</string>
+    <string name="dock_apps_running">Geöffnet</string>
+    <string name="dock_apps_installed">Auf deinem Mac installiert</string>
+    <string name="dock_shortcut_spotlight">Spotlight</string>
+    <string name="dock_shortcut_switch_app">App wechseln</string>
+    <string name="dock_shortcut_mission_control">Mission Control</string>
+    <string name="dock_shortcut_show_desktop">Schreibtisch anzeigen</string>
+    <string name="dock_shortcut_copy">Kopieren</string>
+    <string name="dock_shortcut_paste">Einsetzen</string>
+    <string name="dock_shortcut_undo">Widerrufen</string>
+    <string name="dock_shortcut_close_window">Fenster schließen</string>
+    <string name="dock_shortcut_quit_app">App beenden</string>
+    <string name="dock_shortcut_screenshot">Bildschirmfoto</string>
+    <string name="terminal_pane_empty_title">Terminal auswählen</string>
+    <string name="terminal_pane_empty_body">Wähle eines aus der Liste oder starte ein neues.</string>
+    <string name="files_pane_empty_title">Datei auswählen</string>
+    <string name="files_pane_empty_body">Öffne eine Datei aus der Liste, um sie hier anzusehen.</string>
+</resources>

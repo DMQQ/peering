@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_save_to_photos">写真に保存</string>
+    <string name="preview_saved_to_photos">写真に保存しました</string>
+    <string name="preview_save_to_photos_failed">写真に保存できませんでした</string>
+    <string name="bg_progress_working">作業中</string>
+    <string name="bg_progress_awaiting_approval">承認待ち</string>
+</resources>

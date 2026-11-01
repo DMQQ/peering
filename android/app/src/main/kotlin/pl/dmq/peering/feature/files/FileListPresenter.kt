@@ -66,6 +66,13 @@ class FileListPresenter(
         return true
     }
 
+    /** What back means to the list: end a selection, then clear a search, then go up. False when nothing was left to undo. */
+    fun back(): Boolean = when {
+        ui.value.isSelecting -> true.also { clearSelection() }
+        ui.value.query.isNotEmpty() -> true.also { setQuery("") }
+        else -> up()
+    }
+
     fun tap(row: FileRowUi) {
         if (ui.value.isSelecting) return toggleSelected(row)
         if (row.isFolder) view.update { it.copy(query = "") }
