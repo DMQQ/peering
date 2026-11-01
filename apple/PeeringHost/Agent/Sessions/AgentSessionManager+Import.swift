@@ -14,7 +14,7 @@ extension AgentSessionManager {
             agentLog.notice("resumable conversations listed · \(sessions.count)")
             sink(.resumable(sessions))
             // After the list is sent: the question parks until someone answers it on the Mac, and the list should not wait for that.
-            for root in Self.protectedRoots(of: sessions) { FolderAccessWatch.requestAccess(to: root) }
+            for root in Self.protectedRoots(of: sessions) { FolderAccessWatch.askUnlessAsking(about: root) }
         }
     }
 

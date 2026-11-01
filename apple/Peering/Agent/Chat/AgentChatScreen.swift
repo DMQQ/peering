@@ -13,6 +13,7 @@ struct AgentChatScreen: View {
 
     @Environment(SessionModel.self) var model
     @Environment(\.dismiss) var dismiss
+    @Environment(\.watchOnMac) var watchOnMac
 
     @State var drafts: [UUID: String] = [:]
     @State var dictation = VoiceDictation()
@@ -36,6 +37,7 @@ struct AgentChatScreen: View {
     @State var showsUsage = false
     @State var showsPreview = false
     @State var showsChanges = false
+    @State var showsSpendingCap = false
 
     var session: RemoteAgentSession? {
         model.agentSessions.first { $0.id == currentID }
@@ -70,6 +72,9 @@ struct AgentChatScreen: View {
         }
         .sheet(isPresented: $showsChanges) {
             AgentChangesScreen(sessionID: currentID)
+        }
+        .sheet(isPresented: $showsSpendingCap) {
+            AgentSpendingCapSheet(sessionID: currentID)
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -112,7 +117,11 @@ struct AgentChatScreen: View {
             model.prefetchAgentChanges(currentID)
             InAppBanner.shared.onScreen = .chat(currentID)
             model.noteOpenedChat(currentID)
+            ChatBoardLedger.shared.markSeen(currentID)
             seedDraftIfNew()
+        }
+        .onChange(of: model.agentCards.first { $0.id == currentID }) { _, _ in
+            ChatBoardLedger.shared.markSeen(currentID)
         }
         .onChange(of: session?.transcript.state) { old, new in
             if new == .idle, old == .working { model.prefetchAgentChanges(currentID) }
@@ -130,6 +139,7 @@ struct AgentChatScreen: View {
             model.ensureAgentHistory(id)
             model.prefetchAgentChanges(id)
             InAppBanner.shared.onScreen = .chat(id)
+            ChatBoardLedger.shared.markSeen(id)
         }
         .onChange(of: session?.transcript.pendingApprovals.first?.id, initial: true) { _, id in
             guard let id else {
@@ -185,7 +195,6 @@ struct AgentChatScreen: View {
         TerminalAgent.all.first { $0.id == session.agentID }?.name ?? session.title
     }
 
-    /// The composer is a bottom inset rather than the end of a stack, so the keyboard pushes it up instead of covering it.
     @ViewBuilder
     private func content(_ session: RemoteAgentSession) -> some View {
         ZStack {
@@ -238,81 +247,7 @@ struct AgentChatScreen: View {
             model.listDirectory(folder, sessionID: id)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 0) {
-                if !session.transcript.runningSubagents.isEmpty {
-                    AgentSubagentStrip(running: session.transcript.runningSubagents) {
-                        openedSubagent = AgentSubagentSelection(id: $0)
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-                if attaching != nil || !(attached[session.id] ?? []).isEmpty {
-                    AgentAttachmentTray(items: attached[session.id] ?? [], uploading: attaching) { id in
-                        attached[session.id]?.removeAll { $0.id == id }
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-                // Hints take the place of the chips, which they cover rather than sit above.
-                if AgentExpiry.isExpired(session.transcript) {
-                    expiredBar(session)
-                } else if let query = mentionQuery(session), let id = model.browserID {
-                    let folder = query.folder(in: session.directory)
-                    AgentMentionHints(
-                        query: query,
-                        project: session.directory,
-                        directory: model.directory(folder, sessionID: id),
-                        isLoading: model.isLoadingDirectory(folder, sessionID: id),
-                        failure: model.browseFailure(folder, sessionID: id)
-                    ) { path, isFolder in
-                        drafts[session.id] = query.replacing(in: drafts[session.id] ?? "", with: path, isFolder: isFolder)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 6)
-                    .padding(.bottom, 2)
-                    .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
-                } else if let items = slashItems(session) {
-                    AgentSlashList(items: items) { runSlash($0, in: session) }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 6)
-                        .padding(.bottom, 2)
-                        .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
-                } else if !dictation.isListeningUI {
-                    let followUps = (drafts[session.id] ?? "").isEmpty ? AgentFollowUps.suggestions(for: session.transcript) : []
-                    if !followUps.isEmpty {
-                        AgentFollowUpBar(suggestions: followUps) { follow(up: $0, in: session) }
-                            .transition(.blurReplace)
-                    }
-                    optionsBar(session)
-                        .transition(.blurReplace)
-                }
-                if !AgentExpiry.isExpired(session.transcript) {
-                    AgentComposer(
-                        text: draft,
-                        isFocused: $composerFocused,
-                        isWorking: session.transcript.state == .working,
-                        canSend: AgentDraft.canSend(
-                            draft: drafts[session.id] ?? "",
-                            attachedCount: (attached[session.id] ?? []).filter { $0.failure == nil }.count,
-                            isUploading: attaching != nil
-                        ),
-                        send: { send(session) },
-                        attach: attachAvailable
-                            ? { source in
-                                switch source {
-                                case .files: showsAttachPicker = true
-                                case .photos: showsPhotoPicker = true
-                                }
-                            }
-                            : nil,
-                        stop: { model.interruptAgent(session.id) },
-                        dictation: dictation,
-                        dictated: { insertDictation($0, into: session.id) }
-                    )
-                }
-            }
-            // Down through the keyboard's own area too: the keyboard is translucent, and without this the transcript showed through it.
-            .background(ColorPalette.backdrop.ignoresSafeArea(.all, edges: .bottom))
-            .animation(Motion.settle, value: attaching == nil)
-            .animation(Motion.settle, value: session.transcript.runningSubagents.count)
+            bottomBar(session)
         }
         .onDisappear { dictation.cancel() }
         .photosPicker(isPresented: $showsPhotoPicker, selection: $pickedPhoto, matching: .images)
@@ -340,34 +275,14 @@ struct AgentChatScreen: View {
                 .presentationDragIndicator(.visible)
         }
         .sheet(item: $answering) { approval in
-            AgentApprovalSheet(approval: approval) { decision in
+            AgentApprovalSheet(approval: approval, answer: { decision in
                 model.respondToAgentApproval(approval.id, decision: decision, in: session.id)
                 answering = nil
-            }
+            }, approvePlan: { acceptEdits in
+                model.approveAgentPlan(approval.id, acceptEditsForTurn: acceptEdits, in: session.id)
+                answering = nil
+            })
             .presentationDragIndicator(.visible)
         }
-    }
-
-    private func emptyChat(_ session: RemoteAgentSession) -> some View {
-        AgentEmptyChat(
-            agent: TerminalAgent.all.first { $0.id == session.agentID },
-            session: session,
-            compact: composerFocused
-        ) { text in
-            stickToBottom = true
-            model.sendAgentPrompt(text, to: session.id)
-        }
-    }
-
-    private var ended: some View {
-        VStack(spacing: 6) {
-            Text("This chat has ended.")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(ColorPalette.ink)
-            Text("Start a new one from Mac terminals.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

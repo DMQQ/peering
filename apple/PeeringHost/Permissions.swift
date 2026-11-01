@@ -101,13 +101,6 @@ final class Permissions {
         }
     }
 
-    /// Asks for whatever is missing. Called once at launch.
-    func requestMissing() {
-        if !accessibilityGranted { requestAccessibility() }
-        // SCK is already probed in refresh(); a CGRequest wouldn't add SCKit to Settings.
-        if !screenRecordingGranted { requestScreenRecording() }
-    }
-
     func requestAccessibility() {
         let options = [
             kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true,

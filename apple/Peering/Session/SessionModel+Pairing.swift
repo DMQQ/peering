@@ -7,6 +7,7 @@ extension SessionModel {
     func forget(hostID: String) {
         Analytics.featureUsed(.macForgotten)
         pins.remove(hostID: hostID)
+        SessionModeMemory().forget(hostID)
         pairedHostIDs = pins.hostIDs
         publishKnownMacs()
         append(note: String(localized: "Forgot \(hostID). Unpair this device on the Mac as well."))

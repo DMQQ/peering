@@ -33,8 +33,9 @@ extension RemoteScreen {
         return availableWidth - ChromeMetrics.edgeInset * 2
     }
 
-    func statusBar(availableWidth: CGFloat) -> some View {
-        HStack(alignment: .center, spacing: 5) {
+    /// Erased: with the pill's rows inside, the chrome's generic type grew deep enough that resolving its metadata overflowed the main thread's stack on the first draw of a session.
+    func statusBar(availableWidth: CGFloat) -> AnyView {
+        AnyView(HStack(alignment: .center, spacing: 5) {
             if !statusBarExpanded {
                 lockDot.layoutPriority(1)
             }
@@ -55,7 +56,7 @@ extension RemoteScreen {
         // Narrower than the rails' inset on purpose: the pill's rows need the width.
         .padding(.horizontal, 6)
         .padding(.top, ChromeMetrics.edgeInset)
-        .reportChromeFrame(.statusBar, into: $chromeFrames)
+        .reportChromeFrame(.statusBar, into: $chromeFrames))
     }
 
     func statusPill(availableWidth: CGFloat) -> some View {
@@ -137,6 +138,9 @@ extension RemoteScreen {
                             tint: terminalWantsAttention ? .orange : nil
                         ) {
                             showsTerminals = true
+                        }
+                        actionChip(String(localized: "Mode"), systemImage: "square.grid.2x2") {
+                            showsModePicker = true
                         }
                         if canReturnToMosaic {
                             actionChip(

@@ -31,6 +31,11 @@ struct TabStrip<Item: Identifiable, Tab: View, Accessory: View>: View {
                     guard let id else { return }
                     withAnimation(Motion.settle) { reader.scrollTo(id, anchor: .center) }
                 }
+                // On arrival too, or a selected tab past the edge stays hidden.
+                .onAppear {
+                    guard let selection else { return }
+                    reader.scrollTo(selection, anchor: .center)
+                }
             }
 
             accessory()

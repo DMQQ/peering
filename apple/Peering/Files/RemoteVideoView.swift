@@ -30,13 +30,12 @@ struct RemoteVideoView: View {
         .task(id: path) {
             model.downloadFile(path, sessionID: sessionID, playsInline: true)
         }
-        .onChange(of: model.finishedVideo(path, sessionID: sessionID)) { _, url in
-            if let url { player = AVPlayer(url: url) }
+        // Initial, since a page rebuilt by a rotation arrives after the download finished.
+        .onChange(of: model.finishedVideo(path, sessionID: sessionID), initial: true) { _, url in
+            if let url, player == nil { player = AVPlayer(url: url) }
         }
-        .onDisappear {
-            player?.pause()
-            if player == nil { model.cancelDownload(sessionID: sessionID) }
-        }
+        // Cancel the download with the preview, not here: a rotation rebuilds this view mid-download.
+        .onDisappear { player?.pause() }
     }
 
     private func message(_ text: String) -> some View {

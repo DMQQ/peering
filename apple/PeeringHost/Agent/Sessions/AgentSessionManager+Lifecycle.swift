@@ -44,6 +44,9 @@ extension AgentSessionManager {
         }
         adapter.onPermissionMode = { [weak self, weak session] mode in
             guard let self, let session else { return }
+            self.lock.withLock {
+                if mode == .plan, session.permissionMode != .plan { session.modeBeforePlan = session.permissionMode }
+            }
             self.change(session, \.permissionMode, to: mode, announcing: .permissionModeChanged(sessionID: session.id, mode: mode))
         }
         adapter.onModel = { [weak self, weak session] model in
@@ -86,7 +89,7 @@ extension AgentSessionManager {
                         guard let self, let watched else { return }
                         self.append(.notice(text: FolderAccessWatch.chatMessage), to: watched)
                     },
-                    work: { (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) != nil }
+                    work: { FolderAccessWatch.requestAccess(to: directory.path) }
                 )
                 if !readable, let session {
                     self?.append(.notice(text: FolderAccessWatch.deniedMessage), to: session)

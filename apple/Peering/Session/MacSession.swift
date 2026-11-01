@@ -134,6 +134,11 @@ final class MacSession: Identifiable {
     /// Never assumed: `false` is a Mac too old to have been asked, where the command means a dropped session rather than a stopped picture. See ``PicturePause/mayAsk(hostDeclared:)``.
     var hostSupportsVideoPause = false
 
+    /// How this session is being used, kept here so a screen that is rebuilt for the same Mac does not ask again or forget that it stopped the picture. See ``SessionMode``.
+    var mode = SessionMode.screen
+    var modeResolved = false
+    var picturePausedByMode = false
+
     /// `nil` is not yet answered, or a Mac that cannot; either way every agent is shown.
     var hostSupportsAgentList = false
     var installedAgents: Set<String>?
@@ -150,6 +155,9 @@ final class MacSession: Identifiable {
     var hostSupportsAgentSessionPeek = false
     var hostSupportsAgentPause = false
     var hostSupportsAgentQueue = false
+    var hostSupportsAgentAwayControls = false
+    /// Mirrors ``AgentGuardStore`` so a chat's banner redraws when its cap changes.
+    var agentSpendingCaps: [UUID: AgentSpendingCap] = [:]
 
     /// A Mac from before the list chats with the first two.
     var hostChatAgents: Set<String> = ["claude", "codex"]
@@ -332,6 +340,7 @@ final class MacSession: Identifiable {
     var downloads: [UUID: FileDownload] = [:]
     var finishedDownloads: [UUID: URL] = [:]
     var finishedVideos: [UUID: (path: String, url: URL)] = [:]
+    var previewViewers = 0
     var downloadFailures: [UUID: String] = [:]
 
     /// One per terminal: the Mac answers a change by naming the path, so two operations through one shell would match one remembered request. The entry also disables the controls.

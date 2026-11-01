@@ -20,15 +20,18 @@ public struct LiveActivityChat: Sendable, Equatable {
     public var id: String
     public var symbol: String
     public var state: State
+    /// A closed-set line such as "Changed 4 files, tests passed", in the Mac's language; never words the person or the agent wrote.
+    public var recap: String?
 
-    public init(id: String, symbol: String, state: State) {
+    public init(id: String, symbol: String, state: State, recap: String? = nil) {
         self.id = id
         self.symbol = symbol
         self.state = state
+        self.recap = recap
     }
 }
 
-/// Everything the Mac knows that a Live Activity shows, with no free text in it.
+/// Everything the Mac knows that a Live Activity shows, with no free text in it (a chat's recap is a fixed phrase).
 public struct LiveActivityTruth: Sendable, Equatable {
     public enum Phase: Sendable, Equatable {
         case active

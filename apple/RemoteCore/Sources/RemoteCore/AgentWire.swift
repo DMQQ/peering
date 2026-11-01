@@ -348,6 +348,15 @@ public enum AgentRequest: Codable, Equatable, Sendable {
     ///
     /// Sent only to a Mac that declared ``ServerHello/supportsAgentQueue``.
     case unqueue(sessionID: UUID, index: Int, text: String)
+    /// Whether this phone wants a push only for approvals and questions, not for finished turns. Sent on every ready session and on change.
+    /// Sent only to a Mac that declared ``ServerHello/supportsAgentAwayControls``, as are the three below.
+    case setAlertPreference(decisionsOnly: Bool)
+    /// Nil clears the chat's cap.
+    case setSpendingCap(sessionID: UUID, cap: AgentSpendingCap?)
+    /// The person sends on the next message a cap held back.
+    case releaseHeld(sessionID: UUID)
+    /// Allows a plan; with `acceptEditsForTurn` edits then go through unasked until the turn ends, when the mode before the plan returns. Shell commands still ask.
+    case approvePlan(sessionID: UUID, approvalID: String, acceptEditsForTurn: Bool)
 }
 
 public enum AgentEvent: Codable, Equatable, Sendable {

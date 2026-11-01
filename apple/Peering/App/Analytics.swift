@@ -166,7 +166,7 @@ enum Analytics {
     }
 
     enum Area: String {
-        case purchase, fileTransfer, ssh, audio, notification, liveActivity, security, preview
+        case purchase, fileTransfer, ssh, audio, notification, liveActivity, security, preview, agent
     }
 
     private static let reportFilter = OSAllocatedUnfairLock(initialState: ErrorReportFilter())

@@ -102,7 +102,7 @@ struct AgentChatLiveActivity: Widget {
         switch chat.state {
         case .needsYou: base = String(localized: "Waiting on you")
         case .working: base = chat.activity ?? String(localized: "Working")
-        case .finished: base = String(localized: "Finished")
+        case .finished: base = chat.activity ?? String(localized: "Finished")
         case .failed: base = String(localized: "Stopped with an error")
         }
         let others = state.waiting + state.working - 1

@@ -9,6 +9,8 @@ let joystickRadius: CGFloat = 50
 
 struct RemoteScreen: View {
     @Environment(SessionModel.self) var model
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @Environment(\.verticalSizeClass) var verticalSizeClass
 
     @State var streamLooksPaused = false
     @State var dictation = VoiceDictation()
@@ -60,6 +62,8 @@ struct RemoteScreen: View {
     /// before sending the chord.
     @State var confirmsQuitApplication = false
     @State var route: [RemoteRoute] = []
+    @State var showsModePicker = false
+    @State var watching: ChatWatch?
 
     var showsTerminals: Bool {
         get { !route.isEmpty }
@@ -136,7 +140,7 @@ struct RemoteScreen: View {
     var deviceIsLandscape: Bool { DeviceScene.isLandscape }
 
     var body: some View {
-        NavigationStack(path: $route) {
+        NavigationStack(path: pushedRoute) {
             screen
                 .analyticsScreen(.session)
                 .toolbar(.hidden, for: .navigationBar)
@@ -161,6 +165,10 @@ struct RemoteScreen: View {
         .onChange(of: InAppBanner.shared.openRequest, initial: true) { _, _ in
             openFromBanner()
         }
+        .overlay { hubSplit }
+        .overlay { backToChat }
+        .animation(Motion.settle, value: watching)
+        .environment(\.watchOnMac, { watchOnMac(from: $0) })
     }
 
     private var screen: some View {
@@ -188,9 +196,12 @@ struct RemoteScreen: View {
                 clientCursor
                 carryingScrim
                 gestures
+                // Above the gesture surface, which otherwise takes every tap meant for the window's buttons.
+                windowControls
                 remoteNoticeLayer
                 mosaicDismissButtons
                 sessionChrome(isLandscape: isLandscape, available: proxy.size)
+                modeLayers
 
                 if case .confirming(let code) = model.phase {
                     PairingPrompt(code: code, hostName: model.shownHostName ?? String(localized: "this Mac"))
@@ -250,7 +261,16 @@ struct RemoteScreen: View {
                 abandonPictureTransit()
                 return
             }
+            resolveSessionMode()
             presentLandscapeHint()
+        }
+        .onChange(of: model.activeSessionID) { _, _ in
+            endWatchIfMacChanged()
+            resolveSessionMode()
+        }
+        .onChange(of: route) { _, route in
+            leaveWorkspaceIfClosed(route)
+            endWatchIfHubOpened(route)
         }
         .onChange(of: interactionMode, initial: true) { _, mode in
             model.setObserveOnly(mode == .observe)

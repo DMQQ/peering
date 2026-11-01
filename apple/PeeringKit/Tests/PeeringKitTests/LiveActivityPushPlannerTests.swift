@@ -234,6 +234,20 @@ struct LiveActivityPushPlannerTests {
         #expect(failed.first?.truth.topChat?.id == "d")
     }
 
+    @Test("with decisions only, a finished or failed chat updates the card silently and an approval still alerts")
+    func decisionsOnly() {
+        var planner = planner(.agentChat)
+        planner.decisionsOnly = true
+        _ = planner.observe(truth(chats: [chat("c", .working)]), presence: .background, now: t0)
+        let done = planner.observe(truth(chats: [chat("c", .finished)]), presence: .background, now: t0.addingTimeInterval(2))
+        #expect(done.count == 1)
+        #expect(done.first?.alert == nil)
+        let failed = planner.observe(truth(chats: [chat("d", .failed)]), presence: .background, now: t0.addingTimeInterval(4))
+        #expect(failed.first?.alert == nil)
+        let asks = planner.observe(truth(chats: [chat("e", .needsYou)]), presence: .background, now: t0.addingTimeInterval(6))
+        #expect(asks.first?.alert == .needsApproval)
+    }
+
     @Test("an alert is not repeated when the phone leaves and returns with nothing new")
     func alertOnce() {
         var planner = planner(.agentChat)

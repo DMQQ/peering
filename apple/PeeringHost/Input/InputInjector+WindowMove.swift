@@ -108,7 +108,7 @@ extension InputInjector {
 
     private func windowElement(at point: CGPoint) -> AXUIElement? {
         // Window list before the hit test, which fixes a crash: a hit test over one of our own windows is served in-process on this queue and runs AppKit and SwiftUI accessibility off the main thread, tripping SwiftUI's main-thread assertion. The pid check below runs too late. A window list is Core Graphics and safe anywhere.
-        if ownsWindow(at: point) { return nil }
+        if OwnWindows.contains(point) { return nil }
 
         var hit: AXUIElement?
         guard AXUIElementCopyElementAtPosition(
@@ -130,25 +130,6 @@ extension InputInjector {
             depth += 1
         }
         return nil
-    }
-
-    /// Read from the window server, not AppKit: NSWindow is main-thread state and this runs on the window-move queue. The first window containing the point decides, so only windows near the drag matter.
-    private func ownsWindow(at point: CGPoint) -> Bool {
-        guard let windows = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] else { return false }
-
-        let me = getpid()
-        for window in windows {
-            guard let owner = window[kCGWindowOwnerPID as String] as? NSNumber,
-                  owner.int32Value == me,
-                  let bounds = window[kCGWindowBounds as String] as? NSDictionary,
-                  let rect = CGRect(dictionaryRepresentation: bounds)
-            else { continue }
-            if rect.contains(point) { return true }
-        }
-        return false
     }
 
     /// nil when the element does not answer with a CGPoint (gone since the hit test, or the wrong type); AXValueGetValue makes the wrong type a nil rather than a trap.

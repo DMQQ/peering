@@ -17,6 +17,8 @@ public struct AgentSessionRecord: Codable, Equatable, Sendable {
     public var events: [AgentStreamEvent]
     public var nextIndex: UInt64
     public var truncatedAtFront: Bool
+    /// Absent from records written before the cap was kept on disk.
+    public var spendingCap: AgentSpendingCap?
 
     public init(
         id: UUID,
@@ -31,7 +33,8 @@ public struct AgentSessionRecord: Codable, Equatable, Sendable {
         usage: AgentUsage?,
         events: [AgentStreamEvent],
         nextIndex: UInt64,
-        truncatedAtFront: Bool
+        truncatedAtFront: Bool,
+        spendingCap: AgentSpendingCap? = nil
     ) {
         self.id = id
         self.ownerClientID = ownerClientID
@@ -46,12 +49,13 @@ public struct AgentSessionRecord: Codable, Equatable, Sendable {
         self.events = events
         self.nextIndex = nextIndex
         self.truncatedAtFront = truncatedAtFront
+        self.spendingCap = spendingCap
     }
 }
 
 /// One JSON file per chat, written whole and atomically so a crash mid-write leaves the previous copy.
 public struct AgentSessionDiskStore: Sendable {
-    private let directory: URL
+    let directory: URL
 
     public init(directory: URL) {
         self.directory = directory
@@ -70,12 +74,22 @@ public struct AgentSessionDiskStore: Sendable {
 
     /// A file this build cannot read (written by a newer one, or damaged) is skipped, not deleted.
     public func loadAll() -> [AgentSessionRecord] {
+        loadAllWithActivity().map(\.record)
+    }
+
+    /// With each file's last write, which is the chat's last activity: a record is saved again whenever its chat changes.
+    public func loadAllWithActivity() -> [(record: AgentSessionRecord, lastActivity: Date)] {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        let manager = FileManager.default
+        let names = (try? manager.contentsOfDirectory(atPath: directory.path)) ?? []
         return names.filter { $0.hasSuffix(".json") }.compactMap { name in
-            guard let data = FileManager.default.contents(atPath: directory.appendingPathComponent(name).path) else { return nil }
-            return try? decoder.decode(AgentSessionRecord.self, from: data)
+            let path = directory.appendingPathComponent(name).path
+            guard let data = manager.contents(atPath: path),
+                  let record = try? decoder.decode(AgentSessionRecord.self, from: data)
+            else { return nil }
+            let modified = (try? manager.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+            return (record, modified ?? record.createdAt)
         }
     }
 
@@ -83,7 +97,7 @@ public struct AgentSessionDiskStore: Sendable {
         try? FileManager.default.removeItem(at: file(for: id))
     }
 
-    private func file(for id: UUID) -> URL {
+    func file(for id: UUID) -> URL {
         directory.appendingPathComponent("\(id.uuidString).json")
     }
 }

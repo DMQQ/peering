@@ -110,6 +110,7 @@ extension MacSession {
             agentPauses.observe(session.id, isPaused: AgentPause.isPaused(session.transcript), at: Date())
         }
         let cards = agentSessions.map { AgentCardDigest($0, pauses: agentPauses) }
+        ChatBoardLedger.shared.observe(cards, liveChats: Set(model.sessions.flatMap { $0.agentSessions.map(\.id) }))
         if cards != agentCards { agentCards = cards }
     }
 
@@ -143,6 +144,8 @@ extension MacSession {
 
     func flushAgentQueue(_ id: UUID, state: AgentSessionState) {
         guard var queue = agentQueues[id] else { return }
+        let usage = agentSessions.first { $0.id == id }?.usage
+        if state == .idle, AgentSpendingGuard.holdsQueue(cap: agentSpendingCaps[id], usage: usage) { return }
         let release = queue.release(state: state)
         agentQueues[id] = queue.prompts.isEmpty ? nil : queue
         if case .send(let text) = release {

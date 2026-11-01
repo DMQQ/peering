@@ -5,6 +5,8 @@ import SwiftUI
 struct AgentApprovalSheet: View {
     let approval: AgentApproval
     let answer: (AgentApprovalDecision) -> Void
+    /// Approves a plan; `true` also lets edits through unasked for the rest of the turn.
+    var approvePlan: ((Bool) -> Void)?
 
     private var call: AgentToolCall { approval.call }
 
@@ -40,7 +42,9 @@ struct AgentApprovalSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("approval.reason")
             }
-            if options.isEmpty {
+            if isPlan, let approvePlan {
+                planButtons(approvePlan)
+            } else if options.isEmpty {
                 HStack(spacing: 10) {
                     side(String(localized: "Deny"), filled: false) { answer(.deny) }
                     side(String(localized: "Allow"), filled: true) { answer(.allow) }
@@ -61,6 +65,33 @@ struct AgentApprovalSheet: View {
         // Measured rather than `.fitted`, which left a screen-tall sheet with the system's tint around the content.
         .presentationDetents([.height(height), .large])
         .presentationBackground(ColorPalette.backdrop)
+    }
+
+    private var isPlan: Bool { call.name == "ExitPlanMode" }
+
+    private func planButtons(_ approvePlan: @escaping (Bool) -> Void) -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                side(String(localized: "Keep planning"), filled: false) { answer(.deny) }
+                side(String(localized: "Approve plan"), filled: true) { approvePlan(false) }
+                    .accessibilityIdentifier("approval.plan")
+            }
+            Button { approvePlan(true) } label: {
+                Text("Approve and allow edits for this turn")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("approval.planWithEdits")
+            Text("Edits go through without asking until the turn ends. Commands still ask.")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.55))
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+        }
     }
 
     private var header: some View {
@@ -90,6 +121,7 @@ struct AgentApprovalSheet: View {
     }
 
     private var subtitle: LocalizedStringKey {
+        if isPlan { return "Has a plan for you to approve" }
         if options.isEmpty { return "Wants to run on your Mac" }
         if questions.count > 1 { return "Question \(step + 1) of \(questions.count)" }
         return "Asks a question"

@@ -76,6 +76,11 @@ extension AgentChatScreen {
                 Button { showsUsage = true } label: {
                     Label("Usage and limits", systemImage: "gauge.with.dots.needle.33percent")
                 }
+                if model.agentSpendingCapsAvailable {
+                    Button { showsSpendingCap = true } label: {
+                        Label("Spending cap", systemImage: "gauge.with.dots.needle.100percent")
+                    }
+                }
             }
             Button { showsChanges = true } label: {
                 Label("Changes", systemImage: "doc.badge.gearshape")

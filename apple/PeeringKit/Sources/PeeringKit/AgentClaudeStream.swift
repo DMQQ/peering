@@ -211,9 +211,17 @@ public struct AgentClaudeStream {
             usage.outputTokens += turn["output_tokens"] as? Int ?? 0
         }
         if let cumulativeCostUSD { usage.costUSD = cumulativeCostUSD }
-        if let window = (modelUsage?.values.first as? [String: Any])?["contextWindow"] as? Int {
+        if let window = Self.contextWindow(in: modelUsage, model: model) {
             usage.contextWindowTokens = window
         }
+    }
+
+    /// The chat's own model when it is listed, else the largest window. A turn can also bill a small helper model, and taking whichever entry came first left the window unknown, so the usage bar did not appear.
+    static func contextWindow(in modelUsage: [String: Any]?, model: String?) -> Int? {
+        guard let modelUsage else { return nil }
+        let window = { (entry: Any?) in (entry as? [String: Any])?["contextWindow"] as? Int }
+        if let model, let own = window(modelUsage[model]) { return own }
+        return modelUsage.values.compactMap(window).max()
     }
 
     private static let limitOrder = ["five_hour", "seven_day"]

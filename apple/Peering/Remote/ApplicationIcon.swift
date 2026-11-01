@@ -9,6 +9,8 @@ struct ApplicationIcon: View {
     let fallback: String
 
     var size: CGFloat = 42
+    /// The faint tile behind the artwork. Off where icons sit loose in a grid, as on the Mac's own Launchpad.
+    var showsTile = true
 
     private var corner: CGFloat { size * (11.0 / 42.0) }
 
@@ -27,7 +29,7 @@ struct ApplicationIcon: View {
         }
         .frame(width: size, height: size)
         .background(
-            .white.opacity(0.07),
+            .white.opacity(showsTile ? 0.07 : 0),
             in: RoundedRectangle(cornerRadius: corner, style: .continuous)
         )
         .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))

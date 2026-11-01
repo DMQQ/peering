@@ -96,6 +96,9 @@ extension SessionModel {
 
         if let old, let targetID = target.hostID, targetID == old.hostID {
             session.hasBeenReady = old.hasBeenReady
+            // The way the Mac was being used survives a blip; the screen re-applies it, including the paused picture, when the new object is ready.
+            session.mode = old.mode
+            session.modeResolved = old.modeResolved
             session.reconnectAttempt = old.reconnectAttempt
             // And the clock the window is measured on: the run of attempts is one run however many objects it spans.
             session.reconnectingSince = old.reconnectingSince

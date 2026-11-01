@@ -26,6 +26,8 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
     private var pendingPrompts: [String] = []
     private var turnProcess: AgentProcess?
     private var turnFinished = false
+    /// Held until the process ends and usage is reported: the manager checks the spending cap on the finish.
+    private var heldFinish: AgentStreamEvent.Payload?
     private var interrupted = false
     private var loggedFirstLine = false
     private var stderrTail: [String] = []
@@ -90,6 +92,7 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
             let process = AgentProcess()
             self.stderrTail = []
             self.turnFinished = false
+            self.heldFinish = nil
             self.interrupted = false
             self.loggedFirstLine = false
             process.onLine = { [weak self] line in
@@ -171,7 +174,11 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
             agentLog.notice("\(Self.command, privacy: .public) first line: \(line.prefix(140), privacy: .public)")
         }
         for payload in receive(line: line) {
-            if case .turnFinished = payload { turnFinished = true }
+            if case .turnFinished = payload {
+                turnFinished = true
+                heldFinish = payload
+                continue
+            }
             onEvent?(payload)
         }
     }
@@ -183,6 +190,10 @@ class PerTurnAdapter: AgentAdapter, @unchecked Sendable {
             if !pendingPrompts.isEmpty, binary != nil { prompt(pendingPrompts.removeFirst()) }
         }
         turnProcessEnded()
+        if let finish = heldFinish {
+            heldFinish = nil
+            onEvent?(finish)
+        }
         agentLog.notice("\(Self.command, privacy: .public) turn process ended · status \(status) · finished \(self.turnFinished) · stderr \(self.stderrTail.count) line(s)")
         guard !turnFinished else { return }
         if interrupted {

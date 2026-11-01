@@ -35,6 +35,7 @@ final class HostServer: @unchecked Sendable {
         hostID: device.id,
         presence: { [presence] in presence.presence(of: $0) },
         observedChats: { [agentManager] in agentManager.liveActivityObservations(for: $0) },
+        decisionsOnly: { AgentAlertPreferences.shared.decisionsOnly(for: $0) },
         send: { [weak self] push, done in
             guard let send = self?.callbacks.onActivityPush else { return done() }
             send(push, done)

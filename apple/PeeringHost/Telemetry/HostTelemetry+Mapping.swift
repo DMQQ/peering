@@ -11,7 +11,10 @@ extension HostTelemetry {
         case .streamStopped(let code, _): error(.captureStopped, stage: .stream, errorCode: code)
         case .encodingFailed: error(.encoderFailed, stage: .encode)
         case .recoveryFailed: error(.captureFailed, stage: .recovery, recovered: false)
-        case .sourceUnavailable, .catalogUnavailable, .streamFailed: error(.captureFailed, stage: .start)
+        // The error code tells the three apart: 1 the chosen source is gone, 2 no catalogue yet, 3 the stream started and produced no frames or would not start.
+        case .sourceUnavailable: error(.captureFailed, stage: .start, errorCode: 1)
+        case .catalogUnavailable: error(.captureFailed, stage: .start, errorCode: 2)
+        case .streamFailed: error(.captureFailed, stage: .start, errorCode: 3)
         }
     }
 

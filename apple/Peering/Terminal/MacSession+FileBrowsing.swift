@@ -44,7 +44,16 @@ extension MacSession {
     }
 
     func closePreview() {
+        if let preview = filePreview { cancelInlineDownload(sessionID: preview.terminalID) }
         filePreview = nil
+    }
+
+    /// A rotation builds the new preview page before the old one disappears, so the old page's close would empty the new one; the preview closes only when no page shows it.
+    func retainPreview() { previewViewers += 1 }
+
+    func releasePreview() {
+        previewViewers = max(0, previewViewers - 1)
+        if previewViewers == 0 { closePreview() }
     }
 
     /// It is still a ceiling rather than no ceiling: there is no way to stop a transfer once it has

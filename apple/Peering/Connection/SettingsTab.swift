@@ -14,6 +14,8 @@ struct SettingsTab: View {
     @AppStorage(PreferenceKeys.analyticsEnabled) var analyticsEnabled = true
     @AppStorage(PreferenceKeys.pipAutoStart) var pipAutoStart = true
     @AppStorage(PreferenceKeys.liveActivities) var liveActivitiesEnabled = true
+    @AppStorage(PreferenceKeys.agentDecisionsOnly) var agentDecisionsOnly = false
+    @AppStorage(PreferenceKeys.asksSessionModeOnConnect) var asksSessionModeOnConnect = false
     @AppStorage(PreferenceKeys.hasSeenWelcome) var hasSeenWelcome = true
     @AppStorage(PreferenceKeys.hidesPanelAfterSelect) var hidesPanelAfterSelect = true
     @AppStorage(PreferenceKeys.opensKeyboardForTextFields) var opensKeyboardForTextFields = true

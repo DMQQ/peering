@@ -51,6 +51,11 @@ extension SessionModel {
     }
 
     func closePreview() { activeSession?.closePreview() }
+    /// Returns the Mac it retained so the screen can release that one, not whichever is active when it leaves.
+    func retainPreview() -> MacSession? {
+        activeSession?.retainPreview()
+        return activeSession
+    }
 
     func saveFile(_ text: String, sessionID id: UUID) {
         Analytics.featureUsed(.fileSaved)

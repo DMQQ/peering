@@ -32,6 +32,8 @@ extension MacSession {
         connectionPath = nil
         sessionStartedAt = nil
         picturePaused = false
+        previewViewers = 0
+        filePreview = nil
         phase = .disconnected
     }
 

@@ -50,7 +50,7 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
 
     func clicked(at location: CGPoint) {
         queue.asyncAfter(deadline: .now() + .milliseconds(150)) { [self] in
-            guard timer != nil, AXIsProcessTrusted() else { return }
+            guard timer != nil, AXIsProcessTrusted(), !OwnWindows.contains(location) else { return }
             var hit: AXUIElement?
             let found = AXUIElementCopyElementAtPosition(systemWide, Float(location.x), Float(location.y), &hit)
             var focused: CFTypeRef?
@@ -77,7 +77,7 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
     }
 
     private func poll() {
-        guard AXIsProcessTrusted() else { return }
+        guard AXIsProcessTrusted(), !OwnWindows.isFrontmost else { return }
         var value: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(
             systemWide,

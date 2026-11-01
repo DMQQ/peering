@@ -65,6 +65,9 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// Whether this Mac holds messages typed behind a running turn and takes ``AgentRequest/queue(sessionID:text:)``. Optional and additive: `nil` reads as no, and the phone queues them itself.
     public var supportsAgentQueue: Bool?
 
+    /// Whether this Mac takes the requests ``AgentAwayControlsSupport`` lists. Optional and additive: `nil` reads as no.
+    public var supportsAgentAwayControls: Bool?
+
     /// Whether this host takes ``MessageKind/clientState``. Optional and additive: `nil` reads as no, and a client sends the notice only on an explicit `true`.
     public var supportsClientState: Bool?
 
@@ -98,6 +101,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsAgentSessionPeek: Bool? = nil,
         supportsAgentPause: Bool? = nil,
         supportsAgentQueue: Bool? = nil,
+        supportsAgentAwayControls: Bool? = nil,
         supportsClientState: Bool? = nil,
         supportsLiveActivityPush: Bool? = nil,
         hostPlatform: String? = nil
@@ -127,6 +131,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.supportsAgentSessionPeek = supportsAgentSessionPeek
         self.supportsAgentPause = supportsAgentPause
         self.supportsAgentQueue = supportsAgentQueue
+        self.supportsAgentAwayControls = supportsAgentAwayControls
         self.pushesTerminalAlertsWhileConnected = pushesTerminalAlertsWhileConnected
     }
 }

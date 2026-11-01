@@ -26,4 +26,27 @@ extension AgentChatScreen {
         else { return }
         drafts[currentID] = seed
     }
+
+    func emptyChat(_ session: RemoteAgentSession) -> some View {
+        AgentEmptyChat(
+            agent: TerminalAgent.all.first { $0.id == session.agentID },
+            session: session,
+            compact: composerFocused
+        ) { text in
+            stickToBottom = true
+            model.sendAgentPrompt(text, to: session.id)
+        }
+    }
+
+    var ended: some View {
+        VStack(spacing: 6) {
+            Text("This chat has ended.")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(ColorPalette.ink)
+            Text("Start a new one from Mac terminals.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 }

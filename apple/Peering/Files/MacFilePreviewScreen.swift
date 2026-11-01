@@ -6,6 +6,7 @@ struct MacFilePreviewScreen: View {
     let path: String
 
     @Environment(SessionModel.self) private var model
+    @State private var retainedSession: MacSession?
 
     private func modified(_ id: UUID) -> Date? {
         let folder = (path as NSString).deletingLastPathComponent
@@ -39,16 +40,20 @@ struct MacFilePreviewScreen: View {
         // A read that has not finished after a few seconds is asked for again, up to twice, since a lost request looks exactly like a slow one.
         .task(id: path) {
             guard let id = model.browserID else { return }
+            if let shown = model.filePreview, shown.terminalID == id, shown.path == path, shown.isComplete { return }
             for _ in 0..<3 {
                 model.openFileScope()
                 model.previewFile(path, sessionID: id)
                 try? await Task.sleep(for: .seconds(8))
                 if Task.isCancelled { return }
-                guard let preview = model.filePreview, preview.path == path, !preview.isComplete,
-                      model.browseFailure(path, sessionID: id) == nil
-                else { return }
+                if let preview = model.filePreview, preview.path == path, preview.isComplete { return }
+                if model.browseFailure(path, sessionID: id) != nil { return }
             }
         }
-        .onDisappear { model.closePreview() }
+        .onAppear { retainedSession = model.retainPreview() }
+        .onDisappear {
+            retainedSession?.releasePreview()
+            retainedSession = nil
+        }
     }
 }

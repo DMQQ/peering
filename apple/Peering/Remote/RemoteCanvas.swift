@@ -22,6 +22,7 @@ struct CanvasGestureView: UIViewRepresentable {
     var onMosaicDrag: (CGPoint) -> Void = { _ in }
     var onMosaicDrop: () -> Void = {}
     var onPictureTap: () -> Bool = { false }
+    var onMultiFingerSwipe: (TrackpadSwipe) -> Void = { _ in }
     func makeUIView(context: Context) -> GestureSurfaceView {
         let view = GestureSurfaceView()
         view.interactionMode = interactionMode
@@ -42,7 +43,8 @@ struct CanvasGestureView: UIViewRepresentable {
             onMosaicLift: onMosaicLift,
             onMosaicDrag: onMosaicDrag,
             onMosaicDrop: onMosaicDrop,
-            onPictureTap: onPictureTap
+            onPictureTap: onPictureTap,
+            onMultiFingerSwipe: onMultiFingerSwipe
         )
         return view
     }
@@ -68,7 +70,8 @@ struct CanvasGestureView: UIViewRepresentable {
             onMosaicLift: onMosaicLift,
             onMosaicDrag: onMosaicDrag,
             onMosaicDrop: onMosaicDrop,
-            onPictureTap: onPictureTap
+            onPictureTap: onPictureTap,
+            onMultiFingerSwipe: onMultiFingerSwipe
         )
     }
 }
@@ -89,6 +92,7 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
         var onMosaicDrag: (CGPoint) -> Void
         var onMosaicDrop: () -> Void
         var onPictureTap: () -> Bool
+        var onMultiFingerSwipe: (TrackpadSwipe) -> Void
     }
 
     var handlers: Handlers?
@@ -175,6 +179,22 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
         return gesture
     }()
 
+    /// Fails on movement or a lift short of the press, so the drag and tap that wait for it lose nothing.
+    private lazy var secondaryPress: UILongPressGestureRecognizer = {
+        let gesture = UILongPressGestureRecognizer(target: self, action: #selector(handleSecondaryPress))
+        gesture.minimumPressDuration = 0.5
+        gesture.allowableMovement = 10
+        gesture.numberOfTouchesRequired = 1
+        return gesture
+    }()
+
+    private lazy var multiFingerSwipe: UIPanGestureRecognizer = {
+        let gesture = UIPanGestureRecognizer(target: self, action: #selector(handleMultiFingerSwipe))
+        gesture.minimumNumberOfTouches = 3
+        gesture.maximumNumberOfTouches = 4
+        return gesture
+    }()
+
     // MARK: Trackpad and mouse
 
     private lazy var hover = UIHoverGestureRecognizer(target: self, action: #selector(handleHover))
@@ -208,6 +228,8 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
         addGestureRecognizer(twoFingerTap)
         addGestureRecognizer(oneFingerTap)
         addGestureRecognizer(mosaicLift)
+        addGestureRecognizer(secondaryPress)
+        addGestureRecognizer(multiFingerSwipe)
         addGestureRecognizer(hover)
         addGestureRecognizer(pointerScroll)
         addGestureRecognizer(pointerSecondaryClick)
@@ -224,6 +246,8 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
         // decide it is not a drag, which is most of the press.
         oneFingerPan.require(toFail: mosaicLift)
         oneFingerTap.require(toFail: mosaicLift)
+        oneFingerPan.require(toFail: secondaryPress)
+        oneFingerTap.require(toFail: secondaryPress)
 
         // Pinch and two-finger pan must fire at the same time so the user can zoom-and-reposition
         // in one gesture. Without this, iOS picks whichever started first and cancels the other,
@@ -232,6 +256,7 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
         twoFingerPan.delegate = self
         oneFingerPan.delegate = self
         oneFingerTap.delegate = self
+        multiFingerSwipe.delegate = self
     }
 
     /// This is what stops the canvas eating taps aimed at the chrome. This view covers the whole
@@ -247,6 +272,10 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
         // the drag behind it. A refusal here is a failure, which is what the two `require(toFail:)`
         // above are waiting for.
         if gestureRecognizer === mosaicLift, !isMosaicShowing { return false }
+        if gestureRecognizer === secondaryPress || gestureRecognizer === multiFingerSwipe,
+           isMosaicShowing || !interactionMode.tapsReachTheMac {
+            return false
+        }
         return !blocked
     }
 
@@ -260,6 +289,9 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
         // the second arrives, and with the pair exclusive the pinch was never allowed to start
         // while that drag was still running. So the pointer went on following the first finger
         // under a hand that thought it was zooming, which is exactly what it looked like.
+        // The swipe runs beside the others only so it can begin under fingers that landed apart;
+        // its `.began` then cancels them.
+        if gestureRecognizer === multiFingerSwipe || other === multiFingerSwipe { return true }
         let drags: Set<UIGestureRecognizer> = [oneFingerPan, twoFingerPan]
         let involvesPinch = gestureRecognizer === pinch || other === pinch
         let allowed = involvesPinch && !(drags.contains(gestureRecognizer) && drags.contains(other))
@@ -375,6 +407,12 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
         handlers?.onTouchUp(point)
     }
 
+    @objc private func handleSecondaryPress(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        handlers?.onSecondaryClick(gesture.location(in: self))
+    }
+
     // MARK: - Two fingers
 
     @objc private func handleTwoFingerPan(_ gesture: UIPanGestureRecognizer) {
@@ -439,6 +477,26 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
         let point = gesture.location(in: self)
         guard !CanvasGeometry.isBlocked(point, regions: blockedRegions) else { return }
         handlers?.onSecondaryClick(point)
+    }
+
+    // MARK: - Three and four fingers
+
+    @objc private func handleMultiFingerSwipe(_ gesture: UIPanGestureRecognizer) {
+        switch gesture.state {
+        case .began:
+            // Toggling `isEnabled` cancels a recogniser, which ends the Mac's held button or the
+            // scroll the first fingers started; touches already down are not handed back to it.
+            for recognizer in [oneFingerPan, twoFingerPan, pinch, secondaryPress] {
+                recognizer.isEnabled = false
+                recognizer.isEnabled = true
+            }
+        case .ended:
+            let travel = gesture.translation(in: self)
+            guard let swipe = TrackpadSwipe(dx: travel.x, dy: travel.y) else { return }
+            handlers?.onMultiFingerSwipe(swipe)
+        default:
+            break
+        }
     }
 
     // MARK: - Trackpad and mouse

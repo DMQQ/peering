@@ -18,6 +18,8 @@ struct AgentTranscriptRow: View {
     /// True for the reply that has just arrived: it is shown being typed instead of appearing whole.
     var streams = false
     var onReveal: () -> Void = {}
+    var revealedCount = 0
+    var onRevealProgress: (Int) -> Void = { _ in }
 
     var body: some View {
         switch item {
@@ -64,7 +66,7 @@ struct AgentTranscriptRow: View {
         case .reply(let id, let text):
             Group {
                 if streams {
-                    AgentStreamedMarkdown(text: text, revealed: onReveal)
+                    AgentStreamedMarkdown(text: text, revealed: onReveal, alreadyShown: revealedCount, progressed: onRevealProgress)
                 } else {
                     AgentMarkdownText(text: text)
                 }

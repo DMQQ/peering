@@ -43,6 +43,7 @@ extension MacSession {
             }
             // The chat on screen may have asked before this list existed, and that ask is gone with the set cleared above.
             if let selectedAgentSessionID { ensureAgentHistory(selectedAgentSessionID) }
+            sendAwayControls(for: Set(infos.map(\.id)))
 
         case .created(let info):
             if let index = agentSessions.firstIndex(where: { $0.id == info.id }) {
@@ -77,6 +78,7 @@ extension MacSession {
         case .usageChanged(let id, let usage):
             guard let index = agentSessions.firstIndex(where: { $0.id == id }) else { return }
             agentSessions[index].usage = usage
+            warnIfNearFiveHourLimit(usage, in: agentSessions[index])
 
         case .permissionModeChanged(let id, let mode):
             guard let index = agentSessions.firstIndex(where: { $0.id == id }) else { return }

@@ -142,6 +142,9 @@ extension RemoteScreen {
                 // An open panel no longer swallows the tap: the picture stays usable under it, and the panel is closed by its handle.
                 return false
             },
+            onMultiFingerSwipe: { swipe in
+                for command in swipe.commands(spaces: model.catalog?.spaceInfo) { model.send(command) }
+            }
         )
         .ignoresSafeArea()
         .transaction { $0.disablesAnimations = true }

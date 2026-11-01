@@ -17,6 +17,8 @@ struct AgentChatTranscript: View {
 
     /// What was already in the transcript when it appeared; nil until then, so a conversation being opened is never typed out.
     @State private var present: Set<UUID>?
+    /// How far each streaming reply has typed out, so a row rebuilt by scrolling picks up where it was. A plain reference, so recording progress every frame does not redraw the transcript.
+    @State private var revealed = RevealProgress()
     /// Scrolling a transcript shorter than its viewport pushes the offset negative and snaps back, which reads as flicker.
     @State private var overflows = false
     /// Within a screen's worth of the first message, the one place the jump to the end is offered: partway down, the end is a short scroll away.
@@ -75,7 +77,9 @@ struct AgentChatTranscript: View {
                             openSubagent: subagentOpener(for: item),
                             subagentSteps: subagent(for: item)?.items.count,
                             streams: streams(item),
-                            onReveal: { if stickToBottom { scrollToEnd(reader) } }
+                            onReveal: { if stickToBottom { scrollToEnd(reader) } },
+                            revealedCount: revealed.counts[item.id] ?? 0,
+                            onRevealProgress: { [revealed] in revealed.counts[item.id] = $0 }
                         )
                         .agentRowArrival()
                     }
@@ -144,6 +148,7 @@ struct AgentChatTranscript: View {
                 stickToBottom = atBottom
             }
             .onChange(of: session.transcript.items.count) { old, _ in
+                revealed.keepOnly(session.transcript.items.map(\.id))
                 // A conversation read back from the Mac arrives after the screen does: that first fill lands on its end, not its top, and without animating past the whole history.
                 if old == 0 {
                     stickToBottom = true
@@ -157,10 +162,21 @@ struct AgentChatTranscript: View {
                 scrollToEnd(reader)
             }
             .onChange(of: session.id) { _, _ in
+                revealed.keepOnly(session.transcript.items.map(\.id))
                 present = Set(session.transcript.items.map(\.id))
                 stickToBottom = true
                 scrollToEnd(reader)
             }
         }
+    }
+}
+
+@MainActor
+private final class RevealProgress {
+    var counts: [UUID: Int] = [:]
+
+    func keepOnly(_ ids: [UUID]) {
+        let present = Set(ids)
+        counts = counts.filter { present.contains($0.key) }
     }
 }

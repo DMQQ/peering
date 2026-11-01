@@ -22,8 +22,15 @@ final class AgentSession: @unchecked Sendable {
     var permissionMode: AgentPermissionMode
     var usage: AgentUsage?
     var lastReply: String?
-    /// Files the running turn has edited, for the notification that says it finished.
-    var turnEditedFiles: Set<String> = []
+    /// What the running turn has done, for the line the finished notification and the Live Activity show.
+    var turnRecap = AgentTurnRecap()
+    var lastRecap: String?
+    /// Set from the phone. Past it, the queue waits for the person.
+    var spendingCap: AgentSpendingCap?
+    /// The mode in force before the chat entered plan mode, which approving the plan returns to.
+    var modeBeforePlan: AgentPermissionMode?
+    /// Set when a plan was approved with edits allowed for the turn: the mode to put back when the turn ends.
+    var modeAfterTurn: AgentPermissionMode?
     var telemetry = AgentTurnTelemetry()
     /// Messages waiting behind the running turn.
     var queue = AgentPromptQueue()
@@ -64,6 +71,7 @@ final class AgentSession: @unchecked Sendable {
         model = record.model
         permissionMode = record.permissionMode
         usage = record.usage
+        spendingCap = record.spendingCap
     }
 
     var resume: AgentResume {
@@ -101,7 +109,8 @@ final class AgentSession: @unchecked Sendable {
             usage: usage,
             events: transcript.events,
             nextIndex: transcript.nextIndex,
-            truncatedAtFront: transcript.truncatedAtFront
+            truncatedAtFront: transcript.truncatedAtFront,
+            spendingCap: spendingCap
         )
     }
 

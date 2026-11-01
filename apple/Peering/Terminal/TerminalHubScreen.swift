@@ -49,6 +49,7 @@ struct TerminalHubScreen: View {
                     guideSeen: $agentsGuideSeen
                 )
                 guide(.agents)
+                allChatsEntry
                 AgentToReviewCard()
                 if agentsSettled {
                     chatsSection
