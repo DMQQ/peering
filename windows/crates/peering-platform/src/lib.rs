@@ -7,6 +7,7 @@ pub mod audio;
 pub mod clipboard;
 pub mod clipboard_image;
 pub mod convert;
+pub mod curtain;
 pub mod cursor;
 pub mod dda;
 pub mod dpapi;
@@ -26,6 +27,8 @@ pub mod wgc;
 pub mod window_list;
 #[cfg(windows)]
 pub mod gpu;
+#[cfg(windows)]
+pub mod job;
 #[cfg(windows)]
 pub mod services;
 #[cfg(windows)]

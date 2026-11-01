@@ -1,5 +1,5 @@
 //! Agent chat sessions: which CLI each chat runs, what each chat has said, and the events a client is sent for a
-//! request or a poll. Pure logic over `ClaudeAdapter`, so it runs with a fake process in tests.
+//! request or a poll. Pure logic over `AgentAdapter`, so it runs with a fake process in tests.
 
 mod clients;
 mod commands;
@@ -12,31 +12,32 @@ mod tests;
 #[cfg(test)]
 mod tests_transcript;
 
-use crate::claude_adapter::{ClaudeAdapter, ClaudeResume, ProcessLauncher};
+use crate::adapter::{agent_name, AgentAdapter, AgentResume, AGENTS};
+use crate::claude_adapter::ProcessLauncher;
+use crate::codex_session_log;
 use peering_wire::agent::{AgentEvent, AgentRequest, AgentStreamPayload};
 pub use clients::ClientAgents;
 use session::ManagedSession;
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// The CLI a chat runs, and the name its binary is looked for under.
-pub const AGENT_ID: &str = "claude";
-const TITLE_PREFIX: &str = "Claude Code";
 const MAXIMUM_PROMPT_BYTES: usize = 64 * 1024;
 /// Seconds from the Unix epoch to 2001-01-01, the reference date the wire's times count from.
 const UNIX_TO_REFERENCE_SECONDS: f64 = 978_307_200.0;
 const NOT_SUPPORTED: &str = "This is not supported on this host yet.";
 
-/// The agents a chat can be started with on this host.
+/// Every agent a chat can be started with on this host, installed or not.
 pub fn agent_chat_agents() -> Vec<String> {
-    vec![AGENT_ID.to_owned()]
+    AGENTS.iter().map(|(id, _)| (*id).to_owned()).collect()
 }
 
 pub struct AgentSessionManager<L: ProcessLauncher> {
     launcher: L,
     sessions: BTreeMap<String, ManagedSession>,
     started: u64,
+    /// Codex's own folder (`CODEX_HOME` or `.codex`), where its thread logs and model list are.
+    codex_home: Option<PathBuf>,
 }
 
 impl<L: ProcessLauncher> AgentSessionManager<L> {
@@ -45,7 +46,12 @@ impl<L: ProcessLauncher> AgentSessionManager<L> {
             launcher,
             sessions: BTreeMap::new(),
             started: 0,
+            codex_home: None,
         }
+    }
+
+    pub fn set_codex_home(&mut self, codex_home: PathBuf) {
+        self.codex_home = Some(codex_home);
     }
 
     /// The events a request produces, in the order they should be sent.
@@ -76,14 +82,20 @@ impl<L: ProcessLauncher> AgentSessionManager<L> {
         }
     }
 
+    /// The folder a chat runs in, for the git review that works on it.
+    pub fn directory_of(&self, session_id: &str) -> Option<&str> {
+        self.sessions.get(session_id).map(|session| session.directory.as_str())
+    }
+
     /// Reads what every running CLI has printed since the last poll.
     pub fn poll(&mut self) -> Vec<AgentEvent> {
         let mut events = Vec::new();
         for session in self.sessions.values_mut() {
-            let payloads = session.adapter.poll();
-            let turn_ended = payloads
-                .iter()
-                .any(|payload| matches!(payload, AgentStreamPayload::TurnFinished { .. }));
+            let payloads = session.adapter.poll(&mut self.launcher);
+            let turn_ended = session.adapter.take_usage_due()
+                || payloads
+                    .iter()
+                    .any(|payload| matches!(payload, AgentStreamPayload::TurnFinished { .. }));
             for payload in payloads {
                 events.push(session.record(payload));
             }
@@ -92,16 +104,35 @@ impl<L: ProcessLauncher> AgentSessionManager<L> {
         events
     }
 
-    fn new_session(&mut self, directory: &Path) -> ManagedSession {
+    /// `None` for an agent this host does not know.
+    fn new_session(&mut self, agent_id: &str, directory: &Path) -> Option<ManagedSession> {
+        let name = agent_name(agent_id)?;
+        let adapter = self.make_adapter(agent_id, directory, AgentResume::default())?;
         self.started += 1;
         let id = session_id(self.started);
         let folder = folder_name(directory);
         let title = unique_title(
-            &format!("{TITLE_PREFIX} · {folder}"),
+            &format!("{name} · {folder}"),
             self.sessions.values().map(|session| session.title.as_str()),
         );
-        let adapter = ClaudeAdapter::new(directory.to_path_buf(), ClaudeResume::default());
-        ManagedSession::new(id, title, directory, created_at(), adapter)
+        let mut session = ManagedSession::new(id, agent_id, title, directory, created_at(), adapter);
+        session.model_choices = self.model_choices(agent_id);
+        Some(session)
+    }
+
+    fn make_adapter(&self, agent_id: &str, directory: &Path, resume: AgentResume) -> Option<AgentAdapter> {
+        let sessions = self.codex_home.as_ref().map(|home| home.join("sessions"));
+        AgentAdapter::make(agent_id, directory, resume, sessions.as_deref())
+    }
+
+    /// Codex lists its models in a cache file; the other CLIs take a typed name.
+    fn model_choices(&self, agent_id: &str) -> Option<Vec<String>> {
+        if agent_id != "codex" {
+            return None;
+        }
+        let cache = std::fs::read_to_string(self.codex_home.as_ref()?.join("models_cache.json")).ok()?;
+        let models = codex_session_log::visible_models(&cache);
+        (!models.is_empty()).then_some(models)
     }
 }
 

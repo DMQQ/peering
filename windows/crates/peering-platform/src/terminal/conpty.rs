@@ -10,7 +10,7 @@ use peering_core::terminal::pty::{Pty, PtyRead, PtySpawner, SpawnRequest};
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 
 use super::exit::ExitTracker;
-use super::job::Job;
+use crate::job::Job;
 
 const READ_BYTES: usize = 16 * 1024;
 

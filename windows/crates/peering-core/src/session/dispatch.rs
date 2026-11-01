@@ -34,7 +34,6 @@ pub enum IgnoreReason {
     ObserveMode,
     MosaicSource,
     VirtualDisplay,
-    PrivacyMode { enabled: bool },
     WindowAction,
     SpaceSwitch,
     /// `launchApplication` and `openNewWindow`.
@@ -114,7 +113,6 @@ fn ignore_reason(command: &RemoteCommand) -> Option<IgnoreReason> {
         RemoteCommand::AddVirtualDisplay { .. }
         | RemoteCommand::RemoveVirtualDisplay { .. }
         | RemoteCommand::RenameVirtualDisplay { .. } => Some(IgnoreReason::VirtualDisplay),
-        RemoteCommand::SetPrivacyMode { enabled } => Some(IgnoreReason::PrivacyMode { enabled: *enabled }),
         RemoteCommand::PerformWindowAction { .. } => Some(IgnoreReason::WindowAction),
         RemoteCommand::LaunchApplication { .. } | RemoteCommand::OpenNewWindow { .. } => Some(IgnoreReason::Launch),
         RemoteCommand::SetCaptureSource { source: CaptureSource::Mosaic { .. } } => Some(IgnoreReason::MosaicSource),
@@ -130,6 +128,7 @@ fn is_for_host(command: &RemoteCommand) -> bool {
             | RemoteCommand::PushClipboardImage { .. }
             | RemoteCommand::RefreshSourceThumbnails {}
             | RemoteCommand::WatchSourceThumbnails { .. }
+            | RemoteCommand::SetPrivacyMode { .. }
     )
 }
 

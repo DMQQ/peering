@@ -3051,6 +3051,7 @@ name = "peering-agent"
 version = "0.1.0"
 dependencies = [
  "peering-agent",
+ "peering-platform",
  "peering-wire",
  "serde",
  "serde_json",

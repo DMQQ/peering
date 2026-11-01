@@ -4,6 +4,7 @@ pub mod audio;
 pub mod capture;
 pub mod clipboard;
 pub mod clock;
+pub mod curtain;
 pub mod encoder;
 pub mod focus;
 pub mod input;

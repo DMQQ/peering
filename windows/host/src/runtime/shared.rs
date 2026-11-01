@@ -113,6 +113,8 @@ pub struct HostState {
     pub audio: AudioPipeline,
     pub focus: FocusPipeline,
     pub settings: HostSettings,
+    pub privacy: super::privacy::PrivacyControl,
+    pub git_writes: super::agent_git::GitWrites,
     pub settings_saver: SettingsSaver,
     /// The hook broker while Claude Code hooks are on, which a phone's Allow or Deny is offered to first.
     pub hook_broker: Option<Arc<HookBroker>>,

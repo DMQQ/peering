@@ -22,6 +22,7 @@ mod register;
 
 use super::outbound::{outbound, FrameSender, OutboundReceiver};
 use super::pre_auth::PreAuthPermit;
+use super::preview_proxy::PreviewTransfers;
 use super::random::SystemRandomSource;
 use super::shared::Shared;
 use super::{HostProfile, PeerInfo};
@@ -52,6 +53,7 @@ pub(super) struct Connection {
     pub(super) clipboard_frame_id: u32,
     /// Held until the connection is authorised or turns out to be a video connection.
     pub(super) pre_auth: Option<PreAuthPermit>,
+    pub(super) previews: PreviewTransfers,
 }
 
 /// Serves one connection until the peer leaves, the core closes it, or the framing breaks.
@@ -100,6 +102,7 @@ where
         clipboard_chunks: super::clipboard::new_reassembler(),
         clipboard_frame_id: 0,
         pre_auth,
+        previews: PreviewTransfers::default(),
     };
     connection.run(&mut reader).await;
     connection.finish();

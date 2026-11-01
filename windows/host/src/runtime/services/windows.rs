@@ -52,7 +52,7 @@ pub fn build() -> Result<Adapters, RuntimeError> {
             protected_folders(&|name| std::env::var(name).ok()),
             default_directory().map(|directory| directory.join("upload-folders.txt")),
         )),
-        extras: HostExtras { audio: Box::new(LoopbackAudio::default()), focus: Box::new(UiaFocus::default()), archive_directory, releases: Arc::new(GithubReleases { user_agent: format!("peering-host/{}", env!("PEERING_HOST_VERSION")) }), version: env!("PEERING_HOST_VERSION"), thumbnails: Arc::new(WindowsThumbnails) },
+        extras: HostExtras { audio: Box::new(LoopbackAudio::default()), focus: Box::new(UiaFocus::default()), archive_directory, releases: Arc::new(GithubReleases { user_agent: format!("peering-host/{}", env!("PEERING_HOST_VERSION")) }), version: env!("PEERING_HOST_VERSION"), thumbnails: Arc::new(WindowsThumbnails), curtain: Box::new(peering_platform::curtain::WindowsCurtain::default()) },
     })
 }
 

@@ -50,7 +50,15 @@ pub const FIREWALL_APPLIED: &str = "The firewall rule is in place.";
 pub const FRAME_RATE_HEADING: &str = "Frame rate";
 pub const FRAME_RATE_NOTE: &str = "A phone can still ask for its own frame rate.";
 
-pub const PRIVACY_MODE_UNAVAILABLE: &str = "Privacy mode is not available on this PC.";
+pub const PRIVACY_MODE_FAILED: &str = "Privacy Mode could not darken this PC's displays.";
+
+pub fn privacy_mode_uncovered(count: usize) -> String {
+    if count == 1 {
+        "One of this PC's displays is still visible: Privacy Mode could not cover it.".to_owned()
+    } else {
+        format!("{count} of this PC's displays are still visible: Privacy Mode could not cover them.")
+    }
+}
 pub const DESKTOPS_UNAVAILABLE: &str = "This PC cannot switch desktops from the phone.";
 pub const WINDOW_ACTIONS_UNAVAILABLE: &str = "This PC cannot close or move windows from the phone yet.";
 pub const LAUNCH_UNAVAILABLE: &str = "This PC cannot open apps from the phone yet.";

@@ -32,7 +32,7 @@ fn a_remembered_phone_is_authorised_without_pairing_again() {
         assert_eq!(hello.host_platform.as_deref(), Some("windows"));
         assert_eq!(hello.capabilities.supports_file_browser, Some(true));
         assert_eq!(hello.capabilities.supports_agent_chat, Some(true));
-        assert_eq!(hello.agent_chat_agents.as_deref(), Some(&["claude".to_owned()][..]));
+        assert_eq!(hello.agent_chat_agents.as_deref().and_then(<[String]>::first).map(String::as_str), Some("claude"));
         second.next_of(MessageKind::Catalog).await;
     });
 }

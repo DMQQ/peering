@@ -2,6 +2,7 @@
 //! behind them still running, as it does on the Mac.
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 use peering_wire::agent::{AgentEvent, AgentRequest};
 
@@ -11,20 +12,39 @@ use crate::claude_adapter::ProcessLauncher;
 pub struct ClientAgents<L: ProcessLauncher> {
     managers: BTreeMap<String, AgentSessionManager<L>>,
     new_launcher: Box<dyn FnMut() -> L>,
+    codex_home: Option<PathBuf>,
 }
 
 impl<L: ProcessLauncher> ClientAgents<L> {
     pub fn new(new_launcher: impl FnMut() -> L + 'static) -> Self {
-        Self { managers: BTreeMap::new(), new_launcher: Box::new(new_launcher) }
+        Self { managers: BTreeMap::new(), new_launcher: Box::new(new_launcher), codex_home: None }
+    }
+
+    /// Where Codex keeps its thread logs and model list, handed to every manager made after this.
+    pub fn with_codex_home(mut self, codex_home: PathBuf) -> Self {
+        self.codex_home = Some(codex_home);
+        self
     }
 
     /// The events `request` produces for `client_id`, starting that client's manager on first use.
     pub fn handle(&mut self, client_id: &str, request: AgentRequest) -> Vec<AgentEvent> {
         let launcher = &mut self.new_launcher;
+        let codex_home = &self.codex_home;
         self.managers
             .entry(client_id.to_owned())
-            .or_insert_with(|| AgentSessionManager::new(launcher()))
+            .or_insert_with(|| {
+                let mut manager = AgentSessionManager::new(launcher());
+                if let Some(home) = codex_home {
+                    manager.set_codex_home(home.clone());
+                }
+                manager
+            })
             .handle(request)
+    }
+
+    /// The folder of one of `client_id`'s chats; `None` for a chat that is not theirs or is gone.
+    pub fn directory_of(&self, client_id: &str, session_id: &str) -> Option<String> {
+        self.managers.get(client_id)?.directory_of(session_id).map(str::to_owned)
     }
 
     /// What every client's CLIs printed since the last poll, each event with the client it belongs to.
@@ -86,6 +106,15 @@ mod tests {
         let mut agents = agents();
         start(&mut agents, "phone-a");
         assert!(listed(&mut agents, "phone-b").is_empty());
+    }
+
+    #[test]
+    fn a_chats_folder_is_found_only_by_the_client_that_owns_it() {
+        let mut agents = agents();
+        let id = start(&mut agents, "phone-a");
+        assert_eq!(agents.directory_of("phone-a", &id).as_deref(), Some(WORK_DIR));
+        assert_eq!(agents.directory_of("phone-b", &id), None);
+        assert_eq!(agents.directory_of("phone-a", "gone"), None);
     }
 
     #[test]

@@ -1,5 +1,6 @@
 //! Agent chat wire models, shaped as the Swift `Codable` output in `AgentWire.swift`. See docs/protocol.md section 7.
 
+mod changes;
 mod event;
 mod request;
 mod session;
@@ -9,6 +10,10 @@ mod tool;
 #[cfg(test)]
 mod tests;
 
+pub use changes::{
+    is_inside_folder, AgentChangeKind, AgentChangedFile, AgentChangesReport, AgentGitBranch, AgentGitOperation,
+    AgentGitResult,
+};
 pub use event::AgentEvent;
 pub use request::AgentRequest;
 pub use session::{AgentPermissionMode, AgentSessionInfo, AgentSessionState, AgentUsage, AgentUsageLimit};

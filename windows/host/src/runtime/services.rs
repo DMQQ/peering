@@ -1,6 +1,7 @@
 //! The adapters a runtime is built from. The Windows set is compiled on Windows only; elsewhere the fakes stand in, so the
 //! host logic runs and is tested on any OS. The wrappers let the video coordinator and the runtime share one capture.
 
+use peering_core::ports::curtain::{NoCurtain, PrivacyCurtain};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use peering_agent::availability::BinaryLocator;
@@ -96,11 +97,13 @@ pub struct HostExtras {
     pub version: &'static str,
     /// Takes the pictures the phone's source grid shows.
     pub thumbnails: Arc<dyn SourceThumbnails>,
+    /// Covers the displays for privacy mode.
+    pub curtain: Box<dyn PrivacyCurtain + Send>,
 }
 
 impl Default for HostExtras {
     fn default() -> Self {
-        Self { audio: Box::new(SilentAudio), focus: Box::new(BlindFocus), archive_directory: std::env::temp_dir().join("PeeringArchives"), releases: Arc::new(NoReleases), version: env!("PEERING_HOST_VERSION"), thumbnails: Arc::new(NoThumbnails) }
+        Self { audio: Box::new(SilentAudio), focus: Box::new(BlindFocus), archive_directory: std::env::temp_dir().join("PeeringArchives"), releases: Arc::new(NoReleases), version: env!("PEERING_HOST_VERSION"), thumbnails: Arc::new(NoThumbnails), curtain: Box::new(NoCurtain) }
     }
 }
 

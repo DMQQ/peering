@@ -395,6 +395,26 @@ impl Phone {
         self.send(Frame::empty(MessageKind::Ping)).await;
         self.next_of(MessageKind::Pong).await;
     }
+
+    /// Like `sync`, and says whether a frame of `kind` came before the pong. Such frames are kept for `next_of`.
+    pub async fn sync_seeing(&mut self, kind: MessageKind) -> bool {
+        self.send(Frame::empty(MessageKind::Ping)).await;
+        let mut seen = Vec::new();
+        loop {
+            let frame = self.next().await;
+            if frame.kind == MessageKind::Pong {
+                break;
+            }
+            if frame.kind == kind {
+                seen.push(frame);
+            }
+        }
+        let found = !seen.is_empty();
+        for frame in seen.into_iter().rev() {
+            self.queued.push_front(frame);
+        }
+        found
+    }
 }
 
 pub fn hello() -> Frame {

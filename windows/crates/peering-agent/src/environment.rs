@@ -1,13 +1,19 @@
 //! Finds the agent CLIs on Windows and says how to start each one. Mirrors `apple/PeeringHost/Agent/Process/AgentEnvironment.swift`.
 
+mod launch;
 #[cfg(test)]
 mod tests;
+
+pub use launch::{launch_command, npm_shim_script, UnsafeArgument};
 
 const DEFAULT_PATH_EXTENSIONS: [&str; 4] = [".COM", ".EXE", ".BAT", ".CMD"];
 
 /// The filesystem question the search asks. Real code answers it from the disk; tests answer it from a set.
 pub trait Exists {
     fn exists(&self, path: &str) -> bool;
+
+    /// A small text file's contents, for reading an npm shim. `None` when it cannot be read.
+    fn read_text(&self, path: &str) -> Option<String>;
 }
 
 /// Where a binary may be, in the order it is looked for.
@@ -68,17 +74,6 @@ pub fn find_binary(name: &str, search: &SearchEnv, fs: &dyn Exists) -> Option<Re
             })
         })
     })
-}
-
-/// The program and arguments that start a found binary with `args`.
-pub fn launch_command(resolved: &Resolved, args: &[String]) -> (String, Vec<String>) {
-    if resolved.needs_cmd_wrapper {
-        let mut full = vec!["/c".to_owned(), resolved.path.clone()];
-        full.extend_from_slice(args);
-        ("cmd.exe".to_owned(), full)
-    } else {
-        (resolved.path.clone(), args.to_vec())
-    }
 }
 
 /// Letters, digits, `-` and `_` only, as the Mac host accepts, so a name cannot carry a path or an extension.

@@ -51,6 +51,7 @@ impl Connection {
     }
 
     pub(super) fn finish(&mut self) {
+        self.previews.cancel_all();
         let mut guard = self.shared.lock();
         let state = &mut *guard;
         if let Some(session_id) = self.video_for_session.take() {
@@ -71,6 +72,9 @@ impl Connection {
                 state.video.request(VideoIntent::StopWhenIdle);
             }
             state.release_input_if_idle();
+            if state.sessions.is_empty() {
+                drop(state.privacy.request(false));
+            }
             state.refresh_keep_awake();
             if last_of_client {
                 state.terminals.disconnect(&slot.client_id);

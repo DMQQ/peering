@@ -81,6 +81,7 @@ impl ClaudeAdapter {
             program: PROGRAM.to_owned(),
             arguments: launch_arguments(&self.resume),
             directory: self.directory.clone(),
+            input: None,
         };
         self.child = Some(launcher.spawn(command));
     }

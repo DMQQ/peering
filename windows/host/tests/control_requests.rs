@@ -27,7 +27,7 @@ fn the_hello_advertises_chat_and_the_session_list_when_the_agent_cli_is_installe
         let hello = server_hello_for(&harness).await;
         assert_eq!(hello.capabilities.supports_agent_chat, Some(true));
         assert_eq!(hello.capabilities.supports_agent_list, Some(true));
-        assert_eq!(hello.agent_chat_agents, Some(vec!["claude".to_owned()]));
+        assert_eq!(hello.agent_chat_agents, Some(vec!["claude".to_owned(), "codex".to_owned(), "opencode".to_owned()]));
     });
 }
 

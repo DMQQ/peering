@@ -13,6 +13,8 @@ use super::lock::lock_ignoring_poison;
 struct Inner<T: Queued> {
     queue: Mutex<OutboundQueue<T>>,
     wake: Notify,
+    /// Woken when an item leaves the queue or the receiver goes, for senders waiting for room.
+    room: Notify,
     senders: AtomicUsize,
     receiver_gone: AtomicBool,
     dropped_stale: AtomicBool,
@@ -52,6 +54,7 @@ pub(super) fn outbound_with<T: Queued>(queue: OutboundQueue<T>) -> (Outbound<T>,
     let inner = Arc::new(Inner {
         queue: Mutex::new(queue),
         wake: Notify::new(),
+        room: Notify::new(),
         senders: AtomicUsize::new(1),
         receiver_gone: AtomicBool::new(false),
         dropped_stale: AtomicBool::new(false),
@@ -91,6 +94,17 @@ impl<T: Queued> Outbound<T> {
     pub fn is_closed(&self) -> bool {
         self.inner.receiver_gone.load(Ordering::Acquire) || *self.inner.overflowed.borrow()
     }
+
+    /// Resolves once no more than `bytes` are waiting, or the queue is closed.
+    pub async fn room_for(&self, bytes: usize) {
+        loop {
+            let emptied = self.inner.room.notified();
+            if self.is_closed() || self.inner.queue().bytes() <= bytes {
+                return;
+            }
+            emptied.await;
+        }
+    }
 }
 
 impl<T: Queued> Clone for Outbound<T> {
@@ -115,7 +129,9 @@ impl<T: Queued> OutboundReceiver<T> {
             if *self.inner.overflowed.borrow() {
                 return None;
             }
-            if let Some(item) = self.inner.queue().pop() {
+            let popped = self.inner.queue().pop();
+            if let Some(item) = popped {
+                self.inner.room.notify_waiters();
                 return Some(item);
             }
             if self.inner.senders.load(Ordering::Acquire) == 0 {
@@ -141,6 +157,7 @@ impl<T: Queued> Outbound<T> {
 impl<T: Queued> Drop for OutboundReceiver<T> {
     fn drop(&mut self) {
         self.inner.receiver_gone.store(true, Ordering::Release);
+        self.inner.room.notify_waiters();
     }
 }
 
@@ -165,6 +182,19 @@ mod tests {
         assert_eq!(receiver.recv().await.map(|frame| frame.payload.len()), Some(1));
         assert_eq!(receiver.recv().await.map(|frame| frame.payload.len()), Some(2));
         assert!(receiver.recv().await.is_none());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_sender_waiting_for_room_wakes_as_the_queue_drains() {
+        let (sender, mut receiver) = outbound::<Frame>();
+        sender.send(command(100)).expect("open");
+        sender.send(command(100)).expect("open");
+        let waiting = sender.clone();
+        let wait = tokio::spawn(async move { waiting.room_for(150).await });
+        tokio::task::yield_now().await;
+        assert!(!wait.is_finished());
+        let _first = receiver.recv().await;
+        wait.await.expect("wakes");
     }
 
     #[tokio::test(flavor = "current_thread")]

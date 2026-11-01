@@ -13,7 +13,7 @@ pub enum AgentPermissionMode {
 }
 
 /// What a session has used, as far as its CLI reports it. Unreported fields stay `None`.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentUsage {
     #[serde(default, skip_serializing_if = "Option::is_none")]

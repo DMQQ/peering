@@ -126,11 +126,10 @@ fn space_switching_is_ignored_even_when_not_observing() {
 }
 
 #[test]
-fn virtual_display_privacy_window_and_launch_commands_are_ignored() {
+fn virtual_display_window_and_launch_commands_are_ignored() {
     let cases = [
         (RemoteCommand::AddVirtualDisplay { name: "x".into(), width: 1, height: 1, start_landscape: false }, IgnoreReason::VirtualDisplay),
         (RemoteCommand::RemoveVirtualDisplay { display_id: 5 }, IgnoreReason::VirtualDisplay),
-        (RemoteCommand::SetPrivacyMode { enabled: true }, IgnoreReason::PrivacyMode { enabled: true }),
         (RemoteCommand::PerformWindowAction { window_id: 7, action: WindowAction::Close }, IgnoreReason::WindowAction),
         (RemoteCommand::LaunchApplication { bundle_identifier: "x".into() }, IgnoreReason::Launch),
     ];
@@ -207,11 +206,12 @@ fn other_kinds_are_left_unhandled_rather_than_closing_the_session() {
 }
 
 #[test]
-fn clipboard_commands_are_handed_to_the_host_untouched() {
+fn clipboard_and_privacy_commands_are_handed_to_the_host_untouched() {
     for command in [
         RemoteCommand::RequestClipboard {},
         RemoteCommand::PushClipboard { text: "x".into() },
         RemoteCommand::PushClipboardImage { png: vec![1, 2] },
+        RemoteCommand::SetPrivacyMode { enabled: true },
     ] {
         let (outcome, input, _) = run(command.clone(), false);
         assert_eq!(outcome, DispatchOutcome::ForHost(command));
