@@ -29,14 +29,21 @@ internal fun FeatureWiring.connectOrResume(hostId: String) {
     if (live?.target?.hostId != hostId || !running) connectPaired(hostId)
 }
 
-/** Opens the computer a widget tap named, or the one last used. Only a paired computer is dialled: the link comes from outside the app. */
+/** Opens the computer a widget tap named, or the one last used. Only a paired computer is dialled, except that a computer's own link may start pairing with it. */
 internal fun FeatureWiring.openFromWidget(link: WidgetLink) {
     if (link is WidgetLink.Disconnect) {
         holder.end()
         return
     }
     val hostId = link.targetHostId ?: holder.active.value?.target?.hostId ?: return
-    if (hostId !in pins.hostIds()) return
+    if (hostId !in pins.hostIds()) {
+        // Pairing still has both screens compare six digits, so a link from outside may start it.
+        if (link is WidgetLink.Device && devicePrefs.prefs.value.allowsRelay) {
+            startPairing(hostId)
+            pendingSessionView.value = true
+        }
+        return
+    }
     connectOrResume(hostId)
     if (link is WidgetLink.Chat) holder.active.value?.controller?.agentChat?.select(link.chatId)
     pendingSessionView.value = true
