@@ -443,8 +443,6 @@
     <string name="quality_save_failed">No se pudo guardar la elección en este teléfono.</string>
     <string name="paywall_offer_monthly">Mensual</string>
     <string name="paywall_offer_monthly_detail">Relay ilimitado, se renueva cada mes</string>
-    <string name="paywall_offer_yearly">Anual</string>
-    <string name="paywall_offer_yearly_detail">Relay ilimitado, se renueva cada año</string>
     <string name="paywall_unavailable_not_supported">Google Play Billing no está disponible en este teléfono, así que no se puede comprar tiempo de relay aquí.</string>
     <string name="paywall_unavailable_unreachable">No se pudo contactar con Google Play. Comprueba la conexión e inténtalo de nuevo.</string>
     <string name="paywall_unavailable_not_configured">Los planes de relay aún no están configurados en Google Play para esta app.</string>
@@ -515,7 +513,6 @@
     <string name="tour_plan_free_detail">%1$d minutos al día fuera de tu propia red</string>
     <string name="tour_plan_best_value">Mejor precio</string>
     <string name="tour_plan_per_month">al mes</string>
-    <string name="tour_plan_per_year">al año</string>
     <string name="tour_plan_one_time">pago único</string>
     <string name="tour_plans_loading">Cargando planes…</string>
     <string name="tour_plans_unreachable">No se pudo contactar con Google Play. Puedes elegir un plan más tarde en Ajustes.</string>

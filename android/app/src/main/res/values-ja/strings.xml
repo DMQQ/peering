@@ -434,8 +434,6 @@
     <string name="quality_save_failed">この選択をスマートフォンに保存できませんでした。</string>
     <string name="paywall_offer_monthly">月額</string>
     <string name="paywall_offer_monthly_detail">無制限のリレー、毎月更新</string>
-    <string name="paywall_offer_yearly">年額</string>
-    <string name="paywall_offer_yearly_detail">無制限のリレー、毎年更新</string>
     <string name="paywall_unavailable_not_supported">このスマートフォンではGoogle Play Billingを利用できないため、ここではリレー時間を購入できません。</string>
     <string name="paywall_unavailable_unreachable">Google Playに接続できませんでした。接続を確認して、もう一度お試しください。</string>
     <string name="paywall_unavailable_not_configured">このアプリのリレープランは、Google Playにまだ設定されていません。</string>
@@ -506,7 +504,6 @@
     <string name="tour_plan_free_detail">自分のネットワーク外で1日%1$d分</string>
     <string name="tour_plan_best_value">いちばんお得</string>
     <string name="tour_plan_per_month">月額</string>
-    <string name="tour_plan_per_year">年</string>
     <string name="tour_plan_one_time">買い切り</string>
     <string name="tour_plans_loading">プランを読み込み中…</string>
     <string name="tour_plans_unreachable">Google Playに接続できませんでした。プランは後から設定で選べます。</string>

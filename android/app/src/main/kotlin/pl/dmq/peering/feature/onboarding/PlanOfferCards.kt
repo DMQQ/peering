@@ -51,20 +51,18 @@ internal fun PlanOfferCards(
 @StringRes
 internal fun PlanOffer.titleRes(): Int = when (this) {
     PlanOffer.MONTHLY -> R.string.plan_pro
-    PlanOffer.YEARLY -> R.string.plan_pro_yearly
     PlanOffer.LIFETIME -> R.string.paywall_offer_lifetime
 }
 
 @StringRes
 private fun PlanOffer.noteRes(): Int = when (this) {
-    PlanOffer.MONTHLY, PlanOffer.YEARLY -> R.string.plan_pro_note
+    PlanOffer.MONTHLY -> R.string.plan_pro_note
     PlanOffer.LIFETIME -> R.string.plan_lifetime_note
 }
 
 @StringRes
 private fun PlanOffer.captionRes(): Int = when (this) {
     PlanOffer.MONTHLY -> R.string.tour_plan_per_month
-    PlanOffer.YEARLY -> R.string.tour_plan_per_year
     PlanOffer.LIFETIME -> R.string.tour_plan_one_time
 }
 
@@ -72,6 +70,5 @@ private fun PlanOffer.captionRes(): Int = when (this) {
 @Composable
 internal fun PaywallProduct.buttonTitle(): String = when (offer) {
     PlanOffer.MONTHLY -> stringResource(R.string.plan_button_monthly, displayPrice)
-    PlanOffer.YEARLY -> stringResource(R.string.plan_button_yearly, displayPrice)
     PlanOffer.LIFETIME -> stringResource(R.string.plan_button_lifetime, displayPrice)
 }

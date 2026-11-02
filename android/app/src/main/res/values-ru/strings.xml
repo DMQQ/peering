@@ -467,8 +467,6 @@
     <string name="quality_save_failed">Не удалось сохранить выбор на этом телефоне.</string>
     <string name="paywall_offer_monthly">Ежемесячно</string>
     <string name="paywall_offer_monthly_detail">Безлимитный релей, продлевается каждый месяц</string>
-    <string name="paywall_offer_yearly">Ежегодно</string>
-    <string name="paywall_offer_yearly_detail">Безлимитный релей, продлевается каждый год</string>
     <string name="paywall_unavailable_not_supported">Google Play Billing недоступен на этом телефоне, поэтому время релея здесь купить нельзя.</string>
     <string name="paywall_unavailable_unreachable">Не удалось связаться с Google Play. Проверьте соединение и повторите попытку.</string>
     <string name="paywall_unavailable_not_configured">Тарифы релея для этого приложения ещё не настроены в Google Play.</string>
@@ -540,7 +538,6 @@
     <string name="tour_plan_free_detail">%1$d минут в день вне вашей сети</string>
     <string name="tour_plan_best_value">Лучшая цена</string>
     <string name="tour_plan_per_month">в месяц</string>
-    <string name="tour_plan_per_year">в год</string>
     <string name="tour_plan_one_time">разово</string>
     <string name="tour_plans_loading">Загрузка тарифов…</string>
     <string name="tour_plans_unreachable">Не удалось связаться с Google Play. Тариф можно выбрать позже в настройках.</string>

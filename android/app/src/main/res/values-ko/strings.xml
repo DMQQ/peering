@@ -434,8 +434,6 @@
     <string name="quality_save_failed">이 휴대전화에 선택 사항을 저장하지 못했습니다.</string>
     <string name="paywall_offer_monthly">월간</string>
     <string name="paywall_offer_monthly_detail">무제한 릴레이, 매달 갱신</string>
-    <string name="paywall_offer_yearly">연간</string>
-    <string name="paywall_offer_yearly_detail">무제한 릴레이, 매년 갱신</string>
     <string name="paywall_unavailable_not_supported">이 휴대전화에서는 Google Play 결제를 사용할 수 없어 릴레이 시간을 구매할 수 없습니다.</string>
     <string name="paywall_unavailable_unreachable">Google Play에 연결할 수 없습니다. 연결 상태를 확인한 뒤 다시 시도하세요.</string>
     <string name="paywall_unavailable_not_configured">이 앱의 릴레이 플랜이 아직 Google Play에 설정되지 않았습니다.</string>
@@ -506,7 +504,6 @@
     <string name="tour_plan_free_detail">내 네트워크 밖에서 하루 %1$d분</string>
     <string name="tour_plan_best_value">가장 알뜰한 선택</string>
     <string name="tour_plan_per_month">월</string>
-    <string name="tour_plan_per_year">연간</string>
     <string name="tour_plan_one_time">일회성</string>
     <string name="tour_plans_loading">플랜 불러오는 중…</string>
     <string name="tour_plans_unreachable">Google Play에 연결할 수 없습니다. 플랜은 나중에 설정에서 선택할 수 있습니다.</string>

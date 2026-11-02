@@ -11,15 +11,14 @@ class BillingPureTest {
     @Test
     fun theProductIdsAreTheAppStoreIds() {
         assertEquals("pl.dmq.peering.iap.pro.monthly", PlayProducts.PRO_MONTHLY)
-        assertEquals("pl.dmq.peering.iap.pro.year", PlayProducts.PRO_YEARLY)
         assertEquals("pl.dmq.peering.iap.pro.lifetime1", PlayProducts.PRO_LIFETIME)
-        assertEquals(setOf(PlayProducts.PRO_MONTHLY, PlayProducts.PRO_YEARLY, PlayProducts.PRO_LIFETIME), PlayProducts.paid)
+        assertEquals(setOf(PlayProducts.PRO_MONTHLY, PlayProducts.PRO_LIFETIME), PlayProducts.paid)
     }
 
     @Test
     fun aPaidPurchaseIsTheActiveProOne() {
-        val active = activeProPurchase(listOf(purchase("other"), purchase(PlayProducts.PRO_YEARLY)))
-        assertEquals(PlayProducts.PRO_YEARLY, active?.productID)
+        val active = activeProPurchase(listOf(purchase("other"), purchase(PlayProducts.PRO_MONTHLY)))
+        assertEquals(PlayProducts.PRO_MONTHLY, active?.productID)
     }
 
     @Test
