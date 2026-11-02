@@ -28,7 +28,9 @@ SITEMAP_PAGES = [
     "index", "download", "support", "how-to-pair-iphone-mac", "remote-desktop-for-mac",
     "access-your-mac-from-anywhere", "coding-agent-notifications",
     "keep-mac-awake-for-remote-access", "screens-alternative", "remote-desktop-apps-compared",
-    "privacy", "terms",
+    "best-remote-desktop-app-for-ipad", "apple-remote-desktop-alternative",
+    "apple-remote-desktop-vs-screen-sharing", "screens-vs-jump-desktop",
+    "rustdesk-alternative-for-mac", "privacy", "terms",
 ]
 
 
