@@ -55,6 +55,8 @@ public struct AgentApprovalNotification: Equatable, Sendable {
     public let body: String
     public let isQuestion: Bool
     public let isPlan: Bool
+    /// Several questions the lock screen can ask one at a time; the layout is then the first one's answers.
+    public let chain: AgentQuestionChain?
 
     public init(approval: AgentApproval, sessionID: UUID) {
         approvalID = approval.id
@@ -63,7 +65,15 @@ public struct AgentApprovalNotification: Equatable, Sendable {
         isQuestion = !(call.questions ?? []).isEmpty
         isPlan = call.name == "ExitPlanMode"
         body = Self.truncated(AgentApprovalBody.text(command: call.detail, reason: approval.reason) ?? "")
-        layout = Self.layout(for: call)
+        let chain = call.name == "ExitPlanMode" ? nil : AgentQuestionChain(questions: call.questions ?? [])
+        self.chain = chain
+        layout = chain.map { .options($0.steps[0].answers) } ?? Self.layout(for: call)
+    }
+
+    /// The questions a push carries for the phone to ask one at a time. The push's own category stays Open, so a phone
+    /// that predates chains offers Open rather than buttons that would send the first answer alone.
+    public static func pushQuestions(for call: AgentToolCall) -> AgentQuestionChain? {
+        call.name == "ExitPlanMode" ? nil : AgentQuestionChain(questions: call.questions ?? [])
     }
 
     static func layout(for call: AgentToolCall) -> Layout {
@@ -117,7 +127,9 @@ public struct AgentApprovalNotification: Equatable, Sendable {
         identifier.hasPrefix(identifierPrefix)
     }
 
-    public var categoryIdentifier: String { Self.categoryIdentifier(forLayout: layout, approvalID: approvalID) }
+    public var categoryIdentifier: String {
+        Self.categoryIdentifier(forLayout: layout, approvalID: chain == nil ? approvalID : approvalID + ".0")
+    }
 
     public static func categoryIdentifier(forLayout layout: Layout, approvalID: String) -> String {
         switch layout {
@@ -173,19 +185,34 @@ public struct AgentApprovalNotification: Equatable, Sendable {
         public static let sessionID = "agentSessionId"
         public static let hostID = "hostId"
         public static let answers = "agentAnswers"
+        public static let questions = "agentQuestions"
+        static let step = "agentStep"
+        static let chosen = "agentChosen"
     }
 
     /// Rides in `userInfo`, so a response delivered to a freshly launched process is self-contained.
     /// `answers` are the full labels of a question's options (empty otherwise).
     public func userInfo(hostID: String?, answers: [String]) -> [String: Any] {
-        Reference.userInfo(for: Reference(approvalID: approvalID, sessionID: sessionID, hostID: hostID, answers: answers))
+        Reference.userInfo(for: reference(hostID: hostID, answers: answers))
     }
+
+    public func reference(hostID: String?, answers: [String]? = nil) -> Reference {
+        Reference(approvalID: approvalID, sessionID: sessionID, hostID: hostID, answers: answers ?? self.answers, chain: chain)
+    }
+
+    /// The banner text: a chain's first question, or the request itself.
+    public var bannerBody: String { chain?.body(at: 0) ?? body }
 
     public struct Reference: Equatable, Sendable {
         public let approvalID: String
         public let sessionID: UUID
         public let hostID: String?
         public let answers: [String]
+        public let chain: AgentQuestionChain?
+        /// Which question of the chain this notification asks.
+        public let step: Int
+        /// The answers to the chain's earlier questions.
+        public let chosen: [String]
 
         public init?(userInfo: [AnyHashable: Any]) {
             guard let approvalID = userInfo[UserInfoKey.approvalID] as? String,
@@ -194,14 +221,23 @@ public struct AgentApprovalNotification: Equatable, Sendable {
             self.approvalID = approvalID
             sessionID = session
             hostID = userInfo[UserInfoKey.hostID] as? String
-            answers = userInfo[UserInfoKey.answers] as? [String] ?? []
+            chain = AgentQuestionChain(payload: userInfo[UserInfoKey.questions])
+            step = userInfo[UserInfoKey.step] as? Int ?? 0
+            chosen = userInfo[UserInfoKey.chosen] as? [String] ?? []
+            answers = userInfo[UserInfoKey.answers] as? [String] ?? chain.flatMap { $0.steps.first?.answers } ?? []
         }
 
-        public init(approvalID: String, sessionID: UUID, hostID: String?, answers: [String] = []) {
+        public init(
+            approvalID: String, sessionID: UUID, hostID: String?, answers: [String] = [],
+            chain: AgentQuestionChain? = nil, step: Int = 0, chosen: [String] = []
+        ) {
             self.approvalID = approvalID
             self.sessionID = sessionID
             self.hostID = hostID
             self.answers = answers
+            self.chain = chain
+            self.step = step
+            self.chosen = chosen
         }
 
         /// The same payload as the notification it refers to.
@@ -212,12 +248,18 @@ public struct AgentApprovalNotification: Equatable, Sendable {
             ]
             if let hostID = reference.hostID { info[UserInfoKey.hostID] = hostID }
             if !reference.answers.isEmpty { info[UserInfoKey.answers] = reference.answers }
+            if let chain = reference.chain {
+                info[UserInfoKey.questions] = chain.payload
+                info[UserInfoKey.step] = reference.step
+                if !reference.chosen.isEmpty { info[UserInfoKey.chosen] = reference.chosen }
+            }
             return info
         }
 
         /// What the category was when it was posted, rebuilt for a notification still on the lock screen after a relaunch.
         public var layoutForCategory: Layout {
-            answers.isEmpty ? .allowDeny : .options(answers)
+            if let chain, chain.steps.indices.contains(step) { return .options(chain.steps[step].answers) }
+            return answers.isEmpty ? .allowDeny : .options(answers)
         }
     }
 

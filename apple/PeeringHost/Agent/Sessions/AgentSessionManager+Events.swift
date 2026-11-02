@@ -109,7 +109,8 @@ extension AgentSessionManager {
                     category: AgentApprovalNotification.pushCategory(for: call),
                     sessionID: session.id.uuidString,
                     approvalID: approvalID,
-                    answers: AgentApprovalNotification.pushAnswers(for: call)
+                    answers: AgentApprovalNotification.pushAnswers(for: call),
+                    questions: AgentApprovalNotification.pushQuestions(for: call)?.relayQuestions ?? []
                 ))
             }
         case .approvalResolved(let approvalID, _):

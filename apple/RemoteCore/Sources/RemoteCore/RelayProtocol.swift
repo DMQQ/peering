@@ -67,6 +67,7 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
         case sessionID = "sessionId"
         case approvalID = "approvalId"
         case options
+        case questions
     }
 
 
@@ -132,6 +133,7 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encodeIfPresent(action?.sessionID, forKey: .sessionID)
             try container.encodeIfPresent(action?.approvalID, forKey: .approvalID)
             if let answers = action?.answers, !answers.isEmpty { try container.encode(answers, forKey: .options) }
+            if let questions = action?.questions, !questions.isEmpty { try container.encode(questions, forKey: .questions) }
         case .notifyActivity(let push):
             try container.encode("notifyActivity", forKey: .type)
             try container.encode(push.activityToken, forKey: .activityToken)
@@ -169,12 +171,39 @@ public struct RelayPushAction: Sendable, Equatable {
     public let approvalID: String
     /// The answers of a question no fixed category has buttons for; the phone's notification extension makes them buttons.
     public let answers: [String]
+    /// A multi-question ask the phone asks one question at a time from the lock screen.
+    public let questions: [RelayPushQuestion]
 
-    public init(category: String, sessionID: String, approvalID: String, answers: [String] = []) {
+    public init(category: String, sessionID: String, approvalID: String, answers: [String] = [], questions: [RelayPushQuestion] = []) {
         self.category = category
         self.sessionID = sessionID
         self.approvalID = approvalID
         self.answers = answers
+        self.questions = questions
+    }
+}
+
+/// One question of a pushed ask, sent as `{"q": question, "a": [answers]}`, the shape the phone reads back.
+public struct RelayPushQuestion: Codable, Sendable, Equatable {
+    /// The relay refuses the whole push past these, so a question over them is not sent.
+    public static let maxQuestionBytes = 512
+    public static let maxAnswerBytes = 160
+
+    public let question: String
+    public let answers: [String]
+
+    public init(question: String, answers: [String]) {
+        self.question = question
+        self.answers = answers
+    }
+
+    public var fitsTheRelay: Bool {
+        question.utf8.count <= Self.maxQuestionBytes && answers.allSatisfy { $0.utf8.count <= Self.maxAnswerBytes }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case question = "q"
+        case answers = "a"
     }
 }
 

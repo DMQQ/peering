@@ -376,6 +376,21 @@ struct RelayProtocolTests {
         #expect(encoded.contains(#""options":["Red","Blue"]"#))
     }
 
+    @Test("a multi-question ask sends its questions for the lock screen")
+    func notifyDeviceWithQuestions() throws {
+        let questions = [RelayPushQuestion(question: "Colour?", answers: ["Red"]), RelayPushQuestion(question: "Size?", answers: ["Big"])]
+        let action = RelayPushAction(category: "peering.agent.approval.open", sessionID: "S", approvalID: "A", questions: questions)
+        let encoded = String(
+            decoding: try RelayMessageCodec.encode(RelayClientMessage.notifyDevice(token: "ab", title: "T", body: "B", action: action)),
+            as: UTF8.self
+        )
+
+        let object = try JSONSerialization.jsonObject(with: Data(encoded.utf8)) as? [String: Any]
+        let sent = object?["questions"] as? [[String: Any]]
+        #expect(sent?.map { $0["q"] as? String } == ["Colour?", "Size?"])
+        #expect(sent?.map { $0["a"] as? [String] } == [["Red"], ["Big"]])
+    }
+
     @Test("a push without an action is the message it always was")
     func notifyDeviceWithoutAnAction() throws {
         let encoded = String(

@@ -42,10 +42,10 @@ class ApprovalNoticeTest {
     }
 
     @Test
-    fun aPlanAndSeveralQuestionsAreOnlyOpened() {
+    fun aPlanAndTooManyQuestionsAreOnlyOpened() {
         assertEquals(ApprovalNotice.Layout.OpenOnly, ApprovalNotice.of("c1", ask(name = "ExitPlanMode")).layout)
-        val two = ask(detail = null, questions = listOf(question("a"), question("b")))
-        assertEquals(ApprovalNotice.Layout.OpenOnly, ApprovalNotice.of("c1", two).layout)
+        val five = ask(detail = null, questions = List(5) { question("a") })
+        assertEquals(ApprovalNotice.Layout.OpenOnly, ApprovalNotice.of("c1", five).layout)
     }
 
     @Test

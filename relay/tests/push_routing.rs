@@ -163,3 +163,40 @@ async fn without_fcm_configured_an_android_push_is_dropped_and_the_socket_carrie
     send(&mut mac, notify(&token)).await;
     settle(&mut mac).await;
 }
+
+fn notify_with_questions(device_token: &str, questions: serde_json::Value) -> serde_json::Value {
+    json!({
+        "type": "notifyDevice", "deviceToken": device_token, "title": "Chat", "body": "Two questions",
+        "category": "peering.agent.approval.open", "sessionId": "S-1", "approvalId": "A-1",
+        "questions": questions,
+    })
+}
+
+#[tokio::test]
+async fn a_multi_question_ask_reaches_the_phone_with_its_questions() {
+    let (transport, sent) = FakeFcmTransport::answering(200, "{}");
+    let port = start(Some(fcm_with(transport))).await;
+    let mut mac = registered_mac(port).await;
+
+    let questions = json!([{"q": "Colour?", "a": ["Red", "Blue"]}, {"q": "Size?", "a": ["Big"]}]);
+    send(&mut mac, notify_with_questions(&hex_of(b"fcm:abc123"), questions.clone())).await;
+
+    let post = first_post(&sent).await;
+    let body: serde_json::Value = serde_json::from_str(&post.body).unwrap();
+    let data = &body["message"]["data"];
+    assert_eq!(data["category"], "peering.agent.approval.open");
+    let carried: serde_json::Value = serde_json::from_str(data["agentQuestions"].as_str().unwrap()).unwrap();
+    assert_eq!(carried, questions);
+}
+
+#[tokio::test]
+async fn too_many_questions_refuse_the_push_rather_than_forward_it() {
+    let (transport, sent) = FakeFcmTransport::answering(200, "{}");
+    let port = start(Some(fcm_with(transport))).await;
+    let mut mac = registered_mac(port).await;
+
+    let five = json!((0..5).map(|n| json!({"q": format!("Q{n}?"), "a": ["a"]})).collect::<Vec<_>>());
+    send(&mut mac, notify_with_questions(&hex_of(b"fcm:abc123"), five)).await;
+    assert!(matches!(next_message(&mut mac).await, ServerMessage::Error { .. }));
+    assert!(sent.lock().unwrap().is_empty());
+}

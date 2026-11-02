@@ -12,6 +12,8 @@ data class ApprovalNotice(
     /** The command or reason asked about, cut to what a lock screen shows; empty when the request named neither. */
     val body: String,
     val isQuestion: Boolean,
+    /** Several questions asked one at a time; [layout] is then the current one's answers. */
+    val chain: QuestionChain? = null,
 ) {
     sealed interface Layout {
         /** A tool wants to run: allow or deny. */
@@ -51,6 +53,8 @@ data class ApprovalNotice(
 
         fun of(chatID: String, approval: PendingApproval): ApprovalNotice {
             val call = approval.call
+            val chain = if (call.name == "ExitPlanMode") null else QuestionChain.of(call.questions.orEmpty())
+            if (chain != null) return stepOf(approval.approvalID, chatID, chain)
             return ApprovalNotice(
                 approvalID = approval.approvalID,
                 chatID = chatID,
@@ -59,6 +63,16 @@ data class ApprovalNotice(
                 isQuestion = !call.questions.isNullOrEmpty(),
             )
         }
+
+        /** The notice for the question a chain is on. */
+        fun stepOf(approvalID: String, chatID: String, chain: QuestionChain): ApprovalNotice = ApprovalNotice(
+            approvalID = approvalID,
+            chatID = chatID,
+            layout = Layout.Options(chain.current.answers),
+            body = chain.body,
+            isQuestion = true,
+            chain = chain,
+        )
 
         internal fun layoutFor(call: AgentToolCall): Layout {
             val questions = call.questions.orEmpty()

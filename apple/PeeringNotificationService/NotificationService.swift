@@ -16,8 +16,9 @@ final class NotificationService: UNNotificationServiceExtension {
             return
         }
         let layout = reference.layoutForCategory
-        let identifier = AgentApprovalNotification.categoryIdentifier(forLayout: layout, approvalID: reference.approvalID)
+        let identifier = reference.categoryIdentifier
         content.categoryIdentifier = identifier
+        if let body = reference.stepBody { content.body = body }
 
         // Handed to one task and not touched again here.
         nonisolated(unsafe) let deliverable = content

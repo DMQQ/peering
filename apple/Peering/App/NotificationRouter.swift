@@ -50,9 +50,15 @@ extension NotificationRouter {
     /// A button answers; a tap on the body, or Open, shows the chat. The handler is called only once the answer has left the phone or failed, since iOS may suspend the process the moment it returns.
     @MainActor
     fileprivate static func handleApproval(_ reference: AgentApprovalNotification.Reference, actionID: String) async {
-        if let decision = AgentApprovalNotification.decision(forActionIdentifier: actionID, answers: reference.answers) {
+        switch reference.outcome(forActionIdentifier: actionID) {
+        case .answer(let decision):
             await AgentApprovalResponder.answer(decision, to: reference)
             return
+        case .next(let next):
+            await AgentApprovalNotifier.shared.postNextQuestion(next, replacing: reference)
+            return
+        case .none:
+            break
         }
         guard actionID != UNNotificationDismissActionIdentifier else { return }
         InAppBanner.shared.openRequest = .chat(reference.sessionID)

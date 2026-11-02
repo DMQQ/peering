@@ -26,9 +26,7 @@ final class AgentApprovalNotifier {
                 guard let reference = AgentApprovalNotification.Reference(userInfo: info),
                       case .options = reference.layoutForCategory
                 else { continue }
-                let layout = reference.layoutForCategory
-                let identifier = AgentApprovalNotification.categoryIdentifier(forLayout: layout, approvalID: reference.approvalID)
-                optionCategories[identifier] = Self.category(identifier, layout: layout)
+                optionCategories[reference.categoryIdentifier] = Self.category(reference.categoryIdentifier, layout: reference.layoutForCategory)
             }
             publishCategories()
         }
@@ -107,13 +105,30 @@ final class AgentApprovalNotifier {
         let content = UNMutableNotificationContent()
         content.title = sessionTitle
         content.subtitle = hostName ?? ""
-        content.body = approval.body.isEmpty ? String(localized: "Needs your approval.") : approval.body
+        content.body = approval.bannerBody.isEmpty ? String(localized: "Needs your approval.") : approval.bannerBody
         content.sound = .default
         content.categoryIdentifier = approval.categoryIdentifier
         content.threadIdentifier = approval.sessionID.uuidString
         content.userInfo = approval.userInfo(hostID: hostID, answers: approval.answers)
         content.interruptionLevel = .timeSensitive
         await add(content, identifier: approval.identifier)
+    }
+
+    /// The next question of a chain, posted in place of the one just answered.
+    func postNextQuestion(_ reference: AgentApprovalNotification.Reference, replacing previous: AgentApprovalNotification.Reference) async {
+        optionCategories[previous.categoryIdentifier] = nil
+        optionCategories[reference.categoryIdentifier] = Self.category(reference.categoryIdentifier, layout: reference.layoutForCategory)
+        publishCategories()
+        let identifier = AgentApprovalNotification.identifierPrefix + reference.approvalID
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [identifier])
+        let content = UNMutableNotificationContent()
+        content.title = IntentHost.model?.agentTitle(reference.sessionID) ?? ""
+        content.body = reference.stepBody ?? ""
+        content.categoryIdentifier = reference.categoryIdentifier
+        content.threadIdentifier = reference.sessionID.uuidString
+        content.userInfo = AgentApprovalNotification.Reference.userInfo(for: reference)
+        content.interruptionLevel = .timeSensitive
+        await add(content, identifier: identifier)
     }
 
     /// The answer could not reach the Mac, so the request stays open and the person is told, rather than left believing it was answered.
@@ -168,7 +183,7 @@ final class AgentApprovalNotifier {
                       matches(reference)
                 else { continue }
                 identifiers.append(request.identifier)
-                optionCategories[AgentApprovalNotification.categoryIdentifier(forLayout: reference.layoutForCategory, approvalID: reference.approvalID)] = nil
+                optionCategories[reference.categoryIdentifier] = nil
             }
             guard !identifiers.isEmpty else { return }
             center.removeDeliveredNotifications(withIdentifiers: identifiers)

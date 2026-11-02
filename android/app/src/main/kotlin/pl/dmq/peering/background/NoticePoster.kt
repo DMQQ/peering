@@ -41,7 +41,7 @@ internal class NoticePoster(private val context: Context) : NoticeSink {
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(if (notice.kind == NoticeKind.AgentFinished) NotificationCompat.PRIORITY_DEFAULT else NotificationCompat.PRIORITY_HIGH)
-        notice.approval?.let { approval -> actions(notice.key, approval).forEach(builder::addAction) }
+        notice.approval?.let { approval -> actions(notice, approval).forEach(builder::addAction) }
         notify(notice.key, builder.build())
     }
 
@@ -94,14 +94,14 @@ internal class NoticePoster(private val context: Context) : NoticeSink {
         return notice.hostName?.let { context.getString(R.string.bg_with_computer, it, sentence) } ?: sentence
     }
 
-    private fun actions(key: String, approval: ApprovalNotice): List<NotificationCompat.Action> =
+    private fun actions(notice: Notice, approval: ApprovalNotice): List<NotificationCompat.Action> =
         approval.actions.map { action ->
             val title = when (val title = action.title) {
                 ApprovalNotice.Title.Allow -> context.getString(R.string.bg_allow)
                 ApprovalNotice.Title.Deny -> context.getString(R.string.bg_deny)
                 is ApprovalNotice.Title.Label -> title.text
             }
-            NotificationCompat.Action.Builder(0, title, NoticeActionReceiver.answerIntent(context, key, approval, action.id))
+            NotificationCompat.Action.Builder(0, title, NoticeActionReceiver.answerIntent(context, notice, approval, action.id))
                 .setAuthenticationRequired(action.requiresAuthentication)
                 .build()
         }

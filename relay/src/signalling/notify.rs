@@ -9,7 +9,7 @@ use tracing::warn;
 use super::{field_too_long, unix_now, ConnectionState, Settings};
 use crate::activity::{self, ActivityPush, ActivityRefusal};
 use crate::apns::{PushAction, PushRoute};
-use crate::protocol::ServerMessage;
+use crate::protocol::{PushQuestion, ServerMessage};
 use crate::push::{self, PushTarget};
 use crate::redact::tag;
 use crate::stats::{ActivityOutcome, TALLY};
@@ -34,10 +34,11 @@ fn push_action<'a>(
     session_id: Option<&'a str>,
     approval_id: Option<&'a str>,
     options: &'a [String],
+    questions: &'a [PushQuestion],
 ) -> Option<PushAction<'a>> {
     match (category, session_id, approval_id) {
         (Some(category), Some(session_id), Some(approval_id)) if is_agent_category(category) => {
-            Some(PushAction { category, session_id, approval_id, options })
+            Some(PushAction { category, session_id, approval_id, options, questions })
         }
         _ => None,
     }
@@ -52,11 +53,19 @@ pub(super) struct DeviceNotice {
     pub session_id: Option<String>,
     pub approval_id: Option<String>,
     pub options: Option<Vec<String>>,
+    pub questions: Option<Vec<PushQuestion>>,
 }
 
 /// A banner holds about four buttons, and each title is cut by the phone, so more is noise.
 const MAX_OPTIONS: usize = 4;
 const MAX_OPTION_BYTES: usize = 160;
+/// The phone asks at most four questions in a row from the lock screen.
+const MAX_QUESTIONS: usize = 4;
+const MAX_QUESTION_BYTES: usize = 512;
+
+fn options_fit(options: &[String]) -> bool {
+    options.len() <= MAX_OPTIONS && options.iter().all(|option| option.len() <= MAX_OPTION_BYTES)
+}
 
 impl DeviceNotice {
     fn fits(&self) -> bool {
@@ -68,13 +77,19 @@ impl DeviceNotice {
             && within(&self.category, 128)
             && within(&self.session_id, 128)
             && within(&self.approval_id, 256)
-            && self.options.as_ref().is_none_or(|options| {
-                options.len() <= MAX_OPTIONS && options.iter().all(|option| option.len() <= MAX_OPTION_BYTES)
+            && self.options.as_deref().is_none_or(options_fit)
+            && self.questions.as_ref().is_none_or(|questions| {
+                questions.len() <= MAX_QUESTIONS
+                    && questions.iter().all(|asked| asked.question.len() <= MAX_QUESTION_BYTES && options_fit(&asked.answers))
             })
     }
 
     fn action(&self) -> Option<PushAction<'_>> {
-        push_action(self.category.as_deref(), self.session_id.as_deref(), self.approval_id.as_deref(), self.options.as_deref().unwrap_or(&[]))
+        push_action(
+            self.category.as_deref(), self.session_id.as_deref(), self.approval_id.as_deref(),
+            self.options.as_deref().unwrap_or(&[]),
+            self.questions.as_deref().unwrap_or(&[]),
+        )
     }
 }
 

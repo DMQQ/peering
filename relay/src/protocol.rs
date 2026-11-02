@@ -218,6 +218,10 @@ pub enum ClientMessage {
         /// notification extension turns them into buttons. Absent from Macs that predate it.
         #[serde(default)]
         options: Option<Vec<String>>,
+        /// The questions of an ask the phone puts on the lock screen one at a time. Absent from
+        /// Macs that predate it.
+        #[serde(default)]
+        questions: Option<Vec<PushQuestion>>,
     },
 
     /// Pushes an iOS Live Activity update for a registered host, so the activity keeps moving
@@ -226,6 +230,15 @@ pub enum ClientMessage {
     /// `contentState` and `attributes` are the host's own JSON and are never read or logged here.
     /// A refusal comes back as [`ServerMessage::ActivityRefused`].
     NotifyActivity(ActivityPush),
+}
+
+/// One question of a multi-question ask, carried to the phone as `{"q": question, "a": [answers]}`.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub struct PushQuestion {
+    #[serde(rename = "q")]
+    pub question: String,
+    #[serde(rename = "a")]
+    pub answers: Vec<String>,
 }
 
 /// What the relay sends back.
