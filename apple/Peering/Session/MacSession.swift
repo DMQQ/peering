@@ -156,6 +156,13 @@ final class MacSession: Identifiable {
     var hostSupportsAgentPause = false
     var hostSupportsAgentQueue = false
     var hostSupportsAgentAwayControls = false
+    var hostSupportsAgentGitHub = false
+    var hostSupportsAgentRoutines = false
+    /// Nil until the Mac has answered a routine request.
+    var agentRoutines: [AgentRoutine]?
+    var agentRoutinesAwaiting = false
+    /// Why the Mac refused the last routine request, shown on the routines screen.
+    var agentRoutineFailure: String?
     /// Mirrors ``AgentGuardStore`` so a chat's banner redraws when its cap changes.
     var agentSpendingCaps: [UUID: AgentSpendingCap] = [:]
 
@@ -302,6 +309,10 @@ final class MacSession: Identifiable {
     /// A commit or push the Mac has not answered yet, and the last answer, per chat.
     var agentGitBusy: [UUID: AgentGitOperation] = [:]
     var agentGitResults: [UUID: AgentGitResult] = [:]
+    /// What `gh` on the Mac said about each chat's branch, the action it has not answered yet, and its last answer.
+    var agentGitHub: [UUID: AgentGitHubReport] = [:]
+    var agentGitHubBusy: [UUID: AgentGitHubAction] = [:]
+    var agentGitHubResults: [UUID: AgentGitHubResult] = [:]
 
     /// A PTY gives a byte stream with no marker for where one command's output starts, so the only link is that it arrived right after one.
     var lastSentCommand: String?

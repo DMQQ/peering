@@ -86,7 +86,9 @@ struct PeeringApp: App {
                 ContentView()
             }
                 .alert(router.confirmationTitle, isPresented: confirmingBinding) {
-                    Button("End", role: .destructive) { router.confirm(model: model, servers: servers) }
+                    Button(router.confirmationButton, role: router.confirmationIsDestructive ? .destructive : nil) {
+                        router.confirm(model: model, servers: servers)
+                    }
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text(router.confirmationMessage)
@@ -165,7 +167,7 @@ struct PeeringApp: App {
                             linkLog.error("Ignored a Mac link that does not parse: \(error.localizedDescription, privacy: .public)")
                             return
                         }
-                        model.openHostLink(hostID: hostID)
+                        router.handleHostLink(hostID: hostID, model: model, servers: servers)
                         return
                     }
                     router.handle(url, model: model, servers: servers)

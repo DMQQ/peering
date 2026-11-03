@@ -4,6 +4,8 @@ import RemoteCore
 /// What a `peering://` link asks for. Any page or app can open one, so what runs is decided here and not at the call site.
 public enum URLCommand: Equatable, Sendable {
     case connect(hostID: String?)
+    /// A Mac's QR code or shared link: connects when the Mac is paired, starts pairing otherwise.
+    case openHost(hostID: String)
     case chat(chatID: UUID, hostID: String?)
     case pairingCode(URL)
     case disconnect
@@ -42,6 +44,7 @@ public enum URLCommandPolicy {
     }
 
     /// Nothing runs behind the lock. Ending a session or shells asks only when there is something to end.
+    /// Any page can open these links, so a Mac link always asks, and a connect asks when a session is already live.
     public static func decide(
         _ command: URLCommand,
         isLocked: Bool,
@@ -52,7 +55,9 @@ public enum URLCommandPolicy {
         switch command {
         case .disconnect: return hasLiveSession ? .confirm : .run
         case .endShells: return hasLiveShells ? .confirm : .run
-        case .connect, .chat, .pairingCode: return .run
+        case .connect: return hasLiveSession ? .confirm : .run
+        case .openHost: return .confirm
+        case .chat, .pairingCode: return .run
         }
     }
 }

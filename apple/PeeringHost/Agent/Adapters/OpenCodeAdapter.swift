@@ -7,12 +7,12 @@ final class OpenCodeAdapter: PerTurnAdapter, @unchecked Sendable {
     private var stream: AgentOpenCodeStream
     private var contextWindows: [String: Int] = [:]
 
-    override class var command: String { "opencode" }
-    override class var displayName: String { "OpenCode" }
+    static let command = "opencode"
+    static let displayName = "OpenCode"
 
-    override init(directory: URL, resume: AgentResume?) {
+    init(directory: URL, resume: AgentResume?) {
         stream = AgentOpenCodeStream(directory: directory.path, cliSessionID: resume?.cliSessionID)
-        super.init(directory: directory, resume: resume)
+        super.init(command: Self.command, displayName: Self.displayName, directory: directory, resume: resume)
     }
 
     override func arguments(for text: String) -> [String] {

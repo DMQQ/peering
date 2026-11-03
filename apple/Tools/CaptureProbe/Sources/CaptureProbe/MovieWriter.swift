@@ -6,7 +6,7 @@ import Foundation
 /// Writes the host's `EncodedFrame`s to a playable movie file.
 ///
 /// **The reconstruction is the test.** Nothing here is handed a `CMSampleBuffer` by the
-/// encoder — an `EncodedFrame` is only bytes, a timestamp, and (on keyframes) parameter
+/// encoder, an `EncodedFrame` is only bytes, a timestamp, and (on keyframes) parameter
 /// sets, because that is all a client on the far end of a socket will ever have. Turning
 /// those back into something a decoder accepts is the same job the client's decoder setup
 /// has to do: parameter sets into a format description, an AVCC payload into a block
@@ -33,7 +33,7 @@ final class MovieWriter: @unchecked Sendable {
     var keyframeCount: Int { lock.withLock { keyframeTimes.count } }
 
     /// The size the encoder was asked for, kept to check against what the file turns out to
-    /// contain — the track's real dimensions come from the SPS, not from anything here.
+    /// contain, the track's real dimensions come from the SPS, not from anything here.
     let requestedPixelSize: CGSize
 
     init(url: URL, pixelSize: CGSize, frameRate: Int) throws {
@@ -42,7 +42,7 @@ final class MovieWriter: @unchecked Sendable {
         requestedPixelSize = pixelSize
 
         // **`outputSettings: nil`, which is not the obvious choice.** Passing the H.264
-        // settings here — codec, width, height — makes the input an *encoder*: it accepts
+        // settings here, codec, width, height, makes the input an *encoder*: it accepts
         // uncompressed buffers and compresses them itself. Handing it the encoder's own
         // compressed output then throws `NSInvalidArgumentException` from inside
         // `appendSampleBuffer:`, at the first frame, with the message "Input buffer must be
@@ -81,7 +81,7 @@ final class MovieWriter: @unchecked Sendable {
 
             if startTime == nil {
                 // The capture clock is the host's uptime, so timestamps arrive in the
-                // millions of seconds. Rebasing to zero keeps the file's timeline sane —
+                // millions of seconds. Rebasing to zero keeps the file's timeline sane,
                 // and makes it obvious if the encoder ever stops advancing it.
                 startTime = frame.presentationTime
                 writer.startSession(atSourceTime: .zero)
@@ -117,7 +117,7 @@ final class MovieWriter: @unchecked Sendable {
         let frames: Int
         let dropped: Int
         let bytes: Int
-        /// Presentation times of the keyframes, in seconds from the start of the file —
+        /// Presentation times of the keyframes, in seconds from the start of the file,
         /// which is how a forced keyframe is confirmed to have gone out when it was asked
         /// for, rather than at the next scheduled one.
         let keyframeSeconds: [Double]
@@ -174,7 +174,7 @@ final class MovieWriter: @unchecked Sendable {
             var sizes = sizes
             var description: CMFormatDescription?
             // This is the same call a client makes on the parameter sets the host sends it,
-            // and it parses the dimensions back out of the SPS — which is the only reason
+            // and it parses the dimensions back out of the SPS, which is the only reason
             // the file has a track size at all, since the frame data itself never states it.
             let status = CMVideoFormatDescriptionCreateFromH264ParameterSets(
                 allocator: kCFAllocatorDefault,

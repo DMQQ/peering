@@ -12,7 +12,8 @@ struct TerminalAgent: Identifiable, Hashable {
         TerminalAgent(id: "codex", name: "Codex", command: "codex", symbol: "chevron.left.forwardslash.chevron.right", supportsChat: true),
         TerminalAgent(id: "opencode", name: "OpenCode", command: "opencode", symbol: "curlybraces", supportsChat: true),
         TerminalAgent(id: "hermes", name: "Hermes", command: "hermes", symbol: "paperplane", supportsChat: false),
-        TerminalAgent(id: "gemini", name: "Gemini CLI", command: "gemini", symbol: "diamond", supportsChat: false),
+        TerminalAgent(id: "gemini", name: "Gemini CLI", command: "gemini", symbol: "diamond", supportsChat: true),
+        TerminalAgent(id: "cursor-agent", name: "Cursor", command: "cursor-agent", symbol: "cursorarrow.rays", supportsChat: true),
         TerminalAgent(id: "aider", name: "Aider", command: "aider", symbol: "wand.and.stars", supportsChat: false),
     ]
 }

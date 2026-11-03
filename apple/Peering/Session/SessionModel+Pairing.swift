@@ -6,6 +6,10 @@ extension SessionModel {
     /// The Mac keeps its half, so the next connection is refused by it until unpaired there too: the honest behaviour for "forget".
     func forget(hostID: String) {
         Analytics.featureUsed(.macForgotten)
+        // The Mac keeps this phone's push token until told otherwise, and would go on sending it alerts. An empty token is the shipped "forget me".
+        for session in sessions where session.hostID == hostID && session.phase == .ready {
+            session.wire?.sendTerminal(.registerPushToken(Data()))
+        }
         pins.remove(hostID: hostID)
         SessionModeMemory().forget(hostID)
         pairedHostIDs = pins.hostIDs

@@ -38,12 +38,21 @@ struct URLCommandPolicyTests {
         #expect(decide(.endShells) == .run)
     }
 
-    @Test func connectingNeverAsks() {
-        #expect(decide(.connect(hostID: nil), session: true, shells: true) == .run)
+    @Test func connectingWithNothingLiveJustRuns() {
+        #expect(decide(.connect(hostID: nil), shells: true) == .run)
+    }
+
+    @Test func connectingOverALiveSessionAsksFirst() {
+        #expect(decide(.connect(hostID: "mac"), session: true) == .confirm)
+    }
+
+    @Test func aMacLinkAlwaysAsks() {
+        #expect(decide(.openHost(hostID: "mac")) == .confirm)
+        #expect(decide(.openHost(hostID: "mac"), session: true, shells: true) == .confirm)
     }
 
     @Test func everythingWaitsBehindTheLock() {
-        for command in [URLCommand.connect(hostID: nil), .chat(chatID: UUID(), hostID: nil), .pairingCode(URL(string: "peering://pair?code=123456")!), .disconnect, .endShells] {
+        for command in [URLCommand.connect(hostID: nil), .openHost(hostID: "mac"), .chat(chatID: UUID(), hostID: nil), .pairingCode(URL(string: "peering://pair?code=123456")!), .disconnect, .endShells] {
             #expect(decide(command, locked: true, session: true, shells: true) == .holdUntilUnlock)
         }
     }

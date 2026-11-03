@@ -53,6 +53,8 @@ extension VideoStreamer {
 // it.
             awaitingKeyframe = true
             sending = true
+            // A still screen never answers the keyframe request below, so without the held one the move delivers nothing.
+            pending = latestKeyframe.latest(matching: config)
             pendingAudio = nil
             audioConfigOwed = audioConfig != nil
             return (nil, (config, controlPeer))
@@ -107,10 +109,16 @@ extension VideoStreamer {
         return true
     }
 
-/// Whether the encoder has produced anything recently enough for a fallback request to mean
-/// something.
-    func isProducing(within interval: TimeInterval) -> Bool {
-        lock.withLock { peer != nil && Self.monotonicNow() - lastFrameAt <= interval }
+    func fallbackAnswer() -> HostFallbackGate.Answer {
+        lock.withLock {
+            guard peer != nil else { return .decline }
+            let heldKeyframe = currentConfig.flatMap { latestKeyframe.latest(matching: $0) }
+            return HostFallbackGate.answer(
+                now: Self.monotonicNow(),
+                lastProducedAt: lastFrameAt > 0 ? lastFrameAt : nil,
+                holdsRecoveryPoint: heldKeyframe != nil
+            )
+        }
     }
 
     func detach() {

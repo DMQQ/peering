@@ -58,8 +58,8 @@ extension RemoteScreen {
         } else if isLandscape {
             ZStack(alignment: .top) {
                 // Pinned to the top rather than centred. The rails grew a button each, and a
-                // centred rail reaches far enough down that the pointer pad — which lives in
-                // the bottom corner the thumb rests on — would land on top of the bottom
+                // centred rail reaches far enough down that the pointer pad, which lives in
+                // the bottom corner the thumb rests on, would land on top of the bottom
                 // button and swallow its taps.
                 //
                 // Inside the safe area, deliberately. iOS reports *symmetric* landscape insets
@@ -94,7 +94,7 @@ extension RemoteScreen {
                 }
 
                 // **Capped at the space between the rails**, and it needs the cap: the pill hugs its
-                // contents, and one of those contents is the source's own name — a window's title,
+                // contents, and one of those contents is the source's own name, a window's title,
                 // which on this Mac is a terminal's 74-character status line. Left alone the bar grew
                 // until it was drawn over both rails and the buttons under them. See
                 // ``RemoteScreen/statusBarWidthCap(in:)``.
@@ -107,7 +107,7 @@ extension RemoteScreen {
 
                 // The panel comes *before* the bottom row in this stack, not after it. Both are
                 // bottom-anchored by the spacer above, so a panel added below the row pushed the
-                // row up the screen — and the row is the pointer and the keys around it, which
+                // row up the screen, and the row is the pointer and the keys around it, which
                 // then landed under the buttons in the rail. Adding it above means the panel
                 // grows up over the picture and the controls it belongs to stay where they are.
                 ZStack(alignment: .bottom) {
@@ -137,7 +137,7 @@ extension RemoteScreen {
                 // Anchored to the bottom by the frame, not by the spacer above. A spacer only
                 // holds a column down while there is room to spare: the moment a panel made the
                 // contents taller than the screen the spacer collapsed to nothing, and this
-                // whole stack — which the enclosing ZStack aligns to the *top* — slid up the
+                // whole stack, which the enclosing ZStack aligns to the *top*, slid up the
                 // screen with it. The panel ended up at the top and the pointer off the bottom.
                 // An alignment pins the bottom edge whatever the content does.
                 .frame(maxHeight: .infinity, alignment: .bottom)
@@ -158,7 +158,7 @@ extension RemoteScreen {
             )
         } else {
             // Two layers, and the order between them is the whole of the arrangement. The pointer
-            // is on the screen's own centre, which is the middle of the picture — so it is drawn
+            // is on the screen's own centre, which is the middle of the picture, so it is drawn
             // *under* the panel rather than over it. An overlay, which is what put it above
             // everything before, would have had a hundred-point disc swallowing the middle of any
             // panel the user opened, with its own controls unreachable underneath.
@@ -169,7 +169,7 @@ extension RemoteScreen {
                         .tourAnchor(.screenPointer)
                     // Centred across and sitting on the dock, rather than on the screen's own
                     // centre. `maxHeight: .infinity` with no alignment centres its content, so
-                    // this filled the screen and put the joystick in the middle of both axes —
+                    // this filled the screen and put the joystick in the middle of both axes,
                     // the one place on a phone that no thumb can reach comfortably, and half a
                     // screen away from the bar it belongs to.
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -217,5 +217,4 @@ extension RemoteScreen {
             .animation(Motion.settle, value: interactionMode)
         }
     }
-
 }

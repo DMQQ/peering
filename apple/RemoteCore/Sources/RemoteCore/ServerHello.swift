@@ -68,6 +68,12 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// Whether this Mac takes the requests ``AgentAwayControlsSupport`` lists. Optional and additive: `nil` reads as no.
     public var supportsAgentAwayControls: Bool?
 
+    /// Whether this Mac takes ``AgentRequest/github(sessionID:)`` and ``AgentRequest/githubAction(sessionID:action:)``. Optional and additive: `nil` reads as no.
+    public var supportsAgentGitHub: Bool?
+
+    /// Whether this Mac keeps scheduled agent runs and takes ``AgentRequest/listRoutines`` and the requests after it. Optional and additive: `nil` reads as no.
+    public var supportsAgentRoutines: Bool?
+
     /// Whether this host takes ``MessageKind/clientState``. Optional and additive: `nil` reads as no, and a client sends the notice only on an explicit `true`.
     public var supportsClientState: Bool?
 
@@ -102,6 +108,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsAgentPause: Bool? = nil,
         supportsAgentQueue: Bool? = nil,
         supportsAgentAwayControls: Bool? = nil,
+        supportsAgentGitHub: Bool? = nil,
+        supportsAgentRoutines: Bool? = nil,
         supportsClientState: Bool? = nil,
         supportsLiveActivityPush: Bool? = nil,
         hostPlatform: String? = nil
@@ -132,6 +140,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.supportsAgentPause = supportsAgentPause
         self.supportsAgentQueue = supportsAgentQueue
         self.supportsAgentAwayControls = supportsAgentAwayControls
+        self.supportsAgentGitHub = supportsAgentGitHub
+        self.supportsAgentRoutines = supportsAgentRoutines
         self.pushesTerminalAlertsWhileConnected = pushesTerminalAlertsWhileConnected
     }
 }

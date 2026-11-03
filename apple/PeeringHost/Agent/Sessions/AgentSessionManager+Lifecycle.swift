@@ -74,7 +74,8 @@ extension AgentSessionManager {
     }
 
     /// Off the connection's queue: resolving the binary runs a login shell and that queue carries pings.
-    func launch(_ adapter: any AgentAdapter, for session: AgentSession) {
+    /// `started` runs once the CLI is up, and not at all when it could not be started.
+    func launch(_ adapter: any AgentAdapter, for session: AgentSession, started: (@Sendable () -> Void)? = nil) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self, weak session] in
             let directory = session.map { URL(fileURLWithPath: $0.directory) }
             if let directory, FolderAccessWatch.isMissing(directory.path) {
@@ -97,6 +98,7 @@ extension AgentSessionManager {
             }
             do {
                 try adapter.start()
+                started?()
             } catch let failure as AgentLaunchFailure {
                 agentLog.error("agent chat could not start · \(failure.message, privacy: .public)")
                 self?.abandon(adapter, of: session, message: failure.message)

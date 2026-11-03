@@ -127,11 +127,22 @@ extension MacSession {
             agentGitBusy[id] = nil
             agentGitResults[id] = result
 
+        case .github(let id, let report):
+            agentGitHub[id] = report
+
+        case .githubResult(let id, let result):
+            agentGitHubBusy[id] = nil
+            agentGitHubResults[id] = result
+
         case .queueChanged(let id, let prompts):
             hostAgentQueues[id] = prompts.isEmpty ? nil : prompts
 
         case .resumable(let sessions):
             resumableSessions = sessions
+
+        case .routines(let routines):
+            agentRoutines = routines
+            agentRoutinesAwaiting = false
 
         case .resumablePeek(let cliSessionID, let events):
             var peek = RemoteAgentSession(AgentSessionInfo(
@@ -156,6 +167,8 @@ extension MacSession {
             if let id { clearPendingChangesWork(of: id, because: message) }
             if let id, let index = agentSessions.firstIndex(where: { $0.id == id }) {
                 agentSessions[index].failure = message
+            } else if agentRoutinesAwaiting {
+                agentRoutineFailure = message
             } else {
                 append(note: message)
             }

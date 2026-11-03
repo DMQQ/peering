@@ -13,7 +13,7 @@ import Foundation
 /// after the attach, and it is a delta.
 ///
 /// The cursor is used as the source of motion because it needs no window, no focus, and no
-/// cooperation — and because display capture includes it, so moving it genuinely changes the
+/// cooperation, and because display capture includes it, so moving it genuinely changes the
 /// captured pixels. It is put back where it started, so a run leaves no trace on screen.
 ///
 /// usage: peering-activity [seconds] [--hz N] [--quiet]

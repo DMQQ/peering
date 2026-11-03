@@ -3,15 +3,6 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-struct QuickAction: Identifiable {
-    let chord: String
-    let label: String
-    let accessibilityLabel: String
-    let action: () -> Void
-
-    var id: String { chord }
-}
-
 extension RemoteScreen {
     // MARK: - The six controls
 
@@ -38,7 +29,7 @@ extension RemoteScreen {
     /// Its height is pinned for the reason the rest of the cell is drawn: a cell is one button
     /// tall, and a cell that can be *any* height is one the layout will happily make tall. A view
     /// constrained in width alone is still flexible in height, and `Color.clear` is the most
-    /// flexible thing there is — so the second row of the open dock stretched to take whatever
+    /// flexible thing there is, so the second row of the open dock stretched to take whatever
     /// the column had going spare, and the bar grew over the picture. The buttons beside it could
     /// not do that: they carry a height of their own, which is what a cell's is supposed to be.
     var emptyDockSlot: some View {
@@ -135,7 +126,7 @@ extension RemoteScreen {
     }
 
     /// Measured against the height the *chrome* is laid out in, not the canvas. The canvas ignores
-    /// the safe area and the chrome does not, so the two differ by the home-indicator strip —
+    /// the safe area and the chrome does not, so the two differ by the home-indicator strip,
     /// sizing the rail against the larger number made it exactly that much too tall, and its last
     /// button ended up tucked under the return key.
     func railMaxHeight(in availableHeight: CGFloat) -> CGFloat {
@@ -153,7 +144,7 @@ extension RemoteScreen {
         // What it has to stay clear of differs by orientation, and that is the whole reason this
         // takes a flag. In landscape the panel is drawn *over* the wheel and the pointer column,
         // so only the status pill above it needs room. In portrait it is stacked above them and
-        // they are tall — the pointer column alone is 168 points, the dock another 70 — so they
+        // they are tall, the pointer column alone is 168 points, the dock another 70, so they
         // are reserved, or the panel would cover controls that are still meant to be usable.
         //
         // Reaching for the larger reserve in landscape is a mistake worth naming, because it
@@ -183,124 +174,6 @@ extension RemoteScreen {
         RailButton(icon: "gearshape", label: String(localized: "Settings"), selected: openPanel == .settings) {
             withAnimation(Motion.settle) { openPanel = openPanel == .settings ? nil : .settings }
         }
-    }
-
-    @ViewBuilder
-    func floatingPanel(_ available: CGSize, isLandscape: Bool) -> some View {
-        // `alignment: .bottom` on every one of these, and it is load-bearing rather than tidy.
-        // `maxHeight` makes a view *flexible* up to that height, so a panel whose contents are
-        // shorter than the ceiling — the shortcuts panel nearly always — grows to the ceiling and
-        // centres its contents inside it. Bottom-aligned, the frame is still the ceiling but the
-        // panel sits at the bottom of it, which is where a panel belongs.
-        if let panel = openPanel {
-            ZStack(alignment: .bottom) {
-                VStack(spacing: 0) {
-                    panelHandle
-                    panelContent(panel)
-                        .frame(maxWidth: .infinity)
-                        .geometryGroup()
-                        .id(panel)
-                        .transition(.blurReplace(.downUp))
-                }
-            }
-            .matchedGeometryEffect(id: "surface", in: floatingSurface)
-            .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .padding(.horizontal, 10)
-            .reportChromeFrame(.panel, into: $chromeFrames)
-            .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
-            .offset(y: panelDrag)
-            .transaction(value: panelDrag) { $0.animation = nil }
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-        }
-    }
-
-    /// Every panel has the same one: drag it down to put it away, which leaves the picture free to use.
-    private var panelHandle: some View {
-        Capsule()
-            .fill(Color.white.opacity(0.32))
-            .frame(width: 38, height: 5)
-            .frame(maxWidth: .infinity)
-            .frame(height: 20)
-            .contentShape(Rectangle())
-            .onTapGesture { withAnimation(Motion.settle) { openPanel = nil } }
-            .gesture(
-                DragGesture(minimumDistance: 4, coordinateSpace: .global)
-                    .onChanged { drag in panelDrag = max(0, drag.translation.height * 0.8) }
-                    .onEnded { drag in
-                        let closes = drag.predictedEndTranslation.height > 90 || drag.translation.height > 60
-                        withAnimation(Motion.settle) {
-                            panelDrag = 0
-                            if closes { openPanel = nil }
-                        }
-                    }
-            )
-            .accessibilityElement()
-            .accessibilityLabel(String(localized: "Close panel", table: "Dictation"))
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { withAnimation(Motion.settle) { openPanel = nil } }
-    }
-
-    @ViewBuilder
-    private func panelContent(_ panel: Panel) -> some View {
-        switch panel {
-        case .shortcuts:
-            shortcutsPanel
-        case .clipboard:
-            ClipboardPanel(chromeFrames: $chromeFrames)
-        case .sources:
-            SourcesPanel(
-                chromeFrames: $chromeFrames,
-                onSelect: closePanelAfterSelection,
-                onReturnToMosaic: animateBackToMosaic
-            )
-        case .settings:
-            SettingsPanel(chromeFrames: $chromeFrames) {
-                withAnimation(Motion.settle) { openPanel = .sources }
-            }
-        }
-    }
-
-    static let panelWidth: CGFloat = 520
-
-    /// One place, because two things ask: the panel opening, and a session coming up while the panel
-    /// is already on screen. Neither host keeps these pictures for long — they are taken on demand
-    /// and pruned against the sources the Mac is offering now — so a reconnect to a Mac that has
-    /// been relaunched in between is a grid of outlines until something asks again.
-    func stopWatchingSourcePictures() {
-        if model.hostSupportsSourceThumbnails {
-            model.send(.watchSourceThumbnails(false))
-        }
-    }
-
-    func askForSourcePictures() {
-        guard openPanel == .sources else { return }
-        if model.hostSupportsSourceThumbnails {
-            model.send(.watchSourceThumbnails(true))
-        }
-        if let info = model.catalog?.spaceInfo, SourcesPanel.showsDesktops(info) {
-            model.send(.refreshSpacePreviews)
-        }
-    }
-
-    static let desktopRefreshInterval: Duration = .seconds(4)
-
-    /// **Not ``askForSourcePictures()``.** That one also asks for a photograph of every window the
-    /// Mac is offering, which is a capture per window. Window pictures do not go stale while the
-    /// panel is up unless something changes on the Mac, and every window event there invalidates
-    /// them anyway; the desktops are the ones that change under the user, and they are what a tile
-    /// in this grid is drawn from.
-    func askForFreshDesktops() {
-        guard openPanel == .sources else { return }
-        guard let info = model.catalog?.spaceInfo, SourcesPanel.showsDesktops(info) else { return }
-        model.send(.refreshSpacePreviews)
-    }
-
-    /// Shortcuts is exempt and always will be, whatever the setting says: its buttons are momentary
-    /// key presses rather than choices, and a panel that shut after every keystroke would have to
-    /// be reopened for the next one.
-    func closePanelAfterSelection() {
-        guard hidesPanelAfterSelect else { return }
-        withAnimation(Motion.settle) { openPanel = nil }
     }
 
     var returnKey: some View {
@@ -362,5 +235,4 @@ extension RemoteScreen {
         guard UIDevice.current.userInterfaceIdiom != .pad else { return 0 }
         return (joystickRadius * 2 - ChromeMetrics.panelWidth) / 2
     }
-
 }

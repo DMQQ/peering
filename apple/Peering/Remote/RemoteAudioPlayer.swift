@@ -70,7 +70,7 @@ final class RemoteAudioPlayer: @unchecked Sendable {
         engine.stop()
     }
 
-    /// The sound that prompted it: macOS plays its alert — the "woop" — when a chord it was
+    /// The sound that prompted it: macOS plays its alert, the "woop", when a chord it was
     /// given leads nowhere, such as going back through a history that has nothing in it. An
     /// injected ⌘[ is a real key press and gets the real alert, and then the phone plays it back
     /// at the person who pressed it. There is no way to ask macOS not to, so the way out is to

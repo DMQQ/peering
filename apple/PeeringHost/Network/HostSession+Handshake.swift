@@ -184,6 +184,8 @@ extension HostSession {
             supportsAgentPause: true,
             supportsAgentQueue: true,
             supportsAgentAwayControls: true,
+            supportsAgentGitHub: true,
+            supportsAgentRoutines: true,
             supportsClientState: true,
             supportsLiveActivityPush: true,
             hostPlatform: "macos"

@@ -241,44 +241,6 @@ final class VirtualDisplay {
         CGCompleteDisplayConfiguration(config, .forSession)
     }
 
-    // MARK: - The window server's view
-
-/// CGGetActiveDisplayList, not NSScreen.screens: a virtual display may or may not be in AppKit's list.
-    static func activeDisplayIDs() -> [CGDirectDisplayID] {
-        var count: UInt32 = 0
-        var ids = [CGDirectDisplayID](repeating: 0, count: 32)
-        guard CGGetActiveDisplayList(32, &ids, &count) == .success else { return [] }
-        return Array(ids.prefix(Int(count)))
-    }
-
-    private static func waitForAppearance(of displayID: CGDirectDisplayID, timeout: TimeInterval = 3) -> Bool {
-        wait(timeout: timeout) { activeDisplayIDs().contains(displayID) }
-    }
-
-    private static func waitForDeparture(of displayID: CGDirectDisplayID, timeout: TimeInterval = 3) -> Bool {
-        wait(timeout: timeout) { !activeDisplayIDs().contains(displayID) }
-    }
-
-/// On the main thread the run loop is turned, not slept: the window server waits for the main run loop to answer a display change, which a sleeping thread cannot do.
-    private static func wait(timeout: TimeInterval, until condition: () -> Bool) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if condition() { return true }
-            if Thread.isMainThread {
-                RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-            } else {
-                Thread.sleep(forTimeInterval: 0.05)
-            }
-        }
-        return condition()
-    }
-
-/// 460 ppi; only the descriptor's bookkeeping uses it.
-    private static func millimetres(for size: CGSize) -> CGSize {
-        let millimetresPerPixel = 25.4 / 460
-        return CGSize(width: size.width * millimetresPerPixel, height: size.height * millimetresPerPixel)
-    }
-
     // MARK: - The private classes
 
     private static let descriptorClass: NSObject.Type? = NSClassFromString("CGVirtualDisplayDescriptor") as? NSObject.Type
@@ -315,37 +277,4 @@ final class VirtualDisplay {
 
 @objc private protocol ModeCreating: AnyObject {
     @objc(initWithWidth:height:refreshRate:) init(width: UInt32, height: UInt32, refreshRate: Double)
-}
-
-private final class DisplayNames: @unchecked Sendable {
-    private struct Entry {
-        var name: String
-        let isPhoneManaged: Bool
-    }
-
-    private let lock = NSLock()
-    private var entries: [CGDirectDisplayID: Entry] = [:]
-
-    func record(_ displayID: CGDirectDisplayID, name: String, isPhoneManaged: Bool) {
-        lock.withLock { entries[displayID] = Entry(name: name, isPhoneManaged: isPhoneManaged) }
-    }
-
-    func record(_ displayID: CGDirectDisplayID, name: String) {
-        lock.withLock {
-            guard let entry = entries[displayID] else { return }
-            entries[displayID] = Entry(name: name, isPhoneManaged: entry.isPhoneManaged)
-        }
-    }
-
-    func forget(_ displayID: CGDirectDisplayID) {
-        lock.withLock { entries[displayID] = nil }
-    }
-
-    func name(for displayID: CGDirectDisplayID) -> String? {
-        lock.withLock { entries[displayID]?.name }
-    }
-
-    func isPhoneManaged(_ displayID: CGDirectDisplayID) -> Bool {
-        lock.withLock { entries[displayID]?.isPhoneManaged == true }
-    }
 }

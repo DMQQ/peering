@@ -51,6 +51,7 @@ struct TerminalHubScreen: View {
                 guide(.agents)
                 allChatsEntry
                 AgentToReviewCard()
+                AgentRoutinesEntry()
                 if agentsSettled {
                     chatsSection
                     activeOnMacSection

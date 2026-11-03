@@ -8,68 +8,6 @@ import os
 
 private let engineLog = Logger(subsystem: "pl.dmq.peering.host", category: "capture")
 
-/// One `420v` frame off the stream. `@unchecked Sendable` for the CVPixelBuffer: delivered once, handed to VideoToolbox, never touched again. ``CursorOverlay/redraw(_:)`` keeps its own buffer because ScreenCaptureKit reuses this pool.
-struct CapturedFrame: @unchecked Sendable {
-    let pixelBuffer: CVPixelBuffer
-    let presentationTime: CMTime
-    /// Invalid when the stream reported none; the encoder substitutes one frame interval.
-    let duration: CMTime
-    let geometry: FrameGeometry
-}
-
-/// A window or application filter composites onto a surface that is not the content; the content rect moves with no notification when the user drags or resizes, so it travels with the frame.
-struct FrameGeometry: Sendable, Equatable {
-    let contentRect: CGRect?
-    let contentScale: CGFloat?
-    let scaleFactor: CGFloat?
-    /// Where the content is on screen, in global points, the space `CGEvent` posts into.
-    let screenRect: CGRect?
-}
-
-extension FrameGeometry {
-/// Built from `screenRect` (global points, the space `CGEvent` posts into), not `contentRect`. `scaleFactor` belongs to the display, so it is also the `pointPixelScale`, as in ``DisplayGeometry``.
-    var inputTransform: InputTransform? {
-        guard let screenRect, screenRect.width > 0, screenRect.height > 0,
-              let scaleFactor, scaleFactor > 0
-        else { return nil }
-
-        return InputTransform(
-            origin: screenRect.origin,
-            pixelSize: CGSize(
-                width: screenRect.width * scaleFactor,
-                height: screenRect.height * scaleFactor
-            ),
-            pointPixelScale: scaleFactor
-        )
-    }
-}
-
-/// Not `SCStreamConfiguration.captureResolution`, which stays `.nominal`: this is the size of the surface that comes out.
-enum CaptureResolution: String, CaseIterable, Sendable {
-    case full
-
-    case threeQuarters
-
-    case half
-
-/// Half of what the stream would otherwise be built at, not half of `CGDisplayPixelsWide` (points: 1512×982 on a 3024×1964 panel).
-/// Odd dimensions stay odd: the stream rounds to the nearest point and ``VideoEncoder`` rounds down to even, in that order. See ``CapturePipeline/encode(_:)``.
-    func pixelSize(for native: CGSize) -> CGSize {
-        switch self {
-        case .full: return native
-        case .threeQuarters: return CGSize(width: native.width * 0.75, height: native.height * 0.75)
-        case .half: return CGSize(width: native.width / 2, height: native.height / 2)
-        }
-    }
-}
-
-/// Set on the stream as a minimum interval and on the encoder as its timeline; an enum keeps them the same number. `oneTwenty` only yields frames from a display faster than 60 Hz.
-enum CaptureFrameRate: Int, CaseIterable, Sendable {
-    case thirty = 30
-    case sixty = 60
-    case oneTwenty = 120
-}
-
 /// A lock-guarded class, not an actor: SCStream types have no Sendable annotations, and SCStreamOutput callbacks arrive on a dispatch queue, so an actor would add an await hop per frame.
 final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFrameSource, @unchecked Sendable {
     private let lock = NSLock()
@@ -326,40 +264,6 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         onStop?(mapped)
     }
 
-    // MARK: - Sample buffer decoding
-
-/// Read from the sample attachments array, not a buffer-level attachment: ScreenCaptureKit attaches nothing at buffer level, so `CMGetAttachment` answers `nil`, every frame is classified as one to drop, and it looks exactly like a denied Screen Recording permission.
-    private struct FrameInfo {
-        let status: SCFrameStatus?
-        let values: [SCStreamFrameInfo: Any]
-    }
-
-    private static func frameInfo(of sampleBuffer: CMSampleBuffer) -> FrameInfo? {
-        guard let attachments = CMSampleBufferGetSampleAttachmentsArray(
-            sampleBuffer, createIfNecessary: false
-        ) as? [[SCStreamFrameInfo: Any]], let first = attachments.first else { return nil }
-
-        return FrameInfo(
-            status: (first[.status] as? NSNumber).flatMap { SCFrameStatus(rawValue: $0.intValue) },
-            values: first
-        )
-    }
-
-    private static func geometry(from info: FrameInfo?) -> FrameGeometry {
-        FrameGeometry(
-            contentRect: rect(info?.values[.contentRect]),
-            contentScale: (info?.values[.contentScale] as? NSNumber).map { CGFloat($0.doubleValue) },
-            scaleFactor: (info?.values[.scaleFactor] as? NSNumber).map { CGFloat($0.doubleValue) },
-            screenRect: rect(info?.values[.screenRect])
-        )
-    }
-
-/// Two representations arrive depending on the key: an `NSValue` wrapping a `CGRect`, and a `dictionaryRepresentation`. Guessing wrong yields a nil rect and a drifting cursor.
-    private static func rect(_ value: Any?) -> CGRect? {
-        if let value = value as? NSValue { return value.rectValue }
-        if let value = value as? NSDictionary { return CGRect(dictionaryRepresentation: value as CFDictionary) }
-        return nil
-    }
 }
 
 private func frameRateDescription(_ configuration: SCStreamConfiguration) -> String {

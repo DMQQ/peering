@@ -13,6 +13,7 @@ struct AgentChangesScreen: View {
     @State var overview = AgentChangeOverview(report: nil, edits: [])
     @State private var showsCommit = false
     @State var showsFilters = false
+    @State private var showsGitHub = false
     @State var search = ""
     @Bindable private var filters = AgentReviewFilterStore.shared
 
@@ -57,6 +58,12 @@ struct AgentChangesScreen: View {
                             ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
                     }
                     Spacer()
+                    if model.hostSupportsAgentGitHub, report?.isRepository == true {
+                        Button { showsGitHub = true } label: {
+                            Label("GitHub", systemImage: "arrow.triangle.pull")
+                        }
+                        Spacer()
+                    }
                     Button { model.loadAgentChanges(sessionID) } label: {
                         Label("Refresh", systemImage: "arrow.clockwise")
                     }
@@ -76,6 +83,7 @@ struct AgentChangesScreen: View {
         .sheet(isPresented: $showsCommit) {
             AgentCommitSheet(sessionID: sessionID, filter: filters.filter, agentEditedPaths: Set(edits.map(\.path)))
         }
+        .sheet(isPresented: $showsGitHub) { AgentGitHubSheet(sessionID: sessionID) }
         .sheet(isPresented: $showsFilters) { AgentReviewFilterSheet(filter: $filters.filter, offersAgentRule: true) }
         .onAppear {
             model.loadAgentChanges(sessionID)

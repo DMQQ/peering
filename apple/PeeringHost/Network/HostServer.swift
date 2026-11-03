@@ -27,6 +27,7 @@ final class HostServer: @unchecked Sendable {
 
     let terminalManager = TerminalSessionManager()
     let agentManager = AgentSessionManager()
+    lazy var routineScheduler = AgentRoutineScheduler(sessions: agentManager)
     let previewProxy = PreviewProxyService()
     let presence = PhonePresenceRegistry()
 
@@ -151,6 +152,9 @@ final class HostServer: @unchecked Sendable {
         let presence = presence
         agentManager.presence = { presence.presence(of: $0) }
         terminalManager.presence = { presence.presence(of: $0) }
+        let routines = routineScheduler
+        agentManager.routineRequests = { routines.handle(clientID: $0, request: $1, sink: $2) }
+        routines.start()
     }
 
     private func makeListener() throws -> NWListener {

@@ -8,7 +8,7 @@ import RemoteCore
 /// The transport half of the mode needs a host that is really encoding, but the validation
 /// half does not: every failure it reports is a property of the frames themselves. Testing
 /// them here is what makes the messages trustworthy on the first run against a live encoder
-/// — a check that never fired is indistinguishable from a check that cannot fire.
+/// a check that never fired is indistinguishable from a check that cannot fire.
 @Suite("Video receive validation")
 struct VideoReceiveTests {
     // MARK: - Builders

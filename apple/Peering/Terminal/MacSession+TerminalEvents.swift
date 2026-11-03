@@ -48,7 +48,7 @@ extension MacSession {
             newTerminalID = info.id
             append(note: String(localized: "\(info.name) opened"))
             // The shell a Run button was waiting for. Taken here rather than left set, because the
-            // id it needs did not exist until this line — see ``pendingRun``. Through
+            // id it needs did not exist until this line, see ``pendingRun``. Through
             // ``sendTerminalInput(_:to:)`` rather than the raw send, so the tab is named after the
             // file it is running and the command lands in the history like any other.
             // The folder a new shell was asked to open in, sent as its first line. Raw bytes, so
@@ -163,7 +163,7 @@ extension MacSession {
             }
             preview.kind = kind
             // Pieces are joined before they are decoded, because a cut can fall inside a
-            // character — see ``TerminalEvent/fileContents``. Past the cap they are dropped
+            // character, see ``TerminalEvent/fileContents``. Past the cap they are dropped
             // instead, so a Mac that one day sends more than it promised cannot grow this phone's
             // memory by the size of a file; the size on disk is still what says it was cut short.
             if offset + data.count <= Self.previewByteLimit(for: kind) {
@@ -245,7 +245,7 @@ extension MacSession {
             if let id { clearPendingBrowsing(for: id) }
             // And a run whose shell never arrived is dropped here rather than kept. It is the one
             // thing in this file that outlives the request that set it, and a command left waiting
-            // would be fired into whatever shell was opened next — a file the user asked to run
+            // would be fired into whatever shell was opened next, a file the user asked to run
             // once, running at some later moment they did not choose, in a tab they opened for
             // something else.
             pendingRun = nil

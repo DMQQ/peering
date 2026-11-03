@@ -135,7 +135,7 @@ extension MacSession {
     }
 
     /// Containment rather than equality, so a folder deleted from a listing takes every listing
-    /// below it with it, and the key for the unresolved request — a path of `nil` — is left alone
+    /// below it with it, and the key for the unresolved request, a path of `nil`, is left alone
     /// because it belongs to no folder at all.
     func pruneBrowsing(atOrBelow path: String, sessionID id: UUID) {
         func isBelow(_ key: RemoteDirectoryKey) -> Bool {

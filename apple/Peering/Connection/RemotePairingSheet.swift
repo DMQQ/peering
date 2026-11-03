@@ -9,7 +9,7 @@ struct RemotePairingSheet: View {
     @State private var identifier = ""
 
     /// The two are kept together so the sentence disappears exactly when the text it described
-    /// does — the alternative, clearing it from `onChange`, is a race: a scan sets the field
+    /// does, the alternative, clearing it from `onChange`, is a race: a scan sets the field
     /// and submits in the same turn, and the change callback runs after that and would wipe the
     /// very refusal the scan produced.
     private struct Refusal: Equatable {

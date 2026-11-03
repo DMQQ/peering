@@ -77,7 +77,7 @@ final class FrameChannel: @unchecked Sendable {
 
         // The TLS verify block runs on this queue and records the server key. Reading it
         // back here is safe only because the handshake has completed by the time `.ready`
-        // fires — before that the block may not have run yet.
+        // fires, before that the block may not have run yet.
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             lock.withLock { readyContinuation = continuation }
 
@@ -125,7 +125,7 @@ final class FrameChannel: @unchecked Sendable {
     /// Stands the frame-wait watchdog down, for a caller that imposes a deadline of its own.
     ///
     /// The watchdog is a fixed `timeout` set at connect time, so a caller whose deadline is
-    /// longer than it — `--video-recv-seconds` beyond `--timeout` — would be interrupted
+    /// longer than it, `--video-recv-seconds` beyond `--timeout`, would be interrupted
     /// mid-window by "timed out waiting for a frame". That message is indistinguishable from
     /// the real thing, so the window owner has to be the only clock.
     func clearTimeout() {
@@ -202,8 +202,8 @@ final class FrameChannel: @unchecked Sendable {
     }
 
     private func deliver(_ frame: Frame) {
-        // An error frame is always terminal — the host sends it immediately before closing
-        // — so it is raised as the failure rather than returned as an ordinary frame the
+        // An error frame is always terminal, the host sends it immediately before closing
+        // so it is raised as the failure rather than returned as an ordinary frame the
         // script would have to remember to check for. Frames are delivered before the
         // receive loop acts on `isComplete`, so this wins the race against the close.
         if frame.kind == .error {
@@ -228,7 +228,7 @@ final class FrameChannel: @unchecked Sendable {
     ///
     /// Needed to tell a host that *refused* a connection from one that accepted it and
     /// simply has nothing to say yet. Every read on an accepted-but-idle connection hangs
-    /// until the timeout, and every read on a refused one fails immediately — without this
+    /// until the timeout, and every read on a refused one fails immediately, without this
     /// flag the two are the same shape, and the difference is the whole test.
     var hasEnded: Bool {
         lock.lock()

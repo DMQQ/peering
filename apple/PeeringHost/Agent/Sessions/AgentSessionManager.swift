@@ -30,6 +30,8 @@ final class AgentSessionManager: @unchecked Sendable {
     var onChatStateChanged: (@Sendable (String) -> Void)?
     /// Where a phone is, for deciding whether a finished turn is pushed. Set once before any phone connects.
     var presence: (@Sendable (String) -> PhonePresence)?
+    /// Takes the routine requests. Set once before any phone connects.
+    var routineRequests: (@Sendable (String, AgentRequest, @escaping Sink) -> Void)?
 
     init(store: AgentSessionDiskStore = AgentSessionManager.defaultStore()) {
         self.store = store
@@ -178,6 +180,14 @@ final class AgentSessionManager: @unchecked Sendable {
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
             AgentGitActions.push(directory: session.directory, sessionID: id, sink: sink)
 
+        case .github(let id):
+            guard let session = owned(id, by: clientID, reporting: sink) else { return }
+            AgentGitHubActions.read(directory: session.directory, sessionID: id, sink: sink)
+
+        case .githubAction(let id, let action):
+            guard let session = owned(id, by: clientID, reporting: sink) else { return }
+            AgentGitHubActions.perform(action, directory: session.directory, sessionID: id, sink: sink)
+
         case .pause(let id):
             guard let session = owned(id, by: clientID, reporting: sink) else { return }
             pause(session, sink: sink)
@@ -201,6 +211,9 @@ final class AgentSessionManager: @unchecked Sendable {
 
         case .setAlertPreference, .setSpendingCap, .releaseHeld, .approvePlan:
             handleAway(request, clientID: clientID, sink: sink)
+
+        case .listRoutines, .saveRoutine, .deleteRoutine, .runRoutineNow:
+            routineRequests?(clientID, request, sink)
         }
     }
 

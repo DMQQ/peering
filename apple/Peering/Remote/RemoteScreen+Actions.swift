@@ -31,7 +31,7 @@ extension RemoteScreen {
     func zoomByNotch(_ notches: Int) {
         let step = Double(notches) * ScrollNotch.pixels * Double(Self.zoomPerPixel)
         zoom = CanvasViewport.wheeled(zoom: zoom, step: step)
-        // Re-clamped, not reset — see `onZoom`. The wheel is a finer control than a pinch and
+        // Re-clamped, not reset, see `onZoom`. The wheel is a finer control than a pinch and
         // makes the snap at the end of a zoom-out easier to produce, not harder.
         pan = clampedPan(pan)
     }
@@ -47,7 +47,7 @@ extension RemoteScreen {
         // The joystick is the one control that moves the Mac's pointer without the client
         // knowing where it went. Touch sends an absolute position, so the drawn cursor and the
         // real one are the same fact; a joystick sends a delta and nothing comes back, because
-        // the protocol does not carry the pointer's position — `InputTransform` has the inverse
+        // the protocol does not carry the pointer's position, `InputTransform` has the inverse
         // for a host that reports it, and no host does. So the client advances its own copy by
         // the same delta, in the same units.
         // It is an estimate, and it drifts in exactly one case: the Mac's pointer stopping at a
@@ -71,7 +71,7 @@ extension RemoteScreen {
     }
 
     func sendJoystickClick() {
-        // Joystick input is relative, so they can drift — physical mouse movement,
+        // Joystick input is relative, so they can drift, physical mouse movement,
         // edge-clamping, or a first tap before any movement. Sending the position
         // here makes a joystick tap behave identically to a touch tap.
         model.send(.mouseMove(to: remoteCursor))
@@ -126,5 +126,4 @@ extension RemoteScreen {
         }
         .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
     }
-
 }
